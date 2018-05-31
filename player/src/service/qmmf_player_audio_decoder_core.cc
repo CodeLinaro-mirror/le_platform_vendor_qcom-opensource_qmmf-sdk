@@ -68,19 +68,19 @@ AudioDecoderCore* AudioDecoderCore::CreateAudioDecoderCore() {
     return nullptr;
   }
   }
-  QMMF_INFO("%s: AudioDecoderCore Instance Created Successfully(0x%p)",
+  QMMF_DEBUG("%s: AudioDecoderCore Instance Created Successfully(0x%p)",
        __func__, instance_);
 
   return instance_;
 }
 
 AudioDecoderCore::AudioDecoderCore() : ion_device_(-1) {
-  QMMF_INFO("%s: Enter", __func__);
-  QMMF_INFO("%s: Exit", __func__);
+  QMMF_DEBUG("%s: Enter", __func__);
+  QMMF_DEBUG("%s: Exit", __func__);
 }
 
 AudioDecoderCore::~AudioDecoderCore() {
-  QMMF_INFO("%s: Enter", __func__);
+  QMMF_DEBUG("%s: Enter", __func__);
   if (!audio_track_decoders_.isEmpty()) {
     audio_track_decoders_.clear();
   }
@@ -90,7 +90,7 @@ AudioDecoderCore::~AudioDecoderCore() {
     close(ion_device_);
     ion_device_ = -1;
   }
-  QMMF_INFO("%s: Exit", __func__);
+  QMMF_DEBUG("%s: Exit", __func__);
 }
 
 status_t AudioDecoderCore::CreateAudioTrack(AudioTrackParams& params,
@@ -120,7 +120,7 @@ status_t AudioDecoderCore::CreateAudioTrack(AudioTrackParams& params,
   }
 
   audio_track_decoders_.add(params.track_id, audio_track_decoder);
-  QMMF_INFO("%s: AudioTrackEncoder(0x%p) for track_id(%d) Instantiated!",
+  QMMF_DEBUG("%s: AudioTrackEncoder(0x%p) for track_id(%d) Instantiated!",
       __func__, audio_track_decoder.get(), params.track_id);
 
   QMMF_DEBUG("%s: Exit", __func__);
@@ -143,12 +143,12 @@ status_t AudioDecoderCore::PrepareTrackPipeline(
 
   auto ret = track_decoder->PreparePipeline(audio_track_sink, track_decoder);
   if (ret != NO_ERROR) {
-    QMMF_INFO("%s: track_id(%d) PreparePipeline failed!", __func__,
+    QMMF_ERROR("%s: track_id(%d) PreparePipeline failed!", __func__,
         track_id);
     return ret;
   }
 
-  QMMF_INFO("%s: track_id(%d) PreparePipeline Successful!",
+  QMMF_DEBUG("%s: track_id(%d) PreparePipeline Successful!",
       __func__, track_id);
   QMMF_DEBUG("%s: Exit", __func__);
   return ret;
@@ -170,12 +170,12 @@ status_t AudioDecoderCore::DequeueTrackInputBuffer(
 
   auto ret = track_decoder->DequeueInputBuffer(buffers);
   if (ret != NO_ERROR) {
-    QMMF_INFO("%s: track_id(%d) DequeueInputBuffer failed!", __func__,
+    QMMF_ERROR("%s: track_id(%d) DequeueInputBuffer failed!", __func__,
         track_id);
     return ret;
   }
 
-  QMMF_INFO("%s: track_id(%d) DequeueInputBuffer Successful!",
+  QMMF_DEBUG("%s: track_id(%d) DequeueInputBuffer Successful!",
       __func__, track_id);
   QMMF_DEBUG("%s: Exit", __func__);
   return ret;
@@ -197,12 +197,12 @@ status_t AudioDecoderCore::QueueTrackInputBuffer(
 
   auto ret = track_decoder->QueueInputBuffer(buffers);
   if (ret != NO_ERROR) {
-    QMMF_INFO("%s: track_id(%d) QueueInputBuffer failed!", __func__,
+    QMMF_ERROR("%s: track_id(%d) QueueInputBuffer failed!", __func__,
     track_id);
   return ret;
   }
 
-  QMMF_INFO("%s: track_id(%d) QueueInputBuffer Successful!",
+  QMMF_DEBUG("%s: track_id(%d) QueueInputBuffer Successful!",
     __func__, track_id);
   QMMF_DEBUG("%s: Exit", __func__);
   return ret;
@@ -222,12 +222,12 @@ status_t AudioDecoderCore::StartTrackDecoder(uint32_t track_id) {
 
   auto ret = track_decoder->StartDecoder();
   if (ret != NO_ERROR) {
-    QMMF_INFO("%s: track_id(%d) StartDecoder failed!", __func__,
+    QMMF_ERROR("%s: track_id(%d) StartDecoder failed!", __func__,
     track_id);
   return ret;
   }
 
-  QMMF_INFO("%s: track_id(%d) StartDecoder Successful!",
+  QMMF_DEBUG("%s: track_id(%d) StartDecoder Successful!",
     __func__, track_id);
   QMMF_DEBUG("%s: Exit", __func__);
   return ret;
@@ -247,12 +247,12 @@ status_t AudioDecoderCore::StopTrackDecoder(uint32_t track_id) {
 
   auto ret = track_decoder->StopDecoder();
   if (ret != NO_ERROR) {
-    QMMF_INFO("%s: track_id(%d) StopDecoder failed!", __func__,
+    QMMF_ERROR("%s: track_id(%d) StopDecoder failed!", __func__,
      track_id);
    return ret;
   }
 
-  QMMF_INFO("%s: track_id(%d) StopDecoder Successful!",
+  QMMF_DEBUG("%s: track_id(%d) StopDecoder Successful!",
      __func__, track_id);
   QMMF_DEBUG("%s: Exit", __func__);
   return ret;
@@ -272,12 +272,12 @@ status_t AudioDecoderCore::PauseTrackDecoder(uint32_t track_id) {
 
   auto ret = track_decoder->PauseDecoder();
   if (ret != NO_ERROR) {
-    QMMF_INFO("%s: track_id(%d) PauseDecoder failed!", __func__,
+    QMMF_ERROR("%s: track_id(%d) PauseDecoder failed!", __func__,
      track_id);
    return ret;
   }
 
-  QMMF_INFO("%s: track_id(%d) PauseDecoder Successful!",
+  QMMF_DEBUG("%s: track_id(%d) PauseDecoder Successful!",
      __func__, track_id);
   QMMF_DEBUG("%s: Exit", __func__);
   return ret;
@@ -297,12 +297,12 @@ status_t AudioDecoderCore::ResumeTrackDecoder(uint32_t track_id) {
 
   auto ret = track_decoder->ResumeDecoder();
   if (ret != NO_ERROR) {
-    QMMF_INFO("%s: track_id(%d) ResumeDecoder failed!", __func__,
+    QMMF_ERROR("%s: track_id(%d) ResumeDecoder failed!", __func__,
      track_id);
    return ret;
   }
 
-  QMMF_INFO("%s: track_id(%d) ResumeDecoder Successful!",
+  QMMF_DEBUG("%s: track_id(%d) ResumeDecoder Successful!",
      __func__, track_id);
   QMMF_DEBUG("%s: Exit", __func__);
   return ret;
@@ -326,12 +326,12 @@ status_t AudioDecoderCore::SetAudioTrackDecoderParams(
 
   auto ret =  track_decoder->SetAudioDecoderParams(param_type, param, param_size);
   if (ret != NO_ERROR) {
-    QMMF_INFO("%s: track_id(%d) SetAudioDecoderParams failed!", __func__,
+    QMMF_ERROR("%s: track_id(%d) SetAudioDecoderParams failed!", __func__,
      track_id);
    return ret;
   }
 
-  QMMF_INFO("%s: track_id(%d) SetAudioDecoderParams Successful!",
+  QMMF_DEBUG("%s: track_id(%d) SetAudioDecoderParams Successful!",
      __func__, track_id);
   QMMF_DEBUG("%s: Exit", __func__);
   return ret;
@@ -351,21 +351,21 @@ status_t AudioDecoderCore::DeleteTrackDecoder(uint32_t track_id) {
 
   auto ret = track_decoder->DeleteDecoder();
   if (ret != NO_ERROR) {
-    QMMF_INFO("%s: track_id(%d) DeleteDecoder failed!", __func__,
+    QMMF_ERROR("%s: track_id(%d) DeleteDecoder failed!", __func__,
      track_id);
    return ret;
   }
 
   audio_track_decoders_.removeItem(track_id);
 
-  QMMF_INFO("%s: track_id(%d) DeleteDecoder Successful!",
+  QMMF_DEBUG("%s: track_id(%d) DeleteDecoder Successful!",
      __func__, track_id);
   QMMF_DEBUG("%s: Exit", __func__);
   return ret;
 }
 
 bool AudioDecoderCore::isTrackValid(uint32_t track_id) {
-  QMMF_INFO("%s: Number of Tracks exist = %d",__func__,
+  QMMF_DEBUG("%s: Number of Tracks exist = %d",__func__,
       audio_track_decoders_.size());
   assert(audio_track_decoders_.size() > 0);
   return audio_track_decoders_.indexOfKey(track_id) >= 0 ? true : false;
@@ -384,11 +384,11 @@ AudioTrackDecoder::AudioTrackDecoder(int32_t ion_device)
       O_CREAT | O_WRONLY | O_TRUNC, 0655);
 #endif
 
-  QMMF_INFO("%s: Exit (0x%p)", __func__, this);
+  QMMF_DEBUG("%s: Exit (0x%p)", __func__, this);
 }
 
 AudioTrackDecoder::~AudioTrackDecoder() {
-  QMMF_INFO("%s: Enter track_id(%d)", __func__, TrackId());
+  QMMF_DEBUG("%s: Enter track_id(%d)", __func__, TrackId());
 
    uint32_t i = 0;
    for(auto& iter : input_buffer_list_) {
@@ -397,7 +397,7 @@ AudioTrackDecoder::~AudioTrackDecoder() {
         (iter).data = nullptr;
       }
       if((iter).fd) {
-        QMMF_INFO("%s track_id(%d) (iter).fd =%d Free", __func__,
+        QMMF_DEBUG("%s track_id(%d) (iter).fd =%d Free", __func__,
                                    TrackId(), (iter).fd);
         ioctl(ion_device_, ION_IOC_FREE, &(ion_handle_data[i]));
         close((iter).fd);
@@ -416,7 +416,7 @@ AudioTrackDecoder::~AudioTrackDecoder() {
         (iter).pointer = NULL;
     }
     if((iter).fd) {
-        QMMF_INFO("%s track_id(%d) (iter).fd =%d Free", __func__,
+        QMMF_DEBUG("%s track_id(%d) (iter).fd =%d Free", __func__,
                                    TrackId(), (iter).fd);
         ioctl(ion_device_, ION_IOC_FREE, &((iter).handle_data.handle));
         close((iter).fd);
@@ -499,7 +499,7 @@ status_t AudioTrackDecoder::PreparePipeline(
 
   // Bitstream buffer queue
   for(auto& iter : input_buffer_list_) {
-     QMMF_INFO("%s: track_id(%d) Adding buffer fd(%d) to "
+     QMMF_DEBUG("%s: track_id(%d) Adding buffer fd(%d) to "
          "unfilled_frame_queue_",  __func__,TrackId() ,
          iter.fd);
      unfilled_frame_queue_.PushBack(iter);

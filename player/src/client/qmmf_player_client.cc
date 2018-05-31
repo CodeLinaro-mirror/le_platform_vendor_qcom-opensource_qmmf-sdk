@@ -66,7 +66,7 @@ PlayerClient::PlayerClient()
     : player_service_(nullptr), death_notifier_(nullptr),
       ion_device_(-1) {
   QMMF_GET_LOG_LEVEL();
-  QMMF_INFO("%s Enter ", __func__);
+  QMMF_DEBUG("%s Enter ", __func__);
 
 #ifdef ANDROID_O_OR_ABOVE
   ProcessState::initWithDriver("/dev/vndbinder");
@@ -74,7 +74,7 @@ PlayerClient::PlayerClient()
 
   sp<ProcessState> proc(ProcessState::self());
   proc->startThreadPool();
-  QMMF_INFO("%s Exit (0x%p)", __func__, this);
+  QMMF_DEBUG("%s Exit (0x%p)", __func__, this);
 }
 
 PlayerClient::~PlayerClient() {
@@ -224,7 +224,7 @@ status_t PlayerClient::DeleteAudioTrack(uint32_t track_id) {
     buf_info_map info_map = track_buf_map_.valueFor(track_id);
     for (size_t j = 0; j < info_map.size(); j++) {
       BufInfo buf_info = info_map.valueAt(j);
-      QMMF_INFO("%s: track_id(%d):buf_info.client_fd(%d) to close",
+      QMMF_DEBUG("%s: track_id(%d):buf_info.client_fd(%d) to close",
           __func__, track_id, buf_info.client_fd);
       if (buf_info.vaddr != nullptr) {
         struct ion_handle_data ion_handle;
@@ -234,7 +234,7 @@ status_t PlayerClient::DeleteAudioTrack(uint32_t track_id) {
           QMMF_ERROR("%s ION free failed: %d", __func__, -errno);
         }
 
-        QMMF_INFO("%s: track_id(%d):buf_info.vaddr=0x%p and frame_len=%d",
+        QMMF_DEBUG("%s: track_id(%d):buf_info.vaddr=0x%p and frame_len=%d",
             __func__, track_id, buf_info.vaddr, buf_info.frame_len);
         if (buf_info.vaddr != nullptr) {
           munmap(buf_info.vaddr, buf_info.frame_len);
@@ -279,7 +279,7 @@ status_t PlayerClient::DeleteVideoTrack(uint32_t track_id) {
     buf_info_map info_map = track_buf_map_.valueFor(track_id);
     for (size_t j = 0; j < info_map.size(); j++) {
       BufInfo buf_info = info_map.valueAt(j);
-      QMMF_INFO("%s: track_id(%d):buf_info.client_fd(%d) to close",
+      QMMF_DEBUG("%s: track_id(%d):buf_info.client_fd(%d) to close",
           __func__, track_id, buf_info.client_fd);
 
       if (buf_info.vaddr != nullptr) {
@@ -290,7 +290,7 @@ status_t PlayerClient::DeleteVideoTrack(uint32_t track_id) {
           QMMF_ERROR("%s ION free failed: %d", __func__, -errno);
         }
 
-        QMMF_INFO("%s: track_id(%d):buf_info.vaddr=0x%p and frame_len=%d",
+        QMMF_DEBUG("%s: track_id(%d):buf_info.vaddr=0x%p and frame_len=%d",
             __func__, track_id, buf_info.vaddr, buf_info.frame_len);
         if (buf_info.vaddr != nullptr) {
           munmap(buf_info.vaddr, buf_info.frame_len);

@@ -377,12 +377,12 @@ namespace player {
 
 PlayerService::PlayerService()
     : connected_(false), player_(nullptr) {
-  QMMF_INFO("%s: PlayerService Instantiated! ", __func__);
+  QMMF_DEBUG("%s: PlayerService Instantiated! ", __func__);
 }
 
 PlayerService::~PlayerService() {
-  QMMF_INFO("%s: Enter ", __func__);
-  QMMF_INFO("%s: Exit ", __func__);
+  QMMF_DEBUG("%s: Enter ", __func__);
+  QMMF_DEBUG("%s: Exit ", __func__);
 }
 
 status_t PlayerService::Connect(const sp<IPlayerServiceCallback>& service_cb) {
@@ -453,7 +453,7 @@ status_t PlayerService::CreateAudioTrack(
 
   auto ret = player_->CreateAudioTrack(track_id, param);
   if (ret != NO_ERROR) {
-    QMMF_INFO("%s: CreateAudioTrack failed: %d", __func__, ret);
+    QMMF_ERROR("%s: CreateAudioTrack failed: %d", __func__, ret);
     return BAD_VALUE;
   }
   QMMF_DEBUG("%s: Exit ", __func__);
@@ -472,7 +472,7 @@ status_t PlayerService::CreateVideoTrack(
 
   auto ret = player_->CreateVideoTrack(track_id, param);
   if (ret != NO_ERROR) {
-    QMMF_INFO("%s: CreateVideoTrack failed: %d", __func__, ret);
+    QMMF_ERROR("%s: CreateVideoTrack failed: %d", __func__, ret);
     return BAD_VALUE;
   }
   QMMF_DEBUG("%s: Exit ", __func__);
@@ -489,8 +489,8 @@ status_t PlayerService::DeleteAudioTrack(uint32_t track_id) {
 
   auto ret = player_->DeleteAudioTrack(track_id);
   if (ret != NO_ERROR) {
-  QMMF_INFO("%s: DeleteAudioTrack failed!", __func__);
-  return BAD_VALUE;
+    QMMF_ERROR("%s: DeleteAudioTrack failed!", __func__);
+    return BAD_VALUE;
   }
   QMMF_DEBUG("%s: Exit ", __func__);
   return NO_ERROR;
@@ -505,7 +505,7 @@ status_t PlayerService::DeleteVideoTrack(uint32_t track_id) {
 
   auto ret = player_->DeleteVideoTrack(track_id);
   if (ret != NO_ERROR) {
-    QMMF_INFO("%s: DeleteVideoTrack failed!", __func__);
+    QMMF_ERROR("%s: DeleteVideoTrack failed!", __func__);
     return BAD_VALUE;
   }
   QMMF_DEBUG("%s: Exit ", __func__);
@@ -523,7 +523,7 @@ status_t PlayerService::DequeueInputBuffer(
 
   auto ret = player_->DequeueInputBuffer(track_id,buffers);
   if (ret != NO_ERROR) {
-    QMMF_INFO("%s: DequeueInputBuffer failed!", __func__);
+    QMMF_ERROR("%s: DequeueInputBuffer failed!", __func__);
     return BAD_VALUE;
   }
   QMMF_DEBUG("%s: Exit ", __func__);
@@ -545,7 +545,7 @@ status_t PlayerService::QueueInputBuffer(
   auto ret = player_->QueueInputBuffer(track_id, buffers, meta_param,
   meta_size, meta_type);
   if (ret != NO_ERROR) {
-    QMMF_INFO("%s: QueueInputBuffer failed!", __func__);
+    QMMF_ERROR("%s: QueueInputBuffer failed!", __func__);
     return BAD_VALUE;
   }
   QMMF_DEBUG("%s: Exit ", __func__);
@@ -561,7 +561,7 @@ status_t PlayerService::Prepare() {
 
   auto ret = player_->Prepare();
   if (ret != NO_ERROR) {
-    QMMF_INFO("%s: Prepare failed!", __func__);
+    QMMF_ERROR("%s: Prepare failed!", __func__);
     return BAD_VALUE;
   }
   QMMF_DEBUG("%s: Exit ", __func__);
@@ -577,7 +577,7 @@ status_t PlayerService::Start() {
 
   auto ret = player_->Start();
   if (ret != NO_ERROR) {
-    QMMF_INFO("%s: Start failed!", __func__);
+    QMMF_ERROR("%s: Start failed!", __func__);
     return BAD_VALUE;
   }
   QMMF_DEBUG("%s: Exit ", __func__);
@@ -593,7 +593,7 @@ status_t PlayerService::Stop(const PictureParam& params) {
 
   auto ret = player_->Stop(params);
   if (ret != NO_ERROR) {
-    QMMF_INFO("%s: Stop failed!", __func__);
+    QMMF_ERROR("%s: Stop failed!", __func__);
     return BAD_VALUE;
   }
   QMMF_DEBUG("%s: Exit ", __func__);
@@ -609,7 +609,7 @@ status_t PlayerService::Pause(const PictureParam& params) {
 
   auto ret = player_->Pause(params);
   if (ret != NO_ERROR) {
-    QMMF_INFO("%s: Pause failed!", __func__);
+    QMMF_ERROR("%s: Pause failed!", __func__);
     return BAD_VALUE;
   }
   QMMF_DEBUG("%s: Exit ", __func__);
@@ -625,7 +625,7 @@ status_t PlayerService::Resume() {
 
   auto ret = player_->Resume();
   if (ret != NO_ERROR) {
-    QMMF_INFO("%s: Resume failed!", __func__);
+    QMMF_ERROR("%s: Resume failed!", __func__);
     return BAD_VALUE;
   }
   QMMF_DEBUG("%s: Exit ", __func__);
@@ -641,7 +641,7 @@ status_t PlayerService::Drag() {
 
   auto ret = player_->Drag();
   if (ret != NO_ERROR) {
-    QMMF_INFO("%s: Drag failed!", __func__);
+    QMMF_ERROR("%s: Drag failed!", __func__);
     return BAD_VALUE;
   }
   QMMF_DEBUG("%s: Exit ", __func__);
@@ -657,7 +657,7 @@ status_t PlayerService::SetPosition(int64_t seek_time) {
 
   auto ret = player_->SetPosition(seek_time);
   if (ret != NO_ERROR) {
-    QMMF_INFO("%s: SetPosition failed!", __func__);
+    QMMF_ERROR("%s: SetPosition failed!", __func__);
     return BAD_VALUE;
   }
   QMMF_DEBUG("%s: Exit ", __func__);
@@ -674,7 +674,7 @@ status_t PlayerService::SetTrickMode(TrickModeSpeed speed,
 
   auto ret = player_->SetTrickMode(speed, dir);
   if (ret != NO_ERROR) {
-    QMMF_INFO("%s: SetTrickMode failed!", __func__);
+    QMMF_ERROR("%s: SetTrickMode failed!", __func__);
     return BAD_VALUE;
   }
   QMMF_DEBUG("%s: Exit ", __func__);
@@ -693,7 +693,7 @@ status_t PlayerService::SetAudioTrackParam(uint32_t track_id,
 
   auto ret = player_->SetAudioTrackParam(track_id, type, param, param_size);
   if (ret != NO_ERROR) {
-    QMMF_INFO("%s: SetAudioTrackParam failed!", __func__);
+    QMMF_ERROR("%s: SetAudioTrackParam failed!", __func__);
     return BAD_VALUE;
   }
   QMMF_DEBUG("%s: Exit ", __func__);
@@ -712,7 +712,7 @@ status_t PlayerService::SetVideoTrackParam(uint32_t track_id,
 
   auto ret = player_->SetVideoTrackParam(track_id, type, param, param_size);
   if (ret != NO_ERROR) {
-    QMMF_INFO("%s: SetVideoTrackParam failed!", __func__);
+    QMMF_ERROR("%s: SetVideoTrackParam failed!", __func__);
     return BAD_VALUE;
   }
   QMMF_DEBUG("%s: Exit ", __func__);

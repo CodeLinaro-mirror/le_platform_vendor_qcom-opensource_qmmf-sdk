@@ -87,7 +87,7 @@ AudioRawSink* AudioRawSink::CreateAudioRawSink() {
     if (instance_ == nullptr)
       QMMF_ERROR("%s() can't instantiate AudioRawSink", __func__);
   }
-  QMMF_INFO("%s: AudioRawSink successfully retrieved", __func__);
+  QMMF_DEBUG("%s: AudioRawSink successfully retrieved", __func__);
 
   return instance_;
 }
@@ -420,7 +420,7 @@ status_t AudioRawTrackSink::Init(const AudioTrackParams& params,
                result, strerror(result));
     goto error_disconnect;
   }
-  QMMF_INFO("%s() latency is %d", __func__, latency);
+  QMMF_DEBUG("%s() latency is %d", __func__, latency);
 
   int32_t buffer_size;
   result = end_point_->GetBufferSize(&buffer_size);
@@ -429,7 +429,7 @@ status_t AudioRawTrackSink::Init(const AudioTrackParams& params,
                result, strerror(result));
     goto error_disconnect;
   }
-  QMMF_INFO("%s() buffer_size is %d", __func__, buffer_size);
+  QMMF_DEBUG("%s() buffer_size is %d", __func__, buffer_size);
 
   result = ion_.Allocate(NUMBER_OF_SINK_BUFFERS, buffer_size);
   if (result < 0) {

@@ -69,7 +69,7 @@ VideoSink* VideoSink::CreateVideoSink() {
         }
       }
 
-  QMMF_INFO("%s: VideoSink Instance Created Successfully(0x%p)",
+  QMMF_DEBUG("%s: VideoSink Instance Created Successfully(0x%p)",
       __func__, instance_);
 
   QMMF_DEBUG("%s Exit", __func__);
@@ -122,12 +122,12 @@ status_t VideoSink::StartTrackSink(uint32_t track_id) {
 
   auto ret = track_sink->StartSink();
   if (ret != NO_ERROR) {
-    QMMF_INFO("%s: track_id(%d) StartSink failed!", __func__,
+    QMMF_ERROR("%s: track_id(%d) StartSink failed!", __func__,
       track_id);
     return ret;
   }
 
-  QMMF_INFO("%s: track_id(%d) StartSink Successful!",
+  QMMF_DEBUG("%s: track_id(%d) StartSink Successful!",
     __func__, track_id);
 
   QMMF_DEBUG("%s Exit", __func__);
@@ -143,12 +143,12 @@ status_t VideoSink::StopTrackSink(uint32_t track_id,
 
   auto ret = track_sink->StopSink(params, grab_buffer);
   if (ret != NO_ERROR) {
-    QMMF_INFO("%s: track_id(%d) StopSink failed!", __func__,
+    QMMF_ERROR("%s: track_id(%d) StopSink failed!", __func__,
       track_id);
     return ret;
   }
 
-  QMMF_INFO("%s: track_id(%d) StopSink Successful!",
+  QMMF_DEBUG("%s: track_id(%d) StopSink Successful!",
     __func__, track_id);
 
   QMMF_DEBUG("%s Exit", __func__);
@@ -162,14 +162,14 @@ status_t VideoSink::DeleteTrackSink(uint32_t track_id) {
 
   auto ret = track_sink->DeleteSink();
   if (ret != NO_ERROR) {
-    QMMF_INFO("%s: track_id(%d) DeleteSink failed!", __func__,
+    QMMF_ERROR("%s: track_id(%d) DeleteSink failed!", __func__,
       track_id);
     return ret;
   }
 
   video_track_sinks.removeItem(track_id);
 
-  QMMF_INFO("%s: track_id(%d) DeleteSink Successful!",
+  QMMF_DEBUG("%s: track_id(%d) DeleteSink Successful!",
       __func__, track_id);
 
   QMMF_DEBUG("%s Exit", __func__);
@@ -189,12 +189,12 @@ status_t VideoSink::SetVideoTrackSinkParams(uint32_t track_id,
 
   ret =  track_sink->SetVideoSinkParams(param_type, param, param_size);
   if (ret != NO_ERROR) {
-    QMMF_INFO("%s: track_id(%d) SetVideoSinkParams failed!", __func__,
+    QMMF_ERROR("%s: track_id(%d) SetVideoSinkParams failed!", __func__,
         track_id);
    return ret;
   }
 
-  QMMF_INFO("%s: track_id(%d) SetVideoSinkParams Successful!",
+  QMMF_DEBUG("%s: track_id(%d) SetVideoSinkParams Successful!",
      __func__, track_id);
 #endif
 
@@ -260,7 +260,7 @@ VideoTrackSink::~VideoTrackSink() {
   }
 
   if (grab_picture_buffer_.fd) {
-    QMMF_INFO("%s track_id(%d) grab_picture_buffer_.fd =%d Free",
+    QMMF_DEBUG("%s track_id(%d) grab_picture_buffer_.fd =%d Free",
         __func__, TrackId(), grab_picture_buffer_.fd);
     ioctl(ion_device_, ION_IOC_FREE, &(grab_picture_ion_handle_.handle));
     close(grab_picture_buffer_.fd);
@@ -277,7 +277,7 @@ VideoTrackSink::~VideoTrackSink() {
 }
 
 status_t VideoTrackSink::Init(VideoTrackParams& track_param, TrackCb& callback) {
-  QMMF_INFO("%s: Enter track_id(%d)", __func__, track_param.track_id);
+  QMMF_DEBUG("%s: Enter track_id(%d)", __func__, track_param.track_id);
 
   callback_ = callback;
 
@@ -316,7 +316,7 @@ status_t VideoTrackSink::Init(VideoTrackParams& track_param, TrackCb& callback) 
 
   GetSnapShotDumpsProperty();
 
-  QMMF_INFO("%s: Exit track_id(%d)", __func__, TrackId());
+  QMMF_DEBUG("%s: Exit track_id(%d)", __func__, TrackId());
 
   return NO_ERROR;
 }
@@ -336,7 +336,7 @@ status_t VideoTrackSink::StartSink() {
 
   // decoded buffer queue
   for (auto& iter : output_buffer_list_) {
-    QMMF_INFO("%s: track_id(%d) Adding buffer fd(%d) to output_free_buffer_queue_",
+    QMMF_DEBUG("%s: track_id(%d) Adding buffer fd(%d) to output_free_buffer_queue_",
               __func__, TrackId(), iter.fd);
     output_free_buffer_queue_.PushBack(iter);
   }
@@ -445,13 +445,13 @@ status_t VideoTrackSink::ResumeSink() {
 }
 
 status_t VideoTrackSink::PrepareDrag(bool ignore_fps) {
-  QMMF_INFO("%s: Enter track_id(%d)", __func__, TrackId());
+  QMMF_DEBUG("%s: Enter track_id(%d)", __func__, TrackId());
 
   ignore_fps_lock_.lock();
   ignore_fps_ = ignore_fps;
   ignore_fps_lock_.unlock();
 
-  QMMF_INFO("%s: Exit track_id(%d)", __func__, TrackId());
+  QMMF_DEBUG("%s: Exit track_id(%d)", __func__, TrackId());
   return NO_ERROR;
 }
 
@@ -530,7 +530,7 @@ void VideoTrackSink::AddBufferList(Vector<CodecBuffer>& list) {
 
   // decoded buffer queue
   for (auto& iter : output_buffer_list_) {
-    QMMF_INFO("%s: track_id(%d) Adding buffer fd(%d) to output_free_buffer_queue_",
+    QMMF_DEBUG("%s: track_id(%d) Adding buffer fd(%d) to output_free_buffer_queue_",
               __func__, TrackId(), iter.fd);
     output_free_buffer_queue_.PushBack(iter);
   }
@@ -587,7 +587,7 @@ status_t VideoTrackSink::ReturnBuffer(BufferDescriptor& codec_buffer,
     uint64_t time_diff = duration_cast<microseconds>
                              (curr_time - prev_time_).count();
 
-    QMMF_INFO("%s: FBD profile for Video Decoding :: %llu", __func__,
+    QMMF_DEBUG("%s: FBD profile for Video Decoding :: %llu", __func__,
         time_diff);
     prev_time_ = curr_time;
   }
@@ -712,7 +712,7 @@ void VideoTrackSink::RendererThread(VideoTrackSink* video_sink) {
 }
 
 void VideoTrackSink::Renderer() {
-  QMMF_INFO("%s: Enter ", __func__);
+  QMMF_DEBUG("%s: Enter ", __func__);
 
   int64_t sleep_time_us = 1000000/(track_params_.params.frame_rate);
   bool is_hfr_track = false;
@@ -817,7 +817,7 @@ void VideoTrackSink::Renderer() {
       }
     }
   }
-  QMMF_INFO("%s: Exit ", __func__);
+  QMMF_DEBUG("%s: Exit ", __func__);
 }
 
 void VideoTrackSink::PtsThreadEntry(VideoTrackSink* sink) {
@@ -855,7 +855,7 @@ void VideoTrackSink::PtsThread() {
 
 status_t VideoTrackSink::NotifyPortEvent(PortEventType event_type,
                                          void* event_data) {
-  QMMF_INFO("%s Enter track_id(%d)", __func__, TrackId());
+  QMMF_DEBUG("%s Enter track_id(%d)", __func__, TrackId());
   status_t ret = 0;
 
   if (event_type == PortEventType::kPortSettingsChanged) {
@@ -872,12 +872,12 @@ status_t VideoTrackSink::NotifyPortEvent(PortEventType event_type,
     }
   }
 
-  QMMF_INFO("%s Exit track_id(%d)", __func__, TrackId());
+  QMMF_DEBUG("%s Exit track_id(%d)", __func__, TrackId());
   return ret;
 }
 
 status_t VideoTrackSink::UpdateCropParameters(void* arg) {
-  QMMF_INFO("%s Enter track_id(%d)", __func__, TrackId());
+  QMMF_DEBUG("%s Enter track_id(%d)", __func__, TrackId());
   PortreconfigData *reconfig_data = static_cast<PortreconfigData*>(arg);
 
   switch (reconfig_data->reconfig_type) {
@@ -895,7 +895,7 @@ status_t VideoTrackSink::UpdateCropParameters(void* arg) {
       QMMF_ERROR("%s Unknown PortReconfigType", __func__);
       return -1;
   }
-  QMMF_INFO("%s Exit track_id(%d)", __func__, TrackId());
+  QMMF_DEBUG("%s Exit track_id(%d)", __func__, TrackId());
   return NO_ERROR;
 }
 
@@ -903,7 +903,7 @@ status_t VideoTrackSink::UpdateCropParameters(void* arg) {
 status_t VideoTrackSink::CreateDisplay(
     display::DisplayType display_type,
     VideoTrackParams& track_param) {
-  QMMF_INFO("%s: Enter", __func__);
+  QMMF_DEBUG("%s: Enter", __func__);
   int32_t res;
   DisplayCb  display_status_cb;
 
@@ -969,7 +969,7 @@ status_t VideoTrackSink::CreateDisplay(
 
   SetDisplayOrientation(track_param.params.rotation);
 
-  QMMF_INFO("%s: Exit", __func__);
+  QMMF_DEBUG("%s: Exit", __func__);
   return res;
 }
 
@@ -1044,7 +1044,7 @@ status_t VideoTrackSink::SetDisplayOrientation(uint32_t angle) {
 }
 
 status_t VideoTrackSink::DeleteDisplay(display::DisplayType display_type) {
-  QMMF_INFO("%s: Enter", __func__);
+  QMMF_DEBUG("%s: Enter", __func__);
   int32_t res = 0;
 
   if (display_started_ == 1) {
@@ -1062,12 +1062,12 @@ status_t VideoTrackSink::DeleteDisplay(display::DisplayType display_type) {
     res = display_->Disconnect();
 
     if (display_ != nullptr) {
-      QMMF_INFO("%s: DELETE display_:%p", __func__, display_);
+      QMMF_DEBUG("%s: DELETE display_:%p", __func__, display_);
       delete display_;
       display_ = nullptr;
     }
   }
-  QMMF_INFO("%s: Exit", __func__);
+  QMMF_DEBUG("%s: Exit", __func__);
   return res;
 }
 
@@ -1158,7 +1158,7 @@ status_t VideoTrackSink::PushFrameToDisplay(BufferDescriptor& codec_buffer) {
 
 status_t VideoTrackSink::CopyGrabPictureBuffer(SurfaceBuffer& buffer,
                                                uint32_t size) {
-  QMMF_INFO("%s: Enter track_id(%d)", __func__, TrackId());
+  QMMF_DEBUG("%s: Enter track_id(%d)", __func__, TrackId());
 
   size_t scanline = ROUND_TO(surface_config_.height, 32);
 
@@ -1211,12 +1211,12 @@ status_t VideoTrackSink::CopyGrabPictureBuffer(SurfaceBuffer& buffer,
   }
 
   wait_for_grab_picture_buffer_copy_.Signal();
-  QMMF_INFO("%s: Exit track_id(%d)", __func__, TrackId());
+  QMMF_DEBUG("%s: Exit track_id(%d)", __func__, TrackId());
   return NO_ERROR;
 }
 
 int32_t VideoTrackSink::AllocateGrabPictureBuffer(const uint32_t size) {
-  QMMF_INFO("%s: Enter track_id(%d)", __func__, TrackId());
+  QMMF_DEBUG("%s: Enter track_id(%d)", __func__, TrackId());
   QMMF_DEBUG("%s: size(%d)", __func__, size);
   int32_t ret = 0;
 
@@ -1270,7 +1270,7 @@ int32_t VideoTrackSink::AllocateGrabPictureBuffer(const uint32_t size) {
   QMMF_DEBUG("%s size(%d)", __func__, grab_picture_buffer_.capacity);
   QMMF_DEBUG("%s vaddr(%p)", __func__, grab_picture_buffer_.data);
 
-  QMMF_INFO("%s: Exit track_id(%d)", __func__, TrackId());
+  QMMF_DEBUG("%s: Exit track_id(%d)", __func__, TrackId());
   return ret;
 
   ION_MAP_FAILED:
