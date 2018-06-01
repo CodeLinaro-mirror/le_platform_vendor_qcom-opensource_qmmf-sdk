@@ -2846,6 +2846,16 @@ status_t AVCodec::PauseCodec() {
 
   QMMF_INFO("%s Enter", __func__);
   status_t ret = 0;
+  uint32_t count = 0;
+  while(IsPortReconfig()) {
+    usleep(3000);
+    count++;
+    if(count >= 150) {
+      QMMF_ERROR("%s: Port reconfig not yet completed, hence failed to "
+          "pause codec", __func__);
+      return -ETIME;
+    }
+  }
 
   ret = SetState(OMX_StatePause, OMX_TRUE);
   if (ret != 0) {
