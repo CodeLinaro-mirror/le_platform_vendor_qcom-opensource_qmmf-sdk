@@ -311,6 +311,11 @@ status_t VideoTrackSink::Init(VideoTrackParams& track_param, TrackCb& callback) 
 
   status_t ret = 0;
 #ifndef DISABLE_DISPLAY
+  surface_param_.src_rect = {(float)crop_data_.left,
+                             (float)crop_data_.top,
+                             (float)crop_data_.width + (float)crop_data_.left,
+                             (float)crop_data_.height + (float)crop_data_.top};
+
   ret = CreateDisplay(display::DisplayType::kPrimary, track_param);
   if (ret != 0) {
     QMMF_ERROR("%s CreateDisplay Failed!!", __func__);
@@ -941,7 +946,19 @@ status_t VideoTrackSink::UpdateCropParameters(void* arg) {
       wait_for_frame_.Signal();
       break;
     case PortreconfigData::PortReconfigType::kCropParametersChanged:
-      crop_data_ = static_cast<PortreconfigData::CropData>(reconfig_data->rect);
+      crop_data_ =
+          static_cast<PortreconfigData::CropData>(reconfig_data->rect);
+#ifndef DISABLE_DISPLAY
+      if (surface_param_.src_rect.left == 0.0 &&
+          surface_param_.src_rect.top == 0.0 &&
+          surface_param_.src_rect.right == (float)surface_config_.width &&
+          surface_param_.src_rect.bottom == (float)surface_config_.height) {
+        surface_param_.src_rect = {(float)crop_data_.left,
+                                  (float)crop_data_.top,
+                                  (float)crop_data_.width + (float)crop_data_.left,
+                                  (float)crop_data_.height + (float)crop_data_.top};
+      }
+#endif
       break;
     default:
       QMMF_ERROR("%s Unknown PortReconfigType", __func__);
@@ -1002,9 +1019,10 @@ status_t VideoTrackSink::CreateDisplay(
   }
   display_started_ = 1;
 
-  surface_param_.src_rect = { 0.0, 0.0,
-      static_cast<float>(track_param.params.width),
-      static_cast<float>(track_param.params.height)};
+  surface_param_.src_rect = {track_param.params.srcRect.start_x,
+                             track_param.params.srcRect.start_y,
+                             static_cast<float>(track_param.params.width),
+                             static_cast<float>(track_param.params.height)};
 
   surface_param_.dst_rect = {
       track_param.params.destRect.start_x, track_param.params.destRect.start_y,
@@ -1042,6 +1060,21 @@ status_t VideoTrackSink::SetVideoSinkParams(CodecParamType param_type,
           display_param->srcRect.start_y,
           static_cast<float>(display_param->srcRect.width),
           static_cast<float>(display_param->srcRect.height)};
+
+      if (surface_param_.src_rect.left + surface_param_.src_rect.right <
+          (float)surface_config_.width) {
+        surface_param_.src_rect.right =
+            surface_param_.src_rect.left + surface_param_.src_rect.right;
+      } else {
+        surface_param_.src_rect.right = (float)surface_config_.width;
+      }
+      if (surface_param_.src_rect.top + surface_param_.src_rect.bottom <
+          (float)surface_config_.height) {
+        surface_param_.src_rect.bottom =
+            surface_param_.src_rect.top + surface_param_.src_rect.bottom;
+      } else {
+        surface_param_.src_rect.bottom = (float)surface_config_.height;
+      }
     }
 
     if (display_param->destRect.width !=0 &&
@@ -1169,16 +1202,13 @@ status_t VideoTrackSink::PushFrameToDisplay(BufferDescriptor& codec_buffer) {
     surface_buffer_.plane_info[0].height = surface_config_.height;
     surface_buffer_.plane_info[0].offset = codec_buffer.offset;
     surface_buffer_.plane_info[0].buf = bufinfo.vaddr;
-    surface_param_.src_rect = { (float)crop_data_.left,
-                                (float)crop_data_.top,
-                                (float)crop_data_.width + (float)crop_data_.left,
-                                (float)crop_data_.height + (float)crop_data_.top};
 
-    QMMF_DEBUG("%s CropData Used for Display L(%u) T(%u) R(%u) B(%u)"
-        " surface_config_.width(%u) surface_config_.height(%d) stride(%d)",
-        __func__,crop_data_.left, crop_data_.top, crop_data_.width,
-        crop_data_.height, surface_config_.width, surface_config_.height,
-        surface_buffer_.plane_info[0].stride);
+    QMMF_DEBUG("%s Surface Param Used for Display L(%f) T(%f) R(%f) B(%f)"
+               " surface_config_.width(%u) surface_config_.height(%u)",
+               " stride(%u)", __func__, surface_param_.src_rect.left,
+               surface_param_.src_rect.top, surface_param_.src_rect.right,
+               surface_param_.src_rect.bottom, surface_config_.width,
+               surface_config_.height, surface_buffer_.plane_info[0].stride);
 
     auto ret = display_->QueueSurfaceBuffer(surface_id_, surface_buffer_,
          surface_param_);
