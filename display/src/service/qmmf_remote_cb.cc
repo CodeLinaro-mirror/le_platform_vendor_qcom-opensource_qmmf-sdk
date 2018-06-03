@@ -39,14 +39,14 @@ namespace display {
 RemoteCallBack::RemoteCallBack(const sp<IDisplayServiceCallback>&
     remote_client): client_cb_handle_(remote_client) {
 
-  QMMF_INFO("%s: Enter ", __func__);
-  QMMF_INFO("%s: Exit (0x%p)", __func__, this);
+  QMMF_DEBUG("%s: Enter ", __func__);
+  QMMF_DEBUG("%s: Exit (0x%p)", __func__, this);
 }
 
 RemoteCallBack::~RemoteCallBack() {
 
-  QMMF_INFO("%s: Enter ", __func__);
-  QMMF_INFO("%s: Exit (0x%p)", __func__, this);
+  QMMF_DEBUG("%s: Enter ", __func__);
+  QMMF_DEBUG("%s: Exit (0x%p)", __func__, this);
 }
 
 void RemoteCallBack::notifyDisplayEvent(DisplayEventType event_type,

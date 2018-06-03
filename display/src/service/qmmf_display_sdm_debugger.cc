@@ -41,8 +41,20 @@ namespace display {
   #define MAX_NAME_SIZE 256
 
 DisplayDebugHandler DisplayDebugHandler::debug_handler_;
-std::bitset<32> DisplayDebugHandler::debug_flags_ = 0x7FFFFFFF;
+
+std::bitset<32> DisplayDebugHandler::debug_flags_;
+
 int32_t DisplayDebugHandler::verbose_level_ = 0x0;
+
+DisplayDebugHandler::DisplayDebugHandler() {
+  char prop_val[PROPERTY_VALUE_MAX];
+  property_get(DISPLAY_LOG_LEVEL, prop_val, "0");
+  if (atoi(prop_val) == 0) {
+    DisplayDebugHandler::debug_flags_ = 0x1; // kTagNone should always be printed.
+  } else {
+    DisplayDebugHandler::debug_flags_ = 0x7FFFFFFF;
+  }
+}
 
 void DisplayDebugHandler::DebugAll(bool enable, int verbose_level) {
   if (enable) {
