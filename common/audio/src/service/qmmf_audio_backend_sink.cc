@@ -972,7 +972,7 @@ void AudioBackendSink::Thread() {
     error_handler_(audio_handle_, result);
   }
 
-  if (eof_received) {
+  if (eof_received && !stop_received) {
     while (!messages_.empty())
       messages_.pop();
 
