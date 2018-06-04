@@ -765,10 +765,6 @@ status_t VideoTrackDecoder::StartDecoder() {
     unfilled_frame_queue_.PushBack(iter);
   }
 
-  input_buffer_notify_params_.num_free_buffers = unfilled_frame_queue_.Size();
-  track_callback_.event_cb(TrackId(), EventType::kInputBufferNotify,
-                           &input_buffer_notify_params_,
-                           sizeof(input_buffer_notify_params_));
   stop_received_ = false;
   {
     std::lock_guard<std::mutex> lock(pause_lock_);
@@ -786,6 +782,11 @@ status_t VideoTrackDecoder::StartDecoder() {
     QMMF_ERROR("%s: track_id(%d) StartSink failed!", __func__, TrackId());
    return ret;
   }
+
+  input_buffer_notify_params_.num_free_buffers = unfilled_frame_queue_.Size();
+  track_callback_.event_cb(TrackId(), EventType::kInputBufferNotify,
+                           &input_buffer_notify_params_,
+                           sizeof(input_buffer_notify_params_));
 
   QMMF_DEBUG("%s: Exit track_id(%d)", __func__, TrackId());
   return ret;
@@ -860,13 +861,6 @@ status_t VideoTrackDecoder::PauseDecoder(const PictureParam& params,
 status_t VideoTrackDecoder::ResumeDecoder() {
   QMMF_DEBUG("%s: Enter track_id(%d)", __func__, TrackId());
 
-  input_buffer_notify_params_.num_free_buffers = unfilled_frame_queue_.Size();
-  if (input_buffer_notify_params_.num_free_buffers > 0) {
-    track_callback_.event_cb(TrackId(), EventType::kInputBufferNotify,
-                             &input_buffer_notify_params_,
-                             sizeof(input_buffer_notify_params_));
-  }
-
   {
     std::lock_guard<std::mutex> lock(pause_lock_);
     pause_ = false;
@@ -882,6 +876,13 @@ status_t VideoTrackDecoder::ResumeDecoder() {
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: track_id(%d) ResumeCodec failed!", __func__, TrackId());
     return ret;
+  }
+
+  input_buffer_notify_params_.num_free_buffers = unfilled_frame_queue_.Size();
+  if (input_buffer_notify_params_.num_free_buffers > 0) {
+    track_callback_.event_cb(TrackId(), EventType::kInputBufferNotify,
+                             &input_buffer_notify_params_,
+                             sizeof(input_buffer_notify_params_));
   }
 
   QMMF_DEBUG("%s: Exit track_id(%d)", __func__, TrackId());
