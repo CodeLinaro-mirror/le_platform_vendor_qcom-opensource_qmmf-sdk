@@ -155,6 +155,7 @@ class VideoTrackDecoder : public ::qmmf::avcodec::ICodecSource {
   status_t AllocInputPortBufs();
   status_t AllocOutputPortBufs();
   status_t ReleaseOutputBuffers();
+  status_t ReleaseInputBuffers();
 
   inline bool IsPause() {
     std::lock_guard<std::mutex> lock(pause_lock_);
@@ -178,15 +179,14 @@ class VideoTrackDecoder : public ::qmmf::avcodec::ICodecSource {
   VideoTrackParams                  video_track_params_;
   ::qmmf::avcodec::AVCodec*         avcodec_;
 
-  //For input port
+  // For input port
   Vector<StreamBuffer>    input_buffer_list_;
   TSQueue<StreamBuffer>   unfilled_frame_queue_;
   TSQueue<StreamBuffer>   filled_frame_queue_;
   TSQueue<StreamBuffer>   frames_to_decode_;
   TSQueue<StreamBuffer>   frames_being_decoded_;
 
-  typedef  struct ion_allocation_data IonHandleData;
-  Vector<IonHandleData>   ion_handle_data;
+  std::map<int32_t, struct ion_handle_data> ion_handle_data_;
 
 
   Vector<::qmmf::avcodec::CodecBuffer> output_buffer_list_;
