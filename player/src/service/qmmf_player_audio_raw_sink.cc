@@ -662,6 +662,13 @@ status_t AudioRawTrackSink::ResumeSink() {
   QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__,
              track_params_.track_id);
 
+  int32_t result = end_point_->Resume();
+  if (result < 0) {
+    QMMF_ERROR("%s() endpoint->Resume failed: %d[%s]", __func__,
+               result, strerror(result));
+    return ::android::FAILED_TRANSACTION;
+  }
+
   av_buffers_lock_.lock();
   input_buffer_notify_params_.num_free_buffers = av_buffers_.size();
   av_buffers_lock_.unlock();
@@ -671,12 +678,6 @@ status_t AudioRawTrackSink::ResumeSink() {
                              EventType::kInputBufferNotify,
                              &input_buffer_notify_params_,
                              sizeof(input_buffer_notify_params_));
-  }
-  int32_t result = end_point_->Resume();
-  if (result < 0) {
-    QMMF_ERROR("%s() endpoint->Resume failed: %d[%s]", __func__,
-               result, strerror(result));
-    return ::android::FAILED_TRANSACTION;
   }
 
   AudioMessage message;
