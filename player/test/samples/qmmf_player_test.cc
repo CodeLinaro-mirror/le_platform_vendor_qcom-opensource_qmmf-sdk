@@ -1111,6 +1111,9 @@ void PlayerTest::Delete() {
   m_pIStreamPort_ = nullptr;
   videoFirstFrame_ = true;
 
+  delete m_pDemux_;
+  m_pDemux_ = nullptr;
+
   TEST_INFO("%s: Exit", __func__);
 }
 
