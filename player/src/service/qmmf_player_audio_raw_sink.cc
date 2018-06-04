@@ -957,6 +957,9 @@ void AudioRawTrackSink::Thread() {
           while (!av_buffers.empty()) {
             AVCodecBuffer av_buffer = av_buffers.front();
 
+            AudioBuffer buffer;
+            ion_.Import(av_buffer, &buffer);
+            ion_.Export(buffer, &av_buffer);
             memset(av_buffer.data, 0x00, av_buffer.frame_length);
             av_buffer.filled_length = 0;
             av_buffer.time_stamp = 0;
