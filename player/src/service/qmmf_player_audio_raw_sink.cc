@@ -67,6 +67,7 @@ using ::std::chrono::milliseconds;
 using ::std::chrono::seconds;
 using ::std::condition_variable;
 using ::std::cv_status;
+using ::std::lock_guard;
 using ::std::make_shared;
 using ::std::map;
 using ::std::mutex;
@@ -104,6 +105,18 @@ AudioRawSink::~AudioRawSink() {
     track_sink_map_.clear();
 
   instance_ = nullptr;
+}
+
+const shared_ptr<AudioRawTrackSink>& AudioRawSink::GetTrackSink(
+    uint32_t track_id) {
+  QMMF_DEBUG("%s() TRACE", __func__);
+  QMMF_VERBOSE("%s() INPARAM: track_id[%u]", __func__, track_id);
+
+  AudioTrackSinkMap::iterator track_sink_iterator =
+      track_sink_map_.find(track_id);
+  assert(track_sink_iterator != track_sink_map_.end());
+
+  return track_sink_iterator->second;
 }
 
 status_t AudioRawSink::CreateTrackSink(uint32_t track_id,
@@ -324,6 +337,29 @@ status_t AudioRawSink::SetAudioTrackSinkParams(uint32_t track_id,
   return ::android::NO_ERROR;
 }
 
+status_t AudioRawSink::SetPosition(uint32_t track_id, int64_t seek_time) {
+  QMMF_DEBUG("%s() TRACE", __func__);
+  QMMF_VERBOSE("%s() INPARAM: track_id[%u]", __func__, track_id);
+  QMMF_VERBOSE("%s() INPARAM: seek_time[%lld]", __func__, seek_time);
+
+  AudioTrackSinkMap::iterator track_sink_iterator =
+      track_sink_map_.find(track_id);
+  if (track_sink_iterator == track_sink_map_.end()) {
+    QMMF_ERROR("%s() no track exists with track_id[%u]", __func__,
+               track_id);
+    return ::android::BAD_VALUE;
+  }
+
+  status_t result = track_sink_iterator->second->SetPosition(seek_time);
+  if (result != NO_ERROR) {
+    QMMF_ERROR("%s() track_sink[%u]->SetPosition failed: %d",
+               __func__, track_id, result);
+    return result;
+  }
+
+  return ::android::NO_ERROR;
+}
+
 status_t AudioRawSink::DequeueTrackInputBuffer(uint32_t track_id,
                                                vector<AVCodecBuffer>& buffers) {
   QMMF_DEBUG("%s() TRACE", __func__);
@@ -378,6 +414,8 @@ status_t AudioRawSink::QueueTrackInputBuffer(uint32_t track_id,
 
 AudioRawTrackSink::AudioRawTrackSink()
     : end_point_(nullptr),
+      seek_time_(-1),
+      first_seen_timestamp_(-1),
       thread_(nullptr),
       pts_thread_(nullptr) {
   QMMF_DEBUG("%s() TRACE", __func__);
@@ -459,15 +497,6 @@ status_t AudioRawTrackSink::Init(const AudioTrackParams& params,
     goto error_disconnect;
   }
 
-  int32_t latency;
-  result = end_point_->GetLatency(&latency);
-  if (result < 0) {
-    QMMF_ERROR("%s() endpoint->GetLatency failed: %d[%s]", __func__,
-               result, strerror(result));
-    goto error_disconnect;
-  }
-  QMMF_DEBUG("%s() latency is %d", __func__, latency);
-
   int32_t buffer_size;
   result = end_point_->GetBufferSize(&buffer_size);
   if (result < 0) {
@@ -533,6 +562,9 @@ status_t AudioRawTrackSink::StartSink() {
     thread_ = nullptr;
   }
   thread_lock_.unlock();
+
+  seek_time_ = -1;
+  first_seen_timestamp_ = -1;
 
   int32_t result = end_point_->Start();
   if (result < 0) {
@@ -755,8 +787,7 @@ status_t AudioRawTrackSink::NotifyInputBuffer() {
 status_t AudioRawTrackSink::SetAudioSinkParams(CodecParamType param_type,
                                                void* param,
                                                uint32_t param_size) {
-  QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__,
-             track_params_.track_id);
+  QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__, track_params_.track_id);
   auto ret = 0;
 
   if (param_type == CodecParamType::kAudioVolumeParamType) {
@@ -772,11 +803,41 @@ status_t AudioRawTrackSink::SetAudioSinkParams(CodecParamType param_type,
   return ::android::NO_ERROR;
 }
 
+status_t AudioRawTrackSink::SetPosition(int64_t seek_time) {
+  QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__, track_params_.track_id);
+  QMMF_VERBOSE("%s() IN_PARAM: seek_time[%lld]", __func__, seek_time);
+  lock_guard<mutex> lock(av_lock_);
+
+  seek_time_ = seek_time;
+  first_seen_timestamp_ = -1;
+
+  return ::android::NO_ERROR;
+}
+
+status_t AudioRawTrackSink::GetAudioPresentationTime(uint32_t* frames,
+                                                     uint32_t* rate,
+                                                     int64_t* offset) {
+  QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__, track_params_.track_id);
+
+  uint64_t time;
+  end_point_->GetRenderedPosition(frames, &time);
+
+  *rate = track_params_.params.sample_rate;
+
+  {
+    lock_guard<mutex> lock(av_lock_);
+    *offset = first_seen_timestamp_;
+  }
+
+  QMMF_VERBOSE("%s() frames[%d] rate[%u] time[%llu] offset[%lld]",
+               __func__, *frames, *rate, time, *offset);
+
+  return ::android::NO_ERROR;
+}
+
 status_t AudioRawTrackSink::DequeueInputBuffer(vector<AVCodecBuffer>& buffers) {
-  QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__,
-             track_params_.track_id);
-  QMMF_VERBOSE("%s() INPARAM: buffer size[%u]", __func__,
-               buffers.size());
+  QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__, track_params_.track_id);
+  QMMF_VERBOSE("%s() INPARAM: buffer size[%u]", __func__, buffers.size());
 
   uint32_t number_of_buffers = buffers.size();
   buffers.clear();
@@ -830,14 +891,23 @@ status_t AudioRawTrackSink::QueueInputBuffer(vector<AVCodecBuffer>& buffers) {
                  buffer.ToString().c_str());
 
   for (const AVCodecBuffer& buffer : buffers) {
-    AudioMessage message;
-    message.type = AudioMessageType::kMessageAVBuffer;
-    message.av_buffer = buffer;
+    lock_guard<mutex> lock(av_lock_);
 
-    message_lock_.lock();
-    messages_.push(message);
-    message_lock_.unlock();
-    signal_.notify_one();
+    if (seek_time_ < 0 ||
+        static_cast<int64_t>(buffer.time_stamp) >= seek_time_) {
+      AudioMessage message;
+      message.type = AudioMessageType::kMessageAVBuffer;
+      message.av_buffer = buffer;
+
+      message_lock_.lock();
+      messages_.push(message);
+      message_lock_.unlock();
+      signal_.notify_one();
+    } else {
+      av_buffers_lock_.lock();
+      av_buffers_.push(buffer);
+      av_buffers_lock_.unlock();
+    }
   }
 
   return ::android::NO_ERROR;
@@ -1087,6 +1157,12 @@ void AudioRawTrackSink::Thread() {
         QMMF_ERROR("%s() endpoint->SendBuffers failed: %d[%s]",
                    __func__, result, strerror(result));
         continue;
+      }
+
+      {
+        lock_guard<mutex> lock(av_lock_);
+        if (first_seen_timestamp_ < 0)
+          first_seen_timestamp_ = buffer.timestamp;
       }
 
       if (buffer.flags & static_cast<uint32_t>(BufferFlags::kFlagEOS))

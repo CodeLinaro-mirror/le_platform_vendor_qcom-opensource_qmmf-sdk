@@ -295,9 +295,8 @@ status_t PlayerImpl::CreateVideoTrack(uint32_t track_id,
                track_id);
     return BAD_VALUE;
   }
-
-  QMMF_INFO("%s:: VideoTrackSink for track_id(%d) Added Successfully in"
-            "VideoSink", __func__, track_id);
+  QMMF_INFO("%s:: VideoTrackSink for track_id(%d) Added Successfully in VideoSink",
+            __func__, track_id);
 
   TrackInfo track_info;
   memset(&track_info, 0x0, sizeof track_info);
@@ -308,6 +307,26 @@ status_t PlayerImpl::CreateVideoTrack(uint32_t track_id,
   track_map_.add(track_id, track_info);
 
   QMMF_DEBUG("%s: Exit", __func__);
+  uint32_t audio_track_id = 0;
+  for (size_t i = 0; i < tracks_.size(); i++)
+    if (tracks_[i].type == TrackType::kAudio)
+      audio_track_id = tracks_[i].track_id;
+
+  if (audio_track_id != 0) {
+    TrackInfo audio_track = track_map_.valueFor(audio_track_id);
+    if (audio_track.codec == AudioFormat::kAMR ||
+        audio_track.codec == AudioFormat::kG711) {
+      std::weak_ptr<AudioTrackSink> audio_sink =
+          audio_sink_->GetTrackSink(audio_track_id);
+      result = video_sink_->PrepareTrackAVSinkPipeline(track_id, audio_sink);
+    } else {
+      std::weak_ptr<AudioRawTrackSink> audio_sink =
+          audio_raw_sink_->GetTrackSink(audio_track_id);
+      result = video_sink_->PrepareTrackAVSinkPipeline(track_id, audio_sink);
+    }
+  }
+
+  QMMF_INFO("%s: Exit", __func__);
   return NO_ERROR;
 }
 
@@ -831,9 +850,19 @@ status_t PlayerImpl::SetPosition(int64_t seek_time) {
       if ((tracks_[i].type == TrackType::kVideo) &&
           (!track_map_.editValueFor(tracks_[i].track_id).eos_rendered)) {
         ret = video_decoder_core_->SetPosition(tracks_[i].track_id, seek_time);
-        if (ret != NO_ERROR) {
+        if (ret != NO_ERROR)
           QMMF_ERROR("%s: SetPosition failed!", __func__);
-          break;
+      } else if ((tracks_[i].type == TrackType::kAudio) &&
+                 (!IsTrickModeEnabled())) {
+        if (tracks_[i].codec == AudioFormat::kAMR ||
+            tracks_[i].codec == AudioFormat::kG711) {
+          ret = audio_decoder_core_->SetPosition(tracks_[i].track_id, seek_time);
+          if (ret != NO_ERROR)
+            QMMF_ERROR("%s: SetPosition failed!", __func__);
+        } else {
+          ret = audio_raw_sink_->SetPosition(tracks_[i].track_id, seek_time);
+          if (ret != NO_ERROR)
+            QMMF_ERROR("%s: SetPosition failed!", __func__);
         }
       }
     }

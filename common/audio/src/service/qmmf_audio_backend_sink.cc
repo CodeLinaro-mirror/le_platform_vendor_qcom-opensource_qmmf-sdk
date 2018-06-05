@@ -711,10 +711,8 @@ int32_t AudioBackendSink::GetRenderedPosition(uint32_t* frames,
   }
 
   int result = qahw_out_get_render_position(qahw_stream_, frames);
-  if (result < 0) {
-    QMMF_ERROR("%s() Failed to get render position : %d",
-        __func__, result);
-  }
+  if (result < 0)
+    QMMF_ERROR("%s() Failed to get render position : %d", __func__, result);
 
   QMMF_VERBOSE("%s() Total Frames Rendered : %u", __func__, *frames);
 
@@ -732,8 +730,8 @@ int32_t AudioBackendSink::GetRenderedPosition(uint32_t* frames,
   QMMF_VERBOSE("%s() Total Frames Rendered (%llu) Time (%llu)",
       __func__, frame, *time);
 
-  QMMF_VERBOSE("%s() OUTPARAM: frames[%u] time[%llu]", __func__,
-      *frames, *time);
+  QMMF_VERBOSE("%s() OUTPARAM: frames[%u] time[%llu]",
+               __func__, *frames, *time);
   return 0;
 }
 
@@ -899,10 +897,12 @@ void AudioBackendSink::Thread() {
 
       qahw_out_buffer_t qahw_buffer;
       memset(&qahw_buffer, 0, sizeof(qahw_out_buffer_t));
-      qahw_buffer.buffer = reinterpret_cast<uint8_t*>(buffer.data) +
-                           bytes_written;
-      qahw_buffer.bytes = buffer.size - bytes_written;
+
+      qahw_buffer.buffer = reinterpret_cast<uint8_t*>(buffer.data);
+      qahw_buffer.bytes = buffer.size;
+      qahw_buffer.offset = bytes_written;
       qahw_buffer.timestamp = &buffer.timestamp;
+
       QMMF_VERBOSE("%s() to aHAL: qahw_buffer[buffer[%p] bytes[%zu] offset[%zu] timestamp[%lld]]",
                    __func__, qahw_buffer.buffer, qahw_buffer.bytes,
                    qahw_buffer.offset, *(qahw_buffer.timestamp));

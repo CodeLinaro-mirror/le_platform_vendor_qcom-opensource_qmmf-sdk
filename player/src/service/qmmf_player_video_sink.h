@@ -67,6 +67,8 @@ namespace player {
 
 class VideoTrackSink;
 class VideoTrackDecoder;
+class AudioTrackSink;
+class AudioRawTrackSink;
 
 class VideoSink {
  public:
@@ -93,6 +95,11 @@ class VideoSink {
                                    CodecParamType param_type,
                                    void* param,
                                    uint32_t param_size);
+
+  status_t PrepareTrackAVSinkPipeline(uint32_t track_id,
+      const ::std::weak_ptr<AudioTrackSink>& audio_track_sink);
+  status_t PrepareTrackAVSinkPipeline(uint32_t track_id,
+      const ::std::weak_ptr<AudioRawTrackSink>& audio_track_sink);
 
  private:
   VideoSink();
@@ -134,6 +141,11 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
 
   void PassTrackDecoder(
       const ::std::shared_ptr<VideoTrackDecoder>& video_track_decoder);
+
+  status_t PrepareAVSinkPipeline(
+      const ::std::weak_ptr<AudioTrackSink>& audio_track_sink);
+  status_t PrepareAVSinkPipeline(
+      const ::std::weak_ptr<AudioRawTrackSink>& audio_track_sink);
 
   status_t GetBuffer(BufferDescriptor& codec_buffer,
                      void* client_data) override;
@@ -185,6 +197,8 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
   uint32_t                current_width;
   uint32_t                current_height;
   ::std::shared_ptr<VideoTrackDecoder> video_track_decoder_;
+  ::std::weak_ptr<AudioTrackSink>      audio_track_sink_;
+  ::std::weak_ptr<AudioRawTrackSink>   audio_raw_track_sink_;
 
   ::android::Vector<::qmmf::avcodec::CodecBuffer>  output_buffer_list_;
   TSQueue<::qmmf::avcodec::CodecBuffer>            output_free_buffer_queue_;
@@ -198,7 +212,10 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
   bool                    port_reconfigured_;
   uint32_t                decoded_frame_number_;
   uint64_t                last_queued_timestamp_;
-  uint64_t                seek_time_;
+  int64_t                 seek_time_;
+  int64_t                 audio_accumulated_frames_;
+  int64_t                 audio_offset_;
+  std::mutex              avsync_lock_;
 
 #ifndef DISABLE_DISPLAY
   Display*   display_;
