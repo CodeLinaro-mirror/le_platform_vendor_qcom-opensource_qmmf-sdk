@@ -24310,7 +24310,6 @@ TEST_F(RecorderGtest,
           test_info_->test_case_name(), test_info_->name());
 }
 
-#endif
 
 /*
 * SessionWith480p30FpsYUVDisplayAnd1440p60FpsEncTrackEISLCAC:
@@ -24594,6 +24593,7 @@ TEST_F(RecorderGtest,
       test_info_->test_case_name(), test_info_->name());
 }
 
+#endif
 /*
 * LowResVideo10MPJpeg422ContinuousCaptureWithLCACandEdgeSmooth:
 *     This test will test 10MP JPEG single snapshot with reprocessing
