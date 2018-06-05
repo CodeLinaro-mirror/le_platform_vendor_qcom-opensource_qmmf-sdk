@@ -139,6 +139,8 @@ void RecorderGtest::SetUp() {
   default_jpeg_quality_ = atoi(prop_val);
   property_get(PROP_CDS_THRESHOLD, prop_val, "600");
   default_cds_threshold_ = atoi(prop_val);
+  property_get(PROP_DEFAULT_EIS_MARGINS, prop_val, "1");
+  default_eis_margins_ = atoi(prop_val);
 #ifndef DISABLE_DISPLAY
   property_get(PROP_TOGGLE_DISPLAY_USAGE, prop_val, "1");
   use_display_ = (atoi(prop_val) == 0) ? false : true;
@@ -10088,15 +10090,22 @@ TEST_F(RecorderGtest, SessionWith4KEncWithLCACYUVEIS) {
     ret = recorder_.GetCameraParam(camera_id_, meta);
     if (NO_ERROR == ret) {
       uint8_t enable_lcac = 1;
-      ret = meta.update(QCAMERA3_LCAC_PROCESSING_ENABLE, &enable_lcac, 1);
-      ASSERT_TRUE(ret == NO_ERROR);
-      ret = recorder_.SetCameraParam(camera_id_, meta);
-      ASSERT_TRUE(ret == NO_ERROR);
+      meta.update(QCAMERA3_LCAC_PROCESSING_ENABLE, &enable_lcac, 1);
+
+      if (!default_eis_margins_) {
+        // Video stabilization horizontal margin.
+        float h_margin = 0.033;
+        meta.update(QCAMERA3_IS_H_MARGIN_CFG, &h_margin, 1);
+
+        // Video stabilization vertical margin.
+        float v_margin = 0.033;
+        meta.update(QCAMERA3_IS_V_MARGIN_CFG, &v_margin, 1);
+      }
+
       // Enable EIS
       uint8_t vstab_mode = ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_ON;
-      ret = meta.update(ANDROID_CONTROL_VIDEO_STABILIZATION_MODE,
-                        &vstab_mode, 1);
-      ASSERT_TRUE(ret == NO_ERROR);
+      meta.update(ANDROID_CONTROL_VIDEO_STABILIZATION_MODE, &vstab_mode, 1);
+
       ret = recorder_.SetCameraParam(camera_id_, meta);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -15632,18 +15641,28 @@ TEST_F(RecorderGtest,
                                      video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
     CameraMetadata meta;
-    // Enable EIS before Start Session
+
     ret = recorder_.GetCameraParam(camera_id_, meta);
     ASSERT_TRUE(ret == NO_ERROR);
+
+    if (!default_eis_margins_) {
+      // Video stabilization horizontal margin.
+      float h_margin = 0.10;
+      meta.update(QCAMERA3_IS_H_MARGIN_CFG, &h_margin, 1);
+
+      // Video stabilization vertical margin.
+      float v_margin = 0.10;
+      meta.update(QCAMERA3_IS_V_MARGIN_CFG, &v_margin, 1);
+    }
+
+    // Enable EIS
     uint8_t vstab_mode = ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_ON;
     meta.update(ANDROID_CONTROL_VIDEO_STABILIZATION_MODE, &vstab_mode, 1);
-    ret = recorder_.SetCameraParam(camera_id_, meta);
-    ASSERT_TRUE(ret == NO_ERROR);
 
     // Enable YUV LCAC
     uint8_t enable_lcac = 1;
     ret = meta.update(QCAMERA3_LCAC_PROCESSING_ENABLE, &enable_lcac, 1);
-    ASSERT_TRUE(ret == NO_ERROR);
+
     ret = recorder_.SetCameraParam(camera_id_, meta);
     ASSERT_TRUE(ret == NO_ERROR);
 
@@ -16275,6 +16294,16 @@ TEST_F(RecorderGtest, SessionWith1440EncWithEISAndLCACEnable) {
     ret = recorder_.GetCameraParam(camera_id_, meta);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    if (!default_eis_margins_) {
+      // Video stabilization horizontal margin.
+      float h_margin = 0.10;
+      meta.update(QCAMERA3_IS_H_MARGIN_CFG, &h_margin, 1);
+
+      // Video stabilization vertical margin.
+      float v_margin = 0.10;
+      meta.update(QCAMERA3_IS_V_MARGIN_CFG, &v_margin, 1);
+    }
+
     uint8_t vstab_mode = ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_ON;
     meta.update(ANDROID_CONTROL_VIDEO_STABILIZATION_MODE, &vstab_mode, 1);
     ret = recorder_.SetCameraParam(camera_id_, meta);
@@ -16397,6 +16426,16 @@ TEST_F(RecorderGtest, SessionWith1440EncWithEISAndLCACEnableAnd12MPSnapshot) {
     CameraMetadata meta;
     auto ret = recorder_.GetCameraParam(camera_id_, meta);
     ASSERT_TRUE(ret == NO_ERROR);
+
+    if (!default_eis_margins_) {
+      // Video stabilization horizontal margin.
+      float h_margin = 0.10;
+      meta.update(QCAMERA3_IS_H_MARGIN_CFG, &h_margin, 1);
+
+      // Video stabilization vertical margin.
+      float v_margin = 0.10;
+      meta.update(QCAMERA3_IS_V_MARGIN_CFG, &v_margin, 1);
+    }
 
     uint8_t vstab_mode = ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_ON;
     meta.update(ANDROID_CONTROL_VIDEO_STABILIZATION_MODE, &vstab_mode, 1);
@@ -19806,14 +19845,22 @@ TEST_F(RecorderGtest,
     // Enable YUV LCAC
     enable_lcac = 1;
     ret = meta.update(QCAMERA3_LCAC_PROCESSING_ENABLE, &enable_lcac, 1);
-    ASSERT_TRUE(ret == NO_ERROR);
-    ret = recorder_.SetCameraParam(camera_id_, meta);
-    ASSERT_TRUE(ret == NO_ERROR);
+
+    if (!default_eis_margins_) {
+      // Video stabilization horizontal margin.
+      float h_margin = 0.033;
+      meta.update(QCAMERA3_IS_H_MARGIN_CFG, &h_margin, 1);
+
+      // Video stabilization vertical margin.
+      float v_margin = 0.033;
+      meta.update(QCAMERA3_IS_V_MARGIN_CFG, &v_margin, 1);
+    }
 
     // Enable EIS
     vstab_mode = 1;
     vstab_mode = ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_ON;
     meta.update(ANDROID_CONTROL_VIDEO_STABILIZATION_MODE, &vstab_mode, 1);
+
     ret = recorder_.SetCameraParam(camera_id_, meta);
     ASSERT_TRUE(ret == NO_ERROR);
   }
@@ -19995,10 +20042,21 @@ TEST_F(RecorderGtest,
 
   auto status = recorder_.GetCameraParam(camera_id_, meta);
   if (NO_ERROR == status) {
+    if (!default_eis_margins_) {
+      // Video stabilization horizontal margin.
+      float h_margin = 0.033;
+      meta.update(QCAMERA3_IS_H_MARGIN_CFG, &h_margin, 1);
+
+      // Video stabilization vertical margin.
+      float v_margin = 0.033;
+      meta.update(QCAMERA3_IS_V_MARGIN_CFG, &v_margin, 1);
+    }
+
     // Enable EIS
     vstab_mode = 1;
     vstab_mode = ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_ON;
     meta.update(ANDROID_CONTROL_VIDEO_STABILIZATION_MODE, &vstab_mode, 1);
+
     ret = recorder_.SetCameraParam(camera_id_, meta);
     ASSERT_TRUE(ret == NO_ERROR);
   }
@@ -20192,20 +20250,26 @@ TEST_F(RecorderGtest,
     if (NO_ERROR == status) {
       // Enable YUV LCAC
       enable_lcac = 1;
-      ret = meta.update(QCAMERA3_LCAC_PROCESSING_ENABLE, &enable_lcac, 1);
-      ASSERT_TRUE(ret == NO_ERROR);
-      ret = recorder_.SetCameraParam(camera_id_, meta);
-      ASSERT_TRUE(ret == NO_ERROR);
+      meta.update(QCAMERA3_LCAC_PROCESSING_ENABLE, &enable_lcac, 1);
+
+      if (!default_eis_margins_) {
+        // Video stabilization horizontal margin.
+        float h_margin = 0.066;
+        meta.update(QCAMERA3_IS_H_MARGIN_CFG, &h_margin, 1);
+
+        // Video stabilization vertical margin.
+        float v_margin = 0.066;
+        meta.update(QCAMERA3_IS_V_MARGIN_CFG, &v_margin, 1);
+      }
 
       // Enable EIS
       vstab_mode = ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_ON;
       meta.update(ANDROID_CONTROL_VIDEO_STABILIZATION_MODE, &vstab_mode, 1);
-      ret = recorder_.SetCameraParam(camera_id_, meta);
-      ASSERT_TRUE(ret == NO_ERROR);
 
       tnr_mode = ANDROID_NOISE_REDUCTION_MODE_HIGH_QUALITY;
       TEST_INFO("%s: Enable TNR mode(%d)", __func__, tnr_mode);
       meta.update(ANDROID_NOISE_REDUCTION_MODE, &tnr_mode, 1);
+
       status = recorder_.SetCameraParam(camera_id_, meta);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -20392,14 +20456,22 @@ TEST_F(RecorderGtest,
     auto status = recorder_.GetCameraParam(camera_id_, meta);
     if (NO_ERROR == status) {
       enable_lcac = 1;
-      ret = meta.update(QCAMERA3_LCAC_PROCESSING_ENABLE, &enable_lcac, 1);
-      ASSERT_TRUE(ret == NO_ERROR);
-      ret = recorder_.SetCameraParam(camera_id_, meta);
-      ASSERT_TRUE(ret == NO_ERROR);
+      meta.update(QCAMERA3_LCAC_PROCESSING_ENABLE, &enable_lcac, 1);
+
+      if (!default_eis_margins_) {
+        // Video stabilization horizontal margin.
+        float h_margin = 0.066;
+        meta.update(QCAMERA3_IS_H_MARGIN_CFG, &h_margin, 1);
+
+        // Video stabilization vertical margin.
+        float v_margin = 0.066;
+        meta.update(QCAMERA3_IS_V_MARGIN_CFG, &v_margin, 1);
+      }
 
       // Enable EIS
       vstab_mode = ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_ON;
       meta.update(ANDROID_CONTROL_VIDEO_STABILIZATION_MODE, &vstab_mode, 1);
+
       ret = recorder_.SetCameraParam(camera_id_, meta);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -20584,6 +20656,16 @@ TEST_F(RecorderGtest,
 
     auto status = recorder_.GetCameraParam(camera_id_, meta);
     if (NO_ERROR == status) {
+      if (!default_eis_margins_) {
+        // Video stabilization horizontal margin.
+        float h_margin = 0.066;
+        meta.update(QCAMERA3_IS_H_MARGIN_CFG, &h_margin, 1);
+
+        // Video stabilization vertical margin.
+        float v_margin = 0.066;
+        meta.update(QCAMERA3_IS_V_MARGIN_CFG, &v_margin, 1);
+      }
+
       // Enable EIS
       vstab_mode = ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_ON;
       meta.update(ANDROID_CONTROL_VIDEO_STABILIZATION_MODE, &vstab_mode, 1);
@@ -20888,6 +20970,16 @@ TEST_F(RecorderGtest, SessionWith1440p60FPSEncEIS) {
 
     auto status = recorder_.GetCameraParam(camera_id_, meta);
     if (NO_ERROR == status) {
+      if (!default_eis_margins_) {
+        // Video stabilization horizontal margin.
+        float h_margin = 0.066;
+        meta.update(QCAMERA3_IS_H_MARGIN_CFG, &h_margin, 1);
+
+        // Video stabilization vertical margin.
+        float v_margin = 0.066;
+        meta.update(QCAMERA3_IS_V_MARGIN_CFG, &v_margin, 1);
+      }
+
       // Enable EIS
       vstab_mode = ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_ON;
       meta.update(ANDROID_CONTROL_VIDEO_STABILIZATION_MODE, &vstab_mode, 1);
@@ -21011,10 +21103,17 @@ TEST_F(RecorderGtest, SessionWith1440p60FPSEncEISLCAC) {
     if (NO_ERROR == status) {
       // Enable YUV LCAC
       enable_lcac = 1;
-      ret = meta.update(QCAMERA3_LCAC_PROCESSING_ENABLE, &enable_lcac, 1);
-      ASSERT_TRUE(ret == NO_ERROR);
-      ret = recorder_.SetCameraParam(camera_id_, meta);
-      ASSERT_TRUE(ret == NO_ERROR);
+      meta.update(QCAMERA3_LCAC_PROCESSING_ENABLE, &enable_lcac, 1);
+
+      if (!default_eis_margins_) {
+        // Video stabilization horizontal margin.
+        float h_margin = 0.066;
+        meta.update(QCAMERA3_IS_H_MARGIN_CFG, &h_margin, 1);
+
+        // Video stabilization vertical margin.
+        float v_margin = 0.066;
+        meta.update(QCAMERA3_IS_V_MARGIN_CFG, &v_margin, 1);
+      }
 
       // Enable EIS
       vstab_mode = ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_ON;
@@ -21140,16 +21239,21 @@ TEST_F(RecorderGtest, SessionWith1440p60FPSEncEISLCACTNR) {
     if (NO_ERROR == status) {
       // Enable YUV LCAC
       enable_lcac = 1;
-      ret = meta.update(QCAMERA3_LCAC_PROCESSING_ENABLE, &enable_lcac, 1);
-      ASSERT_TRUE(ret == NO_ERROR);
-      ret = recorder_.SetCameraParam(camera_id_, meta);
-      ASSERT_TRUE(ret == NO_ERROR);
+      meta.update(QCAMERA3_LCAC_PROCESSING_ENABLE, &enable_lcac, 1);
+
+      if (!default_eis_margins_) {
+        // Video stabilization horizontal margin.
+        float h_margin = 0.066;
+        meta.update(QCAMERA3_IS_H_MARGIN_CFG, &h_margin, 1);
+
+        // Video stabilization vertical margin.
+        float v_margin = 0.066;
+        meta.update(QCAMERA3_IS_V_MARGIN_CFG, &v_margin, 1);
+      }
 
       // Enable EIS
       vstab_mode = ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_ON;
       meta.update(ANDROID_CONTROL_VIDEO_STABILIZATION_MODE, &vstab_mode, 1);
-      ret = recorder_.SetCameraParam(camera_id_, meta);
-      ASSERT_TRUE(ret == NO_ERROR);
 
       // Enable TNR.
       tnr_mode = ANDROID_NOISE_REDUCTION_MODE_HIGH_QUALITY;
@@ -21498,20 +21602,26 @@ TEST_F(RecorderGtest,
     auto status = recorder_.GetCameraParam(camera_id_, meta);
     if (NO_ERROR == status) {
       enable_lcac = 1;
-      ret = meta.update(QCAMERA3_LCAC_PROCESSING_ENABLE, &enable_lcac, 1);
-      ASSERT_TRUE(ret == NO_ERROR);
-      ret = recorder_.SetCameraParam(camera_id_, meta);
-      ASSERT_TRUE(ret == NO_ERROR);
+      meta.update(QCAMERA3_LCAC_PROCESSING_ENABLE, &enable_lcac, 1);
+
+      if (!default_eis_margins_) {
+        // Video stabilization horizontal margin.
+        float h_margin = 0.066;
+        meta.update(QCAMERA3_IS_H_MARGIN_CFG, &h_margin, 1);
+
+        // Video stabilization vertical margin.
+        float v_margin = 0.066;
+        meta.update(QCAMERA3_IS_V_MARGIN_CFG, &v_margin, 1);
+      }
 
       // Enable EIS
       vstab_mode = ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_ON;
       meta.update(ANDROID_CONTROL_VIDEO_STABILIZATION_MODE, &vstab_mode, 1);
-      ret = recorder_.SetCameraParam(camera_id_, meta);
-      ASSERT_TRUE(ret == NO_ERROR);
 
       tnr_mode = ANDROID_NOISE_REDUCTION_MODE_HIGH_QUALITY;
       TEST_INFO("%s: Enable TNR mode(%d)", __func__, tnr_mode);
       meta.update(ANDROID_NOISE_REDUCTION_MODE, &tnr_mode, 1);
+
       status = recorder_.SetCameraParam(camera_id_, meta);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -21713,23 +21823,28 @@ TEST_F(RecorderGtest,
     auto status = recorder_.GetCameraParam(camera_id_, meta);
     if (NO_ERROR == status) {
       enable_lcac = 1;
-      ret = meta.update(QCAMERA3_LCAC_PROCESSING_ENABLE, &enable_lcac, 1);
-      ASSERT_TRUE(ret == NO_ERROR);
-      ret = recorder_.SetCameraParam(camera_id_, meta);
-      ASSERT_TRUE(ret == NO_ERROR);
+      meta.update(QCAMERA3_LCAC_PROCESSING_ENABLE, &enable_lcac, 1);
+
+      if (!default_eis_margins_) {
+        // Video stabilization horizontal margin.
+        float h_margin = 0.066;
+        meta.update(QCAMERA3_IS_H_MARGIN_CFG, &h_margin, 1);
+
+        // Video stabilization vertical margin.
+        float v_margin = 0.066;
+        meta.update(QCAMERA3_IS_V_MARGIN_CFG, &v_margin, 1);
+      }
 
       // Enable EIS
       vstab_mode = ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_ON;
       meta.update(ANDROID_CONTROL_VIDEO_STABILIZATION_MODE, &vstab_mode, 1);
-      ret = recorder_.SetCameraParam(camera_id_, meta);
-      ASSERT_TRUE(ret == NO_ERROR);
 
       tnr_mode = ANDROID_NOISE_REDUCTION_MODE_HIGH_QUALITY;
       TEST_INFO("%s: Enable TNR mode(%d)", __func__, tnr_mode);
       meta.update(ANDROID_NOISE_REDUCTION_MODE, &tnr_mode, 1);
+
       status = recorder_.SetCameraParam(camera_id_, meta);
       ASSERT_TRUE(ret == NO_ERROR);
-
     }
 
     if (use_display_) {
@@ -21924,13 +22039,21 @@ TEST_F(RecorderGtest,
   if (NO_ERROR == status) {
     enable_lcac = 1;
     ret = meta.update(QCAMERA3_LCAC_PROCESSING_ENABLE, &enable_lcac, 1);
-    ASSERT_TRUE(ret == NO_ERROR);
-    ret = recorder_.SetCameraParam(camera_id_, meta);
-    ASSERT_TRUE(ret == NO_ERROR);
+
+    if (!default_eis_margins_) {
+      // Video stabilization horizontal margin.
+      float h_margin = 0.033;
+      meta.update(QCAMERA3_IS_H_MARGIN_CFG, &h_margin, 1);
+
+      // Video stabilization vertical margin.
+      float v_margin = 0.033;
+      meta.update(QCAMERA3_IS_V_MARGIN_CFG, &v_margin, 1);
+    }
 
     // Enable EIS
     vstab_mode = ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_ON;
     meta.update(ANDROID_CONTROL_VIDEO_STABILIZATION_MODE, &vstab_mode, 1);
+
     ret = recorder_.SetCameraParam(camera_id_, meta);
     ASSERT_TRUE(ret == NO_ERROR);
   }
@@ -22134,21 +22257,27 @@ TEST_F(RecorderGtest,
     auto status = recorder_.GetCameraParam(camera_id_, meta);
     if (NO_ERROR == status) {
       enable_lcac = 1;
-      ret = meta.update(QCAMERA3_LCAC_PROCESSING_ENABLE, &enable_lcac, 1);
-      ASSERT_TRUE(ret == NO_ERROR);
-      ret = recorder_.SetCameraParam(camera_id_, meta);
-      ASSERT_TRUE(ret == NO_ERROR);
+      meta.update(QCAMERA3_LCAC_PROCESSING_ENABLE, &enable_lcac, 1);
+
+      if (!default_eis_margins_) {
+        // Video stabilization horizontal margin.
+        float h_margin = 0.10;
+        meta.update(QCAMERA3_IS_H_MARGIN_CFG, &h_margin, 1);
+
+        // Video stabilization vertical margin.
+        float v_margin = 0.10;
+        meta.update(QCAMERA3_IS_V_MARGIN_CFG, &v_margin, 1);
+      }
 
       // Enable EIS
       vstab_mode = ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_ON;
       meta.update(ANDROID_CONTROL_VIDEO_STABILIZATION_MODE, &vstab_mode, 1);
-      ret = recorder_.SetCameraParam(camera_id_, meta);
-      ASSERT_TRUE(ret == NO_ERROR);
 
       // Enable TNR
       tnr_mode = ANDROID_NOISE_REDUCTION_MODE_HIGH_QUALITY;
       TEST_INFO("%s: Enable TNR mode(%d)", __func__, tnr_mode);
       meta.update(ANDROID_NOISE_REDUCTION_MODE, &tnr_mode, 1);
+
       status = recorder_.SetCameraParam(camera_id_, meta);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -22349,10 +22478,17 @@ TEST_F(RecorderGtest,
     auto status = recorder_.GetCameraParam(camera_id_, meta);
     if (NO_ERROR == status) {
       enable_lcac = 1;
-      ret = meta.update(QCAMERA3_LCAC_PROCESSING_ENABLE, &enable_lcac, 1);
-      ASSERT_TRUE(ret == NO_ERROR);
-      ret = recorder_.SetCameraParam(camera_id_, meta);
-      ASSERT_TRUE(ret == NO_ERROR);
+      meta.update(QCAMERA3_LCAC_PROCESSING_ENABLE, &enable_lcac, 1);
+
+      if (!default_eis_margins_) {
+        // Video stabilization horizontal margin.
+        float h_margin = 0.10;
+        meta.update(QCAMERA3_IS_H_MARGIN_CFG, &h_margin, 1);
+
+        // Video stabilization vertical margin.
+        float v_margin = 0.10;
+        meta.update(QCAMERA3_IS_V_MARGIN_CFG, &v_margin, 1);
+      }
 
       // Enable EIS
       vstab_mode = ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_ON;
@@ -23610,7 +23746,7 @@ TEST_F(RecorderGtest,
     track_ids.push_back(video_track_id_480p_yuv);
     sessions_.insert(std::make_pair(session_id, track_ids));
 
-    ret = SetCameraFocalLength(6.0);
+    ret = SetCameraFocalLength(7.0);
     ASSERT_TRUE(ret == NO_ERROR);
 
     if (use_display_) {
@@ -23922,21 +24058,30 @@ TEST_F(RecorderGtest,
     track_ids.push_back(video_track_id_480p_yuv);
     sessions_.insert(std::make_pair(session_id, track_ids));
 
-    ret = SetCameraFocalLength(6.0);
-    ASSERT_TRUE(ret == NO_ERROR);
-
     // Enable YUV LCAC
     auto status = recorder_.GetCameraParam(camera_id_, meta);
     if (NO_ERROR == status) {
       enable_lcac = 1;
-      ret = meta.update(QCAMERA3_LCAC_PROCESSING_ENABLE, &enable_lcac, 1);
-      ASSERT_TRUE(ret == NO_ERROR);
-      ret = recorder_.SetCameraParam(camera_id_, meta);
-      ASSERT_TRUE(ret == NO_ERROR);
+      meta.update(QCAMERA3_LCAC_PROCESSING_ENABLE, &enable_lcac, 1);
+
+      // Set sensor mode via focal lenth
+      float focal_length = 6.0;
+      meta.update(ANDROID_LENS_FOCAL_LENGTH, &focal_length, 1);
+
+      if (!default_eis_margins_) {
+        // Video stabilization horizontal margin.
+        float h_margin = 0.11;
+        meta.update(QCAMERA3_IS_H_MARGIN_CFG, &h_margin, 1);
+
+        // Video stabilization vertical margin.
+        float v_margin = 0.11;
+        meta.update(QCAMERA3_IS_V_MARGIN_CFG, &v_margin, 1);
+      }
 
       // Enable EIS
       vstab_mode = ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_ON;
       meta.update(ANDROID_CONTROL_VIDEO_STABILIZATION_MODE, &vstab_mode, 1);
+
       ret = recorder_.SetCameraParam(camera_id_, meta);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -24095,17 +24240,25 @@ TEST_F(RecorderGtest,
     track_ids.push_back(video_track_id_480p_yuv);
     sessions_.insert(std::make_pair(session_id, track_ids));
 
-    ret = SetCameraFocalLength(6.0);
-    ASSERT_TRUE(ret == NO_ERROR);
-
     // Enable YUV LCAC
     auto status = recorder_.GetCameraParam(camera_id_, meta);
     if (NO_ERROR == status) {
       enable_lcac = 1;
-      ret = meta.update(QCAMERA3_LCAC_PROCESSING_ENABLE, &enable_lcac, 1);
-      ASSERT_TRUE(ret == NO_ERROR);
-      ret = recorder_.SetCameraParam(camera_id_, meta);
-      ASSERT_TRUE(ret == NO_ERROR);
+      meta.update(QCAMERA3_LCAC_PROCESSING_ENABLE, &enable_lcac, 1);
+
+      // Set sensor mode via focal lenth
+      float focal_length = 7.0;
+      meta.update(ANDROID_LENS_FOCAL_LENGTH, &focal_length, 1);
+
+      if (!default_eis_margins_) {
+        // Video stabilization horizontal margin.
+        float h_margin = 0.11;
+        meta.update(QCAMERA3_IS_H_MARGIN_CFG, &h_margin, 1);
+
+        // Video stabilization vertical margin.
+        float v_margin = 0.11;
+        meta.update(QCAMERA3_IS_V_MARGIN_CFG, &v_margin, 1);
+      }
 
       // Enable EIS
       vstab_mode = ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_ON;
@@ -24157,10 +24310,9 @@ TEST_F(RecorderGtest,
           test_info_->test_case_name(), test_info_->name());
 }
 
-#endif
 
 /*
-* SessionWith480p30FpsYUVAnd1440p60FpsEncTrackEISLCAC:
+* SessionWith480p30FpsYUVDisplayAnd1440p60FpsEncTrackEISLCAC:
 *     This test will test session with one 640x480 30fps YUV track. After some
 *     time a 1440p h264 encoded track at 60 fps will be added to the session
 *     and both tracks will be ran together. Both have LCAC and EIS enabled.
@@ -24171,17 +24323,22 @@ TEST_F(RecorderGtest,
 *  - CreateVideoTrack 480p@30fps
 *  - StartSession
 *  - StopSession
+*  - DeleteVideoTrack 480p@30fps
 *  - CreateVideoTrack 1440p@60fps
+*  - CreateVideoTrack 480p@30fps Linked
 *  - StartSession
 *  - StopSession
+*  - DeleteVideoTrack 480p@30fps Linked
 *  - DeleteVideoTrack 1440p@60fps
+*  - CreateVideoTrack 480p@30fps
 *  - StartSession
 *  - StopSession
 *  - DeleteVideoTrack 480p@30fps
 *  - DeleteSession
 *  - StopCamera
 */
-TEST_F(RecorderGtest, SessionWith480p30FpsYUVAnd1440p60FpsEncTrackEISLCAC) {
+TEST_F(RecorderGtest,
+       SessionWith480p30FpsYUVDisplayAnd1440p60FpsEncTrackEISLCAC) {
   fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
       test_info_->test_case_name(),test_info_->name());
 
@@ -24250,6 +24407,11 @@ TEST_F(RecorderGtest, SessionWith480p30FpsYUVAnd1440p60FpsEncTrackEISLCAC) {
     ret = recorder_.SetCameraParam(camera_id_, meta);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    if (use_display_) {
+      ret = StartDisplay(DisplayType::kPrimary, 640, 480, 480, 360);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
     ret = recorder_.StartSession(session_id);
     ASSERT_TRUE(ret == NO_ERROR);
 
@@ -24258,16 +24420,16 @@ TEST_F(RecorderGtest, SessionWith480p30FpsYUVAnd1440p60FpsEncTrackEISLCAC) {
     ret = recorder_.StopSession(session_id, false);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    ret = recorder_.GetCameraParam(camera_id_, meta);
+    if (use_display_) {
+      ret = StopDisplay(DisplayType::kPrimary);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
+    ret = recorder_.DeleteVideoTrack(session_id, track_480p_id);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    // Set sensor mode via focal lenth
-    focal_length = 4.0;
-    meta.update(ANDROID_LENS_FOCAL_LENGTH, &focal_length, 1);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    ret = recorder_.SetCameraParam(camera_id_, meta);
-    ASSERT_TRUE(ret == NO_ERROR);
+    track_ids.clear();
+    sessions_.clear();
 
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = {
@@ -24300,8 +24462,50 @@ TEST_F(RecorderGtest, SessionWith480p30FpsYUVAnd1440p60FpsEncTrackEISLCAC) {
                                      video_track_param, video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+                                std::vector<BufferDescriptor> buffers,
+                                std::vector<MetaData> meta_buffers) {
+      VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers); };
+
+    video_track_cb.event_cb =
+        [this] (uint32_t track_id, EventType event_type,
+                void *event_data, size_t event_data_size) -> void {
+        VideoTrackEventCb(track_id, event_type, event_data, event_data_size); };
+
+    video_track_param.width  = 640;
+    video_track_param.height = 480;
+    video_track_param.frame_rate = 30;
+    video_track_param.format_type = VideoFormat::kYUV;
+
+    VideoExtraParam extra_param;
+    SourceVideoTrack source_track;
+    source_track.source_track_id = track_1440p_id;
+    extra_param.Update(QMMF_SOURCE_VIDEO_TRACK_ID, source_track);
+
+    ret = recorder_.CreateVideoTrack(session_id, track_480p_id,
+                                     video_track_param, extra_param,
+                                     video_track_cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    track_ids.push_back(track_480p_id);
     track_ids.push_back(track_1440p_id);
     sessions_.insert(std::make_pair(session_id, track_ids));
+
+    ret = recorder_.GetCameraParam(camera_id_, meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    // Set sensor mode via focal lenth
+    focal_length = 4.0;
+    meta.update(ANDROID_LENS_FOCAL_LENGTH, &focal_length, 1);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.SetCameraParam(camera_id_, meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    if (use_display_) {
+      ret = StartDisplay(DisplayType::kPrimary, 640, 480, 480, 360);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
 
     ret = recorder_.StartSession(session_id);
     ASSERT_TRUE(ret == NO_ERROR);
@@ -24311,7 +24515,34 @@ TEST_F(RecorderGtest, SessionWith480p30FpsYUVAnd1440p60FpsEncTrackEISLCAC) {
     ret = recorder_.StopSession(session_id, false);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    if (use_display_) {
+      ret = StopDisplay(DisplayType::kPrimary);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
+    ret = recorder_.DeleteVideoTrack(session_id, track_480p_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
     ret = recorder_.DeleteVideoTrack(session_id, track_1440p_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+                                std::vector<BufferDescriptor> buffers,
+                                std::vector<MetaData> meta_buffers) {
+      VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers); };
+
+    video_track_cb.event_cb =
+        [this] (uint32_t track_id, EventType event_type,
+                void *event_data, size_t event_data_size) -> void {
+        VideoTrackEventCb(track_id, event_type, event_data, event_data_size); };
+
+    video_track_param.width  = 640;
+    video_track_param.height = 480;
+    video_track_param.frame_rate = 30;
+    video_track_param.format_type = VideoFormat::kYUV;
+
+    ret = recorder_.CreateVideoTrack(session_id, track_480p_id,
+                                     video_track_param, video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.GetCameraParam(camera_id_, meta);
@@ -24325,6 +24556,11 @@ TEST_F(RecorderGtest, SessionWith480p30FpsYUVAnd1440p60FpsEncTrackEISLCAC) {
     ret = recorder_.SetCameraParam(camera_id_, meta);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    if (use_display_) {
+      ret = StartDisplay(DisplayType::kPrimary, 640, 480, 480, 360);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
     ret = recorder_.StartSession(session_id);
     ASSERT_TRUE(ret == NO_ERROR);
 
@@ -24332,6 +24568,11 @@ TEST_F(RecorderGtest, SessionWith480p30FpsYUVAnd1440p60FpsEncTrackEISLCAC) {
 
     ret = recorder_.StopSession(session_id, false);
     ASSERT_TRUE(ret == NO_ERROR);
+
+    if (use_display_) {
+      ret = StopDisplay(DisplayType::kPrimary);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
 
     ret = recorder_.DeleteVideoTrack(session_id, track_480p_id);
     ASSERT_TRUE(ret == NO_ERROR);
@@ -24352,6 +24593,7 @@ TEST_F(RecorderGtest, SessionWith480p30FpsYUVAnd1440p60FpsEncTrackEISLCAC) {
       test_info_->test_case_name(), test_info_->name());
 }
 
+#endif
 /*
 * LowResVideo10MPJpeg422ContinuousCaptureWithLCACandEdgeSmooth:
 *     This test will test 10MP JPEG single snapshot with reprocessing
