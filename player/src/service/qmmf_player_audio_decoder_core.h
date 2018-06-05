@@ -86,6 +86,8 @@ class AudioDecoderCore {
 
   status_t DeleteTrackDecoder(uint32_t track_id);
 
+  status_t SetPosition(uint32_t track_id, int64_t seek_time);
+
  private:
 
   bool isTrackValid(uint32_t track_id);
@@ -134,6 +136,8 @@ class AudioTrackDecoder : public ::qmmf::avcodec::ICodecSource {
   status_t SetAudioDecoderParams(CodecParamType param_type, void* param,
                                   uint32_t param_size);
 
+
+  status_t SetPosition(int64_t seek_time);
 
   status_t GetBuffer(BufferDescriptor& stream_buffer,
                      void* client_data) override;

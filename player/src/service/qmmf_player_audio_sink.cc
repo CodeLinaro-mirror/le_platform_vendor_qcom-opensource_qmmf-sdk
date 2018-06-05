@@ -104,11 +104,12 @@ status_t AudioSink::CreateTrackSink(uint32_t track_id,
 }
 
 const shared_ptr<AudioTrackSink>& AudioSink::GetTrackSink(uint32_t track_id) {
-  QMMF_DEBUG("%s Enter ", __func__);
+  QMMF_DEBUG("%s Enter", __func__);
   int32_t idx = audio_track_sinks.indexOfKey(track_id);
+  QMMF_DEBUG("%s track_id(%d) idx(%d)", __func__, track_id, idx);
   assert(idx >= 0);
-  return audio_track_sinks.valueFor(track_id);
   QMMF_DEBUG("%s Exit", __func__);
+  return audio_track_sinks.valueFor(track_id);
 }
 
 status_t AudioSink::StartTrackSink(uint32_t track_id) {
@@ -192,9 +193,14 @@ status_t AudioSink::SetAudioTrackSinkParams(uint32_t track_id,
 }
 
 AudioTrackSink::AudioTrackSink()
-    : end_point_(nullptr), stopplayback_(false),
-      paused_(false), decoded_frame_number_(0),
-      total_bytes_decoded_(0) {
+    : end_point_(nullptr),
+      stopplayback_(false),
+      paused_(false),
+      decoded_frame_number_(0),
+      total_bytes_decoded_(0),
+      latency_(0),
+      seek_time_(-1),
+      first_seen_timestamp_(-1) {
   QMMF_DEBUG("%s Enter ", __func__);
 
 #ifdef DUMP_PCM_DATA
@@ -264,6 +270,7 @@ status_t AudioTrackSink::Init(AudioTrackParams& track_param,
   player_callback_ = player_callback;
 
   track_params_.track_id = track_param.track_id;
+  track_params_.params = track_param.params;
 
   auto ret = ConfigureSink(track_param);
   if(ret != 0) {
@@ -285,7 +292,6 @@ status_t AudioTrackSink::ConfigureSink(AudioTrackParams& track_param) {
   QMMF_DEBUG("%s: Enter track_id(%d)", __func__, TrackId());
 
   int32_t result;
-  int32_t latency;
   std::vector<DeviceId> devices;
 
   if (end_point_ != nullptr) {
@@ -327,10 +333,10 @@ status_t AudioTrackSink::ConfigureSink(AudioTrackParams& track_param) {
   AudioMetadata metadata;
   memset(&metadata, 0x0, sizeof metadata);
 
-  metadata.format       =  AudioFormat::kPCM;
-  metadata.num_channels  = track_param.params.channels;
-  metadata.sample_rate  =  track_param.params.sample_rate;
-  metadata.sample_size  =  track_param.params.bit_depth;
+  metadata.format       = AudioFormat::kPCM;
+  metadata.num_channels = track_param.params.channels;
+  metadata.sample_rate  = track_param.params.sample_rate;
+  metadata.sample_size  = track_param.params.bit_depth;
 
   DebugAudioSinkParam(__func__, track_param);
 
@@ -340,13 +346,13 @@ status_t AudioTrackSink::ConfigureSink(AudioTrackParams& track_param) {
         TrackId());
     goto error_free;
   }
-  result = end_point_->GetLatency(&latency);
+  result = end_point_->GetLatency(&latency_);
   if (result != NO_ERROR) {
     QMMF_ERROR("%s: track_id(%d) GetLatency failed!", __func__,
         TrackId());
     goto error_free;
   }
-  QMMF_DEBUG("%s() latency is %d", __func__, latency);
+  QMMF_DEBUG("%s() latency is %d", __func__, latency_);
 
   result = end_point_->GetBufferSize(&sink_buffer_size_);
   if (result != NO_ERROR) {
@@ -380,6 +386,9 @@ status_t AudioTrackSink::StartSink() {
  if (file_fd_ == -1)
     file_fd_ = open("/data/misc/qmmf/audio_track.pcm", O_CREAT | O_WRONLY | O_TRUNC, 0655);
 #endif
+
+  seek_time_ = -1;
+  first_seen_timestamp_ = -1;
 
   auto ret = end_point_->Start();
   stopplayback_ = false;
@@ -484,6 +493,17 @@ status_t AudioTrackSink::SetAudioSinkParams(CodecParamType param_type,
   return ret;
 }
 
+status_t AudioTrackSink::SetPosition(int64_t seek_time) {
+  QMMF_DEBUG("%s: Enter track_id(%d)", __func__, TrackId());
+  std::lock_guard<std::mutex> lock(av_lock_);
+
+  seek_time_ = seek_time;
+  first_seen_timestamp_ = -1;
+
+  QMMF_DEBUG("%s: Exit track_id(%d)", __func__, TrackId());
+  return 0;
+}
+
 void AudioTrackSink::AddBufferList(Vector<CodecBuffer>& list) {
   QMMF_DEBUG("%s: Enter track_id(%d)", __func__, TrackId());
 
@@ -538,23 +558,35 @@ status_t AudioTrackSink::ReturnBuffer(BufferDescriptor& codec_buffer,
 
   assert(codec_buffer.data != nullptr);
 
-  QMMF_VERBOSE("%s: track_id(%d) Received buffer(%s) from FBD",
-               __func__, TrackId(), codec_buffer.ToString().c_str());
+  QMMF_VERBOSE("%s: track_id(%d) received buffer(%s) from FBD: decoded_frame_number[%d]",
+               __func__, TrackId(), codec_buffer.ToString().c_str(),
+               ++decoded_frame_number_);
 
+  av_lock_.lock();
+  if (seek_time_ < 0 ||
+      static_cast<int64_t>(codec_buffer.timestamp) >= seek_time_) {
+    if (!(stopplayback_ || codec_buffer.capacity == 0 || paused_)) {
+      QMMF_VERBOSE("%s: track_id(%d) sending buffer to audio endpoint",
+                   __func__, TrackId());
+
+      if (first_seen_timestamp_ < 0)
+        first_seen_timestamp_ = codec_buffer.timestamp;
 #ifdef DUMP_PCM_DATA
-  DumpPCMData(codec_buffer);
+      DumpPCMData(codec_buffer);
 #endif
 
-  if (!(stopplayback_ || codec_buffer.capacity == 0 || paused_)) {
-    QMMF_DEBUG("%s: track_id(%d) For decoded/rendered audio frame number %d timestamps is %llu ",
-               __func__, TrackId(), ++decoded_frame_number_,
-               codec_buffer.timestamp);
-    ret = FillSinkBuffer(codec_buffer);
-    if(ret < 0) {
+      ret = FillSinkBuffer(codec_buffer);
+      if(ret < 0) {
       QMMF_ERROR("%s: Fill sink buffer failed", __func__);
       return ret;
     }
+    }
+  } else {
+    QMMF_DEBUG("%s: track_id(%d) discarding buffer as seek_time[%lld] has not been reached",
+               __func__, TrackId(), seek_time_);
+
   }
+  av_lock_.unlock();
 
   std::list<CodecBuffer>::iterator it = output_occupy_buffer_queue_.Begin();
   bool found = false;
@@ -605,6 +637,7 @@ int32_t AudioTrackSink::FillSinkBuffer(BufferDescriptor& codec_buffer) {
     codec_buffer.offset), codec_buffer.size);
 
   sinkbuffers[0].size = codec_buffer.size;
+  sinkbuffers[0].capacity = codec_buffer.size;
   sinkbuffers[0].timestamp = codec_buffer.timestamp;
   sinkbuffers[0].flags = codec_buffer.flag;
 
@@ -668,6 +701,29 @@ int32_t AudioTrackSink::GetSinkBuffer(std::vector<AudioBuffer>& buffers) {
     sink_buffer_queue_.Erase(sink_buffer_queue_.Begin());
   }
   QMMF_VERBOSE("%s: Exit track_id(%d)", __func__, TrackId());
+  return NO_ERROR;
+}
+
+status_t AudioTrackSink::GetAudioPresentationTime(uint32_t* frames,
+                                                  uint32_t* rate,
+                                                  int64_t* offset) {
+  QMMF_DEBUG("%s: Enter track_id(%d)", __func__, TrackId());
+  std::lock_guard<std::mutex> lock(state_change_lock_);
+
+  uint64_t time;
+  end_point_->GetRenderedPosition(frames, &time);
+
+  *rate = track_params_.params.sample_rate;
+
+  {
+    std::lock_guard<std::mutex> lock(av_lock_);
+    *offset = first_seen_timestamp_;
+  }
+
+  QMMF_VERBOSE("%s() frames[%d] rate[%u] time[%llu] offset[%lld]",
+               __func__, *frames, *rate, time, *offset);
+
+  QMMF_DEBUG("%s: Exit track_id(%d)", __func__, TrackId());
   return NO_ERROR;
 }
 
