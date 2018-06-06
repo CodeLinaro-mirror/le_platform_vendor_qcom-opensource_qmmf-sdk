@@ -318,7 +318,6 @@ enum class TNRTuningCmd {
 };
 
 enum AutoOrWarmBootModeOptions : char {
-  kCameraId   = 'c',
   kWidth      = 'w',
   kHeight     = 'h',
   kFps        = 'f',
