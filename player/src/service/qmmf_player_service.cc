@@ -467,6 +467,15 @@ status_t PlayerService::CreateVideoTrack(
   if (!connected_)
     return NO_INIT;
 
+  // for 4k resolution, disable split mode set to 1
+  {
+    if (param.height >= 2160 && param.width >= 3840) {
+      property_set("vidc.disable.split.mode", "1");
+    } else {
+      property_set("vidc.disable.split.mode", "0");
+    }
+  }
+
   QMMF_VERBOSE("%s INPARAM: track_id[%u]", __func__, track_id);
   assert(player_ != nullptr);
 
