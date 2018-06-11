@@ -6,7 +6,6 @@ libcamera_adaptor_la_SOURCES += qmmf_camera3_monitor.cc
 libcamera_adaptor_la_SOURCES += qmmf_camera3_request_handler.cc
 libcamera_adaptor_la_SOURCES += qmmf_camera3_prepare_handler.cc
 libcamera_adaptor_la_SOURCES += qmmf_camera3_stream.cc
-libcamera_adaptor_la_SOURCES += qmmf_camera3_thread.cc
 libcamera_adaptor_la_SOURCES += qmmf_camera3_utils.cc
 libcamera_adaptor_la_SOURCES += qmmf_camera3_smooth_zoom.cc
 
@@ -19,6 +18,7 @@ libcamera_adaptor_la_LDFLAGS  += -lcamera_metadata -lpthread -ldl -llog
 if TARGET_USES_GBM
 libcamera_adaptor_la_LDFLAGS  += -lgbm
 endif
+libcamera_adaptor_la_LDFLAGS  += ../../common/utils/libqmmf_utils.la
 
 camera_adaptordir=$(includedir)
 camera_adaptor_HEADERS = qmmf_camera3_types.h

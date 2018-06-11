@@ -26,7 +26,8 @@
 
 #include "qmmf_camera3_types.h"
 #include "qmmf_camera3_internal_types.h"
-#include "qmmf_camera3_thread.h"
+
+#include "common/utils/qmmf_thread.h"
 
 using namespace android;
 
@@ -36,7 +37,7 @@ namespace cameraadaptor {
 
 class Camera3Stream;
 
-class Camera3PrepareHandler : public Camera3Thread {
+class Camera3PrepareHandler : public ThreadHelper {
  public:
   Camera3PrepareHandler();
   virtual ~Camera3PrepareHandler();

@@ -38,7 +38,7 @@
 
 #include "common/cameraadaptor/qmmf_camera3_types.h"
 #include "common/cameraadaptor/qmmf_camera3_internal_types.h"
-#include "common/cameraadaptor/qmmf_camera3_thread.h"
+#include "common/utils/qmmf_thread.h"
 
 using namespace android;
 

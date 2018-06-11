@@ -54,7 +54,7 @@ namespace recorder {
 
 using namespace reprocjpegencoder;
 
-class CameraJpeg : public Camera3Thread,
+class CameraJpeg : public ThreadHelper,
                    public ICameraPostProcess,
                    public exif::ExifGenerator,
                    public ExifConverter {

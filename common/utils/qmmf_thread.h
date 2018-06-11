@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016, 2018, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -27,42 +27,51 @@
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef CAMERA3THREAD_H_
-#define CAMERA3THREAD_H_
+#pragma once
 
-#include <pthread.h>
-#include <utils/String8.h>
-
-using namespace android;
+#include <cstdint>
+#include <thread>
+#include <string>
+#include <mutex>
 
 namespace qmmf {
 
-namespace cameraadaptor {
+class ThreadHelper {
+ private:
+  enum class ThreadHelperState {
+    kActive,
+    kToIdle,
+    kIdle,
+  };
 
-class Camera3Thread {
  public:
-  Camera3Thread();
-  virtual ~Camera3Thread();
+  ThreadHelper() : state_(ThreadHelperState::kIdle) {}
 
-  int32_t Run(const char *name);
+  virtual ~ThreadHelper() { RequestExitAndWait(); }
+
+  int32_t Run(const std::string& name);
+
   virtual void RequestExit();
   virtual void RequestExitAndWait();
-  bool ExitPending();
+
+  bool ExitPending() { return IsState(ThreadHelperState::kToIdle); };
 
  protected:
   virtual bool ThreadLoop() = 0;
 
  private:
-  static void *MainLoop(void *userdata);
+  void ChangeState(const ThreadHelperState& state);
+  bool IsState(const ThreadHelperState& state);
 
-  pthread_mutex_t thread_lock_;
-  pthread_t pid_;
-  bool running_;
-  String8 name_;
+  void MainLoop(bool active = true);
+
+  std::string              name_;
+  std::thread              thread_;
+
+  ThreadHelperState        state_;
+  std::mutex               state_lock_;
+
+  std::mutex               lock_;
 };
 
-}  // namespace cameraadaptor ends here
-
-}  // namespace qmmf ends here
-
-#endif /* CAMERA3THREAD_H_ */
+};  // namespace qmmf.

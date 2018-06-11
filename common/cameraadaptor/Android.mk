@@ -27,11 +27,11 @@ LOCAL_SRC_FILES += qmmf_camera3_monitor.cc
 LOCAL_SRC_FILES += qmmf_camera3_request_handler.cc
 LOCAL_SRC_FILES += qmmf_camera3_prepare_handler.cc
 LOCAL_SRC_FILES += qmmf_camera3_stream.cc
-LOCAL_SRC_FILES += qmmf_camera3_thread.cc
 LOCAL_SRC_FILES += qmmf_camera3_utils.cc
 LOCAL_SRC_FILES += qmmf_camera3_smooth_zoom.cc
 
-LOCAL_SHARED_LIBRARIES += libcamera_metadata libhardware libcamera_client
+LOCAL_SHARED_LIBRARIES += libcamera_metadata libhardware
+LOCAL_SHARED_LIBRARIES += libqmmf_utils libcamera_client
 ifeq ($(TARGET_USES_GRALLOC1), true)
 LOCAL_STATIC_LIBRARIES += libgrallocusage
 endif

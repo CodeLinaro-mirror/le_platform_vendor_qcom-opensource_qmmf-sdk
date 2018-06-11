@@ -173,15 +173,17 @@ void Camera3RequestHandler::TogglePause(bool pause, bool &pending_request) {
 }
 
 void Camera3RequestHandler::RequestExit() {
-  Camera3Thread::RequestExit();
+  ThreadHelper::RequestExit();
 
   pthread_cond_signal(&toggle_pause_signal_);
   pthread_cond_signal(&requests_signal_);
 }
 
 void Camera3RequestHandler::RequestExitAndWait() {
-  RequestExit();
-  Camera3Thread::RequestExitAndWait();
+  pthread_cond_signal(&toggle_pause_signal_);
+  pthread_cond_signal(&requests_signal_);
+
+  ThreadHelper::RequestExitAndWait();
 }
 
 bool Camera3RequestHandler::ThreadLoop() {
@@ -189,12 +191,16 @@ bool Camera3RequestHandler::ThreadLoop() {
 
   if (WaitOnPause()) {
     return true;
+  } else if (ExitPending()) {
+    return false;
   }
 
   CaptureRequest nextRequest;
   res = GetRequest(nextRequest);
   if (0 != res) {
     return true;
+  } else if (ExitPending()) {
+    return false;
   }
 
   camera3_capture_request_t request = camera3_capture_request_t();

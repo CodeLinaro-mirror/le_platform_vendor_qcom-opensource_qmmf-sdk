@@ -99,18 +99,14 @@ Camera3DeviceClient::Camera3DeviceClient(CameraClientCallbacks clientCb)
 }
 
 Camera3DeviceClient::~Camera3DeviceClient() {
-  if (!request_handler_.ExitPending()) {
-    request_handler_.RequestExitAndWait();
-  }
+  request_handler_.RequestExit();
 
   if (NULL != device_) {
     device_->common.close(&device_->common);
   }
 
   prepare_handler_.Clear();
-  if (!prepare_handler_.ExitPending()) {
-    prepare_handler_.RequestExit();
-  }
+  prepare_handler_.RequestExit();
 
   for (uint32_t i = 0; i < streams_.size(); i++) {
     Camera3Stream *stream = streams_.editValueAt(i);
@@ -127,9 +123,7 @@ Camera3DeviceClient::~Camera3DeviceClient() {
   }
   deleted_streams_.clear();
 
-  if (!monitor_.ExitPending()) {
-    monitor_.RequestExit();
-  }
+  monitor_.RequestExit();
 
   if (nullptr != alloc_device_interface_) {
     delete alloc_device_interface_;
@@ -288,7 +282,8 @@ exit:
 
 int32_t Camera3DeviceClient::OpenCamera(uint32_t idx) {
   int32_t res = 0;
-  String8 Id;
+  std::string name;
+  std::string id;
   camera_metadata_entry_t capsEntry;
   MarkRequest mark_cb = [&] (uint32_t frameNumber, int32_t numBuffers,
                                  CaptureResultExtras resultExtras) {
@@ -327,8 +322,8 @@ int32_t Camera3DeviceClient::OpenCamera(uint32_t idx) {
   }
   device_info_ = static_info_.static_camera_characteristics;
 
-  Id.appendFormat("%d", idx);
-  res = camera_module_->common.methods->open(&camera_module_->common, Id.string(),
+  id = std::to_string(idx);
+  res = camera_module_->common.methods->open(&camera_module_->common, id.c_str(),
                                             (hw_device_t **)(&device_));
   if (0 != res) {
     QMMF_ERROR("Could not open camera: %s (%d) \n", strerror(-res), res);
@@ -372,15 +367,19 @@ int32_t Camera3DeviceClient::OpenCamera(uint32_t idx) {
   id_ = idx;
   state_ = STATE_NOT_CONFIGURED;
 
+  name = "C3-" + id + "-Monitor";
+
   monitor_.SetIdleNotifyCb([&] (bool idle) {NotifyStatus(idle);});
-  monitor_.Run(String8::format("C3-%d-Monitor", id_).string());
+  monitor_.Run(name);
   if (0 != res) {
     SET_ERR_L("Unable to start monitor: %s (%d)", strerror(-res), res);
     goto exit;
   }
 
+  name = "C3-" + id + "-Handler";
+
   request_handler_.Initialize(device_, client_cb_.errorCb, mark_cb, set_error);
-  res = request_handler_.Run(String8::format("C3-%d-Handler", id_).string());
+  res = request_handler_.Run(name);
   if (0 > res) {
     SET_ERR_L("Unable to start request handler: %s (%d)", strerror(-res), res);
     goto exit;

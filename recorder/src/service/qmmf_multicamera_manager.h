@@ -243,7 +243,7 @@ class GrallocMemory {
   static const uint32_t kBufferWaitTimeout = 1000000000; // 1 s.
 };
 
-class StitchingBase : public Camera3Thread {
+class StitchingBase : public ThreadHelper {
  public:
   struct InitParams {
     uint32_t                       multicam_id;

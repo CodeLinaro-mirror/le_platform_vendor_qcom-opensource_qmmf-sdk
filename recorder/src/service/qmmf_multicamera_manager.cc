@@ -1437,7 +1437,7 @@ int32_t StitchingBase::Run() {
 
   std::lock_guard<std::mutex> lock(frame_lock_);
   stop_frame_sync_ = false;
-  return Camera3Thread::Run(work_thread_name_.c_str());
+  return ThreadHelper::Run(work_thread_name_);
 }
 
 void StitchingBase::RequestExitAndWait() {
@@ -1477,7 +1477,7 @@ bool StitchingBase::ThreadLoop() {
           }
           std::lock_guard<std::mutex> lock(manager_->lock_);
           stop_frame_sync_ = true;
-          Camera3Thread::RequestExit();
+          ThreadHelper::RequestExit();
 
           --manager_->sequence_cnt_;
           manager_->capture_done_.Signal();
@@ -1701,7 +1701,7 @@ status_t StitchingBase::StopFrameSync() {
   }
   // We need to wait thread to exit to avoid ace between
   // flush and ongoing processing in the thread
-  Camera3Thread::RequestExitAndWait();
+  ThreadHelper::RequestExitAndWait();
 
   // Return all unsynced buffers back to the camera contexts.
   for (auto const& camera_id : params_.camera_ids) {
