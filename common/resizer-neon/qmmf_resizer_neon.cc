@@ -37,6 +37,8 @@
 
 #include "qmmf_resizer_neon.h"
 
+uint32_t qmmf_log_level;
+
 namespace qmmf {
 
 NEONResizer::NEONResizer()
