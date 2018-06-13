@@ -566,6 +566,10 @@ status_t AVCodec::ConfigureVideoEncoder(CodecParam& codec_param) {
   InitOMXParams(&param_aud);
   param_aud.bEnable = OMX_FALSE;
 
+  OMX_QCOM_VIDEO_PARAM_VUI_TIMING_INFO vui_timing_info;
+  InitOMXParams(&vui_timing_info);
+  vui_timing_info.bEnable = OMX_TRUE;
+
   switch (codec_param.video_enc_param.format_type) {
     case VideoFormat::kAVC:
       if (codec_param.video_enc_param.codec_param.avc.prepend_sps_pps_to_idr) {
@@ -626,6 +630,14 @@ status_t AVCodec::ConfigureVideoEncoder(CodecParam& codec_param) {
       reinterpret_cast<OMX_PTR>(&param_aud));
   if (ret != OMX_ErrorNone) {
     QMMF_ERROR("%s: Failed to configure AUD delimiter", __func__);
+    return ret;
+  }
+
+  ret = omx_client_->SetParameter(
+      static_cast<OMX_INDEXTYPE>(OMX_QcomIndexParamH264VUITimingInfo),
+      reinterpret_cast<OMX_PTR>(&vui_timing_info));
+  if (ret != OMX_ErrorNone) {
+    QMMF_ERROR("%s: Failed to configure vui timing info", __func__);
     return ret;
   }
 

@@ -40,7 +40,7 @@ libqmmf_recorder_service_la_CPPFLAGS += -DHFR_THRESHOLD=30
 
 libqmmf_recorder_service_la_LDFLAGS  = -llog -lbinder -lutils -lcutils
 libqmmf_recorder_service_la_LDFLAGS  += -lcamera_client -lcamera_metadata
-libqmmf_recorder_service_la_LDFLAGS  += -lhardware
+libqmmf_recorder_service_la_LDFLAGS  += -lhardware -lqdMetaData
 
 libqmmf_recorder_service_la_LIBADD   = ../client/libqmmf_recorder_client.la
 libqmmf_recorder_service_la_LIBADD   += ../../../common/utils/libqmmf_utils.la

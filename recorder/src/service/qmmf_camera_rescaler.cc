@@ -637,12 +637,12 @@ status_t CameraRescalerMemPool::PopulateMetaInfo(CameraBufferMetaData &info,
 }
 
 status_t CameraRescalerMemPool::AllocGrallocBuffer(buffer_handle_t *buf) {
-
   status_t ret      = NO_ERROR;
   uint32_t width    = init_params_.width;
   uint32_t height   = init_params_.height;
   int32_t  format   = init_params_.format;
   int32_t usage = 0;
+  int32_t color_space = ITU_R_601_FR;
 
   usage &= GRALLOC_USAGE_ALLOC_MASK;
   usage |= GRALLOC_USAGE_SW_WRITE_OFTEN | GRALLOC_USAGE_SW_READ_OFTEN;
@@ -660,6 +660,16 @@ status_t CameraRescalerMemPool::AllocGrallocBuffer(buffer_handle_t *buf) {
   if (NO_ERROR != ret) {
     QMMF_ERROR("%s: Failed to allocate gralloc buffer", __func__);
   }
+
+  private_handle_t *priv_handle = const_cast<private_handle_t *>(
+      static_cast<const private_handle_t *>(*buf));
+
+  ret = setMetaData(priv_handle, UPDATE_COLOR_SPACE,
+                    static_cast<void *>(&color_space));
+
+  if (NO_ERROR != ret)
+    QMMF_ERROR("%s  setMetaData Failed: (%d)", __func__, ret);
+
   return ret;
 }
 

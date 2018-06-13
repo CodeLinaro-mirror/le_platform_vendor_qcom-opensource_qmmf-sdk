@@ -35,6 +35,7 @@
 #include <utils/Timers.h>
 #include <media/msm_media_info.h>
 #include <qmmf-sdk/qmmf_recorder_extra_param_tags.h>
+#include "qdMetaData.h"
 
 #include "common/utils/qmmf_common_utils.h"
 #include "common/utils/qmmf_condition.h"
