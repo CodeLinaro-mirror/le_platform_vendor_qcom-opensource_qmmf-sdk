@@ -38,6 +38,8 @@
 
 #include "qmmf_resizer_c2d.h"
 
+uint32_t qmmf_log_level;
+
 namespace qmmf {
 
 C2DResizer::C2DResizer()
