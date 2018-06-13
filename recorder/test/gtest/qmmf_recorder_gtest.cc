@@ -26161,7 +26161,7 @@ status_t RecorderGtest::StopDisplay(DisplayType display_type) {
 
 status_t RecorderGtest::PushFrameToDisplay(BufferDescriptor &buffer,
                                            CameraBufferMetaData &meta_data) {
-  TEST_INFO("%s: Enter", __func__);
+  TEST_DBG("%s: Enter", __func__);
   if (display_started_) {
     int32_t ret;
     surface_buffer_.plane_info[0].ion_fd = buffer.fd;
@@ -26186,7 +26186,7 @@ status_t RecorderGtest::PushFrameToDisplay(BufferDescriptor &buffer,
       TEST_ERROR("%s DequeueSurfaceBuffer Failed!!", __func__);
     }
   }
-  TEST_INFO("%s: Exit", __func__);
+  TEST_DBG("%s: Exit", __func__);
   return NO_ERROR;
 }
 
