@@ -33,6 +33,10 @@
 #include <map>
 #include <sys/prctl.h>
 
+#ifndef DISABLE_RESCALER_COLORSPACE
+#include "qdMetaData.h"
+#endif
+
 #include "recorder/src/service/qmmf_camera_rescaler.h"
 #include "recorder/src/service/qmmf_recorder_utils.h"
 
@@ -636,6 +640,19 @@ status_t CameraRescalerMemPool::AllocHWMemBuffer(IBufferHandle &buf) {
     QMMF_ERROR("%s: Failed to allocate alloc buffer", __func__);
     return NO_MEMORY;
   }
+#ifndef DISABLE_RESCALER_COLORSPACE
+  int32_t color_space = ITU_R_601_FR;
+  private_handle_t *priv_handle = const_cast<private_handle_t *>(
+      static_cast<const private_handle_t *>(*buf));
+
+  auto status = setMetaData(priv_handle, UPDATE_COLOR_SPACE,
+                    static_cast<void *>(&color_space));
+
+  if (NO_ERROR != ret) {
+    QMMF_ERROR("%s  setMetaData Failed: (%d)", __func__, status);
+    return status;
+  }
+#endif
   return NO_ERROR;
 }
 
