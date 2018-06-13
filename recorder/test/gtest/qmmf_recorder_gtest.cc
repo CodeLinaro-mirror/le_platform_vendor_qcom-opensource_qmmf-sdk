@@ -98,6 +98,13 @@ static const uint32_t kColorLightBlue  = 0x189BF2FF;
 #define DATETIME_TEXT_BUF_WIDTH   192
 #define DATETIME_TEXT_BUF_HEIGHT  108
 
+// Set Bitrate for various resolution
+static const uint32_t kBitRate4k30    = 45000000;
+static const uint32_t kBitRate1440p30 = 25000000;
+static const uint32_t kBitRate1440p60 = 45000000;
+static const uint32_t kBitRate960p90  = 45000000;
+static const uint32_t kBitRate480p    = 4000000;
+
 using namespace qcamera;
 
 void RecorderGtest::SetUp() {
@@ -19585,6 +19592,9 @@ TEST_F(RecorderGtest,
 
   VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC, width,
                                           height, 30};
+
+  video_track_param.codec_param.avc.bitrate = kBitRate4k30;
+
   TrackCb video_track_cb;
   video_track_cb.data_cb = [&, session_id](
       uint32_t track_id, std::vector<BufferDescriptor> buffers,
@@ -19615,6 +19625,7 @@ TEST_F(RecorderGtest,
   video_track_param.width = width;
   video_track_param.height = height;
   video_track_param.frame_rate = 30;
+  video_track_param.codec_param.avc.bitrate = kBitRate480p;
 
   video_track_cb.data_cb = [&, session_id](
       uint32_t track_id, std::vector<BufferDescriptor> buffers,
@@ -19772,6 +19783,8 @@ TEST_F(RecorderGtest,
 
   VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC, width,
                                           height, 30};
+
+  video_track_param.codec_param.avc.bitrate = kBitRate4k30;
   TrackCb video_track_cb;
   video_track_cb.data_cb = [&, session_id](
       uint32_t track_id, std::vector<BufferDescriptor> buffers,
@@ -19802,6 +19815,7 @@ TEST_F(RecorderGtest,
   video_track_param.width = width;
   video_track_param.height = height;
   video_track_param.frame_rate = 30;
+  video_track_param.codec_param.avc.bitrate = kBitRate480p;
 
   video_track_cb.data_cb = [&, session_id](
       uint32_t track_id, std::vector<BufferDescriptor> buffers,
@@ -19972,6 +19986,9 @@ TEST_F(RecorderGtest,
 
   VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC, width,
                                           height, 30};
+
+  video_track_param.codec_param.avc.bitrate = kBitRate4k30;
+
   TrackCb video_track_cb;
   video_track_cb.data_cb = [&, session_id](
       uint32_t track_id, std::vector<BufferDescriptor> buffers,
@@ -20002,6 +20019,7 @@ TEST_F(RecorderGtest,
   video_track_param.width = width;
   video_track_param.height = height;
   video_track_param.frame_rate = 30;
+  video_track_param.codec_param.avc.bitrate = kBitRate480p;
 
   video_track_cb.data_cb = [&, session_id](
       uint32_t track_id, std::vector<BufferDescriptor> buffers,
@@ -20178,6 +20196,9 @@ TEST_F(RecorderGtest,
 
     VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC,
                                             width, height, 60};
+
+    video_track_param.codec_param.avc.bitrate = kBitRate1440p60;
+
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
@@ -20207,6 +20228,7 @@ TEST_F(RecorderGtest,
     video_track_param.width = width;
     video_track_param.height = height;
     video_track_param.frame_rate = 60;
+    video_track_param.codec_param.avc.bitrate = kBitRate480p;
 
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
@@ -20385,6 +20407,9 @@ TEST_F(RecorderGtest,
 
     VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC,
                                             width, height, 60};
+
+    video_track_param.codec_param.avc.bitrate = kBitRate1440p60;
+
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
@@ -20414,6 +20439,7 @@ TEST_F(RecorderGtest,
     video_track_param.width = width;
     video_track_param.height = height;
     video_track_param.frame_rate = 60;
+    video_track_param.codec_param.avc.bitrate = kBitRate480p;
 
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
@@ -20587,6 +20613,9 @@ TEST_F(RecorderGtest,
 
     VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC,
                                             width, height, 60};
+
+    video_track_param.codec_param.avc.bitrate = kBitRate1440p60;
+
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
@@ -20616,6 +20645,7 @@ TEST_F(RecorderGtest,
     video_track_param.width = width;
     video_track_param.height = height;
     video_track_param.frame_rate = 60;
+    video_track_param.codec_param.avc.bitrate = kBitRate480p;
 
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
@@ -20783,6 +20813,8 @@ TEST_F(RecorderGtest,
 
     VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC,
                                             width, height, 60};
+
+    video_track_param.codec_param.avc.bitrate = kBitRate1440p60;
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
@@ -20812,6 +20844,7 @@ TEST_F(RecorderGtest,
     video_track_param.width = width;
     video_track_param.height = height;
     video_track_param.frame_rate = 60;
+    video_track_param.codec_param.avc.bitrate = kBitRate480p;
 
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
@@ -21752,6 +21785,9 @@ TEST_F(RecorderGtest,
 
     VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC,
                                             width, height, 90};
+
+    video_track_param.codec_param.avc.bitrate = kBitRate960p90;
+
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
@@ -21781,6 +21817,7 @@ TEST_F(RecorderGtest,
     video_track_param.width = width;
     video_track_param.height = height;
     video_track_param.frame_rate = 90;
+    video_track_param.codec_param.avc.bitrate = kBitRate480p;
 
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
@@ -22186,6 +22223,9 @@ TEST_F(RecorderGtest,
 
     VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC,
                                             width, height, 30};
+
+    video_track_param.codec_param.avc.bitrate = kBitRate1440p30;
+
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
@@ -22215,6 +22255,7 @@ TEST_F(RecorderGtest,
     video_track_param.width = width;
     video_track_param.height = height;
     video_track_param.frame_rate = 30;
+    video_track_param.codec_param.avc.bitrate = kBitRate480p;
 
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
@@ -22407,6 +22448,9 @@ TEST_F(RecorderGtest,
 
     VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC,
                                             width, height, 30};
+
+    video_track_param.codec_param.avc.bitrate = kBitRate1440p30;
+
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
@@ -22436,6 +22480,7 @@ TEST_F(RecorderGtest,
     video_track_param.width = width;
     video_track_param.height = height;
     video_track_param.frame_rate = 30;
+    video_track_param.codec_param.avc.bitrate = kBitRate480p;
 
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
@@ -22611,6 +22656,9 @@ TEST_F(RecorderGtest, SessionWith4kEncCopy480pEncAndLinked480pYUVTrack) {
 
   VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC, width,
                                           height, 30};
+
+  video_track_param.codec_param.avc.bitrate = kBitRate4k30;
+
   TrackCb video_track_cb;
   video_track_cb.data_cb = [&, session_id](
       uint32_t track_id, std::vector<BufferDescriptor> buffers,
@@ -22641,6 +22689,7 @@ TEST_F(RecorderGtest, SessionWith4kEncCopy480pEncAndLinked480pYUVTrack) {
   video_track_param.width = width;
   video_track_param.height = height;
   video_track_param.frame_rate = 30;
+  video_track_param.codec_param.avc.bitrate = kBitRate480p;
 
   video_track_cb.data_cb = [&, session_id](
       uint32_t track_id, std::vector<BufferDescriptor> buffers,
@@ -22792,6 +22841,9 @@ TEST_F(RecorderGtest,
 
     VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC,
                                             width, height, 30};
+
+    video_track_param.codec_param.avc.bitrate = kBitRate1440p30;
+
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
@@ -22821,6 +22873,7 @@ TEST_F(RecorderGtest,
     video_track_param.width = width;
     video_track_param.height = height;
     video_track_param.frame_rate = 30;
+    video_track_param.codec_param.avc.bitrate = kBitRate480p;
 
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
@@ -22969,6 +23022,9 @@ TEST_F(RecorderGtest,
 
     VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC,
                                             width, height, 30};
+
+    video_track_param.codec_param.avc.bitrate = kBitRate1440p30;
+
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
@@ -22998,6 +23054,7 @@ TEST_F(RecorderGtest,
     video_track_param.width = width;
     video_track_param.height = height;
     video_track_param.frame_rate = 30;
+    video_track_param.codec_param.avc.bitrate = kBitRate480p;
 
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
@@ -23153,6 +23210,9 @@ TEST_F(RecorderGtest, SessionWith960p90FPSEncCopy480pEncAndLinked480pYUVTrack) {
 
     VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC,
                                             width, height, 90};
+
+    video_track_param.codec_param.avc.bitrate = kBitRate960p90;
+
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
@@ -23182,6 +23242,7 @@ TEST_F(RecorderGtest, SessionWith960p90FPSEncCopy480pEncAndLinked480pYUVTrack) {
     video_track_param.width = width;
     video_track_param.height = height;
     video_track_param.frame_rate = 90;
+    video_track_param.codec_param.avc.bitrate = kBitRate480p;
 
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
@@ -23330,6 +23391,9 @@ TEST_F(RecorderGtest,
 
     VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC,
                                             width, height, 90};
+
+    video_track_param.codec_param.avc.bitrate = kBitRate960p90;
+
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
@@ -23359,6 +23423,7 @@ TEST_F(RecorderGtest,
     video_track_param.width = width;
     video_track_param.height = height;
     video_track_param.frame_rate = 90;
+    video_track_param.codec_param.avc.bitrate = kBitRate480p;
 
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
@@ -23518,6 +23583,9 @@ TEST_F(RecorderGtest,
 
     VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC,
                                             width, height, 90};
+
+    video_track_param.codec_param.avc.bitrate = kBitRate960p90;
+
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
@@ -23547,6 +23615,7 @@ TEST_F(RecorderGtest,
     video_track_param.width = width;
     video_track_param.height = height;
     video_track_param.frame_rate = 90;
+    video_track_param.codec_param.avc.bitrate = kBitRate480p;
 
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
