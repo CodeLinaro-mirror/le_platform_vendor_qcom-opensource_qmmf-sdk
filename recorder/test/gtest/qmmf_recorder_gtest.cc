@@ -22592,6 +22592,8 @@ TEST_F(RecorderGtest,
           test_info_->test_case_name(), test_info_->name());
 }
 
+#endif
+
 /*
 * SessionWith4kEncCopy480pEncAndLinked480pYUVTrack: This test will test session
 *     with one 4k30 Enc track, one copy 480p Enc Track and one 480p linked.
@@ -23705,6 +23707,8 @@ TEST_F(RecorderGtest,
   fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
           test_info_->test_case_name(), test_info_->name());
 }
+
+#ifndef DISABLE_DISPLAY
 
 /*
 * SessionWithVGA480pEncAndLinked480pWithDisplay:
