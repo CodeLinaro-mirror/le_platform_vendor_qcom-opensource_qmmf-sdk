@@ -50,6 +50,9 @@ class FastCVResizer : public ResizerInterface {
   RESIZER_STATUS Draw(StreamBuffer& src_buffer,
                       StreamBuffer& dst_buffer) override;
 
+  RESIZER_STATUS ValidateOutput(const uint32_t width,
+                                const uint32_t height,
+                                const BufferFormat format) override;
  private:
 
   uint32_t fastcv_level_;

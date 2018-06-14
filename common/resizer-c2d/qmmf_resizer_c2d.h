@@ -51,6 +51,10 @@ class C2DResizer : public ResizerInterface {
   RESIZER_STATUS Draw(StreamBuffer& src_buffer,
                       StreamBuffer& dst_buffer) override;
 
+  RESIZER_STATUS ValidateOutput(const uint32_t width,
+                                const uint32_t height,
+                                const BufferFormat format) override;
+
   void* MapBuf(StreamBuffer& buffer);
 
   void UnMapBufs();
