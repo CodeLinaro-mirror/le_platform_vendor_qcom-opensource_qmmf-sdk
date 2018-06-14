@@ -20,6 +20,6 @@ LOCAL_SRC_FILES += qmmf_resizer_neon.cc
 
 LOCAL_MODULE := libqmmf_common_resizer_neon
 
-LOCAL_SHARED_LIBRARIES += libjsoncpp_vendor
+LOCAL_SHARED_LIBRARIES += libjsoncpp_vendor libcamera_metadata
 
 include $(BUILD_SHARED_LIBRARY)

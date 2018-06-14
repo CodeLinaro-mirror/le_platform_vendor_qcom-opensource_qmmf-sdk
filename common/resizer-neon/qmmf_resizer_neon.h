@@ -66,6 +66,7 @@ class NEONResizer : public ResizerInterface {
                                    neonresizer::resn_t &params);
 
   void*         handle_;
+  neonresizer::res_method_t method_;
   std::mutex    lock_;
 
 };
