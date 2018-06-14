@@ -61,8 +61,11 @@ LOCAL_SHARED_LIBRARIES += libqmmf_exif_generator
 ifneq ($(DISABLE_DISPLAY),1)
 LOCAL_SHARED_LIBRARIES += libqmmf_display_client
 endif
-LOCAL_SHARED_LIBRARIES += libcamera_client libbinder libhardware libfastcvopt libC2D2
+LOCAL_SHARED_LIBRARIES += libcamera_client libbinder libhardware
 LOCAL_SHARED_LIBRARIES += libqmmf_postproc_frame_skip
+LOCAL_SHARED_LIBRARIES += libqmmf_common_resizer_fastcv
+LOCAL_SHARED_LIBRARIES += libqmmf_common_resizer_c2d
+LOCAL_SHARED_LIBRARIES += libqmmf_common_resizer_neon
 
 LOCAL_STATIC_LIBRARIES += libjsoncpp
 
