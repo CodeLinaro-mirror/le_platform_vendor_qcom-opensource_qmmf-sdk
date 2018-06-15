@@ -39,7 +39,7 @@
 #include <qcom/display/gralloc_priv.h>
 #endif
 #endif
-#ifdef ANDROID_O_OR_ABOVE
+#ifdef QCAMERA3_TAG_LOCAL_COPY
 #include "common/utils/qmmf_common_utils.h"
 #else
 #include <QCamera3VendorTags.h>

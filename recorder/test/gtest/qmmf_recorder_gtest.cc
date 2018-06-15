@@ -37,7 +37,7 @@
 #include <camera/CameraMetadata.h>
 #include <system/graphics.h>
 #include <random>
-#ifdef ANDROID_O_OR_ABOVE
+#ifdef QCAMERA3_TAG_LOCAL_COPY
 #include "common/utils/qmmf_common_utils.h"
 #else
 #include <QCamera3VendorTags.h>
