@@ -339,7 +339,7 @@ bool CameraRescalerThread::ExitPending() {
   return (abort_ == true && running_ == true)  ? false : true;
 }
 
-#define RESCALER_BUFFERS_CNT (5)
+#define RESCALER_BUFFERS_CNT (13)
 
 CameraRescalerMemPool::CameraRescalerMemPool()
     : alloc_device_interface_(nullptr),
@@ -479,16 +479,14 @@ status_t CameraRescalerMemPool::GetFreeOutputBuffer(StreamBuffer* buffer) {
     return NO_ERROR;
   }
 
-  if (pending_buffer_count_ == buffer_cnt_) {
+  while (pending_buffer_count_ == buffer_cnt_) {
     QMMF_VERBOSE("%s: Already retrieved maximum buffers (%d), waiting"
         " on a free one",  __func__, buffer_cnt_);
 
     std::chrono::nanoseconds wait_time(kBufferWaitTimeout);
     auto status = wait_for_buffer_.WaitFor(lock, wait_time);
     if (status != 0) {
-      QMMF_ERROR("%s: Wait for output buffer return timed out",
-                 __func__);
-      return TIMED_OUT;
+      QMMF_ERROR("%s: Wait for output buffer return timed out", __func__);
     }
   }
   ret = GetBufferLocked(buffer);
