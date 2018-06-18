@@ -3295,20 +3295,17 @@ OMX_BUFFERHEADERTYPE *AVCodec::GetInputBufferHdr(BufferDescriptor& buffer) {
 
   bool found = false;
   if (format_type_ == CodecType::kVideoEncoder) {
-    bool timeout = false;
     std::unique_lock<std::mutex> queue_lock(queue_lock_);
+    std::chrono::nanoseconds wait_time(kWaitDelay);
+
     while (free_input_buffhdr_list_.Size() == 0) {
       QMMF_WARN("%s: Wait for free header at input port!!", __func__);
-      auto ret = wait_for_header_.wait_for(queue_lock,
-          std::chrono::nanoseconds(kWaitDelay));
+      auto ret = wait_for_header_.wait_for(queue_lock, wait_time);
       if (ret == std::cv_status::timeout) {
         QMMF_ERROR("%s: No free buffer header at input port!,"
-          " Timed out happend!",  __func__);
-        timeout = true;
-        break;
+            " Timed out happend!",  __func__);
       }
     }
-    assert(timeout == false);
     OMX_BUFFERHEADERTYPE* header = nullptr;
 
     header = *free_input_buffhdr_list_.Begin();
