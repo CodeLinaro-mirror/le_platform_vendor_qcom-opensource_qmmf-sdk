@@ -309,6 +309,19 @@ void DisplayTest::DisplayCallbackHandler(DisplayEventType event_type,
     void *event_data, size_t event_data_size)
 {
   TEST_INFO("%s: Enter", __func__);
+  if(event_type == DisplayEventType::kError) {
+    assert(sizeof(DisplayErrorType) == event_data_size);
+    DisplayErrorType* display_error = reinterpret_cast<DisplayErrorType*>(event_data);
+    switch(*display_error) {
+      case DisplayErrorType::kVSyncError:
+        QMMF_ERROR("%s: Error received, Vsync Error", __func__);
+        break;
+      default:
+        QMMF_ERROR("%s: Error Received but error not defined", __func__);
+        break;
+    }
+    assert(0);
+  }
   TEST_INFO("%s: Exit", __func__);
 }
 

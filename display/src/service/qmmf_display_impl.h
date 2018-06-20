@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -35,6 +35,7 @@
 #include <thread>
 #include <condition_variable>
 #include <set>
+#include <chrono>
 
 #include <hardware/gralloc.h>
 #include <utils/KeyedVector.h>
@@ -135,10 +136,11 @@ class DisplayImpl : public DisplayEventHandler
 
  private:
 
-  std::mutex       thread_lock_;
-  ::std::thread*   handle_vsync_thread_;
-  Locker           vsync_callback_locker_;
-  bool             running_;
+  std::mutex               thread_lock_;
+  ::std::thread*           handle_vsync_thread_;
+  std::mutex               vsync_callback_locker_;
+  std::condition_variable  vsync_callback_;
+  bool                     running_;
 
   /**Not allowed */
   DisplayImpl();
@@ -250,14 +252,22 @@ class DisplayImpl : public DisplayEventHandler
     DisplayInterface*                display_intf;
   } DisplayTypeInfo;
 
-  bool                                         vsync_state_;
+  typedef struct QueuedBufferInfo {
+    SurfaceBuffer  surface_buffer;
+    SurfaceParam   surface_param;
+  } QueuedBufferInfo;
+
   DisplayHandle                                current_handle_;
   uint32_t                                     unique_surface_id_;
   std::mutex                                   api_lock_;
+  std::mutex                                   surface_lock_;
   std::mutex                                   layer_lock_;
   std::map<DisplayHandle, DisplayClientInfo*>  display_client_info_map_;
   std::map<DisplayType, DisplayTypeInfo*>      display_type_info_map_;
   std::map<uint32_t, SurfaceInfo*>             surface_info_map_;
+  //Map for surface_id and Latest queued buffer info
+  std::map<uint32_t, QueuedBufferInfo>         latest_queued_buffer_info_map_;
+  LayerStack*                                  layer_stack_;
 };
 
 }; // namespace display

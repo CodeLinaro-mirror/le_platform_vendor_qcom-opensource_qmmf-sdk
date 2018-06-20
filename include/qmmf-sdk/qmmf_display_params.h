@@ -78,6 +78,10 @@ enum class DisplayEventType {
     kVsync
 };
 
+enum class DisplayErrorType {
+  kVSyncError
+};
+
 // Display cb will be used to return Vsync and error
 typedef struct DisplayCb {
     std::function<void( DisplayEventType event_type,
