@@ -55,6 +55,7 @@ PlayerImpl::PlayerImpl()
       current_state_(PlayerState::QPLAYER_STATE_IDLE),
       trick_mode_speed_(TrickModeSpeed::kSpeed_1x),
       trick_mode_dir_(TrickModeDirection::kNormalForward),
+      audio_start_state_(false),
       drag_(false)
 {
   QMMF_DEBUG("%s: Enter", __func__);
@@ -669,13 +670,14 @@ status_t PlayerImpl::Resume() {
     for (size_t i = 0; i < num_tracks; i++) {
       if (tracks_[i].type == TrackType::kVideo) {
         ret = video_decoder_core_->ResumeTrackDecoder(tracks_[i].track_id);
-        if(ret != NO_ERROR) break;
-      } else if ((tracks_[i].type == TrackType::kAudio) && (!IsTrickModeEnabled())) {
+        if (ret != NO_ERROR) break;
+      } else if ((tracks_[i].type == TrackType::kAudio) &&
+                 (!IsTrickModeEnabled()) && (getAudioStartState() == false)) {
         drag_lock_.lock();
         if(!drag_) {
           drag_lock_.unlock();
           if (tracks_[i].codec == AudioFormat::kAMR ||
-            tracks_[i].codec == AudioFormat::kG711)
+              tracks_[i].codec == AudioFormat::kG711)
             ret = audio_decoder_core_->ResumeTrackDecoder(tracks_[i].track_id);
           else
             ret = audio_raw_sink_->ResumeTrackSink(tracks_[i].track_id);
@@ -692,6 +694,8 @@ status_t PlayerImpl::Resume() {
     } else {
       setCurrentState(PlayerState::QPLAYER_STATE_STARTED);
     }
+
+    setAudioStartState(false);
   }
 
   QMMF_DEBUG("%s: state is now %d", __func__, current_state_);
@@ -846,27 +850,15 @@ status_t PlayerImpl::SetTrickMode(TrickModeSpeed speed, TrickModeDirection dir) 
               QMMF_ERROR("%s: Audio StartTrackDecoder failed!", __func__);
               return BAD_VALUE;
             }
-            if (current_state_ & PlayerState::QPLAYER_STATE_PAUSED) {
-              ret = audio_decoder_core_->PauseTrackDecoder(tracks_[i].track_id);
-              if (ret != NO_ERROR) {
-                QMMF_ERROR("%s: Audio PauseTrackDecoder failed!", __func__);
-                return BAD_VALUE;
-              }
-            }
           } else {
             ret = audio_raw_sink_->StartTrackSink(tracks_[i].track_id);
             if (ret != NO_ERROR) {
               QMMF_ERROR("%s: Audio StartTrackSink failed!", __func__);
               return BAD_VALUE;
             }
-            if (current_state_ & PlayerState::QPLAYER_STATE_PAUSED) {
-              ret = audio_raw_sink_->PauseTrackSink(tracks_[i].track_id);
-              if (ret != NO_ERROR) {
-                QMMF_ERROR("%s: Audio PauseTrackSink failed!", __func__);
-                return BAD_VALUE;
-              }
-            }
           }
+          if (current_state_ & PlayerState::QPLAYER_STATE_PAUSED)
+            setAudioStartState(true);
         }
       }
     } else {  // other than normal playback audio will always be stopped
@@ -969,6 +961,16 @@ bool PlayerImpl::IsTrackValid(const uint32_t track_id) {
 
 void PlayerImpl::setCurrentState(PlayerState state) {
   current_state_ = state;
+}
+
+bool PlayerImpl::getAudioStartState() {
+  Mutex::Autolock lock(audio_start_state_change_lock_);
+  return audio_start_state_;
+}
+
+void PlayerImpl::setAudioStartState(bool a_state) {
+  Mutex::Autolock lock(audio_start_state_change_lock_);
+  audio_start_state_ = a_state;
 }
 
 bool PlayerImpl::IsTrickModeEnabled() {

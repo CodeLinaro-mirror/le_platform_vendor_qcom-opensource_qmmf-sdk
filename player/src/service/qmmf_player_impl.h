@@ -115,6 +115,10 @@ class PlayerImpl {
 
   bool IsTrickModeEnabled();
 
+  bool getAudioStartState();
+
+  void setAudioStartState(bool audio_state);
+
   struct TrackInfo {
     uint32_t         track_id;
     TrackType        type;
@@ -137,6 +141,9 @@ class PlayerImpl {
   TrickModeSpeed      trick_mode_speed_;
   TrickModeDirection  trick_mode_dir_;
   Mutex               trick_mode_change_lock_;
+
+  Mutex               audio_start_state_change_lock_;
+  bool                audio_start_state_;
 
   std::vector<TrackInfo> tracks_;
   DefaultKeyedVector<uint32_t, TrackInfo> track_map_;
