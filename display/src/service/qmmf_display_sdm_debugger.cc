@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016, 2018, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -54,6 +54,9 @@ DisplayDebugHandler::DisplayDebugHandler() {
   } else {
     DisplayDebugHandler::debug_flags_ = 0x7FFFFFFF;
   }
+#ifdef QMMF_DISPLAY_INTF_v1
+  DebugHandler::Set(DisplayDebugHandler::Get());
+#endif
 }
 
 void DisplayDebugHandler::DebugAll(bool enable, int verbose_level) {
@@ -64,6 +67,9 @@ void DisplayDebugHandler::DebugAll(bool enable, int verbose_level) {
     debug_flags_ = 0x1;   // kTagNone should always be printed.
     verbose_level_ = 0;
   }
+
+  SetMask(debug_handler_.debug_flags_);
+
 }
 
 void DisplayDebugHandler::DebugResources(bool enable, int verbose_level) {
@@ -74,6 +80,9 @@ void DisplayDebugHandler::DebugResources(bool enable, int verbose_level) {
     debug_flags_[kTagResources] = 0;
     verbose_level_ = 0;
   }
+
+  SetMask(debug_handler_.debug_flags_);
+
 }
 
 void DisplayDebugHandler::DebugStrategy(bool enable, int verbose_level) {
@@ -84,6 +93,9 @@ void DisplayDebugHandler::DebugStrategy(bool enable, int verbose_level) {
     debug_flags_[kTagStrategy] = 0;
     verbose_level_ = 0;
   }
+
+  SetMask(debug_handler_.debug_flags_);
+
 }
 
 void DisplayDebugHandler::DebugCompManager(bool enable, int verbose_level) {
@@ -94,6 +106,9 @@ void DisplayDebugHandler::DebugCompManager(bool enable, int verbose_level) {
     debug_flags_[kTagCompManager] = 0;
     verbose_level_ = 0;
   }
+
+  SetMask(debug_handler_.debug_flags_);
+
 }
 
 void DisplayDebugHandler::DebugDriverConfig(bool enable, int verbose_level) {
@@ -104,6 +119,8 @@ void DisplayDebugHandler::DebugDriverConfig(bool enable, int verbose_level) {
     debug_flags_[kTagDriverConfig] = 0;
     verbose_level_ = 0;
   }
+
+  SetMask(debug_handler_.debug_flags_);
 }
 
 void DisplayDebugHandler::DebugRotator(bool enable, int verbose_level) {
@@ -114,6 +131,8 @@ void DisplayDebugHandler::DebugRotator(bool enable, int verbose_level) {
     debug_flags_[kTagRotator] = 0;
     verbose_level_ = 0;
   }
+
+  SetMask(debug_handler_.debug_flags_);
 }
 
 void DisplayDebugHandler::DebugQdcm(bool enable, int verbose_level) {
@@ -124,6 +143,49 @@ void DisplayDebugHandler::DebugQdcm(bool enable, int verbose_level) {
     debug_flags_[kTagQDCM] = 0;
     verbose_level_ = 0;
   }
+
+  SetMask(debug_handler_.debug_flags_);
+
+}
+
+int  DisplayDebugHandler::GetIdleTimeoutMs() {
+  int value = IDLE_TIMEOUT_DEFAULT_MS;
+  debug_handler_.GetProperty("sdm.idle_time", &value);
+
+  return value;
+}
+
+void DisplayDebugHandler::BeginTrace(const char *class_name,
+  const char *function_name, const char *custom_string) {
+  char name[MAX_NAME_SIZE] = {0};
+  snprintf(name, sizeof(name), "%s::%s::%s", class_name, function_name,
+      custom_string);
+  //TBD
+}
+
+void DisplayDebugHandler::EndTrace() {
+  //TBD
+}
+
+DISPLAY_ERROR DisplayDebugHandler::GetProperty(const char *property_name,
+    int *value) {
+  char property[PROPERTY_VALUE_MAX];
+
+  if (property_get(property_name, property, NULL) > 0) {
+    *value = atoi(property);
+    return kErrorNone;
+  }
+
+  return kErrorNotSupported;
+}
+
+DISPLAY_ERROR DisplayDebugHandler::GetProperty(const char *property_name,
+    char *value) {
+  if (property_get(property_name, value, NULL) > 0) {
+    return kErrorNone;
+  }
+
+  return kErrorNotSupported;
 }
 
 void DisplayDebugHandler::Error(DebugTag tag, const char *format, ...) {
@@ -162,46 +224,6 @@ void DisplayDebugHandler::Verbose(DebugTag tag, const char *format, ...) {
   }
 }
 
-void DisplayDebugHandler::BeginTrace(const char *class_name,
-    const char *function_name, const char *custom_string) {
-  char name[MAX_NAME_SIZE] = {0};
-  snprintf(name, sizeof(name), "%s::%s::%s", class_name, function_name,
-      custom_string);
-  //TBD
-}
-
-void DisplayDebugHandler::EndTrace() {
-  //TBD
-}
-
-int  DisplayDebugHandler::GetIdleTimeoutMs() {
-  int value = IDLE_TIMEOUT_DEFAULT_MS;
-  debug_handler_.GetProperty("sdm.idle_time", &value);
-
-  return value;
-}
-
-DisplayError DisplayDebugHandler::GetProperty(const char *property_name,
-    int *value) {
-  char property[PROPERTY_VALUE_MAX];
-
-  if (property_get(property_name, property, NULL) > 0) {
-    *value = atoi(property);
-    return kErrorNone;
-  }
-
-  return kErrorNotSupported;
-}
-
-DisplayError DisplayDebugHandler::GetProperty(const char *property_name,
-    char *value) {
-  if (property_get(property_name, value, NULL) > 0) {
-    return kErrorNone;
-  }
-
-  return kErrorNotSupported;
-}
-
 DisplayError DisplayDebugHandler::SetProperty(const char *property_name,
     const char *value) {
   if (property_set(property_name, value) == 0) {
@@ -209,6 +231,80 @@ DisplayError DisplayDebugHandler::SetProperty(const char *property_name,
   }
 
   return kErrorNotSupported;
+}
+
+void DisplayDebugHandler::DebugScalar(bool enable, int verbose_level) {
+  if (enable) {
+    debug_handler_.debug_flags_[kTagScalar] = 1;
+    debug_handler_.verbose_level_ = verbose_level;
+  } else {
+    debug_handler_.debug_flags_[kTagScalar] = 0;
+    debug_handler_.verbose_level_ = 0;
+  }
+
+  SetMask(debug_handler_.debug_flags_);
+}
+
+void DisplayDebugHandler::DebugClient(bool enable, int verbose_level) {
+  if (enable) {
+    debug_handler_.debug_flags_[kTagClient] = 1;
+    debug_handler_.verbose_level_ = verbose_level;
+  } else {
+    debug_handler_.debug_flags_[kTagClient] = 0;
+    debug_handler_.verbose_level_ = 0;
+  }
+
+  SetMask(debug_handler_.debug_flags_);
+}
+
+void DisplayDebugHandler::DebugDisplay(bool enable, int verbose_level) {
+  if (enable) {
+    debug_handler_.debug_flags_[kTagDisplay] = 1;
+    debug_handler_.verbose_level_ = verbose_level;
+  } else {
+    debug_handler_.debug_flags_[kTagDisplay] = 0;
+    debug_handler_.verbose_level_ = 0;
+  }
+
+  SetMask(debug_handler_.debug_flags_);
+}
+
+void DisplayDebugHandler::Error(const char *format, ...) {
+  va_list list;
+  va_start(list, format);
+  __android_log_vprint(ANDROID_LOG_ERROR, LOG_TAG, format, list);
+}
+
+void DisplayDebugHandler::Warning(const char *format, ...) {
+  va_list list;
+  va_start(list, format);
+  __android_log_vprint(ANDROID_LOG_WARN, LOG_TAG, format, list);
+}
+
+void DisplayDebugHandler::Info(const char *format, ...) {
+  va_list list;
+  va_start(list, format);
+  __android_log_vprint(ANDROID_LOG_INFO, LOG_TAG, format, list);
+}
+
+void DisplayDebugHandler::Debug(const char *format, ...) {
+  va_list list;
+  va_start(list, format);
+  __android_log_vprint(ANDROID_LOG_DEBUG, LOG_TAG, format, list);
+}
+
+void DisplayDebugHandler::Verbose(const char *format, ...) {
+  if (debug_handler_.verbose_level_) {
+    va_list list;
+    va_start(list, format);
+    __android_log_vprint(ANDROID_LOG_VERBOSE, LOG_TAG, format, list);
+  }
+}
+
+void DisplayDebugHandler::SetMask(const std::bitset<32> &log_mask) {
+#ifdef QMMF_DISPLAY_INTF_v1
+  DebugHandler::SetLogMask(log_mask);
+#endif
 }
 
 }; // namespace display

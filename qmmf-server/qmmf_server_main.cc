@@ -55,7 +55,9 @@ using namespace android;
 using namespace qmmf;
 using namespace qmmf::common::audio;
 using namespace recorder;
-using namespace display;
+#ifndef DISABLE_DISPLAY
+using namespace qmmf::display;
+#endif
 using namespace player;
 using namespace system;
 
