@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016, 2018, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -29,17 +29,23 @@
 
 #pragma once
 
-#include <sys/mman.h>
 #include <fcntl.h>
+#include <sys/mman.h>
 
-#include <sdm/core/layer_buffer.h>
+#ifdef TARGET_USES_GRALLOC1
+#include <gralloc_priv.h>
+#include <hardware/gralloc1.h>
+#endif
 #include <sdm/core/buffer_allocator.h>
+#include <sdm/core/layer_buffer.h>
 
+#ifndef TARGET_USES_GRALLOC1
 namespace gralloc {
 
 class IAllocController;
 
 }  // namespace gralloc
+#endif
 
 namespace qmmf {
 
@@ -49,27 +55,73 @@ using namespace sdm;
 
 class DisplayBufferAllocator : public BufferAllocator {
  public:
-  DisplayBufferAllocator();
+  virtual DisplayError AllocateBuffer(BufferInfo *buffer_info);
+  virtual DisplayError FreeBuffer(BufferInfo *buffer_info);
+  virtual uint32_t GetBufferSize(BufferInfo *buffer_info);
+  virtual DisplayError GetBufferInfo(BufferInfo *buffer_info,
+                                     int32_t &aligned_width,
+                                     int32_t &aligned_height);
+  virtual DisplayError GetAllocatedBufferInfo(
+      const BufferConfig &buffer_config,
+      AllocatedBufferInfo *allocated_buffer_info);
+};
 
+#ifndef TARGET_USES_GRALLOC1
+class DisplayBufferAllocatorGralloc : public DisplayBufferAllocator {
+ public:
+  DisplayBufferAllocatorGralloc();
   DisplayError AllocateBuffer(BufferInfo *buffer_info) override;
   DisplayError FreeBuffer(BufferInfo *buffer_info) override;
   uint32_t GetBufferSize(BufferInfo *buffer_info) override;
-  DisplayError GetBufferInfo(BufferInfo *buffer_info, int32_t &aligned_width,
-      int32_t &aligned_height);
-  DisplayError GetAllocatedBufferInfo(const BufferConfig &buffer_config,
+  virtual DisplayError GetBufferInfo(BufferInfo *buffer_info,
+                                     int32_t &aligned_width,
+                                     int32_t &aligned_height);
+  virtual DisplayError GetAllocatedBufferInfo(
+      const BufferConfig &buffer_config,
       AllocatedBufferInfo *allocated_buffer_info) override;
 
  private:
   struct MetaBufferInfo {
-    int alloc_type;  //!< Specifies allocation type set by the buffer allocator.
-    void *base_addr; //!< Specifies base address of the allocated output buffer.
+    int alloc_type;  // Specifies allocation type set by the buffer allocator.
+    void *base_addr;  // Specifies base address of the allocated output buffer.
   };
-
   int SetBufferInfo(LayerBufferFormat format, int *target, int *flags);
-
   gralloc::IAllocController *alloc_controller_;
 };
 
-}; // namespace display
+#else
+class DisplayBufferAllocatorGralloc1 : public DisplayBufferAllocator {
+ public:
+  DisplayBufferAllocatorGralloc1();
+  virtual DisplayError AllocateBuffer(BufferInfo *buffer_info);
+  virtual DisplayError FreeBuffer(BufferInfo *buffer_info) override;
+  virtual uint32_t GetBufferSize(BufferInfo *buffer_info) override;
+  virtual DisplayError GetBufferInfo(BufferInfo *buffer_info,
+                                     int32_t &aligned_width,
+                                     int32_t &aligned_height);
+  virtual DisplayError GetAllocatedBufferInfo(
+      const BufferConfig &buffer_config,
+      AllocatedBufferInfo *allocated_buffer_info) override;
+  DisplayError GetBufferLayout(const AllocatedBufferInfo &buf_info,
+                               uint32_t stride[4], uint32_t offset[4],
+                               uint32_t *num_planes);
+  ~DisplayBufferAllocatorGralloc1();
 
-}; //namespace qmmf
+ private:
+  gralloc1_device_t *gralloc_device_ = nullptr;
+  const hw_module_t *module_ = nullptr;
+  GRALLOC1_PFN_CREATE_DESCRIPTOR CreateBufferDescriptor_ = nullptr;
+  GRALLOC1_PFN_DESTROY_DESCRIPTOR DestroyBufferDescriptor_ = nullptr;
+  GRALLOC1_PFN_ALLOCATE AllocateBuffer_ = nullptr;
+  GRALLOC1_PFN_RELEASE ReleaseBuffer_ = nullptr;
+  GRALLOC1_PFN_SET_DIMENSIONS SetBufferDimensions_ = nullptr;
+  GRALLOC1_PFN_SET_FORMAT SetBufferFormat_ = nullptr;
+  GRALLOC1_PFN_SET_CONSUMER_USAGE SetConsumerUsage_ = nullptr;
+  GRALLOC1_PFN_SET_PRODUCER_USAGE SetProducerUsage_ = nullptr;
+  int SetBufferInfo(LayerBufferFormat format, int *target, uint64_t *flags);
+};
+#endif
+
+};  // namespace display
+
+};  // namespace qmmf

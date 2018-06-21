@@ -24,8 +24,13 @@ LOCAL_SRC_FILES += qmmf_display_sdm_buffer_allocator.cc
 LOCAL_SRC_FILES += qmmf_display_sdm_debugger.cc
 LOCAL_SRC_FILES += qmmf_display_sdm_buffer_sync_handler.cc
 
-LOCAL_SHARED_LIBRARIES += libqmmf_display_client libmemalloc libbinder
-LOCAL_SHARED_LIBRARIES += libsdmcore libsync
+LOCAL_SHARED_LIBRARIES += libsdmcore libsync libqmmf_display_client libbinder
+ifeq ($(TARGET_USES_GRALLOC1),true)
+LOCAL_SHARED_LIBRARIES += libhardware libgrallocutils libdisplaydebug
+LOCAL_HEADER_LIBRARIES := display_headers
+else
+LOCAL_SHARED_LIBRARIES += libmemalloc
+endif
 
 LOCAL_MODULE = libqmmf_display_service
 

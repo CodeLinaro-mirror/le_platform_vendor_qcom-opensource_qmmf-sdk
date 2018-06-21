@@ -57,13 +57,6 @@
 #include <qmmf-sdk/qmmf_recorder_params.h>
 #include <qmmf-sdk/qmmf_recorder_extra_param_tags.h>
 
-#ifdef USE_SURFACEFLINGER
-#include <ui/DisplayInfo.h>
-#include <gui/Surface.h>
-#include <gui/SurfaceComposerClient.h>
-#include <gui/ISurfaceComposer.h>
-#endif
-
 using namespace qmmf;
 using namespace recorder;
 using namespace android;
@@ -143,6 +136,8 @@ struct FaceInfo {
 #define PROP_TOGGLE_DISPLAY_USAGE   "persist.qmmf.rec.gtest.display"
 // Prop to enable/disable overlay usage
 #define PROP_TOGGLE_OVERLAY_USAGE   "persist.qmmf.rec.gtest.overlay"
+// Prop to enable/disable ubwc support in qmmf
+#define PROP_UBWC_STREAM_ENABLE     "persist.qmmf.ubwcstream.enable"
 
 #ifndef MAX
 #define MAX(a,b) ((a) > (b) ? (a) : (b))
@@ -188,28 +183,6 @@ struct RGBAValues {
   double blue;
   double alpha;
 };
-
-#ifdef USE_SURFACEFLINGER
-class SFDisplaySink
-{
- public:
-  SFDisplaySink(uint32_t width, uint32_t height);
-
-  ~SFDisplaySink();
-
-  void HandlePreviewBuffer(BufferDescriptor &buffer,
-      CameraBufferMetaData &meta_data);
-
- private:
-  int32_t CreatePreviewSurface(uint32_t width, uint32_t height);
-
-  void DestroyPreviewSurface();
-
-  sp<SurfaceComposerClient> surface_client_;
-  sp<Surface>               preview_surface_;
-  sp<SurfaceControl>        surface_control_;
-};
-#endif
 
 class DumpBitStream {
  public:
@@ -345,10 +318,6 @@ class RecorderGtest : public ::testing::Test {
   CameraStartParam      camera_start_params_;
   RecorderCb            recorder_status_cb_;
   std::map <uint32_t , std::vector<uint32_t> > sessions_;
-#ifdef USE_SURFACEFLINGER
-  SFDisplaySink         *sfdisplay_;
-  bool                  use_sf_;
-#endif
 
   void ParseFaceInfo(const android::CameraMetadata &res,
                      struct FaceInfo &info);
@@ -434,8 +403,9 @@ class RecorderGtest : public ::testing::Test {
   SurfaceParam          gfx_surface_param_;
   SurfaceBuffer         gfx_surface_buffer_;
   SurfaceConfig         gfx_surface_config_;
-
 #endif
+
+  bool                  ubwc_stream_enable_;
 
 #ifdef ANDROID_O_OR_ABOVE
   sp<VendorTagDescriptor> vendor_tag_desc_;

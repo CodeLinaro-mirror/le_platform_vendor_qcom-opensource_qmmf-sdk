@@ -125,14 +125,16 @@ class DisplayImpl : public DisplayEventHandler
 
   // DisplayEventHandler methods
   virtual DisplayError VSync(const DisplayEventVSync &vsync);
-  virtual DisplayError VSync(int fd, unsigned int sequence,
+  DisplayError VSync(int fd, unsigned int sequence,
                              unsigned int tv_sec, unsigned int tv_usec,
                              void *data);
+
   virtual DisplayError PFlip(int fd, unsigned int sequence,
                              unsigned int tv_sec, unsigned int tv_usec,
                              void *data);
   virtual DisplayError Refresh();
   virtual DisplayError CECMessage(char *message);
+  DisplayError HandleEvent(DisplayEvent event);
 
  private:
 
@@ -141,6 +143,7 @@ class DisplayImpl : public DisplayEventHandler
   std::mutex               vsync_callback_locker_;
   std::condition_variable  vsync_callback_;
   bool                     running_;
+  bool                     is_first_commit_;
 
   /**Not allowed */
   DisplayImpl();
@@ -150,10 +153,14 @@ class DisplayImpl : public DisplayEventHandler
   static void HandleVSyncThreadEntry(DisplayImpl* display_impl);
   void HandleVSync();
   static DisplayImpl* instance_;
-  DisplayBufferAllocator buffer_allocator_;
   DisplayBufferSyncHandler buffer_sync_handler_;
   static CoreInterface* core_intf_;
+#ifndef TARGET_USES_GRALLOC1
   alloc_device_t *gralloc_device_;
+  DisplayBufferAllocatorGralloc buffer_allocator_;
+#else
+  DisplayBufferAllocatorGralloc1 buffer_allocator_;
+#endif
 
   enum class BufferStates {
     kStateFree      = 1, // x1 = 0, x2 = 0, x3 = 0
@@ -268,6 +275,7 @@ class DisplayImpl : public DisplayEventHandler
   //Map for surface_id and Latest queued buffer info
   std::map<uint32_t, QueuedBufferInfo>         latest_queued_buffer_info_map_;
   LayerStack*                                  layer_stack_;
+
 };
 
 }; // namespace display

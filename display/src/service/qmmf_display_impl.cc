@@ -29,6 +29,7 @@
 
 #define LOG_TAG "DisplayImpl"
 
+#include <cutils/properties.h>
 #include <dlfcn.h>
 #include <utils/KeyedVector.h>
 #include <utils/List.h>
@@ -37,6 +38,12 @@
 
 #include "display/src/service/qmmf_display_impl.h"
 #include "display/src/service/qmmf_display_sdm_buffer_sync_handler.h"
+
+#ifndef QMMF_DISPLAY_INTF_v1
+static const uint32_t kHwVSyncTimeoutUs = 100000;
+#else
+static const uint32_t kHwVSyncTimeoutUs = 400000;
+#endif
 
 namespace qmmf {
 
@@ -55,15 +62,15 @@ DisplayImpl* DisplayImpl::CreateDisplayCore() {
 
   if(!instance_) {
 
-    int32_t res;
-    void *handle;
-
     instance_ = new DisplayImpl;
     if(!instance_) {
       QMMF_ERROR("%s: Can't Create Display Instance!", __func__);
       return nullptr;
     }
 
+#ifndef TARGET_USES_GRALLOC1
+    int32_t res;
+    void *handle;
     struct hw_module_t *hmi;
     handle = dlopen(GRALLOC_MODULE_PATH, RTLD_NOW);
     if (handle == nullptr) {
@@ -99,7 +106,7 @@ DisplayImpl* DisplayImpl::CreateDisplayCore() {
         instance_->gralloc_device_->common.module->author,
         instance_->gralloc_device_->common.module->hal_api_version,
         instance_->gralloc_device_->common.module->name);
-
+#endif
   }
 
   QMMF_DEBUG("%s: Display Instance Created Successfully(0x%p)",
@@ -113,13 +120,24 @@ DisplayImpl::DisplayImpl()
   QMMF_DEBUG("%s: Enter", __func__);
 
   if(!core_intf_) {
+#ifndef QMMF_DISPLAY_INTF_v1
     DisplayError error = CoreInterface::CreateCore(DisplayDebugHandler::Get(),
         &buffer_allocator_, &buffer_sync_handler_, &core_intf_);
+    is_first_commit_ = false;
+#else
+    DisplayError error = CoreInterface::CreateCore(&buffer_allocator_,
+                                                   &buffer_sync_handler_,
+                                                   nullptr,
+                                                   &core_intf_);
+    is_first_commit_ = true;
+#endif
     if (!core_intf_) {
       QMMF_ERROR("%s: Display Core Initialization Failed. Error = %d",
           __func__, error);
     }
+
     QMMF_DEBUG("%s: Display Core Initialized Successfully!", __func__);
+
   }
   QMMF_DEBUG("%s: Exit", __func__);
 }
@@ -139,6 +157,7 @@ DisplayImpl::~DisplayImpl() {
   instance_->display_client_info_map_.clear();
   instance_ = nullptr;
   core_intf_ = nullptr;
+
   QMMF_DEBUG("%s: Exit (0x%p)", __func__, this);
 }
 
@@ -200,12 +219,26 @@ status_t DisplayImpl::CreateDisplay(sp<RemoteCallBack>& remote_cb,
       return error;
     }
 
+#ifndef QMMF_DISPLAY_INTF_v1
     error = displayintf->SetDisplayState(kStateOn);
     if (error != kErrorNone) {
       QMMF_ERROR("%s: SetDisplayState Failed. Error = %d", __func__,
           error);
       return error;
     }
+#else
+    int release_fence = -1;
+    // Set display active
+    error = displayintf->SetDisplayState(kStateOn, &release_fence);
+    if (error != kErrorNone) {
+      QMMF_ERROR("%s: SetDisplayState On Failed. Error = %d", __func__,
+          error);
+      return error;
+    }
+    if (release_fence > -1) {
+      close(release_fence);
+    }
+#endif
 
     displayintf->SetIdleTimeoutMs(0);
     error = displayintf->SetVSyncState(true);
@@ -285,11 +318,23 @@ status_t DisplayImpl::DestroyDisplay(DisplayHandle display_handle) {
           error);
     }
 
+#ifndef QMMF_DISPLAY_INTF_v1
     error = displayintf->SetDisplayState(kStateOff);
     if (error != kErrorNone) {
       QMMF_ERROR("%s: SetDisplayState Failed. Error = %d", __func__,
           error);
     }
+#else
+    int release_fence = -1;
+    error = displayintf->SetDisplayState(kStateOff, &release_fence);
+    if (error != kErrorNone) {
+      QMMF_ERROR("%s: SetDisplayState Failed. Error = %d", __func__,
+          error);
+    }
+    if(release_fence > -1) {
+      close(release_fence);
+    }
+#endif
 
     assert(core_intf_ != nullptr);
     error = core_intf_->DestroyDisplay(displayintf);
@@ -410,7 +455,8 @@ status_t DisplayImpl::CreateSurface(DisplayHandle display_handle,
   QMMF_DEBUG("%s: Buffer format: %d", __func__, layer->input_buffer.format);
   QMMF_DEBUG("%s: Color Primaries value: %d", __func__,
       layer->input_buffer.color_metadata.colorPrimaries);
-  if(layer->input_buffer.format == kFormatYCbCr420SemiPlanarVenus) {
+  if(layer->input_buffer.format == kFormatYCbCr420SemiPlanarVenus ||
+      layer->input_buffer.format == kFormatYCbCr420SPVenusUbwc) {
     layer->input_buffer.color_metadata.colorPrimaries = ColorPrimaries_BT601_6_525;
     layer->input_buffer.color_metadata.range = Range_Limited;
   }
@@ -891,6 +937,7 @@ void DisplayImpl::HandleVSyncThreadEntry(DisplayImpl* display_impl) {
 
 void DisplayImpl::HandleVSync() {
   bool run = true;
+
   DisplayInterface* displayintf;
   QMMF_DEBUG("%s: Start HandleVSync thread while loop", __func__);
   while (run) {
@@ -902,10 +949,10 @@ void DisplayImpl::HandleVSync() {
     } else {
       api_lock_.unlock();
     }
-    {
+
+    if (!is_first_commit_) {
       std::unique_lock<std::mutex> lg(vsync_callback_locker_);
-      if(vsync_callback_.wait_for(lg, microseconds(100000)) ==
-         cv_status::timeout) {
+      if(vsync_callback_.wait_for(lg, microseconds(kHwVSyncTimeoutUs)) == cv_status::timeout) {
         QMMF_ERROR("%s: Timed out since HW Vsync not received", __func__);
         for (auto& client_info_map_it : display_client_info_map_) {
           assert(client_info_map_it.second->remote_cb.get() != nullptr);
@@ -968,6 +1015,7 @@ void DisplayImpl::HandleVSync() {
           if (error != kErrorNone) {
             QMMF_WARN("%s: Commit failed. Error = %d", __func__, error);
           }
+          is_first_commit_ = false;
 
           for(uint32_t i = 0 ; i< layer_stack->layers.size(); i++) {
             Layer * layer = layer_stack->layers[i];
@@ -1209,7 +1257,8 @@ LayerStack* DisplayImpl::GetLayerStack(DisplayType display_type,
               queued_buffer_info->second.surface_buffer.plane_info[0].offset;
           layer->input_buffer.planes[0].stride =
               queued_buffer_info->second.surface_buffer.plane_info[0].stride;
-          if(layer->input_buffer.format == kFormatYCbCr420SemiPlanarVenus) {
+          if(layer->input_buffer.format == kFormatYCbCr420SemiPlanarVenus ||
+             layer->input_buffer.format == kFormatYCbCr420SPVenusUbwc) {
             layer->input_buffer.color_metadata.colorPrimaries =
                 ColorPrimaries_BT601_6_525;
             layer->input_buffer.color_metadata.range = Range_Limited;
@@ -1299,6 +1348,10 @@ DisplayError DisplayImpl::Refresh() {
 }
 
 DisplayError DisplayImpl::CECMessage(char *message) {
+  return kErrorNotSupported;
+}
+
+DisplayError DisplayImpl::HandleEvent(DisplayEvent event) {
   return kErrorNotSupported;
 }
 

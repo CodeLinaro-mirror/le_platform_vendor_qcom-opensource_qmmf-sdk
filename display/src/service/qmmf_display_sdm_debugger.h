@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016, 2018, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -34,10 +34,20 @@
 #include <cutils/log.h>
 #include <utils/Trace.h>
 #include <sdm/core/sdm_types.h>
+#ifdef QMMF_DISPLAY_INTF_v1
+#include <debug_handler.h>
+#else
 #include <sdm/core/debug_interface.h>
+#endif
 
 using namespace sdm;
+#ifdef QMMF_DISPLAY_INTF_v1
+using namespace display;
 
+#define DISPLAY_ERROR int
+#else
+#define DISPLAY_ERROR DisplayError
+#endif
 //Prop to enable Display logging
 #define DISPLAY_LOG_LEVEL  "persist.qmmf.display.log"
 
@@ -58,24 +68,35 @@ class DisplayDebugHandler : public DebugHandler {
   static void DebugRotator(bool enable, int verbose_level);
   static void DebugQdcm(bool enable, int verbose_level);
   static int  GetIdleTimeoutMs();
-
-  virtual void Error(DebugTag tag, const char *format, ...) override;
-  virtual void Warning(DebugTag tag, const char *format, ...) override;
-  virtual void Info(DebugTag tag, const char *format, ...) override;
-  virtual void Debug(DebugTag tag, const char *format, ...) override;
-  virtual void Verbose(DebugTag tag, const char *format, ...) override;
   virtual void BeginTrace(const char *class_name, const char *function_name,
                           const char *custom_string) override;
   virtual void EndTrace() override;
-  virtual DisplayError GetProperty(const char *property_name, int *value) override;
-  virtual DisplayError GetProperty(const char *property_name, char *value) override;
-  virtual DisplayError SetProperty(const char *property_name,
-      const char *value) override;
+  DISPLAY_ERROR GetProperty(const char *property_name, int *value);
+  DISPLAY_ERROR GetProperty(const char *property_name, char *value);
+
+// SDM interface version 1 related implementation
+  void Error(DebugTag tag, const char *format, ...);
+  void Warning(DebugTag tag, const char *format, ...);
+  void Info(DebugTag tag, const char *format, ...);
+  void Debug(DebugTag tag, const char *format, ...);
+  void Verbose(DebugTag tag, const char *format, ...);
+  DisplayError SetProperty(const char *property_name,
+      const char *value);
+// SDM interface version 1 related implementation
+  static void DebugScalar(bool enable, int verbose_level);
+  static void DebugClient(bool enable, int verbose_level);
+  static void DebugDisplay(bool enable, int verbose_level);
+  void Error(const char *format, ...);
+  void Warning(const char *format, ...);
+  void Info(const char *format, ...);
+  void Debug(const char *format, ...);
+  void Verbose(const char *format, ...);
 
  private:
   static DisplayDebugHandler debug_handler_;
   static std::bitset<32> debug_flags_;
   static int32_t verbose_level_;
+  static void SetMask(const std::bitset<32> &log_mask);
 };
 
 }; // namespace display
