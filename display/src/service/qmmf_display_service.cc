@@ -142,7 +142,6 @@ status_t DisplayService::onTransact(uint32_t code, const Parcel& data,
       vector<int32_t> remove_fds;
       auto use_buffer = use_buffer_mapping_.find(surface_id);
       if (use_buffer != use_buffer_mapping_.end()) {
-        vector<int32_t> remove_fds;
         for (auto it = ion_surface_mapping_.begin();
              it != ion_surface_mapping_.end(); it++) {
           if (it->second == surface_id) {
@@ -157,6 +156,7 @@ status_t DisplayService::onTransact(uint32_t code, const Parcel& data,
         for (auto fd : remove_fds) {
           ion_surface_mapping_.erase(fd);
         }
+        remove_fds.clear();
         for (auto& it : ion_surface_mapping_) {
           QMMF_DEBUG(
               "%s ion_surface_mapping_  service_ion_fd::%d "
@@ -197,6 +197,7 @@ status_t DisplayService::onTransact(uint32_t code, const Parcel& data,
       for (auto fd : remove_fds) {
         buf_info_map_.erase(fd);
       }
+      remove_fds.clear();
       use_buffer = use_buffer_mapping_.find(surface_id);
       if (use_buffer != use_buffer_mapping_.end()) {
         use_buffer_mapping_.erase(surface_id);
