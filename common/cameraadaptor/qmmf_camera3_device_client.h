@@ -179,9 +179,7 @@ class Camera3DeviceClient : public camera3_callback_ops,
   int32_t ConfigureStreams(const StreamConfiguration& stream_config
                            = StreamConfiguration());
 
-  int32_t ConfigureStreamsLocked(bool is_pp_enabled = true,
-                                 bool is_zzhdr_enabled = false,
-                                 uint32_t fps_index = 0);
+  int32_t ConfigureStreamsLocked(bool is_pp_enabled = true);
 
   void SetErrorState(const char *fmt, ...);
   void SetErrorStateV(const char *fmt, va_list args);
@@ -267,6 +265,8 @@ class Camera3DeviceClient : public camera3_callback_ops,
   bool is_hfr_supported_;
   bool is_raw_only_;
   bool hfr_mode_enabled_;
+  bool is_zzhdr_enabled_;
+  uint32_t fps_sensormode_index_;
   Camera3PrepareHandler prepare_handler_;
   Camera3InputStream input_stream_;
   uint32_t batch_size_;
