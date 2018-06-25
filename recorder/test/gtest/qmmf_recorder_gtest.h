@@ -137,6 +137,10 @@ struct FaceInfo {
 #define PROP_JPEG_QUALITY           "persist.qmmf.rec.gtest.jpegq"
 // Prop to set CDS sensitivity threshold
 #define PROP_CDS_THRESHOLD          "persist.qmmf.rec.gtest.cdsth"
+// Prop to enable default EIS margins
+#define PROP_DEFAULT_EIS_MARGINS    "persist.qmmf.rec.gtest.eis.dflt"
+// Prop to enable/disable display usage
+#define PROP_TOGGLE_DISPLAY_USAGE   "persist.qmmf.rec.gtest.display"
 
 #ifndef MAX
 #define MAX(a,b) ((a) > (b) ? (a) : (b))
@@ -410,6 +414,7 @@ class RecorderGtest : public ::testing::Test {
   int32_t               default_cds_threshold_;
   std::mutex            error_lock_;
   bool                  camera_error_;
+  bool                  default_eis_margins_;
 
 #ifndef DISABLE_DISPLAY
   bool                  use_display_;

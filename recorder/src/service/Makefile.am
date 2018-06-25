@@ -40,7 +40,7 @@ libqmmf_recorder_service_la_CPPFLAGS += -DHFR_THRESHOLD=30
 
 libqmmf_recorder_service_la_LDFLAGS  = -llog -lbinder -lutils -lcutils
 libqmmf_recorder_service_la_LDFLAGS  += -lcamera_client -lcamera_metadata
-libqmmf_recorder_service_la_LDFLAGS  += -lhardware -lfastcvopt -lC2D2
+libqmmf_recorder_service_la_LDFLAGS  += -lhardware
 
 libqmmf_recorder_service_la_LIBADD   = ../client/libqmmf_recorder_client.la
 libqmmf_recorder_service_la_LIBADD   += ../../../common/utils/libqmmf_utils.la
@@ -50,6 +50,9 @@ libqmmf_recorder_service_la_LIBADD   += ../../../common/audio/src/client/libqmmf
 libqmmf_recorder_service_la_LIBADD   += ../../../common/overlay/liboverlay.la
 libqmmf_recorder_service_la_LIBADD   += ../../../common/exif-generator/libexif_generator.la
 libqmmf_recorder_service_la_LIBADD   += ../../../common/jpeg-encoder/libqmmf_common_jpeg_encoder.la
+libqmmf_recorder_service_la_LIBADD   += ../../../common/resizer-neon/libqmmf_common_resizer_neon.la
+libqmmf_recorder_service_la_LIBADD   += ../../../common/resizer-c2d/libqmmf_common_resizer_c2d.la
+libqmmf_recorder_service_la_LIBADD   += ../../../common/resizer-fastCV/libqmmf_common_resizer_fastcv.la
 libqmmf_recorder_service_la_LIBADD   += ../../../display/src/client/libqmmf_display_client.la
 libqmmf_recorder_service_la_LIBADD   += ../service/post-process/modules/camera-hal-reproc/libqmmf_camera_hal_reproc.la
 libqmmf_recorder_service_la_LIBADD   += ../service/post-process/modules/jpeg-encoder/libqmmf_jpeg.la

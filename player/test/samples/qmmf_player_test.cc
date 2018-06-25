@@ -1061,14 +1061,29 @@ void PlayerTest::SetDisplayParam() {
       track_type_ == TrackTypes::kVideoOnly) {
 
     uint32_t angle;
+    uint32_t start_x = 0, start_y = 0, width = 0, height = 0;
     printf("\n");
     printf("****** Set Display Orientation *******\n");
     printf("Enter Rotation Angle [0/90/180/270] :: ");
     scanf("%u", &angle);
 
+    printf("\nEnter srcRect Params \n");
+    printf("\nEnter start_x : ");
+    scanf("%u", &start_x);
+    printf("\nEnter start_y : ");
+    scanf("%u", &start_y);
+    printf("\nEnter width : ");
+    scanf("%u", &width);
+    printf("\nEnter height : ");
+    scanf("%u", &height);
+
     DisplayParam param;
     memset(&param, 0x0, sizeof param);
     param.rotation = angle;
+    param.srcRect.start_x = start_x;
+    param.srcRect.start_y = start_y;
+    param.srcRect.width = width;
+    param.srcRect.height = height;
 
     if (video_state_ != State::kStopped) {
       auto result = player_.SetVideoTrackParam(video_track_id_,
@@ -1110,6 +1125,9 @@ void PlayerTest::Delete() {
   delete m_pIStreamPort_;
   m_pIStreamPort_ = nullptr;
   videoFirstFrame_ = true;
+
+  delete m_pDemux_;
+  m_pDemux_ = nullptr;
 
   TEST_INFO("%s: Exit", __func__);
 }

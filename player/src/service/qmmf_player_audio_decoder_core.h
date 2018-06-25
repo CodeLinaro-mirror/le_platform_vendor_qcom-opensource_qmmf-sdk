@@ -142,6 +142,8 @@ class AudioTrackDecoder : public ::qmmf::avcodec::ICodecSource {
 
   status_t AllocInputPortBufs();
   status_t AllocOutputPortBufs();
+  status_t ReleaseOutputBuffers();
+  status_t ReleaseInputBuffers();
 
   uint32_t TrackId() { return audio_track_params_.track_id; }
 
@@ -172,8 +174,7 @@ class AudioTrackDecoder : public ::qmmf::avcodec::ICodecSource {
   TSQueue<StreamBuffer>     frames_to_decode_;
   TSQueue<StreamBuffer>     frames_being_decoded_;
 
-  typedef  struct ion_allocation_data IonHandleData;
-  Vector<IonHandleData>     ion_handle_data;
+  std::map<int32_t, struct ion_handle_data> ion_handle_data_;
 
   Vector<::qmmf::avcodec::CodecBuffer> output_buffer_list_;
 

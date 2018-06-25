@@ -87,7 +87,7 @@ AudioRawSink* AudioRawSink::CreateAudioRawSink() {
     if (instance_ == nullptr)
       QMMF_ERROR("%s() can't instantiate AudioRawSink", __func__);
   }
-  QMMF_INFO("%s: AudioRawSink successfully retrieved", __func__);
+  QMMF_DEBUG("%s: AudioRawSink successfully retrieved", __func__);
 
   return instance_;
 }
@@ -444,7 +444,7 @@ status_t AudioRawTrackSink::Init(const AudioTrackParams& params,
                result, strerror(result));
     goto error_disconnect;
   }
-  QMMF_INFO("%s() latency is %d", __func__, latency);
+  QMMF_DEBUG("%s() latency is %d", __func__, latency);
 
   int32_t buffer_size;
   result = end_point_->GetBufferSize(&buffer_size);
@@ -453,7 +453,7 @@ status_t AudioRawTrackSink::Init(const AudioTrackParams& params,
                result, strerror(result));
     goto error_disconnect;
   }
-  QMMF_INFO("%s() buffer_size is %d", __func__, buffer_size);
+  QMMF_DEBUG("%s() buffer_size is %d", __func__, buffer_size);
 
   result = ion_.Allocate(NUMBER_OF_SINK_BUFFERS, buffer_size);
   if (result < 0) {
@@ -662,6 +662,13 @@ status_t AudioRawTrackSink::ResumeSink() {
   QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__,
              track_params_.track_id);
 
+  int32_t result = end_point_->Resume();
+  if (result < 0) {
+    QMMF_ERROR("%s() endpoint->Resume failed: %d[%s]", __func__,
+               result, strerror(result));
+    return ::android::FAILED_TRANSACTION;
+  }
+
   av_buffers_lock_.lock();
   input_buffer_notify_params_.num_free_buffers = av_buffers_.size();
   av_buffers_lock_.unlock();
@@ -671,12 +678,6 @@ status_t AudioRawTrackSink::ResumeSink() {
                              EventType::kInputBufferNotify,
                              &input_buffer_notify_params_,
                              sizeof(input_buffer_notify_params_));
-  }
-  int32_t result = end_point_->Resume();
-  if (result < 0) {
-    QMMF_ERROR("%s() endpoint->Resume failed: %d[%s]", __func__,
-               result, strerror(result));
-    return ::android::FAILED_TRANSACTION;
   }
 
   AudioMessage message;
@@ -832,13 +833,12 @@ void AudioRawTrackSink::BufferHandler(const AudioBuffer& buffer) {
 void AudioRawTrackSink::StoppedHandler() {
   QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__,
              track_params_.track_id);
+  AudioMessage message;
+  message.type = AudioMessageType::kMessageStop;
   if(GetStopEofReceived())
     return;
   else
     SetStopEofReceived(true);
-
-  AudioMessage message;
-  message.type = AudioMessageType::kMessageStop;
 
   message_lock_.lock();
   messages_.push(message);
@@ -958,6 +958,9 @@ void AudioRawTrackSink::Thread() {
           while (!av_buffers.empty()) {
             AVCodecBuffer av_buffer = av_buffers.front();
 
+            AudioBuffer buffer;
+            ion_.Import(av_buffer, &buffer);
+            ion_.Export(buffer, &av_buffer);
             memset(av_buffer.data, 0x00, av_buffer.frame_length);
             av_buffer.filled_length = 0;
             av_buffer.time_stamp = 0;

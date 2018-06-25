@@ -214,32 +214,43 @@ PostProcIOParam CameraHalReproc::GetInput(const PostProcIOParam &out) {
 
 status_t CameraHalReproc::ValidateInput(const PostProcIOParam& input,
                                         const PostProcIOParam& output) {
-  int32_t in_format, num_output_formats;
 
-  if (static_meta_.exists(ANDROID_SCALER_AVAILABLE_INPUT_OUTPUT_FORMATS_MAP)) {
-    auto entry =
-        static_meta_.find(ANDROID_SCALER_AVAILABLE_INPUT_OUTPUT_FORMATS_MAP);
-    for (uint32_t i = 0 ; i < entry.count; i++) {
-      in_format = entry.data.i32[i++];
-      num_output_formats = entry.data.i32[i++];
-      if (in_format != Common::FromQmmfToHalFormat(input.format)) {
-        i +=  (num_output_formats - 1);
-        continue;
-      }
-      for (int32_t f = 0; f < num_output_formats; f++) {
-        i += f;
-        if (Common::FromQmmfToHalFormat(output.format) == entry.data.i32[i])
-          return NO_ERROR;
-      }
-    }
-  } else {
-    QMMF_ERROR("%s: Failed ANDROID_SCALER_AVAILABLE_INPUT_OUTPUT_FORMATS_MAP\n",
-        __func__);
+  auto entry =
+      static_meta_.find(ANDROID_SCALER_AVAILABLE_INPUT_OUTPUT_FORMATS_MAP);
+
+  if (entry.count == 0) {
+    QMMF_ERROR("%s: AVAILABLE_INPUT_OUTPUT_FORMATS_MAP is empty!", __func__);
+    return NAME_NOT_FOUND;
   }
 
-  QMMF_ERROR("%s: Failed: input format: 0x%x out format 0x%x\n",
-      __func__, input.format, output.format);
+  size_t idx = 0;
+  int32_t input_format = 0, num_output_formats = 0;
 
+  while (idx < entry.count) {
+    // Increment the idx with the number of output formats from previous entry.
+    idx += num_output_formats;
+
+    input_format       = entry.data.i32[idx++];
+    num_output_formats = entry.data.i32[idx++];
+
+    if (input_format != Common::FromQmmfToHalFormat(input.format)) {
+      // Different input formats, skip map entry.
+      continue;
+    }
+
+    for (auto i = idx; i < (idx + num_output_formats); ++i) {
+      if (Common::FromQmmfToHalFormat(output.format) == entry.data.i32[i]) {
+        QMMF_INFO("%s: Found supported format mapping: Input format: %d "
+            "-> Output format: %d", __func__, input.format, output.format);
+        return NO_ERROR;
+      }
+    }
+    // Didn't find supported format mapping, no point to continue.
+    break;
+  }
+
+  QMMF_ERROR("%s: Failed to find format mapping: Input format: %d ->"
+      " Output format: %d", __func__, input.format, output.format);
   return BAD_VALUE;
 }
 
@@ -264,6 +275,7 @@ status_t CameraHalReproc::ValidateOutput(const PostProcIOParam &output) {
     case BufferFormat::kNV12:
     case BufferFormat::kNV12UBWC:
     case BufferFormat::kNV21:
+    case BufferFormat::kNV16:
       is_supported = Common::ValidateResFromProcessedSizes(static_meta_,
           output.width, output.height);
       break;

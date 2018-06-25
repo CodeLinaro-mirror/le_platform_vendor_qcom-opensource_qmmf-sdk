@@ -1269,16 +1269,8 @@ status_t TrackSource::Init() {
   CameraStreamParam stream_param{};
   stream_param.cam_stream_dim.width  = track_params_.params.width;
   stream_param.cam_stream_dim.height = track_params_.params.height;
-  if (track_params_.params.format_type == VideoFormat::kBayerRDI10BIT) {
-    stream_param.cam_stream_format     = CameraStreamFormat::kRAW10;
-  } else if (track_params_.params.format_type == VideoFormat::kBayerRDI12BIT) {
-    stream_param.cam_stream_format     = CameraStreamFormat::kRAW12;
-  } else if (track_params_.params.format_type == VideoFormat::kBayerRDI8BIT) {
-    stream_param.cam_stream_format     = CameraStreamFormat::kRAW8;
-  } else {
-    stream_param.cam_stream_format     = CameraStreamFormat::kNV21;
-  }
-
+  stream_param.cam_stream_format     =
+      FromVideoToStreamFormat(track_params_.params.format_type);
   stream_param.frame_rate     = track_params_.params.frame_rate;
   stream_param.id             = track_params_.track_id;
   stream_param.low_power_mode = track_params_.params.low_power_mode;

@@ -134,6 +134,51 @@ struct Buffer {
   StreamBuffer       stream_buffer;
 };
 
+  /** FromVideoFormatToStreamFormat
+   *
+   * Translates QMMF VideoFormat to CameraStreamFormat
+   *
+   * return: CameraStreamFormat
+   **/
+  static inline CameraStreamFormat FromVideoToStreamFormat(const VideoFormat &format) {
+    CameraStreamFormat cam_stream_format;
+    if (format == VideoFormat::kBayerRDI10BIT) {
+      cam_stream_format = CameraStreamFormat::kRAW10;
+    } else if (format == VideoFormat::kBayerRDI12BIT) {
+      cam_stream_format = CameraStreamFormat::kRAW12;
+    } else if (format == VideoFormat::kBayerRDI8BIT) {
+      cam_stream_format = CameraStreamFormat::kRAW8;
+    } else {
+      cam_stream_format = CameraStreamFormat::kNV21;
+    }
+    return  cam_stream_format;
+  }
+
+  /** StreamFormatToBufferFormat
+   *
+   * Translates QMMF CameraStreamFormat to BufferFormat
+   *
+   * return: BufferFormat
+   **/
+  static inline BufferFormat StreamToBufferFormat(const CameraStreamFormat &stream_format) {
+    BufferFormat format;
+    if (stream_format == CameraStreamFormat::kRAW10) {
+      format = BufferFormat::kRAW10;
+    } else if (stream_format == CameraStreamFormat::kRAW12) {
+      format = BufferFormat::kRAW12;
+    } else if (stream_format == CameraStreamFormat::kRAW8) {
+      format = BufferFormat::kRAW8;
+    } else if (stream_format == CameraStreamFormat::kNV21) {
+      format = BufferFormat::kNV21;
+    } else if (stream_format == CameraStreamFormat::kNV12) {
+      format = BufferFormat::kNV12;
+    } else {
+      format = BufferFormat::kUnsupported;
+    }
+    return format;
+  }
+
+
 }; //namespace recorder.
 
 }; //namespace qmmf.

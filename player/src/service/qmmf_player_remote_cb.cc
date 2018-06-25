@@ -36,52 +36,52 @@ namespace player {
 
 RemoteCallBack::RemoteCallBack(const sp<IPlayerServiceCallback>& remote_cb)
     : client_cb_handle_(remote_cb) {
-  QMMF_INFO("%s: Enter ", __func__);
-  QMMF_INFO("%s: Exit (0x%p)", __func__, this);
+  QMMF_DEBUG("%s: Enter ", __func__);
+  QMMF_DEBUG("%s: Exit (0x%p)", __func__, this);
 }
 
 RemoteCallBack::~RemoteCallBack() {
-  QMMF_INFO("%s: Enter ", __func__);
-  QMMF_INFO("%s: Exit (0x%p)", __func__, this);
+  QMMF_DEBUG("%s: Enter ", __func__);
+  QMMF_DEBUG("%s: Exit (0x%p)", __func__, this);
 }
 
 void RemoteCallBack::NotifyPlayerEvent(EventType event_type,
                                        void *event_data,
                                        size_t event_data_size) {
-  QMMF_INFO("%s: Enter ", __func__);
+  QMMF_DEBUG("%s: Enter ", __func__);
   assert(client_cb_handle_.get() != nullptr);
   client_cb_handle_->NotifyPlayerEvent(event_type, event_data, event_data_size);
-  QMMF_INFO("%s: Exit", __func__);
+  QMMF_DEBUG("%s: Exit", __func__);
 }
 
 void RemoteCallBack::NotifyVideoTrackEvent(uint32_t track_id,
                                            EventType event_type,
                                            void *event_data,
                                            size_t event_data_size) {
-  QMMF_INFO("%s: Enter ", __func__);
+  QMMF_DEBUG("%s: Enter ", __func__);
   assert(client_cb_handle_.get() != nullptr);
   client_cb_handle_->NotifyVideoTrackEvent(track_id, event_type,
       event_data, event_data_size);
-  QMMF_INFO("%s: Exit", __func__);
+  QMMF_DEBUG("%s: Exit", __func__);
 }
 
 void RemoteCallBack::NotifyAudioTrackEvent(uint32_t track_id,
                                            EventType event_type,
                                            void *event_data,
                                            size_t event_data_size) {
-  QMMF_INFO("%s: Enter ", __func__);
+  QMMF_DEBUG("%s: Enter ", __func__);
   assert(client_cb_handle_.get() != nullptr);
   client_cb_handle_->NotifyAudioTrackEvent(track_id,event_type,
       event_data,event_data_size);
-  QMMF_INFO("%s: Exit", __func__);
+  QMMF_DEBUG("%s: Exit", __func__);
 }
 
 void RemoteCallBack::NotifyGrabPictureData(uint32_t track_id,
                                            BufferDescriptor& buffer) {
-  QMMF_INFO("%s: Enter ", __func__);
+  QMMF_DEBUG("%s: Enter ", __func__);
   assert(client_cb_handle_.get() != nullptr);
   client_cb_handle_->NotifyGrabPictureData(track_id, buffer);
-  QMMF_INFO("%s: Exit", __func__);
+  QMMF_DEBUG("%s: Exit", __func__);
 }
 
 };  // namespace player

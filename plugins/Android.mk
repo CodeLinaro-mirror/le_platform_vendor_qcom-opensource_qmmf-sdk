@@ -83,7 +83,7 @@ LOCAL_C_INCLUDES += $(QMMF_TOPO_MAN_INCLUDE_PATH)
 
 LOCAL_SRC_FILES := sample-plugins/qmmf_test_algo_resizer.cc
 
-LOCAL_MODULE = qmmf_test_algo_resizer
+LOCAL_MODULE = libqmmf_test_algo_resizer
 
 include $(BUILD_SHARED_LIBRARY)
 
@@ -114,6 +114,15 @@ include $(QMMF_SDK_TOP_SRCDIR)/common.mk
 LOCAL_C_INCLUDES += $(QMMF_TOPO_MAN_INCLUDE_PATH)
 
 LOCAL_SRC_FILES := gtest/qmmf_algo_interface_gtest.cc
+LOCAL_SRC_FILES += gtest/buffer_handler.cc
+LOCAL_SRC_FILES += gtest/qmmf_algo_gtest_configuration_buffer.cc
+LOCAL_SRC_FILES += gtest/qmmf_algo_gtest_test_content.cc
+LOCAL_SRC_FILES += gtest/qmmf_algo_gtest_test_suite.cc
+LOCAL_SRC_FILES += gtest/qmmf_algo_gtest_configuration.cc
+LOCAL_SRC_FILES += gtest/ion_buffer.cc
+LOCAL_SRC_FILES += gtest/heap_tracker.cc
+
+LOCAL_SHARED_LIBRARIES += libjsoncpp_vendor
 
 LOCAL_MODULE = qmmf_algo_interface_gtest
 

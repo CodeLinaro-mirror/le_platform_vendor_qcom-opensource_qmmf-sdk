@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -41,14 +41,11 @@ namespace qmmf_alg_plugin {
 class QmmfInplaceTestAlgo : public QmmfSimpleTestAlgo {
  public:
   QmmfInplaceTestAlgo() {
-    caps_ = Capabilities("InplaceTest",
-        BufferRequirements(160, 120, 3840, 2160,
-                           true, 1, 0, 0,
-                           {kNv21, kNv12}),
-        BufferRequirements(160, 120, 3840, 2160,
-                           true, 0, 0, 0,
-                           {}),
-        true, 0, false, false, false, 1.0);
+    caps_ = Capabilities(
+        "InplaceTest",
+        BufferRequirements(160, 120, 3840, 2160, true, 1, 0, 0, {kNv21, kNv12}),
+        BufferRequirements(160, 120, 3840, 2160, true, 0, 0, 0, {}), true, 0,
+        false, false, false, 1.0);
   }
 };
 
@@ -64,6 +61,6 @@ extern "C" IAlgPlugin *QmmfAlgoNew(
   return new QmmfInplaceTestAlgo();
 }
 
-}; // namespace qmmf_alg_plugin
+};  // namespace qmmf_alg_plugin
 
-}; // namespace qmmf
+};  // namespace qmmf
