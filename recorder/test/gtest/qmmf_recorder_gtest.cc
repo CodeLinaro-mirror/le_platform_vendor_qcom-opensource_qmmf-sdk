@@ -27169,6 +27169,202 @@ TEST_F(RecorderGtest, SessionWithDualCam4KEncAllAWBModes) {
 }
 
 /*
+* SessionWithDualCam4KEncAllExposureMeteringModes: This case will test a dual cam session with
+*                 4096x2048 h264 encoded track, during which in regular intervals
+*                 Exposure meter modes will change.
+*                 Note: camera_id_ for dual cam to be set using adb property.
+* Api test sequence:
+*  - StartCamera
+*   loop Start {
+*   --------------------------
+*   - CreateSession
+*   - CreateVideoTrack
+*   - StartVideoTrack
+*   - StartSession
+*   - Set Exposure Meter mode
+*   - StopSession
+*   - DeleteVideoTrack
+*   - DeleteSession
+*   --------------------------
+*   } loop End
+*  - StopCamera
+*/
+TEST_F(RecorderGtest, SessionWithDualCam4KEncAllExposureMeteringModes) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  uint32_t record_dur = record_duration_;
+
+  auto ret = Init();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  VideoFormat format_type = VideoFormat::kAVC;
+  uint32_t stream_width  = 4096;
+  uint32_t stream_height = 2048;
+
+  for (uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
+        test_info_->name(), i);
+
+    SessionCb session_status_cb;
+    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
+                                         size_t event_data_size) -> void
+        { SessionCallbackHandler(event_type, event_data, event_data_size); };
+
+    uint32_t session_id;
+    ret = recorder_.CreateSession(session_status_cb, &session_id);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
+    VideoTrackCreateParam video_track_param{camera_id_, format_type,
+                                            stream_width,
+                                            stream_height,
+                                            30};
+
+    uint32_t video_track_id = 1;
+
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo = {
+        video_track_param.format_type,
+        video_track_id,
+        stream_width,
+        stream_height };
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+                              std::vector<BufferDescriptor> buffers,
+                              std::vector<MetaData> meta_buffers) {
+    VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers); };
+
+    video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
+        void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
+        event_type, event_data, event_data_size); };
+
+    ImageParam image_param{};
+    image_param.width         = 4096;
+    image_param.height        = 2048;
+    image_param.image_format  = ImageFormat::kJPEG;
+    image_param.image_quality = default_jpeg_quality_;
+
+    std::vector<CameraMetadata> meta_array;
+    camera_metadata_entry_t entry;
+    CameraMetadata meta_img;
+
+    ret = recorder_.GetDefaultCaptureParam(camera_id_, meta_img);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    bool res_supported = false;
+    // Check Supported Raw YUV snapshot resolutions.
+    if (meta_img.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
+      entry = meta_img.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
+      for (uint32_t i = 0 ; i < entry.count; i += 4) {
+        if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
+          if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
+              entry.data.i32[i+3]) {
+            if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
+                && image_param.height ==
+                    static_cast<uint32_t>(entry.data.i32[i+2])) {
+              res_supported = true;
+            }
+          }
+        }
+      }
+    }
+    ASSERT_TRUE(res_supported != false);
+
+    ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
+                                BufferDescriptor buffer,
+                                MetaData meta_data) -> void
+        { SnapshotCb(camera_id, image_count, buffer, meta_data); };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                     video_track_param, video_track_cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.StartSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    CameraMetadata meta;
+    ret = recorder_.GetCameraParam(camera_id_, meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    uint32_t exposure_metering_mode_vtag;
+    uint32_t exposure_metering_available_modes_vtag;
+    if (!VendorTagSupported(String8("available_modes"),
+        String8("org.codeaurora.qcamera3.exposure_metering"),
+        &exposure_metering_available_modes_vtag)) {
+      TEST_ERROR("%s: available_modes is not supported", __func__);
+      ASSERT_TRUE(0);
+    }
+    if (!VendorTagSupported(String8("exposure_metering_mode"),
+        String8("org.codeaurora.qcamera3.exposure_metering"),
+        &exposure_metering_mode_vtag)) {
+      TEST_ERROR("%s: exposure_metering_mode is not supported", __func__);
+      ASSERT_TRUE(0);
+    }
+
+    camera_metadata_entry_t exposure_metering_available_modes =
+    meta.find(exposure_metering_available_modes_vtag);
+    uint32_t available_meter_mode = exposure_metering_available_modes.count;
+
+    // Setting tag to exposure metering
+    int32_t exposure_metering_mode = 0;
+    ret = meta.update(exposure_metering_mode_vtag, &exposure_metering_mode, 1);
+    ret = meta_img.update(exposure_metering_mode_vtag, &exposure_metering_mode, 1);
+
+    for (uint32_t count = 0; count < available_meter_mode; count++) {
+
+      ret = meta.update(exposure_metering_mode_vtag,
+                        &exposure_metering_available_modes.data.i32[count], 1);
+      ASSERT_TRUE(ret == NO_ERROR);
+      ret = meta_img.update(exposure_metering_mode_vtag,
+                        &exposure_metering_available_modes.data.i32[count], 1);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      fprintf(stderr, "Exposure Metering switched to mode[%d]\n", count);
+      ret = recorder_.SetCameraParam(camera_id_, meta);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      meta_array.push_back(meta_img);
+      ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array,
+                                   cb);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      sleep(record_dur/available_meter_mode);
+      ret = recorder_.CancelCaptureImage(camera_id_);
+      ASSERT_TRUE(ret == NO_ERROR);
+      meta_array.clear();
+    }
+
+    ret = recorder_.StopSession(session_id, false);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    dump_bitstream_.CloseAll();
+  }
+
+  ret = recorder_.StopCamera(camera_id_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = DeInit();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
+/*
 * SessionWithDualCam4kEncCopy1080EncAndLinked1080YUV: This test will test
 *                           Dual cam session with one 4kp Enc track,
 *                           one Copy 1080 Enc Track and one linked.
