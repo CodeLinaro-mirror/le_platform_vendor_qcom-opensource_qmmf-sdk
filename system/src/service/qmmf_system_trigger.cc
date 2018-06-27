@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -33,6 +33,7 @@
 
 #include <functional>
 #include <thread>
+#include <sys/prctl.h>
 
 #include <mm-audio/qsthw_api/qsthw_defs.h>
 #include <mm-audio/qsthw_api/qsthw_api.h>
@@ -345,7 +346,7 @@ void SystemTrigger::EventCallback(
 
 void SystemTrigger::CaptureThreadEntry(SystemTrigger* system) {
   QMMF_DEBUG("%s() TRACE", __func__);
-
+  prctl(PR_SET_NAME, "SysTriggerCapTh", 0, 0, 0);
   system->CaptureThread();
 }
 

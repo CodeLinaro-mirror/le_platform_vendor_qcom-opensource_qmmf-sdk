@@ -40,6 +40,7 @@
 #include <queue>
 #include <thread>
 #include <vector>
+#include <sys/prctl.h>
 
 #include <mm-audio/qahw_api/inc/qahw_api.h>
 #include <mm-audio/qahw_api/inc/qahw_defs.h>
@@ -800,7 +801,7 @@ int AudioBackendSink::Callback(qahw_stream_callback_event_t event,
 
 void AudioBackendSink::ThreadEntry(AudioBackendSink* backend) {
   QMMF_DEBUG("%s() TRACE", __func__);
-
+  prctl(PR_SET_NAME, "AudioBSinkTh", 0, 0, 0);
   backend->Thread();
 }
 
