@@ -31,6 +31,7 @@
 
 #include <chrono>
 #include <map>
+#include <sys/prctl.h>
 
 #include "recorder/src/service/qmmf_camera_rescaler.h"
 #include "recorder/src/service/qmmf_recorder_utils.h"
@@ -319,6 +320,8 @@ void CameraRescalerThread::RequestExitAndWait() {
 }
 
 void *CameraRescalerThread::MainLoop(void *userdata) {
+  prctl(PR_SET_NAME, "CamRescaleMain", 0, 0, 0);
+
   CameraRescalerThread *pme = reinterpret_cast<CameraRescalerThread *>(userdata);
   if (nullptr == pme) {
     pme->running_ = false;

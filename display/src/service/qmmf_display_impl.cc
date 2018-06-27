@@ -35,6 +35,7 @@
 #include <utils/List.h>
 #include <utils/RefBase.h>
 #include <hardware/hardware.h>
+#include <sys/prctl.h>
 
 #include "display/src/service/qmmf_display_impl.h"
 #include "display/src/service/qmmf_display_sdm_buffer_sync_handler.h"
@@ -942,7 +943,10 @@ status_t DisplayImpl::QueueWBSurfaceBuffer(DisplayHandle display_handle,
 
 void DisplayImpl::HandleVSyncThreadEntry(DisplayImpl* display_impl) {
   QMMF_DEBUG("%s: Enter", __func__);
+
+  prctl(PR_SET_NAME, "DisImplHVSync", 0, 0, 0);
   display_impl->HandleVSync();
+
   QMMF_DEBUG("%s: Exit", __func__);
 }
 

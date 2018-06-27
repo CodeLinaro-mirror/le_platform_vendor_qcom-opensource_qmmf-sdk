@@ -35,8 +35,8 @@
 #include <cstdlib>
 #include <iomanip>
 #include <memory>
-#include <string>
 #include <sstream>
+#include <string>
 
 #include <cutils/properties.h>
 #include <utils/String8.h>
@@ -54,6 +54,7 @@
 #include <gbm_priv.h>
 #endif
 #include <math.h>
+#include <sys/prctl.h>
 
 #include "common/codecadaptor/src/qmmf_avcodec_common.h"
 #include "common/codecadaptor/src/qmmf_omx_client.h"
@@ -3186,6 +3187,8 @@ status_t AVCodec::Flush(uint32_t index) {
 void AVCodec::DeliverInput() {
   QMMF_INFO("%s: Enter", __func__);
 
+  prctl(PR_SET_NAME, "AVCodecDelInp", 0, 0, 0);
+
   status_t ret = 0;
   BufferDescriptor stream_buffer;
   OMX_BUFFERHEADERTYPE *buf_header;
@@ -3257,6 +3260,8 @@ void AVCodec::DeliverInput() {
 void AVCodec::ThreadRun() {
   QMMF_INFO("%s: Enter", __func__);
 
+  prctl(PR_SET_NAME, "AVCodecThRun", 0, 0, 0);
+
   status_t ret = 0;
 
   while (!IsOutputPortStop()) {
@@ -3279,8 +3284,9 @@ void AVCodec::ThreadRun() {
 void AVCodec::DeliverOutput() {
   QMMF_INFO("%s: Enter", __func__);
 
-  status_t ret = 0;
+  prctl(PR_SET_NAME, "AVCodecDelOut", 0, 0, 0);
 
+  status_t ret = 0;
   BufferDescriptor codec_buffer;
   OMX_BUFFERHEADERTYPE *buf_header;
   while (1) {

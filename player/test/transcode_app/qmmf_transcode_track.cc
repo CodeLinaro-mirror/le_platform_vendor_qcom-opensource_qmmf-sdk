@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -29,16 +29,18 @@
 
 #include "qmmf_transcode_track.h"
 
+#include <sys/prctl.h>
+
 #undef LOG_TAG
 #define LOG_TAG "TranscoderTrack"
 
 namespace qmmf {
 namespace transcode {
 
-using ::std::string;
-using ::std::make_shared;
 using ::std::lock_guard;
+using ::std::make_shared;
 using ::std::mutex;
+using ::std::string;
 using ::std::thread;
 
 TranscoderTrack::TranscoderTrack(const string& file)
@@ -484,6 +486,8 @@ status_t TranscoderTrack::Start() {
 void* TranscoderTrack::DeliverInput(void* arg) {
   QMMF_INFO("%s Enter", __func__);
 
+  prctl(PR_SET_NAME, "TransCodeDelInp", 0, 0, 0);
+
   TranscoderTrack* track = reinterpret_cast<TranscoderTrack*>(arg);
   status_t ret = 0;
   while (1) {
@@ -576,6 +580,8 @@ void* TranscoderTrack::DeliverInput(void* arg) {
 void* TranscoderTrack::ReceiveOutput(void* arg) {
   QMMF_INFO("%s Enter", __func__);
 
+  prctl(PR_SET_NAME, "TransCodeRecOut", 0, 0, 0);
+
   status_t ret = 0;
   TranscoderTrack* track = reinterpret_cast<TranscoderTrack*>(arg);
   FILE* file = fopen(track->params_.output_file.c_str(), "w");
@@ -610,6 +616,8 @@ void* TranscoderTrack::ReceiveOutput(void* arg) {
 
 void* TranscoderTrack::StopTransCoding(void* arg) {
   QMMF_INFO("%s Enter", __func__);
+
+  prctl(PR_SET_NAME, "TransCodeStopTr", 0, 0, 0);
 
   status_t ret = 0;
   TranscoderTrack* track = reinterpret_cast<TranscoderTrack*>(arg);

@@ -37,6 +37,7 @@
 #include <utils/Errors.h>
 #include <utils/Log.h>
 #include <utils/String8.h>
+#include <sys/prctl.h>
 
 #include <hardware/hardware.h>
 #include "display/test/gtest/qmmf_display_gtest.h"
@@ -2537,8 +2538,11 @@ void DisplayGtest::DisplayVSyncHandler(int64_t time_stamp) {
 }
 
 void DisplayGtest::DisplayThreadEntry(DisplayGtest* display_gtest) {
-  TEST_INFO("%s:() Enter", __func__);
+  TEST_INFO("%s: Enter", __func__);
+
+  prctl(PR_SET_NAME, "DisplayGtestTh", 0, 0, 0);
   display_gtest->DisplayThread();
+
   TEST_INFO("%s: Exit", __func__);
 }
 

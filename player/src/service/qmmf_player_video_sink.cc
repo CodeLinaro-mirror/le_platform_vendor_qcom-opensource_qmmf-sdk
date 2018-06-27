@@ -29,12 +29,14 @@
 
 #define LOG_TAG "VideoSink"
 
-#include "player/src/service/qmmf_player_video_sink.h"
-#include "player/src/service/qmmf_player_audio_sink.h"
-
 #include <chrono>
 #include <memory>
 #include <thread>
+#include <sys/prctl.h>
+
+#include "player/src/service/qmmf_player_video_sink.h"
+#include "player/src/service/qmmf_player_audio_sink.h"
+
 #define ROUND_TO(val, round_to) (val + round_to - 1) & ~(round_to - 1)
 #define HFR_FPS_VALUE 60.0
 
@@ -768,7 +770,10 @@ bool VideoTrackSink::IsFrameSkip() {
 
 void VideoTrackSink::RendererThread(VideoTrackSink* video_sink) {
   QMMF_DEBUG("%s: Enter track_id(%d)", __func__, video_sink->TrackId());
+
+  prctl(PR_SET_NAME, "VideoSinkRender", 0, 0, 0);
   video_sink->Renderer();
+
   QMMF_DEBUG("%s: Exit track_id(%d)", __func__, video_sink->TrackId());
 }
 
@@ -891,7 +896,7 @@ void VideoTrackSink::Renderer() {
 
 void VideoTrackSink::PtsThreadEntry(VideoTrackSink* sink) {
   QMMF_DEBUG("%s() TRACE", __func__);
-
+  prctl(PR_SET_NAME, "VideoSinkPtsTh", 0, 0, 0);
   sink->PtsThread();
 }
 
