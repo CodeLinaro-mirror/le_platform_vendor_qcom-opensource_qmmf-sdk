@@ -45,6 +45,12 @@
 #include "player/src/service/qmmf_player_service.h"
 #include "system/src/service/qmmf_system_service.h"
 
+/**
+ * Property to indicate completion of QMMF services initialization.
+ * When completed, value is set to 1.
+ */
+#define QMMF_BOOT_COMPLETE "vendor.qmmf.boot.complete"
+
 using namespace android;
 using namespace qmmf;
 using namespace qmmf::common::audio;
@@ -99,6 +105,7 @@ int32_t main(int32_t argc, char **argv) {
 #endif
 
   android::ProcessState::self()->startThreadPool();
+  property_set(QMMF_BOOT_COMPLETE, "1");
   IPCThreadState::self()->joinThreadPool();
   return 0;
 }
