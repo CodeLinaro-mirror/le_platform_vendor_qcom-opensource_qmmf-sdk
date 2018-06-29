@@ -525,13 +525,13 @@ void ExifGenerator::GetDateTime(std::string &date_time,
   char tmp[20];
   // Extract datetime value according to EXIF Spec
   // "YYYY:MM:DD HH:MM:SS" (20 chars including \0).
-  sprintf(tmp, "%04u:%02u:%02u %02u:%02u:%02u",
+  snprintf(tmp, sizeof(tmp), "%04u:%02u:%02u %02u:%02u:%02u",
           time_info.tm_year + 1900, time_info.tm_mon + 1,
           time_info.tm_mday, time_info.tm_hour,
           time_info.tm_min, time_info.tm_sec);
   date_time = tmp;
   // Extract subsec according to EXIF Sepc
-  sprintf(tmp, "%06lu", tv.tv_usec);
+  snprintf(tmp, sizeof(tmp), "%06lu", tv.tv_usec);
   subsec_time = tmp;
 }
 
