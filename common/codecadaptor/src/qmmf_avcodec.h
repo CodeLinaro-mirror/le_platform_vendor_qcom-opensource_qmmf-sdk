@@ -230,6 +230,7 @@ class AVCodec : public IAVCodec {
   uint32_t                        in_buff_hdr_size_;
   uint32_t                        out_buff_hdr_size_;
   SignalQueue<CodecCmdType>       signal_queue_;
+  static const uint32_t           extra_output_buffers_;
   static OMX_CALLBACKTYPE  callbacks_;
   static uint32_t power_hint_;
   CodecType                format_type_;
