@@ -26679,6 +26679,197 @@ TEST_F(RecorderGtest, SessionWithDualCam4KEncAllISOModes) {
 }
 
 /*
+* SessionWithDualCam4KEncAllExposureValues: This case will test a dual cam session with
+*                 4096x2048 h264 encoded track, during which in regular intervals
+*                 Exposure value modes will change.
+*                 Note: camera_id_ for dual cam to be set using adb property.
+* Api test sequence:
+*  - StartCamera
+*   loop Start {
+*   --------------------------
+*   - CreateSession
+*   - CreateVideoTrack
+*   - StartVideoTrack
+*   - StartSession
+*   - Set Exposure Value
+*   - Capture Image
+*   - CancelCapture
+*   - StopSession
+*   - DeleteVideoTrack
+*   - DeleteSession
+*   --------------------------
+*   } loop End
+*  - StopCamera
+*/
+TEST_F(RecorderGtest, SessionWithDualCam4KEncAllExposureValues) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  uint32_t record_dur = record_duration_;
+
+  auto ret = Init();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  VideoFormat format_type = VideoFormat::kAVC;
+  uint32_t stream_width  = 4096;
+  uint32_t stream_height = 2048;
+
+  for (uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
+        test_info_->name(), i);
+
+    SessionCb session_status_cb;
+    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
+                                         size_t event_data_size) -> void
+        { SessionCallbackHandler(event_type, event_data, event_data_size); };
+
+    uint32_t session_id;
+    ret = recorder_.CreateSession(session_status_cb, &session_id);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
+    VideoTrackCreateParam video_track_param{camera_id_, format_type,
+                                            stream_width,
+                                            stream_height,
+                                            30};
+
+    uint32_t video_track_id = 1;
+
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo = {
+        video_track_param.format_type,
+        video_track_id,
+        stream_width,
+        stream_height };
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+                              std::vector<BufferDescriptor> buffers,
+                              std::vector<MetaData> meta_buffers) {
+    VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers); };
+
+    video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
+        void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
+        event_type, event_data, event_data_size); };
+
+    ImageParam image_param{};
+    image_param.width         = 4096;
+    image_param.height        = 2048;
+    image_param.image_format  = ImageFormat::kJPEG;
+    image_param.image_quality = default_jpeg_quality_;
+
+    std::vector<CameraMetadata> meta_array;
+    camera_metadata_entry_t entry;
+    CameraMetadata meta_img;
+
+    ret = recorder_.GetDefaultCaptureParam(camera_id_, meta_img);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    bool res_supported = false;
+    // Check Supported Raw YUV snapshot resolutions.
+    if (meta_img.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
+      entry = meta_img.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
+      for (uint32_t i = 0 ; i < entry.count; i += 4) {
+        if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
+          if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
+              entry.data.i32[i+3]) {
+            if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
+                && image_param.height ==
+                    static_cast<uint32_t>(entry.data.i32[i+2])) {
+              res_supported = true;
+            }
+          }
+        }
+      }
+    }
+    ASSERT_TRUE(res_supported != false);
+
+    ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
+                                BufferDescriptor buffer,
+                                MetaData meta_data) -> void
+        { SnapshotCb(camera_id, image_count, buffer, meta_data); };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                     video_track_param, video_track_cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.StartSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    CameraMetadata meta;
+    ret = recorder_.GetCameraParam(camera_id_, meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    if (meta.exists(ANDROID_CONTROL_AE_COMPENSATION_RANGE)) {
+      camera_metadata_entry meta_entry =
+            meta.find(ANDROID_CONTROL_AE_COMPENSATION_RANGE);
+
+      int32_t ev_max = meta_entry.data.i32[1];
+      int32_t ev_min = meta_entry.data.i32[0];
+
+      camera_metadata_entry meta_entry_step =
+            meta.find(ANDROID_CONTROL_AE_COMPENSATION_STEP);
+
+      float step = static_cast<float>(meta_entry_step.data.r[0].numerator) /
+                                      meta_entry_step.data.r[0].denominator;
+      uint32_t num_index = (ev_max - ev_min + 1);
+      record_dur = (record_dur + num_index - 1)/num_index ;
+      TEST_INFO("%s: EV max index %d EV min index %d Step %f \n", __func__,
+          ev_max, ev_min, step);
+      for (int32_t count = ev_min; count <= ev_max; count++) {
+
+        int32_t ev_value = count;
+        ret = meta.update(ANDROID_CONTROL_AE_EXPOSURE_COMPENSATION,
+                          &ev_value, 1);
+        ASSERT_TRUE(ret == NO_ERROR);
+        ret = meta_img.update(ANDROID_CONTROL_AE_EXPOSURE_COMPENSATION,
+                              &ev_value, 1);
+        ASSERT_TRUE(ret == NO_ERROR);
+        fprintf(stderr, "EV %f\n", ev_value * step);
+        ret = recorder_.SetCameraParam(camera_id_, meta);
+        ASSERT_TRUE(ret == NO_ERROR);
+
+        meta_array.push_back(meta_img);
+        ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array,
+                                     cb);
+        ASSERT_TRUE(ret == NO_ERROR);
+
+        sleep(record_dur);
+        ret = recorder_.CancelCaptureImage(camera_id_);
+        ASSERT_TRUE(ret == NO_ERROR);
+        meta_array.clear();
+      }
+    }
+
+    ret = recorder_.StopSession(session_id, false);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    dump_bitstream_.CloseAll();
+  }
+
+  ret = recorder_.StopCamera(camera_id_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = DeInit();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
+/*
 * SessionWithDualCam4KEncExposureTime: This case will test a dual cam session with
 *                 4096x2048 h264 encoded track, during which in regular intervals
 *                 shutter (exposure) time will change.
