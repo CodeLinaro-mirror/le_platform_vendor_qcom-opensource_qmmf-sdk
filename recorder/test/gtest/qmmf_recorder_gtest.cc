@@ -26552,6 +26552,8 @@ bool RecorderGtest::VendorTagExistsInMeta(const CameraMetadata& meta,
 *   - StartVideoTrack
 *   - StartSession
 *   - Set ISO mode
+*   - Capture Image
+*   - CancelCapture
 *   - StopSession
 *   - DeleteVideoTrack
 *   - DeleteSession
@@ -26574,6 +26576,43 @@ TEST_F(RecorderGtest, SessionWithDualCam4KEncAllISOModes) {
   VideoFormat format_type = VideoFormat::kAVC;
   uint32_t stream_width  = 4096;
   uint32_t stream_height = 2048;
+
+  ImageParam image_param{};
+  image_param.width         = 4096;
+  image_param.height        = 2048;
+  image_param.image_format  = ImageFormat::kJPEG;
+  image_param.image_quality = default_jpeg_quality_;
+
+  std::vector<CameraMetadata> meta_array;
+  camera_metadata_entry_t entry;
+  CameraMetadata meta_img;
+
+  ret = recorder_.GetDefaultCaptureParam(camera_id_, meta_img);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  bool res_supported = false;
+  // Check Supported Raw YUV snapshot resolutions.
+  if (meta_img.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
+    entry = meta_img.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
+    for (uint32_t i = 0 ; i < entry.count; i += 4) {
+      if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
+        if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
+            entry.data.i32[i+3]) {
+          if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
+              && image_param.height ==
+                  static_cast<uint32_t>(entry.data.i32[i+2])) {
+            res_supported = true;
+          }
+        }
+      }
+    }
+  }
+  ASSERT_TRUE(res_supported != false);
+
+  ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
+                              BufferDescriptor buffer,
+                              MetaData meta_data) -> void
+      { SnapshotCb(camera_id, image_count, buffer, meta_data); };
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
@@ -26645,15 +26684,31 @@ TEST_F(RecorderGtest, SessionWithDualCam4KEncAllISOModes) {
     // Setting tag to iso
     int32_t select_iso_priority = 0;
     ret = meta.update(select_iso_priority_vtag, &select_iso_priority, 1);
-
+    ASSERT_TRUE(ret == NO_ERROR);
+    ret = meta_img.update(select_iso_priority_vtag, &select_iso_priority, 1);
+    ASSERT_TRUE(ret == NO_ERROR);
     for (int32_t count = kISOModeAuto; count < kISOModeEnd; count++) {
       int64_t iso_mode = count;
       ret = meta.update(use_iso_priority_vtag, &iso_mode, 1);
       ASSERT_TRUE(ret == NO_ERROR);
+      ret = meta_img.update(use_iso_priority_vtag, &iso_mode, 1);
+      ASSERT_TRUE(ret == NO_ERROR);
+
       fprintf(stderr, "ISO switched to mode[%d]\n", count);
       ret = recorder_.SetCameraParam(camera_id_, meta);
       ASSERT_TRUE(ret == NO_ERROR);
+
+      meta_array.push_back(meta_img);
+      ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array,
+                                 cb);
+      ASSERT_TRUE(ret == NO_ERROR);
+
       sleep(record_dur/kISOModeEnd);
+
+      ret = recorder_.CancelCaptureImage(camera_id_);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      meta_array.clear();
     }
 
     ret = recorder_.StopSession(session_id, false);
@@ -26883,6 +26938,8 @@ TEST_F(RecorderGtest, SessionWithDualCam4KEncAllExposureValues) {
 *   - StartVideoTrack
 *   - StartSession
 *   - Set exposure time
+*   - Capture Image
+*   - CancelCapture
 *   - StopSession
 *   - DeleteVideoTrack
 *   - DeleteSession
@@ -26946,6 +27003,43 @@ TEST_F(RecorderGtest, SessionWithDualCam4KEncExposureTime) {
       ASSERT_TRUE(ret == NO_ERROR);
     }
 
+    ImageParam image_param{};
+    image_param.width         = 4096;
+    image_param.height        = 2048;
+    image_param.image_format  = ImageFormat::kJPEG;
+    image_param.image_quality = default_jpeg_quality_;
+
+    std::vector<CameraMetadata> meta_array;
+    camera_metadata_entry_t entry_img;
+    CameraMetadata meta_img;
+
+    ret = recorder_.GetDefaultCaptureParam(camera_id_, meta_img);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    bool res_supported = false;
+    // Check Supported Raw YUV snapshot resolutions.
+    if (meta_img.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
+      entry_img = meta_img.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
+      for (uint32_t i = 0 ; i < entry_img.count; i += 4) {
+        if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry_img.data.i32[i]) {
+          if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
+              entry_img.data.i32[i+3]) {
+            if (image_param.width == static_cast<uint32_t>(entry_img.data.i32[i+1])
+                && image_param.height ==
+                    static_cast<uint32_t>(entry_img.data.i32[i+2])) {
+              res_supported = true;
+            }
+          }
+        }
+      }
+    }
+    ASSERT_TRUE(res_supported != false);
+
+    ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
+                                BufferDescriptor buffer,
+                                MetaData meta_data) -> void
+        { SnapshotCb(camera_id, image_count, buffer, meta_data); };
+
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
                               std::vector<BufferDescriptor> buffers,
@@ -27002,7 +27096,9 @@ TEST_F(RecorderGtest, SessionWithDualCam4KEncExposureTime) {
     // Setting tag to exposure time
     int32_t select_exp_priority = 1;
     ret = meta.update(select_exp_priority_vtag, &select_exp_priority, 1);
-
+    ASSERT_TRUE(ret == NO_ERROR);
+    ret = meta_img.update(select_exp_priority_vtag, &select_exp_priority, 1);
+    ASSERT_TRUE(ret == NO_ERROR);
     int64_t exp_val = 0;
     int32_t expected_fps = 0;
     for (uint32_t count = 0; count < num_samples; count++) {
@@ -27012,6 +27108,9 @@ TEST_F(RecorderGtest, SessionWithDualCam4KEncExposureTime) {
       if ((exp_val >= min_exp_time) && (exp_val <= max_exp_time)) {
         ret = meta.update(use_exp_priority_vtag, &exp_val, 1);
         ASSERT_TRUE(ret == NO_ERROR);
+        ret = meta_img.update(use_exp_priority_vtag, &exp_val, 1);
+        ASSERT_TRUE(ret == NO_ERROR);
+
         fprintf(stderr, "Applying Exposure time: %lld ns, "
                 "expected: %d fps when applied..\n", exp_val, expected_fps);
         ret = recorder_.SetCameraParam(camera_id_, meta);
@@ -27020,7 +27119,14 @@ TEST_F(RecorderGtest, SessionWithDualCam4KEncExposureTime) {
         fprintf(stderr, "Holding on to previous Exposure time: %lld ns\n",
                 exp_val);
       }
+      meta_array.push_back(meta_img);
+      ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array,
+                                 cb);
+      ASSERT_TRUE(ret == NO_ERROR);
       sleep(record_dur/num_samples);
+      ret = recorder_.CancelCaptureImage(camera_id_);
+      ASSERT_TRUE(ret == NO_ERROR);
+      meta_array.clear();
     }
 
     ret = recorder_.StopSession(session_id, false);
@@ -27059,6 +27165,8 @@ TEST_F(RecorderGtest, SessionWithDualCam4KEncExposureTime) {
 *   - StartVideoTrack
 *   - StartSession
 *   - Set AWB mode
+*   - Capture Image
+*   - CancelCapture
 *   - StopSession
 *   - DeleteVideoTrack
 *   - DeleteSession
@@ -27114,6 +27222,44 @@ TEST_F(RecorderGtest, SessionWithDualCam4KEncAllAWBModes) {
       ASSERT_TRUE(ret == NO_ERROR);
     }
 
+    ImageParam image_param{};
+    image_param.width         = 4096;
+    image_param.height        = 2048;
+    image_param.image_format  = ImageFormat::kJPEG;
+    image_param.image_quality = default_jpeg_quality_;
+
+    std::vector<CameraMetadata> meta_array;
+    camera_metadata_entry_t entry;
+    CameraMetadata meta_img;
+
+    ret = recorder_.GetDefaultCaptureParam(camera_id_, meta_img);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    bool res_supported = false;
+    // Check Supported Raw YUV snapshot resolutions.
+    if (meta_img.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
+      entry = meta_img.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
+      for (uint32_t i = 0 ; i < entry.count; i += 4) {
+        if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
+          if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
+              entry.data.i32[i+3]) {
+            if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
+                && image_param.height ==
+                    static_cast<uint32_t>(entry.data.i32[i+2])) {
+              res_supported = true;
+            }
+          }
+        }
+      }
+    }
+    ASSERT_TRUE(res_supported != false);
+
+    ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
+                                BufferDescriptor buffer,
+                                MetaData meta_data) -> void
+        { SnapshotCb(camera_id, image_count, buffer, meta_data); };
+
+
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
                               std::vector<BufferDescriptor> buffers,
@@ -27135,15 +27281,24 @@ TEST_F(RecorderGtest, SessionWithDualCam4KEncAllAWBModes) {
     ret = recorder_.GetCameraParam(camera_id_, meta);
     ASSERT_TRUE(ret == NO_ERROR);
 
-
     for (uint32_t count = kAWBModeOff; count < kAWBModeEnd; count++) {
       uint8_t awb_mode = count;
       ret = meta.update(ANDROID_CONTROL_AWB_MODE, &awb_mode, 1);
       ASSERT_TRUE(ret == NO_ERROR);
+      ret = meta_img.update(ANDROID_CONTROL_AWB_MODE, &awb_mode, 1);
+      ASSERT_TRUE(ret == NO_ERROR);
+
       fprintf(stderr, "AWB switched to mode[%d]\n", count);
       ret = recorder_.SetCameraParam(camera_id_, meta);
       ASSERT_TRUE(ret == NO_ERROR);
+      meta_array.push_back(meta_img);
+      ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array,
+                                 cb);
+      ASSERT_TRUE(ret == NO_ERROR);
       sleep(record_dur/kAWBModeEnd);
+      ret = recorder_.CancelCaptureImage(camera_id_);
+      ASSERT_TRUE(ret == NO_ERROR);
+      meta_array.clear();
     }
 
     ret = recorder_.StopSession(session_id, false);
