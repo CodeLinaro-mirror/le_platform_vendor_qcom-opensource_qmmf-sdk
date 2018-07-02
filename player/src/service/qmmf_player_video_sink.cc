@@ -1204,7 +1204,7 @@ status_t VideoTrackSink::PushFrameToDisplay(BufferDescriptor& codec_buffer) {
     surface_buffer_.plane_info[0].buf = bufinfo.vaddr;
 
     QMMF_DEBUG("%s Surface Param Used for Display L(%f) T(%f) R(%f) B(%f)"
-               " surface_config_.width(%u) surface_config_.height(%u)",
+               " surface_config_.width(%u) surface_config_.height(%u)"
                " stride(%u)", __func__, surface_param_.src_rect.left,
                surface_param_.src_rect.top, surface_param_.src_rect.right,
                surface_param_.src_rect.bottom, surface_config_.width,
