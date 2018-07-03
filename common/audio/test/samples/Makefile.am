@@ -11,6 +11,7 @@ cpp_flags += -I$(top_srcdir)/include
 ld_flags = -llog
 ld_flags += -lutils
 ld_flags += -lcutils
+ld_flags += -lpthread
 
 audio_test_SOURCES  = $(source_files)
 audio_test_CPPFLAGS = $(cpp_flags)

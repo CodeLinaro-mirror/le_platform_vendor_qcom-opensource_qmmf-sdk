@@ -52,7 +52,7 @@ qmmf_algo_interface_gtest_SOURCES += gtest/heap_tracker.cc
 
 qmmf_algo_interface_gtest_CPPFLAGS = -I$(top_srcdir)/include
 qmmf_algo_interface_gtest_LDFLAGS  = -lutils -lcutils -llog -lgtest -lgtest_main
-qmmf_algo_interface_gtest_LDFLAGS  += -ldl -ljsoncpp
+qmmf_algo_interface_gtest_LDFLAGS  += -ldl -ljsoncpp -lpthread
 
 # Build qmmf algorithm interface gtest application binary
 bin_PROGRAMS += qmmf_utils_gtest

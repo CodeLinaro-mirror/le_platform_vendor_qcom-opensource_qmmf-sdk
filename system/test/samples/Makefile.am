@@ -10,6 +10,7 @@ cpp_flags += -I$(top_srcdir)/include
 ld_flags = -llog
 ld_flags += -lutils
 ld_flags += -lcutils
+ld_flags += -lpthread
 
 system_test_SOURCES  = $(source_files)
 system_test_CPPFLAGS = $(cpp_flags)
