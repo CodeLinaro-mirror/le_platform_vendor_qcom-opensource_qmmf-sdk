@@ -45,7 +45,7 @@ namespace display {
 using std::chrono::duration_cast;
 using std::chrono::high_resolution_clock;
 using std::chrono::microseconds;
-using std::cv_status::timeout;
+using std::cv_status;
 
 DisplayImpl* DisplayImpl::instance_ = nullptr;
 CoreInterface* DisplayImpl::core_intf_ = nullptr;
@@ -904,7 +904,8 @@ void DisplayImpl::HandleVSync() {
     }
     {
       std::unique_lock<std::mutex> lg(vsync_callback_locker_);
-      if(vsync_callback_.wait_for(lg, microseconds(100000)) == timeout) {
+      if(vsync_callback_.wait_for(lg, microseconds(100000)) ==
+         cv_status::timeout) {
         QMMF_ERROR("%s: Timed out since HW Vsync not received", __func__);
         for (auto& client_info_map_it : display_client_info_map_) {
           assert(client_info_map_it.second->remote_cb.get() != nullptr);
