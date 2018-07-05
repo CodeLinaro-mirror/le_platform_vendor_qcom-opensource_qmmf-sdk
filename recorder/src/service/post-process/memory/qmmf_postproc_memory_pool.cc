@@ -43,7 +43,8 @@ namespace recorder {
 
 MemPool::MemPool()
     : buffers_allocated_(0),
-      pending_buffer_count_(0) {
+      pending_buffer_count_(0),
+      params_({}) {
 
   QMMF_INFO("%s: Enter", __func__);
   QMMF_INFO("%s: Exit (%p)", __func__, this);
