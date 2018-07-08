@@ -32,10 +32,12 @@
 #include <math.h>
 #include <log/log.h>
 
+#ifndef TARGET_USES_GBM
 #ifdef TARGET_USES_GRALLOC1
 #include <libgralloc1/gralloc_priv.h>
 #else
 #include <qcom/display/gralloc_priv.h>
+#endif
 #endif
 #ifdef ANDROID_O_OR_ABOVE
 #include "common/utils/qmmf_common_utils.h"

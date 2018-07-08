@@ -55,6 +55,7 @@ MemPool::~MemPool() {
 
 int32_t MemPool::Initialize(const MemPoolParams &params) {
   status_t ret = NO_ERROR;
+#ifndef TARGET_USES_GBM
   hw_module_t const *module = nullptr;
 
   params_ = params;
@@ -98,12 +99,13 @@ FAIL:
   if (nullptr != gralloc_device_) {
     gralloc_device_->common.close(&gralloc_device_->common);
   }
+#endif
   return -1;
 }
 
 status_t MemPool::Delete() {
   QMMF_INFO("%s: Enter", __func__);
-
+#ifndef TARGET_USES_GBM
   if (!gralloc_buffers_.empty()) {
     for (auto& it : gralloc_buffers_) {
       FreeGrallocBuffer(it.first);
@@ -117,14 +119,14 @@ status_t MemPool::Delete() {
   }
   buffers_allocated_ = 0;
   pending_buffer_count_ = 0;
-
+#endif
   QMMF_INFO("%s: Exit (%p)", __func__, this);
 
   return NO_ERROR;
 }
 
 status_t MemPool::ReturnBufferLocked(const StreamBuffer &buffer) {
-
+#ifndef TARGET_USES_GBM
   if (pending_buffer_count_ == 0) {
     QMMF_ERROR("%s: Not expecting any buffers!", __func__);
     return INVALID_OPERATION;
@@ -141,11 +143,12 @@ status_t MemPool::ReturnBufferLocked(const StreamBuffer &buffer) {
   pending_buffer_count_--;
 
   wait_for_buffer_.Signal();
+#endif
   return NO_ERROR;
 }
 
 status_t MemPool::GetBuffer(StreamBuffer* buffer) {
-
+#ifndef TARGET_USES_GBM
   std::unique_lock<std::mutex> lock(buffer_lock_);
   std::chrono::nanoseconds wait_time(kBufferWaitTimeout);
 
@@ -172,13 +175,14 @@ status_t MemPool::GetBuffer(StreamBuffer* buffer) {
     QMMF_ERROR("%s: Failed to retrieve output buffer", __func__);
     return ret;
   }
-
+#endif
   return NO_ERROR;
 }
 
 status_t MemPool::GetBufferLocked(StreamBuffer* buffer) {
 
   status_t ret = NO_ERROR;
+#ifndef TARGET_USES_GBM
   int32_t idx = -1;
   buffer_handle_t handle = nullptr;
 
@@ -232,13 +236,13 @@ status_t MemPool::GetBufferLocked(StreamBuffer* buffer) {
     buffer->size = priv_handle->size;
     pending_buffer_count_++;
   }
-
+#endif
   return ret;
 }
 
 status_t MemPool::PopulateMetaInfo(CameraBufferMetaData &info,
                                    struct private_handle_t *priv_handle) {
-
+#ifndef TARGET_USES_GBM
   if (nullptr == priv_handle) {
     QMMF_ERROR("%s: Invalid private handle!\n", __func__);
     return BAD_VALUE;
@@ -352,13 +356,14 @@ status_t MemPool::PopulateMetaInfo(CameraBufferMetaData &info,
                  priv_handle->format);
       return NAME_NOT_FOUND;
   }
-
+#endif
   return NO_ERROR;
 }
 
 status_t MemPool::AllocGrallocBuffer(buffer_handle_t *buf) {
 
   status_t ret      = NO_ERROR;
+#ifndef TARGET_USES_GBM
   uint32_t width    = params_.width;
   uint32_t height   = params_.height;
   int32_t  format   = params_.format;
@@ -387,11 +392,16 @@ status_t MemPool::AllocGrallocBuffer(buffer_handle_t *buf) {
   if (NO_ERROR != ret) {
     QMMF_ERROR("%s: Failed to allocate gralloc buffer", __func__);
   }
+#endif
   return ret;
 }
 
 status_t MemPool::FreeGrallocBuffer(buffer_handle_t buf) {
+#ifndef TARGET_USES_GBM
   return gralloc_device_->free(gralloc_device_, buf);
+#else
+  return NO_ERROR;
+#endif
 }
 
 }; //namespace recorder.

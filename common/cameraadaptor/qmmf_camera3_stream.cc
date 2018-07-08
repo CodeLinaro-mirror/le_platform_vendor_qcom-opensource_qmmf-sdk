@@ -18,11 +18,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef TARGET_USES_GBM
 #ifdef TARGET_USES_GRALLOC1
 #include <libgralloc1/gralloc_priv.h>
 #include <grallocusage/GrallocUsageConversion.h>
 #else
 #include <qcom/display/gralloc_priv.h>
+#endif
 #endif
 
 #include "qmmf_camera3_utils.h"

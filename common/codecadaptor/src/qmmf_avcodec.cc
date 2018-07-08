@@ -48,7 +48,9 @@
 #include <QOMX_AudioExtensions.h>
 #include <QOMX_AudioIndexExtensions.h>
 #include <media/hardware/HardwareAPI.h>
+#ifndef TARGET_USES_GBM
 #include <qcom/display/gralloc_priv.h>
+#endif
 #include <math.h>
 
 #include "common/codecadaptor/src/qmmf_avcodec_common.h"

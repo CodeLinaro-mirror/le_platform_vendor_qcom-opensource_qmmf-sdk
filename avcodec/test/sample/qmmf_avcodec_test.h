@@ -39,8 +39,9 @@
 #include <utils/String8.h>
 #include <cutils/native_handle.h>
 #include <media/msm_media_info.h>
+#ifndef TARGET_USES_GBM
 #include <qcom/display/gralloc_priv.h>
-
+#endif
 #include "common/utils/qmmf_common_utils.h"
 #include "qmmf-sdk/qmmf_avcodec.h"
 
@@ -116,7 +117,7 @@ private:
   shared_ptr<InputCodecSourceImpl>      input_source_impl_;
   shared_ptr<OutputCodecSourceImpl>     output_source_impl_;
   DefaultKeyedVector<String8, uint32_t> dynamic_params_;
-#ifndef ANDROID_O_OR_ABOVE
+#if (!defined(ANDROID_O_OR_ABOVE) && !defined(TARGET_USES_GBM))
   alloc_device_t                        *gralloc_device_;
   vector<buffer_handle_t>               gralloc_buffers_;
 #endif

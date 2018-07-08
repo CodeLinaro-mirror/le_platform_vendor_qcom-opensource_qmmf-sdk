@@ -30,7 +30,9 @@
 #pragma once
 
 #include <memory>
+#ifndef TARGET_USES_GBM
 #include <qcom/display/gralloc_priv.h>
+#endif
 
 #include "common/utils/qmmf_common_utils.h"
 #include "common/utils/qmmf_condition.h"
