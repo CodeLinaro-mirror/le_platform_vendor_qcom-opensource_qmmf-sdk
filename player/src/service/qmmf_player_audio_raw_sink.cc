@@ -271,7 +271,28 @@ status_t AudioRawSink::PrepareDrag(uint32_t track_id, bool ignore_fps) {
                __func__, track_id, result);
     return result;
   }
+  QMMF_INFO("%s: Exit", __func__);
+  return ::android::NO_ERROR;
+}
 
+status_t AudioRawSink::NotifyInputBuffer(uint32_t track_id) {
+  QMMF_INFO("%s: Enter", __func__);
+
+  AudioTrackSinkMap::iterator track_sink_iterator =
+      track_sink_map_.find(track_id);
+  if (track_sink_iterator == track_sink_map_.end()) {
+    QMMF_ERROR("%s() no track exists with track_id[%u]", __func__,
+               track_id);
+    return ::android::BAD_VALUE;
+  }
+
+  status_t result = track_sink_iterator->second->NotifyInputBuffer();
+  if (result != NO_ERROR) {
+    QMMF_ERROR("%s() track_sink[%u]->NotifyInputBuffer failed: %d",
+               __func__, track_id, result);
+    return result;
+  }
+  QMMF_INFO("%s: Exit", __func__);
   return ::android::NO_ERROR;
 }
 
@@ -704,13 +725,27 @@ status_t AudioRawTrackSink::ResumeSink() {
 
 status_t AudioRawTrackSink::PrepareDrag(bool ignore_fps) {
   QMMF_INFO("%s: Enter", __func__);
+  auto ret = 0;
   if(!ignore_fps) {
-    if (input_buffer_notify_params_.num_free_buffers > 0) {
-      track_callback_.event_cb(track_params_.track_id,
-                               EventType::kInputBufferNotify,
-                               &input_buffer_notify_params_,
-                               sizeof(input_buffer_notify_params_));
+    ret = NotifyInputBuffer();
+    if(ret != 0) {
+      QMMF_ERROR("%s: Failed to notify input buffer", __func__);
     }
+  }
+  QMMF_INFO("%s: Exit", __func__);
+  return ret;
+}
+
+status_t AudioRawTrackSink::NotifyInputBuffer() {
+  QMMF_INFO("%s: Enter", __func__);
+  av_buffers_lock_.lock();
+  input_buffer_notify_params_.num_free_buffers = av_buffers_.size();
+  av_buffers_lock_.unlock();
+  if (input_buffer_notify_params_.num_free_buffers > 0) {
+    track_callback_.event_cb(track_params_.track_id,
+                             EventType::kInputBufferNotify,
+                             &input_buffer_notify_params_,
+                             sizeof(input_buffer_notify_params_));
   }
   QMMF_INFO("%s: Exit", __func__);
   return NO_ERROR;
