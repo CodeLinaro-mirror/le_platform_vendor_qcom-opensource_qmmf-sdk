@@ -672,16 +672,29 @@ status_t PlayerImpl::Resume() {
         ret = video_decoder_core_->ResumeTrackDecoder(tracks_[i].track_id);
         if (ret != NO_ERROR) break;
       } else if ((tracks_[i].type == TrackType::kAudio) &&
-                 (!IsTrickModeEnabled()) && (getAudioStartState() == false)) {
+                 (!IsTrickModeEnabled())) {
         drag_lock_.lock();
-        if(!drag_) {
+        if (!drag_) {
           drag_lock_.unlock();
-          if (tracks_[i].codec == AudioFormat::kAMR ||
-              tracks_[i].codec == AudioFormat::kG711)
-            ret = audio_decoder_core_->ResumeTrackDecoder(tracks_[i].track_id);
-          else
-            ret = audio_raw_sink_->ResumeTrackSink(tracks_[i].track_id);
-          if(ret != NO_ERROR) break;
+          if (getAudioStartState() == false) {
+            if (tracks_[i].codec == AudioFormat::kAMR ||
+                tracks_[i].codec == AudioFormat::kG711)
+              ret = audio_decoder_core_->ResumeTrackDecoder(tracks_[i].track_id);
+            else
+              ret = audio_raw_sink_->ResumeTrackSink(tracks_[i].track_id);
+          } else {
+            if (tracks_[i].codec == AudioFormat::kAMR ||
+                tracks_[i].codec == AudioFormat::kG711) {
+              ret = audio_decoder_core_->NotifyInputBuffer(tracks_[i].track_id);
+              if (ret != 0)
+                QMMF_ERROR("%s: Failed to notify input buffer", __func__);
+            } else {
+              ret = audio_raw_sink_->NotifyInputBuffer(tracks_[i].track_id);
+              if (ret != 0)
+                QMMF_ERROR("%s: Failed to notify input buffer", __func__);
+            }
+          }
+          if (ret != NO_ERROR) break;
         } else {
           drag_lock_.unlock();
         }
