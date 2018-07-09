@@ -832,6 +832,12 @@ status_t PlayerImpl::SetTrickMode(TrickModeSpeed speed, TrickModeDirection dir) 
 
   status_t ret = NO_ERROR;
 
+  if (trick_mode_speed_ == speed && trick_mode_dir_ == dir) {
+    QMMF_INFO("%s: The current speed and direction are same as requested speed and direction",
+        __func__);
+    return NO_ERROR;
+  }
+
   trick_mode_speed_ = speed;
   trick_mode_dir_ = dir;
 
