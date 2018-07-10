@@ -136,9 +136,14 @@ class ExtraParam {
       return -EINVAL;
     }
 
+    if (data_map_.count(tag) == 0) {
+      ALOGE("%s: No entry for tag %d!", __func__, tag);
+      return -ENOENT;
+    }
+
     auto ret = FetchDataEntry(tag, entry, data);
     if (0 != ret) {
-      ALOGE("%s: Failed to add data entry!", __func__);
+      ALOGE("%s: Failed to get data entry!", __func__);
       return ret;
     }
     return 0;
