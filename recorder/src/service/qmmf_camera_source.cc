@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -35,9 +35,8 @@
 #include <sys/mman.h>
 #include <sys/time.h>
 
-#ifdef ENABLE_360
+
 #include "recorder/src/service/qmmf_multicamera_manager.h"
-#endif
 #include "recorder/src/service/qmmf_camera_source.h"
 #include "recorder/src/service/qmmf_recorder_common.h"
 #include "recorder/src/service/qmmf_recorder_utils.h"
@@ -107,9 +106,7 @@ status_t CameraSource::StartCamera(const uint32_t camera_id,
   QMMF_KPI_DETAIL();
   bool is_virtual_camera_id = false;
 
-#ifdef ENABLE_360
   is_virtual_camera_id = (kVirtualCameraIdOffset <= camera_id);
-#endif
 
   std::shared_ptr<CameraInterface> camera;
 
@@ -186,7 +183,6 @@ status_t CameraSource::CreateMultiCamera(const std::vector<uint32_t> camera_ids,
 
   QMMF_INFO("%s: Enter ", __func__);
   QMMF_KPI_DETAIL();
-#ifdef ENABLE_360
   std::shared_ptr<CameraInterface> multi_camera = std::make_shared<MultiCameraManager>();
   if (!multi_camera.get()) {
     QMMF_ERROR("%s: Can't Instantiate MultiCameraDevice!!", __func__);
@@ -205,7 +201,6 @@ status_t CameraSource::CreateMultiCamera(const std::vector<uint32_t> camera_ids,
   // Adds only virtual cameras. Virtual camera is a camera used
   // for 360 camera case.
   camera_map_.insert(std::make_pair(*virtual_camera_id, multi_camera));
-#endif
   QMMF_INFO("%s: Exit ", __func__);
   return NO_ERROR;
 }
@@ -216,7 +211,6 @@ status_t CameraSource::ConfigureMultiCamera(const uint32_t virtual_camera_id,
                                             const uint32_t param_size) {
 
   status_t ret = NO_ERROR;
-#ifdef ENABLE_360
   if ((kVirtualCameraIdOffset > virtual_camera_id) ||
       (camera_map_.end() == camera_map_.find(virtual_camera_id))) {
     QMMF_ERROR("%s: Invalid Virtual Camera Id(%u)!", __func__,
@@ -232,7 +226,6 @@ status_t CameraSource::ConfigureMultiCamera(const uint32_t virtual_camera_id,
 
   ret = camera_mgr->ConfigureMultiCamera(virtual_camera_id, type,
                                          param, param_size);
-#endif
   return ret;
 }
 

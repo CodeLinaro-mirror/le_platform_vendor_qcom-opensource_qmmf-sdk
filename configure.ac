@@ -102,16 +102,6 @@ AC_ARG_WITH([basemachine],
         AC_HELP_STRING([with-basemachine=@<:@machine name@:>@],
         [Specify the Machine name]),
         [case "${withval}" in
-                apq8053) multicam_enable=true ;;
-                *) multicam_enable=false ;;
-        esac],
-        [multicam_enable=false])
-AM_CONDITIONAL([ENABLE_360], [test x$multicam_enable = xtrue])
-
-AC_ARG_WITH([basemachine],
-        AC_HELP_STRING([with-basemachine=@<:@machine name@:>@],
-        [Specify the Machine name]),
-        [case "${withval}" in
                 apq8053) jpeg_turbo_enable=true ;;
                 *) jpeg_turbo_enable=false ;;
         esac],
