@@ -31,6 +31,12 @@
 #include <camera/VendorTagDescriptor.h>
 #include <mutex>
 
+#ifdef TARGET_USES_GBM
+#include <gbm.h>
+#include <gbm_priv.h>
+#include <fcntl.h>
+#endif
+
 #include "qmmf_camera3_types.h"
 #include "qmmf_camera3_internal_types.h"
 #include "qmmf_camera3_stream.h"
@@ -60,6 +66,8 @@ namespace cameraadaptor {
 
 #ifdef TARGET_USES_GRALLOC1
   typedef gralloc1_device_t* mem_alloc_device;
+#elif TARGET_USES_GBM
+  typedef gbm_device*        mem_alloc_device;
 #else
   typedef alloc_device_t*    mem_alloc_device;
 #endif
@@ -82,6 +90,15 @@ class Gralloc1Device : public IAllocDevice {
  public:
    Gralloc1Device(hw_module_t const * module);
    ~Gralloc1Device();
+};
+#elif TARGET_USES_GBM
+class GbmDevice : public IAllocDevice {
+ public:
+   GbmDevice(hw_module_t const * module);
+   ~GbmDevice();
+
+ private:
+   int32_t dev_mem_fd_;
 };
 #else
 class GrallocDevice : public IAllocDevice {

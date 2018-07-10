@@ -147,6 +147,9 @@ int32_t Camera3DeviceClient::Initialize() {
   int32_t res = 0;
   hw_module_t const *module = NULL;
   mem_alloc_device alloc_device = nullptr;
+#ifdef TARGET_USES_GBM
+  void *handle = nullptr;
+#endif
 
   pthread_mutex_lock(&lock_);
 
@@ -208,7 +211,7 @@ int32_t Camera3DeviceClient::Initialize() {
   }
 
   camera_module_->set_callbacks(this);
-
+#ifndef TARGET_USES_GBM
   res = LoadHWModule(GRALLOC_HARDWARE_MODULE_ID, &module);
   if ((0 != res) || (NULL == module)) {
     QMMF_ERROR("%s: Unable to load GrallocHal module: %d\n", __func__, res);
@@ -225,6 +228,31 @@ int32_t Camera3DeviceClient::Initialize() {
             alloc_device->common.module->author,
             alloc_device->common.module->hal_api_version,
             alloc_device->common.module->name);
+#else
+  // TODO: only for debug
+  handle = dlopen("/usr/lib/libgbm.so", RTLD_NOW);
+  if (handle == nullptr) {
+    char const *err_str = dlerror();
+    QMMF_ERROR("%s: load: module=%s\n%s", __func__, "/usr/lib/libgbm.so",
+               err_str?err_str:"unknown");
+    res = -EINVAL;
+    goto exit;
+  } else {
+    QMMF_INFO("%s: dlopen for module=%s successful!", __func__,
+              "/usr/lib/libgbm.so");
+  }
+
+  alloc_device_interface_ = IAllocDevice::CreateAllocDevice(module);
+  assert(nullptr != alloc_device_interface_);
+
+  alloc_device = alloc_device_interface_->GetDevice();
+  if (!alloc_device) {
+    QMMF_ERROR("%s: Error in opening allocator device \n", __func__);
+    goto exit;
+  } else {
+    QMMF_INFO("%s: alloc_device:%p", __func__, alloc_device);
+  }
+#endif
 
   state_ = STATE_CLOSED;
   next_stream_id_ = 0;
@@ -453,6 +481,8 @@ int32_t Camera3DeviceClient::ConfigureStreamsLocked(bool is_pp_enabled) {
     QMMF_INFO("%s: 60+ FPS OpMode is Set 0x%x \n", __func__, config.operation_mode);
   }
 #endif
+  QMMF_DEBUG("%s: operation_mode:0x%x \n", __func__,
+            config.operation_mode);
 
   Vector<camera3_stream_t *> streams;
   for (size_t i = 0; i < streams_.size(); i++) {
@@ -2081,6 +2111,28 @@ Gralloc1Device::~Gralloc1Device() {
 IAllocDevice* IAllocDevice::CreateAllocDevice(hw_module_t const* module) {
   return (new Gralloc1Device(module));
 }
+#elif TARGET_USES_GBM
+#define DRM_DEVICE_NAME "/dev/dri/card0"
+GbmDevice::GbmDevice(hw_module_t const * module) {
+  mem_alloc_device alloc_device;
+  dev_mem_fd_ = open(DRM_DEVICE_NAME, O_RDWR);
+  assert(dev_mem_fd_ >= 0);
+  alloc_device = gbm_create_device(dev_mem_fd_);
+  assert(gbm_device_get_fd(alloc_device) == dev_mem_fd_);
+  QMMF_INFO("%s: dev_mem_fd_:%d alloc_device:%p", __func__,
+            dev_mem_fd_, alloc_device);
+  SetDevice(alloc_device);
+}
+
+GbmDevice::~GbmDevice() {
+  mem_alloc_device alloc_device = GetDevice();
+  gbm_device_destroy(alloc_device);
+  close(dev_mem_fd_);
+}
+
+IAllocDevice* IAllocDevice::CreateAllocDevice(hw_module_t const* module) {
+  return (new GbmDevice(module));
+}
 #else
 GrallocDevice::GrallocDevice(hw_module_t const * module) {
   mem_alloc_device alloc_device;
@@ -2101,7 +2153,7 @@ GrallocDevice::~GrallocDevice() {
 IAllocDevice* IAllocDevice::CreateAllocDevice(hw_module_t const* module) {
   return (new GrallocDevice(module));
 }
-#endif  // TARGET_USES_GRALLOC1
+#endif
 }  // namespace cameraadaptor ends here
 
 }  // namespace qmmf ends here

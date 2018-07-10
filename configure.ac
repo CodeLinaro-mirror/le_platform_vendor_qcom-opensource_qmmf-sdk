@@ -64,6 +64,7 @@ AM_CONDITIONAL([TARGET_USES_GBM], [test x$rd_target = xtrue])
 AM_CONDITIONAL([DISABLE_VIDEO_TIMELAPSE], [test x$rd_target = xtrue])
 if test "x$rd_target" == "xtrue" ; then
 [CPPFLAGS="$CPPFLAGS -DTARGET_USES_GBM"]
+[CPPFLAGS="$CPPFLAGS -DDISABLE_OP_MODES"]
 fi
 
 AC_ARG_WITH([camerahal],

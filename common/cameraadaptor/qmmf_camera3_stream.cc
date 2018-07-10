@@ -484,6 +484,12 @@ int32_t Camera3Stream::PopulateMetaInfo(CameraBufferMetaData &info,
       break;
     case HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS:
     case HAL_PIXEL_FORMAT_NV12_ENCODEABLE:
+#ifdef TARGET_USES_GBM
+    // TODO: To be resolved or enhanced once
+    // complete solution is ready from Camera
+    // for libgbm formats.
+    case HAL_PIXEL_FORMAT_YCbCr_420_888:
+#endif
       info.format = BufferFormat::kNV12;
       info.num_planes = 2;
       info.plane_info[0].width = width;
@@ -589,6 +595,10 @@ void Camera3Stream::ReturnBufferToClient(const camera3_stream_buffer &buffer,
   b.stream_id = id_;
   b.data_space = data_space;
   b.handle = *buffer.buffer;
+#ifdef TARGET_USES_GBM
+  QMMF_VERBOSE("%s: GBM BO(%p) FD(%d) Size(%d)", __func__,
+               priv_handle->bo, priv_handle->bo->ion_fd, priv_handle->bo->size);
+#endif
   b.fd = priv_handle->fd;
   b.size = priv_handle->size;
   PopulateMetaInfo(b.info, priv_handle);
@@ -715,6 +725,8 @@ int32_t Camera3Stream::GetBufferLocked(camera3_stream_buffer *streamBuffer) {
       buf_width = camera3_stream::width;
       buf_height = camera3_stream::height;
     }
+    QMMF_DEBUG("%s: format:0x%x usage:0x%x", __func__,
+               camera3_stream::format, camera3_stream::usage);
     res = mem_alloc_interface_->AllocBuffer(&handle,
                                             buf_width,
                                             buf_height,
@@ -1009,6 +1021,172 @@ mem_alloc_error Gralloc1Allocator::GetStrideAndHeightFromHandle(
 IMemAllocator* IMemAllocator::CreateMemAllocator(mem_alloc_device device) {
   return (new Gralloc1Allocator(device));
 };
+#elif TARGET_USES_GBM
+
+#define U32_ERROR_VAL (0xFFFFFFFF)
+GbmAllocator::GbmAllocator(mem_alloc_device gbm_device)
+    : IMemAllocator(gbm_device) {
+  assert(nullptr != gbm_device);
+}
+
+// TODO: Keep enhancing this function as per Gbm enhancements
+uint32_t GbmAllocator::GetFormatInfo(int32_t user_format) {
+  uint32_t format = U32_ERROR_VAL;
+
+  switch (user_format) {
+    case HAL_PIXEL_FORMAT_BLOB:
+      format = GBM_FORMAT_BLOB;
+      QMMF_DEBUG("%s: GBM_FORMAT_BLOB", __func__);
+      break;
+    case HAL_PIXEL_FORMAT_YCbCr_420_888:
+      format = GBM_FORMAT_YCbCr_420_888;
+      QMMF_DEBUG("%s: GBM_FORMAT_YCbCr_420_888 selected for input "
+                 "HAL_PIXEL_FORMAT_YCbCr_420_888", __func__);
+      break;
+    case HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED:
+      format = GBM_FORMAT_YCbCr_420_888;
+      QMMF_DEBUG("%s: GBM_FORMAT_YCbCr_420_888 selected for input "
+                 "HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED", __func__);
+      break;
+    case HAL_PIXEL_FORMAT_RAW10:
+      format = GBM_FORMAT_RAW10;
+      QMMF_DEBUG("%s: GBM_FORMAT_RAW10", __func__);
+      break;
+    default:
+      QMMF_ERROR("%s: Format:0x%x not supported\n", __func__, user_format);
+      break;
+  }
+
+  return format;
+}
+
+// TODO: Keep enhancing this function as per Gbm enhancements
+uint32_t GbmAllocator::GetUsageFlagInfo(int32_t user_flag) {
+  uint32_t usage = 0;
+
+  if ((user_flag & GRALLOC_USAGE_SW_READ_OFTEN) ||
+      (user_flag & GRALLOC_USAGE_SW_WRITE_OFTEN)) {
+    usage |= GBM_BO_USAGE_UNCACHED_QTI;
+    QMMF_DEBUG("%s: GBM_BO_USAGE_UNCACHED_QTI", __func__);
+  }
+
+  if (user_flag & GRALLOC_USAGE_PRIVATE_ALLOC_UBWC) {
+    usage |= GBM_BO_USAGE_UBWC_ALIGNED_QTI;
+    QMMF_DEBUG("%s: GBM_BO_USAGE_UBWC_ALIGNED_QTI", __func__);
+  }
+
+  if (user_flag & GRALLOC_USAGE_HW_FB) {
+    usage |= GBM_BO_USAGE_KMS_QTI;
+    QMMF_DEBUG("%s: GBM_BO_USAGE_KMS_QTI", __func__);
+  }
+
+  if (user_flag & private_handle_t::PRIV_FLAGS_VIDEO_ENCODER) {
+    usage |= GBM_BO_USAGE_VIDEO_ENCODER_QTI;
+    QMMF_DEBUG("%s: GBM_BO_USAGE_VIDEO_ENCODER_QTI", __func__);
+
+  }
+  if (!usage) {
+    usage = U32_ERROR_VAL;
+    QMMF_ERROR("%s: Usage flag not supported\n", __func__);
+  }
+
+  return usage;
+}
+
+mem_alloc_error GbmAllocator::AllocBuffer(buffer_handle_t *buf,
+                                          int32_t width,
+                                          int32_t height,
+                                          int32_t format,
+                                          int32_t usage,
+                                          uint32_t *stride) {
+  mem_alloc_device gbm_device = GetDevice();
+  assert(nullptr != gbm_device);
+
+  if (!width || !height) width = height = 1;
+
+  QMMF_DEBUG("%s: format:0x%x usage:0x%x", __func__, format, usage);
+
+  uint32_t gbm_format = GetFormatInfo(format);
+  assert(U32_ERROR_VAL != gbm_format);
+
+  uint32_t gbm_usage = GetUsageFlagInfo(usage);
+  assert(U32_ERROR_VAL != gbm_usage);
+
+  struct gbm_bo *bo = gbm_bo_create(gbm_device, width, height,
+      gbm_format, gbm_usage);
+  if (nullptr == bo) {
+    QMMF_ERROR("%s: Unable to allocate Gbm buffer object\n", __func__);
+    return -EINVAL;
+  }
+
+  *stride = gbm_bo_get_stride(bo);
+  if (0 == *stride) {
+    QMMF_ERROR("%s: Error in querying stride\n", __func__);
+    return -EINVAL;
+  }
+
+  size_t bo_size;
+  uint32_t ret = gbm_perform(GBM_PERFORM_GET_BO_SIZE, bo, &bo_size);
+  if (GBM_ERROR_NONE != ret) {
+    QMMF_ERROR("%s: Error in querying BO size\n", __func__);
+    return -EINVAL;
+  }
+  QMMF_DEBUG("%s: size:%d", __func__, bo_size);
+
+  // HAL3 expects buffer_handle_t
+  private_handle_t* priv_handle = new private_handle_t(gbm_bo_get_fd(bo),
+      bo_size, usage, 0, format, width, height);
+  *buf = static_cast<buffer_handle_t>(priv_handle);
+  if (nullptr == *buf) {
+    QMMF_ERROR("%s: Error in assigning buffer handle\n", __func__);
+    return -EINVAL;
+  }
+
+  bo->user_data = priv_handle;
+  priv_handle->bo = bo;
+  assert(priv_handle->fd == priv_handle->bo->ion_fd);
+
+  return 0;
+}
+
+mem_alloc_error GbmAllocator::FreeBuffer(buffer_handle_t buf) {
+  mem_alloc_device gbm_device = GetDevice();
+  assert(nullptr != gbm_device);
+
+  private_handle_t* priv_handle = const_cast<private_handle_t*>(
+        static_cast<const private_handle_t*>(buf));
+  assert(priv_handle->fd != 0);
+  assert(priv_handle->fd == priv_handle->bo->ion_fd);
+  struct gbm_bo *bo = priv_handle->bo;
+  gbm_bo_destroy(bo);
+
+  return 0;
+}
+
+mem_alloc_error GbmAllocator::GetStrideAndHeightFromHandle(
+       struct private_handle_t* const priv_handle,
+       int32_t* stride,
+       int32_t* height) {
+  mem_alloc_device gbm_device = GetDevice();
+  assert(nullptr != gbm_device);
+
+  assert(priv_handle->fd != 0);
+  assert(priv_handle->fd == priv_handle->bo->ion_fd);
+  struct gbm_bo *bo = priv_handle->bo;
+
+  *stride = gbm_bo_get_stride(bo);
+  *height = gbm_bo_get_height(bo);
+  if ((0 == *stride) || (0 == *height))  {
+    QMMF_ERROR("%s: Error in querying stride & height\n", __func__);
+    return -EINVAL;
+  }
+
+  return 0;
+}
+
+IMemAllocator* IMemAllocator::CreateMemAllocator(mem_alloc_device device) {
+  return (new GbmAllocator(device));
+};
 #else
 GrallocAllocator::GrallocAllocator(mem_alloc_device gralloc_device)
     : IMemAllocator(gralloc_device) {
@@ -1081,7 +1259,7 @@ mem_alloc_error GrallocAllocator::GetStrideAndHeightFromHandle(
 IMemAllocator* IMemAllocator::CreateMemAllocator(mem_alloc_device device) {
   return (new GrallocAllocator(device));
 };
-#endif  // TARGET_USES_GRALLOC1
+#endif
 }  // namespace cameraadaptor ends here
 
 }  // namespace qmmf ends here

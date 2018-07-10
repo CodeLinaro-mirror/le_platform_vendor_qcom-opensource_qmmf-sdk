@@ -74,6 +74,7 @@ void DualCamera3Gtest::SetUp() {
 }
 
 void DualCamera3Gtest::StreamCb(StreamBuffer buffer) {
+#ifndef TARGET_USES_GBM
   String8 path;
   mem_alloc_device allocDevice =
       device_client_->alloc_device_interface_->GetDevice();
@@ -107,7 +108,9 @@ void DualCamera3Gtest::StreamCb(StreamBuffer buffer) {
        printf("%s: Bad Write error (%d) %s\n", __func__, -ret, strerror(ret));
     }
   }
-
+#else
+  printf("%s: WARN: Not yet supported.", __func__);
+#endif
 }
 
 void DualCamera3Gtest::ErrorCb(CameraErrorCode errorCode,

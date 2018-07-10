@@ -387,14 +387,14 @@ int32_t CameraRescalerMemPool::Initialize(uint32_t width,
   init_params_.width = width;
   init_params_.height = height;
   init_params_.format = format;
-
+#ifndef TARGET_USES_GBM
   ret = hw_get_module(GRALLOC_HARDWARE_MODULE_ID, &module);
   if ((NO_ERROR != ret) || (nullptr == module)) {
     QMMF_ERROR("%s: Unable to load GrallocHal module: %d",
                __func__, ret);
     return ret;
   }
-
+#endif
   alloc_device_interface_ = IAllocDevice::CreateAllocDevice(module);
   if (nullptr == alloc_device_interface_) {
     QMMF_ERROR("%s: Could not create alloc device", __func__);
@@ -412,13 +412,13 @@ int32_t CameraRescalerMemPool::Initialize(uint32_t width,
     QMMF_ERROR("%s: Could not open allocator module", __func__);
     goto FAIL;
   }
-
+#ifndef TARGET_USES_GBM
   QMMF_INFO("%s: Gralloc Module author: %s, version: %d name: %s",
             __func__,
             alloc_device_->common.module->author,
             alloc_device_->common.module->hal_api_version,
             alloc_device_->common.module->name);
-
+#endif
   // Allocate gralloc slots.
   if (buffer_cnt_ > 0) {
     gralloc_slots_ = new buffer_handle_t[buffer_cnt_];

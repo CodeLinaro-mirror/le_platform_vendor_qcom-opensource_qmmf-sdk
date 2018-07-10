@@ -44,6 +44,8 @@
 #include <sys/mman.h>
 #ifndef TARGET_USES_GBM
 #include <qcom/display/gralloc_priv.h>
+#else
+#include <gbm.h>
 #endif
 #include <camera/CameraMetadata.h>
 
@@ -65,16 +67,17 @@ struct private_handle_t : public native_handle {
       PRIV_FLAGS_VIDEO_ENCODER = 0x00010000
   };
 
-  int     fd;
-  int     flags;
+  int fd;
+  int flags;
   unsigned int  size;
   unsigned int  offset;
-  int     bufferType;
-  int     format;
-  int     width;   // holds aligned width of the actual buffer allocated
-  int     height;  // holds aligned height of the  actual buffer allocated
+  int bufferType;
+  int format;
+  int width;   // holds aligned width of the actual buffer allocated
+  int height;  // holds aligned height of the  actual buffer allocated
   int unaligned_width;   // holds width client asked to allocate
   int unaligned_height;  // holds height client asked to allocate
+  struct gbm_bo* bo;
 
   static const int sNumFds = 2;
   static inline int sNumInts() {
@@ -86,13 +89,16 @@ struct private_handle_t : public native_handle {
       int format, int width, int height) :
       fd(fd), flags(flags), size(size), offset(0), bufferType(bufferType),
       format(format), width(width), height(height), unaligned_width(width),
-      unaligned_height(height) {
+      unaligned_height(height), bo(nullptr) {
     version = (int) sizeof(native_handle);
     numInts = sNumInts();
     numFds = sNumFds;
   };
 
-  ~private_handle_t() {};
+  ~private_handle_t() {
+    if (gbm_bo_get_fd(bo) > 0) gbm_bo_destroy(bo);
+    bo = nullptr;
+  };
 };
 #endif  // TARGET_USES_GBM
 
