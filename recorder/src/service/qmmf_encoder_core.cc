@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -52,6 +52,8 @@ static const int32_t kDebugTrackFps = 1<<0;
 // vps, sps, pps and frame start code size, as muxer
 // changes each field start code.
 static const uint32_t kBitStreamHeaderSize = 96;
+
+static const uint64_t kBufferWaitDuration = 5000000000; // 5 sec
 
 EncoderCore* EncoderCore::instance_ = NULL;
 
@@ -414,11 +416,12 @@ status_t TrackEncoder::Init(const shared_ptr<TrackSource>& track_source,
   QMMF_INFO("%s: track_id(%x) AVCodec(0x%p) Instantiated!" , __func__,
       track_params.track_id, avcodec_);
 
-  for(auto& iter : output_buffer_list_) {
-      QMMF_INFO("%s: track_id(%x) Adding buffer fd(%d) to "
-          "output_free_buffer_queue list",  __func__, track_params.track_id,
-          iter.fd);
-      output_free_buffer_queue_.PushBack(iter);
+  for (auto& buffer : output_buffer_list_) {
+    QMMF_INFO("%s: track_id(%x) Adding buffer fd(%d) to "
+        "output_free_buffer_queue list",  __func__, track_params.track_id,
+        buffer.fd);
+    std::lock_guard<std::mutex> lock(queue_lock_);
+    output_free_buffer_queue_.push(buffer);
   }
 
 #ifdef DUMP_BITSTREAM
@@ -464,21 +467,19 @@ status_t TrackEncoder::Stop(bool is_force_cleanup) {
     QMMF_INFO("%s track_id(%x) Force cleanup", __func__, TrackId());
     std::lock_guard<std::mutex> lock(queue_lock_);
     is_force_cleanup_ = true;
-    std::list<BufferDescriptor>::iterator it =
-        output_occupy_buffer_queue_.Begin();
-    for (; it != output_occupy_buffer_queue_.End(); ++it) {
-      output_free_buffer_queue_.PushBack(*it);
-      output_occupy_buffer_queue_.Erase(it);
+
+    for (auto& buffer : output_occupy_buffer_queue_) {
+      output_free_buffer_queue_.push(buffer);
       wait_for_frame_.Signal();
     }
+    output_occupy_buffer_queue_.clear();
   }
   assert(avcodec_ != nullptr);
   auto ret = avcodec_->StopCodec(true);
   // Initial debug purpose.
   assert(ret == NO_ERROR);
   if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: track_id(%x) StopCodec failed!", __func__,
-        TrackId());
+    QMMF_ERROR("%s: track_id(%x) StopCodec failed!", __func__, TrackId());
     return ret;
   }
 
@@ -549,33 +550,39 @@ status_t TrackEncoder::GetBuffer(BufferDescriptor& codec_buffer,
 
   QMMF_DEBUG("%s: Enter track_id(%x)", __func__, TrackId());
 
+  std::unique_lock<std::mutex> lk(queue_lock_);
+  std::chrono::nanoseconds wait_time(kBufferWaitDuration);
+
   // Give available free buffer to encoder to use on output port.
-  while (output_free_buffer_queue_.Size() <= 0) {
+  while (output_free_buffer_queue_.empty()) {
     QMMF_DEBUG("%s: track_id(%x) No buffer available to notify,"
-      " Wait for new buffer",  __func__, TrackId());
-    std::unique_lock<std::mutex> lock(queue_lock_);
-    wait_for_frame_.Wait(lock);
-    //TODO: change simple wait to relative wait.
+        " Wait for new buffer",  __func__, TrackId());
+
+    auto ret = wait_for_frame_.WaitFor(lk, wait_time);
+    if (ret != 0) {
+      QMMF_ERROR("%s: track_id(%x) wait buffer timedout!",  __func__, TrackId());
+      return TIMED_OUT;
+    }
   }
+  BufferDescriptor buffer = output_free_buffer_queue_.front();
+  lk.unlock();
 
-  BufferDescriptor iter = *output_free_buffer_queue_.Begin();
 
-  auto ret = SynchronizeCache(fd_ion_handle_map_[iter.fd], iter,
+  auto ret = SynchronizeCache(fd_ion_handle_map_[buffer.fd], buffer,
                               ION_IOC_CLEAN_CACHES);
   if (ret != NO_ERROR) {
-    QMMF_ERROR("%s Cache Synchronization Failed with error %d",
-        __func__, ret);
+    QMMF_ERROR("%s: Cache Synchronization failed, error(%d)!", __func__, ret);
     return ret;
   }
 
-  codec_buffer.fd = (iter).fd;
-  codec_buffer.data = (iter).data;
-
-  output_free_buffer_queue_.Erase(output_free_buffer_queue_.Begin());
+  codec_buffer.fd = buffer.fd;
+  codec_buffer.data = buffer.data;
   {
     std::lock_guard<std::mutex> lock(queue_lock_);
-    output_occupy_buffer_queue_.PushBack(iter);
+    output_occupy_buffer_queue_.push_back(buffer);
+    output_free_buffer_queue_.pop();
   }
+
   QMMF_DEBUG("%s track_id(%x) Sending buffer(0x%p) fd(%d) for FTB",
       __func__, TrackId(), codec_buffer.data, codec_buffer.fd);
 
@@ -644,14 +651,15 @@ status_t TrackEncoder::ReturnBuffer(BufferDescriptor& codec_buffer,
     //  eos_atoutput_ to true.
     {
       std::lock_guard<std::mutex> lock(queue_lock_);
-      std::list<BufferDescriptor>::iterator it =
-          output_occupy_buffer_queue_.Begin();
-      for (; it != output_occupy_buffer_queue_.End(); ++it) {
-        if (((*it).data) == (codec_buffer.data)) {
+      for (size_t idx = 0; idx < output_occupy_buffer_queue_.size(); ++idx) {
+        BufferDescriptor& buffer = output_occupy_buffer_queue_[idx];
+
+        if (buffer.data == codec_buffer.data) {
           QMMF_INFO("%s: track_id(%x) EOS is already done! moving buffer from"
               " Out to In queue!",  __func__, TrackId());
-          output_free_buffer_queue_.PushBack(*it);
-          output_occupy_buffer_queue_.Erase(it);
+          output_free_buffer_queue_.push(buffer);
+          output_occupy_buffer_queue_.erase(
+              output_occupy_buffer_queue_.begin() + idx);
           break;
         }
       }
@@ -692,28 +700,34 @@ status_t TrackEncoder::OnBufferReturnFromClient(std::vector<BnBuffer>
   for (auto& bn_buffer : bn_buffers) {
     bool match = false;
     QMMF_DEBUG("%s track_id(%x) output_occupy_buffer_queue_.size(%d)",
-        __func__, TrackId(), output_occupy_buffer_queue_.Size());
-    std::list<BufferDescriptor>::iterator it = output_occupy_buffer_queue_.Begin();
-    for (; it != output_occupy_buffer_queue_.End(); ++it) {
-      if ((*it).fd == static_cast<int32_t>(bn_buffer.buffer_id)) {
+        __func__, TrackId(), output_occupy_buffer_queue_.size());
+
+    for (size_t idx = 0; idx < output_occupy_buffer_queue_.size(); ++idx) {
+      BufferDescriptor& buffer = output_occupy_buffer_queue_[idx];
+
+      if (buffer.fd == static_cast<int32_t>(bn_buffer.buffer_id)) {
         QMMF_DEBUG("%s: track_id(%x) buffer_id(%d) found in list",
             __func__, TrackId(), bn_buffer.buffer_id);
+
         // Move buffer to free queue, and signal AVCodec's output thread if it
         // is waiting for buffer.
-        output_free_buffer_queue_.PushBack((*it));
+        output_free_buffer_queue_.push(buffer);
         // Erase buffer from occupy queue.
-        output_occupy_buffer_queue_.Erase(it);
+        output_occupy_buffer_queue_.erase(
+            output_occupy_buffer_queue_.begin() + idx);
+
         wait_for_frame_.Signal();
         match = true;
         break;
       }
     }
+
     // Make sure all buffers are part of occupy queue.
     if (match == true) {
       QMMF_DEBUG("%s track_id(%x) output_occupy_buffer_queue_.size(%d)",
-          __func__, TrackId(), output_occupy_buffer_queue_.Size());
+          __func__, TrackId(), output_occupy_buffer_queue_.size());
       QMMF_DEBUG("%s track_id(%x) output_free_buffer_queue_.size(%d)",
-          __func__, TrackId(), output_free_buffer_queue_.Size());
+          __func__, TrackId(), output_free_buffer_queue_.size());
     } else {
       QMMF_ERROR("%s: track_id(%x) buffer_id(%d) not found in list",
           __func__, TrackId(), bn_buffer.buffer_id);
@@ -740,27 +754,26 @@ void TrackEncoder::NotifyBufferToClient(BufferDescriptor& codec_buffer) {
   {
     std::lock_guard<std::mutex> lock(queue_lock_);
     if (is_force_cleanup_) {
-      QMMF_WARN("%s: Force cleanup is triggered! client may not exist!",
-        __func__);
+      QMMF_WARN("%s: Force cleanup is triggered! Client may not exist!",
+          __func__);
       return;
     }
-    std::list<BufferDescriptor>::iterator it =
-        output_occupy_buffer_queue_.Begin();
-    for (; it != output_occupy_buffer_queue_.End(); ++it) {
-      QMMF_VERBOSE("%s track_id(%x) Checking match (0x%p) vs (0x%p) ",
-          __func__, TrackId(), (*it).data,  codec_buffer.data);
-      if (((*it).data) ==  (codec_buffer.data)) {
+    for (auto& buffer : output_occupy_buffer_queue_) {
+      QMMF_VERBOSE("%s: track_id(%x) Checking match (0x%p) vs (0x%p) ",
+          __func__, TrackId(), buffer.data,  codec_buffer.data);
+
+      if (buffer.data == codec_buffer.data) {
         QMMF_VERBOSE("%s: track_id(%x) fd(%d):size(%d):timestamp(%lld):"
-            "capacity(%d)",  __func__, TrackId(), (*it).fd,
-            codec_buffer.size, codec_buffer.timestamp, (*it).capacity);
-        bn_buffer.ion_fd    = (*it).fd;
+            "capacity(%d)",  __func__, TrackId(), buffer.fd,
+            codec_buffer.size, codec_buffer.timestamp, buffer.capacity);
+        bn_buffer.ion_fd    = buffer.fd;
         bn_buffer.size      = codec_buffer.size;
         bn_buffer.timestamp = codec_buffer.timestamp;
         bn_buffer.width     = -1;
         bn_buffer.height    = -1;
-        bn_buffer.buffer_id = (*it).fd;
+        bn_buffer.buffer_id = buffer.fd;
         bn_buffer.flag      = codec_buffer.flag;
-        bn_buffer.capacity  = (*it).capacity;
+        bn_buffer.capacity  = buffer.capacity;
         found = true;
         break;
       }
