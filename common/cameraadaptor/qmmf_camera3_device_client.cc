@@ -82,6 +82,8 @@ Camera3DeviceClient::Camera3DeviceClient(CameraClientCallbacks clientCb)
       is_hfr_supported_(false),
       is_raw_only_(false),
       hfr_mode_enabled_(false),
+      is_zzhdr_enabled_(false),
+      fps_sensormode_index_(0),
       prepare_handler_() {
   QMMF_GET_LOG_LEVEL();
   camera3_callback_ops::notify = &notifyFromHal;
@@ -395,23 +397,23 @@ int32_t Camera3DeviceClient::ConfigureStreams(const StreamConfiguration& stream_
   batch_size_ = stream_config.batch_size;
 
   bool is_pp_enabled = true;
-  bool is_zzhdr_enabled = false;
+
   if (stream_config.params) {
     is_pp_enabled = stream_config.params->is_pp_enabled;
-    is_zzhdr_enabled = stream_config.params->is_zzhdr_enabled;
+    is_zzhdr_enabled_ = stream_config.params->is_zzhdr_enabled;
   }
 
-  bool res = ConfigureStreamsLocked(is_pp_enabled, is_zzhdr_enabled,
-                                    stream_config.fps_sensormode_index);
+#ifdef USE_FPS_IDX
+  fps_sensormode_index_ = stream_config.fps_sensormode_index;
+#endif
+  bool res = ConfigureStreamsLocked(is_pp_enabled);
 
   pthread_mutex_unlock(&lock_);
 
   return res;
 }
 
-int32_t Camera3DeviceClient::ConfigureStreamsLocked(bool is_pp_enabled,
-                                                    bool is_zzhdr_enabled,
-                                                    uint32_t fps_index) {
+int32_t Camera3DeviceClient::ConfigureStreamsLocked(bool is_pp_enabled) {
   status_t res;
 
   if (state_ != STATE_NOT_CONFIGURED && state_ != STATE_CONFIGURED) {
@@ -441,13 +443,13 @@ int32_t Camera3DeviceClient::ConfigureStreamsLocked(bool is_pp_enabled,
 #else
   config.operation_mode = CAMERA3_STREAM_CONFIGURATION_NORMAL_MODE;
 
-  if (is_zzhdr_enabled == true) {
+  if (is_zzhdr_enabled_ == true) {
     config.operation_mode = QCAMERA3_SENSORMODE_ZZHDR_OPMODE;
   }
 
   // Setting OpMode for 60fps, which is index of 60fps in sensor mode table
-  if (fps_index > QCAMERA3_SENSORMODE_FPS_DEFAULT_INDEX) {
-    config.operation_mode |= (fps_index << 16);
+  if (fps_sensormode_index_ > QCAMERA3_SENSORMODE_FPS_DEFAULT_INDEX) {
+    config.operation_mode |= (fps_sensormode_index_ << 16);
     QMMF_INFO("%s: 60+ FPS OpMode is Set 0x%x \n", __func__, config.operation_mode);
   }
 #endif
