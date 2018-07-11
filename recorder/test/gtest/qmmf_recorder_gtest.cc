@@ -152,6 +152,8 @@ void RecorderGtest::SetUp() {
   property_get(PROP_TOGGLE_DISPLAY_USAGE, prop_val, "1");
   use_display_ = (atoi(prop_val) == 0) ? false : true;
 #endif
+  property_get(PROP_TOGGLE_OVERLAY_USAGE, prop_val, "0");
+  is_apply_overlay_ = (atoi(prop_val) == 0) ? false : true;
 
   camera_start_params_ = {};
   camera_start_params_.zsl_mode         = false;
@@ -28215,13 +28217,15 @@ TEST_F(RecorderGtest, SessionWithDualCam4k30Enc1080p30EncAndLinked1080p30YUVWith
       }
     }
 
-    // Enable overlay
-    uint32_t mask_id_4k ;
-    CreatePrivacyMaskOverlay(video_track_id_4k_avc, 4096, 2048, &mask_id_4k);
-
-    sleep(record_duration_);
-
-    DestroyPrivacyMaskOverlay(video_track_id_4k_avc, mask_id_4k);
+    if (is_apply_overlay_) {
+      // Enable overlay
+      uint32_t mask_id_4k;
+      CreatePrivacyMaskOverlay(video_track_id_4k_avc, 4096, 2048, &mask_id_4k);
+      sleep(record_duration_);
+      DestroyPrivacyMaskOverlay(video_track_id_4k_avc, mask_id_4k);
+    } else {
+      sleep(record_duration_);
+    }
 
     ret = recorder_.StopSession(session_id, false);
     ASSERT_TRUE(ret == NO_ERROR);
@@ -28422,13 +28426,15 @@ TEST_F(RecorderGtest, SessionWithDualCam4k60Enc1080p30EncAndLinked1080p30YUVWith
       }
     }
 
-    // Enable overlay
-    uint32_t mask_id_4k;
-    CreatePrivacyMaskOverlay(video_track_id_4k_avc, 4096, 2048, &mask_id_4k);
-
-    sleep(record_duration_);
-
-    DestroyPrivacyMaskOverlay(video_track_id_4k_avc, mask_id_4k);
+    if (is_apply_overlay_) {
+      // Enable overlay
+      uint32_t mask_id_4k;
+      CreatePrivacyMaskOverlay(video_track_id_4k_avc, 4096, 2048, &mask_id_4k);
+      sleep(record_duration_);
+      DestroyPrivacyMaskOverlay(video_track_id_4k_avc, mask_id_4k);
+    } else {
+      sleep(record_duration_);
+    }
 
     ret = recorder_.StopSession(session_id, false);
     ASSERT_TRUE(ret == NO_ERROR);
@@ -28626,13 +28632,15 @@ TEST_F(RecorderGtest, SessionWithDualCam5_7k30Enc1080p30EncAndLinked1080p30YUVWi
       }
     }
 
-    // Enable overlay
-    uint32_t mask_id_4k ;
-    CreatePrivacyMaskOverlay(video_track_id_5_7k_avc, 5760, 2880, &mask_id_4k);
-
-    sleep(record_duration_);
-
-    DestroyPrivacyMaskOverlay(video_track_id_5_7k_avc, mask_id_4k);
+    if (is_apply_overlay_) {
+      // Enable overlay
+      uint32_t mask_id_5_7k;
+      CreatePrivacyMaskOverlay(video_track_id_5_7k_avc, 5760, 2880, &mask_id_5_7k);
+      sleep(record_duration_);
+      DestroyPrivacyMaskOverlay(video_track_id_5_7k_avc, mask_id_5_7k);
+    } else {
+      sleep(record_duration_);
+    }
 
     ret = recorder_.StopSession(session_id, false);
     ASSERT_TRUE(ret == NO_ERROR);
@@ -29116,13 +29124,15 @@ TEST_F(RecorderGtest, SessionWithDualCam4k30EncRescale1080p30EncAnd1080p30YUVWit
       }
     }
 
-    // Enable overlay
-    uint32_t mask_id_4k ;
-    CreatePrivacyMaskOverlay(video_track_id_4k_avc, 4096, 2048, &mask_id_4k);
-
-    sleep(record_duration_);
-
-    DestroyPrivacyMaskOverlay(video_track_id_4k_avc, mask_id_4k);
+    if (is_apply_overlay_) {
+      // Enable overlay
+      uint32_t mask_id_4k;
+      CreatePrivacyMaskOverlay(video_track_id_4k_avc, 4096, 2048, &mask_id_4k);
+      sleep(record_duration_);
+      DestroyPrivacyMaskOverlay(video_track_id_4k_avc, mask_id_4k);
+    } else {
+      sleep(record_duration_);
+    }
 
     ret = recorder_.StopSession(session_id, false);
     ASSERT_TRUE(ret == NO_ERROR);
@@ -29314,13 +29324,15 @@ TEST_F(RecorderGtest, SessionWithDualCam4k60EncRescale1080p30EncAnd1080p30YUVWit
       }
     }
 
-    // Enable overlay
-    uint32_t mask_id_4k ;
-    CreatePrivacyMaskOverlay(video_track_id_4k_avc, 4096, 2048, &mask_id_4k);
-
-    sleep(record_duration_);
-
-    DestroyPrivacyMaskOverlay(video_track_id_4k_avc, mask_id_4k);
+    if (is_apply_overlay_) {
+      // Enable overlay
+      uint32_t mask_id_4k;
+      CreatePrivacyMaskOverlay(video_track_id_4k_avc, 4096, 2048, &mask_id_4k);
+      sleep(record_duration_);
+      DestroyPrivacyMaskOverlay(video_track_id_4k_avc, mask_id_4k);
+    } else {
+      sleep(record_duration_);
+    }
 
     ret = recorder_.StopSession(session_id, false);
     ASSERT_TRUE(ret == NO_ERROR);
@@ -29389,14 +29401,14 @@ TEST_F(RecorderGtest, SessionWithDualCam5_7k30EncRescale1080p30EncAnd1080p30YUVW
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  uint32_t video_track_id_4k_avc     = 1;
+  uint32_t video_track_id_5_7k_avc   = 1;
   uint32_t video_track_id_1080p_avc  = 2;
   uint32_t video_track_id_1080p_yuv  = 3;
 
   if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo1 = {
       VideoFormat::kAVC,
-      video_track_id_4k_avc, 5760, 2880
+      video_track_id_5_7k_avc, 5760, 2880
     };
     ret = dump_bitstream_.SetUp(dumpinfo1);
     ASSERT_TRUE(ret == NO_ERROR);
@@ -29447,13 +29459,13 @@ TEST_F(RecorderGtest, SessionWithDualCam5_7k30EncRescale1080p30EncAnd1080p30YUVW
     vid_hdr_mode.enable = true;
     extra_param_hdr.Update(QMMF_VIDEO_HDR_MODE, vid_hdr_mode);
 
-    ret = recorder_.CreateVideoTrack(session_id, video_track_id_4k_avc,
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_5_7k_avc,
                                      video_track_param, extra_param_hdr,
                                      video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
     std::vector<uint32_t> track_ids;
-    track_ids.push_back(video_track_id_4k_avc);
+    track_ids.push_back(video_track_id_5_7k_avc);
 
     video_track_param.width  = 2160;
     video_track_param.height = 1080;
@@ -29467,7 +29479,7 @@ TEST_F(RecorderGtest, SessionWithDualCam5_7k30EncRescale1080p30EncAnd1080p30YUVW
 
     VideoExtraParam extra_param;
     SourceVideoTrack surface_video_linked;
-    surface_video_linked.source_track_id = video_track_id_4k_avc;
+    surface_video_linked.source_track_id = video_track_id_5_7k_avc;
     extra_param.Update(QMMF_SOURCE_VIDEO_TRACK_ID, surface_video_linked);
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_1080p_avc,
@@ -29510,13 +29522,15 @@ TEST_F(RecorderGtest, SessionWithDualCam5_7k30EncRescale1080p30EncAnd1080p30YUVW
       }
     }
 
-    // Enable overlay
-    uint32_t mask_id_4k ;
-    CreatePrivacyMaskOverlay(video_track_id_4k_avc, 4096, 2048, &mask_id_4k);
-
-    sleep(record_duration_);
-
-    DestroyPrivacyMaskOverlay(video_track_id_4k_avc, mask_id_4k);
+    if (is_apply_overlay_) {
+      // Enable overlay
+      uint32_t mask_id_5_7k;
+      CreatePrivacyMaskOverlay(video_track_id_5_7k_avc, 5760, 2880, &mask_id_5_7k);
+      sleep(record_duration_);
+      DestroyPrivacyMaskOverlay(video_track_id_5_7k_avc, mask_id_5_7k);
+    } else {
+      sleep(record_duration_);
+    }
 
     ret = recorder_.StopSession(session_id, false);
     ASSERT_TRUE(ret == NO_ERROR);
@@ -29527,7 +29541,7 @@ TEST_F(RecorderGtest, SessionWithDualCam5_7k30EncRescale1080p30EncAnd1080p30YUVW
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_1080p_avc);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_4k_avc);
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_5_7k_avc);
     ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteSession(session_id);
