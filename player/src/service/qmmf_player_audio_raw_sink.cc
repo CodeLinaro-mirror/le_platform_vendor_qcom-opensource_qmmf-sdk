@@ -610,6 +610,11 @@ status_t AudioRawTrackSink::StopSink() {
     messages_.pop();
   message_lock_.unlock();
 
+  av_buffers_lock_.lock();
+  while(!av_buffers_.empty())
+    av_buffers_.pop();
+  av_buffers_lock_.unlock();
+
   if (track_params_.params.pts_callback_interval != 0) {
     pts_thread_lock_.lock();
     if (pts_thread_ != nullptr) {
