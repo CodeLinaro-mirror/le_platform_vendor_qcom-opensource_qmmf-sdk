@@ -29,6 +29,39 @@
 
 #define LOG_TAG "heap_tracker"
 
+#ifdef ANDROID_O_OR_ABOVE
+
+#include <cstdint>
+
+/** heap_tracker_deinit
+*
+* Deinitialize heap tracker.  Do NOT invoke it directly. Let deinit hook to
+*   invoke it
+*
+* return: void
+**/
+extern "C" void heap_tracker_deinit() {}
+
+/** heap_tracker_init
+*
+* Initialize heap tracker. Do NOT invoke it directly. Let init hook to invoke it
+*
+* return: void
+**/
+extern "C" void heap_tracker_init(void) {}
+
+/** heap_tracker_get_total_allocations
+*
+* Returns number of total allocations
+*
+* return: number of total allocations
+**/
+extern "C" uint32_t heap_tracker_get_total_allocations() {
+  return 0;
+}
+
+#else
+
 #include <dlfcn.h>
 #include <cstddef>
 #include <cstring>
@@ -245,7 +278,9 @@ extern "C" void *realloc(void *ptr, size_t size) {
 *
 * return: number of total allocations
 **/
-uint32_t heap_tracker_get_total_allocations() {
+extern "C" uint32_t heap_tracker_get_total_allocations() {
   std::unique_lock<std::mutex> l(lock_);
   return total_allocations_;
 }
+
+#endif
