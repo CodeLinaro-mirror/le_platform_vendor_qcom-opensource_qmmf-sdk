@@ -32,6 +32,7 @@
 #include <map>
 #include <vector>
 #include <algorithm>
+#include <cutils/properties.h>
 
 #include "player/src/client/qmmf_player_service_intf.h"
 #include "player/src/service/qmmf_player_impl.h"

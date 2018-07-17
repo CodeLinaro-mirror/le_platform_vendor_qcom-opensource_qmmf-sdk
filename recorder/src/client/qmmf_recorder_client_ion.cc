@@ -120,6 +120,7 @@ int32_t RecorderClientIon::Associate(uint32_t track_id,
 
         buffer->data = ion_buffer->second.data;
         buffer->size = bn_buffer.size;
+        buffer->offset = 0;
         buffer->timestamp = bn_buffer.timestamp;
         buffer->flag = bn_buffer.flag;
         buffer->buf_id = bn_buffer.buffer_id;

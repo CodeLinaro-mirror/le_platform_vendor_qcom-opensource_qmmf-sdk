@@ -348,7 +348,7 @@ class BufferPlane {
   *
   *  This method validates current data in the class
   **/
-  void Validate() {
+  void Validate() const {
     if (0 == width_) {
       Utils::ThrowException(__func__, "width_ is 0");
     }
@@ -372,8 +372,18 @@ class BufferPlane {
   *  This method validates current data in the class based on buffer
   *  requirements
   **/
-  void Validate(BufferRequirements &requirements) {
+  void Validate(BufferRequirements &requirements) const {
     Validate();
+
+    if (width_ > requirements.max_width_) {
+      Utils::ThrowException(__func__, "Plane width greater than max width!");
+    } else if (width_ < requirements.min_width_) {
+      Utils::ThrowException(__func__, "Plane width less than min width!");
+    } else if (height_ > requirements.max_height_) {
+      Utils::ThrowException(__func__, "Plane height greater than max height!");
+    } else if (height_ < requirements.min_height_) {
+      Utils::ThrowException(__func__, "Plane height less than min height!");
+    }
 
     if ((requirements.stride_alignment_ > 0) &&
         (stride_ % requirements.stride_alignment_ != 0)) {
@@ -459,7 +469,7 @@ class AlgBuffer {
   *
   *  This method validates current data in the class
   **/
-  void Validate() {
+  void Validate() const {
     if (nullptr == vaddr_) {
       Utils::ThrowException(__func__, "vaddr_ is null");
     }
@@ -491,11 +501,15 @@ class AlgBuffer {
   *  This method validates current data in the class based on buffer
   *  requirements
   **/
-  void Validate(BufferRequirements &requirements) {
+  void Validate(BufferRequirements &requirements) const {
     Validate();
 
     if (requirements.cached_ && !cached_) {
       Utils::ThrowException(__func__, "Buffer is not cached");
+    }
+
+    if (requirements.pixel_formats_.count(pix_fmt_) == 0) {
+      Utils::ThrowException(__func__, "Buffer format not supported!");
     }
 
     for (BufferPlane p : plane_) {
@@ -540,6 +554,12 @@ class AlgBuffer {
   *  Return stride by plane
   **/
   uint32_t GetStride(uint32_t plane = 0) const { return plane_[plane].stride_; }
+
+  /** GetLength:
+  *
+  *  Return length by plane
+  **/
+  uint32_t GetLength(uint32_t plane = 0) const { return plane_[plane].length_; }
 
   uint8_t *vaddr_;
   int32_t fd_;

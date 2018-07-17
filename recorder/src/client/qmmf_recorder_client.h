@@ -29,14 +29,16 @@
 
 #pragma once
 
-#include <camera/CameraMetadata.h>
 #include <vector>
+#include <set>
 #include <map>
 #include <mutex>
 
-#include "common/cameraadaptor/qmmf_camera3_device_client.h"
-#include "qmmf-sdk/qmmf_recorder_params.h"
-#include "qmmf-sdk/qmmf_recorder_extra_param.h"
+#include <camera/CameraMetadata.h>
+#include <qmmf-sdk/qmmf_recorder_params.h>
+#include <qmmf-sdk/qmmf_recorder_extra_param.h>
+
+#include "common/utils/qmmf_log.h"
 #include "recorder/src/client/qmmf_recorder_client_ion.h"
 #include "recorder/src/client/qmmf_recorder_service_intf.h"
 
@@ -45,7 +47,6 @@ namespace qmmf {
 namespace recorder {
 
 using namespace android;
-using namespace cameraadaptor;
 
 class RecorderClient {
  public:
@@ -198,68 +199,74 @@ class RecorderClient {
                           const CameraMetadata &result);
 
  private:
+  typedef std::function <void(void)> NotifyServerDeathCB;
 
-  void UpdateSessionTopology(const uint32_t session_id, const uint32_t track_id,
+  class DeathNotifier : public IBinder::DeathRecipient {
+   public:
+    DeathNotifier(NotifyServerDeathCB& cb) : notify_server_death_(cb) {}
+
+    void binderDied(const wp<IBinder>&) override {
+      QMMF_DEBUG("RecorderClient:%s: Recorder service died", __func__);
+      notify_server_death_();
+    }
+    NotifyServerDeathCB notify_server_death_;
+  };
+
+  struct BufferInfo {
+    ion_user_handle_t ion_handle; // ION handle
+    uint32_t          ion_fd;     // Transferred ION Id.
+    size_t            size;       // Buffer length/size.
+    void*             vaddr;      // Memory mapped buffer.
+  };
+
+  // Map <buffer index, buffer info>
+  typedef std::map<uint32_t, BufferInfo> BufferInfoMap;
+
+  status_t MapBuffer(BufferInfo& info);
+  status_t UnmapBuffer(BufferInfo& info);
+
+  void UpdateSessionTopology(const uint32_t& session_id,
+                             const uint32_t& track_id,
                              bool /*Add or Delete*/);
 
   bool CheckServiceStatus();
 
   void ServiceDeathHandler();
 
-  typedef std::function <void(void)> NotifyServerDeathCB;
-  class DeathNotifier : public IBinder::DeathRecipient {
-   public:
-    DeathNotifier(NotifyServerDeathCB& cb) : notify_server_death_(cb) {}
+  sp<IRecorderService>              recorder_service_;
+  sp<DeathNotifier>                 death_notifier_;
 
-    void binderDied(const wp<IBinder>&) override {
-      ALOGD("RecorderClient:%s: Recorder service died", __func__);
-      notify_server_death_();
-    }
-    NotifyServerDeathCB notify_server_death_;
-  };
+  RecorderClientIon                 buffer_ion_;
+  int32_t                           ion_device_;
+  uint32_t                          client_id_;
 
-  camera_module_t      *camera_module_;
-  std::mutex           lock_;
-  sp<IRecorderService> recorder_service_;
-  sp<DeathNotifier>    death_notifier_;
-  RecorderCb           recorder_cb_;
-  int32_t              ion_device_;
-  RecorderClientIon    buffer_ion_;
-  uint32_t             client_id_;
+  // List track IDs in a session.
+  std::map<uint32_t, std::set<uint32_t> > sessions_;
 
   // List of session callbacks.
-  std::map<uint32_t, SessionCb > session_cb_list_;
-  // List of Track callbacks.
-  std::map<uint32_t, TrackCb >   track_cb_list_;
-  std::mutex                     track_list_lock_;
-  // Capture callback.
-  ImageCaptureCb                           image_capture_cb_;
-  // Camera result callback
-  CameraResultCb                           metadata_cb_;
+  std::map<uint32_t, SessionCb >    session_cb_list_;
 
-  typedef struct BufInfo {
-    // Transferred ION Id.
-    uint32_t ion_fd;
-    // Memory mapped buffer.
-    void    *pointer;
-    // Size
-    size_t  frame_len;
-    // ION handle
-    ion_user_handle_t ion_handle;
-  } BufInfo;
+  // List of track callbacks.
+  std::map<uint32_t, TrackCb>       track_cb_list_;
+  std::mutex                        track_cb_lock_;
 
-  // map <session id, vector<track id> >
-  std::map<uint32_t, std::vector<uint32_t> >  sessions_;
-  // map <buffer index, buffer_info>
-  typedef std::map<uint32_t, BufInfo> buf_info_map;
-  // map <track_id, map <buffer index, buffer_info> >
-  std::map<uint32_t,  buf_info_map> track_buf_map_;
-  // to protect track_buf_map_
-  std::mutex  track_buf_map_lock_;
+  RecorderCb                        recorder_cb_;
+  ImageCaptureCb                    image_capture_cb_;
+  CameraResultCb                    metadata_cb_;
 
-  std::map<uint32_t, BufInfo> snapshot_buffers_;
+  // List of information regarding the buffers in a track.
+  std::map<uint32_t, BufferInfoMap> track_buffers_map_;
+  std::mutex                        track_buffers_lock_;
+
+  // List of information regarding the buffers for image capture.
+  BufferInfoMap                     snapshot_buffers_;
+  std::mutex                        snapshot_buffers_lock_;
+
   // VendorTagDescriptor
-  sp<VendorTagDescriptor> vendor_tag_desc_;
+  sp<VendorTagDescriptor>           vendor_tag_desc_;
+
+  // Global mutex.
+  std::mutex                        lock_;
 };
 
 class ServiceCallbackHandler : public BnRecorderServiceCallback {

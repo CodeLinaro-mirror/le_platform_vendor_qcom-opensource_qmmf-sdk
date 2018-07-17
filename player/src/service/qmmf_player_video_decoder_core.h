@@ -54,7 +54,7 @@ class VideoDecoderCore {
   static VideoDecoderCore* CreateVideoDecoderCore();
 
   status_t CreateVideoTrack(VideoTrackParams& params,
-                            TrackCb& callback);
+                            TrackCb& track_callback, PlayerCb& player_callback);
 
   status_t DequeueTrackInputBuffer(uint32_t track_id,
       std::vector<AVCodecBuffer>& buffers);
@@ -111,39 +111,36 @@ class VideoDecoderCore {
 class VideoTrackDecoder : public ::qmmf::avcodec::ICodecSource {
  public:
   VideoTrackDecoder(int32_t ion_device);
-
   ~VideoTrackDecoder();
 
   status_t ConfigureTrackDecoder(VideoTrackParams& track_params,
-                                 TrackCb& callback);
+                                 TrackCb& track_callback,
+                                 PlayerCb& player_callback);
+
+  void AVCodecHandler(qmmf::avcodec::EventType event_type, void *event_data,
+                      size_t event_data_size);
 
   status_t DequeueInputBuffer(std::vector<AVCodecBuffer>& buffers);
-
   status_t QueueInputBuffer(std::vector<AVCodecBuffer>& buffers);
 
   status_t PreparePipeline(const ::std::shared_ptr<VideoTrackSink>& video_track_sink,
                            const ::std::shared_ptr<VideoTrackDecoder>& video_track_decoder);
 
   status_t StartDecoder();
-
   status_t StopDecoder(const PictureParam& params,
                        BufferDescriptor* grab_buffer);
-
+  status_t DeleteDecoder();
   status_t PauseDecoder(const PictureParam& params,
                         BufferDescriptor* grab_buffer);
-
   status_t ResumeDecoder();
-
-  status_t PrepareDrag(bool ignore_fps);
 
   status_t SetVideoDecoderParams(CodecParamType param_type, void* param,
                                  uint32_t param_size);
 
-  status_t DeleteDecoder();
-
+  status_t PrepareDrag(bool ignore_fps);
   status_t SetTrickMode(TrickModeSpeed speed, TrickModeDirection dir);
-
   status_t SetPosition(int64_t seek_time);
+  status_t ReconfigOutputPort(void *arg);
 
   status_t GetBuffer(BufferDescriptor& stream_buffer,
                      void* client_data) override;
@@ -152,15 +149,18 @@ class VideoTrackDecoder : public ::qmmf::avcodec::ICodecSource {
   status_t NotifyPortEvent(::qmmf::avcodec::PortEventType event_type,
                            void* event_data) override;
 
-  status_t ReconfigOutputPort(void *arg);
 
  private:
 
   status_t AllocInputPortBufs();
-
   status_t AllocOutputPortBufs();
-
   status_t ReleaseOutputBuffers();
+  status_t ReleaseInputBuffers();
+
+  inline bool IsPause() {
+    std::lock_guard<std::mutex> lock(pause_lock_);
+    return pause_;
+  }
 
   uint32_t TrackId() { return video_track_params_.track_id; }
 
@@ -179,15 +179,14 @@ class VideoTrackDecoder : public ::qmmf::avcodec::ICodecSource {
   VideoTrackParams                  video_track_params_;
   ::qmmf::avcodec::AVCodec*         avcodec_;
 
-  //For input port
+  // For input port
   Vector<StreamBuffer>    input_buffer_list_;
   TSQueue<StreamBuffer>   unfilled_frame_queue_;
   TSQueue<StreamBuffer>   filled_frame_queue_;
   TSQueue<StreamBuffer>   frames_to_decode_;
   TSQueue<StreamBuffer>   frames_being_decoded_;
 
-  typedef  struct ion_allocation_data IonHandleData;
-  Vector<IonHandleData>   ion_handle_data;
+  std::map<int32_t, struct ion_handle_data> ion_handle_data_;
 
 
   Vector<::qmmf::avcodec::CodecBuffer> output_buffer_list_;
@@ -207,8 +206,11 @@ class VideoTrackDecoder : public ::qmmf::avcodec::ICodecSource {
   time_point<high_resolution_clock>   prev_time_;
   uint32_t                            player_decode_profile_;
   bool                                stop_received_;
-  TrackCb                             callback_;
+  TrackCb                             track_callback_;
+  PlayerCb                            player_callback_;
   InputBufferNotifyParams             input_buffer_notify_params_;
+  std::mutex                          pause_lock_;
+  bool                                pause_;
 };
 
 };  // namespace player

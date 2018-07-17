@@ -42,6 +42,7 @@
 #include <assert.h>
 #include <sys/time.h>
 #include <chrono>
+#include <math.h>
 #if USE_SKIA
 #include <SkSurface.h>
 #include <SkString.h>

@@ -59,13 +59,15 @@ class AudioRawSink {
 
   status_t CreateTrackSink(uint32_t track_id,
                            AudioTrackParams& param,
-                           TrackCb& callback);
+                           TrackCb& track_callback,
+                           PlayerCb& player_callback);
   status_t DeleteTrackSink(uint32_t track_id);
 
   status_t StartTrackSink(uint32_t track_id);
   status_t StopTrackSink(uint32_t track_id);
   status_t PauseTrackSink(uint32_t track_id);
   status_t ResumeTrackSink(uint32_t track_id);
+  status_t PrepareDrag(uint32_t track_id, bool ignore_fps);
 
   status_t SetAudioTrackSinkParams(uint32_t track_id,
                                    CodecParamType param_type,
@@ -99,13 +101,16 @@ class AudioRawTrackSink {
   AudioRawTrackSink();
   virtual ~AudioRawTrackSink();
 
-  status_t Init(const AudioTrackParams& params, TrackCb& callback);
+  status_t Init(const AudioTrackParams& params,
+                TrackCb& track_callback,
+                PlayerCb& player_callback);
   status_t DeInit();
 
   status_t StartSink();
   status_t StopSink();
   status_t PauseSink();
   status_t ResumeSink();
+  status_t PrepareDrag(bool ignore_fps);
 
   status_t SetAudioSinkParams(CodecParamType param_type,
                               void* param,
@@ -142,7 +147,8 @@ class AudioRawTrackSink {
   void StoppedHandler();
 
   AudioTrackParams track_params_;
-  TrackCb callback_;
+  TrackCb track_callback_;
+  PlayerCb player_callback_;
   ::std::mutex av_buffers_lock_;
   ::std::condition_variable buffer_signal_;
   ::std::queue<AVCodecBuffer> av_buffers_;
@@ -151,12 +157,27 @@ class AudioRawTrackSink {
 
   ::std::thread* thread_;
   ::std::mutex message_lock_;
+  ::std::mutex thread_lock_;
   ::std::queue<AudioMessage> messages_;
   ::std::condition_variable signal_;
 
   ::std::thread* pts_thread_;
   ::std::mutex pts_message_lock_;
+  ::std::mutex pts_thread_lock_;
   ::std::queue<AudioMessage> pts_messages_;
+
+  ::std::mutex stop_lock_;
+  bool stop_eof_received_;
+
+  inline bool GetStopEofReceived() {
+    std::lock_guard<std::mutex> lock(stop_lock_);
+    return stop_eof_received_;
+  }
+
+  inline void SetStopEofReceived(bool value) {
+    std::lock_guard<std::mutex> lock(stop_lock_);
+    stop_eof_received_ = value;
+  }
 
   InputBufferNotifyParams input_buffer_notify_params_;
 

@@ -102,16 +102,6 @@ AC_ARG_WITH([basemachine],
         AC_HELP_STRING([with-basemachine=@<:@machine name@:>@],
         [Specify the Machine name]),
         [case "${withval}" in
-                apq8053) multicam_enable=true ;;
-                *) multicam_enable=false ;;
-        esac],
-        [multicam_enable=false])
-AM_CONDITIONAL([ENABLE_360], [test x$multicam_enable = xtrue])
-
-AC_ARG_WITH([basemachine],
-        AC_HELP_STRING([with-basemachine=@<:@machine name@:>@],
-        [Specify the Machine name]),
-        [case "${withval}" in
                 apq8053) jpeg_turbo_enable=true ;;
                 *) jpeg_turbo_enable=false ;;
         esac],
@@ -177,6 +167,9 @@ AC_CONFIG_FILES([ \
     common/avqueue/Makefile \
     common/exif-generator/Makefile \
     common/jpeg-encoder/Makefile \
+    common/resizer-c2d/Makefile \
+    common/resizer-neon/Makefile \
+    common/resizer-fastCV/Makefile \
     plugins/Makefile \
     avcodec/Makefile \
     display/src/client/Makefile \

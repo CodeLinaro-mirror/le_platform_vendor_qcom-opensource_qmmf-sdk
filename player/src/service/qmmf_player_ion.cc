@@ -69,7 +69,7 @@ PlayerIon::~PlayerIon() {
   if (!ion_buffer_map_.empty()) {
     int32_t result = Deallocate();
     assert(result == 0);
-    QMMF_INFO("%s() deallocated all ion buffers", __func__);
+    QMMF_DEBUG("%s() deallocated all ion buffers", __func__);
   }
 }
 
@@ -190,7 +190,7 @@ int32_t PlayerIon::Deallocate() {
   }
 
   ion_buffer_map_.clear();
-  QMMF_INFO("%s() deallocated all ion buffers", __func__);
+  QMMF_DEBUG("%s() deallocated all ion buffers", __func__);
 
   // close ion device
   result = close(ion_device_);

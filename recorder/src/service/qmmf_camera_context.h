@@ -169,7 +169,7 @@ class CameraContext : public CameraInterface,
 
   void StoreBatchStreamId(std::shared_ptr<CameraPort>& port);
 
-  void RestoreBatchStreamId(CameraPort* port);
+  void RestoreBatchStreamId(std::shared_ptr<CameraPort>& port);
 
   status_t GetBatchSize(const CameraStreamParam& param, uint32_t& batch_size);
 
@@ -191,7 +191,7 @@ class CameraContext : public CameraInterface,
 
   status_t PauseActiveStreams(bool immedialtely = true);
 
-  status_t ResumeActiveStreams(bool streaming_capture);
+  status_t ResumeActiveStreams(bool state_only = false);
 
   status_t ValidateResolution(const ImageFormat format, const uint32_t width,
                               const uint32_t height);
@@ -203,6 +203,10 @@ class CameraContext : public CameraInterface,
   void InitHFRModes();
 
   status_t CaptureZSLImage();
+
+#ifndef FLUSH_RESTART_NOTAVAILABLE
+  status_t DisableFlushRestart(const bool& disable, CameraMetadata& meta);
+#endif
 
   //Camera client callbacks.
   void SnapshotCaptureCallback(StreamBuffer buffer);
@@ -225,9 +229,7 @@ class CameraContext : public CameraInterface,
 
   bool IsPostProcNeeded(const ImageParam &param, const uint32_t sequence_cnt);
 
-  CameraPort* GetPort(const uint32_t track_id);
-
-  void DeletePort(const uint32_t track_id);
+  std::shared_ptr<CameraPort> GetPort(const uint32_t& track_id);
 
   status_t PostProcDelete();
 
@@ -270,6 +272,7 @@ class CameraContext : public CameraInterface,
 
   // Global Capture request.
   int32_t                  streaming_request_id_;
+  int32_t                  capture_request_id_;
   int32_t                  previous_streaming_request_id_;
 
   // Map of stream id and it's last request frame number submitted to HAL.
@@ -282,15 +285,10 @@ class CameraContext : public CameraInterface,
 
   //Non zsl capture request.
   Camera3Request           snapshot_request_;
-  std::vector<int32_t>     snapshot_request_id_;
   StreamSnapshotCb         client_snapshot_cb_;
   uint32_t                 sequence_cnt_;
-  int64_t                  last_snapshot_id_;
-  int64_t                  curr_snapshot_id_;
   uint32_t                 capture_cnt_;
-  bool                     capture_done_;
   std::mutex               capture_lock_;
-  QCondition               capture_signal_;
   bool                     postproc_enable_;
   bool                     cancel_capture_ = false;
 
@@ -300,7 +298,7 @@ class CameraContext : public CameraInterface,
   std::shared_ptr<CameraPort>           zsl_port_;
 
   // Map of <consumer id and CameraPort>
-  std::vector<std::shared_ptr<CameraPort> > active_ports_;
+  std::map<uint32_t, std::shared_ptr<CameraPort> > active_ports_;
 
   // Map of <port_id and PostProc plugins>
   std::map<uint32_t, std::vector<uint32_t> >  video_plugins_;
@@ -346,6 +344,7 @@ class CameraContext : public CameraInterface,
   bool                          exif_en_;
   CameraStreamParameters        stream_param_;
   bool                          restart_pipe_;
+  bool                          reconfig_pipe_;
   bool                          port_paused_;
   std::set<int32_t>             stopped_stream_ids_;
 };

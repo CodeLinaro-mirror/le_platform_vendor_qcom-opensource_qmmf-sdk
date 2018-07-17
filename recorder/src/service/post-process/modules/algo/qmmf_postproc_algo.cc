@@ -70,7 +70,13 @@ PostProcAlg::PostProcAlg(std::string lib)
   property_get("persist.qmmf.postproc.skipalgo", prop_val, "0");
   pass_through_ = (0 == atoi(prop_val)) ? false : true;
 
-  algo_caps_ = algo_->GetCaps();
+  try {
+    algo_caps_ = algo_->GetCaps();
+  } catch (const std::exception &e) {
+    QMMF_ERROR("%s: Error getting capabilities, exception: %s", __func__,
+        e.what());
+    throw e;
+  }
 
   QMMF_INFO("%s: name: %s version: %f location: %s", __func__,
       algo_caps_.plugin_name_.c_str(), algo_caps_.lib_version_ , Lib_.c_str());
@@ -105,7 +111,13 @@ status_t PostProcAlg::Initialize(const PostProcIOParam &in_param,
     return BAD_VALUE;
   }
 
-  algo_->SetCallbacks(this);
+  try {
+    algo_->SetCallbacks(this);
+  } catch (const std::exception &e) {
+    QMMF_ERROR("%s: Error setting callbacks, exception: %s", __func__,
+        e.what());
+    throw e;
+  }
 
   state_ = State::INITIALIZED;
 
@@ -128,7 +140,13 @@ PostProcIOParam PostProcAlg::GetInput(const PostProcIOParam &out) {
   requirements.scanline_ = out.scanline;
   requirements.formats_.push_back(GetAlgFormat(out.format));
 
-  requirements = algo_->GetInputRequirements(requirements);
+  try {
+    requirements = algo_->GetInputRequirements(requirements);
+  } catch (const std::exception &e) {
+    QMMF_ERROR("%s: Error while fetching input requirements, exception: %s",
+        __func__, e.what());
+    throw e;
+  }
 
   input_param.width    = requirements.width_;
   input_param.height   = requirements.height_;
@@ -256,7 +274,12 @@ status_t PostProcAlg::Delete() {
   QMMF_INFO("%s: Enter ", __func__);
 
   recursive_lock_guard lock(lock_);
-  algo_->Abort();
+  try {
+    algo_->Abort();
+  } catch (const std::exception &e) {
+    QMMF_ERROR("%s: Error during abort, exception: %s", __func__, e.what());
+    throw e;
+  }
   state_ = State::CREATED;
 
   QMMF_INFO("%s: Exit", __func__);
@@ -369,7 +392,13 @@ status_t PostProcAlg::Process(
 
 void PostProcAlg::OnFrameProcessed(const AlgBuffer &input_buffer) {
   const std::vector<AlgBuffer> buffers = {input_buffer};
-  algo_->UnregisterInputBuffers(buffers);
+  try {
+    algo_->UnregisterInputBuffers(buffers);
+  } catch (const std::exception &e) {
+    QMMF_ERROR("%s: Error unregistering buffers, exception: %s",
+        __func__, e.what());
+    throw e;
+  }
 
   // return stream buffer to upper layer
   StreamBuffer buf = GetStreamBuffer(input_buffer);
@@ -389,13 +418,24 @@ void PostProcAlg::OnFrameReady(const AlgBuffer &output_buffer) {
   }
 
   const std::vector<AlgBuffer> buffers = {output_buffer};
-  algo_->UnregisterOutputBuffers(buffers);
+  try {
+    algo_->UnregisterOutputBuffers(buffers);
+  } catch (const std::exception &e) {
+    QMMF_ERROR("%s: Error unregistering buffers, exception: %s",
+        __func__, e.what());
+    throw e;
+  }
 
   // return stream buffer to upper layer
   StreamBuffer buf = GetStreamBuffer(output_buffer);
-  listener_->OnFrameReady(buf);
 
   recursive_lock_guard lock(lock_);
+  if (state_ == State::ACTIVE) {
+    listener_->OnFrameReady(buf);
+  } else {
+    listener_->OnFrameReturn(buf);
+  }
+
   in_fight_count_--;
   if (in_fight_count_ == 0 && state_ == State::ABORTED) {
     QMMF_VERBOSE("%s: Release abort done handler", __func__);

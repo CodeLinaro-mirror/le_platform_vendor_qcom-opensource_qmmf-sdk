@@ -260,7 +260,8 @@ class Utils {
     lib_handle = dlopen(lib_name.c_str(), RTLD_NOW);
     const char *dlsym_error = dlerror();
     if (!lib_handle || dlsym_error) {
-      ThrowException(__func__, dlsym_error);
+      ThrowException(__func__,
+          dlsym_error ? dlsym_error : "Error: dlopen failed");
     }
   }
 

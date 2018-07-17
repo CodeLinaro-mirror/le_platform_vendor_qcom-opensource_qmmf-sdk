@@ -133,7 +133,9 @@ class PlayerClient {
           Mutex::Autolock l(parent_->lock_);
           parent_->player_service_.clear();
           parent_->player_service_ = nullptr;
-          assert(0);
+          PlayerError error = PlayerError::kServiceDied;
+          parent_->player_cb_.event_cb(EventType::kError, &(error),
+                                       sizeof(error));
     }
     PlayerClient* parent_;
   };

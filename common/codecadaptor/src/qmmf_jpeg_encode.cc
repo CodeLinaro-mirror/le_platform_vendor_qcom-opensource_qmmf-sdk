@@ -255,6 +255,7 @@ status_t JPEGEncoder::GetComponentName(CodecMimeType mime_type,
 
 status_t JPEGEncoder::ConfigureCodec(CodecMimeType codec_type,
                                      CodecParam &codec_param,
+                                     const AVCodecCb& avcodec_cb,
                                      string comp_name) {
   codec_params_ = codec_param;
   format_type_ = CodecType::kImageEncoder;

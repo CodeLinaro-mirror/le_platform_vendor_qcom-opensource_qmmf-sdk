@@ -31,15 +31,14 @@ LOCAL_SRC_FILES += qmmf_recorder_ion.cc
 LOCAL_SRC_FILES += qmmf_remote_cb.cc
 LOCAL_SRC_FILES += qmmf_camera_source.cc
 LOCAL_SRC_FILES += qmmf_camera_context.cc
+LOCAL_SRC_FILES += qmmf_fake_camera.cc
 LOCAL_SRC_FILES += qmmf_camera_rescaler.cc
 LOCAL_SRC_FILES += qmmf_encoder_core.cc
 LOCAL_SRC_FILES += qmmf_audio_source.cc
 LOCAL_SRC_FILES += qmmf_audio_raw_track_source.cc
 LOCAL_SRC_FILES += qmmf_audio_encoded_track_source.cc
 LOCAL_SRC_FILES += qmmf_audio_encoder_core.cc
-ifeq ($(ENABLE_360),1)
 LOCAL_SRC_FILES += qmmf_multicamera_manager.cc
-endif
 ifneq ($(DISABLE_PP_JPEG),1)
 LOCAL_SRC_FILES += qmmf_jpeg_encoder.cc
 LOCAL_SRC_FILES += qmmf_camera_jpeg.cc
@@ -61,8 +60,11 @@ LOCAL_SHARED_LIBRARIES += libqmmf_exif_generator
 ifneq ($(DISABLE_DISPLAY),1)
 LOCAL_SHARED_LIBRARIES += libqmmf_display_client
 endif
-LOCAL_SHARED_LIBRARIES += libcamera_client libbinder libhardware libfastcvopt libC2D2
+LOCAL_SHARED_LIBRARIES += libcamera_client libbinder libhardware
 LOCAL_SHARED_LIBRARIES += libqmmf_postproc_frame_skip
+LOCAL_SHARED_LIBRARIES += libqmmf_common_resizer_fastcv
+LOCAL_SHARED_LIBRARIES += libqmmf_common_resizer_c2d
+LOCAL_SHARED_LIBRARIES += libqmmf_common_resizer_neon
 
 LOCAL_STATIC_LIBRARIES += libjsoncpp
 

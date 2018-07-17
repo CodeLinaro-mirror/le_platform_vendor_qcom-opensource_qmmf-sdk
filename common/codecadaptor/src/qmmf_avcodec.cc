@@ -295,7 +295,9 @@ status_t AVCodec::GetComponentName(CodecMimeType mime_type,
 }
 
 status_t AVCodec::ConfigureCodec(CodecMimeType codec_type,
-                                 CodecParam& codec_param, string comp_name) {
+                                 CodecParam& codec_param,
+                                 const AVCodecCb& avcodec_cb,
+                                 string comp_name) {
 
   QMMF_INFO("%s Enter", __func__);
   String8 component_name;
@@ -453,6 +455,8 @@ status_t AVCodec::ConfigureCodec(CodecMimeType codec_type,
     QMMF_ERROR("%s Configure Codec Failed", __func__);
     return ret;
   }
+
+  avcodec_cb_.event_cb = avcodec_cb.event_cb;
   // set component to Idle state
   ret = SetState(OMX_StateIdle, OMX_FALSE);
   if (ret != 0) {
@@ -2842,6 +2846,16 @@ status_t AVCodec::PauseCodec() {
 
   QMMF_INFO("%s Enter", __func__);
   status_t ret = 0;
+  uint32_t count = 0;
+  while(IsPortReconfig()) {
+    usleep(3000);
+    count++;
+    if(count >= 150) {
+      QMMF_ERROR("%s: Port reconfig not yet completed, hence failed to "
+          "pause codec", __func__);
+      return -ETIME;
+    }
+  }
 
   ret = SetState(OMX_StatePause, OMX_TRUE);
   if (ret != 0) {
@@ -3281,20 +3295,17 @@ OMX_BUFFERHEADERTYPE *AVCodec::GetInputBufferHdr(BufferDescriptor& buffer) {
 
   bool found = false;
   if (format_type_ == CodecType::kVideoEncoder) {
-    bool timeout = false;
     std::unique_lock<std::mutex> queue_lock(queue_lock_);
+    std::chrono::nanoseconds wait_time(kWaitDelay);
+
     while (free_input_buffhdr_list_.Size() == 0) {
       QMMF_WARN("%s: Wait for free header at input port!!", __func__);
-      auto ret = wait_for_header_.wait_for(queue_lock,
-          std::chrono::nanoseconds(kWaitDelay));
+      auto ret = wait_for_header_.wait_for(queue_lock, wait_time);
       if (ret == std::cv_status::timeout) {
         QMMF_ERROR("%s: No free buffer header at input port!,"
-          " Timed out happend!",  __func__);
-        timeout = true;
-        break;
+            " Timed out happend!",  __func__);
       }
     }
-    assert(timeout == false);
     OMX_BUFFERHEADERTYPE* header = nullptr;
 
     header = *free_input_buffhdr_list_.Begin();
@@ -3820,7 +3831,10 @@ OMX_ERRORTYPE AVCodec::OnEvent(
       QMMF_WARN("%s Unimplemented command", __func__);
     }
   } else if (event == OMX_EventError) {
-    assert(0);
+    if (avcodec->avcodec_cb_.event_cb) {
+      AVCodecError error = AVCodecError::kOmxError;
+      avcodec->avcodec_cb_.event_cb(EventType::kError, &error, sizeof(error));
+    }
 
   } else if (event == OMX_EventBufferFlag) {
     QMMF_INFO("%s Event callback: Buffer flag received", __func__);

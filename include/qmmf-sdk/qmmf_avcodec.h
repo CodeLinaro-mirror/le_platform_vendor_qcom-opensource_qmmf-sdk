@@ -76,6 +76,7 @@ class IAVCodec {
   /// @param comp_name: Name of the specific codec component to use.
   virtual status_t ConfigureCodec(CodecMimeType mime_type,
                                   CodecParam& codec_param,
+                                  const AVCodecCb& avcodec_cb = {nullptr},
                                   ::std::string comp_name = "") = 0;
 
   /// \brief Enables clients to Get buffer requirement on a given port.
