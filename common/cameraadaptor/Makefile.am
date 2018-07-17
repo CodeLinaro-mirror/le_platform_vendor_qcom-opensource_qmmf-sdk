@@ -13,8 +13,12 @@ libcamera_adaptor_la_SOURCES += qmmf_camera3_smooth_zoom.cc
 libcamera_adaptor_la_CPPFLAGS = -I$(top_srcdir)/include
 libcamera_adaptor_la_CPPFLAGS += -I$(top_srcdir)/
 libcamera_adaptor_la_CPPFLAGS += -I$(CAMERAHAL_CFLAGS)
+
 libcamera_adaptor_la_LDFLAGS  = -lutils -lbinder -lcamera_client -lhardware
 libcamera_adaptor_la_LDFLAGS  += -lcamera_metadata -lpthread -ldl -llog
+if TARGET_USES_GBM
+libcamera_adaptor_la_LDFLAGS  += -lgbm
+endif
 
 camera_adaptordir=$(includedir)
 camera_adaptor_HEADERS = qmmf_camera3_types.h

@@ -537,7 +537,7 @@ void Camera3Gtest::ReturnInputBuffer(StreamBuffer &buffer) {
 int32_t Camera3Gtest::StoreBuffer(String8 path, uint64_t &idx,
                                   StreamBuffer &buffer, CalcSize &calcSize) {
   int32_t ret = 0;
-
+#ifndef TARGET_USES_GBM
   mem_alloc_device allocDevice =
       device_client_->alloc_device_interface_->GetDevice();
 
@@ -635,7 +635,9 @@ int32_t Camera3Gtest::StoreBuffer(String8 path, uint64_t &idx,
       fclose(f);
     }
   }
-
+#else
+  printf("%s: WARN: Not yet supported.", __func__);
+#endif
   return ret;
 }
 

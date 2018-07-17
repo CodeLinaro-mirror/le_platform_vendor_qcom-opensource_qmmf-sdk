@@ -30,6 +30,13 @@
 #else
 #include <hardware/gralloc.h>
 #endif
+
+#ifdef TARGET_USES_GBM
+#include <gbm.h>
+#include <gbm_priv.h>
+#include <unordered_map>
+#endif
+
 #include <utils/String8.h>
 #include <utils/Vector.h>
 #include <utils/KeyedVector.h>
@@ -47,6 +54,9 @@ class Camera3Monitor;
 #ifdef TARGET_USES_GRALLOC1
    typedef gralloc1_device_t* mem_alloc_device;
    typedef gralloc1_error_t   mem_alloc_error;
+#elif TARGET_USES_GBM
+   typedef gbm_device*        mem_alloc_device;
+   typedef int32_t            mem_alloc_error;
 #else
    typedef alloc_device_t*    mem_alloc_device;
    typedef int32_t            mem_alloc_error;
@@ -141,6 +151,31 @@ class Gralloc1Allocator : public IMemAllocator {
 
    mem_alloc_error (*Perform)(mem_alloc_device device, int32_t operation, ...);
 };
+#elif TARGET_USES_GBM
+class GbmAllocator : public IMemAllocator {
+ public:
+   GbmAllocator(mem_alloc_device device);
+   ~GbmAllocator() {};
+
+   mem_alloc_error AllocBuffer(buffer_handle_t *buf,
+                               int32_t width,
+                               int32_t height,
+                               int32_t format,
+                               int32_t usage,
+                               uint32_t *stride) override;
+
+   mem_alloc_error FreeBuffer(buffer_handle_t buf) override;
+
+   mem_alloc_error GetStrideAndHeightFromHandle(
+       struct private_handle_t* const priv_handle,
+       int32_t* stride,
+       int32_t* height) override;
+
+ private:
+   uint32_t GetUsageFlagInfo(int32_t user_flag);
+
+   uint32_t GetFormatInfo(int32_t user_format);
+};
 #else
 class GrallocAllocator : public IMemAllocator {
  public:
@@ -161,7 +196,7 @@ class GrallocAllocator : public IMemAllocator {
        int32_t* stride,
        int32_t* height) override;
 };
-#endif  // TARGET_USES_GRALLOC1
+#endif
 
 class Camera3Stream : public camera3_stream {
 
