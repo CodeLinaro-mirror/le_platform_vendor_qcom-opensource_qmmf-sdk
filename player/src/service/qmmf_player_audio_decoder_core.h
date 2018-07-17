@@ -78,6 +78,8 @@ class AudioDecoderCore {
 
   status_t PrepareDrag(uint32_t track_id, bool ignore_fps);
 
+  status_t NotifyInputBuffer(uint32_t track_id);
+
   status_t SetAudioTrackDecoderParams(uint32_t track_id,
                                CodecParamType param_type, void* param,
                                uint32_t param_size);
@@ -126,6 +128,8 @@ class AudioTrackDecoder : public ::qmmf::avcodec::ICodecSource {
   status_t DeleteDecoder();
 
   status_t PrepareDrag(bool ignore_fps);
+
+  status_t NotifyInputBuffer();
 
   status_t SetAudioDecoderParams(CodecParamType param_type, void* param,
                                   uint32_t param_size);
