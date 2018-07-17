@@ -771,16 +771,16 @@ status_t VideoTrackDecoder::StartDecoder() {
     pause_ = false;
   }
 
-  ret = avcodec_->StartCodec();
-  if (ret != NO_ERROR) {
-   QMMF_ERROR("%s: track_id(%d) StartCodec failed!", __func__, TrackId());
-   return ret;
-  }
-
-  video_track_sink_->StartSink();
+  ret = video_track_sink_->StartSink();
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: track_id(%d) StartSink failed!", __func__, TrackId());
-   return ret;
+    return ret;
+  }
+
+  ret = avcodec_->StartCodec();
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s: track_id(%d) StartCodec failed!", __func__, TrackId());
+    return ret;
   }
 
   input_buffer_notify_params_.num_free_buffers = unfilled_frame_queue_.Size();
