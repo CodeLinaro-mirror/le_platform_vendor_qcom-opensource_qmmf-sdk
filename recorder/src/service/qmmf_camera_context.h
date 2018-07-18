@@ -344,7 +344,7 @@ class CameraContext : public CameraInterface,
   SnapshotMode                  new_snapshot_type_;
   BufferFormat                  jpeg_input_format_;
   BufferFormat                  new_jpeg_input_format_;
-  uint32_t                      postproc_frame_skip_;
+  PostprocFrameSkip             postproc_frame_skip_;
   bool                          exif_en_;
   CameraStreamParameters        stream_param_;
   bool                          restart_pipe_;
