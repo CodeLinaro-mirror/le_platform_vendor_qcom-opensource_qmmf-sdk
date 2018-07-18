@@ -215,6 +215,7 @@ VideoTrackSink::VideoTrackSink()
       stop_called_(false),
       stop_notify_called_(false),
       paused_(false),
+      port_reconfigured_(false),
       decoded_frame_number_(0),
       seek_time_(0),
 #ifndef DISABLE_DISPLAY
@@ -594,11 +595,15 @@ status_t VideoTrackSink::GetBuffer(BufferDescriptor& codec_buffer,
                                    void* client_data) {
   QMMF_DEBUG("%s: Enter track_id(%d)", __func__, TrackId());
   // Give available free buffer to decoder to use on output port.
-
-  while (output_free_buffer_queue_.Size() <= 0 && !stop_notify_called_) {
-    std::unique_lock<std::mutex> lock(wait_for_frame_lock_);
-    if (wait_for_frame_.WaitFor(lock, seconds(1)) != 0)
-      QMMF_WARN("%s track_id(%d) timed out on wait", __func__, TrackId());
+  int32_t log_counter = 0;
+  while (output_free_buffer_queue_.Size() <= 0 && !stop_notify_called_ &&
+         !port_reconfigured_) {
+    std::unique_lock<std::mutex> lock(get_buffer_wait_lock_);
+    if (get_buffer_wait_.WaitFor(lock, milliseconds(50)) != 0) {
+      log_counter++;
+      if (log_counter % 20 == 0) // log the message every 1 sec
+        QMMF_WARN("%s track_id(%d) timed out on wait", __func__, TrackId());
+    }
   }
 
   if (stop_notify_called_) {
@@ -606,6 +611,9 @@ status_t VideoTrackSink::GetBuffer(BufferDescriptor& codec_buffer,
     codec_buffer.fd = -1;
     codec_buffer.data = nullptr;
     codec_buffer.capacity = 0;
+  } else if (port_reconfigured_) {
+    QMMF_DEBUG("%s request for buffer after port reconfigured", __func__);
+    return INVALID_OPERATION;
   } else {
     CodecBuffer iter = *output_free_buffer_queue_.Begin();
     codec_buffer.fd = (iter).fd;
@@ -674,7 +682,7 @@ status_t VideoTrackSink::ReturnBufferToCodec(BufferDescriptor& codec_buffer) {
       QMMF_DEBUG("%s track_id(%d) Buffer found", __func__, TrackId());
       output_free_buffer_queue_.PushBack(*it);
       output_occupy_buffer_queue_.Erase(it);
-      wait_for_frame_.Signal();
+      get_buffer_wait_.Signal();
       found = true;
       break;
     }
@@ -917,18 +925,22 @@ status_t VideoTrackSink::NotifyPortEvent(PortEventType event_type,
 
   if (event_type == PortEventType::kPortSettingsChanged) {
     ret = video_track_decoder_->ReconfigOutputPort(event_data);
+    if (port_reconfigured_) port_reconfigured_ = false;
   } else if (event_type == PortEventType::kPortStatus) {
     CodecPortStatus status = *(static_cast<CodecPortStatus*>(event_data));
     switch (status) {
       case CodecPortStatus::kPortStop:
         stop_notify_called_ = true;
+        get_buffer_wait_.Signal();
         break;
       case CodecPortStatus::kPortIdle:
       case CodecPortStatus::kPortStart:
         break;
     }
+  } else if (event_type == PortEventType::kPortConfigReceived) {
+    port_reconfigured_ = true;
+    get_buffer_wait_.Signal();
   }
-
   QMMF_DEBUG("%s Exit track_id(%d)", __func__, TrackId());
   return ret;
 }
@@ -943,7 +955,7 @@ status_t VideoTrackSink::UpdateCropParameters(void* arg) {
           (static_cast<PortreconfigData::CropData>(reconfig_data->rect)).width;
       surface_config_.height = current_height =
           (static_cast<PortreconfigData::CropData>(reconfig_data->rect)).height;
-      wait_for_frame_.Signal();
+      get_buffer_wait_.Signal();
       break;
     case PortreconfigData::PortReconfigType::kCropParametersChanged:
       crop_data_ =

@@ -29,15 +29,15 @@
 
 #pragma once
 
-#include <utils/KeyedVector.h>
-#include <pthread.h>
+#include <atomic>
 #include <vector>
 #include <algorithm>
 
+#include <utils/KeyedVector.h>
+#include <pthread.h>
 
 #include "player/src/client/qmmf_player_service_intf.h"
 #include "player/src/service/qmmf_player_remote_cb.h"
-
 #include "player/src/service/qmmf_player_common.h"
 #include "player/src/service/qmmf_player_audio_decoder_core.h"
 #include "player/src/service/qmmf_player_video_decoder_core.h"

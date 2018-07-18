@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <map>
 #include <vector>
 #include <algorithm>

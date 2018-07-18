@@ -95,6 +95,8 @@ enum class PortEventType {
   kPortStatus,
   // notify when there is a Port Reconfig Event
   kPortSettingsChanged,
+  // Port Config received
+  kPortConfigReceived,
 };
 
 enum class EventType {
