@@ -28,6 +28,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <chrono>
 #include <condition_variable>
 #include <mutex>
@@ -246,6 +247,11 @@ class AVCodec : public IAVCodec {
   CodecParam                codec_params_;
   bool                      slice_mode_encoding_;
   AVCodecCb                 avcodec_cb_;
+  std::atomic<int>          api_count_;
+
+  static const int64_t kOutputBufHeaderDelay;
+  static const uint32_t kMaxWaitLimitCounter;
+  static const uint32_t kSleepPortReconfig;
 };
 
 };  // namespace avcodec

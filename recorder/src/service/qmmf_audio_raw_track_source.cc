@@ -29,8 +29,7 @@
 
 #define LOG_TAG "RecorderAudioRawTrackSource"
 
-#include "recorder/src/service/qmmf_audio_track_source.h"
-
+#include <atomic>
 #include <cstdint>
 #include <cstring>
 #include <mutex>
@@ -42,6 +41,7 @@
 #include "common/audio/inc/qmmf_audio_definitions.h"
 #include "common/audio/inc/qmmf_audio_endpoint.h"
 #include "common/utils/qmmf_log.h"
+#include "recorder/src/service/qmmf_audio_track_source.h"
 #include "recorder/src/service/qmmf_recorder_common.h"
 #include "recorder/src/service/qmmf_recorder_ion.h"
 

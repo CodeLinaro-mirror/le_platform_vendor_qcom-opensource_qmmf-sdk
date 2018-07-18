@@ -29,11 +29,13 @@
 
 #pragma once
 
-#include <camera/CameraMetadata.h>
 #include <algorithm>
+#include <atomic>
 #include <vector>
 #include <mutex>
 #include <tuple>
+
+#include <camera/CameraMetadata.h>
 
 #include "recorder/src/client/qmmf_recorder_service_intf.h"
 #include "recorder/src/service/qmmf_recorder_common.h"

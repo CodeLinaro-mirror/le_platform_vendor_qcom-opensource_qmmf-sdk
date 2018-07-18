@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <camera/CameraMetadata.h>
 #include <camera/VendorTagDescriptor.h>
 

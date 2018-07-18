@@ -26,9 +26,7 @@
 * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
-
-#include <stdlib.h>
-#include <utils/Log.h>
+#include <atomic>
 
 #include <binder/IInterface.h>
 #include <binder/IBinder.h>
@@ -37,13 +35,13 @@
 #include <binder/IPCThreadState.h>
 #include <cutils/properties.h>
 
-#include "common/audio/src/service/qmmf_audio_service.h"
 #include "recorder/src/service/qmmf_recorder_service.h"
+#include "common/audio/src/service/qmmf_audio_service.h"
+#include "player/src/service/qmmf_player_service.h"
+#include "system/src/service/qmmf_system_service.h"
 #ifndef DISABLE_DISPLAY
 #include "display/src/service/qmmf_display_service.h"
 #endif
-#include "player/src/service/qmmf_player_service.h"
-#include "system/src/service/qmmf_system_service.h"
 
 /**
  * Property to indicate completion of QMMF services initialization.

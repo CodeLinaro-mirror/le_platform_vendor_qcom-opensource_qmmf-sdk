@@ -29,8 +29,7 @@
 
 #pragma once
 
-#include <unistd.h>
-
+#include <atomic>
 #include <memory>
 #include <mutex>
 #include <vector>
