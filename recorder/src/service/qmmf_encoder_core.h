@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -31,6 +31,7 @@
 
 #include <mutex>
 #include <memory>
+#include <queue>
 #include <vector>
 #include <sys/time.h>
 
@@ -148,8 +149,9 @@ class TrackEncoder : public ICodecSource {
   ::std::vector<BufferDescriptor> output_buffer_list_;
   ::std::vector<struct ion_handle_data> output_ion_list_;
 
-  TSQueue<BufferDescriptor>  output_free_buffer_queue_;
-  TSQueue<BufferDescriptor>  output_occupy_buffer_queue_;
+  std::queue<BufferDescriptor>  output_free_buffer_queue_;
+  std::vector<BufferDescriptor>  output_occupy_buffer_queue_;
+
   int32_t                    ion_device_;
   bool                       eos_atoutput_;
 #ifdef DUMP_BITSTREAM

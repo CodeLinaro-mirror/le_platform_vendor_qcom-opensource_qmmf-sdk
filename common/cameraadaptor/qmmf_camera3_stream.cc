@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018 The Linux Foundation. All rights reserved.
  * Not a Contribution.
  */
 
@@ -597,6 +597,9 @@ void Camera3Stream::ReturnBufferToClient(const camera3_stream_buffer &buffer,
   if (CAMERA3_BUFFER_STATUS_OK == buffer.status) {
     callbacks_(b);
   } else {
+    QMMF_WARN("%s: Got buffer(%p) from stream(%d), frame_number(%u) and "
+        " ts(%lld) with error status!", __func__, b.handle, b.stream_id,
+        b.frame_number, b.timestamp);
     ReturnBuffer(b);
   }
 }
@@ -652,8 +655,12 @@ int32_t Camera3Stream::ReturnBufferLocked(const StreamBuffer &buffer) {
 
   pending_buffer_count_--;
 
+  QMMF_DEBUG("%s: Stream(%d): pending_buffer_count_(%u)", __func__, id_,
+      pending_buffer_count_);
+
   if (pending_buffer_count_ == 0 && status_ != STATUS_CONFIG_ACTIVE &&
       status_ != STATUS_RECONFIG_ACTIVE) {
+    QMMF_DEBUG("%s: Stream(%d): Changing state to idle", __func__, id_);
     monitor_.ChangeStateToIdle(monitor_id_);
   }
 
@@ -739,6 +746,9 @@ int32_t Camera3Stream::GetBufferLocked(camera3_stream_buffer *streamBuffer) {
     }
 
     pending_buffer_count_++;
+
+    QMMF_DEBUG("%s: Stream(%d): pending_buffer_count_(%u)", __func__, id_,
+        pending_buffer_count_);
   }
 
   return 0;

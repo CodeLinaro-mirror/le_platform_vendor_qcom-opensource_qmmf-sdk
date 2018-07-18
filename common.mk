@@ -80,11 +80,6 @@ ifeq ($(TARGET_BOARD_PLATFORM),qcs605)
 LOCAL_CFLAGS += -DUSE_VENDOR_TAG_DESC
 endif #VENDOR_TAG_DESC
 
-# Disable MultiCamera Manager
-ifeq ($(TARGET_BOARD_PLATFORM),qcs605)
-ENABLE_360 := 0
-endif #ENABLE_360
-
 # Set HFR Threshold values based on platform
 ifeq ($(TARGET_BOARD_PLATFORM),qcs605)
 LOCAL_CFLAGS += -DHFR_THRESHOLD=90.0f

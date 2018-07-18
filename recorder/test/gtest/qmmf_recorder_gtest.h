@@ -141,6 +141,8 @@ struct FaceInfo {
 #define PROP_DEFAULT_EIS_MARGINS    "persist.qmmf.rec.gtest.eis.dflt"
 // Prop to enable/disable display usage
 #define PROP_TOGGLE_DISPLAY_USAGE   "persist.qmmf.rec.gtest.display"
+// Prop to enable/disable overlay usage
+#define PROP_TOGGLE_OVERLAY_USAGE   "persist.qmmf.rec.gtest.overlay"
 
 #ifndef MAX
 #define MAX(a,b) ((a) > (b) ? (a) : (b))
@@ -415,6 +417,7 @@ class RecorderGtest : public ::testing::Test {
   std::mutex            error_lock_;
   bool                  camera_error_;
   bool                  default_eis_margins_;
+  bool                  is_apply_overlay_;
 
 #ifndef DISABLE_DISPLAY
   bool                  use_display_;

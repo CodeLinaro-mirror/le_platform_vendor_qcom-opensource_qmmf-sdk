@@ -169,7 +169,7 @@ class CameraContext : public CameraInterface,
 
   void StoreBatchStreamId(std::shared_ptr<CameraPort>& port);
 
-  void RestoreBatchStreamId(CameraPort* port);
+  void RestoreBatchStreamId(std::shared_ptr<CameraPort>& port);
 
   status_t GetBatchSize(const CameraStreamParam& param, uint32_t& batch_size);
 
@@ -229,9 +229,7 @@ class CameraContext : public CameraInterface,
 
   bool IsPostProcNeeded(const ImageParam &param, const uint32_t sequence_cnt);
 
-  CameraPort* GetPort(const uint32_t track_id);
-
-  void DeletePort(const uint32_t track_id);
+  std::shared_ptr<CameraPort> GetPort(const uint32_t& track_id);
 
   status_t PostProcDelete();
 
@@ -300,7 +298,7 @@ class CameraContext : public CameraInterface,
   std::shared_ptr<CameraPort>           zsl_port_;
 
   // Map of <consumer id and CameraPort>
-  std::vector<std::shared_ptr<CameraPort> > active_ports_;
+  std::map<uint32_t, std::shared_ptr<CameraPort> > active_ports_;
 
   // Map of <port_id and PostProc plugins>
   std::map<uint32_t, std::vector<uint32_t> >  video_plugins_;

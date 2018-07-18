@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -1332,8 +1332,9 @@ sp<IBufferConsumer>& StreamStitching::GetConsumerIntf(uint32_t camera_id) {
 void StreamStitching::OnFrameAvailable(StreamBuffer& buffer) {
 
   std::lock_guard<std::mutex> lock(frame_lock_);
-  QMMF_VERBOSE("%s: Camera %u: Frame %u is available",
-      __func__, buffer.camera_id, buffer.frame_number);
+  QMMF_DEBUG("%s: camera_id: %d, stream_id: %d, buffer: %p ts: %lld "
+      "frame_number: %d", __func__, buffer.camera_id, buffer.stream_id,
+      buffer.handle, buffer.timestamp, buffer.frame_number);
 
   if (stop_frame_sync_ || (single_camera_mode_ &&
       buffer.camera_id == skip_camera_id_)) {
@@ -1502,6 +1503,14 @@ bool StitchingBase::ThreadLoop() {
     }
     synced_buffer_queue_.pop();
   }
+
+
+  QMMF_VERBOSE("%s: Matched: frame_number(%d), camera(%u), stream(%d), ts(%lld)"
+      " with frame_number(%d), camera(%u), stream(%d), ts(%lld)", __func__,
+      input_buffers.at(0).frame_number, input_buffers.at(0).camera_id,
+      input_buffers.at(0).stream_id, input_buffers.at(0).timestamp,
+      input_buffers.at(1).frame_number, input_buffers.at(1).camera_id,
+      input_buffers.at(1).stream_id, input_buffers.at(1).timestamp);
 
   if (!stitch_lib_.initialized) {
     if (init_library_status_.get() != NO_ERROR) {
