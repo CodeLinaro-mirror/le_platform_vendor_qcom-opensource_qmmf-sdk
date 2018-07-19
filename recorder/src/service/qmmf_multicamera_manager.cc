@@ -275,7 +275,7 @@ status_t MultiCameraManager::SetUpCapture(const ImageParam &param,
   status_t ret = NO_ERROR;
 
   if (sequence_cnt_ != 0) {
-    QMMF_WARN("%s:%s: Wait for pending captures, count = %d!", __func__,
+    QMMF_WARN("%s: Wait for pending captures, count = %d!", __func__,
         sequence_cnt_);
     capture_done_.Wait(lock);
   }
