@@ -1215,6 +1215,14 @@ status_t RecorderClient::UnmapBuffer(BufferInfo& info) {
       return FAILED_TRANSACTION;
     }
     info.ion_handle = -1;
+
+    ret = close(info.ion_fd);
+    if (NO_ERROR != ret) {
+      QMMF_ERROR("%s Failed to close ION fd %d : %d[%s]", __func__,
+          info.ion_fd, -errno, strerror(errno));
+      return FAILED_TRANSACTION;
+    }
+    info.ion_fd = -1;
   }
 
   QMMF_DEBUG("%s Exit ", __func__);
