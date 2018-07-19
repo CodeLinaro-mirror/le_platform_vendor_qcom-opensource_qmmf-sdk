@@ -35,7 +35,7 @@
 #include <math.h>
 #include <sys/mman.h>
 #include <json/json.h>
-#ifdef ANDROID_O_OR_ABOVE
+#ifdef QCAMERA3_TAG_LOCAL_COPY
 #include "common/utils/qmmf_common_utils.h"
 #else
 #include <QCamera3VendorTags.h>

@@ -37,7 +37,7 @@
 #include <utils/Log.h>
 #include <assert.h>
 #include <system/graphics.h>
-#ifdef ANDROID_O_OR_ABOVE
+#ifdef QCAMERA3_TAG_LOCAL_COPY
 #include "common/utils/qmmf_common_utils.h"
 #else
 #include <QCamera3VendorTags.h>
