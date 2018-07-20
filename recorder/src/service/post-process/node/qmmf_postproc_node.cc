@@ -30,7 +30,11 @@
 #define LOG_TAG "RecorderPostProcNode"
 
 #include <sys/mman.h>
+#ifndef TARGET_USES_GBM
 #include <qcom/display/gralloc_priv.h>
+#else
+#include "common/utils/qmmf_common_utils.h"
+#endif
 
 #include "qmmf_postproc_node.h"
 

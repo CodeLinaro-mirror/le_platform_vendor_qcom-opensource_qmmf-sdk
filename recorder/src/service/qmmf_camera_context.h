@@ -31,7 +31,11 @@
 
 #include <mutex>
 
+#ifndef TARGET_USES_GBM
 #include <qcom/display/gralloc_priv.h>
+#else
+#include "common/utils/qmmf_common_utils.h"
+#endif
 #include <qmmf-sdk/qmmf_recorder_params.h>
 #include <qmmf-sdk/qmmf_recorder_extra_param_tags.h>
 

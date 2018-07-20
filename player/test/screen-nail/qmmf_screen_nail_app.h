@@ -49,7 +49,11 @@
 #include <cutils/properties.h>
 #include <fastcv/fastcv.h>
 #include <media/msm_media_info.h>
+#ifndef TARGET_USES_GBM
 #include <qcom/display/gralloc_priv.h>
+#else
+#include "common/utils/qmmf_common_utils.h"
+#endif
 #include <utils/Log.h>
 
 #include "player/test/demuxer/qmmf_demuxer_intf.h"

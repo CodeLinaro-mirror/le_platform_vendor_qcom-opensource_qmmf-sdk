@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -346,6 +346,7 @@ status_t PostProcAlg::Process(
       return BAD_VALUE;
     }
 
+    assert(in_alg_buffers.size() == algo_caps_.out_buffer_requirements_.count_);
     if (dump_in_frame_ == true) {
       for (auto buf : in_alg_buffers) {
         DumpFrame(buf, true);

@@ -324,6 +324,27 @@ status_t AudioDecoderCore::PrepareDrag(uint32_t track_id, bool ignore_fps) {
   return NO_ERROR;
 }
 
+status_t AudioDecoderCore::NotifyInputBuffer(uint32_t track_id) {
+  QMMF_INFO("%s: Enter", __func__);
+
+  if (!isTrackValid(track_id)) {
+    QMMF_ERROR("%s: Invalid track_id(%d)", __func__, track_id);
+    return BAD_VALUE;
+  }
+
+  shared_ptr<AudioTrackDecoder> track_decoder =
+      audio_track_decoders_.valueFor(track_id);
+
+  auto ret = track_decoder->NotifyInputBuffer();
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s: NotifyInputBuffer Failed",__func__ );
+    return ret;
+  }
+
+  QMMF_INFO("%s: Exit", __func__);
+  return NO_ERROR;
+}
+
 status_t AudioDecoderCore::SetAudioTrackDecoderParams(
     uint32_t track_id,
     CodecParamType param_type,
@@ -795,17 +816,26 @@ status_t AudioTrackDecoder::ResumeDecoder() {
 
 status_t AudioTrackDecoder::PrepareDrag(bool ignore_fps) {
   QMMF_INFO("%s: Enter track_id(%d)", __func__, TrackId());
-
+  auto ret = 0;
   if(!ignore_fps) {
-    input_buffer_notify_params_.num_free_buffers = unfilled_frame_queue_.Size();
-    if (input_buffer_notify_params_.num_free_buffers > 0) {
-      track_callback_.event_cb(TrackId(), EventType::kInputBufferNotify,
-                               &input_buffer_notify_params_,
-                               sizeof(input_buffer_notify_params_));
+    ret = NotifyInputBuffer();
+    if(ret != 0) {
+      QMMF_ERROR("%s: Failed to notify input buffer", __func__);
     }
   }
-
   QMMF_INFO("%s: Exit track_id(%d)", __func__, TrackId());
+  return ret;
+}
+
+status_t AudioTrackDecoder::NotifyInputBuffer() {
+  QMMF_INFO("%s: Enter", __func__);
+  input_buffer_notify_params_.num_free_buffers = unfilled_frame_queue_.Size();
+  if (input_buffer_notify_params_.num_free_buffers > 0) {
+    track_callback_.event_cb(TrackId(), EventType::kInputBufferNotify,
+                              &input_buffer_notify_params_,
+                              sizeof(input_buffer_notify_params_));
+  }
+  QMMF_INFO("%s: Exit", __func__);
   return NO_ERROR;
 }
 

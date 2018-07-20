@@ -52,6 +52,21 @@ if test "x$drone_target" == "xtrue" ; then
 [CPPFLAGS="$CPPFLAGS -D_DRONE_"]
 fi
 
+AC_ARG_WITH([basemachine],
+        AC_HELP_STRING([with-basemachine=@<:@machine name@:>@],
+        [Specify the Machine name]),
+        [case "${withval}" in
+                qcs605) rd_target=true ;;
+                *) rd_target=false ;;
+        esac],
+        [rd_target=false])
+AM_CONDITIONAL([TARGET_USES_GBM], [test x$rd_target = xtrue])
+AM_CONDITIONAL([DISABLE_VIDEO_TIMELAPSE], [test x$rd_target = xtrue])
+if test "x$rd_target" == "xtrue" ; then
+[CPPFLAGS="$CPPFLAGS -DTARGET_USES_GBM"]
+[CPPFLAGS="$CPPFLAGS -DDISABLE_OP_MODES"]
+fi
+
 AC_ARG_WITH([camerahal],
       AC_HELP_STRING([with-camerahal=@<:@dir@:>@],
          [Specify the location of CameraHal]),

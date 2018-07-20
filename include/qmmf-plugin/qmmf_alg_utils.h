@@ -97,7 +97,7 @@ class Utils {
    * return: libraries folder
    **/
   static std::string GetLibFolder() {
-#ifdef ANDROID_LIBPATH
+#ifdef ANDROID_O_OR_ABOVE
     return "/vendor/lib/";
 #elif defined(ANDROID)
     return "/usr/lib/";

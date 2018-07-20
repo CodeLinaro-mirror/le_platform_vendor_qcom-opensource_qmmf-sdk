@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -43,7 +43,11 @@ namespace recorder {
 CameraHalReproc::CameraHalReproc(IPostProc* context)
     : context_(context),
       abort_(nullptr),
-      frame_processing_(false) {
+      frame_processing_(false),
+      reprocess_request_({}),
+      input_param_({}),
+      output_param_({}),
+      reproc_partial_list_({}) {
   QMMF_VERBOSE("%s: Enter ", __func__);
   static_meta_ = context_->GetCameraStaticMeta();
 

@@ -11,5 +11,8 @@ libcodec_adaptor_la_CPPFLAGS += -I$(MMCORE_CFLAGS)
 libcodec_adaptor_la_CPPFLAGS += -I$(OMXCORE_CFLAGS)
 libcodec_adaptor_la_CPPFLAGS += -I$(OPENMAX_CFLAGS)
 libcodec_adaptor_la_LDFLAGS  = -lutils -lcutils -lpthread -ldl -llog  -lhardware -lcamera_metadata
+if TARGET_USES_GBM
+libcodec_adaptor_la_LDFLAGS  += -lgbm
+endif
 
 libcodec_adaptor_la_LIBADD   = ../jpeg-encoder/libqmmf_common_jpeg_encoder.la

@@ -106,7 +106,7 @@ status_t CodecTest::CreateCodec(int argc, char *argv[]) {
   width_  = params.create_param.video_enc_param.width;
   height_ = params.create_param.video_enc_param.height;
 
-#ifndef ANDROID_O_OR_ABOVE
+#if (!defined(ANDROID_O_OR_ABOVE) && !defined(TARGET_USES_GBM))
   ret = InitializeGralloc();
   if (ret != OK) {
     QMMF_ERROR("%s Failed to Initialize Gralloc", __func__);
@@ -189,7 +189,7 @@ status_t CodecTest::CreateCodec(int argc, char *argv[]) {
   return ret;
 }
 
-#ifndef ANDROID_O_OR_ABOVE
+#if (!defined(ANDROID_O_OR_ABOVE) && !defined(TARGET_USES_GBM))
 status_t CodecTest::InitializeGralloc() {
   status_t ret = NO_ERROR;
   hw_module_t const *module = nullptr;
@@ -378,7 +378,7 @@ status_t CodecTest::AllocateBuffer(uint32_t index) {
       BufferDescriptor buffer;
       memset(&buffer, 0x0, sizeof(buffer));
 
-#ifndef ANDROID_O_OR_ABOVE
+#if (!defined(ANDROID_O_OR_ABOVE) && !defined(TARGET_USES_GBM))
       buffer_handle_t buf_handle = nullptr;
       int32_t format = HAL_PIXEL_FORMAT_NV12_ENCODEABLE;
       int32_t usage  = private_handle_t::PRIV_FLAGS_VIDEO_ENCODER;
@@ -524,7 +524,7 @@ status_t CodecTest::ReleaseBuffer() {
 
   QMMF_INFO("%s Enter ", __func__);
 
-#ifndef ANDROID_O_OR_ABOVE
+#if (!defined(ANDROID_O_OR_ABOVE) && !defined(TARGET_USES_GBM))
   if (!gralloc_buffers_.empty()) {
     for(auto& iter: gralloc_buffers_) {
        gralloc_device_->free(gralloc_device_, iter);

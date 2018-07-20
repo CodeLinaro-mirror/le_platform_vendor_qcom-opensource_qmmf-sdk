@@ -28,10 +28,12 @@
 */
 
 #include <inttypes.h>
+#ifndef TARGET_USES_GBM
 #ifdef TARGET_USES_GRALLOC1
 #include <libgralloc1/gralloc_priv.h>
 #else
 #include <qcom/display/gralloc_priv.h>
+#endif
 #endif
 #include "qmmf_dual_camera_adaptor_gtest.h"
 
@@ -72,6 +74,7 @@ void DualCamera3Gtest::SetUp() {
 }
 
 void DualCamera3Gtest::StreamCb(StreamBuffer buffer) {
+#ifndef TARGET_USES_GBM
   String8 path;
   mem_alloc_device allocDevice =
       device_client_->alloc_device_interface_->GetDevice();
@@ -105,7 +108,9 @@ void DualCamera3Gtest::StreamCb(StreamBuffer buffer) {
        printf("%s: Bad Write error (%d) %s\n", __func__, -ret, strerror(ret));
     }
   }
-
+#else
+  printf("%s: WARN: Not yet supported.", __func__);
+#endif
 }
 
 void DualCamera3Gtest::ErrorCb(CameraErrorCode errorCode,

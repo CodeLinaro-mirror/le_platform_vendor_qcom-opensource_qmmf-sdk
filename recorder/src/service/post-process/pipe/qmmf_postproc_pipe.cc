@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -42,7 +42,8 @@ namespace recorder {
 
 PostProcPipe::PostProcPipe(IPostProc* context)
     : context_(context),
-      use_hal_jpeg_(false) {
+      use_hal_jpeg_(false),
+      abort_done_(false) {
 
   QMMF_VERBOSE("%s: Enter", __func__);
 
