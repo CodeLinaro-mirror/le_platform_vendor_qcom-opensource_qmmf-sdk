@@ -1144,9 +1144,11 @@ TrackSource::TrackSource(const VideoTrackParams& params,
   assert(camera_intf.get() != nullptr);
   camera_interface_ = camera_intf;
 
-  source_frame_rate_ = camera_intf->GetCameraStartParam().frame_rate;
-  QMMF_INFO("%s camera_frame_rate =%f", __func__, source_frame_rate_);
-  input_frame_rate_ = source_frame_rate_;
+  // Assume source frame rate is equal to what track source is requesting as out
+  // put, later point of time actual source frame rate will be calculated by
+  // fps measument logic and frame skip or frame repeate logic will be more
+  // accurate.
+  input_frame_rate_ = track_params_.params.frame_rate;
   input_frame_interval_  = 1000000.0 / input_frame_rate_;
   output_frame_interval_ = 1000000.0 / track_params_.params.frame_rate;
   remaining_frame_skip_time_ = output_frame_interval_;

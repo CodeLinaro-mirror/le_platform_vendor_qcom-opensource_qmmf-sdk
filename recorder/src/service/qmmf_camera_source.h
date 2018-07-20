@@ -335,7 +335,6 @@ class TrackSource : public ICodecSource {
   Overlay  overlay_;
   uint32_t active_overlays_;
 
-  float   source_frame_rate_;
   float   input_frame_rate_;
   double  input_frame_interval_;
   double  output_frame_interval_;
