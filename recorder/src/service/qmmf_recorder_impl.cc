@@ -909,6 +909,27 @@ status_t RecorderImpl::ResumeSession(const uint32_t client_id,
   return ret;
 }
 
+status_t RecorderImpl::GetNumberOfCameras(const uint32_t client_id,
+                                          SupportedCameras &cameras) {
+  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
+
+  if (!IsClientValid(client_id)) {
+    QMMF_WARN("%s: Invalid client_id(%d), Not in connected client list!",
+        __func__, client_id);
+    return BAD_VALUE;
+  }
+  assert(camera_source_ != nullptr);
+  auto ret = camera_source_->GetNumberOfCameras(cameras);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s: client_id(%d): GetNumberOfCameras failed!",
+        __func__, client_id);
+    return ret;
+  }
+
+  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
+  return NO_ERROR;
+}
+
 status_t RecorderImpl::GetSupportedPlugins(const uint32_t client_id,
                                            SupportedPlugins *plugins) {
   QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);

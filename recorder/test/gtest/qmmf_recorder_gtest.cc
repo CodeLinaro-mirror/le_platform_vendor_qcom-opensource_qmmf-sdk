@@ -269,6 +269,51 @@ TEST_F(RecorderGtest, ConnectToService) {
 }
 
 /*
+* GetNumberOfCameras:
+*     This test case will test GetNumberOfCameras Api.
+*
+* Api test sequence:
+*   loop Start {
+*   ------------------
+*   - Connect
+*   - GetNumberOfCameras
+*   - Disconnect
+*   ------------------
+*   } loop End
+*/
+TEST_F(RecorderGtest, GetNumberOfCameras) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  for (uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
+        test_info_->name(), i);
+
+    auto ret = recorder_.Connect(recorder_status_cb_);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    SupportedCameras supported_cameras;
+    recorder_.GetNumberOfCameras(supported_cameras);
+    ASSERT_TRUE(supported_cameras.size() > 0);
+
+    for (auto camera : supported_cameras) {
+      TEST_INFO("%s: camera_id %d camera_type %d ", __func__,
+          camera.id, camera.type);
+    }
+
+    ret = recorder_.Disconnect();
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    // Sleep for 3 seconds before next iteration, otherwise the test is
+    // too fast and everything will be printed almost simultaneously.
+    sleep(3);
+  }
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
+/*
 * ZSLStartStopCamera: This test case will test Start & StopCamera Api in ZSL
 *  mode.
 * Api test sequence:

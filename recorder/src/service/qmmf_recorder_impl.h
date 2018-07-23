@@ -84,6 +84,9 @@ class RecorderImpl {
 
   status_t ResumeSession(const uint32_t client_id, const uint32_t session_id);
 
+  status_t GetNumberOfCameras(const uint32_t client_id,
+                              SupportedCameras &cameras);
+
   status_t GetSupportedPlugins(const uint32_t client_id,
                                SupportedPlugins *plugins);
 
