@@ -379,29 +379,14 @@ status_t CameraSource::ReturnImageCaptureBuffer(const uint32_t camera_id,
   return ret;
 }
 
-bool CameraSource::IsCopyStream(const VideoTrackParams& params) {
-  return params.extra_param.Exists(QMMF_SOURCE_VIDEO_TRACK_ID);
-}
+int32_t CameraSource::GetSourceTrackId(const VideoExtraParam& extra_param) {
 
-status_t CameraSource::GetSourceTrackParam(
-    const VideoTrackParams& params, SourceVideoTrack& surface_video_copy) {
-  status_t ret = BAD_VALUE;
-  if (IsCopyStream(params)) {
-    params.extra_param.Fetch(QMMF_SOURCE_VIDEO_TRACK_ID, surface_video_copy);
-    ret = NO_ERROR;
+  if (extra_param.Exists(QMMF_SOURCE_VIDEO_TRACK_ID)) {
+    SourceVideoTrack source_track;
+    extra_param.Fetch(QMMF_SOURCE_VIDEO_TRACK_ID, source_track);
+    return source_track.source_track_id;
   }
-  return ret;
-}
-
-status_t CameraSource::GetSlaveStreamMasterTrackId(
-    const VideoTrackParams& params, int32_t& track_id_master) {
-  SourceVideoTrack surface_video_copy;
-  if (NO_ERROR == GetSourceTrackParam(params, surface_video_copy)) {
-    track_id_master = params.track_id&0xffff0000;
-    track_id_master |= surface_video_copy.source_track_id;
-    return NO_ERROR;
-  }
-  return BAD_VALUE;
+  return NAME_NOT_FOUND;
 }
 
 bool CameraSource::ValidateSlaveTrackParam(
@@ -477,41 +462,37 @@ status_t CameraSource::CreateTrackSource(const uint32_t track_id,
   }
   auto const& camera = camera_map_[camera_id];
 
-  status_t ret;
-  int32_t track_id_master = -1;
+  status_t ret = NO_ERROR;
   int32_t port_track_id = -1;
   bool copy_stream_mode = false;
   bool linked_mode = false;
-  ret = GetSlaveStreamMasterTrackId(track_params, track_id_master);
-  if (ret == NO_ERROR && track_id_master != -1) {
 
+  int32_t source_track_id = GetSourceTrackId(track_params.extra_param);
+  if (source_track_id != NAME_NOT_FOUND) {
+    QMMF_INFO("%s: Master->slave 0x%x->0x%x", __func__, source_track_id,
+        track_id);
 
-    auto it = track_sources_.find(track_id_master);
-    assert(it != track_sources_.end());
-    shared_ptr<TrackSource> track = it->second;
-    QMMF_INFO("%s: Master->slave 0x%x->0x%x", __func__,
-        track_id_master, track_id);
-    assert(track.get() != nullptr);
+    assert(track_sources_.count(source_track_id) != 0);
+    auto track = track_sources_[source_track_id];
+
     if (ValidateSlaveTrackParam(track_params, track->getParams())) {
       linked_mode = CheckLinkedStream(track_params, track->getParams());
       if (track->IsSlaveTrack()) {
         int32_t master_track_id = track->GetMasterTrackId();
         for (size_t i = 0; i < track_sources_.size(); i++) {
-          auto sv_it = track_sources_.find(master_track_id);
-          assert(sv_it != track_sources_.end());
-          shared_ptr<TrackSource> track = sv_it->second;
-          if (track.get() != nullptr) {
-            if (track->IsSlaveTrack()) {
-              master_track_id = track->GetMasterTrackId();
-              continue;
-            } else {
-                port_track_id = track->GetCameraPortId();
-                break;
-            }
+          assert(track_sources_.count(master_track_id) != 0);
+          track = track_sources_[master_track_id];
+
+          if (track->IsSlaveTrack()) {
+            master_track_id = track->GetMasterTrackId();
+            continue;
+          } else {
+            port_track_id = track->GetCameraPortId();
+            break;
           }
         }
       } else {
-        port_track_id = track_id_master;
+        port_track_id = source_track_id;
       }
       if (port_track_id != -1) {
         copy_stream_mode = true;
@@ -524,10 +505,9 @@ status_t CameraSource::CreateTrackSource(const uint32_t track_id,
     QMMF_INFO("%s: Normal stream should be create.", __func__);
   }
 
-  // Create TrackSource and give it to CameraInterface, CameraConext in turn would
-  // Map it to its one of port.
-  shared_ptr<TrackSource> track_source = make_shared<TrackSource>(track_params,
-                                                                  camera);
+  // Create TrackSource and give it to CameraInterface, CameraConext in turn
+  // would map it to its one of port.
+  auto track_source = make_shared<TrackSource>(track_params, camera);
   if (!track_source.get()) {
     QMMF_ERROR("%s: Can't create TrackSource Instance", __func__);
     return NO_MEMORY;
@@ -537,8 +517,8 @@ status_t CameraSource::CreateTrackSource(const uint32_t track_id,
   if (copy_stream_mode) {
     std::shared_ptr<CameraRescaler> rescaler;
     if (linked_mode == false) {
-      if (rescalers_.count(track_id_master) == 0 ||
-         (port_track_id == track_id_master)) {
+      if (rescalers_.count(source_track_id) == 0 ||
+         (port_track_id == source_track_id)) {
         rescaler = std::make_shared<CameraRescaler>();
         ret = rescaler->Init(track_params);
         if (ret != NO_ERROR) {
@@ -550,21 +530,19 @@ status_t CameraSource::CreateTrackSource(const uint32_t track_id,
       } else {
         QMMF_ERROR("%s: GET Copy TrackSource Instance trackId: %x",
             __func__, track_id);
-        rescaler = rescalers_.at(track_id_master);
+        rescaler = rescalers_.at(source_track_id);
       }
 
-      auto it = track_sources_.find(port_track_id);
-      assert(it != track_sources_.end());
-      master_track = it->second;
+      assert(track_sources_.count(port_track_id) != 0);
+      master_track = track_sources_[port_track_id];
     } else {
-      auto it = track_sources_.find(track_id_master);
-      assert(it != track_sources_.end());
-      master_track = it->second;
+      assert(track_sources_.count(source_track_id) != 0);
+      master_track = track_sources_[source_track_id];
     }
 
     assert(master_track.get() != nullptr);
     ret = track_source->InitCopy(
-        master_track, rescaler, port_track_id, track_id_master);
+        master_track, rescaler, port_track_id, source_track_id);
     if (ret != NO_ERROR) {
       QMMF_ERROR("%s: track_id(%x) CopyTrackSource Init failed!",
           __func__, track_id);
@@ -579,7 +557,7 @@ status_t CameraSource::CreateTrackSource(const uint32_t track_id,
         track_id);
     goto FAIL;
   }
-  track_sources_.insert(std::make_pair(track_id, track_source));
+  track_sources_.emplace(track_id, track_source);
 
   QMMF_DEBUG("%s: Exit", __func__);
   return ret;
@@ -591,18 +569,15 @@ FAIL:
 status_t CameraSource::DeleteTrackSource(const uint32_t track_id) {
 
   if (!IsTrackIdValid(track_id)) {
-    QMMF_ERROR("%s: track_id is not valid !!", __func__);
+    QMMF_ERROR("%s: Track(%x) does not exist !!", __func__, track_id);
     return BAD_VALUE;
   }
-
-  auto it = track_sources_.find(track_id);
-  assert(it != track_sources_.end());
-  shared_ptr<TrackSource> track = it->second;
+  auto const& track = track_sources_[track_id];
 
   auto ret = track->DeInit();
   assert(ret == NO_ERROR);
 
-  track_sources_.erase(it);
+  track_sources_.erase(track_id);
   rescalers_.erase(track_id);
 
   QMMF_INFO("%s: track_id(%x) Deleted Successfully!", __func__,
@@ -614,13 +589,10 @@ status_t CameraSource::StartTrackSource(const uint32_t track_id) {
 
   QMMF_KPI_DETAIL();
   if (!IsTrackIdValid(track_id)) {
-    QMMF_ERROR("%s: track_id is not valid !!", __func__);
+    QMMF_ERROR("%s: Track(%x) does not exist !!", __func__, track_id);
     return BAD_VALUE;
   }
-
-  auto it = track_sources_.find(track_id);
-  assert(it != track_sources_.end());
-  shared_ptr<TrackSource> track = it->second;
+  auto const& track = track_sources_[track_id];
 
   auto ret = track->StartTrack();
   assert(ret == NO_ERROR);
@@ -635,12 +607,10 @@ status_t CameraSource::StopTrackSource(const uint32_t track_id,
 
   QMMF_KPI_DETAIL();
   if (!IsTrackIdValid(track_id)) {
-    QMMF_ERROR("%s: track_id is not valid !!", __func__);
+    QMMF_ERROR("%s: Track(%x) does not exist !!", __func__, track_id);
     return BAD_VALUE;
   }
-  auto it = track_sources_.find(track_id);
-  assert(it != track_sources_.end());
-  shared_ptr<TrackSource> track = it->second;
+  auto const& track = track_sources_[track_id];
 
   auto ret = track->StopTrack(is_force_cleanup);
   assert(ret == NO_ERROR);
@@ -664,13 +634,11 @@ status_t CameraSource::ReturnTrackBuffer(const uint32_t track_id,
                                          std::vector<BnBuffer> &buffers) {
 
   if (!IsTrackIdValid(track_id)) {
-    QMMF_ERROR("%s: track_id is not valid !!", __func__);
+    QMMF_ERROR("%s: Track(%x) does not exist !!", __func__, track_id);
     return BAD_VALUE;
   }
+  auto const& track = track_sources_[track_id];
 
-  auto it = track_sources_.find(track_id);
-  assert(it != track_sources_.end());
-  shared_ptr<TrackSource> track = it->second;
   auto ret = track->ReturnTrackBuffer(buffers);
   assert(ret == NO_ERROR);
   return ret;
@@ -710,15 +678,12 @@ status_t CameraSource::UpdateTrackFrameRate(const uint32_t track_id,
                                             const float frame_rate) {
 
   if (!IsTrackIdValid(track_id)) {
-    QMMF_ERROR("%s: track_id is not valid !!", __func__);
+    QMMF_ERROR("%s: Track(%x) does not exist !!", __func__, track_id);
     return BAD_VALUE;
   }
-  auto it = track_sources_.find(track_id);
-  assert(it != track_sources_.end());
-  shared_ptr<TrackSource> track = it->second;
+  auto const& track = track_sources_[track_id];
 
   track->UpdateFrameRate(frame_rate);
-
   return NO_ERROR;
 }
 
@@ -726,12 +691,10 @@ status_t CameraSource::EnableFrameRepeat(const uint32_t track_id,
                                          const bool enable_frame_repeat) {
 
   if (!IsTrackIdValid(track_id)) {
-    QMMF_ERROR("%s: track_id is not valid !!", __func__);
+    QMMF_ERROR("%s: Track(%x) does not exist !!", __func__, track_id);
     return BAD_VALUE;
   }
-  auto it = track_sources_.find(track_id);
-  assert(it != track_sources_.end());
-  shared_ptr<TrackSource> track = it->second;
+  auto const& track = track_sources_[track_id];
 
   track->EnableFrameRepeat(enable_frame_repeat);
   return NO_ERROR;
@@ -742,12 +705,10 @@ status_t CameraSource::CreateOverlayObject(const uint32_t track_id,
                                            uint32_t *overlay_id) {
 
   if (!IsTrackIdValid(track_id)) {
-    QMMF_ERROR("%s: track_id is not valid !!", __func__);
+    QMMF_ERROR("%s: Track(%x) does not exist !!", __func__, track_id);
     return BAD_VALUE;
   }
-  auto it = track_sources_.find(track_id);
-  assert(it != track_sources_.end());
-  shared_ptr<TrackSource> track = it->second;
+  auto const& track = track_sources_[track_id];
 
   auto ret = track->CreateOverlayObject(param, overlay_id);
   if (ret != NO_ERROR) {
@@ -761,12 +722,10 @@ status_t CameraSource::DeleteOverlayObject(const uint32_t track_id,
                                            const uint32_t overlay_id) {
 
   if (!IsTrackIdValid(track_id)) {
-    QMMF_ERROR("%s: track_id is not valid !!", __func__);
+    QMMF_ERROR("%s: Track(%x) does not exist !!", __func__, track_id);
     return BAD_VALUE;
   }
-  auto it = track_sources_.find(track_id);
-  assert(it != track_sources_.end());
-  shared_ptr<TrackSource> track = it->second;
+  auto const& track = track_sources_[track_id];
 
   auto ret = track->DeleteOverlayObject(overlay_id);
   if (ret != NO_ERROR) {
@@ -781,12 +740,10 @@ status_t CameraSource::GetOverlayObjectParams(const uint32_t track_id,
                                               OverlayParam &param) {
 
   if (!IsTrackIdValid(track_id)) {
-    QMMF_ERROR("%s: track_id is not valid !!", __func__);
+    QMMF_ERROR("%s: Track(%x) does not exist !!", __func__, track_id);
     return BAD_VALUE;
   }
-  auto it = track_sources_.find(track_id);
-  assert(it != track_sources_.end());
-  shared_ptr<TrackSource> track = it->second;
+  auto const& track = track_sources_[track_id];
 
   auto ret = track->GetOverlayObjectParams(overlay_id, param);
   if (ret != NO_ERROR) {
@@ -801,12 +758,10 @@ status_t CameraSource::UpdateOverlayObjectParams(const uint32_t track_id,
                                                  OverlayParam *param) {
 
   if (!IsTrackIdValid(track_id)) {
-    QMMF_ERROR("%s: track_id is not valid !!", __func__);
+    QMMF_ERROR("%s: Track(%x) does not exist !!", __func__, track_id);
     return BAD_VALUE;
   }
-  auto it = track_sources_.find(track_id);
-  assert(it != track_sources_.end());
-  shared_ptr<TrackSource> track = it->second;
+  auto const& track = track_sources_[track_id];
 
   auto ret = track->UpdateOverlayObjectParams(overlay_id, param);
   if (ret != NO_ERROR) {
@@ -820,12 +775,10 @@ status_t CameraSource::SetOverlayObject(const uint32_t track_id,
                                         const uint32_t overlay_id) {
 
   if (!IsTrackIdValid(track_id)) {
-    QMMF_ERROR("%s: track_id is not valid !!", __func__);
+    QMMF_ERROR("%s: Track(%x) does not exist !!", __func__, track_id);
     return BAD_VALUE;
   }
-  auto it = track_sources_.find(track_id);
-  assert(it != track_sources_.end());
-  shared_ptr<TrackSource> track = it->second;
+  auto const& track = track_sources_[track_id];
 
   auto ret = track->SetOverlayObject(overlay_id);
   if (ret != NO_ERROR) {
@@ -839,12 +792,10 @@ status_t CameraSource::RemoveOverlayObject(const uint32_t track_id,
                                            const uint32_t overlay_id) {
 
   if (!IsTrackIdValid(track_id)) {
-    QMMF_ERROR("%s: track_id is not valid !!", __func__);
+    QMMF_ERROR("%s: Track(%x) does not exist !!", __func__, track_id);
     return BAD_VALUE;
   }
-  auto it = track_sources_.find(track_id);
-  assert(it != track_sources_.end());
-  shared_ptr<TrackSource> track = it->second;
+  auto const& track = track_sources_[track_id];
 
   auto ret = track->RemoveOverlayObject(overlay_id);
   if (ret != NO_ERROR) {
@@ -856,23 +807,14 @@ status_t CameraSource::RemoveOverlayObject(const uint32_t track_id,
 
 const shared_ptr<TrackSource>& CameraSource::GetTrackSource(uint32_t track_id) {
 
-  auto it = track_sources_.find(track_id);
-  assert(it != track_sources_.end());
-  return it->second;
+  assert(track_sources_.count(track_id) != 0);
+  return track_sources_[track_id];
 }
 
 bool CameraSource::IsTrackIdValid(const uint32_t track_id) {
 
-  bool valid = false;
-  size_t size = track_sources_.size();
-  QMMF_DEBUG("%s: Number of Tracks exist = %d",__func__, size);
-  for (auto it = track_sources_.begin(); it != track_sources_.end(); it++) {
-    if (track_id == it->first) {
-        valid = true;
-        break;
-    }
-  }
-  return valid;
+  QMMF_DEBUG("%s: Number of Tracks exist: %d",__func__, track_sources_.size());
+  return (track_sources_.count(track_id) != 0) ? true : false;
 }
 
 uint32_t CameraSource::GetJpegSize(uint8_t *blobBuffer, uint32_t width) {
@@ -1105,6 +1047,7 @@ TrackSource::TrackSource(const VideoTrackParams& params,
     : track_params_(params),
       is_stop_(false),
       eos_acked_(false),
+      is_idle_(false),
       active_overlays_(0),
       input_count_(0),
       count_(0),
@@ -1318,11 +1261,14 @@ status_t TrackSource::DeInit() {
 status_t TrackSource::StartTrack() {
 
   QMMF_DEBUG("%s: Enter track_id(%x)", __func__, TrackId());
+  std::lock_guard<std::mutex> lock(lock_);
 
   assert(camera_interface_.get() != nullptr);
 
-  std::lock_guard<std::mutex> lock(stop_lock_);
+  std::lock_guard<std::mutex> stop_lock(stop_lock_);
   is_stop_ = false;
+
+  std::lock_guard<std::mutex> eos_lock(eos_lock_);
   eos_acked_ = false;
 
   sp<IBufferConsumer> consumer;
@@ -1360,8 +1306,13 @@ status_t TrackSource::StopTrack(bool is_force_cleanup) {
   status_t ret;
 
   QMMF_DEBUG("%s: Enter track_id(%x)", __func__, TrackId());
+  std::lock_guard<std::mutex> lock(lock_);
   {
     std::lock_guard<std::mutex> lock(stop_lock_);
+    if (is_stop_ == true) {
+      QMMF_WARN("%s: Track(%x) already stopped!", __func__, TrackId());
+      return NO_ERROR;
+    }
     is_stop_ = true;
   }
   // Stop sequence when encoder is involved.
@@ -1381,7 +1332,6 @@ status_t TrackSource::StopTrack(bool is_force_cleanup) {
   //    the status:kPortIdle, and at this point client's stop method can be
   //    returned.
 
-  bool wait = true;
   if (track_params_.params.format_type == VideoFormat::kYUV ||
       track_params_.params.format_type == VideoFormat::kBayerRDI8BIT ||
       track_params_.params.format_type == VideoFormat::kBayerRDI10BIT ||
@@ -1391,13 +1341,15 @@ status_t TrackSource::StopTrack(bool is_force_cleanup) {
     if (is_force_cleanup) {
       QMMF_INFO("%s: track_id(%x) stopping in force mode!", __func__,
           TrackId());
-      std::lock_guard<std::mutex> autoLock(buffer_list_lock_);
+      std::lock_guard<std::mutex> lk(buffer_list_lock_);
       for (auto it = buffer_list_.begin(); it != buffer_list_.end(); it++) {
         StreamBuffer buffer = it->second;
         ReturnBufferToProducer(buffer);
       }
       buffer_list_.clear();
-      wait = false;
+
+      std::lock_guard<std::mutex> idle_lock(idle_lock_);
+      is_idle_ = true;
     }
     // Encoder is not involved in this case.
     assert(camera_interface_.get() != nullptr);
@@ -1429,28 +1381,24 @@ status_t TrackSource::StopTrack(bool is_force_cleanup) {
     }
     QMMF_INFO("%s: Pipe stop done(%x)", __func__, TrackId());
     {
-      std::lock_guard<std::mutex> autoLock(buffer_list_lock_);
+      std::lock_guard<std::mutex> lk(buffer_list_lock_);
       QMMF_DEBUG("%s: track_id(%x) buffer_list_.size(%d)", __func__,
           TrackId(), buffer_list_.size());
-      if (buffer_list_.size() == 0) {
-        wait = false;
-      }
     }
   } else {
       QMMF_DEBUG("%s: track_id(%x), Wait for Encoder to return being encoded"
           " buffers!",  __func__, TrackId());
   }
-  std::unique_lock<std::mutex> lock(idle_lock_);
+  std::unique_lock<std::mutex> idle_lock(idle_lock_);
   std::chrono::nanoseconds wait_time(kWaitDuration);
 
-  while (wait) {
-    auto ret = wait_for_idle_.WaitFor(lock, wait_time);
+  while (!is_idle_) {
+    auto ret = wait_for_idle_.WaitFor(idle_lock, wait_time);
     if (ret != 0) {
-        QMMF_ERROR("%s: track_id(%x) StopTrack Timed out happend! Encoder"
-        "failed to go in Idle state!",  __func__, TrackId());
+      QMMF_ERROR("%s: track_id(%x) StopTrack Timed out happened! Encoder"
+          " failed to go in Idle state!",  __func__, TrackId());
       return TIMED_OUT;
     }
-    wait = false;
   }
   QMMF_DEBUG("%s: Exit track_id(%x)", __func__, TrackId());
   return NO_ERROR;
@@ -1476,7 +1424,7 @@ status_t TrackSource::NotifyPortEvent(PortEventType event_type,
       ClearInputQueue();
       assert(camera_interface_.get() != nullptr);
       {
-        std::unique_lock<std::mutex> lock(lock_);
+        std::unique_lock<std::mutex> lock(frame_lock_);
         for(auto it : buffer_map_) {
           if (stream_buffer_map_.find(it.first) !=  stream_buffer_map_.end()) {
             QMMF_INFO("%s: track_id(%x) fd: %d stream_id: %x", __func__,
@@ -1519,7 +1467,12 @@ status_t TrackSource::NotifyPortEvent(PortEventType event_type,
           " encoder!!",  __func__, TrackId());
       // wait_for_idle_ will not be needed once we make stop api as async.
       std::lock_guard<std::mutex> lock(idle_lock_);
+      is_idle_ = true;
       wait_for_idle_.Signal();
+    } else if (status == CodecPortStatus::kPortStart) {
+      std::lock_guard<std::mutex> lock(idle_lock_);
+      is_idle_ = false;
+      QMMF_INFO("%s: Track(%x) encoder started",  __func__, TrackId());
     }
   }
 
@@ -1534,7 +1487,7 @@ status_t TrackSource::GetBuffer(BufferDescriptor& buffer,
   bool timeout = false;
 
   {
-    std::unique_lock<std::mutex> lock(lock_);
+    std::unique_lock<std::mutex> lock(frame_lock_);
     std::chrono::nanoseconds wait_time(kWaitDuration);
     while (frames_received_.Size() == 0) {
       QMMF_DEBUG("%s: track_id(%x) Wait for bufferr!!", __func__,
@@ -1610,7 +1563,7 @@ status_t TrackSource::ReturnBuffer(BufferDescriptor& buffer,
 
   bool found = false;
 
-  std::unique_lock<std::mutex> lock(lock_);
+  std::unique_lock<std::mutex> lock(frame_lock_);
   auto iter = frames_being_encoded_.Begin();
   for (; iter != frames_being_encoded_.End(); ++iter) {
     if ((*iter).handle ==  buffer.data) {
@@ -1638,7 +1591,7 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
 
   QMMF_VERBOSE("%s: Enter track_id(%x)", __func__, TrackId());
   {
-    std::unique_lock<std::mutex> lock(lock_);
+    std::unique_lock<std::mutex> lock(frame_lock_);
     buffer_map_.insert(std::make_pair(buffer.handle, 1));
     stream_buffer_map_.emplace(buffer.handle, buffer);
   }
@@ -1651,14 +1604,14 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
   {
     std::lock_guard<std::mutex> lock(eos_lock_);
     if (eos_acked_ && IsStop()) {
-      auto track_format = track_params_.params.format_type;
+      auto const& track_format = track_params_.params.format_type;
       if (track_format == VideoFormat::kAVC ||
           track_format == VideoFormat::kHEVC ||
           track_format == VideoFormat::kJPEG) {
         // Return buffer if track is stoped and EOS is acknowledged by AVCodec.
         QMMF_INFO("%s: Track(%x) Stoped and eos is acked!", __func__,
           TrackId());
-        std::unique_lock<std::mutex> lock(lock_);
+        std::unique_lock<std::mutex> lock(frame_lock_);
         ReturnBufferToProducer(buffer);
         return;
       }
@@ -1714,7 +1667,7 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
                 __func__,track_params_.params.camera_id,
                 TrackId(),buffer.frame_number,input_frame_rate_);
     }
-    std::unique_lock<std::mutex> lock(lock_);
+    std::unique_lock<std::mutex> lock(frame_lock_);
     ReturnBufferToProducer(buffer);
     return;
   }
@@ -1783,7 +1736,7 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
     if (IsStop()) {
       QMMF_DEBUG("%s: track_id(%x) Stop is triggred, Stop giving raw buffer"
           " to client!",  __func__, TrackId());
-      std::unique_lock<std::mutex> lock(lock_);
+      std::unique_lock<std::mutex> lock(frame_lock_);
       ReturnBufferToProducer(buffer);
       return;
     }
@@ -1802,6 +1755,10 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
     {
       std::lock_guard<std::mutex> autoLock(buffer_list_lock_);
       buffer_list_.insert(std::make_pair(buffer.fd, buffer));
+    }
+    {
+      std::lock_guard<std::mutex> idle_lock(idle_lock_);
+      is_idle_ = false;
     }
     std::vector<BnBuffer> bn_buffers;
     bn_buffers.push_back(bn_buffer);
@@ -1829,7 +1786,7 @@ status_t TrackSource::ReturnTrackBuffer(std::vector<BnBuffer>& bn_buffers) {
   assert(bn_buffers.size() > 0);
   assert(buffer_consumer_impl_ != nullptr);
 
-  std::unique_lock<std::mutex> lock(lock_);
+  std::unique_lock<std::mutex> lock(frame_lock_);
   for (size_t i = 0; i < bn_buffers.size(); ++i) {
     QMMF_VERBOSE("%s: track_id(%x) bn_buffers[%d].ion_fd=%d", __func__,
         TrackId(), i, bn_buffers[i].ion_fd);
@@ -1844,20 +1801,20 @@ status_t TrackSource::ReturnTrackBuffer(std::vector<BnBuffer>& bn_buffers) {
       buffer_list_.erase(it);
     }
   }
-  if (IsStop()) {
-    if (buffer_list_.size() > 0) {
-      QMMF_INFO("%s: track_id(%x) Stop is triggered, but still num raw "
-          "buffers(%d) are with client!",  __func__, TrackId(),
-          buffer_list_.size());
-    } else {
-      // wait_for_idle_ will not be needed once we make stop api as async.
-      QMMF_INFO("%s: track_id(%x) Stop is triggered, all raw buffers are"
-          " returned from client!",  __func__, TrackId());
-      std::lock_guard<std::mutex> lock(idle_lock_);
-      wait_for_idle_.Signal();
-    }
+  QMMF_DEBUG("%s: Track(%x) buffer count still with client = %d", __func__,
+      TrackId(), buffer_list_.size());
+
+  if (buffer_list_.size() == 0) {
+    std::lock_guard<std::mutex> lock(idle_lock_);
+    // wait_for_idle_ will not be needed once we make stop api as async.
+    QMMF_DEBUG("%s: Track(%x) All buffers have been returned from client!",
+        __func__, TrackId());
+
+    is_idle_ = true;
+    wait_for_idle_.Signal();
   }
-  QMMF_VERBOSE("%s: Exit track_id(%x)", __func__, TrackId());
+
+  QMMF_DEBUG("%s: Exit track_id(%x)", __func__, TrackId());
   return NO_ERROR;
 }
 
@@ -1899,7 +1856,7 @@ bool TrackSource::IsStop() {
 void TrackSource::ClearInputQueue() {
 
   QMMF_DEBUG("%s: Enter track_id(%x)", __func__, TrackId());
-  std::unique_lock<std::mutex> lock(lock_);
+  std::unique_lock<std::mutex> lock(frame_lock_);
   // Once connection is broken b/w port and trackSoure there is no chance to
   // get new buffers in frames_received_ queue.
   uint32_t size = frames_received_.Size();
@@ -2100,7 +2057,7 @@ void TrackSource::ReturnBufferToProducer(StreamBuffer& buffer) {
 void TrackSource::NotifyBufferReturned(StreamBuffer& buffer) {
   QMMF_DEBUG("%s: Enter track_id(%x) fd: %d ts: %lld", __func__,
       TrackId(), buffer.fd, buffer.timestamp);
-  std::unique_lock<std::mutex> lock(lock_);
+  std::unique_lock<std::mutex> lock(frame_lock_);
   ReturnBufferToProducer(buffer);
 }
 
