@@ -89,9 +89,7 @@ CameraSource::~CameraSource() {
 
   QMMF_KPI_DETAIL();
   QMMF_INFO("%s: Enter", __func__);
-  if (!camera_map_.empty()) {
-    camera_map_.clear();
-  }
+  camera_map_.clear();
   PostProcFactory::releaseInstance();
   factory_ = nullptr;
   instance_ = nullptr;
@@ -112,16 +110,14 @@ status_t CameraSource::StartCamera(const uint32_t camera_id,
   std::shared_ptr<CameraInterface> camera;
 
   if (is_virtual_camera_id) {
-    if (camera_map_.end() == camera_map_.find(camera_id)) {
-      QMMF_ERROR("%s: Invalid Virtual Camera Id(%u)!", __func__,
-                 camera_id);
+    if (camera_map_.count(camera_id) == 0) {
+      QMMF_ERROR("%s: Invalid Virtual Camera Id(%u)!", __func__, camera_id);
       return BAD_VALUE;
     }
-    camera = camera_map_.find(camera_id)->second;
+    camera = camera_map_[camera_id];
   } else {
-    if (camera_map_.find(camera_id) != camera_map_.end()) {
-      QMMF_ERROR("%s: Camera Id(%u) is already open!", __func__,
-          camera_id);
+    if (camera_map_.count(camera_id) != 0) {
+      QMMF_ERROR("%s: Camera Id(%u) is already open!", __func__, camera_id);
       return BAD_VALUE;
     }
     camera = std::make_shared<CameraContext>();
@@ -131,52 +127,45 @@ status_t CameraSource::StartCamera(const uint32_t camera_id,
       return NO_MEMORY;
     }
     // Add contexts to map when in regular camera case.
-    camera_map_.insert(std::make_pair(camera_id, camera));
+    camera_map_.emplace(camera_id, camera);
   }
 
   auto ret = camera->OpenCamera(camera_id, param, cb, errcb);
   if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: CameraDevice:OpenCamera(%d)failed!", __func__,
-        camera_id);
+    QMMF_ERROR("%s: OpenCamera(%d) Failed!", __func__, camera_id);
     if (!is_virtual_camera_id) {
       camera = nullptr;
-      auto it = camera_map_.find(camera_id);
-      if (camera_map_.end() != it) {
-        camera_map_.erase(it);
+      if (camera_map_.count(camera_id) != 0) {
+        camera_map_.erase(camera_id);
       }
     }
     return ret;
   }
-  QMMF_INFO("%s: Camera(%d) Open is Successfull!", __func__, camera_id);
-  return ret;
+  QMMF_INFO("%s: Camera(%d) opened successfully!", __func__, camera_id);
+  return NO_ERROR;
 }
 
 status_t CameraSource::StopCamera(const uint32_t camera_id) {
 
-  QMMF_KPI_DETAIL();
-  int32_t ret = NO_ERROR;
   QMMF_INFO("%s: CameraId(%u) to close!", __func__, camera_id);
+  QMMF_KPI_DETAIL();
 
   //TODO: check if streams are still active, flush them before closing camera.
 
-  bool match = false;
-  for (auto it = camera_map_.begin(); it != camera_map_.end(); ++it) {
-    if (camera_id == it->first) {
-      match = true;
-      std::shared_ptr<CameraInterface> camera = it->second;
-      ret = camera->CloseCamera(camera_id);
-      assert(ret == NO_ERROR);
-      camera_map_.erase(it);
-      QMMF_INFO("%s: Camera(%d) is Closed Successfull!", __func__,
-          camera_id);
-      break;
-    }
-  }
-  if (!match) {
+  if (camera_map_.count(camera_id) == 0) {
     QMMF_ERROR("%s: Invalid Camera Id(%d)", __func__, camera_id);
     return BAD_VALUE;
   }
-  return ret;
+
+  auto ret = camera_map_[camera_id]->CloseCamera(camera_id);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s: Failed to close camera(%d)!", __func__, camera_id);
+    return FAILED_TRANSACTION;
+  }
+  camera_map_.erase(camera_id);
+  QMMF_INFO("%s: Camera(%d) successfully closed!", __func__, camera_id);
+
+  return NO_ERROR;
 }
 
 status_t CameraSource::CreateMultiCamera(const std::vector<uint32_t> camera_ids,
@@ -306,21 +295,11 @@ status_t CameraSource::CaptureImage(const uint32_t camera_id,
   QMMF_DEBUG("%s: Enter", __func__);
   QMMF_KPI_DETAIL();
 
-  bool match = false;
-  std::shared_ptr<CameraInterface> camera;
-  for (auto it = camera_map_.begin(); it != camera_map_.end(); it++) {
-    if (camera_id == it->first) {
-        match = true;
-        camera = it->second;
-        break;
-    }
-  }
-  if (!match) {
-    QMMF_ERROR("%s: Invalid Camera Id, It is different then camera is open"
-        "with",  __func__);
+  if (camera_map_.count(camera_id) == 0) {
+    QMMF_ERROR("%s: Invalid Camera Id(%d)", __func__, camera_id);
     return BAD_VALUE;
   }
-  assert(camera.get() != nullptr);
+  auto const& camera = camera_map_[camera_id];
 
   auto ret = camera->SetUpCapture(param, num_images);
   if (ret != NO_ERROR) {
@@ -345,21 +324,11 @@ status_t CameraSource::ConfigImageCapture(const uint32_t camera_id,
 
   QMMF_DEBUG("%s: Enter", __func__);
 
-  bool match = false;
-  std::shared_ptr<CameraInterface> camera;
-  for (auto i = camera_map_.begin(); i != camera_map_.end(); ++i) {
-    if (camera_id == i->first) {
-        match = true;
-        camera = i->second;
-        break;
-    }
-  }
-  if (!match) {
-    QMMF_ERROR("%s: Invalid Camera Id, It is different then camera is open"
-        "with",  __func__);
+  if (camera_map_.count(camera_id) == 0) {
+    QMMF_ERROR("%s: Invalid Camera Id(%d)", __func__, camera_id);
     return BAD_VALUE;
   }
-  assert(camera.get() != nullptr);
+  auto const& camera = camera_map_[camera_id];
 
   auto ret = camera->ConfigImageCapture(config);
   if (ret != NO_ERROR) {
@@ -375,19 +344,11 @@ status_t CameraSource::CancelCaptureImage(const uint32_t camera_id) {
   QMMF_DEBUG("%s: Enter", __func__);
   QMMF_KPI_DETAIL();
 
-  bool match = false;
-  std::shared_ptr<CameraInterface> camera;
-  for (auto it = camera_map_.begin(); it != camera_map_.end(); it++) {
-    if (camera_id == it->first) {
-      match = true;
-      camera = it->second;
-    }
-  }
-  if (!match) {
-    QMMF_ERROR("%s: Invalid Camera Id(%d)!", __func__, camera_id);
+  if (camera_map_.count(camera_id) == 0) {
+    QMMF_ERROR("%s: Invalid Camera Id(%d)", __func__, camera_id);
     return BAD_VALUE;
   }
-  assert(camera.get() != nullptr);
+  auto const& camera = camera_map_[camera_id];
 
   auto ret = camera->CancelCaptureImage();
   if (ret != NO_ERROR) {
@@ -402,21 +363,17 @@ status_t CameraSource::ReturnImageCaptureBuffer(const uint32_t camera_id,
                                                 const int32_t buffer_id) {
   QMMF_DEBUG("%s: Enter", __func__);
 
-  bool match = false;
-  std::shared_ptr<CameraInterface> camera;
-  for (auto it = camera_map_.begin(); it != camera_map_.end(); it++) {
-    if (camera_id == it->first) {
-      match = true;
-      camera = it->second;
-      break;
-    }
-  }
-  if (!match) {
-    QMMF_ERROR("%s: Invalid Camera Id!", __func__);
+  if (camera_map_.count(camera_id) == 0) {
+    QMMF_ERROR("%s: Invalid Camera Id(%d)", __func__, camera_id);
     return BAD_VALUE;
   }
-  assert(camera.get() != nullptr);
+  auto const& camera = camera_map_[camera_id];
+
   auto ret = camera->ReturnImageCaptureBuffer(camera_id, buffer_id);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s: ReturnImageCaptureBuffer Failed!", __func__);
+    return ret;
+  }
 
   QMMF_DEBUG("%s: Exit", __func__);
   return ret;
@@ -513,22 +470,12 @@ status_t CameraSource::CreateTrackSource(const uint32_t track_id,
   QMMF_DEBUG("%s: Enter", __func__);
   QMMF_KPI_DETAIL();
 
-  // Find out the camera context corresponding to camera id where track has to
-  // be created.
-  bool match = false;
-  std::shared_ptr<CameraInterface> camera;
-  for (auto it = camera_map_.begin(); it != camera_map_.end(); it++) {
-    if (track_params.params.camera_id == it->first) {
-      match = true;
-      camera = it->second;
-      break;
-    }
-  }
-  if (!match) {
-    QMMF_ERROR("%s: Invalid Camera Id, It is different then camera is open"
-        "with",  __func__);
+  auto camera_id = track_params.params.camera_id;
+  if (camera_map_.count(camera_id) == 0) {
+    QMMF_ERROR("%s: Invalid Camera Id(%d)", __func__, camera_id);
     return BAD_VALUE;
   }
+  auto const& camera = camera_map_[camera_id];
 
   status_t ret;
   int32_t track_id_master = -1;
@@ -732,31 +679,31 @@ status_t CameraSource::ReturnTrackBuffer(const uint32_t track_id,
 status_t CameraSource::SetCameraParam(const uint32_t camera_id,
                                       const CameraMetadata &meta) {
 
-  auto it = camera_map_.find(camera_id);
-  assert(it != camera_map_.end());
-  std::shared_ptr<CameraInterface> camera = it->second;
-
-  return camera->SetCameraParam(meta);
+  if (camera_map_.count(camera_id) == 0) {
+    QMMF_ERROR("%s: Invalid Camera Id(%d)", __func__, camera_id);
+    return BAD_VALUE;
+  }
+  return camera_map_[camera_id]->SetCameraParam(meta);
 }
 
 status_t CameraSource::GetCameraParam(const uint32_t camera_id,
                                       CameraMetadata &meta) {
 
-  auto it = camera_map_.find(camera_id);
-  assert(it != camera_map_.end());
-  std::shared_ptr<CameraInterface> camera = it->second;
-
-  return camera->GetCameraParam(meta);
+  if (camera_map_.count(camera_id) == 0) {
+    QMMF_ERROR("%s: Invalid Camera Id(%d)", __func__, camera_id);
+    return BAD_VALUE;
+  }
+  return camera_map_[camera_id]->GetCameraParam(meta);
 }
 
 status_t CameraSource::GetDefaultCaptureParam(const uint32_t camera_id,
                                               CameraMetadata &meta) {
 
-  auto it = camera_map_.find(camera_id);
-  assert(it != camera_map_.end());
-  std::shared_ptr<CameraInterface> camera = it->second;
-
-  return camera->GetDefaultCaptureParam(meta);
+  if (camera_map_.count(camera_id) == 0) {
+    QMMF_ERROR("%s: Invalid Camera Id(%d)", __func__, camera_id);
+    return BAD_VALUE;
+  }
+  return camera_map_[camera_id]->GetDefaultCaptureParam(meta);
 }
 
 status_t CameraSource::UpdateTrackFrameRate(const uint32_t track_id,
