@@ -135,7 +135,12 @@ status_t SystemClient::Connect(const SystemCb& callback) {
   }
 
   system_service_ = interface_cast<ISystemService>(service_handle);
-  IInterface::asBinder(system_service_)->linkToDeath(death_notifier_);
+  auto ss_binder = IInterface::asBinder(system_service_);
+  if (ss_binder == nullptr) {
+    QMMF_ERROR("System Service Binder is null");
+    return -EFAULT;
+  }
+  ss_binder->linkToDeath(death_notifier_);
 
   sp<ServiceCallbackHandler> cb_handler = new ServiceCallbackHandler(this);
   status_t result = system_service_->Connect(cb_handler, &system_handle_);
@@ -160,7 +165,12 @@ status_t SystemClient::Disconnect() {
     QMMF_ERROR("%s() service->Disconnect failed: %d", __func__,
                result);
 
-  system_service_->asBinder(system_service_)->unlinkToDeath(death_notifier_);
+  auto ss_binder = system_service_->asBinder(system_service_);
+  if (ss_binder == nullptr) {
+    QMMF_ERROR("System Service binder is null");
+    return -EFAULT;
+  }
+  ss_binder->unlinkToDeath(death_notifier_);
   system_service_.clear();
   system_service_ = nullptr;
 

@@ -267,7 +267,7 @@ void SystemKeytone::ThreadEntry(SystemKeytone* source) {
 void SystemKeytone::Thread() {
   QMMF_DEBUG("%s() TRACE: current_handle[%d]", __func__,
              current_handle_);
-  vector<AudioBuffer> buffers;
+  vector<AudioBuffer> buffers { };
   int32_t result;
 
   ion_.GetList(&buffers);
