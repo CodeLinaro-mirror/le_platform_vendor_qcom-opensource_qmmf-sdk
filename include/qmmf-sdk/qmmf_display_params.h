@@ -352,6 +352,7 @@ enum class DisplayParamType {
   kSaturation,
   kContrast,
   kBrightness,
+  kDisplayState
 };
 
 };

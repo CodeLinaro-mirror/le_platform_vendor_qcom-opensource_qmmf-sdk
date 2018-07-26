@@ -150,6 +150,9 @@ class DisplayImpl : public DisplayEventHandler
   static void HandleVSyncThreadEntry(DisplayImpl* display_impl);
   void HandleVSync();
   static DisplayImpl* instance_;
+  static const int32_t kNumberOfAttempts = 5;
+  std::mutex display_on_lock_;
+  std::condition_variable display_on_cond_;
   DisplayBufferAllocator buffer_allocator_;
   DisplayBufferSyncHandler buffer_sync_handler_;
   static CoreInterface* core_intf_;
@@ -214,7 +217,8 @@ class DisplayImpl : public DisplayEventHandler
       if (old_state == BufferStates::kInvalid)
         return false;
       else if (old_state == BufferStates::kStateDequeued
-               && new_state == BufferStates::kStateQueued)
+               && (new_state == BufferStates::kStateQueued
+               || new_state == BufferStates::kStateFree))
         return true;
       else if (old_state == BufferStates::kStateQueued
                && (new_state == BufferStates::kStateCommitted
@@ -231,6 +235,7 @@ class DisplayImpl : public DisplayEventHandler
     }
   };
 
+  void PrintBuffersState (const uint32_t surface_id);
   typedef struct SurfaceInfo {
     Layer*                           layer;
     // map of buffer id and buffer info
@@ -268,6 +273,20 @@ class DisplayImpl : public DisplayEventHandler
   //Map for surface_id and Latest queued buffer info
   std::map<uint32_t, QueuedBufferInfo>         latest_queued_buffer_info_map_;
   LayerStack*                                  layer_stack_;
+
+  // Get/Set functions for Display State
+  std::mutex display_state_lock_;
+  DisplayState current_display_state_;
+
+  inline DisplayState GetDisplayState() {
+    std::lock_guard<std::mutex> lock(display_state_lock_);
+    return current_display_state_;
+  }
+
+  inline void SetDisplayState(DisplayState state) {
+    std::lock_guard<std::mutex> lock(display_state_lock_);
+    current_display_state_ = state;
+  }
 };
 
 }; // namespace display

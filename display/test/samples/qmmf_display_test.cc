@@ -246,15 +246,15 @@ int32_t DisplayTest::SetDisplayParam() {
 
   TEST_INFO("%s: Enter", __func__);
   DisplayParamType param_type;
-  void *param;
-  size_t param_size = 0;
-  param=operator new(param_size);
-  param_type = DisplayParamType::kSaturation;
-  auto ret = display_->SetDisplayParam(param_type, param, param_size);
+  static int32_t param = 0;
+  param_type = DisplayParamType::kDisplayState;
+  auto ret = display_->SetDisplayParam(param_type, (void*)(&param), sizeof(int));
+  param = !param;
+
   if(ret != 0) {
     TEST_ERROR("%s SetDisplayParam Failed!!", __func__);
   }
-  operator delete(param);
+
   TEST_INFO("%s: Exit", __func__);
 
   return 0;
