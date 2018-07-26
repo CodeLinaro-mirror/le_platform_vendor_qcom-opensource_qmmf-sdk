@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -244,8 +244,6 @@ class AVCodec : public IAVCodec {
   // For Port Reconfig
   bool                      bPortReconfig_;
   ::android::Mutex          port_reconfig_lock_;
-  std::mutex                threadrun_port_reconfig_lock_;
-  QCondition                wait_for_threadrun;
   CodecParam                codec_params_;
   bool                      slice_mode_encoding_;
   AVCodecCb                 avcodec_cb_;

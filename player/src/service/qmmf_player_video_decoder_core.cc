@@ -801,6 +801,10 @@ status_t VideoTrackDecoder::StopDecoder(const PictureParam& params,
 
   stop_received_ = true;
   {
+    std::unique_lock<std::mutex> lock(wait_for_frame_lock_);
+    wait_for_frame_.Signal();
+  }
+  {
     std::lock_guard<std::mutex> lock(pause_lock_);
     pause_ = false;
   }
@@ -934,7 +938,10 @@ status_t VideoTrackDecoder::DeleteDecoder()
   assert(avcodec_ != nullptr);
 
   stop_received_ = true;
-
+  {
+    std::unique_lock<std::mutex> lock(wait_for_frame_lock_);
+    wait_for_frame_.Signal();
+  }
   auto ret = avcodec_->StopCodec(false);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: track_id(%d) StopCodec failed!", __func__,
@@ -1013,13 +1020,16 @@ status_t VideoTrackDecoder::GetBuffer(BufferDescriptor& stream_buffer,
                                       void* client_data) {
   QMMF_DEBUG("%s: Enter track_id(%d) frames_to_decode_.Size(%d) ",
              __func__, TrackId(),frames_to_decode_.Size());
-
+  int32_t log_counter = 0;
   while (frames_to_decode_.Size() <= 0 && !stop_received_) {
     QMMF_DEBUG("%s track_id(%d) No Filled buffer available for AVCodec, "
                "wait for new buffer", __func__, TrackId());
     std::unique_lock<std::mutex> lock(wait_for_frame_lock_);
-    std::chrono::seconds wait_time(1);
-    wait_for_frame_.WaitFor(lock, wait_time);
+    if(wait_for_frame_.WaitFor(lock, std::chrono::milliseconds(100)) != 0) {
+      log_counter++;
+      if (log_counter % 10 == 0) // log the message every 1 sec
+        QMMF_WARN("%s track_id(%d) timed out on wait", __func__, TrackId());
+    }
   }
   if (stop_received_) return NO_ERROR;
 
