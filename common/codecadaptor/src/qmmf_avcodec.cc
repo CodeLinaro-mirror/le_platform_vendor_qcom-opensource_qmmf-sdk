@@ -2916,8 +2916,12 @@ status_t AVCodec::PauseCodec() {
   status_t ret = 0;
 
   if (format_type_ == CodecType::kVideoDecoder)
-    while (IsPortReconfig()) usleep(kSleepPortReconfig);
-
+    while (IsPortReconfig()) {
+      if(IsOutputPortStop()) {
+        return -EPERM;
+      }
+      usleep(kSleepPortReconfig);
+    }
   api_count_++;
 
   ret = SetState(OMX_StatePause, OMX_TRUE);
@@ -2936,7 +2940,12 @@ status_t AVCodec::ResumeCodec() {
   status_t ret = 0;
 
   if (format_type_ == CodecType::kVideoDecoder)
-    while (IsPortReconfig()) usleep(kSleepPortReconfig);
+    while (IsPortReconfig()) {
+      if(IsOutputPortStop()) {
+        return -EPERM;
+      }
+      usleep(kSleepPortReconfig);
+    }
 
   api_count_++;
 
@@ -3298,7 +3307,6 @@ void AVCodec::ThreadRun() {
       }
       QMMF_INFO("%s: PortReconfig is Successfull", __func__);
       wait_for_header_output_.notify_one();
-      wait_for_threadrun.Signal();
     }
   }
 
@@ -3315,8 +3323,11 @@ void AVCodec::DeliverOutput() {
   OMX_BUFFERHEADERTYPE *buf_header;
   while (1) {
     if (format_type_ == CodecType::kVideoDecoder)
-      while (IsPortReconfig()) usleep(kSleepPortReconfig);
-
+      while (IsPortReconfig()) {
+        if(IsOutputPortStop())
+          break;
+        usleep(kSleepPortReconfig);
+      }
     api_count_++;
 
     memset(&codec_buffer, 0x0, sizeof(codec_buffer));
@@ -3355,8 +3366,6 @@ void AVCodec::DeliverOutput() {
       codec_buffer.size = 0;
       getOutputBufferSource()->ReturnBuffer(codec_buffer, nullptr);
       api_count_--;
-      std::unique_lock<std::mutex> lock(threadrun_port_reconfig_lock_);
-      (wait_for_threadrun).Wait(lock);
       QMMF_INFO("%s Signal from thread run has been received", __func__);
       continue;
     }
@@ -3666,6 +3675,11 @@ status_t AVCodec::PortReconfigOutput() {
   if (format_type_ == CodecType::kVideoDecoder) {
     int32_t log_counter = 0;
     while (api_count_ > 0) {
+      if(IsOutputPortStop()){
+        Mutex::Autolock autoLock(port_reconfig_lock_);
+        bPortReconfig_ = false;
+        return NO_ERROR;
+      }
       usleep(10000);
       log_counter++;
       if (log_counter % 50 == 0) // log after every 500 ms
