@@ -1797,11 +1797,10 @@ status_t CameraContext::CancelRequest() {
   int64_t last_frame_mumber;
   assert(streaming_request_id_ >= 0);
 
-  QMMF_INFO("%s: Issuing CancelRequest!", __func__);
-  auto ret = camera_device_->CancelRequest(streaming_request_id_,
-                                           &last_frame_mumber);
+  QMMF_INFO("%s: Issuing Flush!", __func__);
+  auto ret = camera_device_->Flush(&last_frame_mumber);
   assert(ret == NO_ERROR);
-  QMMF_INFO("%s: last_frame_mumber(%lld) after CancelRequest", __func__,
+  QMMF_INFO("%s: last_frame_mumber(%lld) after Flush", __func__,
       last_frame_mumber);
 
   ret = camera_device_->WaitUntilIdle();
