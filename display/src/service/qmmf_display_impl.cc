@@ -1289,15 +1289,15 @@ Layer* DisplayImpl::GetLayer(DisplayHandle display_handle,
 }
 
 LayerStack* DisplayImpl::GetLayerStack(DisplayType display_type,
-    bool queued_buffers_only) {
-
+                                       bool queued_buffers_only) {
   QMMF_VERBOSE("%s: Enter", __func__);
   auto display_type_info = display_type_info_map_.find(display_type);
   assert(display_type_info != display_type_info_map_.end());
   layer_stack_->layers.clear();
   Layer* layer;
-  for(auto it = display_type_info->second->z_order_surface_id_map.begin();
-          it != display_type_info->second->z_order_surface_id_map.end(); it++) {
+  bool push_layers = false;
+  for (auto it = display_type_info->second->z_order_surface_id_map.begin();
+       it != display_type_info->second->z_order_surface_id_map.end(); it++) {
     std::map<uint32_t, SurfaceInfo*>::iterator surfaceinfo;
     {
       std::lock_guard<std::mutex> lock(surface_lock_);
@@ -1308,24 +1308,26 @@ LayerStack* DisplayImpl::GetLayerStack(DisplayType display_type,
       }
     }
     layer = surfaceinfo->second->layer;
-    if(layer != nullptr) {
-      bool push_layer=0;
+    if (layer != nullptr) {
       if (!queued_buffers_only) {
-        push_layer =1;
+        push_layers = true;
+        layer_stack_->layers.push_back(layer);
       } else {
         std::map<int32_t, BufferState*>::iterator it_queued_buffer;
         std::map<int32_t, BufferState*>::iterator it_committed_buffer;
         for (it_queued_buffer = surfaceinfo->second->buffer_state.begin();
              it_queued_buffer != surfaceinfo->second->buffer_state.end();
              ++it_queued_buffer) {
-          if (it_queued_buffer->second->GetState() == BufferStates::kStateQueued) {
+          if (it_queued_buffer->second->GetState() ==
+              BufferStates::kStateQueued) {
             break;
           }
         }
         for (it_committed_buffer = surfaceinfo->second->buffer_state.begin();
              it_committed_buffer != surfaceinfo->second->buffer_state.end();
              ++it_committed_buffer) {
-          if (it_committed_buffer->second->GetState() == BufferStates::kStateCommitted) {
+          if (it_committed_buffer->second->GetState() ==
+              BufferStates::kStateCommitted) {
             break;
           }
         }
@@ -1336,43 +1338,44 @@ LayerStack* DisplayImpl::GetLayerStack(DisplayType display_type,
                 it_committed_buffer->second->SetState(BufferStates::kStateFree);
             if (state != BufferStates::kStateFree) {
               QMMF_ERROR("%s Could not Set state::%u of Buffer Ion_Fd::%d",
-                  __func__,
-                  static_cast<std::underlying_type<BufferStates>::type>
-                             (BufferStates::kStateFree), it_committed_buffer->first);
+                         __func__,
+                         static_cast<std::underlying_type<BufferStates>::type>(
+                         BufferStates::kStateFree),
+                         it_committed_buffer->first);
             } else {
               QMMF_DEBUG("%s The Buffer ION_FD:%d has been set to state:%u",
-                  __func__, it_committed_buffer->first,
-                  static_cast<std::underlying_type<BufferStates>::type>
-                             (BufferStates::kStateFree));
+                         __func__, it_committed_buffer->first,
+                         static_cast<std::underlying_type<BufferStates>::type>(
+                         BufferStates::kStateFree));
             }
           }
-          //Fill layer params for queued buffer
+          // Fill layer params for queued buffer
           auto queued_buffer_info =
               latest_queued_buffer_info_map_.find(it->second);
-          if(queued_buffer_info == latest_queued_buffer_info_map_.end()) {
+          if (queued_buffer_info == latest_queued_buffer_info_map_.end()) {
             return nullptr;
           }
           BufferInfo buffer_info;
           int32_t aligned_width, aligned_height;
-          aligned_width = queued_buffer_info->second.surface_buffer.plane_info[0].width;
-          aligned_height = queued_buffer_info->second.surface_buffer.plane_info[0].height;
+          aligned_width =
+              queued_buffer_info->second.surface_buffer.plane_info[0].width;
+          aligned_height =
+              queued_buffer_info->second.surface_buffer.plane_info[0].height;
           buffer_info.buffer_config.width =
               queued_buffer_info->second.surface_buffer.plane_info[0].width;
           buffer_info.buffer_config.height =
               queued_buffer_info->second.surface_buffer.plane_info[0].height;
-          buffer_info.buffer_config.format =
-              static_cast<LayerBufferFormat>(queued_buffer_info->second.surface_buffer.format);
+          buffer_info.buffer_config.format = static_cast<LayerBufferFormat>(
+              queued_buffer_info->second.surface_buffer.format);
           buffer_info.buffer_config.buffer_count = 1;
           buffer_info.buffer_config.cache = 0;
           buffer_info.alloc_buffer_info.fd = -1;
           buffer_info.alloc_buffer_info.stride = 0;
           buffer_info.alloc_buffer_info.size = 0;
-          auto ret = buffer_allocator_.GetBufferInfo(&buffer_info, aligned_width,
-              aligned_height);
-          if (ret != kErrorNone) {
-              QMMF_ERROR("%s: GetBufferInfo Failed. Error = %d",
-                  __func__, ret);
-          }
+          auto ret = buffer_allocator_.GetBufferInfo(
+                     &buffer_info, aligned_width, aligned_height);
+          if (ret != kErrorNone)
+            QMMF_ERROR("%s: GetBufferInfo Failed. Error = %d", __func__, ret);
           layer->input_buffer.width = aligned_width;
           layer->input_buffer.height = aligned_height;
           layer->input_buffer.unaligned_width =
@@ -1385,63 +1388,70 @@ LayerStack* DisplayImpl::GetLayerStack(DisplayType display_type,
               queued_buffer_info->second.surface_buffer.plane_info[0].offset;
           layer->input_buffer.planes[0].stride =
               queued_buffer_info->second.surface_buffer.plane_info[0].stride;
+
           if(layer->input_buffer.format == kFormatYCbCr420SemiPlanarVenus) {
             layer->input_buffer.color_metadata.colorPrimaries =
                 ColorPrimaries_BT601_6_525;
             layer->input_buffer.color_metadata.range = Range_Limited;
           }
-          SetRect(queued_buffer_info->second.surface_param.dst_rect, &layer->dst_rect);
-          SetRect(queued_buffer_info->second.surface_param.src_rect, &layer->src_rect);
-          layer->blending =
-              static_cast<LayerBlending>(queued_buffer_info->second.surface_param.surface_blending);
+          SetRect(queued_buffer_info->second.surface_param.dst_rect,
+                  &layer->dst_rect);
+          SetRect(queued_buffer_info->second.surface_param.src_rect,
+                  &layer->src_rect);
+          layer->blending = static_cast<LayerBlending>(
+              queued_buffer_info->second.surface_param.surface_blending);
           layer->transform.flip_horizontal =
-              queued_buffer_info->second.surface_param.surface_transform.flip_horizontal;
+              queued_buffer_info->second.surface_param.surface_transform
+                  .flip_horizontal;
           layer->transform.flip_vertical =
-              queued_buffer_info->second.surface_param.surface_transform.flip_vertical;
-          layer->transform.rotation =
-              queued_buffer_info->second.surface_param.surface_transform.rotation;
+              queued_buffer_info->second.surface_param.surface_transform
+                  .flip_vertical;
+          layer->transform.rotation = queued_buffer_info->second.surface_param
+                                          .surface_transform.rotation;
           layer->plane_alpha = 0xFF;
-          layer->frame_rate = queued_buffer_info->second.surface_param.frame_rate;
+          layer->frame_rate =
+              queued_buffer_info->second.surface_param.frame_rate;
           layer->solid_fill_color =
               queued_buffer_info->second.surface_param.solid_fill_color;
           layer->flags.solid_fill =
               queued_buffer_info->second.surface_param.surface_flags.solid_fill;
           layer->flags.cursor =
-             queued_buffer_info->second.surface_param.surface_flags.cursor;
+              queued_buffer_info->second.surface_param.surface_flags.cursor;
           layer->input_buffer.planes[0].fd =
               queued_buffer_info->second.surface_buffer.plane_info[0].ion_fd;
-          QMMF_DEBUG("%s: Value of Buffer Ion_Fd = %u", __func__,
-              queued_buffer_info->second.surface_buffer.plane_info[0].ion_fd);
+          QMMF_DEBUG("%s: Buffer Ion_Fd = %u", __func__,
+               queued_buffer_info->second.surface_buffer.plane_info[0].ion_fd);
           layer->input_buffer.buffer_id =
               queued_buffer_info->second.surface_buffer.buf_id;
           layer->flags.updating = true;
 
-          //Commit the queued buffer
+          // Commit the queued buffer
           BufferStates state =
               it_queued_buffer->second->SetState(BufferStates::kStateCommitted);
           if (state != BufferStates::kStateCommitted) {
-           QMMF_ERROR("%s Could not Set state::%u of Buffer Ion_Fd::%d",
-                __func__,
-                static_cast<std::underlying_type<BufferStates>::type>
-                (BufferStates::kStateCommitted), it_queued_buffer->first);
+            QMMF_ERROR("%s Could not Set state::%u of Buffer Ion_Fd::%d",
+                       __func__,
+                       static_cast<std::underlying_type<BufferStates>::type>(
+                       BufferStates::kStateCommitted),
+                       it_queued_buffer->first);
           } else {
             QMMF_DEBUG("%s The Buffer ION_FD:%d has been set to state:%u",
-                __func__, it_queued_buffer->first,
-                static_cast<std::underlying_type<BufferStates>::type>
-                           (BufferStates::kStateCommitted));
+                       __func__, it_queued_buffer->first,
+                       static_cast<std::underlying_type<BufferStates>::type>(
+                       BufferStates::kStateCommitted));
           }
-          push_layer = 1;
-        } else if (it_committed_buffer != surfaceinfo->second->buffer_state.end()) {
-          push_layer = 1;
-        } else {
-          push_layer = 0;
+          push_layers = true;
+          layer_stack_->layers.push_back(layer);
+        } else if (it_committed_buffer !=
+                   surfaceinfo->second->buffer_state.end()) {
+          layer_stack_->layers.push_back(layer);
         }
-      }
-      if(push_layer) {
-        layer_stack_->layers.push_back(layer);
       }
     }
   }
+
+  if (!push_layers)
+    layer_stack_->layers.clear();
 
   QMMF_VERBOSE("%s: Exit", __func__);
   return layer_stack_;
