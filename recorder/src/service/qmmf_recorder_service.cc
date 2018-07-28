@@ -29,8 +29,8 @@
 
 #define LOG_TAG "RecorderService"
 
-#include "recorder/src/client/qmmf_recorder_params_internal.h"
 #include "recorder/src/service/qmmf_recorder_service.h"
+#include "recorder/src/client/qmmf_recorder_params_internal.h"
 
 namespace qmmf {
 
