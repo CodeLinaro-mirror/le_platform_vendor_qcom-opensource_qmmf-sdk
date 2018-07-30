@@ -33,7 +33,7 @@
 #include <vector>
 #include <set>
 
-#include "qmmf-plugin/qmmf_alg_plugin.h"
+#include <qmmf-alg/qmmf_alg_plugin.h>
 
 #include "include/qmmf-sdk/qmmf_codec.h"
 

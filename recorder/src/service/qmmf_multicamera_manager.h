@@ -35,7 +35,7 @@
 #include <future>
 #include <mutex>
 
-#include <qmmf-plugin/qmmf_alg_intf.h>
+#include <qmmf-alg/qmmf_alg_intf.h>
 #include <qmmf-sdk/qmmf_recorder_extra_param.h>
 #include <qmmf-sdk/qmmf_recorder_extra_param_tags.h>
 

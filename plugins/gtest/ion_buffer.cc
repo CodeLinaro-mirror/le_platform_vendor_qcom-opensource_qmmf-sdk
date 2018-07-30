@@ -35,8 +35,9 @@
 #include <sys/mman.h>
 #include <cstring>
 
+#include <qmmf-alg/qmmf_alg_utils.h>
+
 #include "ion_buffer.h"
-#include "qmmf-plugin/qmmf_alg_utils.h"
 
 namespace qmmf {
 namespace qmmf_alg_plugin {

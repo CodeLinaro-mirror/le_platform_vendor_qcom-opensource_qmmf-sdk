@@ -33,7 +33,7 @@
 #include <mutex>
 #include <string>
 
-#include "qmmf-plugin/qmmf_alg_plugin.h"
+#include <qmmf-alg/qmmf_alg_plugin.h>
 
 #include "common/utils/qmmf_common_utils.h"
 
