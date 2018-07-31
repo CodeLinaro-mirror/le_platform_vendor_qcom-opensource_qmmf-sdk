@@ -72,6 +72,8 @@ const std::map<std::string, PixelFormat>
         {"Nv12UBWC", kNv12UBWC},
         {"Nv21", kNv21},
         {"Nv21UBWC", kNv21UBWC},
+        {"Nv16", kNv16},
+        {"Nv61", kNv61},
         {"Yuv420", kYuv420},
         {"Yvu420", kYvu420},
         {"Yuv420p", kYuv420p},
