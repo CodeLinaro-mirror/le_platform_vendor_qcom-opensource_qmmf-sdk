@@ -40,13 +40,11 @@
 #include <sdm/core/debug_interface.h>
 #endif
 
+#include "qmmf-sdk/qmmf_display_params.h"
+
 using namespace sdm;
 #ifdef QMMF_DISPLAY_INTF_v1
 using namespace display;
-
-#define DISPLAY_ERROR int
-#else
-#define DISPLAY_ERROR DisplayError
 #endif
 //Prop to enable Display logging
 #define DISPLAY_LOG_LEVEL  "persist.qmmf.display.log"
@@ -54,10 +52,10 @@ using namespace display;
 namespace qmmf {
 
 namespace display {
-
-class DisplayDebugHandler : public DebugHandler {
+#ifndef QMMF_DISPLAY_INTF_v1
+class DisplayDebugHandlerV1 : public DebugHandler {
  public:
-  DisplayDebugHandler();
+  DisplayDebugHandlerV1();
   static inline DebugHandler* Get() { return &debug_handler_; }
 
   static void DebugAll(bool enable, int verbose_level);
@@ -68,37 +66,60 @@ class DisplayDebugHandler : public DebugHandler {
   static void DebugRotator(bool enable, int verbose_level);
   static void DebugQdcm(bool enable, int verbose_level);
   static int  GetIdleTimeoutMs();
+
+  virtual void Error(::DebugTag tag, const char *format, ...) override;
+  virtual void Warning(::DebugTag tag, const char *format, ...) override;
+  virtual void Info(::DebugTag tag, const char *format, ...) override;
+  virtual void Debug(::DebugTag tag, const char *format, ...) override;
+  virtual void Verbose(::DebugTag tag, const char *format, ...) override ;
   virtual void BeginTrace(const char *class_name, const char *function_name,
                           const char *custom_string) override;
-  virtual void EndTrace() override;
-  DISPLAY_ERROR GetProperty(const char *property_name, int *value);
-  DISPLAY_ERROR GetProperty(const char *property_name, char *value);
-
-// SDM interface version 1 related implementation
-  void Error(DebugTag tag, const char *format, ...);
-  void Warning(DebugTag tag, const char *format, ...);
-  void Info(DebugTag tag, const char *format, ...);
-  void Debug(DebugTag tag, const char *format, ...);
-  void Verbose(DebugTag tag, const char *format, ...);
+  void EndTrace() override;
+  DisplayError GetProperty(const char *property_name, int *value) override;
+  DisplayError GetProperty(const char *property_name, char *value) override;
   DisplayError SetProperty(const char *property_name,
-      const char *value);
-// SDM interface version 1 related implementation
+      const char *value) override;
+
+ private:
+  static DisplayDebugHandlerV1 debug_handler_;
+  static std::bitset<32> debug_flags_;
+  static int32_t verbose_level_;
+};
+#else
+class DisplayDebugHandlerV2 : public DebugHandler {
+ public:
+  DisplayDebugHandlerV2();
+  static inline DebugHandler* Get() { return &debug_handler_; }
+
+  static void DebugAll(bool enable, int verbose_level);
+  static void DebugResources(bool enable, int verbose_level);
+  static void DebugStrategy(bool enable, int verbose_level);
+  static void DebugCompManager(bool enable, int verbose_level);
+  static void DebugDriverConfig(bool enable, int verbose_level);
+  static void DebugRotator(bool enable, int verbose_level);
+  static void DebugQdcm(bool enable, int verbose_level);
   static void DebugScalar(bool enable, int verbose_level);
   static void DebugClient(bool enable, int verbose_level);
   static void DebugDisplay(bool enable, int verbose_level);
-  void Error(const char *format, ...);
-  void Warning(const char *format, ...);
-  void Info(const char *format, ...);
-  void Debug(const char *format, ...);
-  void Verbose(const char *format, ...);
+  static int  GetIdleTimeoutMs();
+
+  void Error(const char *format, ...) override;
+  void Warning(const char *format, ...) override;
+  void Info(const char *format, ...) override;
+  void Debug(const char *format, ...) override;
+  void Verbose(const char *format, ...) override;
+  void BeginTrace(const char *class_name, const char *function_name,
+                          const char *custom_string) override;
+  void EndTrace() override;
+  int GetProperty(const char *property_name, int *value) override;
+  int GetProperty(const char *property_name, char *value) override;
 
  private:
-  static DisplayDebugHandler debug_handler_;
+  static DisplayDebugHandlerV2 debug_handler_;
   static std::bitset<32> debug_flags_;
   static int32_t verbose_level_;
-  static void SetMask(const std::bitset<32> &log_mask);
 };
-
+#endif
 }; // namespace display
 
 }; //namespace qmmf

@@ -53,21 +53,8 @@ namespace display {
 
 using namespace sdm;
 
-class DisplayBufferAllocator : public BufferAllocator {
- public:
-  virtual DisplayError AllocateBuffer(BufferInfo *buffer_info);
-  virtual DisplayError FreeBuffer(BufferInfo *buffer_info);
-  virtual uint32_t GetBufferSize(BufferInfo *buffer_info);
-  virtual DisplayError GetBufferInfo(BufferInfo *buffer_info,
-                                     int32_t &aligned_width,
-                                     int32_t &aligned_height);
-  virtual DisplayError GetAllocatedBufferInfo(
-      const BufferConfig &buffer_config,
-      AllocatedBufferInfo *allocated_buffer_info);
-};
-
 #ifndef TARGET_USES_GRALLOC1
-class DisplayBufferAllocatorGralloc : public DisplayBufferAllocator {
+class DisplayBufferAllocatorGralloc : public BufferAllocator {
  public:
   DisplayBufferAllocatorGralloc();
   DisplayError AllocateBuffer(BufferInfo *buffer_info) override;
@@ -90,7 +77,7 @@ class DisplayBufferAllocatorGralloc : public DisplayBufferAllocator {
 };
 
 #else
-class DisplayBufferAllocatorGralloc1 : public DisplayBufferAllocator {
+class DisplayBufferAllocatorGralloc1 : public BufferAllocator {
  public:
   DisplayBufferAllocatorGralloc1();
   virtual DisplayError AllocateBuffer(BufferInfo *buffer_info);

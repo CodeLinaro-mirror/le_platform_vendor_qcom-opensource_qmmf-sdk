@@ -72,6 +72,12 @@ using ::sdm::LayerBufferFormat;
 #define NUM_DISPLAY_ALLOWED 3
 #define FLOAT(exp) static_cast<float>(exp)
 
+#ifndef QMMF_DISPLAY_INTF_v1
+#define DISPLAY_EVENT DisplayEvent
+#else
+#define DISPLAY_EVENT ::DisplayEvent
+#endif
+
 class DisplayImpl : public DisplayEventHandler
 {
  public:
@@ -134,7 +140,8 @@ class DisplayImpl : public DisplayEventHandler
                              void *data);
   virtual DisplayError Refresh();
   virtual DisplayError CECMessage(char *message);
-  DisplayError HandleEvent(DisplayEvent event);
+
+  DisplayError HandleEvent(DISPLAY_EVENT event);
 
  private:
 

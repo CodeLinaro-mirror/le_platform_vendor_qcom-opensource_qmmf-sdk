@@ -126,7 +126,7 @@ DisplayImpl::DisplayImpl()
 
   if(!core_intf_) {
 #ifndef QMMF_DISPLAY_INTF_v1
-    DisplayError error = CoreInterface::CreateCore(DisplayDebugHandler::Get(),
+    DisplayError error = CoreInterface::CreateCore(DisplayDebugHandlerV1::Get(),
         &buffer_allocator_, &buffer_sync_handler_, &core_intf_);
     is_first_commit_ = false;
 #else
@@ -1380,7 +1380,7 @@ DisplayError DisplayImpl::CECMessage(char *message) {
   return kErrorNotSupported;
 }
 
-DisplayError DisplayImpl::HandleEvent(DisplayEvent event) {
+DisplayError DisplayImpl::HandleEvent(DISPLAY_EVENT event) {
   return kErrorNotSupported;
 }
 

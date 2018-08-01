@@ -88,7 +88,7 @@ DisplayError DisplayBufferAllocatorGralloc::AllocateBuffer(
     alloc_flags |= GRALLOC_USAGE_PRIVATE_UNCACHED;
   }
 
-  auto error = SetBufferInfo(buffer_config.format, &format, &alloc_flags);
+  error = SetBufferInfo(buffer_config.format, &format, &alloc_flags);
   if (error != 0) {
     delete meta_buffer_info;
     return kErrorParameters;
