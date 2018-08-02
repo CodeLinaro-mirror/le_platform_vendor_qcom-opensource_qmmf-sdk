@@ -94,11 +94,15 @@ status_t VideoSink::CreateTrackSink(uint32_t track_id,
                                     VideoTrackParams& track_param,
                                     TrackCb& callback) {
   QMMF_DEBUG("%s Enter ", __func__);
-  shared_ptr<VideoTrackSink> track_sink;
+  shared_ptr<VideoTrackSink> track_sink { };
 
   if (track_param.params.out_device == VideoOutSubtype::kHDMI)
     track_sink = make_shared<VideoTrackSink>();
 
+  if (!track_sink) {
+    QMMF_ERROR("%s: Can't Instantiate track_sink", __func__);
+    return NO_MEMORY;
+  }
   video_track_sinks.add(track_id,track_sink);
   auto ret = track_sink->Init(track_param, callback);
   if(ret != 0) {
@@ -565,7 +569,7 @@ void VideoTrackSink::AddBufferList(Vector<CodecBuffer>& list) {
 
   buf_info_map.clear();
   for (auto& iter : output_buffer_list_) {
-    BufInfo bufinfo_temp;
+    BufInfo bufinfo_temp {};
     bufinfo_temp.vaddr = iter.pointer;
     buf_info_map.add(iter.fd, bufinfo_temp);
   }
@@ -1158,7 +1162,12 @@ status_t VideoTrackSink::DeleteDisplay(display::DisplayType display_type) {
 
   if (display_started_ == 1) {
     display_started_ =0;
+    if (display_ == nullptr) {
+      QMMF_ERROR("Display not started, null");
+      return -EFAULT;
+    }
     res = display_->DestroySurface(surface_id_);
+
     if (res != 0) {
       QMMF_ERROR("%s DestroySurface Failed!!", __func__);
     }

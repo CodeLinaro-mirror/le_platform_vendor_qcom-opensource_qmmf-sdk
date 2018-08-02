@@ -93,8 +93,15 @@ status_t AudioSink::CreateTrackSink(uint32_t track_id,
   QMMF_DEBUG("%s Enter ", __func__);
   shared_ptr<AudioTrackSink> track_sink;
 
-  if (param.params.out_device == AudioOutSubtype::kBuiltIn)
+  if (param.params.out_device == AudioOutSubtype::kBuiltIn) {
     track_sink = make_shared<AudioTrackSink>();
+  }
+
+  if (!track_sink) {
+    QMMF_ERROR("%s: track_id(%d) AudioTrackSink failed!", __func__,
+        track_id);
+    return -ENODATA;
+  }
 
   audio_track_sinks.add(track_id,track_sink);
   track_sink->Init(param, track_callback, player_callback);

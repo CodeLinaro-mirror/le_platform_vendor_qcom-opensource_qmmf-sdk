@@ -123,7 +123,7 @@ status_t AudioRawSink::CreateTrackSink(uint32_t track_id,
   }
 
   shared_ptr<AudioRawTrackSink> track_sink = make_shared<AudioRawTrackSink>();
-  if (track_sink == nullptr) {
+  if (!track_sink) {
     QMMF_ERROR("%s() could not instantiate track_sink[%u]",
                __func__, track_id);
     return ::android::NO_MEMORY;

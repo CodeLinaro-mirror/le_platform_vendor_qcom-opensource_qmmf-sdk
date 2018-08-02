@@ -410,7 +410,10 @@ bool AudioDecoderCore::isTrackValid(uint32_t track_id) {
 /************************* Audio Decoding ********************************/
 
 AudioTrackDecoder::AudioTrackDecoder(int32_t ion_device)
-    : ion_device_(ion_device), stop_received_(false),
+    : ion_handle_data_({}),
+      ion_device_(ion_device),
+      stop_received_(false),
+      input_buffer_notify_params_({}),
       pause_(false) {
   QMMF_DEBUG("%s: Enter", __func__);
 
