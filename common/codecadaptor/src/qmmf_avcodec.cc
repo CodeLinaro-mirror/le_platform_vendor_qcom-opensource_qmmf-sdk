@@ -497,7 +497,7 @@ status_t AVCodec::RegisterOutputBuffers(vector<BufferDescriptor>& list) {
 
   if (format_type_ == CodecType::kVideoEncoder) {
     for (auto& iter : list) {
-      OMX_QCOM_PLATFORM_PRIVATE_PMEM_INFO pParam;
+      OMX_QCOM_PLATFORM_PRIVATE_PMEM_INFO pParam{};
       pParam.pmem_fd = iter.fd;
       pParam.offset = 0;
       outputpParam_enc_.push_back(pParam);
@@ -505,18 +505,31 @@ status_t AVCodec::RegisterOutputBuffers(vector<BufferDescriptor>& list) {
   }
 
   if (format_type_ == CodecType::kVideoDecoder) {
-    for (auto& iter : list) {
-      struct VideoDecoderOutputMetaData pParam;
-      pParam.pHandle = (buffer_handle_t)malloc(sizeof(struct private_handle_t));
-      private_handle_t* temp =  const_cast<private_handle_t*>
-                                    (static_cast<const private_handle_t*>
-                                    (pParam.pHandle));
-      temp->fd = iter.fd;
+    size_t outparam_size = outputpParam_dec_.size();
+    for (size_t index = 0; index < list.size(); index++) {
+      struct VideoDecoderOutputMetaData param;
+      param.pHandle =
+          static_cast<buffer_handle_t>(malloc(sizeof(struct private_handle_t)));
+      if (param.pHandle == nullptr) {
+        QMMF_ERROR("%s: Mem allocation failed!", __func__);
+        for (size_t inner_index = outparam_size + index - 1;
+             inner_index >= outparam_size; inner_index--) {
+          free(const_cast<private_handle_t*>(
+              static_cast<const private_handle_t*>(
+                  outputpParam_dec_[inner_index].pHandle)));
+          outputpParam_dec_.pop_back();
+        }
+        return -ENOMEM;
+      }
+
+      private_handle_t* temp = const_cast<private_handle_t*>(
+          static_cast<const private_handle_t*>(param.pHandle));
+      temp->fd = list[index].fd;
       // temp->size should contain the size of the memory being allocated using
       // ion driver
-      temp->size = iter.capacity;
+      temp->size = list[index].capacity;
       temp->flags = 0x0;
-      outputpParam_dec_.push_back(pParam);
+      outputpParam_dec_.push_back(param);
     }
   }
 
@@ -2290,40 +2303,42 @@ status_t AVCodec::AllocateBuffer(uint32_t port_type, uint32_t buf_count,
   OMX_PARAM_PORTDEFINITIONTYPE port_def;
   InitOMXParams(&port_def);
   port_def.nPortIndex = port_type;
-  ret = omx_client_->GetParameter(OMX_IndexParamPortDefinition, &port_def);
+  ret = omx_client_->GetParameter(OMX_IndexParamPortDefinition,
+                                  reinterpret_cast<OMX_PTR>(&port_def));
   if(ret != OK) {
       QMMF_ERROR("%s Failed to getParameter on %s", __func__,
-          PORT_NAME(port_type));
+                 PORT_NAME(port_type));
       return ret;
   }
 
   if (format_type_ == CodecType::kVideoEncoder) {
-    uint32_t buf_count = (port_type == kPortIndexInput) ?
-                             INPUT_MAX_COUNT : OUTPUT_MAX_COUNT;
+    uint32_t buf_count = (port_type == kPortIndexInput) ? INPUT_MAX_COUNT
+                                                        : OUTPUT_MAX_COUNT;
 
     if (slice_mode_encoding_) {
       buf_count = (port_type == kPortIndexInput) ? INPUT_MAX_COUNT
                                                  : port_def.nBufferCountActual;
     }
 
-    if(port_def.nBufferCountActual != buf_count) {
+    if (port_def.nBufferCountActual != buf_count) {
 
       port_def.nBufferCountActual = buf_count;
       ret = omx_client_->SetParameter(OMX_IndexParamPortDefinition,
-                                     (OMX_PTR)&port_def);
+                                      reinterpret_cast<OMX_PTR>(&port_def));
       if(ret != OK) {
         QMMF_ERROR("%s Failed to set new buffer count(%d) on %s",
             __func__, port_def.nBufferCountActual, PORT_NAME(port_type));
         return ret;
       }
-      ret = omx_client_->GetParameter(OMX_IndexParamPortDefinition, &port_def);
+      ret = omx_client_->GetParameter(OMX_IndexParamPortDefinition,
+                                      reinterpret_cast<OMX_PTR>(&port_def));
       if(ret != OK) {
         QMMF_ERROR("%s Failed to getParameter on %s", __func__,
-            PORT_NAME(port_type));
+                   PORT_NAME(port_type));
         return ret;
       }
       QMMF_INFO("%s New Buf count(%d), size(%d)", __func__,
-          port_def.nBufferCountActual, port_def.nBufferSize);
+                port_def.nBufferCountActual, port_def.nBufferSize);
       assert(buf_count == port_def.nBufferCountActual);
     }
 
@@ -2337,12 +2352,13 @@ status_t AVCodec::AllocateBuffer(uint32_t port_type, uint32_t buf_count,
     assert(source.get() != nullptr);
     input_source_ = source;
 
-    //allocate memory for buffer header
+    // allocate memory for buffer header
     in_buff_hdr_ = new OMX_BUFFERHEADERTYPE*[port_def.nBufferCountActual];
-    if(in_buff_hdr_ ==  nullptr) {
+    if (in_buff_hdr_ ==  nullptr) {
       QMMF_ERROR("%s Failed to allocate buffer header on %s", __func__,
-          PORT_NAME(kPortIndexInput));
-      return NO_MEMORY;
+                 PORT_NAME(kPortIndexInput));
+      ret = -ENOMEM;
+      goto release_buf_hdr;
     }
 
     if (format_type_ == CodecType::kVideoEncoder) {
@@ -2351,12 +2367,12 @@ status_t AVCodec::AllocateBuffer(uint32_t port_type, uint32_t buf_count,
       meta_mode.nPortIndex = kPortIndexInput;
       meta_mode.bStoreMetaData = OMX_TRUE;
       ret = omx_client_->SetParameter(
-                (OMX_INDEXTYPE)OMX_QcomIndexParamVideoMetaBufferMode,
-                (OMX_PTR)&meta_mode);
+          static_cast<OMX_INDEXTYPE>(OMX_QcomIndexParamVideoMetaBufferMode),
+          reinterpret_cast<OMX_PTR>(&meta_mode));
       if(ret != OK) {
         QMMF_ERROR("%s Failed to set VideoEncode MetaBufferMode",
             __func__);
-        return ret;
+        goto release_buf_hdr;
       }
     }
 
@@ -2366,9 +2382,10 @@ status_t AVCodec::AllocateBuffer(uint32_t port_type, uint32_t buf_count,
 
     out_buff_hdr_ = new OMX_BUFFERHEADERTYPE*[port_def.nBufferCountActual];
     if(out_buff_hdr_ ==  nullptr) {
-        QMMF_ERROR("%s Failed to allocate buffer header on %s",
-                   __func__, PORT_NAME(kPortIndexOutput));
-        return NO_MEMORY;
+        QMMF_ERROR("%s Failed to allocate buffer header on %s", __func__,
+                   PORT_NAME(kPortIndexOutput));
+        ret = -ENOMEM;
+        goto release_buf_hdr;
     }
 
     if (format_type_ == CodecType::kVideoDecoder) {
@@ -2377,17 +2394,27 @@ status_t AVCodec::AllocateBuffer(uint32_t port_type, uint32_t buf_count,
       meta_mode.nPortIndex = kPortIndexOutput;
       meta_mode.bStoreMetaData = OMX_TRUE;
       ret = omx_client_->SetParameter(
-                (OMX_INDEXTYPE)OMX_QcomIndexParamVideoMetaBufferMode,
-                (OMX_PTR)&meta_mode);
+          static_cast<OMX_INDEXTYPE>(OMX_QcomIndexParamVideoMetaBufferMode),
+          reinterpret_cast<OMX_PTR>(&meta_mode));
       if (ret != OK) {
-        QMMF_ERROR("%s Failed to set VideoDecode MetaBufferMode",
-            __func__);
-        return ret;
+        QMMF_ERROR("%s Failed to set VideoDecode MetaBufferMode", __func__);
+        goto release_buf_hdr;
       }
     }
   }
 
   QMMF_INFO("%s Exit", __func__);
+  return ret;
+
+release_buf_hdr:
+  if (out_buff_hdr_ != nullptr) {
+    delete[] out_buff_hdr_;
+    out_buff_hdr_ = nullptr;
+  } else if (in_buff_hdr_ != nullptr) {
+    delete[] in_buff_hdr_;
+    in_buff_hdr_ = nullptr;
+  }
+
   return ret;
 }
 

@@ -2101,7 +2101,7 @@ TEST_F(Camera3Gtest, Video1080pSharpness) {
 TEST_F(Camera3Gtest, Video1080pZoom) {
   CameraStreamParameters streamParams;
   Camera3Request videoRequest;
-  int64_t lastFrameNumber;
+  int64_t lastFrameNumber = -1;
   int32_t repeatingStreamId, videoRequestId = -1;
   CameraMetadata staticInfo;
   int32_t width, height;
