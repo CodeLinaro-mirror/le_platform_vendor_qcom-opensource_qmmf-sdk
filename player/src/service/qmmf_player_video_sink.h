@@ -190,11 +190,12 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
   TSQueue<::qmmf::avcodec::CodecBuffer>            output_free_buffer_queue_;
   TSQueue<::qmmf::avcodec::CodecBuffer>            output_occupy_buffer_queue_;
 
-  std::mutex              wait_for_frame_lock_;
-  QCondition              wait_for_frame_;
+  std::mutex              get_buffer_wait_lock_;
+  QCondition              get_buffer_wait_;
   bool                    stop_called_;
   bool                    stop_notify_called_;
-  bool                    paused_;
+  std::atomic<bool>       paused_;
+  bool                    port_reconfigured_;
   uint32_t                decoded_frame_number_;
   uint64_t                last_queued_timestamp_;
   uint64_t                seek_time_;

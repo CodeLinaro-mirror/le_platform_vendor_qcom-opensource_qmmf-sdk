@@ -19594,6 +19594,8 @@ TEST_F(RecorderGtest,
                                           height, 30};
 
   video_track_param.codec_param.avc.bitrate = kBitRate4k30;
+  video_track_param.codec_param.avc.ratecontrol_type =
+      VideoRateControlType::kVariable;
 
   TrackCb video_track_cb;
   video_track_cb.data_cb = [&, session_id](
@@ -19785,6 +19787,9 @@ TEST_F(RecorderGtest,
                                           height, 30};
 
   video_track_param.codec_param.avc.bitrate = kBitRate4k30;
+  video_track_param.codec_param.avc.ratecontrol_type =
+      VideoRateControlType::kVariable;
+
   TrackCb video_track_cb;
   video_track_cb.data_cb = [&, session_id](
       uint32_t track_id, std::vector<BufferDescriptor> buffers,
@@ -19988,6 +19993,8 @@ TEST_F(RecorderGtest,
                                           height, 30};
 
   video_track_param.codec_param.avc.bitrate = kBitRate4k30;
+  video_track_param.codec_param.avc.ratecontrol_type =
+      VideoRateControlType::kVariable;
 
   TrackCb video_track_cb;
   video_track_cb.data_cb = [&, session_id](
@@ -20198,6 +20205,8 @@ TEST_F(RecorderGtest,
                                             width, height, 60};
 
     video_track_param.codec_param.avc.bitrate = kBitRate1440p60;
+    video_track_param.codec_param.avc.ratecontrol_type =
+        VideoRateControlType::kVariable;
 
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id](
@@ -20409,6 +20418,8 @@ TEST_F(RecorderGtest,
                                             width, height, 60};
 
     video_track_param.codec_param.avc.bitrate = kBitRate1440p60;
+    video_track_param.codec_param.avc.ratecontrol_type =
+        VideoRateControlType::kVariable;
 
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id](
@@ -20615,6 +20626,8 @@ TEST_F(RecorderGtest,
                                             width, height, 60};
 
     video_track_param.codec_param.avc.bitrate = kBitRate1440p60;
+    video_track_param.codec_param.avc.ratecontrol_type =
+        VideoRateControlType::kVariable;
 
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id](
@@ -20815,6 +20828,9 @@ TEST_F(RecorderGtest,
                                             width, height, 60};
 
     video_track_param.codec_param.avc.bitrate = kBitRate1440p60;
+    video_track_param.codec_param.avc.ratecontrol_type =
+        VideoRateControlType::kVariable;
+
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
@@ -21787,6 +21803,8 @@ TEST_F(RecorderGtest,
                                             width, height, 90};
 
     video_track_param.codec_param.avc.bitrate = kBitRate960p90;
+    video_track_param.codec_param.avc.ratecontrol_type =
+        VideoRateControlType::kVariable;
 
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id](
@@ -22225,6 +22243,8 @@ TEST_F(RecorderGtest,
                                             width, height, 30};
 
     video_track_param.codec_param.avc.bitrate = kBitRate1440p30;
+    video_track_param.codec_param.avc.ratecontrol_type =
+        VideoRateControlType::kVariable;
 
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id](
@@ -22450,6 +22470,8 @@ TEST_F(RecorderGtest,
                                             width, height, 30};
 
     video_track_param.codec_param.avc.bitrate = kBitRate1440p30;
+    video_track_param.codec_param.avc.ratecontrol_type =
+        VideoRateControlType::kVariable;
 
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id](
@@ -22660,6 +22682,8 @@ TEST_F(RecorderGtest, SessionWith4kEncCopy480pEncAndLinked480pYUVTrack) {
                                           height, 30};
 
   video_track_param.codec_param.avc.bitrate = kBitRate4k30;
+  video_track_param.codec_param.avc.ratecontrol_type =
+      VideoRateControlType::kVariable;
 
   TrackCb video_track_cb;
   video_track_cb.data_cb = [&, session_id](
@@ -22845,6 +22869,8 @@ TEST_F(RecorderGtest,
                                             width, height, 30};
 
     video_track_param.codec_param.avc.bitrate = kBitRate1440p30;
+    video_track_param.codec_param.avc.ratecontrol_type =
+        VideoRateControlType::kVariable;
 
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id](
@@ -23026,6 +23052,8 @@ TEST_F(RecorderGtest,
                                             width, height, 30};
 
     video_track_param.codec_param.avc.bitrate = kBitRate1440p30;
+    video_track_param.codec_param.avc.ratecontrol_type =
+        VideoRateControlType::kVariable;
 
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id](
@@ -23214,6 +23242,8 @@ TEST_F(RecorderGtest, SessionWith960p90FPSEncCopy480pEncAndLinked480pYUVTrack) {
                                             width, height, 90};
 
     video_track_param.codec_param.avc.bitrate = kBitRate960p90;
+    video_track_param.codec_param.avc.ratecontrol_type =
+        VideoRateControlType::kVariable;
 
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id](
@@ -23395,6 +23425,8 @@ TEST_F(RecorderGtest,
                                             width, height, 90};
 
     video_track_param.codec_param.avc.bitrate = kBitRate960p90;
+    video_track_param.codec_param.avc.ratecontrol_type =
+        VideoRateControlType::kVariable;
 
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id](
@@ -23587,6 +23619,8 @@ TEST_F(RecorderGtest,
                                             width, height, 90};
 
     video_track_param.codec_param.avc.bitrate = kBitRate960p90;
+    video_track_param.codec_param.avc.ratecontrol_type =
+        VideoRateControlType::kVariable;
 
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id](

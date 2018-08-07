@@ -29,8 +29,8 @@
 
 #define LOG_TAG "RecorderImpl"
 
-#include "recorder/src/client/qmmf_recorder_params_internal.h"
 #include "recorder/src/service/qmmf_recorder_impl.h"
+#include "recorder/src/client/qmmf_recorder_params_internal.h"
 
 #ifdef LOG_LEVEL_KPI
 volatile uint32_t kpi_debug_level = BASE_KPI_FLAG;

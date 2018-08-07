@@ -513,6 +513,7 @@ bool DisplayClient::checkServiceStatus() {
 void DisplayClient::notifyDisplayEvent(DisplayEventType event_type,
     void *event_data, size_t event_data_size) {
   QMMF_VERBOSE("%s Enter ", __func__);
+  display_cb_.EventCb(event_type, event_data, event_data_size);
   QMMF_VERBOSE("%s Exit ", __func__);
 }
 
@@ -914,6 +915,8 @@ ServiceCallbackHandler::~ServiceCallbackHandler() {
 void ServiceCallbackHandler::notifyDisplayEvent(DisplayEventType event_type,
     void *event_data, size_t event_data_size) {
   QMMF_DEBUG("%s Enter ", __func__);
+  assert(client_ != nullptr);
+  client_->notifyDisplayEvent(event_type, event_data, event_data_size);
   QMMF_DEBUG("%s Exit ", __func__);
 }
 
@@ -939,6 +942,17 @@ class BpDisplayServiceCallback: public BpInterface<IDisplayServiceCallback> {
   void notifyDisplayEvent(DisplayEventType event_type, void *event_data,
       size_t event_data_size) {
 
+    Parcel data, reply;
+    data.writeInterfaceToken(IDisplayServiceCallback::getInterfaceDescriptor());
+    data.writeInt32(static_cast<int32_t>(event_type));
+    uint32_t eventSize = event_data_size;
+    data.writeUint32(eventSize);
+    android::Parcel::WritableBlob blob;
+    data.writeBlob(eventSize, false, &blob);
+    memcpy(blob.data(), reinterpret_cast<void*>(event_data), eventSize);
+    remote()->transact(uint32_t(DISPLAY_SERVICE_CB_CMDS::
+        DISPLAY_NOTIFY_EVENT), data, &reply);
+    blob.release();
   }
 
   void notifySessionEvent(DisplayEventType event_type, void *event_data,
@@ -974,7 +988,14 @@ status_t BnDisplayServiceCallback::onTransact(uint32_t code,
 
   switch(code) {
     case DISPLAY_SERVICE_CB_CMDS::DISPLAY_NOTIFY_EVENT: {
-      //TODO:
+      DisplayEventType event_type = static_cast<DisplayEventType>(data.readInt32());
+      uint32_t blobSize;
+      data.readUint32(&blobSize);
+      android::Parcel::ReadableBlob blob;
+      data.readBlob(blobSize, &blob);
+      void* event = const_cast<void*>(blob.data());
+      notifyDisplayEvent(event_type,event,blobSize);
+      blob.release();
       return NO_ERROR;
     }
     break;

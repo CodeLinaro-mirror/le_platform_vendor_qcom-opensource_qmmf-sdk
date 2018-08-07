@@ -27,10 +27,12 @@
  */
 #pragma once
 
-#include <media/msm_media_info.h>
-#include <sys/mman.h>
 #include <mutex>
 #include <thread>
+
+#include <media/msm_media_info.h>
+#include <sys/mman.h>
+
 #include "common/codecadaptor/src/qmmf_avcodec.h"
 
 #ifndef DISABLE_PP_JPEG

@@ -246,15 +246,15 @@ int32_t DisplayTest::SetDisplayParam() {
 
   TEST_INFO("%s: Enter", __func__);
   DisplayParamType param_type;
-  void *param;
-  size_t param_size = 0;
-  param=operator new(param_size);
-  param_type = DisplayParamType::kSaturation;
-  auto ret = display_->SetDisplayParam(param_type, param, param_size);
+  static int32_t param = 0;
+  param_type = DisplayParamType::kDisplayState;
+  auto ret = display_->SetDisplayParam(param_type, (void*)(&param), sizeof(int));
+  param = !param;
+
   if(ret != 0) {
     TEST_ERROR("%s SetDisplayParam Failed!!", __func__);
   }
-  operator delete(param);
+
   TEST_INFO("%s: Exit", __func__);
 
   return 0;
@@ -309,6 +309,19 @@ void DisplayTest::DisplayCallbackHandler(DisplayEventType event_type,
     void *event_data, size_t event_data_size)
 {
   TEST_INFO("%s: Enter", __func__);
+  if(event_type == DisplayEventType::kError) {
+    assert(sizeof(DisplayErrorType) == event_data_size);
+    DisplayErrorType* display_error = reinterpret_cast<DisplayErrorType*>(event_data);
+    switch(*display_error) {
+      case DisplayErrorType::kVSyncError:
+        QMMF_ERROR("%s: Error received, Vsync Error", __func__);
+        break;
+      default:
+        QMMF_ERROR("%s: Error Received but error not defined", __func__);
+        break;
+    }
+    assert(0);
+  }
   TEST_INFO("%s: Exit", __func__);
 }
 

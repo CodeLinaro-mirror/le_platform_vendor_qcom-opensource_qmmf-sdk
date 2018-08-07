@@ -455,6 +455,8 @@ class RecorderTest {
 
   status_t Session1080pYUVTrackWithPreview();
 
+  status_t ToggleDisplayState();
+
   status_t CreateAudioPCMTrack();
 
   status_t CreateAudio2PCMTrack();
@@ -719,6 +721,8 @@ class TestTrack {
   status_t StartDisplay(DisplayType display_type);
 
   status_t StopDisplay(DisplayType display_type);
+
+  status_t ToggleDisplayState();
 #endif
 
   const TrackInfo& GetTrackHandle(){return track_info_;}
@@ -733,7 +737,10 @@ class TestTrack {
 
 #ifndef DISABLE_DISPLAY
   status_t PushFrameToDisplay(BufferDescriptor& buffer,
-    CameraBufferMetaData& meta_data);
+                              CameraBufferMetaData& meta_data);
+
+  qmmf::display::DisplayParamType display_param_type_;
+  int32_t display_param_;
 #endif
 
   TrackInfo track_info_;
@@ -809,6 +816,7 @@ public:
         CREATE_RDI_SESSION_CMD                          = 'r',
         CREATE_YUV_SESSION_DISPLAY_CMD                  = 'Z',
         CREATE_YUV_SESSION_PREVIEW_CMD                  = 'Y',
+        TOGGLE_DISPLAY_STATE                            = 'w',
         START_SESSION_CMD                               = 'A',
         STOP_SESSION_CMD                                = 'B',
         TAKE_SNAPSHOT_CMD                               = 'S',

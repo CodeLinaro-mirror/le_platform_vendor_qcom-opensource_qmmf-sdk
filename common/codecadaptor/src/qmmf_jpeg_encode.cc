@@ -28,6 +28,7 @@
 
 #define LOG_TAG "AVCodecJpegEncode"
 
+#include <atomic>
 #include <cmath>
 #include <chrono>
 #include <cstdlib>

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -29,8 +29,7 @@
 
 #define LOG_TAG "RecorderAudioRawTrackSource"
 
-#include "recorder/src/service/qmmf_audio_track_source.h"
-
+#include <atomic>
 #include <cstdint>
 #include <cstring>
 #include <mutex>
@@ -38,10 +37,12 @@
 #include <string>
 #include <thread>
 #include <vector>
+#include <sys/prctl.h>
 
 #include "common/audio/inc/qmmf_audio_definitions.h"
 #include "common/audio/inc/qmmf_audio_endpoint.h"
 #include "common/utils/qmmf_log.h"
+#include "recorder/src/service/qmmf_audio_track_source.h"
 #include "recorder/src/service/qmmf_recorder_common.h"
 #include "recorder/src/service/qmmf_recorder_ion.h"
 
@@ -374,7 +375,7 @@ void AudioRawTrackSource::BufferHandler(const AudioBuffer& buffer) {
 
 void AudioRawTrackSource::ThreadEntry(AudioRawTrackSource* source) {
   QMMF_DEBUG("%s() TRACE: track_id", __func__);
-
+  prctl(PR_SET_NAME, "AudRawSrcTh", 0, 0, 0);
   source->Thread();
 }
 

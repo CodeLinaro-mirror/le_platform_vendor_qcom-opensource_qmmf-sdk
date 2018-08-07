@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -38,6 +38,7 @@
 #include <string>
 #include <thread>
 #include <vector>
+#include <sys/prctl.h>
 
 #include "common/utils/qmmf_log.h"
 #include "common/audio/inc/qmmf_audio_definitions.h"
@@ -271,7 +272,28 @@ status_t AudioRawSink::PrepareDrag(uint32_t track_id, bool ignore_fps) {
                __func__, track_id, result);
     return result;
   }
+  QMMF_INFO("%s: Exit", __func__);
+  return ::android::NO_ERROR;
+}
 
+status_t AudioRawSink::NotifyInputBuffer(uint32_t track_id) {
+  QMMF_INFO("%s: Enter", __func__);
+
+  AudioTrackSinkMap::iterator track_sink_iterator =
+      track_sink_map_.find(track_id);
+  if (track_sink_iterator == track_sink_map_.end()) {
+    QMMF_ERROR("%s() no track exists with track_id[%u]", __func__,
+               track_id);
+    return ::android::BAD_VALUE;
+  }
+
+  status_t result = track_sink_iterator->second->NotifyInputBuffer();
+  if (result != NO_ERROR) {
+    QMMF_ERROR("%s() track_sink[%u]->NotifyInputBuffer failed: %d",
+               __func__, track_id, result);
+    return result;
+  }
+  QMMF_INFO("%s: Exit", __func__);
   return ::android::NO_ERROR;
 }
 
@@ -610,6 +632,11 @@ status_t AudioRawTrackSink::StopSink() {
     messages_.pop();
   message_lock_.unlock();
 
+  av_buffers_lock_.lock();
+  while(!av_buffers_.empty())
+    av_buffers_.pop();
+  av_buffers_lock_.unlock();
+
   if (track_params_.params.pts_callback_interval != 0) {
     pts_thread_lock_.lock();
     if (pts_thread_ != nullptr) {
@@ -699,13 +726,27 @@ status_t AudioRawTrackSink::ResumeSink() {
 
 status_t AudioRawTrackSink::PrepareDrag(bool ignore_fps) {
   QMMF_INFO("%s: Enter", __func__);
+  auto ret = 0;
   if(!ignore_fps) {
-    if (input_buffer_notify_params_.num_free_buffers > 0) {
-      track_callback_.event_cb(track_params_.track_id,
-                               EventType::kInputBufferNotify,
-                               &input_buffer_notify_params_,
-                               sizeof(input_buffer_notify_params_));
+    ret = NotifyInputBuffer();
+    if(ret != 0) {
+      QMMF_ERROR("%s: Failed to notify input buffer", __func__);
     }
+  }
+  QMMF_INFO("%s: Exit", __func__);
+  return ret;
+}
+
+status_t AudioRawTrackSink::NotifyInputBuffer() {
+  QMMF_INFO("%s: Enter", __func__);
+  av_buffers_lock_.lock();
+  input_buffer_notify_params_.num_free_buffers = av_buffers_.size();
+  av_buffers_lock_.unlock();
+  if (input_buffer_notify_params_.num_free_buffers > 0) {
+    track_callback_.event_cb(track_params_.track_id,
+                             EventType::kInputBufferNotify,
+                             &input_buffer_notify_params_,
+                             sizeof(input_buffer_notify_params_));
   }
   QMMF_INFO("%s: Exit", __func__);
   return NO_ERROR;
@@ -886,7 +927,7 @@ void AudioRawTrackSink::StoppedHandler() {
 
 void AudioRawTrackSink::ThreadEntry(AudioRawTrackSink* sink) {
   QMMF_DEBUG("%s() TRACE", __func__);
-
+  prctl(PR_SET_NAME, "AudRawSinkTh", 0, 0, 0);
   sink->Thread();
 }
 
@@ -1066,7 +1107,7 @@ void AudioRawTrackSink::Thread() {
 
 void AudioRawTrackSink::PtsThreadEntry(AudioRawTrackSink* sink) {
   QMMF_DEBUG("%s() TRACE", __func__);
-
+  prctl(PR_SET_NAME, "AUdRawSinkPtsTh", 0, 0, 0);
   sink->PtsThread();
 }
 

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -37,6 +37,7 @@
 #include <unistd.h>
 #include <utils/String8.h>
 #include <fstream>
+#include <sys/prctl.h>
 
 #include "common/utils/qmmf_common_utils.h"
 #include "player/test/samples/qmmf_player_test.h"
@@ -573,7 +574,7 @@ void PlayerTest::Start() {
 
 void PlayerTest::AudioThreadEntry(PlayerTest* player_test) {
   QMMF_DEBUG("%s() TRACE", __func__);
-
+  prctl(PR_SET_NAME, "PlayTestAudio", 0, 0, 0);
   player_test->AudioThread();
 }
 
@@ -656,7 +657,7 @@ void PlayerTest::AudioThread() {
 
 void PlayerTest::VideoThreadEntry(PlayerTest* player_test) {
   QMMF_DEBUG("%s() TRACE", __func__);
-
+  prctl(PR_SET_NAME, "PlayTestVideo", 0, 0, 0);
   player_test->VideoThread();
 }
 
@@ -1574,7 +1575,10 @@ int32_t PlayerTest::QueueSurfaceBuffer() {
 
 void PlayerTest::DisplayThreadEntry(PlayerTest* player_test) {
   TEST_INFO("%s: Enter", __func__);
+
+  prctl(PR_SET_NAME, "PlayTestDisplay", 0, 0, 0);
   player_test->DisplayThread();
+
   TEST_INFO("%s: Exit", __func__);
 }
 

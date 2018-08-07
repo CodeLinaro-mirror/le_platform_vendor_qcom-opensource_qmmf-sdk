@@ -35,6 +35,8 @@
 
 #include "qmmf_resizer_fastCV.h"
 
+uint32_t qmmf_log_level;
+
 namespace qmmf {
 
 FastCVResizer::FastCVResizer()

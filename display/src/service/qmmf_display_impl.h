@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -35,6 +35,7 @@
 #include <thread>
 #include <condition_variable>
 #include <set>
+#include <chrono>
 
 #include <hardware/gralloc.h>
 #include <utils/KeyedVector.h>
@@ -135,10 +136,11 @@ class DisplayImpl : public DisplayEventHandler
 
  private:
 
-  std::mutex       thread_lock_;
-  ::std::thread*   handle_vsync_thread_;
-  Locker           vsync_callback_locker_;
-  bool             running_;
+  std::mutex               thread_lock_;
+  ::std::thread*           handle_vsync_thread_;
+  std::mutex               vsync_callback_locker_;
+  std::condition_variable  vsync_callback_;
+  bool                     running_;
 
   /**Not allowed */
   DisplayImpl();
@@ -148,6 +150,9 @@ class DisplayImpl : public DisplayEventHandler
   static void HandleVSyncThreadEntry(DisplayImpl* display_impl);
   void HandleVSync();
   static DisplayImpl* instance_;
+  static const int32_t kNumberOfAttempts = 5;
+  std::mutex display_on_lock_;
+  std::condition_variable display_on_cond_;
   DisplayBufferAllocator buffer_allocator_;
   DisplayBufferSyncHandler buffer_sync_handler_;
   static CoreInterface* core_intf_;
@@ -212,7 +217,8 @@ class DisplayImpl : public DisplayEventHandler
       if (old_state == BufferStates::kInvalid)
         return false;
       else if (old_state == BufferStates::kStateDequeued
-               && new_state == BufferStates::kStateQueued)
+               && (new_state == BufferStates::kStateQueued
+               || new_state == BufferStates::kStateFree))
         return true;
       else if (old_state == BufferStates::kStateQueued
                && (new_state == BufferStates::kStateCommitted
@@ -229,6 +235,7 @@ class DisplayImpl : public DisplayEventHandler
     }
   };
 
+  void PrintBuffersState (const uint32_t surface_id);
   typedef struct SurfaceInfo {
     Layer*                           layer;
     // map of buffer id and buffer info
@@ -250,14 +257,36 @@ class DisplayImpl : public DisplayEventHandler
     DisplayInterface*                display_intf;
   } DisplayTypeInfo;
 
-  bool                                         vsync_state_;
+  typedef struct QueuedBufferInfo {
+    SurfaceBuffer  surface_buffer;
+    SurfaceParam   surface_param;
+  } QueuedBufferInfo;
+
   DisplayHandle                                current_handle_;
   uint32_t                                     unique_surface_id_;
   std::mutex                                   api_lock_;
+  std::mutex                                   surface_lock_;
   std::mutex                                   layer_lock_;
   std::map<DisplayHandle, DisplayClientInfo*>  display_client_info_map_;
   std::map<DisplayType, DisplayTypeInfo*>      display_type_info_map_;
   std::map<uint32_t, SurfaceInfo*>             surface_info_map_;
+  //Map for surface_id and Latest queued buffer info
+  std::map<uint32_t, QueuedBufferInfo>         latest_queued_buffer_info_map_;
+  LayerStack*                                  layer_stack_;
+
+  // Get/Set functions for Display State
+  std::mutex display_state_lock_;
+  DisplayState current_display_state_;
+
+  inline DisplayState GetDisplayState() {
+    std::lock_guard<std::mutex> lock(display_state_lock_);
+    return current_display_state_;
+  }
+
+  inline void SetDisplayState(DisplayState state) {
+    std::lock_guard<std::mutex> lock(display_state_lock_);
+    current_display_state_ = state;
+  }
 };
 
 }; // namespace display

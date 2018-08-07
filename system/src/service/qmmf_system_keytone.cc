@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -39,6 +39,7 @@
 #include <mutex>
 #include <thread>
 #include <vector>
+#include <sys/prctl.h>
 
 #include "common/audio/inc/qmmf_audio_definitions.h"
 #include "common/audio/inc/qmmf_audio_endpoint.h"
@@ -81,9 +82,8 @@ status_t SystemKeytone::PlayTone(const SystemHandle system_handle,
     QMMF_VERBOSE("%s() INPARAM: device[%d]", __func__, device);
   QMMF_VERBOSE("%s() INPARAM: tone[%s]", __func__,
                tone.ToString().c_str());
+  vector<AudioBuffer> buffers;
   int32_t result;
-  int32_t buffer_size;
-  int32_t number_of_buffers;
 
   if (current_handle_ != 0 || end_point_ != nullptr) {
     QMMF_ERROR("%s() endpoint already exists", __func__);
@@ -143,34 +143,21 @@ status_t SystemKeytone::PlayTone(const SystemHandle system_handle,
     goto error_disconnect;
   }
 
-  result = end_point_->GetBufferSize(&buffer_size);
-  if (result < 0) {
-    QMMF_ERROR("%s() endpoint->GetBufferSize failed: %d[%s]", __func__,
-               result, strerror(result));
-    goto error_disconnect;
-  }
-  if (buffer_size == 0) {
-    QMMF_ERROR("%s() endpoint->GetBufferSize returned 0", __func__);
-    goto error_disconnect;
-  }
-  QMMF_INFO("%s() buffer_size is %d", __func__, buffer_size);
-
-  number_of_buffers = tone.size / buffer_size;
-  if (tone.size % buffer_size != 0) ++number_of_buffers;
-  result = ion_.Allocate(number_of_buffers, buffer_size);
+  result = ion_.Allocate(1, tone.size);
   if (result < 0) {
     QMMF_ERROR("%s() ion->Allocate failed: %d[%s]", __func__, result,
                strerror(result));
-    goto error_deallocate;
+    goto error_disconnect;
   }
 
+  ion_.GetList(&buffers);
+  memset(&backing_buffer_, 0x0, sizeof backing_buffer_);
+  backing_buffer_ = buffers[0];
+  memset(backing_buffer_.data, 0x0, backing_buffer_.capacity);
+  memcpy(backing_buffer_.data, tone.buffer, backing_buffer_.capacity);
+
   memset(&tone_, 0x0, sizeof tone_);
-  tone_.buffer = calloc(1, tone.size);
-  if (tone_.buffer == NULL) {
-    QMMF_ERROR("%s() could not allocate memory", __func__);
-    goto error_malloc;
-  }
-  memcpy(tone_.buffer, tone.buffer, tone.size);
+  tone_.buffer = nullptr;
   tone_.size = tone.size;
   tone_.loop_num = tone.loop_num;
   tone_.delay = tone.delay;
@@ -182,13 +169,10 @@ status_t SystemKeytone::PlayTone(const SystemHandle system_handle,
   thread_ = new thread(SystemKeytone::ThreadEntry, this);
   if (thread_ == nullptr) {
     QMMF_ERROR("%s() could not instantiate thread", __func__);
-    goto error_malloc;
+    goto error_deallocate;
   }
 
   return ::android::NO_ERROR;
-
-error_malloc:
-  free(tone_.buffer);
 
 error_deallocate:
   result = ion_.Deallocate();
@@ -261,41 +245,59 @@ void SystemKeytone::StoppedHandler() {
 
 void SystemKeytone::ThreadEntry(SystemKeytone* source) {
   QMMF_DEBUG("%s() TRACE", __func__);
+  prctl(PR_SET_NAME, "SystemKeytoneTh", 0, 0, 0);
   source->Thread();
 }
 
 void SystemKeytone::Thread() {
-  QMMF_DEBUG("%s() TRACE: current_handle[%d]", __func__,
-             current_handle_);
-  vector<AudioBuffer> buffers;
+  
+  QMMF_DEBUG("%s() TRACE: current_handle[%d]", __func__, current_handle_);
+  vector<AudioBuffer> buffers { };
   int32_t result;
+  int32_t buffer_size;
+  uint32_t number_of_buffers;
+  bool error_detected = false;
 
-  ion_.GetList(&buffers);
-  uint32_t idx = 0;
-  for (auto&& buffer : buffers) {
-    uint8_t* local_pointer = reinterpret_cast<uint8_t*>(tone_.buffer);
-    if (idx == buffers.size() - 1) {
-      memset(buffer.data, 0x0, buffer.capacity);
-      memcpy(buffer.data, local_pointer + (idx * buffer.capacity),
-             tone_.size % buffer.capacity);
-      buffer.size = tone_.size % buffer.capacity;
+  result = end_point_->GetBufferSize(&buffer_size);
+  if (result < 0) {
+    QMMF_ERROR("%s() endpoint->GetBufferSize failed: %d[%s]", __func__,
+               result, strerror(result));
+    goto error_thread;
+  }
+  if (buffer_size == 0) {
+    QMMF_ERROR("%s() endpoint->GetBufferSize returned 0", __func__);
+    goto error_thread;
+  }
+  QMMF_INFO("%s() buffer_size is %d", __func__, buffer_size);
+
+  number_of_buffers = tone_.size / buffer_size;
+  if (tone_.size % buffer_size != 0) ++number_of_buffers;
+
+  for (uint32_t idx = 0; idx < number_of_buffers; ++idx) {
+    uint8_t* local_pointer = reinterpret_cast<uint8_t*>(backing_buffer_.data);
+    AudioBuffer buffer;
+
+    buffer.data = local_pointer + (idx * buffer_size);
+    buffer.ion_fd = -1;
+    buffer.buffer_id = idx;
+    buffer.capacity = buffer_size;
+    buffer.timestamp = 0;
+
+    if (idx == number_of_buffers - 1) {
+      buffer.size = tone_.size % buffer_size;
       buffer.flags |= static_cast<uint32_t>(BufferFlags::kFlagEOS);
     } else {
-      memcpy(buffer.data, local_pointer + (idx * buffer.capacity),
-             buffer.capacity);
-      buffer.size = buffer.capacity;
+      buffer.size = buffer_size;
+      buffer.flags = 0x0;
     }
-    ++idx;
+    buffers.push_back(buffer);
   }
-  free(tone_.buffer);
-  size_t number_of_buffers = buffers.size();
 
-  bool error_detected = false;
   for (uint32_t loop_idx = 0; loop_idx < tone_.loop_num; ++loop_idx) {
     if (tone_.delay != 0)
       ::std::this_thread::sleep_for(::std::chrono::milliseconds(tone_.delay));
 
-    int32_t result = end_point_->Start();
+    result = end_point_->Start();
     if (result < 0) {
       QMMF_ERROR("%s() endpoint->Start failed: %d[%s]", __func__,
                  result, strerror(result));
@@ -371,6 +373,7 @@ void SystemKeytone::Thread() {
       break;
   }
 
+error_thread:
   result = end_point_->Disconnect();
   if (result < 0)
     QMMF_ERROR("%s() endpoint->Disconnect failed: %d[%s]", __func__,
