@@ -45,6 +45,9 @@ endif
 ifeq ($(DISABLE_AUDIO_SERVICE),1)
 LOCAL_CFLAGS += -DDISABLE_AUDIO_SERVICE
 endif
+ifeq ($(DISABLE_SYSTEM_SERVICE),1)
+LOCAL_CFLAGS += -DDISABLE_SYSTEM_SERVICE
+endif
 
 # Enable libs/bins installation into vendor
 ifeq ($(IS_ANDROID_O_OR_ABOVE),true)
