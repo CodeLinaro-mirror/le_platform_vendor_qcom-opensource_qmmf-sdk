@@ -64,6 +64,9 @@ LOCAL_SHARED_LIBRARIES += libqmmf_postproc_frame_skip
 LOCAL_SHARED_LIBRARIES += libqmmf_common_resizer_fastcv
 LOCAL_SHARED_LIBRARIES += libqmmf_common_resizer_c2d
 LOCAL_SHARED_LIBRARIES += libqmmf_common_resizer_neon
+ifneq ($(DISABLE_PP_JPEG),1)
+LOCAL_SHARED_LIBRARIES += libqmmf_common_jpeg_encoder
+endif
 
 LOCAL_STATIC_LIBRARIES += libjsoncpp
 
