@@ -3407,6 +3407,49 @@ status_t RecorderTest::Session1080pYUVTrackWithDisplay() {
   return ret;
 }
 
+status_t TestTrack::ToggleDisplayState() {
+  TEST_INFO("%s: Enter", __func__);
+
+  auto ret = 0;
+#ifndef DISABLE_DISPLAY
+  assert(display_ != nullptr);
+
+  display_param_type_ = qmmf::display::DisplayParamType::kDisplayState;
+  display_param_ = !display_param_;
+  ret = display_->SetDisplayParam(display_param_type_, (void *)(&display_param_),
+                                  sizeof(int));
+
+  if (ret != 0) {
+    TEST_ERROR("%s: SetDisplayParam Failed!!", __func__);
+  }
+#endif
+
+  TEST_INFO("%s: Exit", __func__);
+  return ret;
+}
+
+status_t RecorderTest::ToggleDisplayState() {
+  TEST_INFO("%s: Enter", __func__);
+
+  auto ret = 0;
+  session_iter_ it = sessions_.begin();
+
+  for (auto track : it->second) {
+    TrackType type = track->GetTrackType();
+    if ((use_display == 1) && (type == TrackType::kVideoYUV)) {
+#ifndef DISABLE_DISPLAY
+      ret = track->ToggleDisplayState();
+      assert(ret == 0);
+      break;
+#else
+      TEST_ERROR("%s Display is disabled", __func__);
+#endif
+    }
+  }
+  TEST_INFO("%s: Exit", __func__);
+  return ret;
+}
+
 // 1080P YUV video track with Display Enabled in recorder service.
 status_t RecorderTest::Session1080pYUVTrackWithPreview() {
 
@@ -6708,6 +6751,15 @@ status_t TestTrack::StartDisplay(DisplayType display_type) {
 
   display_started_ = 1;
 
+  display_param_type_ = qmmf::display::DisplayParamType::kDisplayState;
+  display_param_ = 1;
+  auto ret = display_->SetDisplayParam(display_param_type_,
+                                       (void *)(&display_param_), sizeof(int));
+
+  if (ret != 0) {
+    TEST_ERROR("%s SetDisplayParam Failed!!", __func__);
+  }
+
   surface_param_.src_rect = { 0.0, 0.0, (float)track_info_.width,
       (float)track_info_.height };
   surface_param_.dst_rect = { 0.0, 0.0, (float)track_info_.width,
@@ -6752,9 +6804,23 @@ status_t TestTrack::StopDisplay(DisplayType display_type) {
   return res;
 }
 
-status_t TestTrack::PushFrameToDisplay(BufferDescriptor& buffer,
-    CameraBufferMetaData& meta_data) {
+status_t TestTrack::PushFrameToDisplay(BufferDescriptor &buffer,
+                                       CameraBufferMetaData &meta_data) {
   if (display_started_ == 1) {
+    display_param_type_ = qmmf::display::DisplayParamType::kDisplayState;
+    auto ret = display_->GetDisplayParam(
+        display_param_type_, (void *)(&display_param_), sizeof(int));
+
+    if (ret != 0) {
+      TEST_ERROR("%s GetDisplayParam Failed!!", __func__);
+      return ret;
+    }
+
+    QMMF_INFO("display param value %d display_started %d ", display_param_,
+              display_started_);
+  }
+
+  if (display_started_ == 1 && display_param_ == 1) {
     int32_t ret;
     surface_buffer_.plane_info[0].ion_fd = buffer.fd;
     surface_buffer_.buf_id = buffer.fd;
@@ -6938,6 +7004,8 @@ void CmdMenu::PrintMenu() {
       CmdMenu::CREATE_YUV_SESSION_DISPLAY_CMD);
   printf("   %c. Create Session: (1080p YUV with Preview)\n",
       CmdMenu::CREATE_YUV_SESSION_PREVIEW_CMD);
+  printf("   %c. Toggle Display State\n",
+      CmdMenu::TOGGLE_DISPLAY_STATE);
   printf("   %c. Start Session\n", CmdMenu::START_SESSION_CMD);
   printf("   %c. Stop Session\n", CmdMenu::STOP_SESSION_CMD);
   printf("   %c. Take Snapshot\n", CmdMenu::TAKE_SNAPSHOT_CMD);
@@ -7149,6 +7217,10 @@ int main(int argc,char *argv[]) {
       break;
       case CmdMenu::CREATE_YUV_SESSION_DISPLAY_CMD: {
         test_context.Session1080pYUVTrackWithDisplay();
+      }
+      break;
+      case CmdMenu::TOGGLE_DISPLAY_STATE: {
+        test_context.ToggleDisplayState();
       }
       break;
       case CmdMenu::CREATE_YUV_SESSION_PREVIEW_CMD: {
