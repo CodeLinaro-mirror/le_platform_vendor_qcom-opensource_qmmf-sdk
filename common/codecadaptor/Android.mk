@@ -18,6 +18,9 @@ LOCAL_C_INCLUDES += $(TOP)/system/media/camera/include
 
 LOCAL_SRC_FILES := src/qmmf_omx_client.cc
 LOCAL_SRC_FILES += src/qmmf_avcodec.cc
+ifneq ($(DISABLE_PP_JPEG),1)
+LOCAL_SRC_FILES += src/qmmf_jpeg_encode.cc
+endif
 
 LOCAL_SHARED_LIBRARIES += libqmmf_utils
 ifneq ($(DISABLE_PP_JPEG),1)
