@@ -56,7 +56,9 @@ LOCAL_SHARED_LIBRARIES += libqmmf_recorder_client libqmmf_camera_adaptor
 LOCAL_SHARED_LIBRARIES += libqmmf_codec_adaptor libqmmf_audio_client
 LOCAL_SHARED_LIBRARIES += libqmmf_overlay
 LOCAL_SHARED_LIBRARIES += libqmmf_exif_generator
+ifneq ($(DISABLE_DISPLAY),1)
 LOCAL_SHARED_LIBRARIES += libqmmf_display_client
+endif
 LOCAL_SHARED_LIBRARIES += libcamera_client libbinder libhardware
 LOCAL_SHARED_LIBRARIES += libqmmf_postproc_frame_skip
 LOCAL_SHARED_LIBRARIES += libqmmf_common_resizer_fastcv

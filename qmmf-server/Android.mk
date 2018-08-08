@@ -26,7 +26,9 @@ LOCAL_SRC_FILES := qmmf_server_main.cc
 
 LOCAL_SHARED_LIBRARIES += libqmmf_system_service
 
+ifneq ($(DISABLE_DISPLAY),1)
 LOCAL_SHARED_LIBRARIES += libqmmf_display_service
+endif
 
 LOCAL_SHARED_LIBRARIES += libqmmf_audio_service
 LOCAL_SHARED_LIBRARIES += libqmmf_recorder_service

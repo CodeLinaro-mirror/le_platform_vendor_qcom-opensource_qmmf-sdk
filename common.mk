@@ -36,6 +36,10 @@ LOCAL_EXPORT_C_INCLUDE_DIRS := $(QMMF_SDK_TOP_SRCDIR)/include
 
 LOCAL_32_BIT_ONLY := true
 
+ifeq ($(DISABLE_DISPLAY),1)
+LOCAL_CFLAGS += -DDISABLE_DISPLAY
+endif
+
 # Enable libs/bins installation into vendor
 ifeq ($(IS_ANDROID_O_OR_ABOVE),true)
 LOCAL_VENDOR_MODULE := true
