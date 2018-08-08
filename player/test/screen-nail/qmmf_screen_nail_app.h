@@ -177,6 +177,8 @@ class VideoDecode {
     std::condition_variable wait_for_frame_;
     std::vector<qmmf::BufferDescriptor> output_free_buffer_vector_;
     std::map<int32_t, qmmf::BufferDescriptor> output_occupy_buffer_map_;
+    bool port_reconfigured_;
+    bool stop_notify_called_;
   };  // Class OutputCodecSourceImpl
 
   friend class OutputCodecSourceImpl;
