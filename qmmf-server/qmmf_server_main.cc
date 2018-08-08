@@ -37,7 +37,9 @@
 
 #include "recorder/src/service/qmmf_recorder_service.h"
 #include "common/audio/src/service/qmmf_audio_service.h"
+#ifndef DISABLE_PLAYER_SERVICE
 #include "player/src/service/qmmf_player_service.h"
+#endif
 #include "system/src/service/qmmf_system_service.h"
 #ifndef DISABLE_DISPLAY
 #include "display/src/service/qmmf_display_service.h"
@@ -56,7 +58,9 @@ using namespace recorder;
 #ifndef DISABLE_DISPLAY
 using namespace qmmf::display;
 #endif
+#ifndef DISABLE_PLAYER_SERVICE
 using namespace player;
+#endif
 using namespace system;
 
 #define INFO(...) \
@@ -90,10 +94,14 @@ int32_t main(int32_t argc, char **argv) {
                   new qmmf::recorder::RecorderService(), false);
   INFO("Service(%s) Added successfully!", QMMF_RECORDER_SERVICE_NAME);
 
+#ifndef DISABLE_PLAYER_SERVICE
   //Add Player service.
   defaultServiceManager()->addService(String16(QMMF_PLAYER_SERVICE_NAME),
                   new qmmf::player::PlayerService(), false);
   INFO("Service(%s) Added successfully!", QMMF_PLAYER_SERVICE_NAME);
+#else
+  INFO("Player Service disabled, continuing..");
+#endif
 
 #ifndef DISABLE_DISPLAY
   //Add Display service.

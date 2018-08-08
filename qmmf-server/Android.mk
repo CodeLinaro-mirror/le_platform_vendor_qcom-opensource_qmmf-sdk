@@ -32,7 +32,11 @@ endif
 
 LOCAL_SHARED_LIBRARIES += libqmmf_audio_service
 LOCAL_SHARED_LIBRARIES += libqmmf_recorder_service
+
+ifneq ($(DISABLE_PLAYER_SERVICE),1)
 LOCAL_SHARED_LIBRARIES += libqmmf_player_service
+endif
+
 LOCAL_SHARED_LIBRARIES += libbinder
 
 LOCAL_MODULE = qmmf-server

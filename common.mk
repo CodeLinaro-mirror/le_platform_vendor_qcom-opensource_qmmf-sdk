@@ -39,6 +39,9 @@ LOCAL_32_BIT_ONLY := true
 ifeq ($(DISABLE_DISPLAY),1)
 LOCAL_CFLAGS += -DDISABLE_DISPLAY
 endif
+ifeq ($(DISABLE_PLAYER_SERVICE),1)
+LOCAL_CFLAGS += -DDISABLE_PLAYER_SERVICE
+endif
 
 # Enable libs/bins installation into vendor
 ifeq ($(IS_ANDROID_O_OR_ABOVE),true)
