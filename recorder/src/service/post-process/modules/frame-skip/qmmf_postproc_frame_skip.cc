@@ -62,7 +62,7 @@ status_t PostProcFrameSkip::Initialize(const PostProcIOParam &in_param,
   state_ = State::INITIALIZED;
 
   char prop_val[PROPERTY_VALUE_MAX];
-  property_get("persist.qmmf.pp.ignore_input", prop_val, "0");
+  property_get("persist.qmmf.pp.ignore_input", prop_val, "1");
   // Irrespective of frame duration frames will be skipped with count.
   ignore_frame_duration_ = (0 == atoi(prop_val)) ? false : true;
   return NO_ERROR;
@@ -209,12 +209,12 @@ bool PostProcFrameSkip::SkipFrame(StreamBuffer &buf) {
       skip = false;
     }
   } else {
+    ++frame_count_;
     if (frame_count_ % (frame_skip_ + 1) == 0) {
       skip = false;
     } else {
       skip = true;
     }
-    ++frame_count_;
   }
   return skip;
 }
