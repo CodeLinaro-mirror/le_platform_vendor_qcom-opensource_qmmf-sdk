@@ -2750,6 +2750,11 @@ status_t AVCodec::StopCodec(bool do_flush) {
     return ret;
   }
 
+  if (format_type_ == CodecType::kVideoDecoder)
+    while (IsPortReconfig()) usleep(kSleepPortReconfig);
+
+  api_count_++;
+
   {
     Mutex::Autolock autoLock(input_stop_lock_);
     input_stop_ = true;
@@ -2779,6 +2784,7 @@ status_t AVCodec::StopCodec(bool do_flush) {
     if (ret != OK) {
       QMMF_ERROR("%s Pop from SignalQueue Failed, size(%u)",
           __func__, signal_queue_.Size());
+      api_count_--;
       return ret;
     }
 
@@ -2789,6 +2795,7 @@ status_t AVCodec::StopCodec(bool do_flush) {
        (cmd.event_flags != OMX_BUFFERFLAG_EOS)) {
         QMMF_ERROR("%s Expecting EOS and found(%d) flag", __func__,
             cmd.event_flags);
+        api_count_--;
         return OMX_ErrorUndefined;
     }
   }
@@ -2798,6 +2805,7 @@ status_t AVCodec::StopCodec(bool do_flush) {
     ret = SetState(OMX_StateExecuting, OMX_TRUE);
     if (ret != 0) {
       QMMF_ERROR("%s SetState to OMX_StateExecuting failed", __func__);
+      api_count_--;
       return ret;
     }
   }
@@ -2806,6 +2814,7 @@ status_t AVCodec::StopCodec(bool do_flush) {
   ret =  SetState(OMX_StateIdle, OMX_TRUE);
   if(ret != 0) {
    QMMF_ERROR("%s Failed to move to OMX_StateIdle state!", __func__);
+   api_count_--;
    return ret;
   }
 
@@ -2815,6 +2824,7 @@ status_t AVCodec::StopCodec(bool do_flush) {
   if(ret != 0) {
    QMMF_ERROR("%s Failed to disbale port on %s", __func__,
        PORT_NAME(kPortIndexOutput));
+   api_count_--;
    return ret;
   }
 
@@ -2823,6 +2833,7 @@ status_t AVCodec::StopCodec(bool do_flush) {
   if(ret != 0) {
    QMMF_ERROR("%s Failed to disbale port on %s", __func__,
        PORT_NAME(kPortIndexInput));
+   api_count_--;
    return ret;
   }
 
@@ -2839,6 +2850,7 @@ status_t AVCodec::StopCodec(bool do_flush) {
   if (ret != 0) {
     QMMF_ERROR("%s Failed to get port definiton on %s", __func__,
         PORT_NAME(kPortIndexInput));
+    api_count_--;
     return ret;
   }
   uint32_t reg_buf_count = port_def.nBufferCountActual;
@@ -2847,6 +2859,7 @@ status_t AVCodec::StopCodec(bool do_flush) {
     if(ret != 0) {
       QMMF_ERROR("%s Failed to free buffer on %s", __func__,
           PORT_NAME(kPortIndexInput));
+      api_count_--;
       return ret;
     }
   }
@@ -2869,6 +2882,7 @@ status_t AVCodec::StopCodec(bool do_flush) {
     if(ret != 0) {
       QMMF_ERROR("%s Failed to free buffer on %s", __func__,
           PORT_NAME(kPortIndexOutput));
+      api_count_--;
       return ret;
     }
   }
@@ -2905,6 +2919,7 @@ status_t AVCodec::StopCodec(bool do_flush) {
       OMX_STATE_NAME(state_), OMX_STATE_NAME(state_pending_));
   QMMF_INFO("%s Exit", __func__);
   endPowerHint();
+  api_count_--;
   return ret;
 }
 
