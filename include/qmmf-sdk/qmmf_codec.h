@@ -27,6 +27,9 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/*! @file qmmf_codec.h
+*/
+
 #pragma once
 
 #include <cstdint>
@@ -133,18 +136,25 @@ enum class HEVCLevelType {
 
 /// @brief Data structure for specifying the initial quantization values to
 /// video encoder
+
+/**
+ *  video encoder
+ *
+ *  @brief Data structure for specifying the initial quantization values to
+ */
 struct VideoEncodeInitQP {
-  uint32_t    init_IQP;       ///< First Iframe QP
-  uint32_t    init_PQP;       ///< First Pframe QP
-  uint32_t    init_BQP;       ///< First Bframe QP
-  uint32_t    init_QP_mode;   ///< Bit field indicating which frame type(s) shall
-                              ///< use the specified initial QP.
-                              ///< Bit 0: Enable initial QP for I/IDR
-                              ///<       and use value specified in init_IQP
-                              ///< Bit 1: Enable initial QP for P
-                              ///<       and use value specified in init_PQP
-                              ///< Bit 2: Enable initial QP for B
-                              ///<       and use value specified in init_BQP
+  uint32_t    init_IQP;       /**< First Iframe QP */
+  uint32_t    init_PQP;       /**< First Pframe QP */
+  uint32_t    init_BQP;       /**< First Bframe QP */
+  uint32_t    init_QP_mode;   /**< Bit field indicating which */
+                              /**< frame type(s) shall */
+                              /**< use the specified initial QP. */
+                              /**< \n Bit 0: Enable initial QP for I/IDR */
+                              /**< and use value specified in init_IQP */
+                              /**< \n Bit 1: Enable initial QP for P  */
+                              /**< and use value specified in init_PQP */
+                              /**< \n Bit 2: Enable initial QP for B */
+                              /**< and use value specified in init_BQP */
 
   VideoEncodeInitQP()
     : init_IQP(27),
@@ -457,20 +467,18 @@ struct VideoEncIdrInterval {
 
 /// @brief Data structure for VQZIp info to initialize the vqzip transcoding
 /// with obtained profile,level,Cabac bool from GetParameters function
-/// \param: format: fill in this variable, the format of video(Input Variable)
-///         avc_vqzip_info: structure for vqzip info for avc(Output variable)
-///         avc_vqzip_info.profile: profile of avc
-///         avc_vqzip_info.level: level of avc
-///         avc_vqzip_info.is_cabac_used: specifies whether cabac encoding is
-///                                       used in the bitstream
+/// @param format fill in this variable, the format of video(Input Variable)
+
 /// TODO: currently vqzip is supported for AVC format videos only.Once HEVC
 /// support comes, the struture for hevc_vqzip_info will be added.
 struct VQZipInfo {
   VideoFormat format;
+  /// @brief structure for vqzip info for avc(Output variable)
   struct {
-    AVCProfileType profile;
-    AVCLevelType level;
-    bool is_cabac_used;
+    AVCProfileType profile; /**< profile of av */
+    AVCLevelType level; /**< level of avc */
+    bool is_cabac_used; /**< specifies whether cabac encoding */
+                        /**< is used in the bitstream */
   } avc_vqzip_info;
 
   ::std::string ToString() const {
@@ -520,8 +528,8 @@ struct PlaneInfo {
   uint32_t scanline;
   uint32_t width;
   uint32_t height;
-  uint32_t offset; //offset in bytes
-  uint32_t size;   // size of plane
+  uint32_t offset; /**< offset in bytes */ //offset in bytes
+  uint32_t size;   /**< size of plane */ // size of plane
 
   ::std::string ToString() const {
     ::std::stringstream stream;

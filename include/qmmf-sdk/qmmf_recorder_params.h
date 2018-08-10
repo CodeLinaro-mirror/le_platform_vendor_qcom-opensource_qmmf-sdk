@@ -27,6 +27,9 @@
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+/*! @file qmmf_recorder_params.h
+*/
+
 #pragma once
 
 #include <sys/types.h>
@@ -67,7 +70,7 @@ enum class EventType {
 typedef std::function<void(EventType event_type, void *event_data,
                            size_t event_data_size)> EventCb;
 
-/// \brief Recorder callback is called to notify non track
+/// @brief Recorder callback is called to notify non track
 /// and non session specific event notifications
 ///
 /// Only error event types are expected as of now
@@ -75,19 +78,19 @@ struct RecorderCb {
   EventCb event_cb;
 };
 
-/// \brief RecorderErrorData is used to determine the type of recorer errors.
+/// @brief RecorderErrorData is used to determine the type of recorer errors.
 struct RecorderErrorData {
   uint32_t        camera_id;
   int32_t         error_code;
 };
 
-/// \brief Session cb is used to return state changes i.e. to indicate
+/// @brief Session cb is used to return state changes i.e. to indicate
 /// start, stop, pause state transition completions
 struct SessionCb {
   EventCb event_cb;
 };
 
-/// \brief MetaParamType flag is used to determine type of meta data set in
+/// @brief MetaParamType flag is used to determine type of meta data set in
 /// MetaData structure.
 enum class MetaParamType {
   kNone               = (1 << 0),
@@ -96,14 +99,14 @@ enum class MetaParamType {
   kCamMetaFrameNumber = (1 << 3)
 };
 
-/// \brief MultiCameraConfigType is used to determine the type and purpose
+/// @brief MultiCameraConfigType is used to determine the type and purpose
 /// of created MultiCamera.
 enum class MultiCameraConfigType {
   k360Stitch,
   kSideBySide,
 };
 
-/// \brief This struct is used to report different types of meta data associated
+/// @brief This struct is used to report different types of meta data associated
 /// with BufferDescriptor.
 struct MetaData {
   uint32_t meta_flag;
@@ -112,14 +115,13 @@ struct MetaData {
   uint32_t cam_meta_frame_number;
 };
 
-/// \brief Plugin related information exposed to the client
-///
-/// \param name: plugin name
-/// \param version: version of the underlying library
-/// \param togglable: indicating whether runtime enable/disable is supported
+/// @brief Plugin related information exposed to the client
 struct PluginInfo {
+  /// plugin name
   std::string name;
+  /// version of the underlying library
   float       version;
+  /// indicating whether runtime enable/disable is supported
   bool        togglable;
 
   PluginInfo()
@@ -184,7 +186,7 @@ struct PluginInfo {
 
 typedef std::vector<PluginInfo> SupportedPlugins;
 
-/// \brief Both data and event callbacks should be set by the client.
+/// @brief Both data and event callbacks should be set by the client.
 /// event_cb is called to notify track specific errors and data_cb
 /// to notify availability of output data from track to clients
 ///
@@ -251,20 +253,24 @@ struct AudioTrackCreateParam {
   }
 };
 
-/// \brief create time parameters for a video track
+/// @brief create time parameters for a video track
 /// For 360 degree capture, camera_id vector should contain the id of
 /// multiple cameras involved in 360 capture
-/// \param low_power_mode: true indicates that track to be output by VFE
-///        (Video Front End) camera block without any post-processing.
-///        Currently atmost one track can be a low_power_mode track.
 /// \TODO: define VideoOutDevice
 struct VideoTrackCreateParam {
+  /// Video Track camera id
   uint32_t camera_id;
+  /// Video Track width
   uint32_t width;
+  /// Video Track height
   uint32_t height;
+  /// Video Track frame rate
   float frame_rate;
   VideoFormat format_type;
   VideoCodecParams codec_param;
+  /// true indicates that track to be output by VFE
+  /// (Video Front End) camera block without any post-processing.
+  /// Currently atmost one track can be a low_power_mode track.
   bool low_power_mode;
   bool do_vqzip;
   VQZipInfo vqzip_params;
@@ -417,7 +423,7 @@ struct VideoTrackCreateParam {
 
 };
 
-/// \brief Result callback passed to StartCamera API
+/// @brief Result callback passed to StartCamera API
 ///
 /// Optional result callback which will get triggered
 /// by service once there is at least one started session
@@ -425,22 +431,33 @@ struct VideoTrackCreateParam {
 typedef std::function<void(uint32_t camera_id,
                            const android::CameraMetadata &res)> CameraResultCb;
 
-/// \brief Parameters passed to StartCamera API
+/// @brief Parameters passed to StartCamera API
 ///
 /// When the zsl mode is set to true during StartCamera, recorder
 /// would start capturing images of resolution max_snapshot_width
 /// and max_snapshot_height from camera at the frame_rate specified.
-/// In non-zsl mode, snapshot resolution and frame rate parameter is
+/// In non-zsl mode, snapshot resolution and frame rate parameter are
 /// ignored.
 /// flags provide a mechanism to provide a custom initialization
 /// parameter to camera
 struct CameraStartParam {
+  /// If set to true during StartCamera, recorder would start capturing
+  /// unprocessed frames at the specified rate. When CaptureImage is
+  /// issued a frame from the queue will be taken and sent for re-process
+  /// in order to produce a snapshot image.
   bool     zsl_mode;
+  /// Allow partial frame metadata.
   bool     enable_partial_metadata;
+  /// Set for how many frames in the past to keep data.
   uint32_t zsl_queue_depth;
+  /// Set the width of the Zero Shutter Lag stream.
   uint32_t zsl_width;
+  /// Set the height of the Zero Shutter Lag stream.
   uint32_t zsl_height;
+  /// Set the frame rate of the Zero Shutter Lag stream.
   uint32_t frame_rate;
+  /// flags provide a mechanism to provide a custom initialization
+  /// parameter to camera
   uint32_t flags;
 
   CameraStartParam()
@@ -478,12 +495,16 @@ struct CameraStartParam {
   };
 };
 
-/// \brief For thumbnail images only kJPEG is supported
+/// @brief For thumbnail images only kJPEG is supported
 /// For YUV and Bayer formats, quality is ignored
 struct ImageParam {
+  /// Image width
   uint32_t    width;
+  /// Image height
   uint32_t    height;
+  /// Image image quality (ignored for YUV and Bayer formats)
   uint32_t    image_quality;
+  /// Image format
   ImageFormat image_format;
 
   ::std::string ToString() const {
@@ -499,31 +520,29 @@ struct ImageParam {
   }
 };
 
-/// \brief Advance configuration for image capture
-///
-/// \param sensor_frame_skip_interval: When multiple images needs to be captured
-///       clients can set the sample_rate of capture through this parameter.
-///       If this value is set to 1, every alternate image is captured,
-///       if 2, every 3rd image is captured and so on_event_id
-/// \param with_exif: Applies only when image codec is set to JPEG. If set to
-///       true, EXIF along with with thumbnails are embedded with the image.
-///       Else thumbnails and camera meta information is send separately through
-///       metadata
-/// \param with_camera_meta: Applies only with with_exif is set to false. In
-///       this case, camera metadata is send separately
-/// \param with_raw: Enables clients to take a RAW image along with JPEG. This
-///       can be set to true only when ImageFormat is NOT RAW
-///
-/// \param raw_image_type: Could be either of RDI RAW or IDEAL Raw
-/// \param thumbnail_image_param: Thumbnail image characteristics. This is
-/// array since a single image can contain more than one thumbnail
+/// @brief Advance configuration for image capture
 struct ImageCaptureConfig {
+  /// When multiple images needs to be captured
+  /// clients can set the sample_rate of capture through this parameter.
+  /// If this value is set to 1, every alternate image is captured,
+  /// if 2, every 3rd image is captured and so on_event_id
   uint32_t sensor_frame_skip_interval;
+  /// Applies only when image codec is set to JPEG. If set to
+  /// true, EXIF along with with thumbnails are embedded with the image.
+  /// Else thumbnails and camera meta information is send separately through
+  /// metadata
   bool with_exif;
+  /// Applies only with with_exif is set to false. In
+  /// this case, camera metadata is send separately
   bool with_camera_meta;
+  /// Enables clients to take a RAW image along with JPEG. This
+  /// can be set to true only when ImageFormat is NOT RAW
   bool with_raw;
+  /// Could be either of RDI RAW or IDEAL Raw
   ImageFormat raw_image_format;
   uint32_t num_thumbnail_image_param;
+  /// Thumbnail image characteristics. This is
+  /// array since a single image can contain more than one thumbnail
   ImageParam thumbnail_image_param[MAX_THUMBNAIL_IMAGE_PARAM];
 
   ::std::string ToString() const {
@@ -548,27 +567,25 @@ struct ImageCaptureConfig {
   }
 };
 
-/// \brief CameraType describe camera purpose and usage
-///
-/// \param kLiveSingle Normal single cameras
-/// \param kLiveVirtualSingle RD 360 camera which behaves as single camera
-/// \param kOffline Camera which process data captured by offline through ISP
-/// \param kExternal External camera
-/// \param kSimulated Simulated camera like the fake camera
+/// @brief CameraType describes camera purpose and usage
 enum class CameraType {
+  /// Normal single cameras
   kLiveSingle = 0,
+  /// RD 360 camera which behaves as single camera
   kLiveVirtualSingle,
+  /// Camera which process data captured by offline through ISP
   kOffline,
+  /// External camera
   kExternal,
+  /// Simulated camera like the fake camera
   kSimulated
 };
 
-/// \brief Contain the camera ids and hints on what camera is capable to do
-///
-/// \param id: Camera ID
-/// \param type: Camera functionality
+/// @brief Contain the camera ids and hints on what camera is capable to do
 struct CameraCapability {
+  /// Camera ID
   int32_t id;
+  /// Camera functionality
   CameraType type;
 
   CameraCapability()

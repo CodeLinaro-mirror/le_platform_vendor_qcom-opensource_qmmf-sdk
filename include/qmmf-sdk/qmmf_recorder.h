@@ -27,6 +27,9 @@
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+/*! @file qmmf_recorder.h
+*/
+
 #pragma once
 
 #include <cstddef>
@@ -40,25 +43,29 @@
 #include "qmmf-sdk/qmmf_recorder_extra_param.h"
 #include "qmmf-sdk/qmmf_overlay.h"
 
-namespace qmmf {
-namespace recorder {
 
-using namespace overlay;
+namespace qmmf {
+
+namespace recorder {
 
 class RecorderClient;
 
-/// \brief Client interface for audio, video recording and image capture.
+/// @brief Client interface for audio, video recording and image capture.
 ///
-/// To start an audio or/and video recording clients first should create a session.
+/// To start an audio or/and video recording
+/// clients first should create a session.
 /// A session can contain multiple audio and video tracks.
-/// All tracks in a session changes state change (say start, stop, pause etc) together.
+/// All tracks in a session changes state change
+/// (say start, stop, pause etc) together.
 ///
 /// Multiple sessions can be created and run at the same time.
 /// Recorder provides elementary stream callback to clients and clients
-/// manage the muxer. A/V muxer is not part of the Recorder class and hence clients
+/// manage the muxer. A/V muxer is not part of the
+/// Recorder class and hence clients
 /// need to use an external muxer to save the elementary streams
 ///
-/// For image capture, Recorder API provides single, burst and timed image capture
+/// For image capture, Recorder API provides single, burst and
+/// timed image capture
 /// Image capture APIs are  not associated with session and can
 /// be triggered independent of session.
 ///
@@ -80,7 +87,7 @@ class Recorder {
   /// Disconnect from recorder service.
   status_t Disconnect();
 
-  /// \brief Initializes camera and prepares camera for image capture and/or
+  /// @brief Initializes camera and prepares camera for image capture and/or
   /// video record.
   ///
   /// This API must be called before calling create video track or
@@ -90,14 +97,14 @@ class Recorder {
   status_t StartCamera(const uint32_t camera_id, const CameraStartParam &param,
                        const CameraResultCb &cb = nullptr);
 
-  /// \brief Stops camera. This API should be called to free up all resources
+  /// @brief Stops camera. This API should be called to free up all resources
   /// associated with camera.
   ///
   /// StopCamera cannot be called when there is an
   /// active video record session or image capture session.
   status_t StopCamera(const uint32_t camera_id);
 
-  /// \brief Creates session and returns session id.
+  /// @brief Creates session and returns session id.
   /// session id is used to idenfity the session in subsequent API calls.
   ///
   /// A session can contain multiple audio and video tracks. All tracks within
@@ -111,20 +118,22 @@ class Recorder {
   /// within a session changes state (start, pause, stop etc) together.
   status_t CreateSession(const SessionCb &cb, uint32_t* session_id);
 
-  /// \brief Deletes session corresponding to id. Session must be stopped before
+  /// @brief Deletes session corresponding to id. Session must be stopped before
   /// calling delete.
   ///
   /// All tracks within the sesion must be deleted before calling DeleteSession
   status_t DeleteSession(const uint32_t session_id);
 
-  /// \brief Starts session corresponding to id. Session shall contain at least one
+  /// @brief Starts session corresponding to id.
+  /// Session shall contain at least one
   /// track before calling start.
   ///
   /// This is an async API. When start is completed, session specific event cb
   /// is called by recorder
   status_t StartSession(const uint32_t session_id);
 
-  /// \brief Stops session corresponding to id. If the do_flush flag is set to true,
+  /// @brief Stops session corresponding to id.
+  /// If the do_flush flag is set to true,
   /// the pending buffers in the pipeline is discarded else stop waits till
   /// buffers in its pipeline is encoded.
   ///
@@ -133,7 +142,8 @@ class Recorder {
   /// event cb is called by recorder
   status_t StopSession(const uint32_t session_id, bool do_flush);
 
-  /// \brief Pause session corresponding to id. When the pause is called the camera
+  /// @brief Pause session corresponding to id.
+  /// When the pause is called the camera
   /// device or audio device is not paused, but only encoding of the tracks
   /// is paused.
   ///
@@ -141,7 +151,7 @@ class Recorder {
   /// specific event cb is called by recoder
   status_t PauseSession(const uint32_t session_id);
 
-  /// \brief Resumes session corresponding to id. When the session is resumed,
+  /// @brief Resumes session corresponding to id. When the session is resumed,
   /// the timestamp for all tracks in the session are resumed ignoring the
   /// duration of pause.
   ///
@@ -150,32 +160,33 @@ class Recorder {
   status_t ResumeSession(const uint32_t session_id);
 
   /// \brief Provides list with information regarding all existing cameras.
-  ///*
+  ///* TODO
   /// This is a sync API.
   status_t GetNumberOfCameras(SupportedCameras &cameras);
 
-  /// \brief Provides list with information regarding all existing plugins.
+  /// @brief Provides list with information regarding all existing plugins.
   ///*
   /// This is an async API.
   status_t GetSupportedPlugins(SupportedPlugins *plugins);
 
-  /// \brief Create a instance of the plugin and map it to a unique ID.
+  /// @brief Create a instance of the plugin and map it to a unique ID.
   ///
   /// The unique ID is set by the underlying layers.
   status_t CreatePlugin(uint32_t *uid, const PluginInfo &plugin);
 
-  /// \brief Delete the plugin instance with the given unique ID.
+  /// @brief Delete the plugin instance with the given unique ID.
   ///
   /// Must be called after DeleteVideoTrack or CancelCaptureImage.
   status_t DeletePlugin(const uint32_t &uid);
 
-  /// \brief Set plugin specific configuration data.
+  /// @brief Set plugin specific configuration data.
   ///
   /// This is an async API.
   status_t ConfigPlugin(const uint32_t &uid, const std::string &config);
 
-  /// \brief Creates an audio track and associates it to the session id provided.
-  /// User must specify the unqiue track_id for the session.
+  /// @brief Creates an audio track and
+  /// associates it to the session id provided.
+  /// User must specify the unique track_id for the session.
   ///
   /// params must specify the audio track characteristics such as codec,
   /// bitrate etc. cb is used by the recorder to inform clients about track
@@ -184,7 +195,8 @@ class Recorder {
                             const AudioTrackCreateParam &param,
                             const TrackCb &cb);
 
-  /// \brief Creates an video track and associates it to the session uuid provided.
+  /// @brief Creates an video track
+  /// and associates it to the session uuid provided.
   /// User must specify the unique track_id for the session.
   ///
   /// params must specify the video track characteristics such as codec,
@@ -195,7 +207,7 @@ class Recorder {
                             const VideoTrackCreateParam &param,
                             const TrackCb &cb);
 
-  /// \brief Creates an video track with additional configurations set in
+  /// @brief Creates an video track with additional configurations set in
   /// extra_param container and associates it to the session uuid provided.
   /// User must specify the unique track_id for the session.
   ///
@@ -210,7 +222,7 @@ class Recorder {
                             const VideoExtraParam& extra_param,
                             const TrackCb &cb);
 
-  /// \brief Returns the track buffer back to recoder
+  /// @brief Returns the track buffer back to recoder
   ///
   /// Track output buffers are passed to clietns through track callbacks.
   /// Clients returns these buffers through this API
@@ -218,7 +230,7 @@ class Recorder {
                              const uint32_t track_id,
                              ::std::vector<BufferDescriptor> &buffers);
 
-  /// \brief Changes runtime audio track parameters such as audio source device.
+  /// @brief Changes runtime audio track parameters such as audio source device.
   ///
   /// The type of *param* data depends on the enum value of *type*
   /// param_size should be set to sizeof the param data structure
@@ -227,7 +239,7 @@ class Recorder {
                               CodecParamType type, const void *param,
                               size_t param_size);
 
-  /// \brief Changes runtime video track params such as video encoder
+  /// @brief Changes runtime video track params such as video encoder
   /// bitrate, framerate, IDR insertion etc
   ///
   /// The type of *param* data depends on the enum value of *type*
@@ -237,17 +249,17 @@ class Recorder {
                               CodecParamType type, const void *param,
                               size_t param_size);
 
-  /// \brief Deletes Audio track. The track can be deleted only when the session
+  /// @brief Deletes Audio track. The track can be deleted only when the session
   /// the track is associated with is in stopped state
   status_t DeleteAudioTrack(const uint32_t session_id,
                             const uint32_t track_id);
 
-  /// \brief Deletes video track. The track can be deleted only when the session
+  /// @brief Deletes video track. The track can be deleted only when the session
   /// the track is associated with is in stopped state
   status_t DeleteVideoTrack(const uint32_t session_id,
                             const uint32_t track_id);
 
-  /// \brief Capture burst or single images from a camera
+  /// @brief Capture burst or single images from a camera
   ///
   /// This is an async API. When the image is ready, data callback specified
   /// through cb is called which enables clients to process the image data.
@@ -269,27 +281,31 @@ class Recorder {
                         const std::vector<::android::CameraMetadata> &meta,
                         const ImageCaptureCb &cb);
 
-  /// \brief Enables clients to configure image capture parameters.
+  /// @brief Enables clients to configure image capture parameters.
   ///
   /// This is an optional API to be used only for advanced post processing
   /// features.
   ///
   /// @param camera_id: ID of camera
-  /// @param param: Additional parameters for setting crop, reprocess
+  /// @param config: Additional parameters for setting crop, reprocess
   ///        plugins, multi-camera mode, etc.
   status_t ConfigImageCapture(const uint32_t camera_id,
                               const ImageConfigParam &config);
 
-  /// \brief Cancels an ongoing image capture
+  /// @brief Cancels an ongoing image capture
   ///
   /// CaptureImage is a async API. Clients can call CancelCaptureImage anytime
   /// after CaptureImage to cancel pending image captures
   status_t CancelCaptureImage(const uint32_t camera_id);
 
+  /// @brief Returns image buffer back to recoder
+  ///
+  /// Image output buffers are passed to clients through a callback.
+  /// Clients returns these buffers through this API
   status_t ReturnImageCaptureBuffer(const uint32_t camera_id,
                                     const BufferDescriptor &buffer);
 
-  /// \brief Sets camera parameters
+  /// @brief Sets camera parameters
   ///
   /// Camera parameters are controlled through CameraMetadata class
   /// defined camera/CameraMetadata.h. Typical usage would be to get
@@ -311,33 +327,36 @@ class Recorder {
   status_t GetDefaultCaptureParam(const uint32_t camera_id,
                                   android::CameraMetadata &meta);
 
-  /// \brief Create overlay object of type static image, date/time, bounding box,
+  /// @brief Create overlay object of type
+  /// static image, date/time, bounding box,
   /// simple text, and privacy mask.
   ///
   /// This Api returns the object id which
   /// can be use for configuration change at runtime.
   status_t CreateOverlayObject(const uint32_t track_id,
-                               const OverlayParam &param, uint32_t *overlay_id);
+                               const overlay::OverlayParam &param,
+                               uint32_t *overlay_id);
 
   /// Overlay object can be deleted at any point after creation.
   status_t DeleteOverlayObject(const uint32_t track_id,
                                const uint32_t overlay_id);
 
-  /// \brief Overlay object's parameters can be queried after creation, it is
+  /// @brief Overlay object's parameters can be queried after creation, it is
   /// recommended to call get parameters first before setting any new
   /// parameters using Api updateOverlayObject.
   status_t GetOverlayObjectParams(const uint32_t track_id,
                                   const uint32_t overlay_id,
-                                  OverlayParam &param);
+                                  overlay::OverlayParam &param);
 
-  /// \brief Overlay object's configuration can be updated at run time using this Api.
+  /// @brief Overlay object's configuration can
+  /// be updated at run time using this Api.
   /// Client has to provide overlay Id and updated parameters.
   ///
   /// It is recommended to call getOverlayObjectParams first to get current
   /// parameters then update them using this Api.
   status_t UpdateOverlayObjectParams(const uint32_t track_id,
                                      const uint32_t overlay_id,
-                                     const OverlayParam &param);
+                                     const overlay::OverlayParam &param);
 
   /// Overlay Object can be set and removed per track at runtime
   status_t SetOverlay(const uint32_t track_id, const uint32_t overlay_id);
@@ -345,7 +364,7 @@ class Recorder {
   /// Overlay object can be dynamically removed
   status_t RemoveOverlay(const uint32_t track_id, const uint32_t overlay_id);
 
-  /// \brief Creates a virtual camera by bundling the given camera IDs and
+  /// @brief Creates a virtual camera by bundling the given camera IDs and
   /// mapping them to a virtual ID.
   ///
   /// This API must be called before calling ConfigureMultiCamera and
@@ -354,7 +373,7 @@ class Recorder {
   status_t CreateMultiCamera(const std::vector<uint32_t> camera_ids,
                              uint32_t *virtual_camera_id);
 
-  /// \brief Configure a virtual camera with the given ID.
+  /// @brief Configure a virtual camera with the given ID.
   ///
   /// This API must be called after CreateMultiCamera but before calling
   /// StartCamera.

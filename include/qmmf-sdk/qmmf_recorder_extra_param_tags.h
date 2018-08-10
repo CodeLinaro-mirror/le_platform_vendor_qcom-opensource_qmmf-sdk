@@ -27,6 +27,9 @@
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+/*! @file qmmf_recorder_extra_param_tags.h
+*/
+
 #pragma once
 
 #include "qmmf_recorder_extra_param.h"
@@ -70,62 +73,66 @@ enum class TransformFlags {
 };
 
 enum class StitchingMode {
-  // Input frames/images are timestamp synchronized but no stitching is
-  // applied on them and are passed as separate outputs to the upper layers.
   kNone,
-  // Input frames/images are timestamp synchronized and passed to a 360
-  // stitching library in which the 1st input surface is placed on the left
-  // while each subsequent surface is placed next to it on the right and a
-  // 360 algorithm is applied.
+ /**< Input frames/images are timestamp synchronized but no stitching is */
+ /**< applied on them and are passed as separate outputs to the upper layers. */
   k360Default,
-  // Input frames/images are timestamp synchronized and passed to a 360
-  // stitching library in which the 1st input surface content will be placed
-  // in the center of the equirectangular output, and the second surface is
-  // split into 2 halves and a 360 algorithm is applied.
+/**< Input frames/images are timestamp synchronized and passed to a 360     */
+/**< stitching library in which the 1st input surface is placed on the left */
+/**< while each subsequent surface is placed next to it on the right and a  */
+/**< 360 algorithm is applied.                                              */
   k360Trifold,
-  // Input frames/images are timestamp synchronized and passed to a library
-  // which produces one frame/image containing both inputs stitched in a row,
-  // next to each other from left to right, as they are.
+/**< Input frames/images are timestamp synchronized and passed to a 360      */
+/**< stitching library in which the 1st input surface content will be placed */
+/**< in the center of the equirectangular output, and the second surface is  */
+/**< split into 2 halves and a 360 algorithm is applied.                     */
   kSideBySideRow,
-  // Input frames/images are timestamp synchronized and passed to a library
-  // which produces one frame/image containing both inputs stitched in a
-  // column from top to bottom, as they are.
+/**< Input frames/images are timestamp synchronized and passed to a library   */
+/**< which produces one frame/image containing both inputs stitched in a row, */
+/**< next to each other from left to right, as they are.                      */
   kSideBySideColumn,
-  // Input frames/images are timestamp synchronized and passed to a library in
-  // which the scale and position of each input surface is determined by the
-  // client via the QMMF_SURFACE_PLACEMENT tag structure.
-  // TODO: Not implemented. Do not use!
+/**< Input frames/images are timestamp synchronized and passed to a library  */
+/**< which produces one frame/image containing both inputs stitched in a     */
+/**< column from top to bottom, as they are.                                 */
   kCustomComposition
+/**< Input frames/images are timestamp synchronized                          */
+/**< and passed to a library in */
+/**< which the scale and position of each input surface is determined by the */
+/**< client via the QMMF_SURFACE_PLACEMENT tag structure.                    */
+/**< TODO: Not implemented. Do not use!                                      */
 };
 
 enum class SnapshotMode {
-  // this is not valid mode
   kNone,
-  // High quality snapshot. This snapshot will interrupt video streaming if any
+/**< this is not valid mode */
   kStill,
-  // High quality snapshot plus raw dump. this mode cannot be used together
-  // with burst capture because of following limitations:
-  // - Snapshot callback in camera context is common for all snapshot streams.
-  // - If we enable RAW re-process, we will ends up with two raw steams.
-  //   It is not supported by HAL.
+/**< High quality snapshot. This snapshot */
+/**< will interrupt video streaming if any */
   kStillPlusRaw,
-  // High quality snapshot. This snapshot will NOT interrupt video streaming
-  // if any. Same sensor frame will be used for video and snapshot
+/**< High quality snapshot plus raw dump. this mode cannot be used together  */
+/**< with burst capture because of following limitations:                    */
+/**< - Snapshot callback in camera context                                   */
+/**< is common for all snapshot streams.                                     */
+/**< - If we enable RAW re-process, we will ends up with two raw steams.     */
+/**<   It is not supported by HAL.                                           */
   kVideo,
-  // Continuous capture. QMMF will take images until CancelCaptureImage.
-  // Capture rate could be set by QMMF_POSTPROCESS_FRAME_SKIP tag.
+/**< High quality snapshot. This snapshot will NOT interrupt video streaming */
+/**< if any. Same sensor frame will be used for video and snapshot  */
   kContinuous
+/**< Continuous capture. QMMF will take images until CancelCaptureImage. */
+/**< Capture rate could be set by QMMF_POSTPROCESS_FRAME_SKIP tag. */
 };
 
 struct SourceSurfaceDesc : DataTagBase {
-  // ID of the camera whose surface dimensions will be set.
+  /**< ID of the camera whose surface dimensions will be set. */
   int32_t camera_id;    // Default: -1
-  // Width in pixels of the source surface.
+  /**< Width in pixels of the source surface. */
   uint32_t width;       // Default: 0
-  // Height in pixels of the source surface.
+  /**< Height in pixels of the source surface. */
   uint32_t height;      // Default: 0
-  // Transformations that will be applied on the source surface.
+  /**< Transformations that will be applied on the source surface. */
   TransformFlags flags; // Default: TransformFlags::kNone
+
 
   SourceSurfaceDesc()
     : DataTagBase(QMMF_SOURCE_SURFACE_DESCRIPTOR),
@@ -134,15 +141,15 @@ struct SourceSurfaceDesc : DataTagBase {
 
 struct SurfaceCrop : DataTagBase {
   int32_t camera_id;  // Default: -1
-  // Y-axis coordinate of the crop rectangle top left starting point.
-  // The coordinate system begins from the top left corner of the source.
+  /**< Y-axis coordinate of the crop rectangle top left starting point. */
+  /**< The coordinate system begins from the top left corner of the source. */
   uint32_t x;         // Default: 0
-  // X-axis coordinate of the crop rectangle top left starting point.
-  // The coordinate system begins from the top left corner of the source.
+  /**< X-axis coordinate of the crop rectangle top left starting point. */
+  /**< The coordinate system begins from the top left corner of the source. */
   uint32_t y;         // Default: 0
-  // Width in pixels of the crop rectangle.
+  /**< Width in pixels of the crop rectangle. */
   uint32_t width;     // Default: 0
-  // Height in pixels of the crop rectangle.
+  /**< Height in pixels of the crop rectangle. */
   uint32_t height;    // Default: 0
 
   SurfaceCrop()
@@ -151,9 +158,9 @@ struct SurfaceCrop : DataTagBase {
 };
 
 struct MultiCamStitchConfig : DataTagBase {
-  // Type of frame stitching that will be applied.
+  /**< Type of frame stitching that will be applied. */
   StitchingMode mode;   // Default: StitchingMode::k360Default
-  // Transformation applied on the stitched frames.
+  /**< Transformation applied on the stitched frames. */
   TransformFlags flags; // Default: TransformFlags::kNone
 
   MultiCamStitchConfig()
@@ -163,7 +170,7 @@ struct MultiCamStitchConfig : DataTagBase {
 };
 
 struct PostprocPlugin : DataTagBase {
-  // Unique id of the plugin.
+  /**< Unique id of the plugin. */
   uint32_t uid;     // Default: 0
 
   PostprocPlugin()
@@ -172,7 +179,7 @@ struct PostprocPlugin : DataTagBase {
 };
 
 struct PostprocFrameSkip : DataTagBase {
-  // Number of skip frames for each sent frame
+  /**< Number of skip frames for each sent frame */
   uint32_t frame_skip;     // Default: 0 means no skip
   uint32_t source_framerate;
 
@@ -222,8 +229,8 @@ struct SnapshotType : DataTagBase {
 };
 
 struct VideoWaitAECMode : DataTagBase {
-  // Wait for initial AE, right after start of video tracks to converge
-  // before passing the frames to the client.
+  /**< Wait for initial AE, right after start of video tracks to converge */
+  /**< before passing the frames to the client. */
   bool enable;     // Default: false
 
   VideoWaitAECMode()

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016, 2018, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -27,6 +27,9 @@
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+/*! @file qmmf_overlay.h
+*/
+
 #pragma once
 
 #include <sys/types.h>
@@ -35,6 +38,7 @@
 
 namespace qmmf {
 
+/// @namespace qmmf::overlay
 namespace overlay {
 
 #define MAX_STRING_LENGTH 128
@@ -126,7 +130,9 @@ struct OverlayTargetBuffer {
 class OverlayItem;
 
 // This class provides facility to embed different
-// Kinds of overlay on topof Camera stream buffers.
+// Kinds of overlay on top of Camera stream buffers.
+/// This class provides facility to embed different
+/// Kinds of overlay on top of Camera stream buffers.
 class Overlay {
  public:
   Overlay();
@@ -134,30 +140,42 @@ class Overlay {
   ~Overlay();
 
   // Initialise overlay with format of buffer.
+  /// Initialise overlay with format of buffer.
   int32_t Init(const TargetBufferFormat& format);
 
   // Create overlay item of type static image, date/time, bounding box,
   // simple text, or privacy mask. this Api provides overlay item id which
   // can be use for further configurartion change to item.
+  /// Create overlay item of type static image, date/time, bounding box,
+  /// simple text, or privacy mask. this Api provides overlay item id which
+  /// can be use for further configurartion change to item.
   int32_t CreateOverlayItem(OverlayParam& param, uint32_t* overlay_id);
 
   // Overlay item can be deleted at any point of time after creation.
+  /// Overlay item can be deleted at any point of time after creation.
   int32_t DeleteOverlayItem(uint32_t overlay_id);
 
   // Overlay item's parameters can be queried using this Api, it is recommended
   // to call get parameters first before setting new parameters using Api
   // updateOverlayItem.
+/// Overlay item's parameters can be queried using this Api, it is recommended
+/// to call get parameters first before setting new parameters using Api
+/// updateOverlayItem.
   int32_t GetOverlayParams(uint32_t overlay_id, OverlayParam& param);
 
   // Overlay item's configuration can be change at run time using this Api.
   // user has to provide overlay Id and updated parameters.
+  /// Overlay item's configuration can be change at run time using this Api.
+  /// user has to provide overlay Id and updated parameters.
   int32_t UpdateOverlayParams(uint32_t overlay_id, OverlayParam& param);
 
   // Overlay Item can be enable/disable at run time.
+  /// Overlay Item can be enable/disable at run time.
   int32_t EnableOverlayItem(uint32_t overlay_id);
   int32_t DisableOverlayItem(uint32_t overlay_id);
 
   // Provide input YUV buffer to apply overlay.
+  /// Provide input YUV buffer to apply overlay.
   int32_t ApplyOverlay(const OverlayTargetBuffer& buffer);
 
  private:

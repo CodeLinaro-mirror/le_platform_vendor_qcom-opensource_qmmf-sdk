@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016, 2018, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -27,6 +27,8 @@
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+/*! @file qmmf_avcodec_params.h */
+
 #pragma once
 
 #include <cstdint>
@@ -45,7 +47,9 @@
 #define OUTPUT_MAX_COUNT        (6)
 #define CMD_BUF_MAX_COUNT       (10)
 
+
 namespace qmmf {
+
 namespace avcodec {
 
 typedef int32_t status_t;
@@ -81,22 +85,20 @@ typedef struct PortreconfigData {
 
 }PortreconfigData;
 
-// AVCodec will notify input port status to Codec source
+/**
+ *
+ *  AVCodec will notify input port status to Codec source
+ */
 enum class CodecPortStatus {
-  kPortStart,
-  // notify when codec receives EOS from track source
-  kPortStop,
-  // notify when codec returns all buffers to track source
+  kPortStart, /**< notify when codec receives EOS from track source */
+  kPortStop, /**< notify when codec returns all buffers to track source */
   kPortIdle,
 };
 
 enum class PortEventType {
-  // AVcodec will notify port status
-  kPortStatus,
-  // notify when there is a Port Reconfig Event
-  kPortSettingsChanged,
-  // Port Config received
-  kPortConfigReceived,
+  kPortStatus, /**< AVcodec will notify port status */
+  kPortSettingsChanged, /**< notify when there is a Port Reconfig Event */
+  kPortConfigReceived, /**< TODO */
 };
 
 enum class EventType {

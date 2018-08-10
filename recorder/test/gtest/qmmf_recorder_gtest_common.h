@@ -95,6 +95,7 @@
 
 using namespace qmmf;
 using namespace recorder;
+using namespace overlay;
 using namespace android;
 using ::qmmf::display::DisplayEventType;
 using ::qmmf::display::DisplayType;

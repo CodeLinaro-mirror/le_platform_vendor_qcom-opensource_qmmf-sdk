@@ -121,6 +121,7 @@ if (kpi_debug_mask & KPI_ONLY) { \
 
 using namespace qmmf;
 using namespace recorder;
+using namespace overlay;
 using namespace android;
 using namespace qcamera;
 using ::qmmf::display::DisplayEventType;
