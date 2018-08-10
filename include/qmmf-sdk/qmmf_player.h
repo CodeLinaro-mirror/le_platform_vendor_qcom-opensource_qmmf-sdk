@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -26,6 +26,9 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
+/*! @file qmmf_player.h
+*/
 
 #pragma once
 
@@ -67,6 +70,10 @@ class Player
   // Audio and video decoder, connects the data source with the data sinks
   // and starts the data source to queue the media data for playback
   // Prepare must be called after creating all tracks
+  /// Prepares the player for playback which involves creating instances of
+  /// Audio and video decoder, connects the data source with the data sinks
+  /// and starts the data source to queue the media data for playback
+  /// Prepare must be called after creating all tracks
   status_t Prepare();
 
   status_t DequeueInputBuffer(uint32_t track_id,
@@ -79,31 +86,41 @@ class Player
                             TrackMetaBufferType meta_type);
 
   // Starts track playback
+  /// Starts track playback
   status_t Start();
 
   // Stops track playback. Optionally grabs the last video frame rendered to
   // display and returns the buffer
+  /// Stops track playback. Optionally grabs the last video frame rendered to
+  /// display and returns the buffer
   status_t Stop(const PictureCallback& handler = {nullptr, nullptr},
                 const PictureParam& params = {false, VideoCodecType::kYUV,
                                               0, 0, 0});
 
   // Pauses track playback. Optionally grabs the last video frame rendered to
   // display and returns the buffer
+  /// Pauses track playback. Optionally grabs the last video frame rendered to
+  /// display and returns the buffer
   status_t Pause(const PictureCallback& handler = {nullptr, nullptr},
                  const PictureParam& params = {false, VideoCodecType::kYUV,
                                                0, 0, 0});
 
   // Resumes the currently paused playback
+  /// Resumes the currently paused playback
   status_t Resume();
 
   // Starts the Drag Functionality
+  /// Starts the Drag Functionality
   status_t Drag();
 
   // seek to a specified time position, the seek time is in microseconds
   // from the start to seek to
+  /// seek to a specified time position, the seek time is in microseconds
+  /// from the start to seek to
   status_t SetPosition(int64_t seek_time);
 
   // set playback rate and direction of playback.
+  /// set playback rate and direction of playback.
   status_t SetTrickMode(TrickModeSpeed speed, TrickModeDirection dir);
 
   status_t SetAudioTrackParam(uint32_t track_id,

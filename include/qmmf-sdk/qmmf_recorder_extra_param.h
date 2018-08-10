@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -25,6 +25,9 @@
 * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
 * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*/
+
+/*! @file qmmf_recorder_extra_param.h
 */
 
 #pragma once
@@ -193,18 +196,21 @@ class ExtraParam {
  private:
   typedef uint8_t byte_t;
 
-  /**
-   * Descriptor of a tag data structure in the raw memory pool.
-   * It is attached to the beginning of each structure recorded in the memory.
+  /** @struct DataDecriptor
    *
-   * @tag_id: Unique ID describing the data structure type.
-   * @entry_id: Subsequent number of the entry in the same tag_id.
-   * @data_size: Size of the actual data structure. The data is located at an
+   * @param tag_id Unique ID describing the data structure type.
+   * @param entry_id Subsequent number of the entry in the same tag_id.
+   * @param data_size Size of the actual data structure.
+   *             The data is located at an
    *             address with offset kDataDescSize from the beginning of the
    *             DataDecriptor.
-   */
+   *
+   * Descriptor of a tag data structure in the raw memory pool.
+   * It is attached to the beginning of each structure recorded in the memory.
+   **/
   struct DataDecriptor {
-    uint32_t tag_id;
+    uint32_t tag_id; /**< tag_id Unique ID describing */
+                     /**< the data structure type. */
     uint32_t entry_id;
     uint32_t data_size;
   };

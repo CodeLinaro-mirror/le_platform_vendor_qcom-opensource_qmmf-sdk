@@ -30,6 +30,7 @@
 #pragma once
 
 #include <qmmf_recorder_gtest_common.h>
+using namespace overlay;
 
 class Recorder360Gtest : public GtestCommon {
  public:

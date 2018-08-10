@@ -27,6 +27,9 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/*! \file qmmf_player_params.h
+*/
+
 #pragma once
 
 #include <sys/types.h>
@@ -59,9 +62,9 @@ enum class TrackMetaBufferType {
   kMultipleFrame,
 };
 
-// When TrackMetaBufferType is set kVideoCrop
-// in QueueInputBuffer API, meta_buffer can be used
-// to specify the crop parameters for display
+/// When TrackMetaBufferType is set kVideoCrop
+/// in QueueInputBuffer API, meta_buffer can be used
+/// to specify the crop parameters for display
 struct VideoStreamCrop {
   uint32_t x;
   uint32_t y;
@@ -110,19 +113,19 @@ struct Rect {
      height(height) {}
 };
 
-// Input Port Parameters Passed by Player Service in callback function
-// TrackCb for Video Track with EventType::kInputBufferNotify.
-// InputBufferNotifyParams.num_free_buffers is the number of buffers ready to
-// be dequed by Player Client
+/// Input Port Parameters Passed by Player Service in callback function
+/// TrackCb for Video Track with EventType::kInputBufferNotify.
+/// InputBufferNotifyParams.num_free_buffers is the number of buffers ready to
+/// be dequed by Player Client
 struct InputBufferNotifyParams {
   uint32_t num_free_buffers;
 };
 
-// Video track create time parameters
-// buffer_size and num_buffers is an optional parameter if the clients
-// know what the optimal size for the track input buffers are.
-// If the track wants to make the player to make a decision on number
-// of buffers to allocation and size - set these two values to 0
+/// Video track create time parameters
+/// buffer_size and num_buffers is an optional parameter if the clients
+/// know what the optimal size for the track input buffers are.
+/// If the track wants to make the player to make a decision on number
+/// of buffers to allocation and size - set these two values to 0
 struct VideoTrackCreateParam {
   size_t buffer_size;
   uint32_t num_buffers;
@@ -177,11 +180,11 @@ struct VideoTrackCreateParam {
   }
 };
 
-// Audio track create time parameters
-// buffer_size and num_buffers is an optional parameter if the clients
-// know what the optimal size for the track input buffers are.
-// If the track wants to make the player to make a decision on number
-// of buffers to allocation and size - set these two values to 0
+/// Audio track create time parameters
+/// buffer_size and num_buffers is an optional parameter if the clients
+/// know what the optimal size for the track input buffers are.
+/// If the track wants to make the player to make a decision on number
+/// of buffers to allocation and size - set these two values to 0
 struct AudioTrackCreateParam {
   size_t buffer_size;
   uint32_t num_buffers;
@@ -238,10 +241,10 @@ enum class TrickModeSpeed {
 };
 
 enum class TrickModeDirection {
-  kNormalForward  = 1,    // normal forward means 1x forward i.e. normal playback
+  kNormalForward  = 1,  // normal forward means 1x forward i.e. normal playback
   kFastForward    = 2,
   kSlowForward    = 3,
-  kNormalRewind   = 4,    // normal rewind means 1x rewind
+  kNormalRewind   = 4,  // normal rewind means 1x rewind
   kFastRewind     = 5,
   kSlowRewind     = 6,
 };

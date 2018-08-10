@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -26,7 +26,10 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
- 
+
+/*! @file qmmf_system.h
+*/
+
 #pragma once
 
 #include <cstddef>
@@ -56,70 +59,70 @@ class System {
 
   ~System();
 
-  // Connect to System service and set callback.
+  /// Connect to System service and set callback.
   status_t Connect(const SystemCb& callback);
 
-  // Disconnect from System service.
+  /// Disconnect from System service.
   status_t Disconnect();
 
-  // Loads a sound model into the sound trigger framework.
-  //
-  // There may only be one sound model loaded at any given point of time.
-  // Any attempt to load a sound model without unloading the previously
-  // loaded sound model will result in an error being returned.
+  /// Loads a sound model into the sound trigger framework.
+  ///
+  /// There may only be one sound model loaded at any given point of time.
+  /// Any attempt to load a sound model without unloading the previously
+  /// loaded sound model will result in an error being returned.
   status_t LoadSoundModel(const SoundModel& soundmodel);
 
-  // Unloads a sound model from the sound trigger framework.
-  // The sound trigger framework must be disabled before calling this method.
+  /// Unloads a sound model from the sound trigger framework.
+  /// The sound trigger framework must be disabled before calling this method.
   status_t UnloadSoundModel();
 
-  // Enables the sound trigger framework, which begins listening for the
-  // trigger utterance.
-  //
-  // Whether or not to capture audio after the hotword or the hotword
-  // itself is indicated in the configuration parameters.
-  //
-  // A callback must be registered along with sound trigger enablement.
-  // This callback is used by the system for trigger event notification and
-  // sound trigger framework-specific errors (asynchronous).
-  //
-  // The sound trigger framework has only two states:  enabled and disabled.
-  // The notion of multiple sound trigger sesions does not exist.
+  /// Enables the sound trigger framework, which begins listening for the
+  /// trigger utterance.
+  ///
+  /// Whether or not to capture audio after the hotword or the hotword
+  /// itself is indicated in the configuration parameters.
+  ///
+  /// A callback must be registered along with sound trigger enablement.
+  /// This callback is used by the system for trigger event notification and
+  /// sound trigger framework-specific errors (asynchronous).
+  ///
+  /// The sound trigger framework has only two states:  enabled and disabled.
+  /// The notion of multiple sound trigger sesions does not exist.
   status_t EnableSoundTrigger(const TriggerConfig& config,
                               const TriggerCb& callback);
 
-  // Disables the sound trigger framework.
+  /// Disables the sound trigger framework.
   status_t DisableSoundTrigger();
 
-  // Register a callback, which is used by the system for device state
-  // change notification and device-specific errors (asynchronous).
+  /// Register a callback, which is used by the system for device state
+  /// change notification and device-specific errors (asynchronous).
   status_t RegisterForDeviceEvents(const DeviceCb& callback);
 
-  // Retrieves the list of connected audio and video devices.
+  /// Retrieves the list of connected audio and video devices.
   status_t QueryDeviceInfo(::std::vector<DeviceInfo>* devices);
 
-  // Retrieves the capabilities for the given device.
+  /// Retrieves the capabilities for the given device.
   status_t QueryDeviceCapabilities(const DeviceId device,
                                    DeviceCaps* caps);
 
-  // Retrieves the list of audio, video and image codecs.
+  /// Retrieves the list of audio, video and image codecs.
   status_t QueryCodecInfo(::std::vector<CodecInfo>* codecs);
 
-  // Plays the given tone on the given audio output devices.
-  //
-  // A callback must be registered along with tone playback.
-  // This callback is used by the system for playback completion notification
-  // and tone playback specific errors (asynchronous).
-  //
-  // There may only be one tone being played at any given point of time.
-  // Any attempt to play a tone without waiting for the previous tone to
-  // finish will result in an error being returned.
+  /// Plays the given tone on the given audio output devices.
+  ///
+  /// A callback must be registered along with tone playback.
+  /// This callback is used by the system for playback completion notification
+  /// and tone playback specific errors (asynchronous).
+  ///
+  /// There may only be one tone being played at any given point of time.
+  /// Any attempt to play a tone without waiting for the previous tone to
+  /// finish will result in an error being returned.
   status_t PlayTone(const ::std::vector<DeviceId>& devices,
                     const Tone& tone,
                     const ToneCb& callback);
 
-  // Enables or disables the mute status of the specified device.  Affects all
-  // tracks associated with that device.
+  /// Enables or disables the mute status of the specified device.  Affects all
+  /// tracks associated with that device.
   status_t Mute(const DeviceId device, const bool mute);
 
 private:

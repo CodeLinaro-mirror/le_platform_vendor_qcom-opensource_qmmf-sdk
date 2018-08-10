@@ -27,6 +27,9 @@
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+/*! @file qmmf_display.h
+*/
+
 #pragma once
 
 #include <cstddef>
@@ -48,17 +51,23 @@ public:
   ~Display();
 
   // Connect to display service.
+  /// Connect to display service.
   status_t Connect();
 
   // Disconnect from display service.
   // All the surfaces should be deleted before calling
   // Disconnet Api.
+  /// Disconnect from display service.
+  /// All the surfaces should be deleted before calling
+  /// Disconnet Api.
   status_t Disconnect();
 
   //Create a Display based on Display type
+  ///Create a Display based on Display type
   status_t CreateDisplay(DisplayType type, DisplayCb& cb);
 
   //Destroy a Display based on Display type
+  ///Destroy a Display based on Display type
   status_t DestroyDisplay(DisplayType type);
 
   // This API internally calls prepare() which checks surface properties and
@@ -66,17 +75,25 @@ public:
   // If surface properties meet the requirement of available pipe capabilities,
   // one of the available pipe is assigned to this layer
   // Surface represents the layer (YUV or RGB) associated with a display.
+  /// This API internally calls prepare() which checks surface properties and
+  /// check whether one of the available pipe's can be assigned to this surface.
+  /// If surface properties meet the requirement of available pipe capabilities,
+  /// one of the available pipe is assigned to this layer
+  /// Surface represents the layer (YUV or RGB) associated with a display.
   status_t CreateSurface(const SurfaceConfig &surface_config,
       uint32_t* surface_id);
 
   status_t DestroySurface(const uint32_t surface_id);
 
   // This API gets the empty buffer to be used by the client for rendering.
+  /// This API gets the empty buffer to be used by the client for rendering.
   status_t DequeueSurfaceBuffer(const uint32_t surface_id,
       SurfaceBuffer &surface_buffer);
 
   // The client renders the data into the empty buffer and calls this API to
   // push this data for composition and display.
+  /// The client renders the data into the empty buffer and calls this API to
+  /// push this data for composition and display.
   status_t QueueSurfaceBuffer(const uint32_t surface_id,
       const SurfaceBuffer &surface_buffer, const SurfaceParam &surface_param);
 
@@ -84,14 +101,17 @@ public:
       size_t param_size);
 
   // Sets Dynamic display params
+  /// Sets Dynamic display params
   status_t SetDisplayParam(DisplayParamType param_type, const void *param,
       size_t param_size);
 
   // This API gets the composed layers data for WFD usecase
+  /// This API gets the composed layers data for WFD usecase
   status_t DequeueWBSurfaceBuffer(const uint32_t surface_id,
       SurfaceBuffer &surface_buffer);
 
   // The client provides the empty writeback buffers to display.
+  /// The client provides the empty writeback buffers to display.
   status_t QueueWBSurfaceBuffer(const uint32_t surface_id,
       const SurfaceBuffer &surface_buffer);
 
