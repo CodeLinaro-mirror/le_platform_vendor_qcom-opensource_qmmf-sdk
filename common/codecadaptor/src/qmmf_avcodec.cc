@@ -4092,8 +4092,10 @@ OMX_ERRORTYPE AVCodec::OnEmptyBufferDone(
 
   //TODO: use pBuffer
   AVCodec *avcodec = (AVCodec *)app_data;
+  uint32_t flags = buf_header->nFlags;
   BufferDescriptor stream_buffer;
   memset(&stream_buffer, 0x0, sizeof stream_buffer);
+
   if (avcodec->format_type_ == CodecType::kVideoEncoder) {
     encoder_media_buffer_type* mediaBuffer =
         (encoder_media_buffer_type*)buf_header->pBuffer;
@@ -4120,7 +4122,7 @@ OMX_ERRORTYPE AVCodec::OnEmptyBufferDone(
   }
 
   avcodec->getInputBufferSource()->ReturnBuffer(stream_buffer, nullptr);
-  if(buf_header->nFlags & OMX_BUFFERFLAG_EOS) {
+  if (flags & OMX_BUFFERFLAG_EOS) {
     QMMF_INFO("%s No more buffer to process on input port", __func__);
     CodecPortStatus status = CodecPortStatus::kPortIdle;
     avcodec->getInputBufferSource()->NotifyPortEvent(PortEventType::kPortStatus,
