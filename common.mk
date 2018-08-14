@@ -42,6 +42,12 @@ endif
 ifeq ($(DISABLE_PLAYER_SERVICE),1)
 LOCAL_CFLAGS += -DDISABLE_PLAYER_SERVICE
 endif
+ifeq ($(DISABLE_AUDIO_SERVICE),1)
+LOCAL_CFLAGS += -DDISABLE_AUDIO_SERVICE
+endif
+ifeq ($(DISABLE_SYSTEM_SERVICE),1)
+LOCAL_CFLAGS += -DDISABLE_SYSTEM_SERVICE
+endif
 
 # Enable libs/bins installation into vendor
 ifeq ($(IS_ANDROID_O_OR_ABOVE),true)
@@ -130,3 +136,14 @@ ifeq ($(TARGET_USES_GRALLOC1),true)
 LOCAL_CFLAGS += -DQMMF_DISPLAY_INTF_v1
 endif
 endif #QMMF_DISPLAY_INTF_v1
+
+# Set hal paths
+ifeq ($(PRODUCT_BRAND),Things)
+CAMERA_HAL_PATH := $(TOP)/hardware/qcom/camera/$(TARGET_BOARD_PLATFORM)
+MEDIA_HAL_PATH := $(TOP)/hardware/qcom/media/$(TARGET_BOARD_PLATFORM)
+DISPLAY_HAL_PATH := $(TOP)/hardware/qcom/display/$(TARGET_BOARD_PLATFORM)
+else
+CAMERA_HAL_PATH := $(TOP)/hardware/qcom/camera
+MEDIA_HAL_PATH := $(TOP)/hardware/qcom/media
+DISPLAY_HAL_PATH := $(TOP)/hardware/qcom/display
+endif

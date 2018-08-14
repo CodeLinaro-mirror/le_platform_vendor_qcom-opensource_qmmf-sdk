@@ -36,11 +36,15 @@
 #include <cutils/properties.h>
 
 #include "recorder/src/service/qmmf_recorder_service.h"
+#ifndef DISABLE_AUDIO_SERVICE
 #include "common/audio/src/service/qmmf_audio_service.h"
+#endif
 #ifndef DISABLE_PLAYER_SERVICE
 #include "player/src/service/qmmf_player_service.h"
 #endif
+#ifndef DISABLE_SYSTEM_SERVICE
 #include "system/src/service/qmmf_system_service.h"
+#endif
 #ifndef DISABLE_DISPLAY
 #include "display/src/service/qmmf_display_service.h"
 #endif
@@ -53,7 +57,9 @@
 
 using namespace android;
 using namespace qmmf;
+#ifndef DISABLE_AUDIO_SERVICE
 using namespace qmmf::common::audio;
+#endif
 using namespace recorder;
 #ifndef DISABLE_DISPLAY
 using namespace qmmf::display;
@@ -61,7 +67,9 @@ using namespace qmmf::display;
 #ifndef DISABLE_PLAYER_SERVICE
 using namespace player;
 #endif
+#ifndef DISABLE_SYSTEM_SERVICE
 using namespace system;
+#endif
 
 #define INFO(...) \
   do { \
@@ -79,15 +87,23 @@ int32_t main(int32_t argc, char **argv) {
   ProcessState::initWithDriver("/dev/vndbinder");
 #endif
 
+#ifndef DISABLE_SYSTEM_SERVICE
   //Add System service.
   defaultServiceManager()->addService(String16(QMMF_SYSTEM_SERVICE_NAME),
                   new qmmf::system::SystemService(), false);
   INFO("Service(%s) Added successfully!", QMMF_SYSTEM_SERVICE_NAME);
+#else
+  INFO("System Service disabled, continuing..");
+#endif
 
+#ifndef DISABLE_AUDIO_SERVICE
   // Add audio service.
   defaultServiceManager()->addService(String16(QMMF_AUDIO_SERVICE_NAME),
           new qmmf::common::audio::AudioService(), false);
   INFO("Service(%s) Added successfully!", QMMF_AUDIO_SERVICE_NAME);
+#else
+  INFO("Audio Service disabled, continuing..");
+#endif
 
   //Add Recorder service.
   defaultServiceManager()->addService(String16(QMMF_RECORDER_SERVICE_NAME),

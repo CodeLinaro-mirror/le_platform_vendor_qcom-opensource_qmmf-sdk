@@ -1,3 +1,5 @@
+ifneq ($(DISABLE_AUDIO_SERVICE),1)
+
 LOCAL_PATH := $(call my-dir)
 
 QMMF_SDK_TOP_SRCDIR := $(LOCAL_PATH)/../../../..
@@ -24,3 +26,5 @@ LOCAL_MODULE = libqmmf_audio_service
 include $(BUILD_SHARED_LIBRARY)
 
 endif # BUILD_QMMMF
+
+endif

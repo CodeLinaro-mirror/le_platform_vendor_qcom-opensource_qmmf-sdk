@@ -13,17 +13,17 @@ include $(CLEAR_VARS)
 
 include $(QMMF_SDK_TOP_SRCDIR)/common.mk
 
-LOCAL_C_INCLUDES += $(TOP)/hardware/qcom/camera/QCamera2/HAL3
+LOCAL_C_INCLUDES += $(CAMERA_HAL_PATH)/QCamera2/HAL3
 LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/mm-core/omxcore
-LOCAL_C_INCLUDES += $(TOP)/hardware/qcom/media
+LOCAL_C_INCLUDES += $(MEDIA_HAL_PATH)
 LOCAL_C_INCLUDES += $(TOP)/external/jsoncpp/include
 ifeq ($(TARGET_USES_GRALLOC1),true)
-LOCAL_C_INCLUDES += $(TOP)/hardware/qcom/display
+LOCAL_C_INCLUDES += $(DISPLAY_HAL_PATH)
 endif
 # reprocess-related includes
-LOCAL_C_INCLUDES += $(TOP)/hardware/qcom/camera/QCamera2/stack/common \
-LOCAL_C_INCLUDES += $(TOP)/hardware/qcom/camera/mm-image-codec/qomx_core \
-LOCAL_C_INCLUDES += $(TOP)/hardware/qcom/camera/mm-image-codec/qexif \
+LOCAL_C_INCLUDES += $(CAMERA_HAL_PATH)/QCamera2/stack/common \
+LOCAL_C_INCLUDES += $(CAMERA_HAL_PATH)/mm-image-codec/qomx_core \
+LOCAL_C_INCLUDES += $(CAMERA_HAL_PATH)/mm-image-codec/qexif \
 
 LOCAL_SRC_FILES := qmmf_recorder_service.cc
 LOCAL_SRC_FILES += qmmf_recorder_impl.cc
@@ -64,6 +64,9 @@ LOCAL_SHARED_LIBRARIES += libqmmf_postproc_frame_skip
 LOCAL_SHARED_LIBRARIES += libqmmf_common_resizer_fastcv
 LOCAL_SHARED_LIBRARIES += libqmmf_common_resizer_c2d
 LOCAL_SHARED_LIBRARIES += libqmmf_common_resizer_neon
+ifneq ($(DISABLE_PP_JPEG),1)
+LOCAL_SHARED_LIBRARIES += libqmmf_common_jpeg_encoder
+endif
 
 LOCAL_STATIC_LIBRARIES += libjsoncpp
 

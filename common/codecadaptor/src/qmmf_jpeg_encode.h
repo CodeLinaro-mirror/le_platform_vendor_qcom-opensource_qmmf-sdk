@@ -136,9 +136,6 @@ class JPEGEncoder : public IAVCodec {
   CodecType format_type_;
   CodecParam codec_params_;
 
-  void* cfg_;
-  size_t job_result_size_;
-
   uint32_t    jpeg_quality_;
   uint32_t    thumbnail_width_;
   uint32_t    thumbnail_height_;

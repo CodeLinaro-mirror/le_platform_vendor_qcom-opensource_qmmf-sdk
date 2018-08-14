@@ -66,7 +66,7 @@ using std::shared_ptr;
 using namespace android;
 
 JPEGEncoder::JPEGEncoder()
-    : stop_jpeg_(false), job_result_size_(0),
+    : stop_jpeg_(false),
       jpeg_encoder_(nullptr) {
 
   // Set Default Values
