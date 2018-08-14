@@ -32,15 +32,13 @@ LOCAL_SRC_FILES += qmmf_remote_cb.cc
 LOCAL_SRC_FILES += qmmf_camera_source.cc
 LOCAL_SRC_FILES += qmmf_camera_context.cc
 LOCAL_SRC_FILES += qmmf_fake_camera.cc
-LOCAL_SRC_FILES += qmmf_camera_rescaler.cc
+LOCAL_SRC_FILES += qmmf_multicamera_manager.cc
 LOCAL_SRC_FILES += qmmf_encoder_core.cc
 LOCAL_SRC_FILES += qmmf_audio_source.cc
 LOCAL_SRC_FILES += qmmf_audio_raw_track_source.cc
 LOCAL_SRC_FILES += qmmf_audio_encoded_track_source.cc
 LOCAL_SRC_FILES += qmmf_audio_encoder_core.cc
-LOCAL_SRC_FILES += qmmf_multicamera_manager.cc
 ifneq ($(DISABLE_PP_JPEG),1)
-LOCAL_SRC_FILES += qmmf_jpeg_encoder.cc
 LOCAL_SRC_FILES += qmmf_camera_jpeg.cc
 endif
 
@@ -50,6 +48,7 @@ LOCAL_SRC_FILES += post-process/node/qmmf_postproc_node.cc
 LOCAL_SRC_FILES += post-process/memory/qmmf_postproc_memory_pool.cc
 LOCAL_SRC_FILES += post-process/pipe/qmmf_postproc_pipe.cc
 LOCAL_SRC_FILES += post-process/common/qmmf_postproc_thread.cc
+LOCAL_SRC_FILES += qmmf_camera_rescaler.cc
 
 LOCAL_SHARED_LIBRARIES += libqmmf_utils libqmmf_postproc_algo libqmmf_jpeg
 LOCAL_SHARED_LIBRARIES += libqmmf_camera_hal_reproc libqmmf_postproc_test
@@ -57,7 +56,9 @@ LOCAL_SHARED_LIBRARIES += libqmmf_recorder_client libqmmf_camera_adaptor
 LOCAL_SHARED_LIBRARIES += libqmmf_codec_adaptor libqmmf_audio_client
 LOCAL_SHARED_LIBRARIES += libqmmf_overlay
 LOCAL_SHARED_LIBRARIES += libqmmf_exif_generator
+ifneq ($(DISABLE_DISPLAY),1)
 LOCAL_SHARED_LIBRARIES += libqmmf_display_client
+endif
 LOCAL_SHARED_LIBRARIES += libcamera_client libbinder libhardware
 LOCAL_SHARED_LIBRARIES += libqmmf_postproc_frame_skip
 LOCAL_SHARED_LIBRARIES += libqmmf_common_resizer_fastcv
