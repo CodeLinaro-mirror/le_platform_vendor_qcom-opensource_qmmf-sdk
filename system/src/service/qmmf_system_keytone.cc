@@ -373,6 +373,11 @@ void SystemKeytone::Thread() {
       break;
   }
 
+  result = end_point_->Stop();
+  if (result < 0)
+    QMMF_ERROR("%s() endpoint->Stop failed: %d[%s]", __func__,
+               result, strerror(result));
+
 error_thread:
   result = end_point_->Disconnect();
   if (result < 0)
