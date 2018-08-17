@@ -3800,6 +3800,10 @@ TEST_F(RecorderGtest, LowResVideo10MPContinuousSnapshotWithLCACandEdgeSmooth) {
   ret = recorder_.ConfigImageCapture(camera_id_, image_config);
   ASSERT_TRUE(ret == NO_ERROR);
 
+  uint8_t intent = ANDROID_CONTROL_CAPTURE_INTENT_VIDEO_SNAPSHOT;
+  ret = meta.update(ANDROID_CONTROL_CAPTURE_INTENT, &intent, 1);
+  ASSERT_TRUE(ret == NO_ERROR);
+
   meta_array.clear();
   meta_array.push_back(meta);
   ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array, cb);
