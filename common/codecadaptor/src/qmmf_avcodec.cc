@@ -138,6 +138,7 @@ OMX_CALLBACKTYPE AVCodec::callbacks_ = {
     &OnEvent, &OnEmptyBufferDone, &OnFillBufferDone};
 
 uint32_t AVCodec::power_hint_ = 0;
+const uint32_t AVCodec::extra_output_buffers_ = 3;
 
 AVCodec::AVCodec()
     : state_(OMX_StateLoaded),
@@ -2383,6 +2384,29 @@ status_t AVCodec::AllocateBuffer(uint32_t port_type, uint32_t buf_count,
     assert(source.get() != nullptr);
     output_source_ = source;
 
+    if (format_type_ == CodecType::kVideoDecoder) {
+      uint32_t buf_count = port_def.nBufferCountActual + extra_output_buffers_;
+
+      port_def.nBufferCountActual = buf_count;
+      out_buff_hdr_size_ = port_def.nBufferCountActual;
+
+      ret = omx_client_->SetParameter(OMX_IndexParamPortDefinition,
+                                    (OMX_PTR)&port_def);
+      if(ret != OK) {
+        QMMF_ERROR("%s Failed to set new buffer count(%d) on %s", __func__,
+                   port_def.nBufferCountActual, PORT_NAME(port_type));
+        return ret;
+      }
+      ret = omx_client_->GetParameter(OMX_IndexParamPortDefinition, &port_def);
+      if(ret != OK) {
+        QMMF_ERROR("%s Failed to getParameter on %s", __func__,
+                   PORT_NAME(port_type));
+        return ret;
+      }
+      QMMF_INFO("%s New Buf count(%d), size(%d)", __func__,
+                port_def.nBufferCountActual, port_def.nBufferSize);
+    }
+
     out_buff_hdr_ = new OMX_BUFFERHEADERTYPE*[port_def.nBufferCountActual];
     if(out_buff_hdr_ ==  nullptr) {
         QMMF_ERROR("%s Failed to allocate buffer header on %s", __func__,
@@ -3718,6 +3742,24 @@ status_t AVCodec::PortReconfigOutput() {
     QMMF_ERROR("%s Error - Expected Output Port\n", __func__);
     assert(0);
     return OMX_ErrorUndefined;
+  }
+
+  output_port.nBufferCountActual += extra_output_buffers_;
+
+  ret = omx_client_->SetParameter((OMX_INDEXTYPE)OMX_IndexParamPortDefinition,
+                                    &output_port);
+
+  if (ret != OK) {
+    QMMF_ERROR("%s Failed to SetParameter on output port", __func__);
+    return ret;
+  }
+
+  ret = omx_client_->GetParameter((OMX_INDEXTYPE)OMX_IndexParamPortDefinition,
+                                  &output_port);
+
+  if (ret != OK) {
+    QMMF_ERROR("%s Failed to GetParameter on output port", __func__);
+    return ret;
   }
 
   out_buff_hdr_size_ = output_port.nBufferCountActual;
