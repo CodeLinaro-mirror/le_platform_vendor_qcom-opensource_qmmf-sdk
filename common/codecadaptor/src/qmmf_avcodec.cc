@@ -153,7 +153,8 @@ AVCodec::AVCodec()
       bPortReconfig_(false),
       slice_mode_encoding_(false),
       api_count_(0),
-      flush_in_progress_(false) {
+      flush_in_progress_(false),
+      enable_thumbnail_(false) {
 
   QMMF_INFO("%s Enter", __func__);
 
@@ -1007,6 +1008,23 @@ status_t AVCodec::ConfigureVideoDecoder(CodecParam& codec_param) {
       QMMF_ERROR("%s Failed to set the SEI extradata for Decoder", __func__);
       return ret;
     }
+  }
+
+  if(codec_param.video_dec_param.enable_thumbnail) {
+    QMMF_INFO("%s: Enabling Thumbnail mode", __func__);
+    enable_thumbnail_ =  true;
+    QOMX_ENABLETYPE enable_type;
+    InitOMXParams(&enable_type);
+    enable_type.bEnable = OMX_TRUE;
+    ret = omx_client_->SetParameter(
+        static_cast<OMX_INDEXTYPE>(OMX_QcomIndexParamVideoSyncFrameDecodingMode),
+        reinterpret_cast<OMX_PTR>(&enable_type));
+    if (ret != 0) {
+      QMMF_ERROR("%s Failed to set the Thumbnail mode for Decoder", __func__);
+      return ret;
+    }
+  } else {
+    enable_thumbnail_ =  false;
   }
 
   OMX_PARAM_PORTDEFINITIONTYPE input_port;
@@ -2388,7 +2406,7 @@ status_t AVCodec::AllocateBuffer(uint32_t port_type, uint32_t buf_count,
     assert(source.get() != nullptr);
     output_source_ = source;
 
-    if (format_type_ == CodecType::kVideoDecoder) {
+    if (format_type_ == CodecType::kVideoDecoder && !enable_thumbnail_) {
       uint32_t buf_count = port_def.nBufferCountActual + extra_output_buffers_;
 
       port_def.nBufferCountActual = buf_count;
@@ -3793,7 +3811,8 @@ status_t AVCodec::PortReconfigOutput() {
     return OMX_ErrorUndefined;
   }
 
-  output_port.nBufferCountActual += extra_output_buffers_;
+  if(!enable_thumbnail_)
+    output_port.nBufferCountActual += extra_output_buffers_;
 
   ret = omx_client_->SetParameter((OMX_INDEXTYPE)OMX_IndexParamPortDefinition,
                                     &output_port);

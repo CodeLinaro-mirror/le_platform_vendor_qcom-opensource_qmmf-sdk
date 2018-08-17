@@ -650,6 +650,7 @@ int32_t VideoDecode::FillCodecParams() {
     video_track_param.width = track_info_.sVideo.ulWidth;
     video_track_param.bitrate = track_info_.sVideo.ulBitRate;
     video_track_param.num_buffers = 1;
+    video_track_param.enable_thumbnail = true;
 
     ALOGI("VideoDecode:%s: height : %d width %d frame_rate %d, bitrate %d ",
           __func__, video_track_param.height, video_track_param.width,

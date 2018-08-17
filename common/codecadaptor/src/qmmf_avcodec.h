@@ -249,6 +249,7 @@ class AVCodec : public IAVCodec {
   AVCodecCb                 avcodec_cb_;
   std::atomic<int>          api_count_;
   std::atomic<bool>         flush_in_progress_;
+  std::atomic<bool>         enable_thumbnail_;
 
   static const int64_t  kOutputBufHeaderDelay;
   static const uint32_t kMaxWaitLimitCounter;
