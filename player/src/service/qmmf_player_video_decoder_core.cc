@@ -57,6 +57,9 @@ using ::std::vector;
 
 VideoDecoderCore* VideoDecoderCore::instance_ = nullptr;
 
+// sleep time for Flush - 5000 usec
+const uint32_t VideoTrackDecoder::kSleepFlush = 5000;
+
 VideoDecoderCore* VideoDecoderCore::CreateVideoDecoderCore() {
   if (!instance_) {
     instance_ = new VideoDecoderCore();
@@ -455,7 +458,9 @@ VideoTrackDecoder::VideoTrackDecoder(int32_t ion_device)
       output_buffer_size_(0),
       ion_device_(ion_device),
       stop_received_(false),
-      pause_(false) {
+      pause_(false),
+      api_count_(0),
+      flush_in_progress_(false) {
   QMMF_INFO("%s: Enter", __func__);
 
   memset(&video_track_params_, 0x0, sizeof video_track_params_);
@@ -660,7 +665,7 @@ RELEASE_INPUT_BUFFERS:
 status_t VideoTrackDecoder::DequeueInputBuffer(
     std::vector<AVCodecBuffer>& buffers) {
   QMMF_DEBUG("%s: Enter", __func__);
-
+  api_count_++;
   int32_t size = buffers.size();
 
   for (int32_t i = 0; i < size; i++) {
@@ -671,25 +676,23 @@ status_t VideoTrackDecoder::DequeueInputBuffer(
       std::unique_lock<std::mutex> lock(wait_for_empty_frame_lock_);
       wait_for_empty_frame_.Wait(lock);
     }
-
-    StreamBuffer iter = *unfilled_frame_queue_.Begin();
-    buffers[i].fd = (iter).fd;
-    buffers[i].data = (iter).data;
-    buffers[i].frame_length = (iter).frame_length;
-    buffers[i].buf_id = (iter).fd;
-
     {
       std::lock_guard<std::mutex> lock(queue_lock_);
+      StreamBuffer iter = *unfilled_frame_queue_.Begin();
+      buffers[i].fd = (iter).fd;
+      buffers[i].data = (iter).data;
+      buffers[i].frame_length = (iter).frame_length;
+      buffers[i].buf_id = (iter).fd;
+
       filled_frame_queue_.PushBack(iter);
+      unfilled_frame_queue_.Erase(unfilled_frame_queue_.Begin());
+
+      QMMF_DEBUG("%s track_id(%d) Sending buffer(0x%p) fd(%d) to client",
+                 __func__, TrackId(), (iter).data, (iter).fd);
     }
-
-    unfilled_frame_queue_.Erase(unfilled_frame_queue_.Begin());
-
-    QMMF_DEBUG("%s track_id(%d) Sending buffer(0x%p) fd(%d) to client",
-               __func__, TrackId(), (iter).data, (iter).fd);
-
   }
   QMMF_DEBUG("%s: Exit track_id(%d)", __func__, TrackId());
+  api_count_--;
   return NO_ERROR;
 }
 
@@ -697,10 +700,24 @@ status_t VideoTrackDecoder::DequeueInputBuffer(
 status_t VideoTrackDecoder::QueueInputBuffer(
     std::vector<AVCodecBuffer>& buffers) {
   QMMF_DEBUG("%s: Enter", __func__);
+  if (flush_in_progress_) {
+    int32_t size = buffers.size();
+    for (int32_t i = 0; i < size; i++) {
+      std::lock_guard<std::mutex> lock(queue_lock_);
+      StreamBuffer iter = *filled_frame_queue_.Begin();
+      unfilled_frame_queue_.PushBack(iter);
+      wait_for_empty_frame_.Signal();
+
+      filled_frame_queue_.Erase(filled_frame_queue_.Begin());
+    }
+    return NO_ERROR;
+  }
+  api_count_++;
 
   int32_t size = buffers.size();
 
   for (int32_t i = 0; i < size; i++) {
+    std::lock_guard<std::mutex> lock(queue_lock_);
 
     StreamBuffer iter = *filled_frame_queue_.Begin();
 
@@ -729,11 +746,9 @@ status_t VideoTrackDecoder::QueueInputBuffer(
   write(file_fd_video_,(iter).data,(iter).filled_length );
 #endif
 
-    {
-      std::lock_guard<std::mutex> lock(queue_lock_);
-      frames_to_decode_.PushBack(iter);
-      wait_for_frame_.Signal();
-    }
+    frames_to_decode_.PushBack(iter);
+    wait_for_frame_.Signal();
+
     filled_frame_queue_.Erase(filled_frame_queue_.Begin());
 
     QMMF_DEBUG("%s track_id(%d) received buffer(0x%p) fd(%d) from client",
@@ -741,6 +756,7 @@ status_t VideoTrackDecoder::QueueInputBuffer(
   }
 
   QMMF_DEBUG("%s: Exit track_id(%d)", __func__, TrackId());
+  api_count_--;
   return NO_ERROR;
 }
 
@@ -896,14 +912,53 @@ status_t VideoTrackDecoder::ResumeDecoder() {
 status_t VideoTrackDecoder::PrepareDrag(bool ignore_fps) {
   QMMF_DEBUG("%s: Enter track_id(%d)", __func__, TrackId());
 
-  auto ret = video_track_sink_->PrepareDrag(ignore_fps);
+  auto ret = video_track_sink_->StartFlush(true);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s: track_id(%d) StartFlush failed", __func__, TrackId());
+    return ret;
+  }
+
+  ret = StartFlush(true);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s: track_id(%d) StartFlush failed", __func__, TrackId());
+    return ret;
+  }
+
+  while (api_count_ > 0) usleep(kSleepFlush);
+
+  assert(avcodec_ != nullptr);
+  ret = avcodec_->Flush(kPortALL);
+  if (ret != OK) {
+    QMMF_ERROR("%s Flush failed on Avcodec", __func__);
+    return ret;
+  }
+
+  // clean up
+  for (auto it = frames_to_decode_.Begin(); it != frames_to_decode_.End(); ++it)
+    unfilled_frame_queue_.PushBack(*it);
+
+  if (!frames_to_decode_.Empty()) frames_to_decode_.Clear();
+
+  ret = video_track_sink_->PrepareDrag(ignore_fps);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: track_id(%d) PrepareDrag Failed ignore_fps(%d)", __func__,
                TrackId(), ignore_fps);
     return ret;
   }
 
-  if(!ignore_fps) {
+  ret = video_track_sink_->StartFlush(false);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s: track_id(%d) StartFlush failed", __func__, TrackId());
+    return ret;
+  }
+
+  ret = StartFlush(false);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s: track_id(%d) StartFlush failed", __func__, TrackId());
+    return ret;
+  }
+
+  if (!ignore_fps) {
     input_buffer_notify_params_.num_free_buffers = unfilled_frame_queue_.Size();
     if (input_buffer_notify_params_.num_free_buffers > 0) {
       track_callback_.event_cb(TrackId(), EventType::kInputBufferNotify,
@@ -1021,45 +1076,58 @@ status_t VideoTrackDecoder::GetBuffer(BufferDescriptor& stream_buffer,
   QMMF_DEBUG("%s: Enter track_id(%d) frames_to_decode_.Size(%d) ",
              __func__, TrackId(),frames_to_decode_.Size());
   int32_t log_counter = 0;
-  while (frames_to_decode_.Size() <= 0 && !stop_received_) {
+  api_count_++;
+  while (frames_to_decode_.Size() <= 0 && !stop_received_ &&
+         !flush_in_progress_) {
     QMMF_DEBUG("%s track_id(%d) No Filled buffer available for AVCodec, "
                "wait for new buffer", __func__, TrackId());
     std::unique_lock<std::mutex> lock(wait_for_frame_lock_);
-    if(wait_for_frame_.WaitFor(lock, std::chrono::milliseconds(100)) != 0) {
+    if (wait_for_frame_.WaitFor(lock, std::chrono::milliseconds(100)) != 0) {
       log_counter++;
-      if (log_counter % 10 == 0) // log the message every 1 sec
+      if (log_counter % 10 == 0)  // log the message every 1 sec
         QMMF_WARN("%s track_id(%d) timed out on wait", __func__, TrackId());
     }
   }
-  if (stop_received_) return NO_ERROR;
-
-  StreamBuffer iter = *frames_to_decode_.Begin();
-
-  stream_buffer.fd       = (iter).fd;
-  stream_buffer.data     = (iter).data;
-  stream_buffer.capacity = (iter).frame_length;
-  stream_buffer.size     = (iter).filled_length;
-  stream_buffer.flag     = (iter).flags;
-  stream_buffer.timestamp = (iter).timestamp;
-
-  QMMF_VERBOSE("%s: track_id(%d)", __func__,TrackId());
-
-  {
-    std::lock_guard<std::mutex> lock(queue_lock_);
-    frames_being_decoded_.PushBack(iter);
+  if (stop_received_) {
+    api_count_--;
+    return NO_ERROR;
   }
 
-  frames_to_decode_.Erase(frames_to_decode_.Begin());
-  QMMF_DEBUG("%s track_id(%d) Sending buffer(0x%p) fd(%d) to avcodec for"
-             " decoding ",  __func__, TrackId(), (iter).data, (iter).fd);
+  if (flush_in_progress_) {
+    api_count_--;
+    return -EBADRQC;
+  }
+  {
+    std::lock_guard<std::mutex> lock(queue_lock_);
+    StreamBuffer iter = *frames_to_decode_.Begin();
 
-  QMMF_DEBUG("%s track_id(%d) frame_length(%d) filled_length(%d) to avcodec for"
-             " decoding ",  __func__, TrackId(),
-             (iter).frame_length, (iter).filled_length);
+    stream_buffer.fd       = (iter).fd;
+    stream_buffer.data     = (iter).data;
+    stream_buffer.capacity = (iter).frame_length;
+    stream_buffer.size     = (iter).filled_length;
+    stream_buffer.flag     = (iter).flags;
+    stream_buffer.timestamp = (iter).timestamp;
 
-  QMMF_DEBUG("%s: Exit track_id(%d)", __func__, TrackId());
-  if ((iter).flags & static_cast<uint32_t>(BufferFlags::kFlagEOS))
-    return -1; // For EOS and stop case
+    QMMF_VERBOSE("%s: track_id(%d)", __func__,TrackId());
+
+    frames_being_decoded_.PushBack(iter);
+
+    frames_to_decode_.Erase(frames_to_decode_.Begin());
+
+    QMMF_DEBUG("%s track_id(%d) Sending buffer(0x%p) fd(%d) to avcodec for"
+               " decoding ",  __func__, TrackId(), (iter).data, (iter).fd);
+
+    QMMF_DEBUG("%s track_id(%d) frame_length(%d) filled_length(%d) to avcodec"
+               " for decoding ",  __func__, TrackId(),
+               (iter).frame_length, (iter).filled_length);
+
+    QMMF_DEBUG("%s: Exit track_id(%d)", __func__, TrackId());
+    if ((iter).flags & static_cast<uint32_t>(BufferFlags::kFlagEOS)) {
+      api_count_--;
+      return -1; // For EOS and stop case
+    }
+  }
+  api_count_--;
   return NO_ERROR;
 }
 
@@ -1082,22 +1150,20 @@ status_t VideoTrackDecoder::ReturnBuffer(BufferDescriptor& stream_buffer,
   }
 
   bool found = false;
-
-  std::list<StreamBuffer>::iterator it = frames_being_decoded_.Begin();
-  for (; it != frames_being_decoded_.End(); ++it) {
-    if ((*it).data ==  stream_buffer.data) {
-      {
-        std::lock_guard<std::mutex> lock(queue_lock_);
+  {
+    std::lock_guard<std::mutex> lock(queue_lock_);
+    std::list<StreamBuffer>::iterator it = frames_being_decoded_.Begin();
+    for (; it != frames_being_decoded_.End(); ++it) {
+      if ((*it).data ==  stream_buffer.data) {
         unfilled_frame_queue_.PushBack(*it);
         wait_for_empty_frame_.Signal();
+        found = true;
+        break;
       }
-      found = true;
-      break;
     }
+    assert(found == true);
+    frames_being_decoded_.Erase(it);
   }
-
-  assert(found == true);
-  frames_being_decoded_.Erase(it);
 
   if (!IsPause()) {
     input_buffer_notify_params_.num_free_buffers = unfilled_frame_queue_.Size();
@@ -1426,6 +1492,11 @@ ION_MAP_FAILED:
 ION_ALLOC_FAILED:
   QMMF_ERROR("%s ION Buffer allocation failed!", __func__);
   return -1;
+}
+
+status_t VideoTrackDecoder::StartFlush(bool status) {
+  flush_in_progress_ = status;
+  return NO_ERROR;
 }
 
 

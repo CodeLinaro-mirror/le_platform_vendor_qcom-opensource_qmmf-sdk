@@ -101,6 +101,9 @@ const uint32_t AVCodec::kMaxWaitLimitCounter = 40;
 // sleep time for port reconfig - 3000 usec
 const uint32_t AVCodec::kSleepPortReconfig = 3000;
 
+// sleep time for Flush - 5000 usec
+const uint32_t AVCodec::kSleepFlush = 5000;
+
 template<class T>
 static void InitOMXParams(T *params) {
   memset(params, 0x0, sizeof(T));
@@ -145,7 +148,8 @@ AVCodec::AVCodec()
       signal_queue_(CMD_BUF_MAX_COUNT),
       bPortReconfig_(false),
       slice_mode_encoding_(false),
-      api_count_(0) {
+      api_count_(0),
+      flush_in_progress_(false) {
 
   QMMF_INFO("%s Enter", __func__);
 
@@ -3130,11 +3134,12 @@ status_t AVCodec::Flush(uint32_t index) {
 
   QMMF_INFO("%s Enter", __func__);
   status_t ret = 0;
-
+  flush_in_progress_ = true;
   ret = omx_client_->SendCommand(OMX_CommandFlush, index, 0);
   if(ret != 0) {
     QMMF_ERROR("%s Failed to call flush command on %s", __func__,
         PORT_NAME(index));
+    flush_in_progress_ = false;
     return ret;
   }
 
@@ -3143,6 +3148,7 @@ status_t AVCodec::Flush(uint32_t index) {
   if (ret != OK) {
     QMMF_ERROR("%s Pop from SignalQueue Failed, size(%u)",
         __func__, signal_queue_.Size());
+    flush_in_progress_ = false;
     return ret;
   }
 
@@ -3154,6 +3160,7 @@ status_t AVCodec::Flush(uint32_t index) {
      (cmd.event_cmd != OMX_CommandFlush)) {
     QMMF_ERROR("%s Expecting Cmd complete for flush vs command found(%d)",
         __func__, cmd.event_cmd);
+    flush_in_progress_ = false;
     return cmd.event_result;
   }
 
@@ -3163,6 +3170,7 @@ status_t AVCodec::Flush(uint32_t index) {
     if (ret != OK) {
       QMMF_ERROR("%s Pop from SignalQueue Failed, size(%u)",
           __func__, signal_queue_.Size());
+      flush_in_progress_ = false;
       return ret;
     }
 
@@ -3174,10 +3182,11 @@ status_t AVCodec::Flush(uint32_t index) {
        (cmd.event_cmd != OMX_CommandFlush)) {
       QMMF_ERROR("%s Expecting Cmd complete for flush vs command found(%d)",
         __func__, cmd.event_cmd);
+      flush_in_progress_ = false;
       return cmd.event_result;
     }
   }
-
+  flush_in_progress_ = false;
   QMMF_INFO("%s Exit", __func__);
   return ret;
 }
@@ -3194,7 +3203,15 @@ void AVCodec::DeliverInput() {
 
   while (1) {
     memset(&stream_buffer, 0x0, sizeof(stream_buffer));
+    // Wait for Flush to complete
+    if (format_type_ == CodecType::kVideoDecoder)
+      while(flush_in_progress_) usleep(kSleepFlush);
+
     ret = getInputBufferSource()->GetBuffer(stream_buffer, nullptr);
+
+    if (format_type_ == CodecType::kVideoDecoder)
+      if (ret == -EBADRQC) continue;
+
     QMMF_VERBOSE("%s: GetBuffer returned [%s]", __func__,
                  stream_buffer.ToString().c_str());
     if ((format_type_ == CodecType::kAudioDecoder ||
@@ -3287,6 +3304,9 @@ void AVCodec::DeliverOutput() {
   BufferDescriptor codec_buffer;
   OMX_BUFFERHEADERTYPE *buf_header;
   while (1) {
+    if (format_type_ == CodecType::kVideoDecoder)
+      while(flush_in_progress_) usleep(kSleepFlush);
+
     if (format_type_ == CodecType::kVideoDecoder)
       while (IsPortReconfig()) {
         if(IsOutputPortStop())

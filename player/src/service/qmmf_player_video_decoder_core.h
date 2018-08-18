@@ -156,6 +156,7 @@ class VideoTrackDecoder : public ::qmmf::avcodec::ICodecSource {
   status_t AllocOutputPortBufs();
   status_t ReleaseOutputBuffers();
   status_t ReleaseInputBuffers();
+  status_t StartFlush(bool status);
 
   inline bool IsPause() {
     std::lock_guard<std::mutex> lock(pause_lock_);
@@ -211,6 +212,9 @@ class VideoTrackDecoder : public ::qmmf::avcodec::ICodecSource {
   InputBufferNotifyParams             input_buffer_notify_params_;
   std::mutex                          pause_lock_;
   bool                                pause_;
+  std::atomic<int>                    api_count_;
+  std::atomic<bool>                   flush_in_progress_;
+  static const uint32_t               kSleepFlush;
 };
 
 };  // namespace player

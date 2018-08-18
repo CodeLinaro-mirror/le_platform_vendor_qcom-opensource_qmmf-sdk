@@ -65,6 +65,9 @@ using ::std::weak_ptr;
 
 VideoSink* VideoSink::instance_ = nullptr;
 
+// sleep time for Pause/Flush - 5000 usec
+const uint32_t VideoTrackSink::kSleepWait = 5000;
+
 VideoSink* VideoSink::CreateVideoSink() {
   QMMF_DEBUG("%s Enter ", __func__);
 
@@ -277,7 +280,8 @@ VideoTrackSink::VideoTrackSink()
       output_frame_interval_(0.0),
       remaining_frame_skip_time_(0.0),
       display_refresh_rate_(0.0),
-      ignore_fps_(false) {
+      ignore_fps_(false),
+      flush_in_progress_(false) {
   QMMF_DEBUG("%s Enter ", __func__);
   memset(&surface_buffer_, 0x0, sizeof(SurfaceBuffer));
 #ifdef DUMP_YUV_FRAMES
@@ -546,7 +550,23 @@ status_t VideoTrackSink::PrepareDrag(bool ignore_fps) {
   ignore_fps_lock_.lock();
   ignore_fps_ = ignore_fps;
   ignore_fps_lock_.unlock();
-
+  {
+    std::lock_guard<std::mutex> lock(queue_lock_);
+    auto iter = decoded_buffer_queue_.Begin();
+    for (; iter != decoded_buffer_queue_.End(); ++iter) {
+      std::list<CodecBuffer>::iterator it = output_occupy_buffer_queue_.Begin();
+      for (; it != output_occupy_buffer_queue_.End(); ++it) {
+        if (((*it).fd) == ((*iter).fd)) {
+          QMMF_DEBUG("%s track_id(%d) Buffer found", __func__, TrackId());
+          output_free_buffer_queue_.PushBack(*it);
+          output_occupy_buffer_queue_.Erase(it);
+          get_buffer_wait_.Signal();
+          break;
+        }
+      }
+    }
+    if (!decoded_buffer_queue_.Empty()) decoded_buffer_queue_.Clear();
+  }
   if(!ignore_fps) {
     audio_accumulated_frames_ = 0;
     audio_offset_ = -1;
@@ -680,7 +700,7 @@ status_t VideoTrackSink::GetBuffer(BufferDescriptor& codec_buffer,
   // Give available free buffer to decoder to use on output port.
   int32_t log_counter = 0;
   while (output_free_buffer_queue_.Size() <= 0 && !stop_notify_called_ &&
-         !port_reconfigured_) {
+         !port_reconfigured_ && !flush_in_progress_) {
     std::unique_lock<std::mutex> lock(get_buffer_wait_lock_);
     if (get_buffer_wait_.WaitFor(lock, milliseconds(50)) != 0) {
       log_counter++;
@@ -697,7 +717,11 @@ status_t VideoTrackSink::GetBuffer(BufferDescriptor& codec_buffer,
   } else if (port_reconfigured_) {
     QMMF_DEBUG("%s request for buffer after port reconfigured", __func__);
     return INVALID_OPERATION;
+  } else if (flush_in_progress_) {
+    QMMF_DEBUG("%s request for buffer during flush call", __func__);
+    return -EBADRQC;
   } else {
+    std::lock_guard<std::mutex> lock(queue_lock_);
     CodecBuffer iter = *output_free_buffer_queue_.Begin();
     codec_buffer.fd = (iter).fd;
     codec_buffer.data = (iter).pointer;
@@ -733,7 +757,7 @@ status_t VideoTrackSink::ReturnBuffer(BufferDescriptor& codec_buffer,
       __func__, TrackId(), codec_buffer.data);
 
   if (!((codec_buffer.flag & static_cast<uint32_t>(BufferFlags::kFlagEOS)) ||
-      stop_called_ || !codec_buffer.size)) {
+      stop_called_ || (!codec_buffer.size && !flush_in_progress_))) {
     auto ret = Dispatcher(codec_buffer);
     if(ret != 0) {
       QMMF_ERROR("%s: Failed to dispatch buffer with fd:%d", __func__,
@@ -755,6 +779,7 @@ status_t VideoTrackSink::ReturnBuffer(BufferDescriptor& codec_buffer,
 
 status_t VideoTrackSink::ReturnBufferToCodec(BufferDescriptor& codec_buffer) {
   QMMF_DEBUG("%s: Enter track_id(%d)", __func__, TrackId());
+  std::lock_guard<std::mutex> lock(queue_lock_);
 
   std::list<CodecBuffer>::iterator it = output_occupy_buffer_queue_.Begin();
   bool found = false;
@@ -771,9 +796,7 @@ status_t VideoTrackSink::ReturnBufferToCodec(BufferDescriptor& codec_buffer) {
     }
   }
 
-  if (codec_buffer.fd == 0) {
-    return NO_ERROR;
-  }
+  if (codec_buffer.fd == 0) return NO_ERROR;
 
   assert(found == true);
   QMMF_DEBUG("%s: Exit track_id(%d)", __func__, TrackId());
@@ -818,6 +841,17 @@ status_t VideoTrackSink::Dispatcher(const BufferDescriptor& codec_buffer) {
 
   QMMF_DEBUG("%s: Adding decoded buffer fd(%d) to queue", __func__,
       codec_buffer.fd);
+
+  if (flush_in_progress_) {
+    BufferDescriptor codec_buffer_sink;
+    memset(&codec_buffer_sink, 0x0, sizeof codec_buffer_sink);
+    codec_buffer_sink = codec_buffer;
+    auto ret = ReturnBufferToCodec(codec_buffer_sink);
+    if(ret != 0)
+      QMMF_ERROR("%s: Failed to return buffer to codec with fd:%d",
+                 __func__, codec_buffer.fd);
+    return NO_ERROR;
+  }
 
   BufferDescriptor codec_buffer_sink;
   memset(&codec_buffer_sink, 0x0, sizeof codec_buffer_sink);
@@ -884,7 +918,8 @@ void VideoTrackSink::Renderer() {
     // Second Filter will skip the frame from isFrameSkip function.
     bool skip_frame  = false;
     if (decoded_buffer_queue_.Size() > 0) {
-      if (paused_) {
+      if (paused_ || flush_in_progress_) {
+        usleep(kSleepWait);
         continue;
       }
 
@@ -901,7 +936,12 @@ void VideoTrackSink::Renderer() {
       if (skip_frame) {
         QMMF_DEBUG("%s: Skipping frame number %d to display", __func__,
             decoded_frame_number_);
-        decoded_buffer_queue_.Erase(decoded_buffer_queue_.Begin());
+        {
+          std::lock_guard<std::mutex> lock(queue_lock_);
+          auto decoded_buf = *decoded_buffer_queue_.Begin();
+          if (decoded_buf.fd == codec_buffer.fd)
+            decoded_buffer_queue_.Erase(decoded_buffer_queue_.Begin());
+        }
         ret = ReturnBufferToCodec(codec_buffer);
         if(ret != 0) {
           QMMF_ERROR("%s: Failed to return buffer to codec with fd:%d",
@@ -915,7 +955,12 @@ void VideoTrackSink::Renderer() {
           if (skip_frame) {
             QMMF_DEBUG("%s: Skipping frame number %d to display", __func__,
                        decoded_frame_number_);
-            decoded_buffer_queue_.Erase(decoded_buffer_queue_.Begin());
+            {
+              std::lock_guard<std::mutex> lock(queue_lock_);
+              auto decoded_buf = *decoded_buffer_queue_.Begin();
+              if (decoded_buf.fd == codec_buffer.fd)
+                decoded_buffer_queue_.Erase(decoded_buffer_queue_.Begin());
+            }
             ret = ReturnBufferToCodec(codec_buffer);
             if(ret != 0) {
               QMMF_ERROR("%s: Failed to return buffer to codec with fd:%d",
@@ -968,8 +1013,13 @@ void VideoTrackSink::Renderer() {
         if (difference > 20000) {
           QMMF_WARN("%s: track_id(%d) video behind audio (%lld), dropping frame",
                     __func__, TrackId(), difference);
+          {
+            std::lock_guard<std::mutex> lock(queue_lock_);
+            auto decoded_buf = *decoded_buffer_queue_.Begin();
+            if (decoded_buf.fd == codec_buffer.fd)
+              decoded_buffer_queue_.Erase(decoded_buffer_queue_.Begin());
+          }
           ReturnBufferToCodec(codec_buffer);
-          decoded_buffer_queue_.Erase(decoded_buffer_queue_.Begin());
           continue;
         }
 
@@ -1390,6 +1440,7 @@ status_t VideoTrackSink::PushFrameToDisplay(BufferDescriptor& codec_buffer) {
       QMMF_ERROR("%s QueueSurfaceBuffer Failed!!", __func__);
       return ret;
     } else {
+      std::lock_guard<std::mutex> lock(queue_lock_);
       auto it = decoded_buffer_queue_.Begin();
       for (; it != decoded_buffer_queue_.End(); ++it) {
         QMMF_DEBUG("%s track_id(%d) Checking match %d vs %d ", __func__,
@@ -1604,5 +1655,9 @@ void VideoTrackSink::DumpYUVData(BufferDescriptor& codec_buffer) {
 }
 #endif
 
+status_t VideoTrackSink::StartFlush(bool status) {
+  flush_in_progress_ = status;
+  return NO_ERROR;
+}
 };  // namespace player
 };  // namespace qmmf
