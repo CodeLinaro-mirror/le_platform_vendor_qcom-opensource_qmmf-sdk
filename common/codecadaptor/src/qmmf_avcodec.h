@@ -248,10 +248,12 @@ class AVCodec : public IAVCodec {
   bool                      slice_mode_encoding_;
   AVCodecCb                 avcodec_cb_;
   std::atomic<int>          api_count_;
+  std::atomic<bool>         flush_in_progress_;
 
-  static const int64_t kOutputBufHeaderDelay;
+  static const int64_t  kOutputBufHeaderDelay;
   static const uint32_t kMaxWaitLimitCounter;
   static const uint32_t kSleepPortReconfig;
+  static const uint32_t kSleepFlush;
 };
 
 };  // namespace avcodec
