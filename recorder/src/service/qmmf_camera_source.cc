@@ -36,7 +36,9 @@
 #include <sys/time.h>
 
 
+#ifndef DISABLE_MULTICAM
 #include "recorder/src/service/qmmf_multicamera_manager.h"
+#endif
 #include "recorder/src/service/qmmf_camera_source.h"
 #include "recorder/src/service/qmmf_recorder_common.h"
 #include "recorder/src/service/qmmf_recorder_utils.h"
@@ -105,7 +107,9 @@ status_t CameraSource::StartCamera(const uint32_t camera_id,
   QMMF_KPI_DETAIL();
   bool is_virtual_camera_id = false;
 
+#ifndef DISABLE_MULTICAM
   is_virtual_camera_id = (kVirtualCameraIdOffset <= camera_id);
+#endif
 
   std::shared_ptr<CameraInterface> camera;
 
@@ -173,6 +177,7 @@ status_t CameraSource::CreateMultiCamera(const std::vector<uint32_t> camera_ids,
 
   QMMF_INFO("%s: Enter ", __func__);
   QMMF_KPI_DETAIL();
+#ifndef DISABLE_MULTICAM
   std::shared_ptr<CameraInterface> multi_camera = std::make_shared<MultiCameraManager>();
   if (!multi_camera.get()) {
     QMMF_ERROR("%s: Can't Instantiate MultiCameraDevice!!", __func__);
@@ -191,6 +196,7 @@ status_t CameraSource::CreateMultiCamera(const std::vector<uint32_t> camera_ids,
   // Adds only virtual cameras. Virtual camera is a camera used
   // for 360 camera case.
   camera_map_.insert(std::make_pair(*virtual_camera_id, multi_camera));
+#endif
   QMMF_INFO("%s: Exit ", __func__);
   return NO_ERROR;
 }
@@ -201,6 +207,7 @@ status_t CameraSource::ConfigureMultiCamera(const uint32_t virtual_camera_id,
                                             const uint32_t param_size) {
 
   status_t ret = NO_ERROR;
+#ifndef DISABLE_MULTICAM
   if ((kVirtualCameraIdOffset > virtual_camera_id) ||
       (camera_map_.end() == camera_map_.find(virtual_camera_id))) {
     QMMF_ERROR("%s: Invalid Virtual Camera Id(%u)!", __func__,
@@ -216,6 +223,7 @@ status_t CameraSource::ConfigureMultiCamera(const uint32_t virtual_camera_id,
 
   ret = camera_mgr->ConfigureMultiCamera(virtual_camera_id, type,
                                          param, param_size);
+#endif
   return ret;
 }
 
