@@ -1075,11 +1075,6 @@ uint32_t GbmAllocator::GetUsageFlagInfo(int32_t user_flag) {
     QMMF_DEBUG("%s: GBM_BO_USAGE_UBWC_ALIGNED_QTI", __func__);
   }
 
-  if (user_flag & GRALLOC_USAGE_HW_FB) {
-    usage |= GBM_BO_USAGE_KMS_QTI;
-    QMMF_DEBUG("%s: GBM_BO_USAGE_KMS_QTI", __func__);
-  }
-
   if (user_flag & private_handle_t::PRIV_FLAGS_VIDEO_ENCODER) {
     usage |= GBM_BO_USAGE_VIDEO_ENCODER_QTI;
     QMMF_DEBUG("%s: GBM_BO_USAGE_VIDEO_ENCODER_QTI", __func__);
