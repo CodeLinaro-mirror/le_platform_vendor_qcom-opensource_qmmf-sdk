@@ -2,6 +2,7 @@
 bin_PROGRAMS = recorder_gtest
 
 recorder_gtest_SOURCES  = qmmf_recorder_gtest.cc
+recorder_gtest_SOURCES  += qmmf_recorder_gtest_common.cc
 
 recorder_gtest_CPPFLAGS = -I$(top_srcdir)/include
 recorder_gtest_CPPFLAGS += -I$(top_srcdir)/

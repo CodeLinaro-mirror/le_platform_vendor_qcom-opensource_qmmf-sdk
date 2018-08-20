@@ -20,6 +20,7 @@ LOCAL_C_INCLUDES += $(CAMERA_HAL_PATH)/QCamera2/HAL3
 LOCAL_C_INCLUDES += $(TOP)/external/skia/include/core/
 
 LOCAL_SRC_FILES := qmmf_recorder_gtest.cc
+LOCAL_SRC_FILES += qmmf_recorder_gtest_common.cc
 
 LOCAL_SHARED_LIBRARIES += libqmmf_recorder_client libqmmf_av_queue libqmmf_memory_interface
 ifneq ($(DISABLE_DISPLAY),1)
