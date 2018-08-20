@@ -1393,7 +1393,6 @@ TEST_F(RecorderGtest, 4KSnapshotDisableEXIF) {
   image_param.image_quality = 95;
 
   std::vector<CameraMetadata> meta_array;
-  camera_metadata_entry_t entry;
   CameraMetadata meta;
 
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
@@ -1401,23 +1400,8 @@ TEST_F(RecorderGtest, 4KSnapshotDisableEXIF) {
 
   meta_array.push_back(meta);
 
-  bool res_supported = false;
-  // Check Supported JPEG snapshot resolutions.
-  if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-    entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-    for (uint32_t i = 0 ; i < entry.count; i += 4) {
-      if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
-        if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-            entry.data.i32[i+3]) {
-          if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
-              && image_param.height ==
-                  static_cast<uint32_t>(entry.data.i32[i+2])) {
-            res_supported = true; // 3840x2160 JPEG supported.
-          }
-        }
-      }
-    }
-  }
+  bool res_supported = Common::ValidateResFromJpegSizes(meta,
+      image_param.width, image_param.height);
   ASSERT_TRUE (res_supported != false);
 
   ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
@@ -1539,7 +1523,6 @@ TEST_F(RecorderGtest, 10MPSnapshotDisableEXIF) {
   image_param.image_quality = default_jpeg_quality_;
 
   std::vector<CameraMetadata> meta_array;
-  camera_metadata_entry_t entry;
   CameraMetadata meta;
 
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
@@ -1547,23 +1530,8 @@ TEST_F(RecorderGtest, 10MPSnapshotDisableEXIF) {
 
   meta_array.push_back(meta);
 
-  bool res_supported = false;
-  // Check Supported JPEG snapshot resolutions.
-  if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-    entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-    for (uint32_t i = 0 ; i < entry.count; i += 4) {
-      if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
-        if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-            entry.data.i32[i+3]) {
-          if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
-              && image_param.height ==
-                  static_cast<uint32_t>(entry.data.i32[i+2])) {
-            res_supported = true; // 3840x2160 JPEG supported.
-          }
-        }
-      }
-    }
-  }
+  bool res_supported = Common::ValidateResFromJpegSizes(meta,
+      image_param.width, image_param.height);
   ASSERT_TRUE (res_supported != false);
 
   ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
@@ -1690,7 +1658,6 @@ TEST_F(RecorderGtest, 10MPSnapshotDisableEXIFUpdateFocalLength) {
   image_param.image_quality = default_jpeg_quality_;
 
   std::vector<CameraMetadata> meta_array;
-  camera_metadata_entry_t entry;
   CameraMetadata meta;
 
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
@@ -1702,23 +1669,8 @@ TEST_F(RecorderGtest, 10MPSnapshotDisableEXIFUpdateFocalLength) {
 
   meta_array.push_back(meta);
 
-  bool res_supported = false;
-  // Check Supported JPEG snapshot resolutions.
-  if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-    entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-    for (uint32_t i = 0 ; i < entry.count; i += 4) {
-      if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
-        if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-            entry.data.i32[i+3]) {
-          if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
-              && image_param.height ==
-                  static_cast<uint32_t>(entry.data.i32[i+2])) {
-            res_supported = true; // 3840x2160 JPEG supported.
-          }
-        }
-      }
-    }
-  }
+  bool res_supported = Common::ValidateResFromJpegSizes(meta,
+      image_param.width, image_param.height);
   ASSERT_TRUE (res_supported != false);
 
   ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
@@ -1851,7 +1803,6 @@ TEST_F(RecorderGtest, 4KSnapshot) {
   image_param.image_quality = default_jpeg_quality_;
 
   std::vector<CameraMetadata> meta_array;
-  camera_metadata_entry_t entry;
   CameraMetadata meta;
 
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
@@ -1859,24 +1810,9 @@ TEST_F(RecorderGtest, 4KSnapshot) {
 
   meta_array.push_back(meta);
 
-  bool res_supported = false;
-  // Check Supported JPEG snapshot resolutions.
-  if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-    entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-    for (uint32_t i = 0 ; i < entry.count; i += 4) {
-      if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
-        if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-            entry.data.i32[i+3]) {
-          if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
-              && image_param.height ==
-                  static_cast<uint32_t>(entry.data.i32[i+2])) {
-            res_supported = true; // 3840x2160 JPEG supported.
-          }
-        }
-      }
-    }
-  }
-  ASSERT_TRUE(res_supported != false);
+  bool res_supported = Common::ValidateResFromJpegSizes(meta,
+      image_param.width, image_param.height);
+  ASSERT_TRUE (res_supported != false);
 
   ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
                               BufferDescriptor buffer,
@@ -1988,30 +1924,14 @@ TEST_F(RecorderGtest, 4KSnapshotWithRaw) {
   image_param.image_quality = 95;
 
   std::vector<CameraMetadata> meta_array;
-  camera_metadata_entry_t entry;
   CameraMetadata meta;
 
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  bool res_supported = false;
-  // Check Supported JPEG snapshot resolutions.
-  if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-    entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-    for (uint32_t i = 0 ; i < entry.count; i += 4) {
-      if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
-        if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-            entry.data.i32[i+3]) {
-          if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
-              && image_param.height ==
-                  static_cast<uint32_t>(entry.data.i32[i+2])) {
-            res_supported = true; // 3840x2160 JPEG supported.
-          }
-        }
-      }
-    }
-  }
-  ASSERT_TRUE(res_supported != false);
+  bool res_supported = Common::ValidateResFromJpegSizes(meta,
+      image_param.width, image_param.height);
+  ASSERT_TRUE (res_supported != false);
 
   ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
                               BufferDescriptor buffer,
@@ -2134,7 +2054,6 @@ TEST_F(RecorderGtest, 10MPSnapshot) {
   image_param.image_quality = 95;
 
   std::vector<CameraMetadata> meta_array;
-  camera_metadata_entry_t entry;
   CameraMetadata meta;
 
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
@@ -2142,23 +2061,8 @@ TEST_F(RecorderGtest, 10MPSnapshot) {
 
   meta_array.push_back(meta);
 
-  bool res_supported = false;
-  // Check Supported JPEG snapshot resolutions.
-  if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-    entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-    for (uint32_t i = 0 ; i < entry.count; i += 4) {
-      if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
-        if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-            entry.data.i32[i+3]) {
-          if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
-              && image_param.height ==
-                  static_cast<uint32_t>(entry.data.i32[i+2])) {
-            res_supported = true; // 3840x2160 JPEG supported.
-          }
-        }
-      }
-    }
-  }
+  bool res_supported = Common::ValidateResFromJpegSizes(meta,
+      image_param.width, image_param.height);
   ASSERT_TRUE (res_supported != false);
 
   ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
@@ -2423,7 +2327,6 @@ TEST_F(RecorderGtest, 10MPSnapshotMultiThumbnails) {
   image_param.image_quality = 95;
 
   std::vector<CameraMetadata> meta_array;
-  camera_metadata_entry_t entry;
   CameraMetadata meta;
 
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
@@ -2431,23 +2334,8 @@ TEST_F(RecorderGtest, 10MPSnapshotMultiThumbnails) {
 
   meta_array.push_back(meta);
 
-  bool res_supported = false;
-  // Check Supported JPEG snapshot resolutions.
-  if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-    entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-    for (uint32_t i = 0 ; i < entry.count; i += 4) {
-      if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
-        if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-            entry.data.i32[i+3]) {
-          if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
-              && image_param.height ==
-                  static_cast<uint32_t>(entry.data.i32[i+2])) {
-            res_supported = true; // 3840x2160 JPEG supported.
-          }
-        }
-      }
-    }
-  }
+  bool res_supported = Common::ValidateResFromJpegSizes(meta,
+      image_param.width, image_param.height);
   ASSERT_TRUE (res_supported != false);
 
   ImageConfigParam image_config;
@@ -2578,31 +2466,15 @@ TEST_F(RecorderGtest, 10MPSnapshotWithEdgeSmooth) {
   image_param.image_quality = default_jpeg_quality_;
 
   std::vector<CameraMetadata> meta_array;
-  camera_metadata_entry_t entry;
   CameraMetadata meta;
 
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
   ASSERT_TRUE(ret == NO_ERROR);
   meta_array.push_back(meta);
 
-  bool res_supported = false;
-  // Check Supported JPEG snapshot resolutions.
-  if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-    entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-    for (uint32_t i = 0 ; i < entry.count; i += 4) {
-      if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
-        if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-            entry.data.i32[i+3]) {
-          if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
-              && image_param.height ==
-                  static_cast<uint32_t>(entry.data.i32[i+2])) {
-            res_supported = true; // 3840x2160 JPEG supported.
-          }
-        }
-      }
-    }
-  }
-  ASSERT_TRUE(res_supported != false);
+  bool res_supported = Common::ValidateResFromJpegSizes(meta,
+      image_param.width, image_param.height);
+  ASSERT_TRUE (res_supported != false);
 
   ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
                               BufferDescriptor buffer,
@@ -2742,30 +2614,14 @@ TEST_F(RecorderGtest, 10MPSnapshotWithLCAC) {
   image_param.image_quality = default_jpeg_quality_;
 
   std::vector<CameraMetadata> meta_array;
-  camera_metadata_entry_t entry;
   CameraMetadata meta;
 
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
   ASSERT_TRUE(ret == NO_ERROR);
   meta_array.push_back(meta);
 
-  bool res_supported = false;
-  // Check Supported JPEG snapshot resolutions.
-  if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-    entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-    for (uint32_t i = 0 ; i < entry.count; i += 4) {
-      if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
-        if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-            entry.data.i32[i+3]) {
-          if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
-              && image_param.height ==
-                  static_cast<uint32_t>(entry.data.i32[i+2])) {
-            res_supported = true; // 3840x2160 JPEG supported.
-          }
-        }
-      }
-    }
-  }
+  bool res_supported = Common::ValidateResFromJpegSizes(meta,
+      image_param.width, image_param.height);
   ASSERT_TRUE(res_supported != false);
 
   ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
@@ -2906,31 +2762,15 @@ TEST_F(RecorderGtest, 10MPSnapshotWithLCACandEdgeSmooth) {
   image_param.image_quality = default_jpeg_quality_;
 
   std::vector<CameraMetadata> meta_array;
-  camera_metadata_entry_t entry;
   CameraMetadata meta;
 
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
   ASSERT_TRUE(ret == NO_ERROR);
   meta_array.push_back(meta);
 
-  bool res_supported = false;
-  // Check Supported JPEG snapshot resolutions.
-  if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-    entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-    for (uint32_t i = 0 ; i < entry.count; i += 4) {
-      if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
-        if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-            entry.data.i32[i+3]) {
-          if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
-              && image_param.height ==
-                  static_cast<uint32_t>(entry.data.i32[i+2])) {
-            res_supported = true; // 3840x2160 JPEG supported.
-          }
-        }
-      }
-    }
-  }
-  ASSERT_TRUE(res_supported != false);
+  bool res_supported = Common::ValidateResFromJpegSizes(meta,
+      image_param.width, image_param.height);
+  ASSERT_TRUE (res_supported != false);
 
   ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
                               BufferDescriptor buffer,
@@ -3088,34 +2928,13 @@ TEST_F(RecorderGtest, LowResVideo10MPSnapshotWithLCACandEdgeSmoothContinuousCapt
   image_param.image_quality = default_jpeg_quality_;
 
   std::vector<CameraMetadata> meta_array;
-  camera_metadata_entry_t entry;
-
   CameraMetadata meta;
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  // Update focal length to capture meta to select 4fps sensor mode.
-  float focal_length = 8.0;
-  meta.update(ANDROID_LENS_FOCAL_LENGTH, &focal_length, 1);
-
-  bool res_supported = false;
-  // Check Supported JPEG snapshot resolutions.
-  if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-    entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-    for (uint32_t i = 0 ; i < entry.count; i += 4) {
-      if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
-        if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-            entry.data.i32[i+3]) {
-          if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
-              && image_param.height ==
-                  static_cast<uint32_t>(entry.data.i32[i+2])) {
-            res_supported = true; // 3840x2160 JPEG supported.
-          }
-        }
-      }
-    }
-  }
-  ASSERT_TRUE(res_supported != false);
+  bool res_supported = Common::ValidateResFromJpegSizes(meta,
+      image_param.width, image_param.height);
+  ASSERT_TRUE (res_supported != false);
 
   // number of frames 1. Timeout 5s (4fps snapshot).
   test_wait_.Reset(1, 5);
@@ -3159,7 +2978,7 @@ TEST_F(RecorderGtest, LowResVideo10MPSnapshotWithLCACandEdgeSmoothContinuousCapt
   ASSERT_TRUE(found == true);
 
   // Update same focal length to streaming meta.
-  focal_length = 8.0;
+  float focal_length = 8.0;
   ret = SetCameraFocalLength(focal_length);
   ASSERT_TRUE(ret == NO_ERROR);
 
@@ -3331,7 +3150,6 @@ TEST_F(RecorderGtest, LowResVideo10MPContinuousSnapshotWithLCAC) {
   image_param.image_quality = default_jpeg_quality_;
 
   std::vector<CameraMetadata> meta_array;
-  camera_metadata_entry_t entry;
 
   CameraMetadata meta;
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
@@ -3341,23 +3159,8 @@ TEST_F(RecorderGtest, LowResVideo10MPContinuousSnapshotWithLCAC) {
   float focal_length = 10.0; // imx258: SENSOR_MODE_PHOTO_10MP_4_W
   meta.update(ANDROID_LENS_FOCAL_LENGTH, &focal_length, 1);
 
-  bool res_supported = false;
-  // Check Supported JPEG snapshot resolutions.
-  if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-    entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-    for (uint32_t i = 0 ; i < entry.count; i += 4) {
-      if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
-        if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-            entry.data.i32[i+3]) {
-          if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
-              && image_param.height ==
-                  static_cast<uint32_t>(entry.data.i32[i+2])) {
-            res_supported = true; // 3840x2160 JPEG supported.
-          }
-        }
-      }
-    }
-  }
+  bool res_supported = Common::ValidateResFromJpegSizes(meta,
+      image_param.width, image_param.height);
   ASSERT_TRUE(res_supported != false);
 
   ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
@@ -3528,34 +3331,13 @@ TEST_F(RecorderGtest, LowResVideo10MPContinuousSnapshotWithLCACAndCdsOff) {
   image_param.image_quality = default_jpeg_quality_;
 
   std::vector<CameraMetadata> meta_array;
-  camera_metadata_entry_t entry;
-
   CameraMetadata meta;
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  // Update focal length to capture meta to select 4fps sensor mode.
-  float focal_length = 8.0; // imx258: SENSOR_MODE_PHOTO_10MP_4_W
-  meta.update(ANDROID_LENS_FOCAL_LENGTH, &focal_length, 1);
-
-  bool res_supported = false;
-  // Check Supported JPEG snapshot resolutions.
-  if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-    entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-    for (uint32_t i = 0 ; i < entry.count; i += 4) {
-      if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
-        if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-            entry.data.i32[i+3]) {
-          if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
-              && image_param.height ==
-                  static_cast<uint32_t>(entry.data.i32[i+2])) {
-            res_supported = true; // 3840x2160 JPEG supported.
-          }
-        }
-      }
-    }
-  }
-  ASSERT_TRUE(res_supported != false);
+  bool res_supported = Common::ValidateResFromJpegSizes(meta,
+      image_param.width, image_param.height);
+  ASSERT_TRUE (res_supported != false);
 
   ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
                               BufferDescriptor buffer,
@@ -3585,7 +3367,7 @@ TEST_F(RecorderGtest, LowResVideo10MPContinuousSnapshotWithLCACAndCdsOff) {
   found = false;
 
   // Update same focal length to streaming meta.
-  focal_length = 8.0; // 4 fps mode.
+  float focal_length = 8.0; // 4 fps mode.
   ret = SetCameraFocalLength(focal_length);
   ASSERT_TRUE(ret == NO_ERROR);
 
@@ -3720,8 +3502,6 @@ TEST_F(RecorderGtest, LowResVideo10MPContinuousSnapshotWithLCACandEdgeSmooth) {
   image_param.image_quality = default_jpeg_quality_;
 
   std::vector<CameraMetadata> meta_array;
-  camera_metadata_entry_t entry;
-
   CameraMetadata meta;
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
   ASSERT_TRUE(ret == NO_ERROR);
@@ -3730,24 +3510,9 @@ TEST_F(RecorderGtest, LowResVideo10MPContinuousSnapshotWithLCACandEdgeSmooth) {
   float focal_length = 8.0;
   meta.update(ANDROID_LENS_FOCAL_LENGTH, &focal_length, 1);
 
-  bool res_supported = false;
-  // Check Supported JPEG snapshot resolutions.
-  if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-    entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-    for (uint32_t i = 0 ; i < entry.count; i += 4) {
-      if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
-        if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-            entry.data.i32[i+3]) {
-          if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
-              && image_param.height ==
-                  static_cast<uint32_t>(entry.data.i32[i+2])) {
-            res_supported = true; // 3840x2160 JPEG supported.
-          }
-        }
-      }
-    }
-  }
-  ASSERT_TRUE(res_supported != false);
+    bool res_supported = Common::ValidateResFromJpegSizes(meta,
+        image_param.width, image_param.height);
+    ASSERT_TRUE (res_supported != false);
 
   ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
                               BufferDescriptor buffer,
@@ -3926,7 +3691,6 @@ TEST_F(RecorderGtest,
   image_param.image_quality = default_jpeg_quality_;
 
   std::vector<CameraMetadata> meta_array;
-  camera_metadata_entry_t entry;
 
   CameraMetadata meta;
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
@@ -3936,24 +3700,9 @@ TEST_F(RecorderGtest,
   float focal_length = 8.0;
   meta.update(ANDROID_LENS_FOCAL_LENGTH, &focal_length, 1);
 
-  bool res_supported = false;
-  // Check Supported JPEG snapshot resolutions.
-  if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-    entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-    for (uint32_t i = 0 ; i < entry.count; i += 4) {
-      if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
-        if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-            entry.data.i32[i+3]) {
-          if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
-              && image_param.height ==
-                  static_cast<uint32_t>(entry.data.i32[i+2])) {
-            res_supported = true; // 3840x2160 JPEG supported.
-          }
-        }
-      }
-    }
-  }
-  ASSERT_TRUE(res_supported != false);
+  bool res_supported = Common::ValidateResFromJpegSizes(meta,
+      image_param.width, image_param.height);
+  ASSERT_TRUE (res_supported != false);
 
   ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
                               BufferDescriptor buffer,
@@ -4080,29 +3829,13 @@ TEST_F(RecorderGtest, BurstSnapshotWithThumbnails) {
   image_param.image_quality = default_jpeg_quality_;
 
   std::vector<CameraMetadata> meta_array;
-  camera_metadata_entry_t entry;
   CameraMetadata meta;
 
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  bool res_supported = false;
-  // Check Supported Raw YUV snapshot resolutions.
-  if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-    entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-    for (uint32_t i = 0 ; i < entry.count; i += 4) {
-      if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
-        if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-            entry.data.i32[i+3]) {
-          if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
-              && image_param.height ==
-                  static_cast<uint32_t>(entry.data.i32[i+2])) {
-            res_supported = true; // 1920x1080 YUV res supported.
-          }
-        }
-      }
-    }
-  }
+  bool res_supported = Common::ValidateResFromJpegSizes(meta,
+      image_param.width, image_param.height);
   ASSERT_TRUE (res_supported != false);
 
   TEST_INFO("%s: Running Test(%s)", __func__,
@@ -4194,30 +3927,14 @@ TEST_F(RecorderGtest, BurstSnapshot) {
   image_param.image_quality = default_jpeg_quality_;
 
   std::vector<CameraMetadata> meta_array;
-  camera_metadata_entry_t entry;
   CameraMetadata meta;
 
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  bool res_supported = false;
-  // Check Supported Raw YUV snapshot resolutions.
-  if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-    entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-    for (uint32_t i = 0 ; i < entry.count; i += 4) {
-      if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
-        if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-            entry.data.i32[i+3]) {
-          if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
-              && image_param.height ==
-                  static_cast<uint32_t>(entry.data.i32[i+2])) {
-            res_supported = true; // 1920x1080 YUV res supported.
-          }
-        }
-      }
-    }
-  }
-  ASSERT_TRUE(res_supported != false);
+  bool res_supported = Common::ValidateResFromJpegSizes(meta,
+      image_param.width, image_param.height);
+  ASSERT_TRUE (res_supported != false);
 
   TEST_INFO("%s: Running Test(%s)", __func__,
     test_info_->name());
@@ -4347,30 +4064,14 @@ TEST_F(RecorderGtest, BurstSnapshotWithYuvCAC) {
   image_param.image_quality = default_jpeg_quality_;
 
   std::vector<CameraMetadata> meta_array;
-  camera_metadata_entry_t entry;
   CameraMetadata meta;
 
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  bool res_supported = false;
-  // Check Supported JPEG snapshot resolutions.
-  if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-    entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-    for (uint32_t i = 0 ; i < entry.count; i += 4) {
-      if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
-        if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-            entry.data.i32[i+3]) {
-          if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
-              && image_param.height ==
-                  static_cast<uint32_t>(entry.data.i32[i+2])) {
-            res_supported = true; // 3840x2160 JPEG supported.
-          }
-        }
-      }
-    }
-  }
-  ASSERT_TRUE (res_supported != false);
+  bool res_supported = Common::ValidateResFromJpegSizes(meta,
+      image_param.width, image_param.height);
+  ASSERT_TRUE(res_supported != false);
 
   ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
                               BufferDescriptor buffer,
@@ -4540,29 +4241,13 @@ TEST_F(RecorderGtest, BurstSnapshotWithBayerLCAC) {
   image_param.image_quality = default_jpeg_quality_;
 
   std::vector<CameraMetadata> meta_array;
-  camera_metadata_entry_t entry;
   CameraMetadata meta;
 
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  bool res_supported = false;
-  // Check Supported JPEG snapshot resolutions.
-  if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-    entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-    for (uint32_t i = 0 ; i < entry.count; i += 4) {
-      if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
-        if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-            entry.data.i32[i+3]) {
-          if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
-              && image_param.height ==
-                  static_cast<uint32_t>(entry.data.i32[i+2])) {
-            res_supported = true; // 3840x2160 JPEG supported.
-          }
-        }
-      }
-    }
-  }
+  bool res_supported = Common::ValidateResFromJpegSizes(meta,
+    image_param.width, image_param.height);
   ASSERT_TRUE (res_supported != false);
 
   ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
@@ -4761,29 +4446,13 @@ TEST_F(RecorderGtest, BurstSnapshotWithBayerLCAC15fps) {
   image_param.image_quality = default_jpeg_quality_;
 
   std::vector<CameraMetadata> meta_array;
-  camera_metadata_entry_t entry;
   CameraMetadata meta;
 
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  bool res_supported = false;
-  // Check Supported JPEG snapshot resolutions.
-  if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-    entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-    for (uint32_t i = 0 ; i < entry.count; i += 4) {
-      if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
-        if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-            entry.data.i32[i+3]) {
-          if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
-              && image_param.height ==
-                  static_cast<uint32_t>(entry.data.i32[i+2])) {
-            res_supported = true; // 3840x2160 JPEG supported.
-          }
-        }
-      }
-    }
-  }
+  bool res_supported = Common::ValidateResFromJpegSizes(meta,
+      image_param.width, image_param.height);
   ASSERT_TRUE (res_supported != false);
 
   ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
@@ -5048,29 +4717,13 @@ TEST_F(RecorderGtest, BurstSnapshotWithBayerLCAC15fpsWithCdsOff) {
   image_param.image_quality = default_jpeg_quality_;
 
   std::vector<CameraMetadata> meta_array;
-  camera_metadata_entry_t entry;
   CameraMetadata meta;
 
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  bool res_supported = false;
-  // Check Supported JPEG snapshot resolutions.
-  if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-    entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-    for (uint32_t i = 0 ; i < entry.count; i += 4) {
-      if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
-        if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-            entry.data.i32[i+3]) {
-          if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
-              && image_param.height ==
-                  static_cast<uint32_t>(entry.data.i32[i+2])) {
-            res_supported = true; // 3840x2160 JPEG supported.
-          }
-        }
-      }
-    }
-  }
+  bool res_supported = Common::ValidateResFromJpegSizes(meta,
+    image_param.width, image_param.height);
   ASSERT_TRUE (res_supported != false);
 
   ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
@@ -5318,29 +4971,13 @@ TEST_F(RecorderGtest, AutoBurstCaptureWithBayerLCAC) {
     image_param.image_quality = default_jpeg_quality_;
 
     std::vector<CameraMetadata> meta_array;
-    camera_metadata_entry_t entry;
     CameraMetadata meta;
 
     ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    bool res_supported = false;
-    // Check Supported JPEG snapshot resolutions.
-    if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-      entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-      for (uint32_t i = 0 ; i < entry.count; i += 4) {
-        if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
-          if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-              entry.data.i32[i+3]) {
-            if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
-                && image_param.height ==
-                    static_cast<uint32_t>(entry.data.i32[i+2])) {
-              res_supported = true; // 3840x2160 JPEG supported.
-            }
-          }
-        }
-      }
-    }
+    bool res_supported = Common::ValidateResFromJpegSizes(meta,
+      image_param.width, image_param.height);
     ASSERT_TRUE (res_supported != false);
 
     ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
@@ -5585,29 +5222,13 @@ TEST_F(RecorderGtest, ContinuousSnapshotWithBayerLCAC) {
   image_param.image_quality = default_jpeg_quality_;
 
   std::vector<CameraMetadata> meta_array;
-  camera_metadata_entry_t entry;
   CameraMetadata meta;
 
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  bool res_supported = false;
-  // Check Supported JPEG snapshot resolutions.
-  if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-    entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-    for (uint32_t i = 0 ; i < entry.count; i += 4) {
-      if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
-        if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-            entry.data.i32[i+3]) {
-          if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
-              && image_param.height ==
-                  static_cast<uint32_t>(entry.data.i32[i+2])) {
-            res_supported = true; // 3840x2160 JPEG supported.
-          }
-        }
-      }
-    }
-  }
+  bool res_supported = Common::ValidateResFromJpegSizes(meta,
+    image_param.width, image_param.height);
   ASSERT_TRUE (res_supported != false);
 
   ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
@@ -5784,25 +5405,9 @@ TEST_F(RecorderGtest, MaxSnapshotThumb) {
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  // Check Supported JPEG snapshot resolutions.
-  if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-    entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-    for (uint32_t i = 0 ; i < entry.count; i += 4) {
-      if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
-        if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-            entry.data.i32[i+3]) {
-          if (image_param.width < static_cast<uint32_t>(entry.data.i32[i+1])) {
-            image_param.width = entry.data.i32[i+1];
-            image_param.height = entry.data.i32[i+2];
-          }
-
-          fprintf(stderr,"Supported Size %dx%d\n",
-              entry.data.i32[i+1], entry.data.i32[i+2]);
-        }
-      }
-    }
-  }
-  ASSERT_TRUE(image_param.width > 0 && image_param.height > 0);
+  bool res_supported = Common::GetMaxSupportedCameraRes(meta,
+    image_param.width, image_param.height, HAL_PIXEL_FORMAT_BLOB);
+  ASSERT_TRUE (res_supported != false);
 
   if (meta.exists(ANDROID_JPEG_AVAILABLE_THUMBNAIL_SIZES)) {
     entry = meta.find(ANDROID_JPEG_AVAILABLE_THUMBNAIL_SIZES);
@@ -5884,29 +5489,13 @@ TEST_F(RecorderGtest, 1080pRawYUVSnapshot) {
   image_param.image_format  = ImageFormat::kNV12;
 
   std::vector<CameraMetadata> meta_array;
-  camera_metadata_entry_t entry;
   CameraMetadata meta;
 
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  bool res_supported = false;
-  // Check Supported Raw YUV snapshot resolutions.
-  if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-    entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-    for (uint32_t i = 0 ; i < entry.count; i += 4) {
-      if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
-        if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-            entry.data.i32[i+3]) {
-          if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
-              && image_param.height ==
-                  static_cast<uint32_t>(entry.data.i32[i+2])) {
-            res_supported = true; // 1920x1080 YUV res supported.
-          }
-        }
-      }
-    }
-  }
+  bool res_supported = Common::ValidateResFromJpegSizes(meta,
+      image_param.width, image_param.height);
   ASSERT_TRUE(res_supported != false);
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
@@ -5959,25 +5548,12 @@ TEST_F(RecorderGtest, RawBayerRDI10Snapshot) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  camera_metadata_entry_t entry;
   CameraMetadata meta;
-  int32_t w = 0, h = 0;
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
-  // Check Supported bayer snapshot resolutions.
-  if (meta.exists(ANDROID_SCALER_AVAILABLE_RAW_SIZES)) {
-    entry = meta.find(ANDROID_SCALER_AVAILABLE_RAW_SIZES);
-    for (uint32_t i = 0 ; i < entry.count; i += 2) {
-      w = entry.data.i32[i+0];
-      h = entry.data.i32[i+1];
-      TEST_INFO("%s: (%d) Supported RAW RDI W(%d):H(%d)",
-          __func__, i, w, h);
-    }
-  }
-  ASSERT_TRUE(w > 0 && h > 0);
+  
   ImageParam image_param{};
-  image_param.width        = w; // 5344
-  image_param.height       = h; // 4016
   image_param.image_format = ImageFormat::kBayerRDI10BIT;
+  Common::GetMaxSupportedCameraRes(meta, image_param.width, image_param.height);
 
   std::vector<CameraMetadata> meta_array;
   meta_array.push_back(meta);
@@ -6030,25 +5606,12 @@ TEST_F(RecorderGtest, RawBayerRDI12Snapshot) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  camera_metadata_entry_t entry;
   CameraMetadata meta;
-  int32_t w = 0, h = 0;
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
-  // Check Supported bayer snapshot resolutions.
-  if (meta.exists(ANDROID_SCALER_AVAILABLE_RAW_SIZES)) {
-    entry = meta.find(ANDROID_SCALER_AVAILABLE_RAW_SIZES);
-    for (uint32_t i = 0 ; i < entry.count; i += 2) {
-      w = entry.data.i32[i+0];
-      h = entry.data.i32[i+1];
-      TEST_INFO("%s: (%d) Supported RAW RDI W(%d):H(%d)",
-          __func__, i, w, h);
-    }
-  }
-  ASSERT_TRUE(w > 0 && h > 0);
+
   ImageParam image_param{};
-  image_param.width        = w;
-  image_param.height       = h;
   image_param.image_format = ImageFormat::kBayerRDI12BIT;
+  Common::GetMaxSupportedCameraRes(meta, image_param.width, image_param.height);
 
   std::vector<CameraMetadata> meta_array;
   meta_array.push_back(meta);
@@ -6100,25 +5663,12 @@ TEST_F(RecorderGtest, RawBayerRDI8Snapshot) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  camera_metadata_entry_t entry;
   CameraMetadata meta;
-  int32_t w = 0, h = 0;
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
-  // Check Supported bayer snapshot resolutions.
-  if (meta.exists(ANDROID_SCALER_AVAILABLE_RAW_SIZES)) {
-    entry = meta.find(ANDROID_SCALER_AVAILABLE_RAW_SIZES);
-    for (uint32_t i = 0 ; i < entry.count; i += 2) {
-      w = entry.data.i32[i+0];
-      h = entry.data.i32[i+1];
-      TEST_INFO("%s: (%d) Supported RAW RDI W(%d):H(%d)",
-          __func__, i, w, h);
-    }
-  }
-  ASSERT_TRUE(w > 0 && h > 0);
+
   ImageParam image_param{};
-  image_param.width        = w;
-  image_param.height       = h;
   image_param.image_format = ImageFormat::kBayerRDI8BIT;
+  Common::GetMaxSupportedCameraRes(meta, image_param.width, image_param.height);
 
   std::vector<CameraMetadata> meta_array;
   meta_array.push_back(meta);
@@ -7433,30 +6983,14 @@ TEST_F(RecorderGtest, SessionWith4kp30fps4K1fpsSnapshotEncTrack) {
   image_param.image_quality = default_jpeg_quality_;
 
   std::vector<CameraMetadata> meta_array;
-  camera_metadata_entry_t entry;
   CameraMetadata meta;
 
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  bool res_supported = false;
-  // Check Supported JPEG snapshot resolutions.
-  if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-    entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-    for (uint32_t i = 0 ; i < entry.count; i += 4) {
-      if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
-        if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-            entry.data.i32[i+3]) {
-          if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
-              && image_param.height ==
-                  static_cast<uint32_t>(entry.data.i32[i+2])) {
-            res_supported = true;
-          }
-        }
-      }
-    }
-  }
-  ASSERT_TRUE(res_supported != false);
+  bool res_supported = Common::ValidateResFromJpegSizes(meta,
+      image_param.width, image_param.height);
+  ASSERT_TRUE (res_supported != false);
 
   ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
                               BufferDescriptor buffer,
@@ -7678,30 +7212,14 @@ TEST_F(RecorderGtest, SessionWith4kp30fps4K1fps240p30fpsSnapshotEncTrack) {
     image_param.image_quality = default_jpeg_quality_;
 
     std::vector<CameraMetadata> meta_array;
-    camera_metadata_entry_t entry;
     CameraMetadata meta;
 
     ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    bool res_supported = false;
-    // Check Supported JPEG snapshot resolutions.
-    if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-      entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-      for (uint32_t i = 0 ; i < entry.count; i += 4) {
-        if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
-          if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-              entry.data.i32[i+3]) {
-            if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
-                && image_param.height ==
-                    static_cast<uint32_t>(entry.data.i32[i+2])) {
-              res_supported = true;
-            }
-          }
-        }
-      }
-    }
-    ASSERT_TRUE(res_supported != false);
+    bool res_supported = Common::ValidateResFromJpegSizes(meta,
+      image_param.width, image_param.height);
+    ASSERT_TRUE (res_supported != false);
 
     ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
                                 BufferDescriptor buffer,
@@ -7953,29 +7471,13 @@ TEST_F(RecorderGtest, SessionWith1080p120fpsSnapshotVSTABEncTrack) {
   image_param.image_quality = default_jpeg_quality_;
 
   std::vector<CameraMetadata> meta_array;
-  camera_metadata_entry_t entry;
 
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  bool res_supported = false;
-  // Check Supported JPEG snapshot resolutions.
-  if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-    entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-    for (uint32_t i = 0 ; i < entry.count; i += 4) {
-      if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
-        if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-            entry.data.i32[i+3]) {
-          if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
-              && image_param.height ==
-                    static_cast<uint32_t>(entry.data.i32[i+2])) {
-            res_supported = true;
-          }
-        }
-      }
-    }
-  }
-  ASSERT_TRUE(res_supported != false);
+  bool res_supported = Common::ValidateResFromJpegSizes(meta,
+    image_param.width, image_param.height);
+  ASSERT_TRUE (res_supported != false);
 
   ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
                               BufferDescriptor buffer,
@@ -8141,30 +7643,14 @@ TEST_F(RecorderGtest, SessionWith1080p120fps480p30fpsSnapshotEncTrack) {
   image_param.image_quality = default_jpeg_quality_;
 
   std::vector<CameraMetadata> meta_array;
-  camera_metadata_entry_t entry;
   CameraMetadata meta;
 
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  bool res_supported = false;
-  // Check Supported JPEG snapshot resolutions.
-  if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-    entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-    for (uint32_t i = 0 ; i < entry.count; i += 4) {
-      if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
-        if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-            entry.data.i32[i+3]) {
-          if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
-              && image_param.height ==
-                    static_cast<uint32_t>(entry.data.i32[i+2])) {
-            res_supported = true;
-          }
-        }
-      }
-    }
-  }
-  ASSERT_TRUE(res_supported != false);
+  bool res_supported = Common::ValidateResFromJpegSizes(meta,
+    image_param.width, image_param.height);
+  ASSERT_TRUE (res_supported != false);
 
   ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
                               BufferDescriptor buffer,
@@ -9571,30 +9057,14 @@ TEST_F(RecorderGtest, SessionWith1080p60fps480p30fpsSnapshotEncTrack) {
   image_param.image_quality = default_jpeg_quality_;
 
   std::vector<CameraMetadata> meta_array;
-  camera_metadata_entry_t entry;
   CameraMetadata meta;
 
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  bool res_supported = false;
-  // Check Supported JPEG snapshot resolutions.
-  if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-    entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-    for (uint32_t i = 0 ; i < entry.count; i += 4) {
-      if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
-        if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-            entry.data.i32[i+3]) {
-          if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
-              && image_param.height ==
-                  static_cast<uint32_t>(entry.data.i32[i+2])) {
-            res_supported = true;
-          }
-        }
-      }
-    }
-  }
-  ASSERT_TRUE(res_supported != false);
+  bool res_supported = Common::ValidateResFromJpegSizes(meta,
+    image_param.width, image_param.height);
+  ASSERT_TRUE (res_supported != false);
 
   ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
                               BufferDescriptor buffer,
@@ -11109,29 +10579,13 @@ TEST_F(RecorderGtest, SessionWithLPM1080pEncYUVSnapshot) {
     image_param.image_format  = ImageFormat::kNV12;
 
     std::vector<CameraMetadata> meta_array;
-    camera_metadata_entry_t entry;
     CameraMetadata meta;
 
     ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    bool res_supported = false;
-    // Check Supported Raw YUV snapshot resolutions.
-    if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-      entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-      for (uint32_t i = 0 ; i < entry.count; i += 4) {
-        if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
-          if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-              entry.data.i32[i+3]) {
-            if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
-                && image_param.height ==
-                    static_cast<uint32_t>(entry.data.i32[i+2])) {
-              res_supported = true; // 1080p-YUV res supported.
-            }
-          }
-        }
-      }
-    }
+    bool res_supported = Common::ValidateResFromJpegSizes(meta,
+        image_param.width, image_param.height);
     ASSERT_TRUE(res_supported != false);
 
     ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
@@ -13039,7 +12493,6 @@ TEST_F(RecorderGtest, SessionWith4KAnd1080pYUVTrackStartStop) {
   ASSERT_TRUE(ret == NO_ERROR);
 
   track_ids.push_back(track2_id);
-
   sessions_.insert(std::make_pair(session_id, track_ids));
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
@@ -13536,29 +12989,13 @@ TEST_F(RecorderGtest, CancelCaptureImage) {
   image_param.image_quality = default_jpeg_quality_;
 
   std::vector<CameraMetadata> meta_array;
-  camera_metadata_entry_t entry;
   CameraMetadata meta;
 
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  bool res_supported = false;
-  // Check Supported Raw YUV snapshot resolutions.
-  if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-    entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-    for (uint32_t i = 0 ; i < entry.count; i += 4) {
-      if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
-        if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-            entry.data.i32[i+3]) {
-          if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
-              && image_param.height ==
-                  static_cast<uint32_t>(entry.data.i32[i+2])) {
-            res_supported = true;
-          }
-        }
-      }
-    }
-  }
+  bool res_supported = Common::ValidateResFromJpegSizes(meta,
+      image_param.width, image_param.height);
   ASSERT_TRUE(res_supported != false);
 
   TEST_INFO("%s: Running Test(%s)", __func__,
@@ -13690,29 +13127,13 @@ TEST_F(RecorderGtest, 4KEncCancelCaptureImage) {
   image_param.image_quality = default_jpeg_quality_;
 
   std::vector<CameraMetadata> meta_array;
-  camera_metadata_entry_t entry;
   CameraMetadata meta;
 
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  bool res_supported = false;
-  // Check Supported Raw YUV snapshot resolutions.
-  if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-    entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-    for (uint32_t i = 0 ; i < entry.count; i += 4) {
-      if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
-        if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-            entry.data.i32[i+3]) {
-          if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
-              && image_param.height ==
-                  static_cast<uint32_t>(entry.data.i32[i+2])) {
-            res_supported = true;
-          }
-        }
-      }
-    }
-  }
+  bool res_supported = Common::ValidateResFromJpegSizes(meta,
+      image_param.width, image_param.height);
   ASSERT_TRUE(res_supported != false);
 
   ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
@@ -13856,29 +13277,13 @@ TEST_F(RecorderGtest, 1080pEncCanceCaptureImage) {
   image_param.image_quality = default_jpeg_quality_;
 
   std::vector<CameraMetadata> meta_array;
-  camera_metadata_entry_t entry;
   CameraMetadata meta;
 
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  bool res_supported = false;
-  // Check Supported Raw YUV snapshot resolutions.
-  if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-    entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-    for (uint32_t i = 0 ; i < entry.count; i += 4) {
-      if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
-        if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-            entry.data.i32[i+3]) {
-          if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
-              && image_param.height ==
-                  static_cast<uint32_t>(entry.data.i32[i+2])) {
-            res_supported = true;
-          }
-        }
-      }
-    }
-  }
+  bool res_supported = Common::ValidateResFromJpegSizes(meta,
+      image_param.width, image_param.height);
   ASSERT_TRUE(res_supported != false);
 
   ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
@@ -14053,30 +13458,13 @@ TEST_F(RecorderGtest, 4KVideo480pVideoAnd4KSnapshot) {
   image_param.image_quality = default_jpeg_quality_;
 
   std::vector<CameraMetadata> meta_array;
-  camera_metadata_entry_t entry;
   CameraMetadata meta;
 
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  bool res_supported = false;
-
-  // Check Supported Raw YUV snapshot resolutions.
-  if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-    entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-    for (uint32_t i = 0 ; i < entry.count; i += 4) {
-      if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
-        if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-            entry.data.i32[i+3]) {
-          if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
-              && image_param.height ==
-                  static_cast<uint32_t>(entry.data.i32[i+2])) {
-            res_supported = true;
-          }
-        }
-      }
-    }
-  }
+  bool res_supported = Common::ValidateResFromJpegSizes(meta,
+      image_param.width, image_param.height);
   ASSERT_TRUE(res_supported != false);
 
   ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
@@ -15813,34 +15201,17 @@ TEST_F(RecorderGtest,
     sleep(record_duration_ / 2);
 
     std::vector<CameraMetadata> meta_array;
-    camera_metadata_entry_t entry;
     CameraMetadata meta;
 
     ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    uint32_t max_w = 0, max_h = 0;
-    // Check Supported JPEG snapshot resolutions.
-    if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-      entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-      for (uint32_t i = 0 ; i < entry.count; i += 4) {
-        if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
-          if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-              entry.data.i32[i+3]) {
-            max_w = entry.data.i32[i+1];
-            max_h = entry.data.i32[i+2];
-            break;
-          }
-        }
-      }
-    }
-    ASSERT_TRUE(max_w > 0 && max_h > 0);
     // Take a snapshot in the middle of recording time
     ImageParam image_param = {};
-    image_param.width         = max_w;
-    image_param.height        = max_h;
     image_param.image_format  = ImageFormat::kJPEG;
     image_param.image_quality = default_jpeg_quality_;
+    Common::GetMaxSupportedCameraRes(meta, image_param.width,
+        image_param.height);
 
     ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
                                 BufferDescriptor buffer,
@@ -16080,33 +15451,16 @@ TEST_F(RecorderGtest,
     sleep(record_duration_ / 2);
 
     std::vector<CameraMetadata> meta_array;
-    camera_metadata_entry_t entry;
 
     ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    uint32_t max_w = 0, max_h = 0;
-    // Check Supported JPEG snapshot resolutions.
-    if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-      entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-      for (uint32_t i = 0; i < entry.count; i += 4) {
-        if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
-          if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-              entry.data.i32[i + 3]) {
-            max_w = entry.data.i32[i + 1];
-            max_h = entry.data.i32[i + 2];
-            break;
-          }
-        }
-      }
-    }
-    ASSERT_TRUE(max_w > 0 && max_h > 0);
     // Take a snapshot in the middle of recording time
     ImageParam image_param = {};
-    image_param.width = max_w;
-    image_param.height = max_h;
     image_param.image_format = ImageFormat::kJPEG;
     image_param.image_quality = default_jpeg_quality_;
+    Common::GetMaxSupportedCameraRes(meta, image_param.width,
+      image_param.height);
 
     ImageCaptureCb cb = [this](uint32_t camera_id, uint32_t image_count,
                                BufferDescriptor buffer,
@@ -16333,35 +15687,17 @@ TEST_F(RecorderGtest, ThreeSessionsWith1440pEncAnd1440pYUVTrack) {
     sleep(record_duration_ / 2);
 
     std::vector<CameraMetadata> meta_array;
-    camera_metadata_entry_t entry;
     CameraMetadata meta;
 
     ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    uint32_t max_w = 0, max_h = 0;
-    // Check Supported JPEG snapshot resolutions.
-    if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-      entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-      for (uint32_t i = 0 ; i < entry.count; i += 4) {
-        if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
-          if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-              entry.data.i32[i+3]) {
-            max_w = entry.data.i32[i+1];
-            max_h = entry.data.i32[i+2];
-            break;
-          }
-        }
-      }
-    }
-    ASSERT_TRUE(max_w > 0 && max_h > 0);
-
     // Take a snapshot in the middle of recording time
     ImageParam image_param = {};
-    image_param.width         = max_w;
-    image_param.height        = max_h;
     image_param.image_format  = ImageFormat::kJPEG;
     image_param.image_quality = default_jpeg_quality_;
+    Common::GetMaxSupportedCameraRes(meta, image_param.width,
+      image_param.height);
 
     ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
                                 BufferDescriptor buffer,
@@ -16741,7 +16077,6 @@ TEST_F(RecorderGtest, SessionWith1440EncWithEISAndLCACEnableAnd12MPSnapshot) {
 
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
-  camera_metadata_entry_t entry;
   VideoFormat format_type = VideoFormat::kAVC;
   uint32_t width = 1920;
   uint32_t height = 1440;
@@ -16829,28 +16164,13 @@ TEST_F(RecorderGtest, SessionWith1440EncWithEISAndLCACEnableAnd12MPSnapshot) {
     }
     ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
     ASSERT_TRUE(ret == NO_ERROR);
-    uint32_t max_w = 0, max_h = 0;
-    // Check Supported JPEG snapshot resolutions.
-    if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-      entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-      for (uint32_t i = 0; i < entry.count; i += 4) {
-        if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
-          if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-              entry.data.i32[i + 3]) {
-            max_w = entry.data.i32[i + 1];
-            max_h = entry.data.i32[i + 2];
-            break;
-          }
-        }
-      }
-    }
-    ASSERT_TRUE(max_w > 0 && max_h > 0);
+
     // Take a snapshot in the middle of recording time
     ImageParam image_param = {};
-    image_param.width = max_w;
-    image_param.height = max_h;
     image_param.image_format = ImageFormat::kJPEG;
     image_param.image_quality = default_jpeg_quality_;
+    Common::GetMaxSupportedCameraRes(meta, image_param.width,
+      image_param.height);
 
     std::vector<CameraMetadata> meta_array;
 
@@ -17217,30 +16537,13 @@ TEST_F(RecorderGtest, 1080pVideo4KVideoTypeSnapshot) {
   image_param.image_quality = default_jpeg_quality_;
 
   std::vector<CameraMetadata> meta_array;
-  camera_metadata_entry_t entry;
   CameraMetadata meta;
 
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  bool res_supported = false;
-
-  // Check Supported Raw YUV snapshot resolutions.
-  if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-    entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-    for (uint32_t i = 0 ; i < entry.count; i += 4) {
-      if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
-        if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-            entry.data.i32[i+3]) {
-          if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
-              && image_param.height ==
-                  static_cast<uint32_t>(entry.data.i32[i+2])) {
-            res_supported = true;
-          }
-        }
-      }
-    }
-  }
+  bool res_supported = Common::ValidateResFromJpegSizes(meta,
+      image_param.width, image_param.height);
   ASSERT_TRUE(res_supported != false);
 
   ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
@@ -19384,29 +18687,13 @@ TEST_F(RecorderGtest, SessionWith1080pEncTrackCaptureChangeFocalLength) {
     image_param.image_quality = 95;
 
     std::vector<CameraMetadata> meta_array;
-    camera_metadata_entry_t entry;
     CameraMetadata meta;
 
     ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    bool res_supported = false;
-    // Check Supported JPEG snapshot resolutions.
-    if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-      entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-      for (uint32_t i = 0 ; i < entry.count; i += 4) {
-        if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
-          if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-              entry.data.i32[i+3]) {
-            if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
-                && image_param.height ==
-                    static_cast<uint32_t>(entry.data.i32[i+2])) {
-              res_supported = true;
-            }
-          }
-        }
-      }
-    }
+    bool res_supported = Common::ValidateResFromJpegSizes(meta,
+      image_param.width, image_param.height);
     ASSERT_TRUE (res_supported != false);
 
     ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
@@ -19706,29 +18993,13 @@ TEST_F(RecorderGtest, SingleSnapshotFocalLength) {
   image_param.image_quality = 95;
 
   std::vector<CameraMetadata> meta_array;
-  camera_metadata_entry_t entry;
   CameraMetadata meta;
 
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  bool res_supported = false;
-  // Check Supported Raw YUV snapshot resolutions.
-  if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-    entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-    for (uint32_t i = 0 ; i < entry.count; i += 4) {
-      if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
-        if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-            entry.data.i32[i+3]) {
-          if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
-              && image_param.height ==
-                  static_cast<uint32_t>(entry.data.i32[i+2])) {
-            res_supported = true; // 1920x1080 YUV res supported.
-          }
-        }
-      }
-    }
-  }
+  bool res_supported = Common::ValidateResFromJpegSizes(meta,
+      image_param.width, image_param.height);
   ASSERT_TRUE(res_supported != false);
 
   TEST_INFO("%s: Running Test(%s)", __func__,
@@ -25630,8 +24901,6 @@ TEST_F(RecorderGtest,
   image_param.image_quality = default_jpeg_quality_;
 
   std::vector<CameraMetadata> meta_array;
-  camera_metadata_entry_t entry;
-
   CameraMetadata meta;
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
   ASSERT_TRUE(ret == NO_ERROR);
@@ -25640,23 +24909,8 @@ TEST_F(RecorderGtest,
   float focal_length = 8.0;
   meta.update(ANDROID_LENS_FOCAL_LENGTH, &focal_length, 1);
 
-  bool res_supported = false;
-  // Check Supported JPEG snapshot resolutions.
-  if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-    entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-    for (uint32_t i = 0 ; i < entry.count; i += 4) {
-      if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
-        if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-            entry.data.i32[i+3]) {
-          if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
-              && image_param.height ==
-                  static_cast<uint32_t>(entry.data.i32[i+2])) {
-            res_supported = true; // 3840x2160 JPEG supported.
-          }
-        }
-      }
-    }
-  }
+  bool res_supported = Common::ValidateResFromJpegSizes(meta,
+      image_param.width, image_param.height);
   ASSERT_TRUE(res_supported != false);
 
   // number of frames 1. Timeout 5s (4fps snapshot).
@@ -25903,29 +25157,13 @@ TEST_F(RecorderGtest, Jpeg422BurstSnapshotWithBayerLCAC15fps) {
   image_param.image_quality = default_jpeg_quality_;
 
   std::vector<CameraMetadata> meta_array;
-  camera_metadata_entry_t entry;
   CameraMetadata meta;
 
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  bool res_supported = false;
-  // Check Supported JPEG snapshot resolutions.
-  if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-    entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-    for (uint32_t i = 0 ; i < entry.count; i += 4) {
-      if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
-        if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-            entry.data.i32[i+3]) {
-          if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
-              && image_param.height ==
-                  static_cast<uint32_t>(entry.data.i32[i+2])) {
-            res_supported = true; // 3840x2160 JPEG supported.
-          }
-        }
-      }
-    }
-  }
+  bool res_supported = Common::ValidateResFromJpegSizes(meta,
+      image_param.width, image_param.height);
   ASSERT_TRUE (res_supported != false);
 
   ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
@@ -27485,23 +26723,7 @@ TEST_F(RecorderGtest, SessionWithSingleCam4KEncAllISOModes) {
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta_img);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  bool res_supported = false;
-  // Check Supported Raw YUV snapshot resolutions.
-  if (meta_img.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-    entry = meta_img.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-    for (uint32_t i = 0 ; i < entry.count; i += 4) {
-      if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
-        if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-            entry.data.i32[i+3]) {
-          if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
-              && image_param.height ==
-                  static_cast<uint32_t>(entry.data.i32[i+2])) {
-            res_supported = true;
-          }
-        }
-      }
-    }
-  }
+  bool res_supported = Common::ValidateResFromJpegSizes(meta_img, image_param.width, image_param.height);
   ASSERT_TRUE(res_supported != false);
 
   ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
@@ -27674,29 +26896,13 @@ TEST_F(RecorderGtest, SessionWithDualCam4KEncAllISOModes) {
   image_param.image_quality = default_jpeg_quality_;
 
   std::vector<CameraMetadata> meta_array;
-  camera_metadata_entry_t entry;
   CameraMetadata meta_img;
 
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta_img);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  bool res_supported = false;
-  // Check Supported Raw YUV snapshot resolutions.
-  if (meta_img.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-    entry = meta_img.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-    for (uint32_t i = 0 ; i < entry.count; i += 4) {
-      if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
-        if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-            entry.data.i32[i+3]) {
-          if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
-              && image_param.height ==
-                  static_cast<uint32_t>(entry.data.i32[i+2])) {
-            res_supported = true;
-          }
-        }
-      }
-    }
-  }
+  bool res_supported = Common::ValidateResFromRawSizes(meta_img,
+      image_param.width, image_param.height);
   ASSERT_TRUE(res_supported != false);
 
   ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
@@ -27910,29 +27116,13 @@ TEST_F(RecorderGtest, SessionWithSingleCam4KEncAllExposureValues) {
     image_param.image_quality = default_jpeg_quality_;
 
     std::vector<CameraMetadata> meta_array;
-    camera_metadata_entry_t entry;
     CameraMetadata meta_img;
 
     ret = recorder_.GetDefaultCaptureParam(camera_id_, meta_img);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    bool res_supported = false;
-    // Check Supported Raw YUV snapshot resolutions.
-    if (meta_img.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-      entry = meta_img.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-      for (uint32_t i = 0 ; i < entry.count; i += 4) {
-        if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
-          if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-              entry.data.i32[i+3]) {
-            if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
-                && image_param.height ==
-                    static_cast<uint32_t>(entry.data.i32[i+2])) {
-              res_supported = true;
-            }
-          }
-        }
-      }
-    }
+    bool res_supported = Common::ValidateResFromRawSizes(meta_img,
+      image_param.width, image_param.height);
     ASSERT_TRUE(res_supported != false);
 
     ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
@@ -28107,23 +27297,7 @@ TEST_F(RecorderGtest, SessionWithDualCam4KEncAllExposureValues) {
     ret = recorder_.GetDefaultCaptureParam(camera_id_, meta_img);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    bool res_supported = false;
-    // Check Supported Raw YUV snapshot resolutions.
-    if (meta_img.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-      entry = meta_img.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-      for (uint32_t i = 0 ; i < entry.count; i += 4) {
-        if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
-          if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-              entry.data.i32[i+3]) {
-            if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
-                && image_param.height ==
-                    static_cast<uint32_t>(entry.data.i32[i+2])) {
-              res_supported = true;
-            }
-          }
-        }
-      }
-    }
+    bool res_supported = Common::ValidateResFromJpegSizes(meta_img, image_param.width, image_param.height);
     ASSERT_TRUE(res_supported != false);
 
     ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
@@ -28296,23 +27470,7 @@ TEST_F(RecorderGtest, SessionWithSingleCam4KEncExposureTime) {
     ret = recorder_.GetDefaultCaptureParam(camera_id_, meta_img);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    bool res_supported = false;
-    // Check Supported Raw YUV snapshot resolutions.
-    if (meta_img.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-      entry_img = meta_img.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-      for (uint32_t i = 0 ; i < entry_img.count; i += 4) {
-        if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry_img.data.i32[i]) {
-          if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-              entry_img.data.i32[i+3]) {
-            if (image_param.width == static_cast<uint32_t>(entry_img.data.i32[i+1])
-                && image_param.height ==
-                    static_cast<uint32_t>(entry_img.data.i32[i+2])) {
-              res_supported = true;
-            }
-          }
-        }
-      }
-    }
+    bool res_supported = Common::ValidateResFromJpegSizes(meta_img, image_param.width, image_param.height);
     ASSERT_TRUE(res_supported != false);
 
     ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
@@ -28523,23 +27681,7 @@ TEST_F(RecorderGtest, SessionWithDualCam4KEncExposureTime) {
     ret = recorder_.GetDefaultCaptureParam(camera_id_, meta_img);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    bool res_supported = false;
-    // Check Supported Raw YUV snapshot resolutions.
-    if (meta_img.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-      entry_img = meta_img.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-      for (uint32_t i = 0 ; i < entry_img.count; i += 4) {
-        if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry_img.data.i32[i]) {
-          if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-              entry_img.data.i32[i+3]) {
-            if (image_param.width == static_cast<uint32_t>(entry_img.data.i32[i+1])
-                && image_param.height ==
-                    static_cast<uint32_t>(entry_img.data.i32[i+2])) {
-              res_supported = true;
-            }
-          }
-        }
-      }
-    }
+    bool res_supported = Common::ValidateResFromJpegSizes(meta_img, image_param.width, image_param.height);
     ASSERT_TRUE(res_supported != false);
 
     ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
@@ -28742,23 +27884,7 @@ TEST_F(RecorderGtest, SessionWithSingleCam4KEncAllAWBModes) {
     ret = recorder_.GetDefaultCaptureParam(camera_id_, meta_img);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    bool res_supported = false;
-    // Check Supported Raw YUV snapshot resolutions.
-    if (meta_img.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-      entry = meta_img.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-      for (uint32_t i = 0 ; i < entry.count; i += 4) {
-        if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
-          if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-              entry.data.i32[i+3]) {
-            if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
-                && image_param.height ==
-                    static_cast<uint32_t>(entry.data.i32[i+2])) {
-              res_supported = true;
-            }
-          }
-        }
-      }
-    }
+    bool res_supported = Common::ValidateResFromJpegSizes(meta_img, image_param.width, image_param.height);
     ASSERT_TRUE(res_supported != false);
 
     ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
@@ -28908,29 +28034,13 @@ TEST_F(RecorderGtest, SessionWithDualCam4KEncAllAWBModes) {
     image_param.image_quality = default_jpeg_quality_;
 
     std::vector<CameraMetadata> meta_array;
-    camera_metadata_entry_t entry;
     CameraMetadata meta_img;
 
     ret = recorder_.GetDefaultCaptureParam(camera_id_, meta_img);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    bool res_supported = false;
-    // Check Supported Raw YUV snapshot resolutions.
-    if (meta_img.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-      entry = meta_img.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-      for (uint32_t i = 0 ; i < entry.count; i += 4) {
-        if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
-          if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-              entry.data.i32[i+3]) {
-            if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
-                && image_param.height ==
-                    static_cast<uint32_t>(entry.data.i32[i+2])) {
-              res_supported = true;
-            }
-          }
-        }
-      }
-    }
+    bool res_supported = Common::ValidateResFromJpegSizes(meta_img,
+      image_param.width, image_param.height);
     ASSERT_TRUE(res_supported != false);
 
     ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
@@ -29086,29 +28196,13 @@ TEST_F(RecorderGtest, SessionWithSingleCam4KEncAllExposureMeteringModes) {
     image_param.image_quality = default_jpeg_quality_;
 
     std::vector<CameraMetadata> meta_array;
-    camera_metadata_entry_t entry;
     CameraMetadata meta_img;
 
     ret = recorder_.GetDefaultCaptureParam(camera_id_, meta_img);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    bool res_supported = false;
-    // Check Supported Raw YUV snapshot resolutions.
-    if (meta_img.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-      entry = meta_img.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-      for (uint32_t i = 0 ; i < entry.count; i += 4) {
-        if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
-          if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-              entry.data.i32[i+3]) {
-            if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
-                && image_param.height ==
-                    static_cast<uint32_t>(entry.data.i32[i+2])) {
-              res_supported = true;
-            }
-          }
-        }
-      }
-    }
+    bool res_supported = Common::ValidateResFromRawSizes(meta_img,
+      image_param.width, image_param.height);
     ASSERT_TRUE(res_supported != false);
 
     ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
@@ -29282,29 +28376,13 @@ TEST_F(RecorderGtest, SessionWithDualCam4KEncAllExposureMeteringModes) {
     image_param.image_quality = default_jpeg_quality_;
 
     std::vector<CameraMetadata> meta_array;
-    camera_metadata_entry_t entry;
     CameraMetadata meta_img;
 
     ret = recorder_.GetDefaultCaptureParam(camera_id_, meta_img);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    bool res_supported = false;
-    // Check Supported Raw YUV snapshot resolutions.
-    if (meta_img.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-      entry = meta_img.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-      for (uint32_t i = 0 ; i < entry.count; i += 4) {
-        if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
-          if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-              entry.data.i32[i+3]) {
-            if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
-                && image_param.height ==
-                    static_cast<uint32_t>(entry.data.i32[i+2])) {
-              res_supported = true;
-            }
-          }
-        }
-      }
-    }
+    bool res_supported = Common::ValidateResFromRawSizes(meta_img,
+      image_param.width, image_param.height);
     ASSERT_TRUE(res_supported != false);
 
     ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
@@ -31090,25 +30168,11 @@ TEST_F(RecorderGtest, SingleCamRaw10BayerSnapshot) {
 
   camera_metadata_entry_t entry;
   CameraMetadata meta;
-  int32_t w = 0, h = 0;
+  uint32_t w = 0, h = 0;
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
 
-  if (!meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-    QMMF_ERROR("%s: Metadata ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS"
-               " not available", __func__);
-    ASSERT_TRUE(0);
-  }
-  entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-  for (uint32_t i = 0 ; i < entry.count; i += 4) {
-    if (HAL_PIXEL_FORMAT_RAW10 == entry.data.i32[i]) {
-      if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-          entry.data.i32[i+3]) {
-        w = static_cast<uint32_t>(entry.data.i32[i+1]);
-        h = static_cast<uint32_t>(entry.data.i32[i+2]);
-      }
-    }
-  }
-
+  bool res = Common::GetMaxSupportedCameraRes(meta, w, h);
+  ASSERT_TRUE( res == true);
   TEST_INFO("%s: Supported RAW RDI W(%d):H(%d)", __func__, w, h);
   ASSERT_TRUE(w > 0 && h > 0);
 
@@ -31240,29 +30304,13 @@ TEST_F(RecorderGtest, DualCam4KSnapshotWithRaw) {
   image_param.image_quality = 95;
 
   std::vector<CameraMetadata> meta_array;
-  camera_metadata_entry_t entry;
   CameraMetadata meta;
 
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  bool res_supported = false;
-  // Check Supported JPEG snapshot resolutions.
-  if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-    entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-    for (uint32_t i = 0 ; i < entry.count; i += 4) {
-      if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
-        if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-            entry.data.i32[i+3]) {
-          if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
-              && image_param.height ==
-                  static_cast<uint32_t>(entry.data.i32[i+2])) {
-            res_supported = true;
-          }
-        }
-      }
-    }
-  }
+  bool res_supported = Common::ValidateResFromJpegSizes(meta,
+      image_param.width, image_param.height);
   ASSERT_TRUE(res_supported != false);
 
   ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
@@ -31995,13 +31043,9 @@ TEST_F(RecorderGtest, 4kSnapshotWithGPSInfo) {
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  if (camera_id_ == 2) {
-    image_param.width = 4096;
-    image_param.height = 2048;
-  } else {
-    image_param.width = 3840;
-    image_param.height = 2160;
-  }
+  bool res_supported = Common::GetMaxSupportedCameraRes(meta,
+      image_param.width, image_param.height, HAL_PIXEL_FORMAT_BLOB);
+  ASSERT_TRUE(res_supported != false);
 
   // Using random coordinates value for testing
   const double gps_coordinates[2] = {
