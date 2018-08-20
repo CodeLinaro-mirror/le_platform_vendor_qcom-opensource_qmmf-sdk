@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -38,6 +38,7 @@
 #include <string>
 #include <thread>
 #include <vector>
+#include <sys/prctl.h>
 
 #include "common/utils/qmmf_log.h"
 #include "common/audio/inc/qmmf_audio_definitions.h"
@@ -123,7 +124,7 @@ status_t AudioRawSink::CreateTrackSink(uint32_t track_id,
   }
 
   shared_ptr<AudioRawTrackSink> track_sink = make_shared<AudioRawTrackSink>();
-  if (track_sink == nullptr) {
+  if (!track_sink) {
     QMMF_ERROR("%s() could not instantiate track_sink[%u]",
                __func__, track_id);
     return ::android::NO_MEMORY;
@@ -926,7 +927,7 @@ void AudioRawTrackSink::StoppedHandler() {
 
 void AudioRawTrackSink::ThreadEntry(AudioRawTrackSink* sink) {
   QMMF_DEBUG("%s() TRACE", __func__);
-
+  prctl(PR_SET_NAME, "AudRawSinkTh", 0, 0, 0);
   sink->Thread();
 }
 
@@ -1106,7 +1107,7 @@ void AudioRawTrackSink::Thread() {
 
 void AudioRawTrackSink::PtsThreadEntry(AudioRawTrackSink* sink) {
   QMMF_DEBUG("%s() TRACE", __func__);
-
+  prctl(PR_SET_NAME, "AUdRawSinkPtsTh", 0, 0, 0);
   sink->PtsThread();
 }
 

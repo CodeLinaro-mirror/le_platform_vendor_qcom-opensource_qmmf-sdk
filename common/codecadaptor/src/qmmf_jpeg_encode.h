@@ -27,10 +27,12 @@
  */
 #pragma once
 
-#include <media/msm_media_info.h>
-#include <sys/mman.h>
 #include <mutex>
 #include <thread>
+
+#include <media/msm_media_info.h>
+#include <sys/mman.h>
+
 #include "common/codecadaptor/src/qmmf_avcodec.h"
 
 #ifndef DISABLE_PP_JPEG
@@ -133,9 +135,6 @@ class JPEGEncoder : public IAVCodec {
 
   CodecType format_type_;
   CodecParam codec_params_;
-
-  void* cfg_;
-  size_t job_result_size_;
 
   uint32_t    jpeg_quality_;
   uint32_t    thumbnail_width_;

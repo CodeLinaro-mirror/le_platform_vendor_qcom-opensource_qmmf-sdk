@@ -29,12 +29,14 @@
 
 #define LOG_TAG "VideoSink"
 
-#include "player/src/service/qmmf_player_video_sink.h"
-#include "player/src/service/qmmf_player_audio_sink.h"
-
 #include <chrono>
 #include <memory>
 #include <thread>
+#include <sys/prctl.h>
+
+#include "player/src/service/qmmf_player_video_sink.h"
+#include "player/src/service/qmmf_player_audio_sink.h"
+
 #define ROUND_TO(val, round_to) (val + round_to - 1) & ~(round_to - 1)
 #define HFR_FPS_VALUE 60.0
 
@@ -94,11 +96,15 @@ status_t VideoSink::CreateTrackSink(uint32_t track_id,
                                     VideoTrackParams& track_param,
                                     TrackCb& callback) {
   QMMF_DEBUG("%s Enter ", __func__);
-  shared_ptr<VideoTrackSink> track_sink;
+  shared_ptr<VideoTrackSink> track_sink { };
 
   if (track_param.params.out_device == VideoOutSubtype::kHDMI)
     track_sink = make_shared<VideoTrackSink>();
 
+  if (!track_sink) {
+    QMMF_ERROR("%s: Can't Instantiate track_sink", __func__);
+    return NO_MEMORY;
+  }
   video_track_sinks.add(track_id,track_sink);
   auto ret = track_sink->Init(track_param, callback);
   if(ret != 0) {
@@ -215,6 +221,7 @@ VideoTrackSink::VideoTrackSink()
       stop_called_(false),
       stop_notify_called_(false),
       paused_(false),
+      port_reconfigured_(false),
       decoded_frame_number_(0),
       seek_time_(0),
 #ifndef DISABLE_DISPLAY
@@ -564,7 +571,7 @@ void VideoTrackSink::AddBufferList(Vector<CodecBuffer>& list) {
 
   buf_info_map.clear();
   for (auto& iter : output_buffer_list_) {
-    BufInfo bufinfo_temp;
+    BufInfo bufinfo_temp {};
     bufinfo_temp.vaddr = iter.pointer;
     buf_info_map.add(iter.fd, bufinfo_temp);
   }
@@ -594,11 +601,15 @@ status_t VideoTrackSink::GetBuffer(BufferDescriptor& codec_buffer,
                                    void* client_data) {
   QMMF_DEBUG("%s: Enter track_id(%d)", __func__, TrackId());
   // Give available free buffer to decoder to use on output port.
-
-  while (output_free_buffer_queue_.Size() <= 0 && !stop_notify_called_) {
-    std::unique_lock<std::mutex> lock(wait_for_frame_lock_);
-    if (wait_for_frame_.WaitFor(lock, seconds(1)) != 0)
-      QMMF_WARN("%s track_id(%d) timed out on wait", __func__, TrackId());
+  int32_t log_counter = 0;
+  while (output_free_buffer_queue_.Size() <= 0 && !stop_notify_called_ &&
+         !port_reconfigured_) {
+    std::unique_lock<std::mutex> lock(get_buffer_wait_lock_);
+    if (get_buffer_wait_.WaitFor(lock, milliseconds(50)) != 0) {
+      log_counter++;
+      if (log_counter % 20 == 0) // log the message every 1 sec
+        QMMF_WARN("%s track_id(%d) timed out on wait", __func__, TrackId());
+    }
   }
 
   if (stop_notify_called_) {
@@ -606,6 +617,9 @@ status_t VideoTrackSink::GetBuffer(BufferDescriptor& codec_buffer,
     codec_buffer.fd = -1;
     codec_buffer.data = nullptr;
     codec_buffer.capacity = 0;
+  } else if (port_reconfigured_) {
+    QMMF_DEBUG("%s request for buffer after port reconfigured", __func__);
+    return INVALID_OPERATION;
   } else {
     CodecBuffer iter = *output_free_buffer_queue_.Begin();
     codec_buffer.fd = (iter).fd;
@@ -674,7 +688,7 @@ status_t VideoTrackSink::ReturnBufferToCodec(BufferDescriptor& codec_buffer) {
       QMMF_DEBUG("%s track_id(%d) Buffer found", __func__, TrackId());
       output_free_buffer_queue_.PushBack(*it);
       output_occupy_buffer_queue_.Erase(it);
-      wait_for_frame_.Signal();
+      get_buffer_wait_.Signal();
       found = true;
       break;
     }
@@ -756,7 +770,10 @@ bool VideoTrackSink::IsFrameSkip() {
 
 void VideoTrackSink::RendererThread(VideoTrackSink* video_sink) {
   QMMF_DEBUG("%s: Enter track_id(%d)", __func__, video_sink->TrackId());
+
+  prctl(PR_SET_NAME, "VideoSinkRender", 0, 0, 0);
   video_sink->Renderer();
+
   QMMF_DEBUG("%s: Exit track_id(%d)", __func__, video_sink->TrackId());
 }
 
@@ -879,7 +896,7 @@ void VideoTrackSink::Renderer() {
 
 void VideoTrackSink::PtsThreadEntry(VideoTrackSink* sink) {
   QMMF_DEBUG("%s() TRACE", __func__);
-
+  prctl(PR_SET_NAME, "VideoSinkPtsTh", 0, 0, 0);
   sink->PtsThread();
 }
 
@@ -917,18 +934,22 @@ status_t VideoTrackSink::NotifyPortEvent(PortEventType event_type,
 
   if (event_type == PortEventType::kPortSettingsChanged) {
     ret = video_track_decoder_->ReconfigOutputPort(event_data);
+    if (port_reconfigured_) port_reconfigured_ = false;
   } else if (event_type == PortEventType::kPortStatus) {
     CodecPortStatus status = *(static_cast<CodecPortStatus*>(event_data));
     switch (status) {
       case CodecPortStatus::kPortStop:
         stop_notify_called_ = true;
+        get_buffer_wait_.Signal();
         break;
       case CodecPortStatus::kPortIdle:
       case CodecPortStatus::kPortStart:
         break;
     }
+  } else if (event_type == PortEventType::kPortConfigReceived) {
+    port_reconfigured_ = true;
+    get_buffer_wait_.Signal();
   }
-
   QMMF_DEBUG("%s Exit track_id(%d)", __func__, TrackId());
   return ret;
 }
@@ -943,7 +964,7 @@ status_t VideoTrackSink::UpdateCropParameters(void* arg) {
           (static_cast<PortreconfigData::CropData>(reconfig_data->rect)).width;
       surface_config_.height = current_height =
           (static_cast<PortreconfigData::CropData>(reconfig_data->rect)).height;
-      wait_for_frame_.Signal();
+      get_buffer_wait_.Signal();
       break;
     case PortreconfigData::PortReconfigType::kCropParametersChanged:
       crop_data_ =
@@ -1146,7 +1167,12 @@ status_t VideoTrackSink::DeleteDisplay(display::DisplayType display_type) {
 
   if (display_started_ == 1) {
     display_started_ =0;
+    if (display_ == nullptr) {
+      QMMF_ERROR("Display not started, null");
+      return -EFAULT;
+    }
     res = display_->DestroySurface(surface_id_);
+
     if (res != 0) {
       QMMF_ERROR("%s DestroySurface Failed!!", __func__);
     }

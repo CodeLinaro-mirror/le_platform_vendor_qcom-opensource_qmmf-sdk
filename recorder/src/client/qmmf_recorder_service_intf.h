@@ -66,6 +66,7 @@ enum QMMF_RECORDER_SERVICE_CMDS {
   RECORDER_STOP_SESSION,
   RECORDER_PAUSE_SESSION,
   RECORDER_RESUME_SESSION,
+  RECORDER_GET_NUMBER_OF_CAMERAS,
   RECORDER_GET_SUPPORTED_PLUGINS,
   RECORDER_CREATE_PLUGIN,
   RECORDER_DELETE_PLUGIN,
@@ -183,6 +184,9 @@ class IRecorderService : public IInterface {
 
   virtual status_t ResumeSession(const uint32_t client_id,
                                  const uint32_t session_id) = 0;
+
+  virtual status_t GetNumberOfCameras(const uint32_t client_id,
+                                      SupportedCameras &cameras) = 0;
 
   virtual status_t GetSupportedPlugins(const uint32_t client_id,
                                        SupportedPlugins *plugins) = 0;

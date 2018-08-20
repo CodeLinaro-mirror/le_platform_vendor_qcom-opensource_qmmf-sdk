@@ -42,7 +42,7 @@
 #include <sys/types.h>
 
 #include <hardware/hardware.h>
-#ifdef ANDROID_O_OR_ABOVE
+#ifdef QCAMERA3_TAG_LOCAL_COPY
 #include "common/utils/qmmf_common_utils.h"
 #else
 #include <QCamera3VendorTags.h>
@@ -69,7 +69,7 @@ MultiCameraManager::MultiCameraManager()
     result_cb_(nullptr),
     error_cb_(nullptr),
     snapshot_param_{0, 0, 0, ImageFormat::kJPEG},
-    sequence_cnt_(1),
+    sequence_cnt_(0),
     jpeg_encoding_enabled_(false),
     snapshot_configured_(false),
     client_snapshot_cb_(nullptr) {}
@@ -171,12 +171,17 @@ status_t MultiCameraManager::OpenCamera(const uint32_t virtual_camera_id,
   algo_param.frame_rate  = 1;
 
   snapshot_stitch_algo_ =
-      std::make_shared<SnapshotStitching>(algo_param, camera_contexts_);
+      std::make_shared<SnapshotStitching>(algo_param, this);
   ret = snapshot_stitch_algo_->Initialize();
   if (NO_ERROR != ret) {
     QMMF_ERROR("%s: Failed to initialize stitching algo!", __func__);
     return ret;
   }
+
+  StreamSnapshotCb snapshot_cb = [&] (uint32_t count, StreamBuffer& buffer) {
+     OnStitchedFrameAvailable(buffer);
+  };
+  snapshot_stitch_algo_->SetClientCallback(snapshot_cb);
 
 #ifndef DISABLE_PP_JPEG
   jpeg_encoder_ = std::make_shared<CameraJpeg>();
@@ -266,9 +271,14 @@ status_t MultiCameraManager::WaitAecToConverge(const uint32_t timeout) {
 status_t MultiCameraManager::SetUpCapture(const ImageParam &param,
                                           const uint32_t num_images) {
 
-  std::lock_guard<std::mutex> lock(lock_);
+  std::unique_lock<std::mutex> lock(lock_);
   status_t ret = NO_ERROR;
 
+  if (sequence_cnt_ != 0) {
+    QMMF_WARN("%s: Wait for pending captures, count = %d!", __func__,
+        sequence_cnt_);
+    capture_done_.Wait(lock);
+  }
   sequence_cnt_ = num_images;
 
   bool reconfigure_needed = (snapshot_param_.width != param.width) ||
@@ -306,7 +316,6 @@ status_t MultiCameraManager::SetUpCapture(const ImageParam &param,
       QMMF_ERROR("%s: Failed to configure buffer params!", __func__);
       return ret;
     }
-    snapshot_stitch_algo_->Run();
   }
 
   auto streams = active_streams_;
@@ -357,19 +366,12 @@ status_t MultiCameraManager::CaptureImage(const std::vector<CameraMetadata>
     return BAD_VALUE;
   }
 
-  if (jpeg_encoding_enabled_) {
-    StreamSnapshotCb encoder_cb = [&] (uint32_t count, StreamBuffer& buffer) {
-      OnStitchedFrameAvailable(buffer);
-    };
-    snapshot_stitch_algo_->SetClientCallback(encoder_cb);
-    client_snapshot_cb_ = cb;
-  } else {
-    snapshot_stitch_algo_->SetClientCallback(cb);
-  }
-
   StreamSnapshotCb stream_cb = [&] (uint32_t count, StreamBuffer& buf) {
     snapshot_stitch_algo_->FrameAvailableCb(count, buf);
   };
+  client_snapshot_cb_ = cb;
+
+  snapshot_stitch_algo_->Run();
 
   // Always use synchronized request for capture.
   std::vector<CameraMetadata> capture_meta = meta;
@@ -940,7 +942,20 @@ void MultiCameraManager::EncodeJpegImage(const StreamBuffer &buffer) {
 
 void MultiCameraManager::OnStitchedFrameAvailable(StreamBuffer buffer) {
 
-  EncodeJpegImage(buffer);
+  if (jpeg_encoding_enabled_) {
+    EncodeJpegImage(buffer);
+  } else {
+    client_snapshot_cb_(1, buffer);
+  }
+  {
+    std::lock_guard<std::mutex> lock(lock_);
+    --sequence_cnt_;
+
+    if (sequence_cnt_ == 0) {
+      snapshot_stitch_algo_->RequestExitAndWait();
+      capture_done_.Signal();
+    }
+  }
 }
 
 void MultiCameraManager::OnJpegImageAvailable(StreamBuffer in_buffer,
@@ -1018,7 +1033,7 @@ status_t MultiCameraManager::CreateStreamStitching(const CameraStreamParam&
   buffer_param.gralloc_flags |= private_handle_t::PRIV_FLAGS_VIDEO_ENCODER;
 
   std::shared_ptr<StreamStitching> stitching_algo =
-      std::make_shared<StreamStitching>(algo_param);
+      std::make_shared<StreamStitching>(algo_param, this);
   auto ret = stitching_algo->Initialize();
   if (NO_ERROR != ret) {
     QMMF_ERROR("%s: Failed to initialize stitching algo!", __func__);
@@ -1149,22 +1164,18 @@ status_t MultiCameraManager::FillDualCamMetadata(CameraMetadata& meta,
   return NO_ERROR;
 }
 
-SnapshotStitching::SnapshotStitching(
-    InitParams &param,
-    std::map<uint32_t, std::shared_ptr<CameraContext> > &contexts)
-    : StitchingBase(param),
-      client_snapshot_cb_(nullptr) {
+SnapshotStitching::SnapshotStitching(InitParams &param, MultiCameraManager *mgr)
+    : StitchingBase(param, mgr),
+      snapshot_cb_(nullptr) {
 
   QMMF_INFO("%s: Enter", __func__);
   work_thread_name_ = "SnapshotStitching";
-  camera_contexts_ = contexts;
   QMMF_INFO("%s: Exit (0x%p)", __func__, this);
 }
 
 SnapshotStitching::~SnapshotStitching() {
 
   QMMF_INFO("%s: Enter", __func__);
-  camera_contexts_.clear();
   QMMF_INFO("%s: Exit (0x%p)", __func__, this);
 }
 
@@ -1208,12 +1219,12 @@ status_t SnapshotStitching::ImageBufferReturned(const int32_t buffer_id) {
 status_t SnapshotStitching::NotifyBufferToClient(StreamBuffer &buffer) {
 
   status_t ret = NO_ERROR;
-  if(nullptr != client_snapshot_cb_) {
+  if (nullptr != snapshot_cb_) {
     {
       std::lock_guard<std::mutex> lock(snapshot_lock_);
       snapshot_buffer_list_.emplace(buffer.fd, buffer);
     }
-    client_snapshot_cb_(1, buffer);
+    snapshot_cb_(1, buffer);
   } else {
     QMMF_VERBOSE("%s: No client callback, simply return buffer back to"
         " memory pool!",  __func__);
@@ -1225,28 +1236,26 @@ status_t SnapshotStitching::NotifyBufferToClient(StreamBuffer &buffer) {
 status_t SnapshotStitching::ReturnBufferToCamera(StreamBuffer &buffer) {
 
   status_t ret = NO_ERROR;
-  if (camera_contexts_.count(buffer.camera_id) == 0) {
+  if (manager_->camera_contexts_.count(buffer.camera_id) == 0) {
     QMMF_ERROR("%s: Invalid camera ID(%d)", __func__, buffer.camera_id);
     return BAD_VALUE;
   }
 
-  std::shared_ptr<CameraContext> camera = camera_contexts_[buffer.camera_id];
+  auto& camera = manager_->camera_contexts_[buffer.camera_id];
 
   ret = camera->ReturnImageCaptureBuffer(buffer.camera_id, buffer.fd);
   if(NO_ERROR != ret) {
     QMMF_ERROR("%s: Failed to return buffer to camera(%d)",
         __func__, buffer.camera_id);
   }
-  camera = nullptr;
   return ret;
 }
 
-StreamStitching::StreamStitching(InitParams &param)
-    : StitchingBase(param) {
+StreamStitching::StreamStitching(InitParams &param, MultiCameraManager *mgr)
+    : StitchingBase(param, mgr) {
 
   QMMF_INFO("%s: Enter", __func__);
 
-  use_frame_sync_timeout = true;
   work_thread_name_ = "StreamStitching";
 
   // Create consumers for the physical cameras.
@@ -1391,10 +1400,10 @@ bool StreamStitching::IsConnected(const sp<IBufferConsumer>& consumer) {
   return false;
 }
 
-StitchingBase::StitchingBase(InitParams &param)
-    : params_(param),
+StitchingBase::StitchingBase(InitParams &param, MultiCameraManager *mgr)
+    : manager_(mgr),
+      params_(param),
       stop_frame_sync_(false),
-      use_frame_sync_timeout(false),
       skip_camera_id_ (0),
       single_camera_mode_(false) {
 
@@ -1483,16 +1492,34 @@ bool StitchingBase::ThreadLoop() {
     // If there aren't any pending synchronized buffers waiting to go through
     // stitch processing, wait until such buffer becomes available.
     std::unique_lock<std::mutex> lock(sync_lock_);
-    std::chrono::nanoseconds wait_time(kFrameSyncTimeout);
 
     while (synced_buffer_queue_.empty() && !stop_frame_sync_) {
-      if (use_frame_sync_timeout) {
+      if (work_thread_name_ == "StreamStitching") {
+        std::chrono::nanoseconds wait_time(kVideoFrameSyncTimeout);
         auto ret = wait_for_sync_frames_.WaitFor(lock, wait_time);
+
         if (ret != 0) {
           QMMF_DEBUG("%s: Wait for frame available timed out", __func__);
         }
       } else {
-        wait_for_sync_frames_.Wait(lock);
+        std::chrono::nanoseconds wait_time(kImageFrameSyncTimeout);
+        auto ret = wait_for_sync_frames_.WaitFor(lock, wait_time);
+
+        if (ret != 0) {
+          QMMF_WARN("%s: Wait for frame available timed out, cleaning"
+              " unsynched buffers!", __func__);
+
+          // Return all unsynced buffers back to the camera contexts.
+          for (auto const& camera_id : params_.camera_ids) {
+            ReturnUnsyncedBuffers(camera_id);
+          }
+          std::lock_guard<std::mutex> lock(manager_->lock_);
+          stop_frame_sync_ = true;
+          Camera3Thread::RequestExit();
+
+          --manager_->sequence_cnt_;
+          manager_->capture_done_.Signal();
+        }
       }
     }
     // Exit from thread loop if frame sync is stopped
@@ -1597,21 +1624,32 @@ status_t StitchingBase::FrameSync(StreamBuffer& buffer) {
     // Retrieve a list with unsynced buffers for each of the other cameras.
     unsynced_buffers = &unsynced_buffer_map_.at(camera_id);
 
-    // Backward search, as the latest buffers are at the back.
-    for (int32_t idx = (unsynced_buffers->size() - 1); idx >= 0; --idx) {
-      const StreamBuffer &unsynced_frame = unsynced_buffers->at(idx);
-      timestamp_delta = buffer.timestamp - unsynced_frame.timestamp;
-
-      if (std::abs(timestamp_delta) < kMaxTimestampDelta) {
+    if (work_thread_name_ == "SnapshotStitching") {
+      if (!unsynced_buffers->empty()) {
+        const StreamBuffer &unsynced_frame = unsynced_buffers->at(0);
         synced_frames.emplace(camera_id, unsynced_frame);
-        matched_buffers.emplace(camera_id, idx);
+        matched_buffers.emplace(camera_id, 0);
         ++num_matched_frames;
         match_found = true;
         break;
-      } else if (timestamp_delta > 0) {
-        // No need to check the rest of the buffers in the queue for
-        // this camera_id, as they will be with a lower timestamp.
-        break;
+      }
+    } else {
+      // Backward search, as the latest buffers are at the back.
+      for (int32_t idx = (unsynced_buffers->size() - 1); idx >= 0; --idx) {
+        const StreamBuffer &unsynced_frame = unsynced_buffers->at(idx);
+        timestamp_delta = buffer.timestamp - unsynced_frame.timestamp;
+
+        if (std::abs(timestamp_delta) < kMaxTimestampDelta) {
+          synced_frames.emplace(camera_id, unsynced_frame);
+          matched_buffers.emplace(camera_id, idx);
+          ++num_matched_frames;
+          match_found = true;
+          break;
+        } else if (timestamp_delta > 0) {
+          // No need to check the rest of the buffers in the queue for
+          // this camera_id, as they will be with a lower timestamp.
+          break;
+        }
       }
     }
     // If a matched frame wasn't found there is no need to check
@@ -1747,13 +1785,20 @@ status_t StitchingBase::ReturnProcessedBuffer(buffer_handle_t &handle,
                                               qmmf_alg_status_t status) {
 
   status_t ret = NO_ERROR;
-  std::lock_guard<std::mutex> lock(buffers_lock_);
-  if (process_buffers_map_.find(handle) == process_buffers_map_.end()) {
-    QMMF_ERROR("%s: Buffer %p not registered", __func__, handle);
-    return BAD_VALUE;
+
+  StreamBuffer buffer;
+  {
+    std::lock_guard<std::mutex> lock(buffers_lock_);
+    if (process_buffers_map_.find(handle) == process_buffers_map_.end()) {
+      QMMF_ERROR("%s: Buffer %p not registered!", __func__, handle);
+      return BAD_VALUE;
+    }
+
+    buffer = process_buffers_map_.at(handle);
+    process_buffers_map_.erase(handle);
+    wait_for_buffers_.Signal();
   }
 
-  StreamBuffer &buffer = process_buffers_map_.at(handle);
   QMMF_DEBUG("%s: Got buffer(%p), camera id %d", __func__, handle,
       buffer.camera_id);
 
@@ -1766,8 +1811,6 @@ status_t StitchingBase::ReturnProcessedBuffer(buffer_handle_t &handle,
   } else {
     ret = ReturnBufferToCamera(buffer);
   }
-  process_buffers_map_.erase(handle);
-  wait_for_buffers_.Signal();
 
   return ret;
 }
@@ -1907,7 +1950,9 @@ status_t StitchingBase::FlushLibrary() {
     }
     stitch_lib_.initialized = true;
   }
-  stitch_lib_.flush(stitch_lib_.context);
+  if (!process_buffers_map_.empty()) {
+    stitch_lib_.flush(stitch_lib_.context);
+  }
   return NO_ERROR;
 }
 

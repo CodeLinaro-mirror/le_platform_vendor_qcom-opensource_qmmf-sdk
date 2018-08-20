@@ -431,6 +431,25 @@ status_t RecorderClient::ResumeSession(const uint32_t session_id)
   return ret;
 }
 
+status_t RecorderClient::GetNumberOfCameras(SupportedCameras &cameras)
+{
+    QMMF_DEBUG("%s Enter ", __func__);
+    QMMF_KPI_DETAIL();
+    std::lock_guard<std::mutex> lock(lock_);
+
+    if (!CheckServiceStatus()) {
+      return NO_INIT;
+    }
+    assert(client_id_ > 0);
+    auto ret = recorder_service_->GetNumberOfCameras(client_id_, cameras);
+    if (NO_ERROR != ret) {
+        QMMF_ERROR("%s GetNumberOfCameras failed!", __func__);
+    }
+
+    QMMF_DEBUG("%s Exit ", __func__);
+    return ret;
+}
+
 status_t RecorderClient::GetSupportedPlugins(SupportedPlugins *plugins)
 {
   QMMF_DEBUG("%s Enter ", __func__);
@@ -1215,6 +1234,14 @@ status_t RecorderClient::UnmapBuffer(BufferInfo& info) {
       return FAILED_TRANSACTION;
     }
     info.ion_handle = -1;
+
+    ret = close(info.ion_fd);
+    if (NO_ERROR != ret) {
+      QMMF_ERROR("%s Failed to close ION fd %d : %d[%s]", __func__,
+          info.ion_fd, -errno, strerror(errno));
+      return FAILED_TRANSACTION;
+    }
+    info.ion_fd = -1;
   }
 
   QMMF_DEBUG("%s Exit ", __func__);
@@ -1694,6 +1721,28 @@ class BpRecorderService: public BpInterface<IRecorderService> {
     data.writeUint32(session_id);
     remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
                             RECORDER_RESUME_SESSION), data, &reply);
+    return reply.readInt32();
+  }
+
+  status_t GetNumberOfCameras(const uint32_t client_id,
+                              SupportedCameras &cameras) {
+    Parcel data, reply;
+    data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
+    data.writeUint32(client_id);
+    remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
+                       RECORDER_GET_NUMBER_OF_CAMERAS), data, &reply);
+    uint32_t num_cameras;
+    reply.readUint32(&num_cameras);
+    CameraCapability camera;
+    for (uint32_t i = 0; i < num_cameras; i++)  {
+      uint32_t blob_size;
+      reply.readUint32(&blob_size);
+      android::Parcel::ReadableBlob blob;
+      reply.readBlob(blob_size, &blob);
+      memcpy(&camera, blob.data(), blob_size);
+      cameras.push_back(camera);
+      blob.release();
+    }
     return reply.readInt32();
   }
 

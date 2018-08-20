@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -78,6 +78,8 @@ class CameraSource {
                                 const void *param,
                                 const uint32_t param_size);
 
+  status_t GetNumberOfCameras(SupportedCameras &cameras);
+
   status_t GetSupportedPlugins(SupportedPlugins *plugins);
 
   status_t CreatePlugin(uint32_t *uid, const PluginInfo &plugin);
@@ -154,7 +156,6 @@ class CameraSource {
   const ::std::shared_ptr<TrackSource>& GetTrackSource(uint32_t track_id);
 
  private:
-
   bool IsTrackIdValid(const uint32_t track_id);
   void SnapshotCallback(uint32_t count, StreamBuffer& buffer);
   uint32_t GetJpegSize(uint8_t *blobBuffer, uint32_t width);
@@ -167,25 +168,23 @@ class CameraSource {
     const VideoTrackParams& slave_track,
     const VideoTrackParams& master_track);
 
-  status_t GetSlaveStreamMasterTrackId(const VideoTrackParams& params,
-                                      int32_t& track_id_master_);
-
-  status_t GetSourceTrackParam(const VideoTrackParams& params,
-                               SourceVideoTrack& surface_video_copy);
-
-  bool IsCopyStream(const VideoTrackParams& params);
+  int32_t GetSourceTrackId(const VideoExtraParam& extra_param);
 
   status_t ParseThumb(uint8_t* vaddr, uint32_t size, StreamBuffer& buffer);
+
+  status_t DetectCameras();
 
   // Map of camera id and CameraContext.
   std::map<uint32_t, std::shared_ptr<CameraInterface>> camera_map_;
 
-  // Map of track it and TrackSources.
-  std::map<uint32_t, ::std::shared_ptr<TrackSource>> track_sources_;
+  // Map of track id and TrackSources.
+  std::map<uint32_t, std::shared_ptr<TrackSource>> track_sources_;
 
   SnapshotCb client_snapshot_cb_;
 
   std::shared_ptr<PostProcFactory> factory_;
+
+  SupportedCameras supported_cameras_;
 
   // Not allowed
   CameraSource();
@@ -312,10 +311,13 @@ class TrackSource : public ICodecSource {
   bool                     eos_acked_;
   std::mutex               eos_lock_;
 
-  std::mutex               lock_;
+  std::mutex               frame_lock_;
   QCondition               wait_for_frame_;
 
+  std::mutex               lock_;
+
   // will be used till we make stop api as async.
+  bool                     is_idle_;
   std::mutex               idle_lock_;
   QCondition               wait_for_idle_;
 

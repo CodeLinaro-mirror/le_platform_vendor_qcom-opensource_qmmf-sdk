@@ -26,9 +26,7 @@
 * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
-
-#include <stdlib.h>
-#include <utils/Log.h>
+#include <atomic>
 
 #include <binder/IInterface.h>
 #include <binder/IBinder.h>
@@ -37,21 +35,41 @@
 #include <binder/IPCThreadState.h>
 #include <cutils/properties.h>
 
-#include "common/audio/src/service/qmmf_audio_service.h"
 #include "recorder/src/service/qmmf_recorder_service.h"
+#ifndef DISABLE_AUDIO_SERVICE
+#include "common/audio/src/service/qmmf_audio_service.h"
+#endif
+#ifndef DISABLE_PLAYER_SERVICE
+#include "player/src/service/qmmf_player_service.h"
+#endif
+#ifndef DISABLE_SYSTEM_SERVICE
+#include "system/src/service/qmmf_system_service.h"
+#endif
 #ifndef DISABLE_DISPLAY
 #include "display/src/service/qmmf_display_service.h"
 #endif
-#include "player/src/service/qmmf_player_service.h"
-#include "system/src/service/qmmf_system_service.h"
+
+/**
+ * Property to indicate completion of QMMF services initialization.
+ * When completed, value is set to 1.
+ */
+#define QMMF_BOOT_COMPLETE "vendor.qmmf.boot.complete"
 
 using namespace android;
 using namespace qmmf;
+#ifndef DISABLE_AUDIO_SERVICE
 using namespace qmmf::common::audio;
+#endif
 using namespace recorder;
-using namespace display;
+#ifndef DISABLE_DISPLAY
+using namespace qmmf::display;
+#endif
+#ifndef DISABLE_PLAYER_SERVICE
 using namespace player;
+#endif
+#ifndef DISABLE_SYSTEM_SERVICE
 using namespace system;
+#endif
 
 #define INFO(...) \
   do { \
@@ -69,25 +87,37 @@ int32_t main(int32_t argc, char **argv) {
   ProcessState::initWithDriver("/dev/vndbinder");
 #endif
 
+#ifndef DISABLE_SYSTEM_SERVICE
   //Add System service.
   defaultServiceManager()->addService(String16(QMMF_SYSTEM_SERVICE_NAME),
                   new qmmf::system::SystemService(), false);
   INFO("Service(%s) Added successfully!", QMMF_SYSTEM_SERVICE_NAME);
+#else
+  INFO("System Service disabled, continuing..");
+#endif
 
+#ifndef DISABLE_AUDIO_SERVICE
   // Add audio service.
   defaultServiceManager()->addService(String16(QMMF_AUDIO_SERVICE_NAME),
           new qmmf::common::audio::AudioService(), false);
   INFO("Service(%s) Added successfully!", QMMF_AUDIO_SERVICE_NAME);
+#else
+  INFO("Audio Service disabled, continuing..");
+#endif
 
   //Add Recorder service.
   defaultServiceManager()->addService(String16(QMMF_RECORDER_SERVICE_NAME),
                   new qmmf::recorder::RecorderService(), false);
   INFO("Service(%s) Added successfully!", QMMF_RECORDER_SERVICE_NAME);
 
+#ifndef DISABLE_PLAYER_SERVICE
   //Add Player service.
   defaultServiceManager()->addService(String16(QMMF_PLAYER_SERVICE_NAME),
                   new qmmf::player::PlayerService(), false);
   INFO("Service(%s) Added successfully!", QMMF_PLAYER_SERVICE_NAME);
+#else
+  INFO("Player Service disabled, continuing..");
+#endif
 
 #ifndef DISABLE_DISPLAY
   //Add Display service.
@@ -99,6 +129,7 @@ int32_t main(int32_t argc, char **argv) {
 #endif
 
   android::ProcessState::self()->startThreadPool();
+  property_set(QMMF_BOOT_COMPLETE, "1");
   IPCThreadState::self()->joinThreadPool();
   return 0;
 }

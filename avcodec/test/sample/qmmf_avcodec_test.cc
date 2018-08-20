@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -582,31 +582,31 @@ status_t CodecTest::ParseConfig(char *fileName, TestInitParams* params) {
   uint32_t id = 0;
   bool avc = false;
 
-  if(!(fp = fopen(fileName,"r"))) {
+  if (!(fp = fopen(fileName,"r"))) {
     QMMF_ERROR("%s failed to open config file: %s", __func__,fileName);
     return -1;
   }
 
-  while(fgets(line,MAX_LINE-1,fp)) {
-    if((line[0] == '\n') || (line[0] == '/') || line[0] == ' ')
+  while (fgets(line,MAX_LINE-1,fp)) {
+    if ((line[0] == '\n') || (line[0] == '/') || line[0] == ' ')
         continue;
     memset(value, 0x0, sizeof(value));
     memset(key, 0x0, sizeof(key));
-    if(isStreamReadCompleted) {
+    if (isStreamReadCompleted) {
         isStreamReadCompleted = false;
     }
     int len = strlen(line);
     int i,j = 0;
 
     //This assumes new stream params always start with #
-    if(!strcspn(line,"#")) {
+    if (!strcspn(line,"#")) {
         id++;
         continue;
      }
 
     int pos = strcspn(line,":");
-    for(i = 0; i< pos; i++){
-        if(line[i] != ' ') {
+    for (i = 0; i< pos; i++){
+        if (line[i] != ' ') {
             key[j] = line[i];
             j++;
         }
@@ -614,83 +614,91 @@ status_t CodecTest::ParseConfig(char *fileName, TestInitParams* params) {
 
     key[j] = '\0';
     j = 0;
-    for(i = pos+1; i< len-1; i++) {
-        if(line[i] != ' ') {
+    for (i = pos+1; i< len-1; i++) {
+        if (line[i] != ' ') {
             value[j] = line[i];
              j++;
         }
     }
     value[j] = '\0';
-
-    if(!strncmp("RecordingFrame", key, strlen("RecordingFrame"))) {
+    string str(value);
+    if (!strncmp("RecordingFrame", key, strlen("RecordingFrame"))) {
       params->record_frame = atoi(value);
-    } else if(!strncmp("InputFile", key, strlen("InputFile"))) {
-      strncpy(params->input_file, value, strlen(value));
-      params->input_file[strlen(value)] = '\0';
-    } else if(!strncmp("OutputFile", key, strlen("OutputFile"))) {
-      strncpy(params->output_file, value, strlen(value));
-      params->output_file[strlen(value)] = '\0';
-    } else if(!strncmp("CodecType", key, strlen("CodecType"))) {
-      if(!strncmp("VideoEncode", value, strlen("VideoEncode"))) {
+    } else if (!strncmp("InputFile", key, strlen("InputFile"))) {
+      auto ret = str.copy(params->input_file, strlen(value));
+      if (ret < MAX_FILE_NAME) {
+        params->input_file[ret] = '\0';
+      } else {
+        params->input_file[MAX_FILE_NAME - 1] = '\0';
+      }
+    } else if (!strncmp("OutputFile", key, strlen("OutputFile"))) {
+      auto ret = str.copy(params->output_file, strlen(value));
+      if (ret < MAX_FILE_NAME) {
+        params->output_file[ret] = '\0';
+      } else {
+        params->output_file[MAX_FILE_NAME - 1] = '\0';
+      }
+    } else if (!strncmp("CodecType", key, strlen("CodecType"))) {
+      if (!strncmp("VideoEncode", value, strlen("VideoEncode"))) {
         params->codec_type = CodecMimeType::kMimeTypeVideoEncAVC;
       } else {
         QMMF_ERROR("%s Unknown CodecType(%s)", __func__, value);
         goto READ_FAILED;
       }
-    } else if(!strncmp("Width", key, strlen("Width"))) {
+    } else if (!strncmp("Width", key, strlen("Width"))) {
       params->create_param.video_enc_param.width = atoi(value);
-    } else if(!strncmp("Height", key, strlen("Height"))) {
+    } else if (!strncmp("Height", key, strlen("Height"))) {
       params->create_param.video_enc_param.height = atoi(value);
-    } else if(!strncmp("FPS", key, strlen("FPS"))) {
+    } else if (!strncmp("FPS", key, strlen("FPS"))) {
       params->create_param.video_enc_param.frame_rate = atoi(value);
-    } else if(!strncmp("Codec", key, strlen("Codec"))) {
-      if(!strncmp("AVC", value, strlen("AVC"))) {
+    } else if (!strncmp("Codec", key, strlen("Codec"))) {
+      if (!strncmp("AVC", value, strlen("AVC"))) {
         avc = true;
         params->create_param.video_enc_param.format_type = VideoFormat::kAVC;
-      } else if(!strncmp("HEVC", value, strlen("HEVC"))) {
+      } else if (!strncmp("HEVC", value, strlen("HEVC"))) {
         params->create_param.video_enc_param.format_type = VideoFormat::kHEVC;
       } else {
         QMMF_ERROR("%s Unknown Video CodecType(%s)", __func__, value);
         goto READ_FAILED;
       }
-    } else if(!strncmp("IFR", key, strlen("IFR"))) {
-      if(avc)
+    } else if (!strncmp("IFR", key, strlen("IFR"))) {
+      if (avc)
         params->create_param.video_enc_param.codec_param.avc.idr_interval =
             atoi(value);
       else
         params->create_param.video_enc_param.codec_param.hevc.idr_interval =
             atoi(value);
-    } else if(!strncmp("Bitrate", key, strlen("Bitrate"))) {
-      if(avc)
+    } else if (!strncmp("Bitrate", key, strlen("Bitrate"))) {
+      if (avc)
         params->create_param.video_enc_param.codec_param.avc.bitrate = atoi(value);
       else
        params->create_param.video_enc_param.codec_param.hevc.bitrate = atoi(value);
-    } else if(!strncmp("Profile", key, strlen("Profile"))) {
+    } else if (!strncmp("Profile", key, strlen("Profile"))) {
       //TODO: remove hard code value
-      if(avc)
+      if (avc)
         params->create_param.video_enc_param.codec_param.avc.profile =
           AVCProfileType::kBaseline;
       else
         params->create_param.video_enc_param.codec_param.hevc.profile =
           HEVCProfileType::kMain;
-    } else if(!strncmp("Level", key, strlen("Level"))) {
+    } else if (!strncmp("Level", key, strlen("Level"))) {
       //TODO: remove hard code value
-      if(avc)
+      if (avc)
         params->create_param.video_enc_param.codec_param.avc.level =
           AVCLevelType::kLevel3;
       else
         params->create_param.video_enc_param.codec_param.hevc.level =
           HEVCLevelType::kLevel3;
-    } else if(!strncmp("RateControl", key, strlen("RateControl"))) {
+    } else if (!strncmp("RateControl", key, strlen("RateControl"))) {
       //TODO: remove hard code value
-      if(avc)
+      if (avc)
         params->create_param.video_enc_param.codec_param.avc.ratecontrol_type =
             VideoRateControlType::kVariable;
       else
         params->create_param.video_enc_param.codec_param.hevc.ratecontrol_type =
             VideoRateControlType::kVariable;
-    } else if(!strncmp("InitQpI", key, strlen("InitQpI"))) {
-      if(avc) {
+    } else if (!strncmp("InitQpI", key, strlen("InitQpI"))) {
+      if (avc) {
         params->create_param.video_enc_param.codec_param.avc.qp_params.init_qp.init_IQP =
             atoi(value);
         params->create_param.video_enc_param.codec_param.avc.qp_params.enable_init_qp = true;
@@ -700,22 +708,22 @@ status_t CodecTest::ParseConfig(char *fileName, TestInitParams* params) {
             atoi(value);
         params->create_param.video_enc_param.codec_param.hevc.qp_params.enable_init_qp = true;
       }
-    } else if(!strncmp("InitQpP", key, strlen("InitQpP"))) {
-      if(avc)
+    } else if (!strncmp("InitQpP", key, strlen("InitQpP"))) {
+      if (avc)
         params->create_param.video_enc_param.codec_param.avc.qp_params.init_qp.init_PQP =
             atoi(value);
       else
         params->create_param.video_enc_param.codec_param.hevc.qp_params.init_qp.init_PQP =
             atoi(value);
-    } else if(!strncmp("InitQpB", key, strlen("InitQpB"))) {
-      if(avc)
+    } else if (!strncmp("InitQpB", key, strlen("InitQpB"))) {
+      if (avc)
           params->create_param.video_enc_param.codec_param.avc.qp_params.init_qp.init_BQP =
               atoi(value);
       else
         params->create_param.video_enc_param.codec_param.hevc.qp_params.init_qp.init_BQP =
             atoi(value);
-    } else if(!strncmp("MinQp", key, strlen("MinQp"))) {
-      if(avc) {
+    } else if (!strncmp("MinQp", key, strlen("MinQp"))) {
+      if (avc) {
         params->create_param.video_enc_param.codec_param.avc.qp_params.qp_range.min_QP =
             atoi(value);
         params->create_param.video_enc_param.codec_param.avc.qp_params.enable_qp_range = true;
@@ -724,15 +732,15 @@ status_t CodecTest::ParseConfig(char *fileName, TestInitParams* params) {
             atoi(value);
           params->create_param.video_enc_param.codec_param.hevc.qp_params.enable_qp_range = true;
       }
-    } else if(!strncmp("MaxQp", key, strlen("MaxQp"))) {
-      if(avc)
+    } else if (!strncmp("MaxQp", key, strlen("MaxQp"))) {
+      if (avc)
         params->create_param.video_enc_param.codec_param.avc.qp_params.qp_range.max_QP =
             atoi(value);
       else
         params->create_param.video_enc_param.codec_param.hevc.qp_params.qp_range.max_QP =
             atoi(value);
-    } else if(!strncmp("IPBQPRangeMin_IQP", key, strlen("IPBQPRangeMin_IQP"))) {
-      if(avc) {
+    } else if (!strncmp("IPBQPRangeMin_IQP", key, strlen("IPBQPRangeMin_IQP"))) {
+      if (avc) {
         params->create_param.video_enc_param.codec_param.avc.qp_params.qp_IBP_range.min_IQP =
             atoi(value);
         params->create_param.video_enc_param.codec_param.avc.qp_params.enable_qp_IBP_range = true;
@@ -741,48 +749,48 @@ status_t CodecTest::ParseConfig(char *fileName, TestInitParams* params) {
               atoi(value);
           params->create_param.video_enc_param.codec_param.hevc.qp_params.enable_qp_IBP_range = true;
       }
-    } else if(!strncmp("IPBQPRangeMax_IQP", key, strlen("IPBQPRangeMax_IQP"))) {
-      if(avc)
+    } else if (!strncmp("IPBQPRangeMax_IQP", key, strlen("IPBQPRangeMax_IQP"))) {
+      if (avc)
           params->create_param.video_enc_param.codec_param.avc.qp_params.qp_IBP_range.max_IQP =
               atoi(value);
       else
           params->create_param.video_enc_param.codec_param.hevc.qp_params.qp_IBP_range.max_IQP =
               atoi(value);
-    } else if(!strncmp("IPBQPRangeMin_PQP", key, strlen("IPBQPRangeMin_PQP"))) {
-      if(avc)
+    } else if (!strncmp("IPBQPRangeMin_PQP", key, strlen("IPBQPRangeMin_PQP"))) {
+      if (avc)
           params->create_param.video_enc_param.codec_param.avc.qp_params.qp_IBP_range.min_PQP =
               atoi(value);
       else
           params->create_param.video_enc_param.codec_param.hevc.qp_params.qp_IBP_range.min_PQP =
               atoi(value);
-    } else if(!strncmp("IPBQPRangeMax_PQP", key, strlen("IPBQPRangeMax_PQP"))) {
-      if(avc)
+    } else if (!strncmp("IPBQPRangeMax_PQP", key, strlen("IPBQPRangeMax_PQP"))) {
+      if (avc)
           params->create_param.video_enc_param.codec_param.avc.qp_params.qp_IBP_range.max_PQP=
               atoi(value);
       else
           params->create_param.video_enc_param.codec_param.hevc.qp_params.qp_IBP_range.max_PQP =
               atoi(value);
-    } else if(!strncmp("IPBQPRangeMin_BQP", key, strlen("IPBQPRangeMin_BQP"))) {
-      if(avc)
+    } else if (!strncmp("IPBQPRangeMin_BQP", key, strlen("IPBQPRangeMin_BQP"))) {
+      if (avc)
           params->create_param.video_enc_param.codec_param.avc.qp_params.qp_IBP_range.min_BQP =
               atoi(value);
       else
           params->create_param.video_enc_param.codec_param.hevc.qp_params.qp_IBP_range.min_BQP =
               atoi(value);
-    } else if(!strncmp("IPBQPRangeMax_BQP", key, strlen("IPBQPRangeMax_BQP"))) {
-      if(avc)
+    } else if (!strncmp("IPBQPRangeMax_BQP", key, strlen("IPBQPRangeMax_BQP"))) {
+      if (avc)
           params->create_param.video_enc_param.codec_param.avc.qp_params.qp_IBP_range.max_BQP =
               atoi(value);
       else
           params->create_param.video_enc_param.codec_param.hevc.qp_params.qp_IBP_range.max_BQP =
               atoi(value);
-    } else if(!strncmp("Ltr_Count", key, strlen("Ltr_Count"))) {
-      if(avc)
+    } else if (!strncmp("Ltr_Count", key, strlen("Ltr_Count"))) {
+      if (avc)
           params->create_param.video_enc_param.codec_param.avc.ltr_count = atoi(value);
       else
           params->create_param.video_enc_param.codec_param.hevc.ltr_count = atoi(value);
-    } else if(!strncmp("Hier_Layer", key, strlen("Hier_Layer"))) {
-      if(avc)
+    } else if (!strncmp("Hier_Layer", key, strlen("Hier_Layer"))) {
+      if (avc)
           params->create_param.video_enc_param.codec_param.avc.hier_layer = atoi(value);
       else
           params->create_param.video_enc_param.codec_param.hevc.hier_layer = atoi(value);

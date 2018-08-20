@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -99,6 +99,8 @@ void PostProcThread::RequestExitAndWait() {
 }
 
 void *PostProcThread::MainLoop(void *userdata) {
+  prctl(PR_SET_NAME, "RecPostProcMain", 0, 0, 0);
+
   PostProcThread *pme = reinterpret_cast<PostProcThread *>(userdata);
   if (NULL == pme) {
     pme->running_ = false;

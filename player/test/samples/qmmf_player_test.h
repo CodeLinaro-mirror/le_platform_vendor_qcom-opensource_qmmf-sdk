@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -236,6 +236,8 @@ class CmdMenu {
   Command GetCommand(bool& is_print_menu);
 
   void PrintMenu();
+
+  bool IsValidExtn(char* extn);
 
   void HelpMenu(const char* test_name);
 

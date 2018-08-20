@@ -13,9 +13,9 @@ include $(CLEAR_VARS)
 
 include $(QMMF_SDK_TOP_SRCDIR)/common.mk
 
-LOCAL_C_INCLUDES += $(TOP)/hardware/qcom/camera/QCamera2/HAL3
+LOCAL_C_INCLUDES += $(CAMERA_HAL_PATH)/QCamera2/HAL3
 LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/mm-core/omxcore
-LOCAL_C_INCLUDES += $(TOP)/hardware/qcom/media
+LOCAL_C_INCLUDES += $(MEDIA_HAL_PATH)
 ifeq ($(IS_ANDROID_O_OR_ABOVE),true)
 LOCAL_C_INCLUDES += $(TOP)/system/core/base/include
 endif

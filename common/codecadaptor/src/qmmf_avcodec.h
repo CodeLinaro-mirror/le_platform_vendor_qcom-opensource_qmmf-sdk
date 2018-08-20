@@ -28,10 +28,12 @@
 
 #pragma once
 
+#include <atomic>
 #include <chrono>
 #include <condition_variable>
 #include <mutex>
 #include <string>
+#include <thread>
 
 #include <linux/msm_ion.h>
 #include <OMX_QCOMExtns.h>
@@ -169,13 +171,13 @@ class AVCodec : public IAVCodec {
   }
 
   // DeliverInput thread will pull data to be encoded
-  static void* DeliverInput(void *ptr);
+  void DeliverInput();
 
   // DeliverOutput thread will pull bitstream encoded data from Encoder
-  static void* DeliverOutput(void *ptr);
+  void DeliverOutput();
 
   // Will check for PortReconfig Event
-  static void* ThreadRun(void *arg);
+  void ThreadRun();
 
   status_t HandleOutputPortSettingsChange(OMX_U32 nData2);
 
@@ -206,9 +208,9 @@ class AVCodec : public IAVCodec {
   bool                            port_status_;  // for both ports
   ::android::Mutex                input_stop_lock_;
   ::android::Mutex                output_stop_lock_;
-  pthread_t                       deliver_input_thread_id_;
-  pthread_t                       deliver_output_thread_id_;
-  pthread_t                       port_reconfig_thread_id_;
+  std::thread                     deliver_input_thread_;
+  std::thread                     deliver_output_thread_;
+  std::thread                     port_reconfig_thread_;
   ::std::shared_ptr<ICodecSource> input_source_;
   ::std::shared_ptr<ICodecSource> output_source_;
   OMX_BUFFERHEADERTYPE**          in_buff_hdr_;
@@ -246,6 +248,11 @@ class AVCodec : public IAVCodec {
   CodecParam                codec_params_;
   bool                      slice_mode_encoding_;
   AVCodecCb                 avcodec_cb_;
+  std::atomic<int>          api_count_;
+
+  static const int64_t kOutputBufHeaderDelay;
+  static const uint32_t kMaxWaitLimitCounter;
+  static const uint32_t kSleepPortReconfig;
 };
 
 };  // namespace avcodec

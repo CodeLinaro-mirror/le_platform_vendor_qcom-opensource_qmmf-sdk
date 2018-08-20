@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -37,6 +37,7 @@
 #include <utils/Errors.h>
 #include <utils/Log.h>
 #include <utils/String8.h>
+#include <sys/prctl.h>
 
 #include <hardware/hardware.h>
 #include "display/test/gtest/qmmf_display_gtest.h"
@@ -117,18 +118,20 @@ int32_t DisplayGtest::DeInit(DisplayType display_type) {
   std::lock_guard<std::mutex> lock(lock_);
   running_ = 0;
 
+  if (!display_) {
+    TEST_INFO("%s: Error, Display=null", __func__);
+    return NO_INIT;
+  }
   auto ret = display_->DestroyDisplay(display_type);
-  if (ret != 0) {
-    TEST_ERROR("%s: DestroyDisplay Failed!!", __func__);
+  if (ret != NO_ERROR) {
+    TEST_ERROR("%s DestroyDisplay Failed!!", __func__);
   }
   ret = display_->Disconnect();
-
   this->surface_data_.clear();
-  if (display_ != nullptr) {
-    TEST_INFO("%s: DELETE display_:%p", __func__, display_);
-    delete display_;
-    display_ = nullptr;
-  }
+  TEST_INFO("%s: DELETE display_:%p", __func__, display_);
+  delete display_;
+  display_ = nullptr;
+
   TEST_INFO("%s: Exit", __func__);
   return ret;
 }
@@ -1332,6 +1335,7 @@ TEST_F(DisplayGtest, Test1YUV_1RGB_Rotated) {
       assert(surface_data != nullptr);
 
       ret = display_->DestroySurface(surface_data->surface_id);
+
       if (ret != 0) {
         TEST_ERROR("%s: DestroySurface Failed!!", __func__);
       }
@@ -2534,8 +2538,11 @@ void DisplayGtest::DisplayVSyncHandler(int64_t time_stamp) {
 }
 
 void DisplayGtest::DisplayThreadEntry(DisplayGtest* display_gtest) {
-  TEST_INFO("%s:() Enter", __func__);
+  TEST_INFO("%s: Enter", __func__);
+
+  prctl(PR_SET_NAME, "DisplayGtestTh", 0, 0, 0);
   display_gtest->DisplayThread();
+
   TEST_INFO("%s: Exit", __func__);
 }
 

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016, 2018, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -60,7 +60,9 @@ namespace display {
 /* handle to a specific display client/service connection */
 typedef int32_t DisplayHandle;
 
+#ifndef TARGET_USES_GRALLOC1
 #define GRALLOC_MODULE_PATH    "/usr/lib/hw/gralloc.default.so"
+#endif
 
 }; //namespace display.
 

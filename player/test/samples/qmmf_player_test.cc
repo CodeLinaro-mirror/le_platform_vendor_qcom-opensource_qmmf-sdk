@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -37,6 +37,7 @@
 #include <unistd.h>
 #include <utils/String8.h>
 #include <fstream>
+#include <sys/prctl.h>
 
 #include "common/utils/qmmf_common_utils.h"
 #include "player/test/samples/qmmf_player_test.h"
@@ -287,6 +288,8 @@ PlayerTest::PlayerTest(char* filename)
       drag_(false) {
   TEST_INFO("%s: Enter", __func__);
 
+  m_pIStreamPort_ = nullptr;
+
   if (filename_ != nullptr)
     m_pIStreamPort_ = new CMM_MediaSourcePort(filename_);
 
@@ -430,7 +433,12 @@ int32_t PlayerTest::ParseFile(AudioTrackCreateParam& audio_track_param,
                               VideoTrackCreateParam& video_track_param) {
   TEST_INFO("%s: Enter", __func__);
   auto ret = 0;
-  AacCodecData           aac_codec_data;
+  AacCodecData aac_codec_data;
+
+  if (m_pDemux_ == nullptr) {
+    TEST_ERROR("Demux is not present");
+    return -ENODATA;
+  }
 
   CreateDataSource();
 
@@ -445,8 +453,10 @@ int32_t PlayerTest::ParseFile(AudioTrackCreateParam& audio_track_param,
       ret = m_pDemux_->GetAACCodecData(audio_track_id_, &aac_codec_data);
       if (ret == false) {
         TEST_ERROR("%s: Failed to get codec info", __func__);
-    }
-      TEST_DBG("%s aac codec profile : %u format : %d ", __func__,
+        return -ENODATA;
+      }
+
+      TEST_DBG("%s: aac codec profile : %u format : %d ", __func__,
           aac_codec_data.ucAACProfile,
           static_cast<uint32_t>(aac_codec_data.eAACStreamFormat));
       audio_track_param.codec       = AudioFormat::kAAC;
@@ -573,7 +583,7 @@ void PlayerTest::Start() {
 
 void PlayerTest::AudioThreadEntry(PlayerTest* player_test) {
   QMMF_DEBUG("%s() TRACE", __func__);
-
+  prctl(PR_SET_NAME, "PlayTestAudio", 0, 0, 0);
   player_test->AudioThread();
 }
 
@@ -656,7 +666,7 @@ void PlayerTest::AudioThread() {
 
 void PlayerTest::VideoThreadEntry(PlayerTest* player_test) {
   QMMF_DEBUG("%s() TRACE", __func__);
-
+  prctl(PR_SET_NAME, "PlayTestVideo", 0, 0, 0);
   player_test->VideoThread();
 }
 
@@ -939,10 +949,12 @@ void PlayerTest::SetPosition() {
   uint64_t clip_duration = m_pDemux_->GetClipDuration();
 
   uint64_t time;
+  std::string str;
   printf("\n");
   printf("****** Seek *******\n");
   printf("Enter time between [0 to %llu sec] :: ", clip_duration / 1000000);
-  scanf("%llu", &time);
+  std::getline(std::cin, str);
+  time = std::stoul(str, nullptr, 10);
 
   FileSourceStatus mFSStatus = m_pDemux_->SeekAbsolutePosition(
       time * 1000, true, static_cast<int64_t>(current_time / 1000));
@@ -964,16 +976,18 @@ void PlayerTest::SetTrickMode() {
   if (track_type_ == TrackTypes::kAudioVideo ||
       track_type_ == TrackTypes::kVideoOnly) {
     uint32_t dir, speed;
-
+    std::string str;
     printf("\n");
     printf("****** Set Trick Mode *******\n");
     printf(" Enter Trick Mode Type [Normal Playback->1, FF->2, SF->3, REW->4]): ");
-    scanf("%d", &dir);
+    std::getline(std::cin, str);
+    dir = std::stoul(str, nullptr, 10);
     printf(" Enter Trick Mode Speed/Factor ::"
       "\n ## For Normal Playback or REW -> 1 "
       "\n ## FF -> 2, 4, 8 "
       "\n ## SF -> 2, 3, 4, 8 : ");
-    scanf("%d", &speed);
+    std::getline(std::cin, str);
+    speed = std::stoul(str, nullptr, 10);
 
     if ((speed >= 1 && speed <= 8 && ((speed == 3 && dir == 3) || (!(speed
         & (speed - 1))))) && (dir >= 1 && dir <= 4)) {
@@ -1574,7 +1588,10 @@ int32_t PlayerTest::QueueSurfaceBuffer() {
 
 void PlayerTest::DisplayThreadEntry(PlayerTest* player_test) {
   TEST_INFO("%s: Enter", __func__);
+
+  prctl(PR_SET_NAME, "PlayTestDisplay", 0, 0, 0);
   player_test->DisplayThread();
+
   TEST_INFO("%s: Exit", __func__);
 }
 
@@ -1631,7 +1648,22 @@ CmdMenu::Command CmdMenu::GetCommand(bool& is_print_menu) {
   return CmdMenu::Command(static_cast<CmdMenu::CommandType>(getchar()));
 }
 
-int main(int argc, char* argv[]) {
+bool CmdMenu::IsValidExtn(char* extn) {
+  if (extn != nullptr) {
+    if (!((strncmp(extn, ".mp4", strlen(".mp4")) == 0) ||
+          (strncmp(extn, ".MP4", strlen(".MP4")) == 0))) {
+      QMMF_ERROR("Extn is not mp4");
+      return false;
+    } else {
+      return true;
+    }
+  } else {
+    QMMF_ERROR("Extn is null");
+  }
+  return false;
+}
+
+int main(int argc, char *argv[]) {
   QMMF_GET_LOG_LEVEL();
   TEST_INFO("%s: Enter", __func__);
 
@@ -1657,8 +1689,8 @@ int main(int argc, char* argv[]) {
 
   if (argc == 2 || (argc == 4 && !exit_test)) {
     char *extn = strrchr(argv[1], '.');
-    TEST_INFO("exten is: %s", extn);
-    if (!((strcmp(extn, ".mp4") == 0) || (strcmp(extn, ".MP4") == 0))) {
+
+    if (!cmd_menu.IsValidExtn(extn)) {
       TEST_ERROR("%s Player support .mp4/.MP4 extn only", __func__);
       cmd_menu.HelpMenu(argv[0]);
       exit_test = true;

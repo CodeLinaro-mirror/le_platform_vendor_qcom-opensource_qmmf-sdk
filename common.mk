@@ -36,6 +36,19 @@ LOCAL_EXPORT_C_INCLUDE_DIRS := $(QMMF_SDK_TOP_SRCDIR)/include
 
 LOCAL_32_BIT_ONLY := true
 
+ifeq ($(DISABLE_DISPLAY),1)
+LOCAL_CFLAGS += -DDISABLE_DISPLAY
+endif
+ifeq ($(DISABLE_PLAYER_SERVICE),1)
+LOCAL_CFLAGS += -DDISABLE_PLAYER_SERVICE
+endif
+ifeq ($(DISABLE_AUDIO_SERVICE),1)
+LOCAL_CFLAGS += -DDISABLE_AUDIO_SERVICE
+endif
+ifeq ($(DISABLE_SYSTEM_SERVICE),1)
+LOCAL_CFLAGS += -DDISABLE_SYSTEM_SERVICE
+endif
+
 # Enable libs/bins installation into vendor
 ifeq ($(IS_ANDROID_O_OR_ABOVE),true)
 LOCAL_VENDOR_MODULE := true
@@ -61,14 +74,6 @@ endif #DISABLE_VID_QP_RANGE
 ifeq ($(TARGET_BOARD_PLATFORM),qcs605)
 LOCAL_CFLAGS += -DDISABLE_OP_MODES
 endif #DISABLE_OP_MODES
-
-# Disable display service
-ifeq ($(TARGET_BOARD_PLATFORM),qcs605)
-DISABLE_DISPLAY := 1
-LOCAL_CFLAGS += -DDISABLE_DISPLAY
-USE_SURFACEFLINGER := 1
-LOCAL_CFLAGS += -DUSE_SURFACEFLINGER
-endif #DISABLE_DISPLAY
 
 # Enable Gralloc1 support
 ifeq ($(TARGET_USES_GRALLOC1),true)
@@ -119,3 +124,26 @@ endif #AEC_WAIT_TIMEOUT
 ifeq ($(TARGET_BOARD_PLATFORM),qcs605)
 LOCAL_CFLAGS += -DFLUSH_RESTART_NOTAVAILABLE
 endif #FLUSH_RESTART_NOTAVAILABLE
+
+# Enable local QCamera3 tags support
+ifeq ($(TARGET_BOARD_PLATFORM),qcs605)
+LOCAL_CFLAGS += -DQCAMERA3_TAG_LOCAL_COPY
+endif #QCAMERA3_TAG_LOCAL_COPY
+
+# Display service v1, gralloc1 and updated sdm interface
+ifeq ($(TARGET_BOARD_PLATFORM),qcs605)
+ifeq ($(TARGET_USES_GRALLOC1),true)
+LOCAL_CFLAGS += -DQMMF_DISPLAY_INTF_v1
+endif
+endif #QMMF_DISPLAY_INTF_v1
+
+# Set hal paths
+ifeq ($(PRODUCT_BRAND),Things)
+CAMERA_HAL_PATH := $(TOP)/hardware/qcom/camera/$(TARGET_BOARD_PLATFORM)
+MEDIA_HAL_PATH := $(TOP)/hardware/qcom/media/$(TARGET_BOARD_PLATFORM)
+DISPLAY_HAL_PATH := $(TOP)/hardware/qcom/display/$(TARGET_BOARD_PLATFORM)
+else
+CAMERA_HAL_PATH := $(TOP)/hardware/qcom/camera
+MEDIA_HAL_PATH := $(TOP)/hardware/qcom/media
+DISPLAY_HAL_PATH := $(TOP)/hardware/qcom/display
+endif

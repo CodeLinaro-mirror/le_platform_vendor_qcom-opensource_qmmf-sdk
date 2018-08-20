@@ -750,7 +750,8 @@ static void ChromaProcessBilinear(neon_thrd_args* n_thrd_arg) {
 *
 * return:
 **/
-static void UpdateInternalBuffs(resn_cnt_t* ctx, resn_t* resn) {
+static resn_status_t UpdateInternalBuffs(resn_cnt_t* ctx, resn_t* resn) {
+  resn_status_t status = RESN_SUCCESS;
   bool update_coefs = false;
   if ((resn->src_width != ctx->src_width) ||
       (resn->src_height != ctx->src_height) ||
@@ -771,10 +772,45 @@ static void UpdateInternalBuffs(resn_cnt_t* ctx, resn_t* resn) {
     free(ctx->input_offsets);
 
     ctx->y_coefs = (uint16_t*)malloc(ctx->dst_width * sizeof(uint16_t));
+    if (ctx->y_coefs == nullptr) {
+      ALOGE("%s: Mem allocation failed!", __func__);
+      status = RESN_ERR_NO_MEMORY;
+      return status;
+    }
     ctx->uv_coefs = (uint16_t*)malloc(ctx->dst_width * sizeof(uint16_t));
+    if (ctx->uv_coefs == nullptr) {
+      ALOGE("%s: Mem allocation failed!", __func__);
+      free(ctx->y_coefs);
+      status = RESN_ERR_NO_MEMORY;
+      return status;
+    }
     ctx->input_offsets = (uint16_t*)malloc(ctx->dst_width * sizeof(uint16_t));
+    if (ctx->input_offsets == nullptr) {
+      ALOGE("%s: Mem allocation failed!", __func__);
+      free(ctx->uv_coefs);
+      free(ctx->y_coefs);
+      status = RESN_ERR_NO_MEMORY;
+      return status;
+    }
     ctx->ver_offsets = (uint16_t*)malloc(ctx->dst_height * sizeof(uint16_t));
+    if (ctx->ver_offsets == nullptr) {
+      ALOGE("%s: Mem allocation failed!", __func__);
+      free(ctx->input_offsets);
+      free(ctx->uv_coefs);
+      free(ctx->y_coefs);
+      status = RESN_ERR_NO_MEMORY;
+      return status;
+    }
     ctx->ver_coefs = (uint16_t*)malloc(ctx->dst_height * sizeof(uint16_t));
+    if (ctx->ver_coefs == nullptr) {
+      ALOGE("%s: Mem allocation failed!", __func__);
+      free(ctx->ver_offsets);
+      free(ctx->input_offsets);
+      free(ctx->uv_coefs);
+      free(ctx->y_coefs);
+      status = RESN_ERR_NO_MEMORY;
+      return status;
+    }
 
     uint32_t w_coef = (ctx->src_width * 256) / ctx->dst_width;
     uint32_t h_coef = (ctx->src_height * 256) / ctx->dst_height;
@@ -804,6 +840,7 @@ static void UpdateInternalBuffs(resn_cnt_t* ctx, resn_t* resn) {
       ctx->ver_coefs[row] = h_rem;
     }
   }
+  return status;
 }
 
 /** resn_init

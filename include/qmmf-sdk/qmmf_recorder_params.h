@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -521,6 +521,51 @@ struct ImageCaptureConfig {
     return stream.str();
   }
 };
+
+/// \brief CameraType describe camera purpose and usage
+///
+/// \param kLiveSingle Normal single cameras
+/// \param kLiveVirtualSingle RD 360 camera which behaves as single camera
+/// \param kOffline Camera which process data captured by offline through ISP
+/// \param kExternal External camera
+/// \param kSimulated Simulated camera like the fake camera
+enum class CameraType {
+  kLiveSingle = 0,
+  kLiveVirtualSingle,
+  kOffline,
+  kExternal,
+  kSimulated
+};
+
+/// \brief Contain the camera ids and hints on what camera is capable to do
+///
+/// \param id: Camera ID
+/// \param type: Camera functionality
+struct CameraCapability {
+  int32_t id;
+  CameraType type;
+
+  CameraCapability()
+      : id(-1), type(CameraType::kSimulated) {}
+
+  CameraCapability(const int32_t& id, const CameraType& type)
+      : id(id), type(type) {}
+
+  std::string ToString(uint32_t indent = 0) const {
+    std::stringstream indentation;
+    for (uint32_t i = 0; i < indent; i++) indentation << '\t';
+    indent++;
+
+    std::stringstream stream;
+    stream << indentation.str()
+           << "\"camera_id\" : " << id << '\n';
+    stream << indentation.str()
+           << "\"camera_type\" : " << static_cast<int>(type) << '\n';
+    return stream.str();
+  }
+};
+
+typedef std::vector<CameraCapability> SupportedCameras;
 
 typedef std::function<void(uint32_t camera_id, uint32_t image_sequence_count,
                            BufferDescriptor buffer, MetaData meta_data)>

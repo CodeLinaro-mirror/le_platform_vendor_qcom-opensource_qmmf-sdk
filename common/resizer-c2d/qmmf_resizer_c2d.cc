@@ -44,7 +44,8 @@ namespace qmmf {
 
 C2DResizer::C2DResizer()
     : src_surface_id_(0),
-      dst_surface_id_(0){
+      dst_surface_id_(0),
+      mapped_buffs_({}){
   QMMF_VERBOSE("%s: Enter", __func__);
   QMMF_VERBOSE("%s: Exit (0x%p)", __func__, this);
 }

@@ -14,7 +14,7 @@ include $(QMMF_SDK_TOP_SRCDIR)/common.mk
 
 LOCAL_C_INCLUDES += $(TOP)/system/media/camera/include
 LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/mm-core/omxcore
-LOCAL_C_INCLUDES += $(TOP)/hardware/qcom/media
+LOCAL_C_INCLUDES += $(MEDIA_HAL_PATH)
 
 LOCAL_SRC_FILES  := qmmf_video_time_lapse.cc
 LOCAL_SRC_FILES  += qmmf_video_time_lapse_main.cc

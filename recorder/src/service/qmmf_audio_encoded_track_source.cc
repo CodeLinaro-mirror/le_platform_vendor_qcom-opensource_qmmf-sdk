@@ -29,8 +29,7 @@
 
 #define LOG_TAG "RecorderAudioEncodedTrackSource"
 
-#include "recorder/src/service/qmmf_audio_track_source.h"
-
+#include <atomic>
 #include <chrono>
 #include <cstdint>
 #include <cstring>
@@ -45,6 +44,7 @@
 #include "common/audio/inc/qmmf_audio_definitions.h"
 #include "common/audio/inc/qmmf_audio_endpoint.h"
 #include "common/codecadaptor/src/qmmf_avcodec.h"
+#include "recorder/src/service/qmmf_audio_track_source.h"
 #include "recorder/src/service/qmmf_recorder_common.h"
 #include "recorder/src/service/qmmf_recorder_ion.h"
 

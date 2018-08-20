@@ -33,10 +33,10 @@
 
 #include <utils/KeyedVector.h>
 
+#include "player/src/service/qmmf_player_audio_sink.h"
 #include "include/qmmf-sdk/qmmf_player_params.h"
 #include "include/qmmf-sdk/qmmf_codec.h"
 #include "player/src/service/qmmf_player_common.h"
-#include "player/src/service/qmmf_player_audio_sink.h"
 #include "include/qmmf-sdk/qmmf_avcodec_params.h"
 #include "include/qmmf-sdk/qmmf_avcodec.h"
 #include "include/qmmf-sdk/qmmf_buffer.h"

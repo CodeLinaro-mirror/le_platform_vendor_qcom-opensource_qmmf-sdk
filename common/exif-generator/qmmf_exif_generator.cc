@@ -518,7 +518,6 @@ void ExifGenerator::GetDateTime(std::string &date_time,
   // Get time and date from system.
   struct timeval tv;
   struct tm time_info;
-
   gettimeofday(&tv, nullptr);
   localtime_r(&tv.tv_sec, &time_info);
 

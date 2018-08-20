@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -571,10 +571,14 @@ status_t DisplayService::DestroyDisplay(DisplayHandle display_handle) {
       QMMF_DEBUG("%s remote_callback DisplayHandle::%u ", __func__, it->first);
     }
 
-    IInterface::asBinder(remote_callback->second->getRemoteClient())
-        ->unlinkToDeath(death_notifier_);
+    auto rcb_binder = IInterface::asBinder(remote_callback->second->getRemoteClient());
+    if (rcb_binder == nullptr) {
+      QMMF_ERROR("Remote Callback binder is null");
+      return NO_INIT;
+    }
+    rcb_binder->unlinkToDeath(death_notifier_);
 
-     remote_callback_.erase(display_handle);
+    remote_callback_.erase(display_handle);
 
     if (display_)
     {

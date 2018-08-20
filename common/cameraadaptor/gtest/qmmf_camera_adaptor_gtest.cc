@@ -39,7 +39,7 @@
 #include <qcom/display/gralloc_priv.h>
 #endif
 #endif
-#ifdef ANDROID_O_OR_ABOVE
+#ifdef QCAMERA3_TAG_LOCAL_COPY
 #include "common/utils/qmmf_common_utils.h"
 #else
 #include <QCamera3VendorTags.h>
@@ -2101,7 +2101,7 @@ TEST_F(Camera3Gtest, Video1080pSharpness) {
 TEST_F(Camera3Gtest, Video1080pZoom) {
   CameraStreamParameters streamParams;
   Camera3Request videoRequest;
-  int64_t lastFrameNumber;
+  int64_t lastFrameNumber = -1;
   int32_t repeatingStreamId, videoRequestId = -1;
   CameraMetadata staticInfo;
   int32_t width, height;

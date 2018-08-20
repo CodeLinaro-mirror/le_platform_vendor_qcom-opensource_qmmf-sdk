@@ -885,7 +885,7 @@ class TSKeyedVector {
 
 };  // namespace qmmf.
 
-#ifdef ANDROID_O_OR_ABOVE
+#ifdef QCAMERA3_TAG_LOCAL_COPY
 namespace qcamera {
 // With the new camera backend design coming in Android-O ,
 // vendor tags names, querying mechanism and file location
@@ -968,4 +968,4 @@ typedef enum qcamera3_ext_iso_mode {
     QCAMERA3_ISO_MODE_3200,
 } qcamera3_ext_iso_mode_t;
 };  // namespace qcamera.
-#endif  // ANDROID_O_OR_ABOVE
+#endif  // QCAMERA3_TAG_LOCAL_COPY

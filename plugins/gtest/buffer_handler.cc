@@ -194,6 +194,8 @@ std::shared_ptr<BufferHandler> BufferHandler::New(
     case kNv12UBWC:
     case kNv21:
     case kNv21UBWC:
+    case kNv16:
+    case kNv61:
       num_planes = 2;
       break;
     case kJpeg:
@@ -201,7 +203,9 @@ std::shared_ptr<BufferHandler> BufferHandler::New(
       num_planes = 1;
       break;
     default:
-      Utils::ThrowException(__func__, "Not supported pixel format");
+      std::stringstream err;
+      err << "Not supported pixel format " << std::hex << pix_fmt;
+      Utils::ThrowException(__func__, err.str());
   }
 
   // The stride is common for all planes of the buffer
@@ -220,9 +224,11 @@ std::shared_ptr<BufferHandler> BufferHandler::New(
   std::vector<BufferPlane> planes;
 
   for (uint32_t i = 0; i < num_planes; i++) {
-    uint32_t plane_height = height / (i + 1);
+    uint32_t plane_height = GetHeightInLines(height, pix_fmt, i);
+    uint32_t plane_border_up = GetHeightInLines(border_up, pix_fmt, i);
+    uint32_t plane_border_down = GetHeightInLines(border_down, pix_fmt, i);
     uint32_t plane_lines_count =
-        (border_up / (i + 1)) + plane_height + (border_down / (i + 1));
+        plane_border_up + plane_height + plane_border_down;
 
     uint32_t plane_size = plane_lines_count * buffer_stride;
 
@@ -253,8 +259,9 @@ std::shared_ptr<BufferHandler> BufferHandler::New(
   addr = Utils::MakeDivisibleBy(addr, plane_alignment);
 
   for (uint32_t i = 0; i < planes.size(); i++) {
+    uint32_t plane_border_up = GetHeightInLines(border_up, pix_fmt, i);
     size_t addr_of_actual_data_in_plane =
-        addr + ((border_up / (i + 1)) * buffer_stride) + border_left;
+        addr + (plane_border_up * buffer_stride) + border_left;
 
     planes[i].offset_ =
         addr_of_actual_data_in_plane - reinterpret_cast<size_t>(vaddr);
@@ -372,8 +379,9 @@ void BufferHandler::ReadInputFile() {
 
     uint32_t expected_file_size = 0;
     for (uint32_t i = 0; i < plane_.size(); ++i) {
+      uint32_t plane_scanline = GetHeightInLines(file_scanline_, pix_fmt_, i);
       expected_file_size +=
-          static_cast<uint64_t>(file_stride_) * file_scanline_ / (i + 1);
+          static_cast<uint64_t>(file_stride_) * plane_scanline;
     }
 
     if (file_size != expected_file_size) {
@@ -430,7 +438,8 @@ void BufferHandler::WriteOutputFile() const {
     }
 
     for (uint32_t i = 0; i < plane_.size(); ++i) {
-      std::vector<uint8_t> dummy(file_stride_ * file_scanline_ / (i + 1), 0);
+      uint32_t plane_scanline = GetHeightInLines(file_scanline_, pix_fmt_, i);
+      std::vector<uint8_t> dummy(file_stride_ * plane_scanline, 0);
 
       uint8_t *in_p = vaddr_ + plane_[i].offset_;
 
@@ -576,6 +585,8 @@ uint32_t BufferHandler::GetWidthInBytes(uint32_t width_in_pixels,
     case kNv12UBWC:
     case kNv21:
     case kNv21UBWC:
+    case kNv16:
+    case kNv61:
     case kJpeg:
     case kGrey:
       rc = width_in_pixels;
@@ -607,7 +618,83 @@ uint32_t BufferHandler::GetWidthInBytes(uint32_t width_in_pixels,
       rc = width_in_pixels * 2;
       break;
     default:
-      Utils::ThrowException(__func__, "Not supported pixel format");
+      std::stringstream err;
+      err << "Not supported pixel format " << std::hex << pix_fmt;
+      Utils::ThrowException(__func__, err.str());
+  }
+
+  return rc;
+}
+
+/** GetHeightInLines
+  *    @image_height: image height
+  *    @pix_fmt: pixel format
+  *    @plane: plane
+  *
+  * returns height in lines based on pixel format and plane
+  *
+  * return: height in lines based on pixel format and plane
+  **/
+uint32_t BufferHandler::GetHeightInLines(uint32_t image_height,
+                                         PixelFormat pix_fmt,
+                                         uint32_t plane) {
+  uint32_t rc = image_height;
+
+  if (1 < plane) {
+    std::string err = std::string("Not supported plane index ") +
+                  std::to_string(plane);
+    Utils::ThrowException(__func__, err);
+  }
+
+  switch (pix_fmt) {
+    case kNv16:
+    case kNv61:
+      if (0 == plane) {
+        rc = image_height;
+      } else {
+        rc = image_height / 4;
+      }
+      break;
+    case kRawBggrMipi8:
+    case kRawGbrgMipi8:
+    case kRawGrbgMipi8:
+    case kRawRggbMipi8:
+    case kNv12:
+    case kNv12UBWC:
+    case kNv21:
+    case kNv21UBWC:
+    case kJpeg:
+    case kGrey:
+    case kRawBggrMipi10:
+    case kRawGbrgMipi10:
+    case kRawGrbgMipi10:
+    case kRawRggbMipi10:
+    case kRawBggrMipi12:
+    case kRawGbrgMipi12:
+    case kRawGrbgMipi12:
+    case kRawRggbMipi12:
+    case kRawBggr10:
+    case kRawGbrg10:
+    case kRawGrbg10:
+    case kRawRggb10:
+    case kRawBggr12:
+    case kRawGbrg12:
+    case kRawGrbg12:
+    case kRawRggb12:
+    case kRawBggr16:
+    case kRawGbrg16:
+    case kRawGrbg16:
+    case kRawRggb16:
+      if (0 == plane) {
+        rc = image_height;
+      } else {
+        rc = image_height / 2;
+      }
+      break;
+    default:
+      std::stringstream err;
+      err << "Not supported pixel format " << std::hex << pix_fmt;
+      Utils::ThrowException(__func__, err.str());
   }
 
   return rc;
