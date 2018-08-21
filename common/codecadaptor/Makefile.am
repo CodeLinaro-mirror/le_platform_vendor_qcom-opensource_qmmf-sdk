@@ -3,7 +3,9 @@ lib_LTLIBRARIES = libcodec_adaptor.la
 
 libcodec_adaptor_la_SOURCES = src/qmmf_omx_client.cc
 libcodec_adaptor_la_SOURCES += src/qmmf_avcodec.cc
+if !DISABLE_PP_JPEG
 libcodec_adaptor_la_SOURCES += src/qmmf_jpeg_encode.cc
+endif
 
 libcodec_adaptor_la_CPPFLAGS = -I$(top_srcdir)/include
 libcodec_adaptor_la_CPPFLAGS += -I$(top_srcdir)/
@@ -15,4 +17,6 @@ if TARGET_USES_GBM
 libcodec_adaptor_la_LDFLAGS  += -lgbm
 endif
 
+if !DISABLE_PP_JPEG
 libcodec_adaptor_la_LIBADD   = ../jpeg-encoder/libqmmf_common_jpeg_encoder.la
+endif
