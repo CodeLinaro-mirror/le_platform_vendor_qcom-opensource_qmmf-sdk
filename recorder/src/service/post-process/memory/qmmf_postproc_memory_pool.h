@@ -65,6 +65,8 @@ class MemPool {
 
    status_t GetBuffer(StreamBuffer* buffer);
 
+   status_t WaitUntilBufferReturned();
+
  private:
 
    status_t GetBufferLocked(StreamBuffer* buffer);
@@ -87,7 +89,11 @@ class MemPool {
    std::mutex               buffer_lock_;
    QCondition               wait_for_buffer_;
 
+   bool                     signal_buffer_return_;
+   QCondition               wait_for_return_;
+
    static const uint32_t kBufferWaitTimeout = 1000000000; // 1 s.
+   static const uint32_t kReturnWaitTimeout = 3000000000; // 3 s.
 };
 
 }; //namespace recorder
