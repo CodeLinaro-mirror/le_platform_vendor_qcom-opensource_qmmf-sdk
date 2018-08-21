@@ -270,6 +270,9 @@ status_t PostProcNode::Stop() {
 
   ReturnBuffers();
 
+  ret = mem_pool_->WaitUntilBufferReturned();
+  assert(ret == NO_ERROR);
+
   {
     std::lock_guard<std::mutex> lock(state_lock_);
     state_ = PostProcNodeState::LINKED;
