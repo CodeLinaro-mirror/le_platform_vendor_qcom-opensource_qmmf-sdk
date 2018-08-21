@@ -29,6 +29,8 @@
 
 #define LOG_TAG "RecorderCameraContext"
 
+#include <future>
+#include <thread>
 #include <algorithm>
 #include <chrono>
 #include <fcntl.h>
@@ -947,8 +949,10 @@ status_t CameraContext::CancelCaptureImage() {
       }
     }
 
+    std::future<void> f =
+        std::async(std::launch::async, [&] { PostProcDelete(); });
     PauseActiveStreams();
-    PostProcDelete();
+    f.wait();
     DeleteSnapshotStream();
     ResumeActiveStreams();
   }
