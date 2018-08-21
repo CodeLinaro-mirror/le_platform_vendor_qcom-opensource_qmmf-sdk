@@ -122,6 +122,9 @@ class Camera3RequestHandler : public Camera3Thread {
   uint32_t batch_size_;
 
   Camera3SmoothZoom smooth_zoom_;
+
+  camera3_stream_buffer_t input_stream_buffer_;
+  StreamBuffer input_buffer_;
 };
 
 }  // namespace cameraadaptor ends here

@@ -212,19 +212,17 @@ bool Camera3RequestHandler::ThreadLoop() {
 
   uint32_t totalNumBuffers = 0;
   request.input_buffer = NULL;
-  camera3_stream_buffer_t input_stream_buffer;
-  memset(&input_stream_buffer, 0, sizeof(input_stream_buffer));
   if (NULL != nextRequest.input) {
-    StreamBuffer input_buffer;
-    memset(&input_buffer, 0, sizeof(input_buffer));
+    input_stream_buffer_ = {};
+    input_buffer_ = {};
 
-    nextRequest.input->get_input_buffer(input_buffer);
-    input_stream_buffer.acquire_fence = -1;
-    input_stream_buffer.release_fence = -1;
-    input_stream_buffer.status = CAMERA3_BUFFER_STATUS_OK;
-    input_stream_buffer.stream = nextRequest.input;
-    input_stream_buffer.buffer = &input_buffer.handle;
-    request.input_buffer = &input_stream_buffer;
+    nextRequest.input->get_input_buffer(input_buffer_);
+    input_stream_buffer_.acquire_fence = -1;
+    input_stream_buffer_.release_fence = -1;
+    input_stream_buffer_.status = CAMERA3_BUFFER_STATUS_OK;
+    input_stream_buffer_.stream = nextRequest.input;
+    input_stream_buffer_.buffer = &input_buffer_.handle;
+    request.input_buffer = &input_stream_buffer_;
     totalNumBuffers++;
   }
 
