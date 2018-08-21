@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -45,6 +45,7 @@ MemPool::MemPool()
     : buffers_allocated_(0),
       pending_buffer_count_(0),
       params_({}),
+      abort_(false),
       signal_buffer_return_(false) {
 
   QMMF_INFO("%s: Enter", __func__);
@@ -143,7 +144,10 @@ status_t MemPool::GetBuffer(StreamBuffer* buffer) {
         " on a free one",  __func__, params_.max_buffer_count);
 
     auto ret = wait_for_buffer_.WaitFor(lock, wait_time);
-    if (ret != 0) {
+    if (abort_) {
+      QMMF_ERROR("%s: Wait for output buffer aborted", __func__);
+      return BAD_VALUE;
+    } else if (ret != 0) {
       QMMF_ERROR("%s: Wait for output buffer return timed out",
                  __func__);
       return TIMED_OUT;
@@ -176,6 +180,13 @@ status_t MemPool::WaitUntilBufferReturned() {
   }
 
   QMMF_VERBOSE("%s: X", __func__);
+  return NO_ERROR;
+}
+
+status_t MemPool::Abort() {
+  std::unique_lock<std::mutex> lock(buffer_lock_);
+  abort_ = true;
+  wait_for_buffer_.Signal();
   return NO_ERROR;
 }
 
