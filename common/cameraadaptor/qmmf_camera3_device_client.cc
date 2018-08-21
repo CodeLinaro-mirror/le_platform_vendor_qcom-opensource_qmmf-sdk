@@ -1628,33 +1628,48 @@ int32_t Camera3DeviceClient::AddRequestListLocked(
     const List<const CameraMetadata> &requests, bool streaming,
     int64_t *lastFrameNumber) {
   RequestList requestList;
+  RequestList requestListReproc;
 
-  int32_t res = GetRequestListLocked(requests, &requestList);
+  int32_t res = GetRequestListLocked(requests, &requestList, &requestListReproc);
   if (0 != res) {
     return res;
   }
 
-  if (streaming) {
-    res = request_handler_.SetRepeatingRequests(requestList, lastFrameNumber);
-  } else {
-    res = request_handler_.QueueRequestList(requestList, lastFrameNumber);
+  if (requestList.empty() == requestListReproc.empty()) {
+    QMMF_ERROR("%s: Invalid request list. requests: %d reproc: %d\n", __func__,
+      requestList.empty(), requestListReproc.empty());
+    return -EINVAL;
   }
 
-  if (0 == res) {
-    WaitUntilStateThenRelock(true, WAIT_FOR_RUNNING);
-    if (0 != res) {
-      SET_ERR_L("Unable to change to running in %f seconds!",
-                WAIT_FOR_RUNNING / 1e9);
+  if (!requestListReproc.empty()) {
+    res = request_handler_.QueueReprocRequestList(requestListReproc,
+        lastFrameNumber);
+  } else if (!requestList.empty()) {
+    if (streaming) {
+      res = request_handler_.SetRepeatingRequests(requestList, lastFrameNumber);
+    } else {
+      res = request_handler_.QueueRequestList(requestList, lastFrameNumber);
     }
-  } else {
-    QMMF_ERROR("%s: Request queue failed: %d\n", __func__, res);
+  }
+  if (0 != res) {
+    QMMF_ERROR("%s: Request queue failed: %d reproc: %d\n", __func__, res,
+        !requestListReproc.empty());
+    return res;
+  }
+
+  WaitUntilStateThenRelock(true, WAIT_FOR_RUNNING);
+  if (0 != res) {
+    SET_ERR_L("Unable to change to running in %f seconds!",
+              WAIT_FOR_RUNNING / 1e9);
   }
 
   return res;
 }
 
 int32_t Camera3DeviceClient::GetRequestListLocked(
-    const List<const CameraMetadata> &metadataList, RequestList *requestList) {
+    const List<const CameraMetadata> &metadataList,
+    RequestList *requestList,
+    RequestList *requestListReproc) {
   if (requestList == NULL) {
     QMMF_ERROR("%s: Invalid requestList\n", __func__);
     return -EINVAL;
@@ -1684,7 +1699,11 @@ int32_t Camera3DeviceClient::GetRequestListLocked(
       return -EINVAL;
     }
 
-    requestList->push_back(newRequest);
+    if (newRequest.input == nullptr) {
+      requestList->push_back(newRequest);
+    } else {
+      requestListReproc->push_back(newRequest);
+    }
   }
 
   return 0;

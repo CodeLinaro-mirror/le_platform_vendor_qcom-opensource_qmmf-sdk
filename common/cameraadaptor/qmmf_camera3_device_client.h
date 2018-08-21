@@ -182,7 +182,8 @@ class Camera3DeviceClient : public camera3_callback_ops,
                         uint32_t frameNumber);
 
   int32_t GetRequestListLocked(const List<const CameraMetadata> &metadataList,
-                               RequestList *requestList);
+                               RequestList *requestList,
+                               RequestList *requestListReproc);
   int32_t GenerateCaptureRequestLocked(const CameraMetadata &request,
                                        CaptureRequest &captureRequest);
 
