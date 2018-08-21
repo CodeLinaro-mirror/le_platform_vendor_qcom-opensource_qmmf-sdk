@@ -3407,45 +3407,32 @@ status_t RecorderTest::Session1080pYUVTrackWithDisplay() {
   return ret;
 }
 
-status_t TestTrack::ToggleDisplayState() {
-  TEST_INFO("%s: Enter", __func__);
-
-  auto ret = 0;
-#ifndef DISABLE_DISPLAY
-  assert(display_ != nullptr);
-
-  display_param_type_ = qmmf::display::DisplayParamType::kDisplayState;
-  display_param_ = !display_param_;
-  ret = display_->SetDisplayParam(display_param_type_, (void *)(&display_param_),
-                                  sizeof(int));
-
-  if (ret != 0) {
-    TEST_ERROR("%s: SetDisplayParam Failed!!", __func__);
-  }
-#endif
-
-  TEST_INFO("%s: Exit", __func__);
-  return ret;
-}
-
 status_t RecorderTest::ToggleDisplayState() {
   TEST_INFO("%s: Enter", __func__);
 
   auto ret = 0;
+#ifndef DISABLE_DISPLAY
   session_iter_ it = sessions_.begin();
+  if (it == sessions_.end()) {
+    TEST_ERROR("%s: There are no active sessions", __func__);
+    return -EPERM;
+  }
 
   for (auto track : it->second) {
     TrackType type = track->GetTrackType();
-    if ((use_display == 1) && (type == TrackType::kVideoYUV)) {
-#ifndef DISABLE_DISPLAY
-      ret = track->ToggleDisplayState();
-      assert(ret == 0);
+    if (type == TrackType::kVideoYUV) {
+      if (use_display == 1) {
+        ret = track->ToggleDisplayState();
+        assert(ret == 0);
+      } else {
+        TEST_ERROR("%s: Display not used", __func__);
+      }
       break;
-#else
-      TEST_ERROR("%s Display is disabled", __func__);
-#endif
     }
   }
+#else
+  TEST_ERROR("%s Display is disabled", __func__);
+#endif
   TEST_INFO("%s: Exit", __func__);
   return ret;
 }
@@ -6846,6 +6833,35 @@ status_t TestTrack::PushFrameToDisplay(BufferDescriptor& buffer,
     }
   }
   return NO_ERROR;
+}
+
+status_t TestTrack::ToggleDisplayState() {
+  TEST_INFO("%s: Enter", __func__);
+
+  auto ret = 0;
+  if (display_started_ == 0) {
+    TEST_WARN("%s: Display not started, cannot toggle state", __func__);
+    return ret;
+  }
+  assert(display_ != nullptr);
+
+  display_param_type_ = qmmf::display::DisplayParamType::kDisplayState;
+  if (display_param_ == 1) {
+    display_param_ = 0;
+  } else if (display_param_ == 0) {
+    display_param_ = 1;
+  }
+
+  ret = display_->SetDisplayParam(display_param_type_,
+                                  (void *)(&display_param_),
+                                  sizeof(int));
+  if (ret != 0) {
+    TEST_ERROR("%s: SetDisplayParam Failed!!", __func__);
+    return ret;
+  }
+
+  TEST_INFO("%s: Exit", __func__);
+  return ret;
 }
 #endif
 
