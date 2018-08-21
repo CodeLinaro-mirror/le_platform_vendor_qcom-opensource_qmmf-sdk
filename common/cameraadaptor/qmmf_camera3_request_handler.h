@@ -26,6 +26,7 @@
 #include <camera/CameraMetadata.h>
 #include <utils/KeyedVector.h>
 #include <utils/List.h>
+#include <thread>
 
 #include "common/cameraadaptor/qmmf_camera3_types.h"
 #include "common/cameraadaptor/qmmf_camera3_internal_types.h"
@@ -59,6 +60,9 @@ class Camera3RequestHandler : public Camera3Thread {
   int32_t QueueRequestList(List<CaptureRequest> &requests,
                            int64_t *lastFrameNumber = NULL);
 
+  int32_t QueueReprocRequestList(List<CaptureRequest> &requests,
+                           int64_t *lastFrameNumber = NULL);
+
   int32_t Clear(int64_t *lastFrameNumber = NULL);
 
   void TogglePause(bool pause);
@@ -76,6 +80,7 @@ class Camera3RequestHandler : public Camera3Thread {
 
  private:
   int32_t GetRequest(CaptureRequest &request);
+  int32_t SubmitRequest(CaptureRequest &nextRequest);
   void ClearCaptureRequest(CaptureRequest &request);
   void HandleErrorRequest(camera3_capture_request_t &request,
                           CaptureRequest &nextRequest,
@@ -125,6 +130,14 @@ class Camera3RequestHandler : public Camera3Thread {
 
   camera3_stream_buffer_t input_stream_buffer_;
   StreamBuffer input_buffer_;
+
+  static void ReprocLoop(Camera3RequestHandler *ctx);
+  RequestList     reproc_requests_;
+  std::thread     worker_;
+  bool            run_worker_;
+  pthread_mutex_t worker_lock_;
+  pthread_cond_t  worker_signal_;
+
 };
 
 }  // namespace cameraadaptor ends here

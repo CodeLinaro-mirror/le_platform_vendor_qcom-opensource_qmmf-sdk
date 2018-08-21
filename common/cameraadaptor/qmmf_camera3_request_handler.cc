@@ -43,12 +43,16 @@ Camera3RequestHandler::Camera3RequestHandler(Camera3Monitor &monitor)
       streaming_last_frame_number_(NO_IN_FLIGHT_REPEATING_FRAMES),
       monitor_(monitor),
       monitor_id_(Camera3Monitor::INVALID_ID),
-      batch_size_(1) {
+      batch_size_(1),
+      worker_(ReprocLoop, this),
+      run_worker_(true) {
   pthread_mutex_init(&lock_, NULL);
   pthread_cond_init(&requests_signal_, NULL);
   pthread_mutex_init(&pause_lock_, NULL);
   pthread_cond_init(&toggle_pause_signal_, NULL);
   pthread_cond_init(&pause_state_signal_, NULL);
+  pthread_mutex_init(&worker_lock_, NULL);
+  pthread_cond_init(&worker_signal_, NULL);
   ClearCaptureRequest(old_request_);
 }
 
@@ -59,6 +63,11 @@ Camera3RequestHandler::~Camera3RequestHandler() {
     monitor_.ReleaseMonitor(monitor_id_);
     monitor_id_ = Camera3Monitor::INVALID_ID;
   }
+  run_worker_ = false;
+  pthread_cond_signal(&worker_signal_);
+  worker_.join();
+  pthread_cond_destroy(&worker_signal_);
+  pthread_mutex_destroy(&worker_lock_);
   pthread_mutex_destroy(&lock_);
   pthread_cond_destroy(&requests_signal_);
   pthread_mutex_destroy(&pause_lock_);
@@ -106,6 +115,29 @@ int32_t Camera3RequestHandler::QueueRequestList(List<CaptureRequest> &requests,
 
   Resume();
 
+  pthread_mutex_unlock(&lock_);
+  return 0;
+}
+
+int32_t Camera3RequestHandler::QueueReprocRequestList(List<CaptureRequest> &requests,
+                                                int64_t *lastFrameNumber) {
+  pthread_mutex_lock(&lock_);
+  pthread_mutex_lock(&worker_lock_);
+
+  List<CaptureRequest>::iterator it = requests.begin();
+  for (; it != requests.end(); ++it) {
+    reproc_requests_.push_back(*it);
+  }
+
+  if (lastFrameNumber != NULL) {
+    *lastFrameNumber = current_frame_number_ + reproc_requests_.size() - 1;
+  }
+
+  Resume();
+
+  pthread_cond_signal(&worker_signal_);
+
+  pthread_mutex_unlock(&worker_lock_);
   pthread_mutex_unlock(&lock_);
   return 0;
 }
@@ -197,91 +229,57 @@ bool Camera3RequestHandler::ThreadLoop() {
     return true;
   }
 
-  camera3_capture_request_t request = camera3_capture_request_t();
-  request.frame_number = nextRequest.resultExtras.frameNumber;
-  Vector<camera3_stream_buffer_t> outputBuffers;
-
-  if ((old_request_.resultExtras.requestId !=
-      nextRequest.resultExtras.requestId) ||
-      smooth_zoom_.IsGoing())
-  {
-    nextRequest.metadata.sort();
-    request.settings = nextRequest.metadata.getAndLock();
-    old_request_ = nextRequest;
-  }
-
-  uint32_t totalNumBuffers = 0;
-  request.input_buffer = NULL;
-  if (NULL != nextRequest.input) {
-    input_stream_buffer_ = {};
-    input_buffer_ = {};
-
-    nextRequest.input->get_input_buffer(input_buffer_);
-    input_stream_buffer_.acquire_fence = -1;
-    input_stream_buffer_.release_fence = -1;
-    input_stream_buffer_.status = CAMERA3_BUFFER_STATUS_OK;
-    input_stream_buffer_.stream = nextRequest.input;
-    input_stream_buffer_.buffer = &input_buffer_.handle;
-    request.input_buffer = &input_stream_buffer_;
-    totalNumBuffers++;
-  }
-
-  outputBuffers.insertAt(camera3_stream_buffer_t(), 0,
-                         nextRequest.streams.size());
-  request.output_buffers = outputBuffers.array();
-  for (size_t i = 0; i < nextRequest.streams.size(); i++) {
-    res = nextRequest.streams.editItemAt(i)
-              ->GetBuffer(&outputBuffers.editItemAt(i));
-    if (0 != res) {
-      QMMF_ERROR(
-          "%s: Can't get stream buffer, skip this"
-          " request: %s (%d)\n",
-          __func__, strerror(-res), res);
-
-      pthread_mutex_lock(&lock_);
-      if (nullptr != error_cb_) {
-        error_cb_(ERROR_CAMERA_REQUEST, nextRequest.resultExtras);
-      }
-      pthread_mutex_unlock(&lock_);
-      HandleErrorRequest(request, nextRequest, outputBuffers);
-      return true;
-    }
-    request.num_output_buffers++;
-  }
-  totalNumBuffers += request.num_output_buffers;
-
-  if ((nullptr == mark_cb_) || (NULL == hal3_device_)) {
-    HandleErrorRequest(request, nextRequest, outputBuffers);
-    return false;
-  }
-
-  res = mark_cb_(request.frame_number, totalNumBuffers,
-                 nextRequest.resultExtras);
-  if (0 > res) {
-    SIG_ERROR("%s: Unable to register new request: %s (%d)", __func__,
-              strerror(-res), res);
-    HandleErrorRequest(request, nextRequest, outputBuffers);
-    return false;
-  }
-
-  res = hal3_device_->ops->process_capture_request(hal3_device_, &request);
+  res = SubmitRequest(nextRequest);
   if (0 != res) {
-    SIG_ERROR("%s: Unable to submit request %d in CameraHal : %s (%d)",
-              __func__, request.frame_number, strerror(-res), res);
-    HandleErrorRequest(request, nextRequest, outputBuffers);
-    return false;
+    return true;
   }
-
-  if (request.settings != NULL) {
-    nextRequest.metadata.unlock(request.settings);
-  }
-
-  pthread_mutex_lock(&lock_);
-  ClearCaptureRequest(current_request_);
-  pthread_mutex_unlock(&lock_);
 
   return true;
 }
+
+void Camera3RequestHandler::ReprocLoop(Camera3RequestHandler *ctx) {
+  while(ctx->run_worker_) {
+    pthread_mutex_lock(&ctx->worker_lock_);
+    while (ctx->reproc_requests_.empty()) {
+      cond_wait_relative(&ctx->worker_signal_, &ctx->worker_lock_, WAIT_TIMEOUT);
+      if (!ctx->run_worker_) {
+        QMMF_INFO("%s:%d: Exit", __func__, __LINE__);
+        return;
+      }
+    }
+
+    for (auto &nextRequest : ctx->reproc_requests_) {
+      QMMF_INFO("%s: Submit reprocess request E", __func__);
+
+      pthread_mutex_lock(&ctx->lock_);
+      nextRequest.resultExtras.frameNumber = ctx->current_input_frame_number_;
+      ctx->current_input_frame_number_++;
+      ctx->current_request_ = nextRequest;
+
+      pthread_mutex_lock(&ctx->pause_lock_);
+      if (ctx->paused_state_) {
+        ctx->monitor_.ChangeStateToActive(ctx->monitor_id_);
+      }
+      ctx->paused_state_ = false;
+      pthread_mutex_unlock(&ctx->pause_lock_);
+
+      if (ctx->configuration_update_) {
+        ctx->ClearCaptureRequest(ctx->old_request_);
+        ctx->configuration_update_ = false;
+      }
+      pthread_mutex_unlock(&ctx->lock_);
+
+      ctx->SubmitRequest(nextRequest);
+
+      QMMF_INFO("%s: Submit reprocess request X", __func__);
+    }
+    ctx->reproc_requests_.clear();
+
+    pthread_mutex_unlock(&ctx->worker_lock_);
+  }
+  QMMF_INFO("%s:%d: Exit", __func__, __LINE__);
+}
+
 
 bool Camera3RequestHandler::IsStreamActive(Camera3Stream &stream) {
   bool res = false;
@@ -427,6 +425,96 @@ int32_t Camera3RequestHandler::GetRequest(CaptureRequest &request) {
 
 exit:
 
+  pthread_mutex_unlock(&lock_);
+
+  return res;
+}
+
+int32_t Camera3RequestHandler::SubmitRequest(CaptureRequest &nextRequest) {
+  int32_t res = 0;
+  camera3_capture_request_t request = camera3_capture_request_t();
+  request.frame_number = nextRequest.resultExtras.frameNumber;
+  Vector<camera3_stream_buffer_t> outputBuffers;
+
+  if ((old_request_.resultExtras.requestId !=
+      nextRequest.resultExtras.requestId) ||
+      smooth_zoom_.IsGoing())
+  {
+    nextRequest.metadata.sort();
+    request.settings = nextRequest.metadata.getAndLock();
+    old_request_ = nextRequest;
+  }
+
+  uint32_t totalNumBuffers = 0;
+  request.input_buffer = NULL;
+  if (NULL != nextRequest.input) {
+    input_stream_buffer_ = {};
+    input_buffer_ = {};
+
+    nextRequest.input->get_input_buffer(input_buffer_);
+    input_stream_buffer_.acquire_fence = -1;
+    input_stream_buffer_.release_fence = -1;
+    input_stream_buffer_.status = CAMERA3_BUFFER_STATUS_OK;
+    input_stream_buffer_.stream = nextRequest.input;
+    input_stream_buffer_.buffer = &input_buffer_.handle;
+
+    request.input_buffer = &input_stream_buffer_;
+    QMMF_INFO("%s: buffer handle %p", __func__, *(request.input_buffer->buffer));
+    totalNumBuffers++;
+  }
+
+  outputBuffers.insertAt(camera3_stream_buffer_t(), 0,
+                         nextRequest.streams.size());
+  request.output_buffers = outputBuffers.array();
+  for (size_t i = 0; i < nextRequest.streams.size(); i++) {
+    res = nextRequest.streams.editItemAt(i)
+              ->GetBuffer(&outputBuffers.editItemAt(i));
+    if (0 != res) {
+      QMMF_ERROR(
+          "%s: Can't get stream buffer, skip this"
+          " request: %s (%d)\n",
+          __func__, strerror(-res), res);
+
+      pthread_mutex_lock(&lock_);
+      if (nullptr != error_cb_) {
+        error_cb_(ERROR_CAMERA_REQUEST, nextRequest.resultExtras);
+      }
+      pthread_mutex_unlock(&lock_);
+      HandleErrorRequest(request, nextRequest, outputBuffers);
+      return res;
+    }
+    request.num_output_buffers++;
+  }
+  totalNumBuffers += request.num_output_buffers;
+
+  if ((nullptr == mark_cb_) || (NULL == hal3_device_)) {
+    HandleErrorRequest(request, nextRequest, outputBuffers);
+    return -1;
+  }
+
+  res = mark_cb_(request.frame_number, totalNumBuffers,
+                 nextRequest.resultExtras);
+  if (0 > res) {
+    SIG_ERROR("%s: Unable to register new request: %s (%d)", __func__,
+              strerror(-res), res);
+    HandleErrorRequest(request, nextRequest, outputBuffers);
+    return res;
+  }
+
+  res = hal3_device_->ops->process_capture_request(hal3_device_, &request);
+  if (0 != res) {
+    SIG_ERROR("%s: Unable to submit request %d in CameraHal : %s (%d)",
+              __func__, request.frame_number, strerror(-res), res);
+    HandleErrorRequest(request, nextRequest, outputBuffers);
+    return res;
+  }
+
+  if (request.settings != NULL) {
+    nextRequest.metadata.unlock(request.settings);
+  }
+
+  pthread_mutex_lock(&lock_);
+  ClearCaptureRequest(current_request_);
   pthread_mutex_unlock(&lock_);
 
   return res;
