@@ -123,6 +123,11 @@ bool PostProcThread::ExitPending() {
   return (abort_ == true && running_ == true)  ? false : true;
 }
 
+bool PostProcThread::IsActive() {
+  std::lock_guard<std::mutex> lock(lock_);
+  return (thread_ == nullptr) ? false : true;
+}
+
 }  // namespace recorder ends here
 
 }  // namespace qmmf ends here

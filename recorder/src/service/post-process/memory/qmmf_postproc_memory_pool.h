@@ -67,6 +67,8 @@ class MemPool {
 
    status_t WaitUntilBufferReturned();
 
+   status_t Abort();
+
  private:
 
    status_t GetBufferLocked(StreamBuffer* buffer);
@@ -88,6 +90,7 @@ class MemPool {
 
    std::mutex               buffer_lock_;
    QCondition               wait_for_buffer_;
+   bool                     abort_;
 
    bool                     signal_buffer_return_;
    QCondition               wait_for_return_;

@@ -55,6 +55,8 @@ class PostProcThread {
 
   bool ExitPending();
 
+  bool IsActive();
+
  protected:
   virtual bool ThreadLoop() = 0;
 
