@@ -17,7 +17,7 @@ ifneq ($(DISABLE_PP_JPEG),1)
 LOCAL_SRC_FILES := qmmf_jpeg.cc
 endif
 
-LOCAL_SHARED_LIBRARIES += libcamera_client libjsoncpp_vendor libqmmf_utils
+LOCAL_SHARED_LIBRARIES += libcamera_client $(LIB_JSONCPP) libqmmf_utils
 
 ifneq ($(DISABLE_PP_JPEG),1)
 LOCAL_SHARED_LIBRARIES += libqmmf_common_jpeg_encoder

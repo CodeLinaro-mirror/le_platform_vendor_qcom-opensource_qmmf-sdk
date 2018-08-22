@@ -142,8 +142,10 @@ ifeq ($(PRODUCT_BRAND),Things)
 CAMERA_HAL_PATH := $(TOP)/hardware/qcom/camera/$(TARGET_BOARD_PLATFORM)
 MEDIA_HAL_PATH := $(TOP)/hardware/qcom/media/$(TARGET_BOARD_PLATFORM)
 DISPLAY_HAL_PATH := $(TOP)/hardware/qcom/display/$(TARGET_BOARD_PLATFORM)
+LIB_JSONCPP := libjsoncpp
 else
 CAMERA_HAL_PATH := $(TOP)/hardware/qcom/camera
 MEDIA_HAL_PATH := $(TOP)/hardware/qcom/media
 DISPLAY_HAL_PATH := $(TOP)/hardware/qcom/display
+LIB_JSONCPP := libjsoncpp_vendor
 endif

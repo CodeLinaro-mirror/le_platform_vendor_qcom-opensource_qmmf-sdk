@@ -16,7 +16,6 @@ include $(QMMF_SDK_TOP_SRCDIR)/common.mk
 LOCAL_C_INCLUDES += $(CAMERA_HAL_PATH)/QCamera2/HAL3
 LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/mm-core/omxcore
 LOCAL_C_INCLUDES += $(MEDIA_HAL_PATH)
-LOCAL_C_INCLUDES += $(TOP)/external/jsoncpp/include
 ifeq ($(TARGET_USES_GRALLOC1),true)
 LOCAL_C_INCLUDES += $(DISPLAY_HAL_PATH)
 endif
@@ -68,7 +67,7 @@ ifneq ($(DISABLE_PP_JPEG),1)
 LOCAL_SHARED_LIBRARIES += libqmmf_common_jpeg_encoder
 endif
 
-LOCAL_STATIC_LIBRARIES += libjsoncpp
+LOCAL_SHARED_LIBRARIES += $(LIB_JSONCPP)
 
 LOCAL_MODULE = libqmmf_recorder_service
 
