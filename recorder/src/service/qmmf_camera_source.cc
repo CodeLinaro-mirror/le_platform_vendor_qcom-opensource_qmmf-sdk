@@ -1243,9 +1243,12 @@ status_t TrackSource::Init() {
   QMMF_INFO("%s: TrackSource(0x%p)(%dx%d) and Camera Device Stream "
       " Created Succesffuly for track_id(%x)",  __func__, this,
       track_params_.params.width, track_params_.params.height, TrackId());
+
+#ifndef DISABLE_OVERLAY
   //TODO: Add mechanism to query the stream format from adaptor.
   ret = overlay_.Init(TargetBufferFormat::kYUVNV12);
   assert(ret == NO_ERROR);
+#endif
 
   QMMF_DEBUG("%s Exit track_id(%x)", __func__, TrackId());
   return ret;
