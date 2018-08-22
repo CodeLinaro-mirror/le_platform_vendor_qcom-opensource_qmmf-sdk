@@ -30,7 +30,6 @@
 #define LOG_TAG "CommonNEONResizer"
 
 #include <cstdint>
-#include <adreno/c2d2.h>
 #include <linux/msm_kgsl.h>
 
 #include "common/utils/qmmf_log.h"

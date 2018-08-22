@@ -20,9 +20,9 @@ ifeq ($(TARGET_USES_GRALLOC1),true)
 LOCAL_C_INCLUDES += $(DISPLAY_HAL_PATH)
 endif
 # reprocess-related includes
-LOCAL_C_INCLUDES += $(CAMERA_HAL_PATH)/QCamera2/stack/common \
-LOCAL_C_INCLUDES += $(CAMERA_HAL_PATH)/mm-image-codec/qomx_core \
-LOCAL_C_INCLUDES += $(CAMERA_HAL_PATH)/mm-image-codec/qexif \
+LOCAL_C_INCLUDES += $(CAMERA_HAL_PATH)/QCamera2/stack/common
+LOCAL_C_INCLUDES += $(CAMERA_HAL_PATH)/mm-image-codec/qomx_core
+LOCAL_C_INCLUDES += $(CAMERA_HAL_PATH)/mm-image-codec/qexif
 
 LOCAL_SRC_FILES := qmmf_recorder_service.cc
 LOCAL_SRC_FILES += qmmf_recorder_impl.cc
@@ -61,6 +61,7 @@ endif
 LOCAL_SHARED_LIBRARIES += libcamera_client libbinder libhardware
 LOCAL_SHARED_LIBRARIES += libqmmf_postproc_frame_skip
 LOCAL_SHARED_LIBRARIES += libqmmf_common_resizer_fastcv
+LOCAL_SHARED_LIBRARIES += libfastcvopt
 LOCAL_SHARED_LIBRARIES += libqmmf_common_resizer_c2d
 LOCAL_SHARED_LIBRARIES += libqmmf_common_resizer_neon
 ifneq ($(DISABLE_PP_JPEG),1)
