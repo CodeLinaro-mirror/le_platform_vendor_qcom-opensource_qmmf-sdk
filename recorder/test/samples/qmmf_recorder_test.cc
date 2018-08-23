@@ -5908,6 +5908,7 @@ TestTrack::TestTrack(RecorderTest* recorder_test)
       num_yuv_frames_(0) {
 #ifndef DISABLE_DISPLAY
   display_started_ = false;
+  display_param_ = 0;
 #endif
   TEST_DBG("%s: Enter", __func__);
   track_info_ = {};
@@ -6804,20 +6805,20 @@ status_t TestTrack::StopDisplay(DisplayType display_type) {
   return res;
 }
 
-status_t TestTrack::PushFrameToDisplay(BufferDescriptor &buffer,
-                                       CameraBufferMetaData &meta_data) {
+status_t TestTrack::PushFrameToDisplay(BufferDescriptor& buffer,
+                                       CameraBufferMetaData& meta_data) {
   if (display_started_ == 1) {
     display_param_type_ = qmmf::display::DisplayParamType::kDisplayState;
-    auto ret = display_->GetDisplayParam(
-        display_param_type_, (void *)(&display_param_), sizeof(int));
+    auto ret = display_->GetDisplayParam(display_param_type_,
+                                         (void *) (&display_param_),
+                                         sizeof(int));
 
     if (ret != 0) {
       TEST_ERROR("%s GetDisplayParam Failed!!", __func__);
       return ret;
     }
-
-    QMMF_INFO("display param value %d display_started %d ", display_param_,
-              display_started_);
+    QMMF_INFO("%s display param value %d display_started %d ", __func__,
+              display_param_, display_started_);
   }
 
   if (display_started_ == 1 && display_param_ == 1) {
