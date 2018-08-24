@@ -216,9 +216,10 @@ enum AWbModes : uint8_t {
 
 typedef struct StreamDumpInfo {
   VideoFormat   format;
+  uint32_t      session_id;
   uint32_t      track_id;
-  uint32_t       width;
-  uint32_t       height;
+  uint32_t      width;
+  uint32_t      height;
 } StreamDumpInfo;
 
 struct RGBAValues {
@@ -260,24 +261,25 @@ class DumpBitStream {
 
   bool IsUsed() {return (is_enabled_ && file_fds_.size());}
 
-  int32_t GetFileFd(const uint32_t count)
-                   {EXPECT_TRUE(count > 0);
-                    EXPECT_TRUE(count <= file_fds_.size());
-                    return file_fds_[count-1];}
+  int32_t GetFileFd(const uint32_t &session_id, const uint32_t &track_id) {
+    uint8_t key_by_session_track_id = session_id << 4 | track_id;
+    EXPECT_TRUE(file_fds_.count(key_by_session_track_id));
+    return file_fds_[key_by_session_track_id];
+  }
 
   void Enable(const bool enable) {is_enabled_ = enable;}
 
   status_t SetUp(const StreamDumpInfo& dumpinfo);
 
   status_t Dump(const std::vector<BufferDescriptor>& buffers,
-                const int32_t file_fd);
+    const uint32_t &session_id, const uint32_t &track_id);
 
   void Close(int32_t file_fd);
 
   void CloseAll();
  private:
   bool is_enabled_;
-  std::vector<int32_t> file_fds_;
+  std::map<uint8_t, int32_t> file_fds_;
 };
 
 class GtestCommon : public ::testing::Test {
@@ -318,17 +320,9 @@ class GtestCommon : public ::testing::Test {
                            std::vector<BufferDescriptor> buffers,
                            std::vector<MetaData> meta_buffers);
 
-  void VideoTrackOneEncDataCb(uint32_t session_id, uint32_t track_id,
-                              std::vector<BufferDescriptor> buffers,
-                              std::vector<MetaData> meta_buffers);
-
-  void VideoTrackTwoEncDataCb(uint32_t session_id, uint32_t track_id,
-                              std::vector<BufferDescriptor> buffers,
-                              std::vector<MetaData> meta_buffers);
-
-  void VideoTrackThreeEncDataCb(uint32_t session_id, uint32_t track_id,
-                                std::vector<BufferDescriptor> buffers,
-                                std::vector<MetaData> meta_buffers);
+  void VideoTrackEncDataCb(uint32_t session_id, uint32_t track_id,
+                              std::vector<BufferDescriptor> &buffers,
+                              std::vector<MetaData> &meta_buffers);
 
   void VideoTrackEventCb(uint32_t track_id, EventType event_type,
                          void *event_data, size_t event_data_size);

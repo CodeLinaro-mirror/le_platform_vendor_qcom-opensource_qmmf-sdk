@@ -103,17 +103,19 @@ status_t DumpBitStream::SetUp(const StreamDumpInfo& dumpinfo) {
     TEST_ERROR("%s File open failed!", __func__);
     return BAD_VALUE;
   }
-
-  file_fds_.push_back(file_fd);
+  uint8_t key_by_session_track_id = dumpinfo.session_id << 4
+    | dumpinfo.track_id;
+  file_fds_.insert(std::make_pair(key_by_session_track_id, file_fd));
 
   TEST_DBG("%s: Exit", __func__);
   return NO_ERROR;
 }
 
 status_t DumpBitStream::Dump(const std::vector<BufferDescriptor>& buffers,
-                             const int32_t file_fd) {
+   const uint32_t &session_id, const uint32_t &track_id) {
 
   TEST_DBG("%s: Enter", __func__);
+  int32_t file_fd = GetFileFd(session_id, track_id);
   EXPECT_TRUE(file_fd > 0);
 
   for (auto& iter : buffers) {
@@ -143,7 +145,7 @@ status_t DumpBitStream::Dump(const std::vector<BufferDescriptor>& buffers,
 void DumpBitStream::Close(int32_t file_fd) {
   TEST_DBG("%s: Enter", __func__);
   if (file_fd > 0) {
-    auto iter = std::find(file_fds_.begin(), file_fds_.end(), file_fd);
+    auto iter = file_fds_.find(file_fd);
     if(iter != file_fds_.end()) {
       close(file_fd);
       file_fds_.erase(iter);
@@ -157,8 +159,8 @@ void DumpBitStream::Close(int32_t file_fd) {
 void DumpBitStream::CloseAll() {
   TEST_DBG("%s: Enter", __func__);
   for (auto& iter : file_fds_) {
-    if (iter > 0) {
-      close(iter);
+    if (iter.second > 0) {
+      close(iter.second);
     }
   }
   file_fds_.clear();
@@ -532,49 +534,16 @@ void GtestCommon::VideoTrackYUVDataCb(uint32_t session_id, uint32_t track_id,
   TEST_DBG("%s: Exit", __func__);
 }
 
-void GtestCommon::VideoTrackOneEncDataCb(uint32_t session_id,
+void GtestCommon::VideoTrackEncDataCb(uint32_t session_id,
                                     uint32_t track_id,
-                                    std::vector<BufferDescriptor> buffers,
-                                    std::vector<MetaData> meta_buffers) {
+                                    std::vector<BufferDescriptor> &buffers,
+                                    std::vector<MetaData> &meta_buffers) {
 
   TEST_DBG("%s: Enter", __func__);
   if (dump_bitstream_.IsUsed()) {
-    int32_t file_fd = dump_bitstream_.GetFileFd(1);
-    dump_bitstream_.Dump(buffers, file_fd);
+    dump_bitstream_.Dump(buffers, session_id, track_id);
   }
   // Return buffers back to service.
-  auto ret = recorder_.ReturnTrackBuffer(session_id, track_id, buffers);
-  ASSERT_TRUE(ret == NO_ERROR);
-
-  TEST_DBG("%s: Exit", __func__);
-}
-
-void GtestCommon::VideoTrackTwoEncDataCb(uint32_t session_id,
-                                    uint32_t track_id,
-                                    std::vector<BufferDescriptor> buffers,
-                                    std::vector<MetaData> meta_buffers) {
-
-  TEST_DBG("%s: Enter", __func__);
-  if (dump_bitstream_.IsUsed()) {
-    int32_t file_fd = dump_bitstream_.GetFileFd(2);
-    dump_bitstream_.Dump(buffers, file_fd);
-  }
-  auto ret = recorder_.ReturnTrackBuffer(session_id, track_id, buffers);
-  ASSERT_TRUE(ret == NO_ERROR);
-
-  TEST_DBG("%s: Exit", __func__);
-}
-
-void GtestCommon::VideoTrackThreeEncDataCb(uint32_t session_id,
-                                    uint32_t track_id,
-                                    std::vector<BufferDescriptor> buffers,
-                                    std::vector<MetaData> meta_buffers) {
-
-  TEST_DBG("%s: Enter", __func__);
-  if (dump_bitstream_.IsUsed()) {
-    int32_t file_fd = dump_bitstream_.GetFileFd(3);
-    dump_bitstream_.Dump(buffers, file_fd);
-  }
   auto ret = recorder_.ReturnTrackBuffer(session_id, track_id, buffers);
   ASSERT_TRUE(ret == NO_ERROR);
 

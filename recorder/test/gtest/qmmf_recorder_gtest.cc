@@ -354,6 +354,7 @@ TEST_F(RecorderGtest, FaceDetectionFor1080pAVCVideo) {
   if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
       video_track_param.format_type,
+      session_id,
       video_track_id,
       stream_width,
       stream_height };
@@ -365,7 +366,7 @@ TEST_F(RecorderGtest, FaceDetectionFor1080pAVCVideo) {
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
     std::vector<BufferDescriptor> buffers,
     std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
     };
 
   video_track_cb.event_cb =
@@ -564,6 +565,7 @@ TEST_F(RecorderGtest, 1080pZSL1080pVideo) {
   if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
       video_track_param.format_type,
+      session_id,
       video_track_id,
       video_track_param.width,
       video_track_param.height };
@@ -575,7 +577,7 @@ TEST_F(RecorderGtest, 1080pZSL1080pVideo) {
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
   video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
@@ -953,6 +955,7 @@ TEST_F(RecorderGtest, 4KZSLTwo1080pVideo) {
   if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
       video_track_param.format_type,
+      session_id,
       video_track_id_1,
       video_track_param.width,
       video_track_param.height };
@@ -964,7 +967,7 @@ TEST_F(RecorderGtest, 4KZSLTwo1080pVideo) {
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
   video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
@@ -983,6 +986,7 @@ TEST_F(RecorderGtest, 4KZSLTwo1080pVideo) {
   if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
       video_track_param.format_type,
+      session_id,
       video_track_id_2,
       video_track_param.width,
       video_track_param.height };
@@ -992,7 +996,7 @@ TEST_F(RecorderGtest, 4KZSLTwo1080pVideo) {
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
   ret = recorder_.CreateVideoTrack(session_id, video_track_id_2,
@@ -1716,7 +1720,7 @@ TEST_F(RecorderGtest, 4KSnapshotWithRaw) {
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
   ret = recorder_.CreateVideoTrack(session_id, video_track_id,
@@ -2249,7 +2253,7 @@ TEST_F(RecorderGtest, 10MPSnapshotWithEdgeSmooth) {
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
   ret = recorder_.CreateVideoTrack(session_id, video_track_id,
@@ -2397,7 +2401,7 @@ TEST_F(RecorderGtest, 10MPSnapshotWithLCAC) {
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
   ret = recorder_.CreateVideoTrack(session_id, video_track_id,
@@ -2545,7 +2549,7 @@ TEST_F(RecorderGtest, 10MPSnapshotWithLCACandEdgeSmooth) {
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
   ret = recorder_.CreateVideoTrack(session_id, video_track_id,
@@ -2677,15 +2681,6 @@ TEST_F(RecorderGtest, LowResVideo10MPSnapshotWithLCACandEdgeSmoothContinuousCapt
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo = {
-      VideoFormat::kAVC,
-      1, 640, 480
-    };
-    ret = dump_bitstream_.SetUp(dumpinfo);
-    ASSERT_TRUE(ret == NO_ERROR);
-  }
-
   SessionCb session_status_cb;
   session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
                                        size_t event_data_size) -> void {
@@ -2695,6 +2690,16 @@ TEST_F(RecorderGtest, LowResVideo10MPSnapshotWithLCACandEdgeSmoothContinuousCapt
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
   ASSERT_TRUE(ret == NO_ERROR);
+
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = {
+      VideoFormat::kAVC,
+      session_id,
+      1, 640, 480
+    };
+    ret = dump_bitstream_.SetUp(dumpinfo);
+    ASSERT_TRUE(ret == NO_ERROR);
+  }
 
   TrackCb video_track_cb;
   video_track_cb.event_cb =
@@ -2711,7 +2716,7 @@ TEST_F(RecorderGtest, LowResVideo10MPSnapshotWithLCACandEdgeSmoothContinuousCapt
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
   ret = recorder_.CreateVideoTrack(session_id, video_track_id,
@@ -2899,15 +2904,6 @@ TEST_F(RecorderGtest, LowResVideo10MPContinuousSnapshotWithLCAC) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_, result_cb);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo = {
-      VideoFormat::kAVC,
-      1, 640, 480
-    };
-    ret = dump_bitstream_.SetUp(dumpinfo);
-    ASSERT_TRUE(ret == NO_ERROR);
-  }
-
   SessionCb session_status_cb;
   session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
                                        size_t event_data_size) -> void {
@@ -2917,6 +2913,16 @@ TEST_F(RecorderGtest, LowResVideo10MPContinuousSnapshotWithLCAC) {
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
   ASSERT_TRUE(ret == NO_ERROR);
+
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = {
+      VideoFormat::kAVC,
+      session_id,
+      1, 640, 480
+    };
+    ret = dump_bitstream_.SetUp(dumpinfo);
+    ASSERT_TRUE(ret == NO_ERROR);
+  }
 
   TrackCb video_track_cb;
   video_track_cb.event_cb =
@@ -2933,7 +2939,7 @@ TEST_F(RecorderGtest, LowResVideo10MPContinuousSnapshotWithLCAC) {
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
   ret = recorder_.CreateVideoTrack(session_id, video_track_id,
@@ -3080,15 +3086,6 @@ TEST_F(RecorderGtest, LowResVideo10MPContinuousSnapshotWithLCACAndCdsOff) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo = {
-      VideoFormat::kAVC,
-      1, 640, 480
-    };
-    ret = dump_bitstream_.SetUp(dumpinfo);
-    ASSERT_TRUE(ret == NO_ERROR);
-  }
-
   SessionCb session_status_cb;
   session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
                                        size_t event_data_size) -> void {
@@ -3098,6 +3095,16 @@ TEST_F(RecorderGtest, LowResVideo10MPContinuousSnapshotWithLCACAndCdsOff) {
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
   ASSERT_TRUE(ret == NO_ERROR);
+
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = {
+      VideoFormat::kAVC,
+      session_id,
+      1, 640, 480
+    };
+    ret = dump_bitstream_.SetUp(dumpinfo);
+    ASSERT_TRUE(ret == NO_ERROR);
+  }
 
   TrackCb video_track_cb;
   video_track_cb.event_cb =
@@ -3114,7 +3121,7 @@ TEST_F(RecorderGtest, LowResVideo10MPContinuousSnapshotWithLCACAndCdsOff) {
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
   ret = recorder_.CreateVideoTrack(session_id, video_track_id,
@@ -3251,15 +3258,6 @@ TEST_F(RecorderGtest, LowResVideo10MPContinuousSnapshotWithLCACandEdgeSmooth) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo = {
-      VideoFormat::kAVC,
-      1, 640, 480
-    };
-    ret = dump_bitstream_.SetUp(dumpinfo);
-    ASSERT_TRUE(ret == NO_ERROR);
-  }
-
   SessionCb session_status_cb;
   session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
                                        size_t event_data_size) -> void {
@@ -3269,6 +3267,16 @@ TEST_F(RecorderGtest, LowResVideo10MPContinuousSnapshotWithLCACandEdgeSmooth) {
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
   ASSERT_TRUE(ret == NO_ERROR);
+
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = {
+      VideoFormat::kAVC,
+      session_id,
+      1, 640, 480
+    };
+    ret = dump_bitstream_.SetUp(dumpinfo);
+    ASSERT_TRUE(ret == NO_ERROR);
+  }
 
   TrackCb video_track_cb;
   video_track_cb.event_cb =
@@ -3285,7 +3293,7 @@ TEST_F(RecorderGtest, LowResVideo10MPContinuousSnapshotWithLCACandEdgeSmooth) {
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
   ret = recorder_.CreateVideoTrack(session_id, video_track_id,
@@ -3440,15 +3448,6 @@ TEST_F(RecorderGtest,
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo = {
-      VideoFormat::kAVC,
-      1, 640, 480
-    };
-    ret = dump_bitstream_.SetUp(dumpinfo);
-    ASSERT_TRUE(ret == NO_ERROR);
-  }
-
   SessionCb session_status_cb;
   session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
                                        size_t event_data_size) -> void {
@@ -3458,6 +3457,16 @@ TEST_F(RecorderGtest,
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
   ASSERT_TRUE(ret == NO_ERROR);
+
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = {
+      VideoFormat::kAVC,
+      session_id,
+      1, 640, 480
+    };
+    ret = dump_bitstream_.SetUp(dumpinfo);
+    ASSERT_TRUE(ret == NO_ERROR);
+  }
 
   TrackCb video_track_cb;
   video_track_cb.event_cb =
@@ -3474,7 +3483,7 @@ TEST_F(RecorderGtest,
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
   ret = recorder_.CreateVideoTrack(session_id, video_track_id,
@@ -3558,7 +3567,6 @@ TEST_F(RecorderGtest,
 
   PostprocFrameSkip frame_skip;
   frame_skip.frame_skip = 1;
-  frame_skip.source_framerate = 4;
   image_config.Update(QMMF_POSTPROCESS_FRAME_SKIP, frame_skip, 0);
 
   ret = recorder_.ConfigImageCapture(camera_id_, image_config);
@@ -3847,7 +3855,7 @@ TEST_F(RecorderGtest, BurstSnapshotWithYuvCAC) {
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
   ret = recorder_.CreateVideoTrack(session_id, video_track_id,
@@ -4024,7 +4032,7 @@ TEST_F(RecorderGtest, BurstSnapshotWithBayerLCAC) {
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
   ret = recorder_.CreateVideoTrack(session_id, video_track_id,
@@ -4229,7 +4237,7 @@ TEST_F(RecorderGtest, BurstSnapshotWithBayerLCAC15fps) {
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
   ret = recorder_.CreateVideoTrack(session_id, video_track_id,
@@ -4500,7 +4508,7 @@ TEST_F(RecorderGtest, BurstSnapshotWithBayerLCAC15fpsWithCdsOff) {
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
   ret = recorder_.CreateVideoTrack(session_id, video_track_id,
@@ -4754,7 +4762,7 @@ TEST_F(RecorderGtest, AutoBurstCaptureWithBayerLCAC) {
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-          VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+          VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
         };
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
@@ -5005,7 +5013,7 @@ TEST_F(RecorderGtest, ContinuousSnapshotWithBayerLCAC) {
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
   ret = recorder_.CreateVideoTrack(session_id, video_track_id,
@@ -5675,6 +5683,7 @@ TEST_F(RecorderGtest, HFRModeSwitch) {
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = {
         format_type,
+        session_id,
         video_track_id,
         width,
         height };
@@ -5686,7 +5695,7 @@ TEST_F(RecorderGtest, HFRModeSwitch) {
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-          VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+          VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
         };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
@@ -5842,6 +5851,7 @@ TEST_F(RecorderGtest, MultiSessionsWith1080pEncTrack) {
   if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
       format_type,
+      session_id,
       video_track_id,
       width,
       height };
@@ -5853,7 +5863,7 @@ TEST_F(RecorderGtest, MultiSessionsWith1080pEncTrack) {
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
   video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
@@ -5992,6 +6002,7 @@ TEST_F(RecorderGtest, SessionWith1080pEncTrack) {
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = {
         format_type,
+        session_id,
         video_track_id,
         width,
         height };
@@ -6003,7 +6014,7 @@ TEST_F(RecorderGtest, SessionWith1080pEncTrack) {
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
@@ -6093,7 +6104,7 @@ TEST_F(RecorderGtest, SessionWith1080Enc30fps1080pMJpeg10fps1080pJpegEnc1fps) {
   uint32_t video_track_id_1 = 1;
 
   if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo = {format_type, video_track_id_1, width, height};
+    StreamDumpInfo dumpinfo = {format_type, session_id, video_track_id_1, width, height};
     ret = dump_bitstream_.SetUp(dumpinfo);
     ASSERT_TRUE(ret == NO_ERROR);
   }
@@ -6102,7 +6113,7 @@ TEST_F(RecorderGtest, SessionWith1080Enc30fps1080pMJpeg10fps1080pJpegEnc1fps) {
   video_track_cb.data_cb = [&, session_id](
       uint32_t track_id, std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-    VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+    VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
   };
 
   video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
@@ -6122,7 +6133,7 @@ TEST_F(RecorderGtest, SessionWith1080Enc30fps1080pMJpeg10fps1080pJpegEnc1fps) {
   VideoTrackCreateParam video_track_param_2{camera_id_, VideoFormat::kJPEG,
                                             1920, 1080, 10};
   if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo = {VideoFormat::kJPEG, video_track_id_mjpeg, width,
+    StreamDumpInfo dumpinfo = {VideoFormat::kJPEG, session_id, video_track_id_mjpeg, width,
                                height};
     ret = dump_bitstream_.SetUp(dumpinfo);
     ASSERT_TRUE(ret == NO_ERROR);
@@ -6131,7 +6142,7 @@ TEST_F(RecorderGtest, SessionWith1080Enc30fps1080pMJpeg10fps1080pJpegEnc1fps) {
   video_track_cb.data_cb = [&, session_id](
       uint32_t track_id, std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-    VideoTrackTwoEncDataCb(session_id, video_track_id_mjpeg, buffers,
+    VideoTrackEncDataCb(session_id, video_track_id_mjpeg, buffers,
                            meta_buffers);
   };
 
@@ -6232,7 +6243,7 @@ TEST_F(RecorderGtest, SessionWith1080Enc30fps1080pMJpeg10fps) {
     uint32_t video_track_id_1 = 1;
 
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = {format_type, video_track_id_1, width, height};
+      StreamDumpInfo dumpinfo = {format_type, session_id, video_track_id_1, width, height};
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -6241,7 +6252,7 @@ TEST_F(RecorderGtest, SessionWith1080Enc30fps1080pMJpeg10fps) {
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
     };
 
     video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
@@ -6261,7 +6272,7 @@ TEST_F(RecorderGtest, SessionWith1080Enc30fps1080pMJpeg10fps) {
     VideoTrackCreateParam video_track_param_2{camera_id_, VideoFormat::kJPEG,
                                               1920, 1080, 10};
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = {VideoFormat::kJPEG, video_track_id_mjpeg,
+      StreamDumpInfo dumpinfo = {VideoFormat::kJPEG, session_id, video_track_id_mjpeg,
                                  width, height};
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
@@ -6270,7 +6281,7 @@ TEST_F(RecorderGtest, SessionWith1080Enc30fps1080pMJpeg10fps) {
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      VideoTrackTwoEncDataCb(session_id, video_track_id_mjpeg, buffers,
+      VideoTrackEncDataCb(session_id, video_track_id_mjpeg, buffers,
                              meta_buffers);
     };
 
@@ -6361,7 +6372,7 @@ TEST_F(RecorderGtest, SessionWith4kMJpeg) {
     uint32_t video_track_id = 1;
 
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = {format_type, video_track_id, width, height};
+      StreamDumpInfo dumpinfo = {format_type, session_id, video_track_id, width, height};
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -6370,7 +6381,7 @@ TEST_F(RecorderGtest, SessionWith4kMJpeg) {
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
     };
 
     video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
@@ -6483,6 +6494,7 @@ TEST_F(RecorderGtest, SessionWith1080pEncTrackPartialMeta) {
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = {
         format_type,
+        session_id,
         video_track_id,
         width,
         height };
@@ -6494,7 +6506,7 @@ TEST_F(RecorderGtest, SessionWith1080pEncTrackPartialMeta) {
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
@@ -6588,6 +6600,7 @@ TEST_F(RecorderGtest, SessionWith4kp30fpsEncTrack) {
   if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
       format_type,
+      session_id,
       video_track_id,
       width,
       height };
@@ -6599,7 +6612,7 @@ TEST_F(RecorderGtest, SessionWith4kp30fpsEncTrack) {
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
   video_track_cb.event_cb =
@@ -6719,6 +6732,7 @@ TEST_F(RecorderGtest, SessionWith4kp30fps4K1fpsSnapshotEncTrack) {
   if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
       format_type,
+      session_id,
       video_track_id,
       width,
       height };
@@ -6730,7 +6744,7 @@ TEST_F(RecorderGtest, SessionWith4kp30fps4K1fpsSnapshotEncTrack) {
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
   video_track_cb.event_cb =
@@ -6750,6 +6764,7 @@ TEST_F(RecorderGtest, SessionWith4kp30fps4K1fpsSnapshotEncTrack) {
   if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
       format_type,
+      session_id,
       video_track4K1fps_id,
       width,
       height };
@@ -6760,7 +6775,7 @@ TEST_F(RecorderGtest, SessionWith4kp30fps4K1fpsSnapshotEncTrack) {
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
   video_track_cb.event_cb =
@@ -6914,6 +6929,7 @@ TEST_F(RecorderGtest, SessionWith4kp30fps4K1fps240p30fpsSnapshotEncTrack) {
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = {
         format_type,
+        session_id,
         video_track_id,
         width,
         height };
@@ -6925,7 +6941,7 @@ TEST_F(RecorderGtest, SessionWith4kp30fps4K1fps240p30fpsSnapshotEncTrack) {
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-          VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+          VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
         };
 
     video_track_cb.event_cb =
@@ -6945,6 +6961,7 @@ TEST_F(RecorderGtest, SessionWith4kp30fps4K1fps240p30fpsSnapshotEncTrack) {
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = {
         format_type,
+        session_id,
         video_track4K1fps_id,
         width,
         height };
@@ -6955,7 +6972,7 @@ TEST_F(RecorderGtest, SessionWith4kp30fps4K1fps240p30fpsSnapshotEncTrack) {
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
     video_track_cb.event_cb =
@@ -6976,6 +6993,7 @@ TEST_F(RecorderGtest, SessionWith4kp30fps4K1fps240p30fpsSnapshotEncTrack) {
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = {
         format_type,
+        session_id,
         video_track240p_id,
         width,
         height };
@@ -6988,7 +7006,7 @@ TEST_F(RecorderGtest, SessionWith4kp30fps4K1fps240p30fpsSnapshotEncTrack) {
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-          VideoTrackThreeEncDataCb(session_id, track_id, buffers, meta_buffers);
+          VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
         };
 
     video_track_cb.event_cb =
@@ -7116,6 +7134,7 @@ TEST_F(RecorderGtest, SessionWith27Kp60fpsEncTrack) {
   if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
       format_type,
+      session_id,
       video_track_id,
       width,
       height };
@@ -7127,7 +7146,7 @@ TEST_F(RecorderGtest, SessionWith27Kp60fpsEncTrack) {
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
   video_track_cb.event_cb =
@@ -7224,6 +7243,7 @@ TEST_F(RecorderGtest, SessionWith1080p120fpsSnapshotVSTABEncTrack) {
   if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
       format_type,
+      session_id,
       video_track_id,
       width,
       height };
@@ -7235,7 +7255,7 @@ TEST_F(RecorderGtest, SessionWith1080p120fpsSnapshotVSTABEncTrack) {
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
   video_track_cb.event_cb =
@@ -7369,6 +7389,7 @@ TEST_F(RecorderGtest, SessionWith1080p120fps480p30fpsSnapshotEncTrack) {
   if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
       format_type,
+      session_id,
       video_track_id,
       width,
       height };
@@ -7380,7 +7401,7 @@ TEST_F(RecorderGtest, SessionWith1080p120fps480p30fpsSnapshotEncTrack) {
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
   video_track_cb.event_cb =
@@ -7404,6 +7425,7 @@ TEST_F(RecorderGtest, SessionWith1080p120fps480p30fpsSnapshotEncTrack) {
   if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
       format_type,
+      session_id,
       video_track480p_id,
       width,
       height };
@@ -7420,7 +7442,7 @@ TEST_F(RecorderGtest, SessionWith1080p120fps480p30fpsSnapshotEncTrack) {
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
   video_track_cb.event_cb =
@@ -7545,6 +7567,7 @@ TEST_F(RecorderGtest, SessionWith1080p120fps480p30fpsEncTrack) {
   if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
       format_type,
+      session_id,
       video_track_id,
       width,
       height };
@@ -7556,7 +7579,7 @@ TEST_F(RecorderGtest, SessionWith1080p120fps480p30fpsEncTrack) {
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
   video_track_cb.event_cb =
@@ -7580,6 +7603,7 @@ TEST_F(RecorderGtest, SessionWith1080p120fps480p30fpsEncTrack) {
   if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
       format_type,
+      session_id,
       video_track480p_id,
       width,
       height };
@@ -7596,7 +7620,7 @@ TEST_F(RecorderGtest, SessionWith1080p120fps480p30fpsEncTrack) {
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
   video_track_cb.event_cb =
@@ -7692,6 +7716,7 @@ TEST_F(RecorderGtest, SessionWith1080p120fpsEncTrack) {
   if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
       format_type,
+      session_id,
       video_track_id,
       width,
       height };
@@ -7703,7 +7728,7 @@ TEST_F(RecorderGtest, SessionWith1080p120fpsEncTrack) {
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
   video_track_cb.event_cb =
@@ -7797,6 +7822,7 @@ TEST_F(RecorderGtest, SessionWith1080p60fpsEncTrack) {
   if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
       format_type,
+      session_id,
       video_track_id,
       width,
       height };
@@ -7808,7 +7834,7 @@ TEST_F(RecorderGtest, SessionWith1080p60fpsEncTrack) {
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
   video_track_cb.event_cb =
@@ -7902,6 +7928,7 @@ TEST_F(RecorderGtest, SessionWith4kp30fps480p30fpsEncTrack) {
   if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
       format_type,
+      session_id,
       video_track_id,
       width,
       height };
@@ -7913,7 +7940,7 @@ TEST_F(RecorderGtest, SessionWith4kp30fps480p30fpsEncTrack) {
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
   video_track_cb.event_cb =
@@ -7936,6 +7963,7 @@ TEST_F(RecorderGtest, SessionWith4kp30fps480p30fpsEncTrack) {
   if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
       format_type,
+      session_id,
       video_track480p_id,
       width,
       height };
@@ -7950,7 +7978,7 @@ TEST_F(RecorderGtest, SessionWith4kp30fps480p30fpsEncTrack) {
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
   video_track_cb.event_cb =
@@ -8045,6 +8073,7 @@ TEST_F(RecorderGtest, SessionWith4kp30fps480p30fpsVSTABEncTrack) {
   if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
       format_type,
+      session_id,
       video_track_id,
       width,
       height };
@@ -8056,7 +8085,7 @@ TEST_F(RecorderGtest, SessionWith4kp30fps480p30fpsVSTABEncTrack) {
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
   video_track_cb.event_cb =
@@ -8079,6 +8108,7 @@ TEST_F(RecorderGtest, SessionWith4kp30fps480p30fpsVSTABEncTrack) {
   if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
       format_type,
+      session_id,
       video_track480p_id,
       width,
       height };
@@ -8093,7 +8123,7 @@ TEST_F(RecorderGtest, SessionWith4kp30fps480p30fpsVSTABEncTrack) {
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
   video_track_cb.event_cb =
@@ -8201,6 +8231,7 @@ TEST_F(RecorderGtest, SessionWith27Kp60fps480p30fpsEncTrack) {
   if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
       format_type,
+      session_id,
       video_track_id,
       width,
       height };
@@ -8212,7 +8243,7 @@ TEST_F(RecorderGtest, SessionWith27Kp60fps480p30fpsEncTrack) {
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
   video_track_cb.event_cb =
@@ -8236,6 +8267,7 @@ TEST_F(RecorderGtest, SessionWith27Kp60fps480p30fpsEncTrack) {
   if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
       format_type,
+      session_id,
       video_track480p_id,
       width,
       height };
@@ -8249,7 +8281,7 @@ TEST_F(RecorderGtest, SessionWith27Kp60fps480p30fpsEncTrack) {
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
   video_track_cb.event_cb =
@@ -8344,6 +8376,7 @@ TEST_F(RecorderGtest, SessionWith27Kp60fps480p30fpsVSTABEncTrack) {
   if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
       format_type,
+      session_id,
       video_track_id,
       width,
       height };
@@ -8355,7 +8388,7 @@ TEST_F(RecorderGtest, SessionWith27Kp60fps480p30fpsVSTABEncTrack) {
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
   video_track_cb.event_cb =
@@ -8379,6 +8412,7 @@ TEST_F(RecorderGtest, SessionWith27Kp60fps480p30fpsVSTABEncTrack) {
   if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
       format_type,
+      session_id,
       video_track480p_id,
       width,
       height };
@@ -8392,7 +8426,7 @@ TEST_F(RecorderGtest, SessionWith27Kp60fps480p30fpsVSTABEncTrack) {
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
   video_track_cb.event_cb =
@@ -8499,6 +8533,7 @@ TEST_F(RecorderGtest, SessionWith27Kp30fps480p30fpsEncTrack) {
   if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
       format_type,
+      session_id,
       video_track_id,
       width,
       height };
@@ -8510,7 +8545,7 @@ TEST_F(RecorderGtest, SessionWith27Kp30fps480p30fpsEncTrack) {
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
   video_track_cb.event_cb =
@@ -8533,6 +8568,7 @@ TEST_F(RecorderGtest, SessionWith27Kp30fps480p30fpsEncTrack) {
   if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
       format_type,
+      session_id,
       video_track480p_id,
       width,
       height };
@@ -8545,7 +8581,7 @@ TEST_F(RecorderGtest, SessionWith27Kp30fps480p30fpsEncTrack) {
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
   video_track_cb.event_cb =
@@ -8641,6 +8677,7 @@ TEST_F(RecorderGtest, SessionWith1080p90fps480p30fpsEncTrack) {
   if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
       format_type,
+      session_id,
       video_track_id,
       width,
       height };
@@ -8652,7 +8689,7 @@ TEST_F(RecorderGtest, SessionWith1080p90fps480p30fpsEncTrack) {
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
   video_track_cb.event_cb =
@@ -8676,6 +8713,7 @@ TEST_F(RecorderGtest, SessionWith1080p90fps480p30fpsEncTrack) {
   if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
       format_type,
+      session_id,
       video_track480p_id,
       width,
       height };
@@ -8689,7 +8727,7 @@ TEST_F(RecorderGtest, SessionWith1080p90fps480p30fpsEncTrack) {
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
   video_track_cb.event_cb =
@@ -8785,6 +8823,7 @@ TEST_F(RecorderGtest, SessionWith1080p60fps480p30fpsSnapshotEncTrack) {
   if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
       format_type,
+      session_id,
       video_track_id,
       width,
       height };
@@ -8796,7 +8835,7 @@ TEST_F(RecorderGtest, SessionWith1080p60fps480p30fpsSnapshotEncTrack) {
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
   video_track_cb.event_cb =
@@ -8820,6 +8859,7 @@ TEST_F(RecorderGtest, SessionWith1080p60fps480p30fpsSnapshotEncTrack) {
   if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
       format_type,
+      session_id,
       video_track480p_id,
       width,
       height };
@@ -8833,7 +8873,7 @@ TEST_F(RecorderGtest, SessionWith1080p60fps480p30fpsSnapshotEncTrack) {
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
   video_track_cb.event_cb =
@@ -8958,6 +8998,7 @@ TEST_F(RecorderGtest, SessionWith480pEncTrack) {
   if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
       format_type,
+      session_id,
       video_track_id,
       width,
       height };
@@ -8969,7 +9010,7 @@ TEST_F(RecorderGtest, SessionWith480pEncTrack) {
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
   video_track_cb.event_cb =
@@ -9071,6 +9112,7 @@ TEST_F(RecorderGtest, SessionWith4KEncTrack) {
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = {
         format_type,
+        session_id,
         video_track_id,
         width,
         height };
@@ -9082,7 +9124,7 @@ TEST_F(RecorderGtest, SessionWith4KEncTrack) {
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
     video_track_cb.event_cb =
@@ -9181,7 +9223,7 @@ TEST_F(RecorderGtest, SessionWith4KEncWithLCACYUV) {
     uint32_t video_track_id = 1;
 
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = {format_type, video_track_id, width, height};
+      StreamDumpInfo dumpinfo = {format_type, session_id, video_track_id, width, height};
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -9190,7 +9232,7 @@ TEST_F(RecorderGtest, SessionWith4KEncWithLCACYUV) {
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
     };
 
     video_track_cb.event_cb = [this](uint32_t track_id, EventType event_type,
@@ -9300,7 +9342,7 @@ TEST_F(RecorderGtest, SessionWith4KSwTnrEncTrack) {
     uint32_t video_track_id = 1;
 
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = {format_type, video_track_id, width, height};
+      StreamDumpInfo dumpinfo = {format_type, session_id, video_track_id, width, height};
       ret = dump_bitstream_.SetUp(dumpinfo);
       assert(ret == NO_ERROR);
     }
@@ -9309,7 +9351,7 @@ TEST_F(RecorderGtest, SessionWith4KSwTnrEncTrack) {
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
     };
 
     video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
@@ -9427,7 +9469,7 @@ TEST_F(RecorderGtest, SessionWith4KEnc1080pYUVSwTnrTrack) {
     uint32_t video_track_id_4k = 1;
 
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = {format_type, video_track_id_4k, width, height};
+      StreamDumpInfo dumpinfo = {format_type, session_id, video_track_id_4k, width, height};
       ret = dump_bitstream_.SetUp(dumpinfo);
       assert(ret == NO_ERROR);
     }
@@ -9436,7 +9478,7 @@ TEST_F(RecorderGtest, SessionWith4KEnc1080pYUVSwTnrTrack) {
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
     };
 
     video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
@@ -9592,7 +9634,7 @@ TEST_F(RecorderGtest, SessionWith4KEncWithLCACYUVEIS) {
     uint32_t video_track_id = 1;
 
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = {format_type, video_track_id, width, height};
+      StreamDumpInfo dumpinfo = {format_type, session_id, video_track_id, width, height};
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -9601,7 +9643,7 @@ TEST_F(RecorderGtest, SessionWith4KEncWithLCACYUVEIS) {
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
     };
 
     video_track_cb.event_cb = [this](uint32_t track_id, EventType event_type,
@@ -9706,7 +9748,7 @@ for (uint32_t i = 1; i <= iteration_count_; i++) {
   uint32_t video_track_id = 1;
 
   if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo = {format_type, video_track_id, width, height};
+    StreamDumpInfo dumpinfo = {format_type, session_id, video_track_id, width, height};
     ret = dump_bitstream_.SetUp(dumpinfo);
     ASSERT_TRUE(ret == NO_ERROR);
   }
@@ -9715,7 +9757,7 @@ for (uint32_t i = 1; i <= iteration_count_; i++) {
   video_track_cb.data_cb = [&, session_id](
       uint32_t track_id, std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-    VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+    VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
   };
 
   video_track_cb.event_cb = [this](uint32_t track_id, EventType event_type,
@@ -9841,6 +9883,7 @@ TEST_F(RecorderGtest, SessionWith4KHazeBusterEncTrack) {
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = {
         format_type,
+        session_id,
         video_track_id,
         width,
         height };
@@ -9852,7 +9895,7 @@ TEST_F(RecorderGtest, SessionWith4KHazeBusterEncTrack) {
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
@@ -9976,6 +10019,7 @@ TEST_F(RecorderGtest, SessionWith4KEnc1080pYUVHazeBusterTrack) {
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = {
         format_type,
+        session_id,
         video_track_id_4k,
         width,
         height };
@@ -9987,7 +10031,7 @@ TEST_F(RecorderGtest, SessionWith4KEnc1080pYUVHazeBusterTrack) {
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
@@ -10159,7 +10203,7 @@ TEST_F(RecorderGtest, SessionWithTwo1080pEncTracks) {
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-          VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+          VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
         };
 
     // Create 1080p encode track.
@@ -10169,6 +10213,7 @@ TEST_F(RecorderGtest, SessionWithTwo1080pEncTracks) {
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = {
         format_type,
+        session_id,
         video_track_id1,
         width,
         height };
@@ -10180,7 +10225,7 @@ TEST_F(RecorderGtest, SessionWithTwo1080pEncTracks) {
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
     // Create another 1080p encode track.
@@ -10190,6 +10235,7 @@ TEST_F(RecorderGtest, SessionWithTwo1080pEncTracks) {
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = {
         format_type,
+        session_id,
         video_track_id2,
         width,
         height };
@@ -10481,7 +10527,7 @@ TEST_F(RecorderGtest, SessionWithLPM1080pEncYUVSnapshot) {
     s2_video_t1_cb.data_cb = [&, s2_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-          VideoTrackOneEncDataCb(s2_id, track_id, buffers, meta_buffers);
+          VideoTrackEncDataCb(s2_id, track_id, buffers, meta_buffers);
         };
 
     s2_video_t1_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
@@ -10613,6 +10659,7 @@ TEST_F(RecorderGtest, 1080pEncWithStaticImageOverlay) {
   if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
       format_type,
+      session_id,
       video_track_id,
       width,
       height };
@@ -10624,7 +10671,7 @@ TEST_F(RecorderGtest, 1080pEncWithStaticImageOverlay) {
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
   video_track_cb.event_cb =
@@ -10777,6 +10824,7 @@ TEST_F(RecorderGtest, 1080pEncWithDateAndTimeOverlay) {
   if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
       format_type,
+      session_id,
       video_track_id,
       width,
       height };
@@ -10788,7 +10836,7 @@ TEST_F(RecorderGtest, 1080pEncWithDateAndTimeOverlay) {
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
   video_track_cb.event_cb =
@@ -10958,6 +11006,7 @@ TEST_F(RecorderGtest, 1080pEncWithBoundingBoxOverlay) {
   if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
       format_type,
+      session_id,
       video_track_id,
       width,
       height };
@@ -10969,7 +11018,7 @@ TEST_F(RecorderGtest, 1080pEncWithBoundingBoxOverlay) {
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
   video_track_cb.event_cb =
@@ -11118,6 +11167,7 @@ TEST_F(RecorderGtest, 4KEncWithBoundingBoxOverlay) {
   if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
       format_type,
+      session_id,
       video_track_id,
       width,
       height };
@@ -11129,7 +11179,7 @@ TEST_F(RecorderGtest, 4KEncWithBoundingBoxOverlay) {
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
   video_track_cb.event_cb =
@@ -11278,6 +11328,7 @@ TEST_F(RecorderGtest, 1080pEncWithUserTextOverlay) {
   if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
       format_type,
+      session_id,
       video_track_id,
       width,
       height };
@@ -11289,7 +11340,7 @@ TEST_F(RecorderGtest, 1080pEncWithUserTextOverlay) {
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
   video_track_cb.event_cb =
@@ -11458,6 +11509,7 @@ TEST_F(RecorderGtest, 1080pEncWithPrivacyMaskOverlay) {
   if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
       format_type,
+      session_id,
       video_track_id,
       width,
       height };
@@ -11469,7 +11521,7 @@ TEST_F(RecorderGtest, 1080pEncWithPrivacyMaskOverlay) {
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
   video_track_cb.event_cb =
@@ -11621,6 +11673,7 @@ TEST_F(RecorderGtest, 1080pEncWithStaticImageBlobOverlay) {
   if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
       format_type,
+      session_id,
       video_track_id,
       width,
       height };
@@ -11632,7 +11685,7 @@ TEST_F(RecorderGtest, 1080pEncWithStaticImageBlobOverlay) {
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
   video_track_cb.event_cb =
@@ -11844,6 +11897,7 @@ TEST_F(RecorderGtest, 1080pEncWithStaticImageBlobUpdateBufferOverlay) {
   if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
       format_type,
+      session_id,
       video_track_id,
       width,
       height };
@@ -11855,7 +11909,7 @@ TEST_F(RecorderGtest, 1080pEncWithStaticImageBlobUpdateBufferOverlay) {
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
   video_track_cb.event_cb =
@@ -12056,6 +12110,7 @@ TEST_F(RecorderGtest, SessionWith1080pEncTrackStartStop) {
   if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
       format_type,
+      session_id,
       video_track_id,
       width,
       height };
@@ -12067,7 +12122,7 @@ TEST_F(RecorderGtest, SessionWith1080pEncTrackStartStop) {
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
   video_track_cb.event_cb =
@@ -12167,6 +12222,7 @@ TEST_F(RecorderGtest, SessionWith4KEncTrackStartStop) {
   if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
       format_type,
+      session_id,
       video_track_id,
       width,
       height };
@@ -12178,7 +12234,7 @@ TEST_F(RecorderGtest, SessionWith4KEncTrackStartStop) {
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
   video_track_cb.event_cb =
@@ -12396,7 +12452,7 @@ TEST_F(RecorderGtest, SessionWithTwo1080pEncTracksStartStop) {
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
   // Create 1080p encode track.
@@ -12406,6 +12462,7 @@ TEST_F(RecorderGtest, SessionWithTwo1080pEncTracksStartStop) {
   if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
       format_type,
+      session_id,
       video_track_id1,
       width,
       height };
@@ -12417,7 +12474,7 @@ TEST_F(RecorderGtest, SessionWithTwo1080pEncTracksStartStop) {
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
   // Create another 1080p encode track.
@@ -12428,6 +12485,7 @@ TEST_F(RecorderGtest, SessionWithTwo1080pEncTracksStartStop) {
   if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
       format_type,
+      session_id,
       video_track_id2,
       width,
       height };
@@ -12638,6 +12696,7 @@ TEST_F(RecorderGtest, MultiSessionCameraParamTest) {
   if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
       format_type,
+      session_id1,
       video_track_id,
       width,
       height };
@@ -12649,7 +12708,7 @@ TEST_F(RecorderGtest, MultiSessionCameraParamTest) {
   video_track_cb.data_cb = [&, session_id1] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackOneEncDataCb(session_id1, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id1, track_id, buffers, meta_buffers);
       };
 
   video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
@@ -12893,6 +12952,7 @@ TEST_F(RecorderGtest, 4KEncCancelCaptureImage) {
   if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
       format_type,
+      session_id,
       video_track_id,
       width,
       height };
@@ -12904,7 +12964,7 @@ TEST_F(RecorderGtest, 4KEncCancelCaptureImage) {
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
   video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
@@ -13043,6 +13103,7 @@ TEST_F(RecorderGtest, 1080pEncCanceCaptureImage) {
   if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
       format_type,
+      session_id,
       video_track_id,
       width,
       height };
@@ -13054,7 +13115,7 @@ TEST_F(RecorderGtest, 1080pEncCanceCaptureImage) {
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
   video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
@@ -13199,7 +13260,7 @@ TEST_F(RecorderGtest, 4KVideo480pVideoAnd4KSnapshot) {
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
   std::vector<uint32_t> track_ids;
 
@@ -13211,6 +13272,7 @@ TEST_F(RecorderGtest, 4KVideo480pVideoAnd4KSnapshot) {
   if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
       format_type,
+      session_id,
       video_track_id1,
       video_track_param.width,
       video_track_param.height };
@@ -13228,7 +13290,7 @@ TEST_F(RecorderGtest, 4KVideo480pVideoAnd4KSnapshot) {
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
   // Create 480p encode track.
@@ -13239,6 +13301,7 @@ TEST_F(RecorderGtest, 4KVideo480pVideoAnd4KSnapshot) {
   if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
       format_type,
+      session_id,
       video_track_id2,
       video_track_param.width,
       video_track_param.height };
@@ -13387,6 +13450,7 @@ TEST_F(RecorderGtest, EncodingPreBuffer1080p) {
   video_track_param.codec_param.avc.insert_aud_delimiter = false;
   StreamDumpInfo dumpinfo = {
     format_type,
+    session_id,
     video_track_id,
     width,
     height };
@@ -13443,7 +13507,7 @@ TEST_F(RecorderGtest, EncodingPreBuffer1080p) {
   ret = recorder_.StopCamera(camera_id_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = DumpQueue(av_queue, dump_bitstream_.GetFileFd(1));
+  ret = DumpQueue(av_queue, dump_bitstream_.GetFileFd(1,1));
   ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
@@ -13586,7 +13650,7 @@ TEST_F(RecorderGtest, DynamicSessionAndTracksUpdateWithCamParams) {
   video_track1_cb.data_cb = [&, s1_id] (uint32_t track_id,
                                 std::vector<BufferDescriptor> buffers,
                                 std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(s1_id, track_id, buffers, meta_buffers); };
+      VideoTrackEncDataCb(s1_id, track_id, buffers, meta_buffers); };
 
   uint32_t video_track1_id = 1;
   ret = recorder_.CreateVideoTrack(s1_id, video_track1_id,
@@ -13677,7 +13741,7 @@ TEST_F(RecorderGtest, DynamicSessionAndTracksUpdateWithCamParams) {
     video_track2_cb.data_cb = [&, s2_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      VideoTrackTwoEncDataCb(s2_id, track_id, buffers, meta_buffers); };
+      VideoTrackEncDataCb(s2_id, track_id, buffers, meta_buffers); };
 
     ret = recorder_.CreateVideoTrack(s2_id, video_track2_id,
                                      video_track2, video_track2_cb);
@@ -13695,7 +13759,7 @@ TEST_F(RecorderGtest, DynamicSessionAndTracksUpdateWithCamParams) {
     video_track2_cb.data_cb = [&, s1_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-          VideoTrackTwoEncDataCb(s1_id, track_id, buffers, meta_buffers);
+          VideoTrackEncDataCb(s1_id, track_id, buffers, meta_buffers);
       };
 
     // Add T2 to the existing Session and restart Session
@@ -13849,6 +13913,7 @@ TEST_F(RecorderGtest, DynamicFloatingFrameRate) {
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = {
         format_type,
+        session_id,
         video_track_id,
         width,
         height };
@@ -13860,7 +13925,7 @@ TEST_F(RecorderGtest, DynamicFloatingFrameRate) {
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-          VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+          VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
         };
 
     video_track_cb.event_cb =
@@ -14095,6 +14160,7 @@ TEST_F(RecorderGtest, FrameRepeat) {
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = {
         format_type,
+        session_id,
         video_track_id,
         width,
         height };
@@ -14106,7 +14172,7 @@ TEST_F(RecorderGtest, FrameRepeat) {
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-          VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+          VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
         };
 
     video_track_cb.event_cb =
@@ -14218,22 +14284,6 @@ TEST_F(RecorderGtest, SessionWith4kEncCopy1080EncAndCopy720YUV) {
   uint32_t video_track_id_1080p_avc  = 2;
   uint32_t video_track_id_720p_yuv   = 3;
 
-  if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo1 = {
-      VideoFormat::kAVC,
-      video_track_id_4k_avc, 3840, 2160
-    };
-    ret = dump_bitstream_.SetUp(dumpinfo1);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    StreamDumpInfo dumpinfo2 = {
-      VideoFormat::kAVC,
-      video_track_id_1080p_avc, 1920, 1080
-    };
-    ret = dump_bitstream_.SetUp(dumpinfo2);
-    ASSERT_TRUE(ret == NO_ERROR);
-  }
-
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
@@ -14249,6 +14299,24 @@ TEST_F(RecorderGtest, SessionWith4kEncCopy1080EncAndCopy720YUV) {
     ASSERT_TRUE(session_id > 0);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo1 = {
+        VideoFormat::kAVC,
+        session_id,
+        video_track_id_4k_avc, 3840, 2160
+      };
+      ret = dump_bitstream_.SetUp(dumpinfo1);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      StreamDumpInfo dumpinfo2 = {
+        VideoFormat::kAVC,
+        session_id,
+        video_track_id_1080p_avc, 1920, 1080
+      };
+      ret = dump_bitstream_.SetUp(dumpinfo2);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
     VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC,
                                             3840,
                                             2160,
@@ -14257,7 +14325,7 @@ TEST_F(RecorderGtest, SessionWith4kEncCopy1080EncAndCopy720YUV) {
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-          VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+          VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
         };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
@@ -14282,7 +14350,7 @@ TEST_F(RecorderGtest, SessionWith4kEncCopy1080EncAndCopy720YUV) {
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-          VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+          VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
     };
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_1080p_avc,
@@ -14386,22 +14454,6 @@ TEST_F(RecorderGtest, SessionWith4kEncCopy1080EncAndLinked1080YUV) {
   uint32_t video_track_id_1080p_avc  = 2;
   uint32_t video_track_id_1080p_yuv  = 3;
 
-  if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo1 = {
-      VideoFormat::kAVC,
-      video_track_id_4k_avc, 3840, 2160
-    };
-    ret = dump_bitstream_.SetUp(dumpinfo1);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    StreamDumpInfo dumpinfo2 = {
-      VideoFormat::kAVC,
-      video_track_id_1080p_avc, 1920, 1080
-    };
-    ret = dump_bitstream_.SetUp(dumpinfo2);
-    ASSERT_TRUE(ret == NO_ERROR);
-  }
-
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
@@ -14417,6 +14469,24 @@ TEST_F(RecorderGtest, SessionWith4kEncCopy1080EncAndLinked1080YUV) {
     ASSERT_TRUE(session_id > 0);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo1 = {
+        VideoFormat::kAVC,
+        session_id,
+        video_track_id_4k_avc, 3840, 2160
+      };
+      ret = dump_bitstream_.SetUp(dumpinfo1);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      StreamDumpInfo dumpinfo2 = {
+        VideoFormat::kAVC,
+        session_id,
+        video_track_id_1080p_avc, 1920, 1080
+      };
+      ret = dump_bitstream_.SetUp(dumpinfo2);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
     VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC,
                                             3840,
                                             2160,
@@ -14425,7 +14495,7 @@ TEST_F(RecorderGtest, SessionWith4kEncCopy1080EncAndLinked1080YUV) {
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-          VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+          VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
         };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
@@ -14450,7 +14520,7 @@ TEST_F(RecorderGtest, SessionWith4kEncCopy1080EncAndLinked1080YUV) {
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-          VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+          VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
     };
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_1080p_avc,
@@ -14554,20 +14624,6 @@ TEST_F(RecorderGtest, SessionWith4kEnc960EncAndLinked960YUVTrack) {
   uint32_t video_track_id_960p_avc = 2;
   uint32_t video_track_id_960p_yuv_linked = 3;
 
-  if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo1 = {
-      VideoFormat::kAVC, video_track_id_4k_avc, 3840, 2160
-    };
-    ret = dump_bitstream_.SetUp(dumpinfo1);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    StreamDumpInfo dumpinfo2 = {
-      VideoFormat::kAVC, video_track_id_960p_avc, 1280, 960
-    };
-    ret = dump_bitstream_.SetUp(dumpinfo2);
-    ASSERT_TRUE(ret == NO_ERROR);
-  }
-
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
@@ -14582,6 +14638,21 @@ TEST_F(RecorderGtest, SessionWith4kEnc960EncAndLinked960YUVTrack) {
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
     ASSERT_TRUE(ret == NO_ERROR);
+
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo1 = {
+        VideoFormat::kAVC, session_id, video_track_id_4k_avc, 3840, 2160
+      };
+      ret = dump_bitstream_.SetUp(dumpinfo1);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      StreamDumpInfo dumpinfo2 = {
+        VideoFormat::kAVC, session_id, video_track_id_960p_avc, 1280, 960
+      };
+      ret = dump_bitstream_.SetUp(dumpinfo2);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
     // Track1: 4K @30 AVC
     VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC,
                                             3840,
@@ -14591,7 +14662,7 @@ TEST_F(RecorderGtest, SessionWith4kEnc960EncAndLinked960YUVTrack) {
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-          VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+          VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
         };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
@@ -14612,7 +14683,7 @@ TEST_F(RecorderGtest, SessionWith4kEnc960EncAndLinked960YUVTrack) {
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-          VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+          VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
     };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
@@ -14718,22 +14789,6 @@ TEST_F(RecorderGtest, SessionWith720EncAndLinked720Enc) {
   uint32_t video_track_id_720p_HFR_avc = 1;
   uint32_t video_track_id_720p_avc     = 2;
 
-  if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo1 = {
-      VideoFormat::kAVC,
-      video_track_id_720p_HFR_avc, 1280, 720
-    };
-    ret = dump_bitstream_.SetUp(dumpinfo1);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    StreamDumpInfo dumpinfo2 = {
-      VideoFormat::kAVC,
-      video_track_id_720p_avc, 1280, 720
-    };
-    ret = dump_bitstream_.SetUp(dumpinfo2);
-    ASSERT_TRUE(ret == NO_ERROR);
-  }
-
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
@@ -14749,6 +14804,24 @@ TEST_F(RecorderGtest, SessionWith720EncAndLinked720Enc) {
     ASSERT_TRUE(session_id > 0);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo1 = {
+        VideoFormat::kAVC,
+        session_id,
+        video_track_id_720p_HFR_avc, 1280, 720
+      };
+      ret = dump_bitstream_.SetUp(dumpinfo1);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      StreamDumpInfo dumpinfo2 = {
+        VideoFormat::kAVC,
+        session_id,
+        video_track_id_720p_avc, 1280, 720
+      };
+      ret = dump_bitstream_.SetUp(dumpinfo2);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
     VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC,
                                             1280,
                                             720,
@@ -14757,7 +14830,7 @@ TEST_F(RecorderGtest, SessionWith720EncAndLinked720Enc) {
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-          VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+          VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
         };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
@@ -14784,7 +14857,7 @@ TEST_F(RecorderGtest, SessionWith720EncAndLinked720Enc) {
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-            VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+            VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
     };
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_720p_avc,
@@ -14884,24 +14957,6 @@ TEST_F(RecorderGtest,
   uint32_t session1_trackid_yuv = 2;
   uint32_t session2_trackid_avc = 3;
 
-  if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo_track1 = {
-      VideoFormat::kAVC,
-      session1_trackid_avc,
-      width,
-      height };
-    ret = dump_bitstream_.SetUp(dumpinfo_track1);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    StreamDumpInfo dumpinfo_track2 = {
-      VideoFormat::kAVC,
-      session2_trackid_avc,
-      width,
-      height };
-    ret = dump_bitstream_.SetUp(dumpinfo_track2);
-    ASSERT_TRUE(ret == NO_ERROR);
-  }
-
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
@@ -14913,11 +14968,22 @@ TEST_F(RecorderGtest,
     ASSERT_TRUE(session_id1 > 0);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo_track1 = {
+        VideoFormat::kAVC,
+        session_id1,
+        session1_trackid_avc,
+        width,
+        height };
+      ret = dump_bitstream_.SetUp(dumpinfo_track1);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&] (uint32_t track_id,
                               std::vector<BufferDescriptor> buffers,
                               std::vector<MetaData> meta_buffers) {
-        VideoTrackOneEncDataCb(session_id1, track_id, buffers,
+        VideoTrackEncDataCb(session_id1, track_id, buffers,
                                meta_buffers);
      };
 
@@ -14973,6 +15039,17 @@ TEST_F(RecorderGtest,
     ASSERT_TRUE(session_id2 > 0);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo_track2 = {
+        VideoFormat::kAVC,
+        session_id2,
+        session2_trackid_avc,
+        width,
+        height };
+      ret = dump_bitstream_.SetUp(dumpinfo_track2);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
     video_track_param.camera_id     = camera_id_;
     video_track_param.width         = width;
     video_track_param.height        = height;
@@ -14982,7 +15059,7 @@ TEST_F(RecorderGtest,
     video_track_cb.data_cb = [&] (uint32_t track_id,
                               std::vector<BufferDescriptor> buffers,
                               std::vector<MetaData> meta_buffers) {
-        VideoTrackTwoEncDataCb(session_id2, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id2, track_id, buffers, meta_buffers);
     };
 
     ret = recorder_.CreateVideoTrack(session_id2, session2_trackid_avc,
@@ -15117,18 +15194,6 @@ TEST_F(RecorderGtest,
   uint32_t session1_trackid_yuv = 2;
   uint32_t session2_trackid_avc = 3;
 
-  if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo_track1 = {VideoFormat::kAVC, session1_trackid_avc,
-                                      width, height};
-    ret = dump_bitstream_.SetUp(dumpinfo_track1);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    StreamDumpInfo dumpinfo_track2 = {VideoFormat::kAVC, session2_trackid_avc,
-                                      width, height};
-    ret = dump_bitstream_.SetUp(dumpinfo_track2);
-    ASSERT_TRUE(ret == NO_ERROR);
-  }
-
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
 
@@ -15137,12 +15202,19 @@ TEST_F(RecorderGtest,
     ret = recorder_.CreateSession(session_status_cb, &session_id1);
     ASSERT_TRUE(session_id1 > 0);
     ASSERT_TRUE(ret == NO_ERROR);
+    
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo_track1 = {VideoFormat::kAVC, session_id1, session1_trackid_avc,
+                                        width, height};
+      ret = dump_bitstream_.SetUp(dumpinfo_track1);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
 
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&](uint32_t track_id,
                                  std::vector<BufferDescriptor> buffers,
                                  std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(session_id1, track_id, buffers, meta_buffers);
+      VideoTrackEncDataCb(session_id1, track_id, buffers, meta_buffers);
     };
 
     video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
@@ -15225,6 +15297,13 @@ TEST_F(RecorderGtest,
     ASSERT_TRUE(session_id2 > 0);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo_track2 = {VideoFormat::kAVC, session_id2, session2_trackid_avc,
+                                        width, height};
+      ret = dump_bitstream_.SetUp(dumpinfo_track2);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
     video_track_param.camera_id = camera_id_;
     video_track_param.width = width;
     video_track_param.height = height;
@@ -15234,7 +15313,7 @@ TEST_F(RecorderGtest,
     video_track_cb.data_cb = [&](uint32_t track_id,
                                  std::vector<BufferDescriptor> buffers,
                                  std::vector<MetaData> meta_buffers) {
-      VideoTrackTwoEncDataCb(session_id2, track_id, buffers, meta_buffers);
+      VideoTrackEncDataCb(session_id2, track_id, buffers, meta_buffers);
     };
 
     ret = recorder_.CreateVideoTrack(session_id2, session2_trackid_avc,
@@ -15368,24 +15447,6 @@ TEST_F(RecorderGtest, ThreeSessionsWith1440pEncAnd1440pYUVTrack) {
   uint32_t session2_track_id = 2;
   uint32_t session3_track_id = 3;
 
-  if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo_track1 = {
-      VideoFormat::kAVC,
-      session1_track_id,
-      width,
-      height };
-    ret = dump_bitstream_.SetUp(dumpinfo_track1);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    StreamDumpInfo dumpinfo_track2 = {
-      VideoFormat::kAVC,
-      session1_track_id,
-      width,
-      height };
-    ret = dump_bitstream_.SetUp(dumpinfo_track2);
-    ASSERT_TRUE(ret == NO_ERROR);
-  }
-
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
@@ -15397,11 +15458,31 @@ TEST_F(RecorderGtest, ThreeSessionsWith1440pEncAnd1440pYUVTrack) {
     ASSERT_TRUE(session_id1 > 0);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo_track1 = {
+        VideoFormat::kAVC,
+        session_id1,
+        session1_track_id,
+        width,
+        height };
+      ret = dump_bitstream_.SetUp(dumpinfo_track1);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+        StreamDumpInfo dumpinfo_track2 = {
+        VideoFormat::kAVC,
+        session_id1,
+        session1_track_id,
+        width,
+        height };
+      ret = dump_bitstream_.SetUp(dumpinfo_track2);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&] (uint32_t track_id,
                               std::vector<BufferDescriptor> buffers,
                               std::vector<MetaData> meta_buffers) {
-        VideoTrackOneEncDataCb(session_id1, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id1, track_id, buffers, meta_buffers);
     };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
@@ -15463,7 +15544,7 @@ TEST_F(RecorderGtest, ThreeSessionsWith1440pEncAnd1440pYUVTrack) {
     video_track_cb.data_cb = [&] (uint32_t track_id,
                               std::vector<BufferDescriptor> buffers,
                               std::vector<MetaData> meta_buffers) {
-        VideoTrackTwoEncDataCb(session_id3, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id3, track_id, buffers, meta_buffers);
     };
 
     video_track_param.camera_id     = camera_id_;
@@ -15589,22 +15670,6 @@ TEST_F(RecorderGtest, SessionWith1440EncAndLinked1440pEncAndLinked1440pYUVTrack)
   uint32_t video_track_id_1440p_avc2  = 2;
   uint32_t video_track_id_1440p_yuv   = 3;
 
-  if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo1 = {
-      VideoFormat::kAVC,
-      video_track_id_1440p_avc1, 1920, 1440
-    };
-    ret = dump_bitstream_.SetUp(dumpinfo1);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    StreamDumpInfo dumpinfo2 = {
-      VideoFormat::kAVC,
-      video_track_id_1440p_avc2, 1920, 1440
-    };
-    ret = dump_bitstream_.SetUp(dumpinfo2);
-    ASSERT_TRUE(ret == NO_ERROR);
-  }
-
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
@@ -15620,6 +15685,24 @@ TEST_F(RecorderGtest, SessionWith1440EncAndLinked1440pEncAndLinked1440pYUVTrack)
     ASSERT_TRUE(session_id > 0);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo1 = {
+        VideoFormat::kAVC,
+        session_id,
+        video_track_id_1440p_avc1, 1920, 1440
+      };
+      ret = dump_bitstream_.SetUp(dumpinfo1);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      StreamDumpInfo dumpinfo2 = {
+        VideoFormat::kAVC,
+        session_id,
+        video_track_id_1440p_avc2, 1920, 1440
+      };
+      ret = dump_bitstream_.SetUp(dumpinfo2);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
     VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC,
                                             1920,
                                             1440,
@@ -15629,7 +15712,7 @@ TEST_F(RecorderGtest, SessionWith1440EncAndLinked1440pEncAndLinked1440pYUVTrack)
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-          VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+          VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
         };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
@@ -15654,7 +15737,7 @@ TEST_F(RecorderGtest, SessionWith1440EncAndLinked1440pEncAndLinked1440pYUVTrack)
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-          VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+          VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
     };
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_1440p_avc2,
@@ -15771,7 +15854,7 @@ TEST_F(RecorderGtest, SessionWith1440EncWithEISAndLCACEnable) {
     uint32_t video_track_id = 1;
 
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = {format_type, video_track_id, width, height};
+      StreamDumpInfo dumpinfo = {format_type, session_id, video_track_id, width, height};
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -15780,7 +15863,7 @@ TEST_F(RecorderGtest, SessionWith1440EncWithEISAndLCACEnable) {
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
     };
 
     video_track_cb.event_cb = [this](uint32_t track_id, EventType event_type,
@@ -15903,7 +15986,7 @@ TEST_F(RecorderGtest, SessionWith1440EncWithEISAndLCACEnableAnd12MPSnapshot) {
     uint32_t video_track_id = 1;
 
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = {format_type, video_track_id, width, height};
+      StreamDumpInfo dumpinfo = {format_type, session_id, video_track_id, width, height};
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -15912,7 +15995,7 @@ TEST_F(RecorderGtest, SessionWith1440EncWithEISAndLCACEnableAnd12MPSnapshot) {
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
     };
 
     video_track_cb.event_cb = [this](uint32_t track_id, EventType event_type,
@@ -16063,6 +16146,7 @@ TEST_F(RecorderGtest, TimeLapse1080pEncTrack) {
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = {
         format_type,
+        session_id,
         video_track_id,
         width,
         height };
@@ -16074,7 +16158,7 @@ TEST_F(RecorderGtest, TimeLapse1080pEncTrack) {
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
@@ -16304,7 +16388,7 @@ TEST_F(RecorderGtest, 1080pVideo4KVideoTypeSnapshot) {
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
   std::vector<uint32_t> track_ids;
 
@@ -16316,6 +16400,7 @@ TEST_F(RecorderGtest, 1080pVideo4KVideoTypeSnapshot) {
   if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
       format_type,
+      session_id,
       video_track_id1,
       video_track_param.width,
       video_track_param.height };
@@ -16451,7 +16536,7 @@ TEST_F(RecorderGtest, LandscapeToPortraitRotation) {
   video_track_cb.data_cb = [&, session_id_1](
       uint32_t track_id, std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-    VideoTrackOneEncDataCb(session_id_1, track_id, buffers, meta_buffers);
+    VideoTrackEncDataCb(session_id_1, track_id, buffers, meta_buffers);
   };
 
   video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
@@ -16478,7 +16563,7 @@ TEST_F(RecorderGtest, LandscapeToPortraitRotation) {
   video_track_cb.data_cb = [&, session_id_2](
       uint32_t track_id, std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-    VideoTrackOneEncDataCb(session_id_2, track_id, buffers, meta_buffers);
+    VideoTrackEncDataCb(session_id_2, track_id, buffers, meta_buffers);
   };
 
   video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
@@ -16501,7 +16586,7 @@ TEST_F(RecorderGtest, LandscapeToPortraitRotation) {
               test_info_->name(), i);
 
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = {video_track_param.format_type,
+      StreamDumpInfo dumpinfo = {video_track_param.format_type, session_id_1,
                                  video_track_id_1, stream_width, stream_height};
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
@@ -16603,7 +16688,7 @@ TEST_F(RecorderGtest, SessionWith4kEncWithSliceModeAUDAndSPSPPSEnabled) {
 
     uint32_t video_track_id = 1;
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = {format_type, video_track_id, width, height};
+      StreamDumpInfo dumpinfo = {format_type, session_id, video_track_id, width, height};
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -16612,7 +16697,7 @@ TEST_F(RecorderGtest, SessionWith4kEncWithSliceModeAUDAndSPSPPSEnabled) {
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
     };
 
     video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
@@ -16710,6 +16795,7 @@ TEST_F(RecorderGtest, SmoothZoomWith1080pEncTrack) {
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = {
         format_type,
+        session_id,
         video_track_id,
         width,
         height };
@@ -16721,7 +16807,7 @@ TEST_F(RecorderGtest, SmoothZoomWith1080pEncTrack) {
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
@@ -16864,6 +16950,7 @@ TEST_F(RecorderGtest, SmoothZoomWith1080pEncTrack4KSnapshotFullFOV) {
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = {
         format_type,
+        session_id,
         video_track_id,
         width,
         height };
@@ -16875,7 +16962,7 @@ TEST_F(RecorderGtest, SmoothZoomWith1080pEncTrack4KSnapshotFullFOV) {
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
@@ -17047,6 +17134,7 @@ TEST_F(RecorderGtest, SmoothZoomWith1080pEncTrack4KSnapshot) {
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = {
         format_type,
+        session_id,
         video_track_id,
         width,
         height };
@@ -17058,7 +17146,7 @@ TEST_F(RecorderGtest, SmoothZoomWith1080pEncTrack4KSnapshot) {
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
@@ -17259,6 +17347,7 @@ TEST_F(RecorderGtest, SessionWith1440pEnc480pEnc480pDisplayTrack4FPSVideoTimeLap
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = {
         VideoFormat::kAVC,
+        session_id1,
         session1_video_trackid,
         width,
         height };
@@ -17269,7 +17358,7 @@ TEST_F(RecorderGtest, SessionWith1440pEnc480pEnc480pDisplayTrack4FPSVideoTimeLap
     video_track_cb.data_cb = [&, session_id1] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackOneEncDataCb(session_id1, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id1, track_id, buffers, meta_buffers);
       };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
@@ -17322,6 +17411,7 @@ TEST_F(RecorderGtest, SessionWith1440pEnc480pEnc480pDisplayTrack4FPSVideoTimeLap
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = {
         VideoFormat::kAVC,
+        session_id2,
         session2_video_trackid,
         width,
         height };
@@ -17332,7 +17422,7 @@ TEST_F(RecorderGtest, SessionWith1440pEnc480pEnc480pDisplayTrack4FPSVideoTimeLap
     video_track_cb.data_cb = [&, session_id2](uint32_t track_id,
                                  std::vector<BufferDescriptor> buffers,
                                  std::vector<MetaData> meta_buffers) {
-      VideoTrackTwoEncDataCb(session_id2, track_id, buffers, meta_buffers);
+      VideoTrackEncDataCb(session_id2, track_id, buffers, meta_buffers);
     };
 
     timelapse.time_interval = 33; //ms
@@ -17440,7 +17530,7 @@ TEST_F(RecorderGtest, SessionWith1440pEnc480pEnc480pDisplayTrack4FPSVideoTimeLap
     video_track_cb.data_cb = [&, session_id1] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackOneEncDataCb(session_id1, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id1, track_id, buffers, meta_buffers);
       };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
@@ -17497,7 +17587,7 @@ TEST_F(RecorderGtest, SessionWith1440pEnc480pEnc480pDisplayTrack4FPSVideoTimeLap
     video_track_cb.data_cb = [&, session_id2](uint32_t track_id,
                                  std::vector<BufferDescriptor> buffers,
                                  std::vector<MetaData> meta_buffers) {
-      VideoTrackTwoEncDataCb(session_id2, track_id, buffers, meta_buffers);
+      VideoTrackEncDataCb(session_id2, track_id, buffers, meta_buffers);
     };
 
     timelapse.time_interval = 33; //ms
@@ -17696,6 +17786,7 @@ TEST_F(RecorderGtest, SessionWith4kEnc480pEnc480pDisplayTrack4FPSVideoTimeLapse)
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = {
         VideoFormat::kAVC,
+        session_id1,
         session1_video_trackid,
         width,
         height };
@@ -17706,7 +17797,7 @@ TEST_F(RecorderGtest, SessionWith4kEnc480pEnc480pDisplayTrack4FPSVideoTimeLapse)
     video_track_cb.data_cb = [&, session_id1] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackOneEncDataCb(session_id1, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id1, track_id, buffers, meta_buffers);
       };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
@@ -17759,6 +17850,7 @@ TEST_F(RecorderGtest, SessionWith4kEnc480pEnc480pDisplayTrack4FPSVideoTimeLapse)
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = {
         VideoFormat::kAVC,
+        session_id2,
         session2_video_trackid,
         width,
         height };
@@ -17769,7 +17861,7 @@ TEST_F(RecorderGtest, SessionWith4kEnc480pEnc480pDisplayTrack4FPSVideoTimeLapse)
     video_track_cb.data_cb = [&, session_id2](uint32_t track_id,
                                  std::vector<BufferDescriptor> buffers,
                                  std::vector<MetaData> meta_buffers) {
-      VideoTrackTwoEncDataCb(session_id2, track_id, buffers, meta_buffers);
+      VideoTrackEncDataCb(session_id2, track_id, buffers, meta_buffers);
     };
 
     timelapse.time_interval = 33; //ms
@@ -17879,7 +17971,7 @@ TEST_F(RecorderGtest, SessionWith4kEnc480pEnc480pDisplayTrack4FPSVideoTimeLapse)
     video_track_cb.data_cb = [&, session_id1] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackOneEncDataCb(session_id1, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id1, track_id, buffers, meta_buffers);
       };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
@@ -17938,7 +18030,7 @@ TEST_F(RecorderGtest, SessionWith4kEnc480pEnc480pDisplayTrack4FPSVideoTimeLapse)
     video_track_cb.data_cb = [&, session_id2](uint32_t track_id,
                                  std::vector<BufferDescriptor> buffers,
                                  std::vector<MetaData> meta_buffers) {
-      VideoTrackTwoEncDataCb(session_id2, track_id, buffers, meta_buffers);
+      VideoTrackEncDataCb(session_id2, track_id, buffers, meta_buffers);
     };
 
     timelapse.time_interval = 33; //ms
@@ -18317,6 +18409,7 @@ TEST_F(RecorderGtest, SessionWith1080pEncTrackChangeFocalLength) {
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = {
         VideoFormat::kAVC,
+        session_id,
         video_track_id,
         1920,
         1080 };
@@ -18328,7 +18421,7 @@ TEST_F(RecorderGtest, SessionWith1080pEncTrackChangeFocalLength) {
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-          VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+          VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
         };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
@@ -18446,6 +18539,7 @@ TEST_F(RecorderGtest, SessionWith1080pEncTrackCaptureChangeFocalLength) {
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = {
         VideoFormat::kAVC,
+        session_id,
         video_track_id,
         1920,
         1080 };
@@ -18457,7 +18551,7 @@ TEST_F(RecorderGtest, SessionWith1080pEncTrackCaptureChangeFocalLength) {
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-          VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+          VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
         };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
@@ -18627,6 +18721,7 @@ TEST_F(RecorderGtest, SessionWith720pEnc1080EncTracksChangeFocalLength) {
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = {
         format_type,
+        session_id,
         video_track_id,
         width,
         height };
@@ -18638,7 +18733,7 @@ TEST_F(RecorderGtest, SessionWith720pEnc1080EncTracksChangeFocalLength) {
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
@@ -18678,6 +18773,7 @@ TEST_F(RecorderGtest, SessionWith720pEnc1080EncTracksChangeFocalLength) {
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = {
         format_type,
+        session_id2,
         video_track_id2,
         width,
         height };
@@ -18689,7 +18785,7 @@ TEST_F(RecorderGtest, SessionWith720pEnc1080EncTracksChangeFocalLength) {
     video_track_cb2.data_cb = [&, session_id2] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackTwoEncDataCb(session_id2, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id2, track_id, buffers, meta_buffers);
       };
 
     video_track_cb2.event_cb = [&] (uint32_t track_id, EventType event_type,
@@ -18892,18 +18988,6 @@ TEST_F(RecorderGtest,
   uint32_t width = 3840;
   uint32_t height = 2160;
 
-  if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo1 = {VideoFormat::kAVC, video_track_id_4kp_avc,
-                                width, height};
-    ret = dump_bitstream_.SetUp(dumpinfo1);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    StreamDumpInfo dumpinfo2 = {VideoFormat::kAVC, video_track_id_480p_avc, 848,
-                                480};
-    ret = dump_bitstream_.SetUp(dumpinfo2);
-    ASSERT_TRUE(ret == NO_ERROR);
-  }
-
   SessionCb session_status_cb;
   session_status_cb.event_cb = [this](EventType event_type, void *event_data,
                                       size_t event_data_size) -> void {
@@ -18914,6 +18998,18 @@ TEST_F(RecorderGtest,
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
   ASSERT_TRUE(ret == NO_ERROR);
+
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo1 = {VideoFormat::kAVC, session_id, video_track_id_4kp_avc,
+                                width, height};
+    ret = dump_bitstream_.SetUp(dumpinfo1);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    StreamDumpInfo dumpinfo2 = {VideoFormat::kAVC, session_id, video_track_id_480p_avc, 848,
+                                480};
+    ret = dump_bitstream_.SetUp(dumpinfo2);
+    ASSERT_TRUE(ret == NO_ERROR);
+  }
 
   VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC, width,
                                           height, 30};
@@ -18926,7 +19022,7 @@ TEST_F(RecorderGtest,
   video_track_cb.data_cb = [&, session_id](
       uint32_t track_id, std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-    VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+    VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
   };
 
   video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
@@ -18957,7 +19053,7 @@ TEST_F(RecorderGtest,
   video_track_cb.data_cb = [&, session_id](
       uint32_t track_id, std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-    VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+    VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
   };
 
   ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p_avc,
@@ -19085,18 +19181,6 @@ TEST_F(RecorderGtest,
   uint32_t width = 3840;
   uint32_t height = 2160;
 
-  if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo1 = {VideoFormat::kAVC, video_track_id_4kp_avc,
-                                width, height};
-    ret = dump_bitstream_.SetUp(dumpinfo1);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    StreamDumpInfo dumpinfo2 = {VideoFormat::kAVC, video_track_id_480p_avc, 848,
-                                480};
-    ret = dump_bitstream_.SetUp(dumpinfo2);
-    ASSERT_TRUE(ret == NO_ERROR);
-  }
-
   SessionCb session_status_cb;
   session_status_cb.event_cb = [this](EventType event_type, void *event_data,
                                       size_t event_data_size) -> void {
@@ -19107,6 +19191,18 @@ TEST_F(RecorderGtest,
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
   ASSERT_TRUE(ret == NO_ERROR);
+
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo1 = {VideoFormat::kAVC, session_id, video_track_id_4kp_avc,
+                                width, height};
+    ret = dump_bitstream_.SetUp(dumpinfo1);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    StreamDumpInfo dumpinfo2 = {VideoFormat::kAVC, session_id, video_track_id_480p_avc, 848,
+                                480};
+    ret = dump_bitstream_.SetUp(dumpinfo2);
+    ASSERT_TRUE(ret == NO_ERROR);
+  }
 
   VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC, width,
                                           height, 30};
@@ -19119,7 +19215,7 @@ TEST_F(RecorderGtest,
   video_track_cb.data_cb = [&, session_id](
       uint32_t track_id, std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-    VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+    VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
   };
 
   video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
@@ -19150,7 +19246,7 @@ TEST_F(RecorderGtest,
   video_track_cb.data_cb = [&, session_id](
       uint32_t track_id, std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-    VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+    VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
   };
 
   ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p_avc,
@@ -19291,18 +19387,6 @@ TEST_F(RecorderGtest,
   uint32_t width = 3840;
   uint32_t height = 2160;
 
-  if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo1 = {VideoFormat::kAVC, video_track_id_4kp_avc,
-                                width, height};
-    ret = dump_bitstream_.SetUp(dumpinfo1);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    StreamDumpInfo dumpinfo2 = {VideoFormat::kAVC, video_track_id_480p_avc, 848,
-                                480};
-    ret = dump_bitstream_.SetUp(dumpinfo2);
-    ASSERT_TRUE(ret == NO_ERROR);
-  }
-
   SessionCb session_status_cb;
   session_status_cb.event_cb = [this](EventType event_type, void *event_data,
                                       size_t event_data_size) -> void {
@@ -19313,6 +19397,18 @@ TEST_F(RecorderGtest,
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
   ASSERT_TRUE(ret == NO_ERROR);
+
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo1 = {VideoFormat::kAVC, session_id, video_track_id_4kp_avc,
+                                width, height};
+    ret = dump_bitstream_.SetUp(dumpinfo1);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    StreamDumpInfo dumpinfo2 = {VideoFormat::kAVC, session_id, video_track_id_480p_avc, 848,
+                                480};
+    ret = dump_bitstream_.SetUp(dumpinfo2);
+    ASSERT_TRUE(ret == NO_ERROR);
+  }
 
   VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC, width,
                                           height, 30};
@@ -19325,7 +19421,7 @@ TEST_F(RecorderGtest,
   video_track_cb.data_cb = [&, session_id](
       uint32_t track_id, std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-    VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+    VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
   };
 
   video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
@@ -19356,7 +19452,7 @@ TEST_F(RecorderGtest,
   video_track_cb.data_cb = [&, session_id](
       uint32_t track_id, std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-    VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+    VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
   };
 
   ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p_avc,
@@ -19492,18 +19588,6 @@ TEST_F(RecorderGtest,
   uint32_t width = 3840;
   uint32_t height = 2160;
 
-  if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo1 = {VideoFormat::kAVC, video_track_id_4kp_avc,
-                                width, height};
-    ret = dump_bitstream_.SetUp(dumpinfo1);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    StreamDumpInfo dumpinfo2 = {VideoFormat::kAVC, video_track_id_480p_avc, 848,
-                                480};
-    ret = dump_bitstream_.SetUp(dumpinfo2);
-    ASSERT_TRUE(ret == NO_ERROR);
-  }
-
   SessionCb session_status_cb;
   session_status_cb.event_cb = [this](EventType event_type, void *event_data,
                                       size_t event_data_size) -> void {
@@ -19515,13 +19599,25 @@ TEST_F(RecorderGtest,
   ASSERT_TRUE(session_id > 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo1 = {VideoFormat::kAVC, session_id, video_track_id_4kp_avc,
+                                width, height};
+    ret = dump_bitstream_.SetUp(dumpinfo1);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    StreamDumpInfo dumpinfo2 = {VideoFormat::kAVC, session_id, video_track_id_480p_avc, 848,
+                                480};
+    ret = dump_bitstream_.SetUp(dumpinfo2);
+    ASSERT_TRUE(ret == NO_ERROR);
+  }
+
   VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC, width,
                                           height, 30};
   TrackCb video_track_cb;
   video_track_cb.data_cb = [&, session_id](
       uint32_t track_id, std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-    VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+    VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
   };
 
   video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
@@ -19551,7 +19647,7 @@ TEST_F(RecorderGtest,
   video_track_cb.data_cb = [&, session_id](
       uint32_t track_id, std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-    VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+    VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
   };
 
   ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p_avc,
@@ -19682,18 +19778,6 @@ TEST_F(RecorderGtest,
     uint32_t width = 1920;
     uint32_t height = 1440;
 
-    if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo1 = {VideoFormat::kAVC, video_track_id_1440p_avc,
-                                  width, height};
-      ret = dump_bitstream_.SetUp(dumpinfo1);
-      ASSERT_TRUE(ret == NO_ERROR);
-
-      StreamDumpInfo dumpinfo2 = {VideoFormat::kAVC, video_track_id_480p_avc,
-                                  640, 480};
-      ret = dump_bitstream_.SetUp(dumpinfo2);
-      ASSERT_TRUE(ret == NO_ERROR);
-    }
-
     SessionCb session_status_cb;
     session_status_cb.event_cb = [this](EventType event_type, void *event_data,
                                         size_t event_data_size) -> void {
@@ -19704,6 +19788,18 @@ TEST_F(RecorderGtest,
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
     ASSERT_TRUE(ret == NO_ERROR);
+
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo1 = {VideoFormat::kAVC, session_id, video_track_id_1440p_avc,
+                                  width, height};
+      ret = dump_bitstream_.SetUp(dumpinfo1);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      StreamDumpInfo dumpinfo2 = {VideoFormat::kAVC, session_id, video_track_id_480p_avc,
+                                  640, 480};
+      ret = dump_bitstream_.SetUp(dumpinfo2);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
 
     VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC,
                                             width, height, 60};
@@ -19716,7 +19812,7 @@ TEST_F(RecorderGtest,
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
     };
 
     video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
@@ -19746,7 +19842,7 @@ TEST_F(RecorderGtest,
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
     };
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p_avc,
@@ -19895,18 +19991,6 @@ TEST_F(RecorderGtest,
     uint32_t width = 1920;
     uint32_t height = 1440;
 
-    if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo1 = {VideoFormat::kAVC, video_track_id_1440p_avc,
-                                  width, height};
-      ret = dump_bitstream_.SetUp(dumpinfo1);
-      ASSERT_TRUE(ret == NO_ERROR);
-
-      StreamDumpInfo dumpinfo2 = {VideoFormat::kAVC, video_track_id_480p_avc,
-                                  640, 480};
-      ret = dump_bitstream_.SetUp(dumpinfo2);
-      ASSERT_TRUE(ret == NO_ERROR);
-    }
-
     SessionCb session_status_cb;
     session_status_cb.event_cb = [this](EventType event_type, void *event_data,
                                         size_t event_data_size) -> void {
@@ -19917,6 +20001,18 @@ TEST_F(RecorderGtest,
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
     ASSERT_TRUE(ret == NO_ERROR);
+
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo1 = {VideoFormat::kAVC, session_id, video_track_id_1440p_avc,
+                                  width, height};
+      ret = dump_bitstream_.SetUp(dumpinfo1);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      StreamDumpInfo dumpinfo2 = {VideoFormat::kAVC, session_id, video_track_id_480p_avc,
+                                  640, 480};
+      ret = dump_bitstream_.SetUp(dumpinfo2);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
 
     VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC,
                                             width, height, 60};
@@ -19929,7 +20025,7 @@ TEST_F(RecorderGtest,
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
     };
 
     video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
@@ -19959,7 +20055,7 @@ TEST_F(RecorderGtest,
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
     };
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p_avc,
@@ -20103,18 +20199,6 @@ TEST_F(RecorderGtest,
     uint32_t width = 1920;
     uint32_t height = 1440;
 
-    if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo1 = {VideoFormat::kAVC, video_track_id_1440p_avc,
-                                  width, height};
-      ret = dump_bitstream_.SetUp(dumpinfo1);
-      ASSERT_TRUE(ret == NO_ERROR);
-
-      StreamDumpInfo dumpinfo2 = {VideoFormat::kAVC, video_track_id_480p_avc,
-                                  640, 480};
-      ret = dump_bitstream_.SetUp(dumpinfo2);
-      ASSERT_TRUE(ret == NO_ERROR);
-    }
-
     SessionCb session_status_cb;
     session_status_cb.event_cb = [this](EventType event_type, void *event_data,
                                         size_t event_data_size) -> void {
@@ -20125,6 +20209,18 @@ TEST_F(RecorderGtest,
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
     ASSERT_TRUE(ret == NO_ERROR);
+
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo1 = {VideoFormat::kAVC, session_id, video_track_id_1440p_avc,
+                                  width, height};
+      ret = dump_bitstream_.SetUp(dumpinfo1);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      StreamDumpInfo dumpinfo2 = {VideoFormat::kAVC, session_id, video_track_id_480p_avc,
+                                  640, 480};
+      ret = dump_bitstream_.SetUp(dumpinfo2);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
 
     VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC,
                                             width, height, 60};
@@ -20137,7 +20233,7 @@ TEST_F(RecorderGtest,
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
     };
 
     video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
@@ -20167,7 +20263,7 @@ TEST_F(RecorderGtest,
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
     };
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p_avc,
@@ -20305,18 +20401,6 @@ TEST_F(RecorderGtest,
     uint32_t width = 1920;
     uint32_t height = 1440;
 
-    if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo1 = {VideoFormat::kAVC, video_track_id_1440p_avc,
-                                  width, height};
-      ret = dump_bitstream_.SetUp(dumpinfo1);
-      ASSERT_TRUE(ret == NO_ERROR);
-
-      StreamDumpInfo dumpinfo2 = {VideoFormat::kAVC, video_track_id_480p_avc,
-                                  640, 480};
-      ret = dump_bitstream_.SetUp(dumpinfo2);
-      ASSERT_TRUE(ret == NO_ERROR);
-    }
-
     SessionCb session_status_cb;
     session_status_cb.event_cb = [this](EventType event_type, void *event_data,
                                         size_t event_data_size) -> void {
@@ -20327,6 +20411,18 @@ TEST_F(RecorderGtest,
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
     ASSERT_TRUE(ret == NO_ERROR);
+
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo1 = {VideoFormat::kAVC, session_id, video_track_id_1440p_avc,
+                                  width, height};
+      ret = dump_bitstream_.SetUp(dumpinfo1);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      StreamDumpInfo dumpinfo2 = {VideoFormat::kAVC, session_id, video_track_id_480p_avc,
+                                  640, 480};
+      ret = dump_bitstream_.SetUp(dumpinfo2);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
 
     VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC,
                                             width, height, 60};
@@ -20339,7 +20435,7 @@ TEST_F(RecorderGtest,
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
     };
 
     video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
@@ -20369,7 +20465,7 @@ TEST_F(RecorderGtest,
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
     };
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p_avc,
@@ -20481,13 +20577,6 @@ TEST_F(RecorderGtest, SessionWith1440p60FPSEncEIS) {
     uint32_t width = 1920;
     uint32_t height = 1440;
 
-    if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo1 = {VideoFormat::kAVC, video_track_id_1440p_avc,
-                                  width, height};
-      ret = dump_bitstream_.SetUp(dumpinfo1);
-      ASSERT_TRUE(ret == NO_ERROR);
-    }
-
     SessionCb session_status_cb;
     session_status_cb.event_cb = [this](EventType event_type, void *event_data,
                                         size_t event_data_size) -> void {
@@ -20499,13 +20588,20 @@ TEST_F(RecorderGtest, SessionWith1440p60FPSEncEIS) {
     ASSERT_TRUE(session_id > 0);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo1 = {VideoFormat::kAVC, session_id, video_track_id_1440p_avc,
+                                  width, height};
+      ret = dump_bitstream_.SetUp(dumpinfo1);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
     VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC,
                                             width, height, 60};
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
     };
 
     video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
@@ -20612,13 +20708,6 @@ TEST_F(RecorderGtest, SessionWith1440p60FPSEncEISLCAC) {
     uint32_t width = 1920;
     uint32_t height = 1440;
 
-    if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo1 = {VideoFormat::kAVC, video_track_id_1440p_avc,
-                                  width, height};
-      ret = dump_bitstream_.SetUp(dumpinfo1);
-      ASSERT_TRUE(ret == NO_ERROR);
-    }
-
     SessionCb session_status_cb;
     session_status_cb.event_cb = [this](EventType event_type, void *event_data,
                                         size_t event_data_size) -> void {
@@ -20630,13 +20719,20 @@ TEST_F(RecorderGtest, SessionWith1440p60FPSEncEISLCAC) {
     ASSERT_TRUE(session_id > 0);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo1 = {VideoFormat::kAVC, session_id, video_track_id_1440p_avc,
+                                  width, height};
+      ret = dump_bitstream_.SetUp(dumpinfo1);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+    
     VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC,
                                             width, height, 60};
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
     };
 
     video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
@@ -20748,13 +20844,6 @@ TEST_F(RecorderGtest, SessionWith1440p60FPSEncEISLCACTNR) {
     uint32_t width = 1920;
     uint32_t height = 1440;
 
-    if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo1 = {VideoFormat::kAVC, video_track_id_1440p_avc,
-                                  width, height};
-      ret = dump_bitstream_.SetUp(dumpinfo1);
-      ASSERT_TRUE(ret == NO_ERROR);
-    }
-
     SessionCb session_status_cb;
     session_status_cb.event_cb = [this](EventType event_type, void *event_data,
                                         size_t event_data_size) -> void {
@@ -20766,13 +20855,20 @@ TEST_F(RecorderGtest, SessionWith1440p60FPSEncEISLCACTNR) {
     ASSERT_TRUE(session_id > 0);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo1 = {VideoFormat::kAVC, session_id, video_track_id_1440p_avc,
+                                  width, height};
+      ret = dump_bitstream_.SetUp(dumpinfo1);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
     VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC,
                                             width, height, 60};
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
     };
 
     video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
@@ -20885,13 +20981,6 @@ TEST_F(RecorderGtest, SessionWith1440p60FPSSmoothZoom) {
     uint32_t track_width = 1920;
     uint32_t track_height = 1440;
 
-    if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo1 = {VideoFormat::kAVC, video_track_id_1440p_avc,
-                                  track_width, track_height};
-      ret = dump_bitstream_.SetUp(dumpinfo1);
-      ASSERT_TRUE(ret == NO_ERROR);
-    }
-
     SessionCb session_status_cb;
     session_status_cb.event_cb = [this](EventType event_type, void *event_data,
                                         size_t event_data_size) -> void {
@@ -20903,13 +20992,20 @@ TEST_F(RecorderGtest, SessionWith1440p60FPSSmoothZoom) {
     ASSERT_TRUE(session_id > 0);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo1 = {VideoFormat::kAVC, session_id, video_track_id_1440p_avc,
+                                  track_width, track_height};
+      ret = dump_bitstream_.SetUp(dumpinfo1);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
     VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC,
                                             track_width, track_height, 60};
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
     };
 
     video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
@@ -21059,18 +21155,6 @@ TEST_F(RecorderGtest,
     uint32_t width = 1920;
     uint32_t height = 1440;
 
-    if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo1 = {VideoFormat::kAVC, video_track_id_1440p_avc,
-                                  width, height};
-      ret = dump_bitstream_.SetUp(dumpinfo1);
-      ASSERT_TRUE(ret == NO_ERROR);
-
-      StreamDumpInfo dumpinfo2 = {VideoFormat::kAVC, video_track_id_480p_avc,
-                                  640, 480};
-      ret = dump_bitstream_.SetUp(dumpinfo2);
-      ASSERT_TRUE(ret == NO_ERROR);
-    }
-
     SessionCb session_status_cb;
     session_status_cb.event_cb = [this](EventType event_type, void *event_data,
                                         size_t event_data_size) -> void {
@@ -21082,13 +21166,25 @@ TEST_F(RecorderGtest,
     ASSERT_TRUE(session_id > 0);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo1 = {VideoFormat::kAVC, session_id, video_track_id_1440p_avc,
+                                  width, height};
+      ret = dump_bitstream_.SetUp(dumpinfo1);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      StreamDumpInfo dumpinfo2 = {VideoFormat::kAVC, session_id, video_track_id_480p_avc,
+                                  640, 480};
+      ret = dump_bitstream_.SetUp(dumpinfo2);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
     VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC,
                                             width, height, 60};
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
     };
 
     video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
@@ -21117,7 +21213,7 @@ TEST_F(RecorderGtest,
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
     };
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p_avc,
@@ -21280,18 +21376,6 @@ TEST_F(RecorderGtest,
     uint32_t width = 1280;
     uint32_t height = 960;
 
-    if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo1 = {VideoFormat::kAVC, video_track_id_960p_avc,
-                                  width, height};
-      ret = dump_bitstream_.SetUp(dumpinfo1);
-      ASSERT_TRUE(ret == NO_ERROR);
-
-      StreamDumpInfo dumpinfo2 = {VideoFormat::kAVC, video_track_id_480p_avc,
-                                  640, 480};
-      ret = dump_bitstream_.SetUp(dumpinfo2);
-      ASSERT_TRUE(ret == NO_ERROR);
-    }
-
     SessionCb session_status_cb;
     session_status_cb.event_cb = [this](EventType event_type, void *event_data,
                                         size_t event_data_size) -> void {
@@ -21302,6 +21386,18 @@ TEST_F(RecorderGtest,
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
     ASSERT_TRUE(ret == NO_ERROR);
+
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo1 = {VideoFormat::kAVC, session_id, video_track_id_960p_avc,
+                                  width, height};
+      ret = dump_bitstream_.SetUp(dumpinfo1);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      StreamDumpInfo dumpinfo2 = {VideoFormat::kAVC, session_id, video_track_id_480p_avc,
+                                  640, 480};
+      ret = dump_bitstream_.SetUp(dumpinfo2);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
 
     VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC,
                                             width, height, 90};
@@ -21314,7 +21410,7 @@ TEST_F(RecorderGtest,
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
     };
 
     video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
@@ -21344,7 +21440,7 @@ TEST_F(RecorderGtest,
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
     };
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p_avc,
@@ -21500,18 +21596,6 @@ TEST_F(RecorderGtest,
   uint32_t width = 3840;
   uint32_t height = 2160;
 
-  if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo1 = {VideoFormat::kAVC, video_track_id_4kp_avc,
-                                width, height};
-    ret = dump_bitstream_.SetUp(dumpinfo1);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    StreamDumpInfo dumpinfo2 = {VideoFormat::kAVC, video_track_id_480p_avc, 848,
-                                480};
-    ret = dump_bitstream_.SetUp(dumpinfo2);
-    ASSERT_TRUE(ret == NO_ERROR);
-  }
-
   SessionCb session_status_cb;
   session_status_cb.event_cb = [this](EventType event_type, void *event_data,
                                       size_t event_data_size) -> void {
@@ -21523,13 +21607,25 @@ TEST_F(RecorderGtest,
   ASSERT_TRUE(session_id > 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo1 = {VideoFormat::kAVC, session_id, video_track_id_4kp_avc,
+                                width, height};
+    ret = dump_bitstream_.SetUp(dumpinfo1);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    StreamDumpInfo dumpinfo2 = {VideoFormat::kAVC, session_id, video_track_id_480p_avc, 848,
+                                480};
+    ret = dump_bitstream_.SetUp(dumpinfo2);
+    ASSERT_TRUE(ret == NO_ERROR);
+  }
+
   VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC, width,
                                           height, 30};
   TrackCb video_track_cb;
   video_track_cb.data_cb = [&, session_id](
       uint32_t track_id, std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-    VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+    VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
   };
 
   video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
@@ -21559,7 +21655,7 @@ TEST_F(RecorderGtest,
   video_track_cb.data_cb = [&, session_id](
       uint32_t track_id, std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-    VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+    VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
   };
 
   ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p_avc,
@@ -21720,18 +21816,6 @@ TEST_F(RecorderGtest,
     uint32_t width = 1920;
     uint32_t height = 1440;
 
-    if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo1 = {VideoFormat::kAVC, video_track_id_1440p_avc,
-                                  width, height};
-      ret = dump_bitstream_.SetUp(dumpinfo1);
-      ASSERT_TRUE(ret == NO_ERROR);
-
-      StreamDumpInfo dumpinfo2 = {VideoFormat::kAVC, video_track_id_480p_avc,
-                                  640, 480};
-      ret = dump_bitstream_.SetUp(dumpinfo2);
-      ASSERT_TRUE(ret == NO_ERROR);
-    }
-
     SessionCb session_status_cb;
     session_status_cb.event_cb = [this](EventType event_type, void *event_data,
                                         size_t event_data_size) -> void {
@@ -21742,6 +21826,18 @@ TEST_F(RecorderGtest,
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
     ASSERT_TRUE(ret == NO_ERROR);
+
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo1 = {VideoFormat::kAVC, session_id, video_track_id_1440p_avc,
+                                  width, height};
+      ret = dump_bitstream_.SetUp(dumpinfo1);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      StreamDumpInfo dumpinfo2 = {VideoFormat::kAVC, session_id, video_track_id_480p_avc,
+                                  640, 480};
+      ret = dump_bitstream_.SetUp(dumpinfo2);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
 
     VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC,
                                             width, height, 30};
@@ -21754,7 +21850,7 @@ TEST_F(RecorderGtest,
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
     };
 
     video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
@@ -21784,7 +21880,7 @@ TEST_F(RecorderGtest,
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
     };
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p_avc,
@@ -21947,18 +22043,6 @@ TEST_F(RecorderGtest,
     uint32_t width = 1920;
     uint32_t height = 1440;
 
-    if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo1 = {VideoFormat::kAVC, video_track_id_1440p_avc,
-                                  width, height};
-      ret = dump_bitstream_.SetUp(dumpinfo1);
-      ASSERT_TRUE(ret == NO_ERROR);
-
-      StreamDumpInfo dumpinfo2 = {VideoFormat::kAVC, video_track_id_480p_avc,
-                                  640, 480};
-      ret = dump_bitstream_.SetUp(dumpinfo2);
-      ASSERT_TRUE(ret == NO_ERROR);
-    }
-
     SessionCb session_status_cb;
     session_status_cb.event_cb = [this](EventType event_type, void *event_data,
                                         size_t event_data_size) -> void {
@@ -21969,6 +22053,18 @@ TEST_F(RecorderGtest,
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
     ASSERT_TRUE(ret == NO_ERROR);
+
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo1 = {VideoFormat::kAVC, session_id, video_track_id_1440p_avc,
+                                  width, height};
+      ret = dump_bitstream_.SetUp(dumpinfo1);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      StreamDumpInfo dumpinfo2 = {VideoFormat::kAVC, session_id, video_track_id_480p_avc,
+                                  640, 480};
+      ret = dump_bitstream_.SetUp(dumpinfo2);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
 
     VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC,
                                             width, height, 30};
@@ -21981,7 +22077,7 @@ TEST_F(RecorderGtest,
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
     };
 
     video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
@@ -22011,7 +22107,7 @@ TEST_F(RecorderGtest,
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
     };
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p_avc,
@@ -22159,18 +22255,6 @@ TEST_F(RecorderGtest, SessionWith4kEncCopy480pEncAndLinked480pYUVTrack) {
   uint32_t width = 3840;
   uint32_t height = 2160;
 
-  if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo1 = {VideoFormat::kAVC, video_track_id_4kp_avc,
-                                width, height};
-    ret = dump_bitstream_.SetUp(dumpinfo1);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    StreamDumpInfo dumpinfo2 = {VideoFormat::kAVC, video_track_id_480p_avc, 848,
-                                480};
-    ret = dump_bitstream_.SetUp(dumpinfo2);
-    ASSERT_TRUE(ret == NO_ERROR);
-  }
-
   SessionCb session_status_cb;
   session_status_cb.event_cb = [this](EventType event_type, void *event_data,
                                       size_t event_data_size) -> void {
@@ -22181,6 +22265,18 @@ TEST_F(RecorderGtest, SessionWith4kEncCopy480pEncAndLinked480pYUVTrack) {
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
   ASSERT_TRUE(ret == NO_ERROR);
+
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo1 = {VideoFormat::kAVC, session_id, video_track_id_4kp_avc,
+                                width, height};
+    ret = dump_bitstream_.SetUp(dumpinfo1);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    StreamDumpInfo dumpinfo2 = {VideoFormat::kAVC, session_id, video_track_id_480p_avc, 848,
+                                480};
+    ret = dump_bitstream_.SetUp(dumpinfo2);
+    ASSERT_TRUE(ret == NO_ERROR);
+  }
 
   VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC, width,
                                           height, 30};
@@ -22193,7 +22289,7 @@ TEST_F(RecorderGtest, SessionWith4kEncCopy480pEncAndLinked480pYUVTrack) {
   video_track_cb.data_cb = [&, session_id](
       uint32_t track_id, std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-    VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+    VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
   };
 
   video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
@@ -22224,7 +22320,7 @@ TEST_F(RecorderGtest, SessionWith4kEncCopy480pEncAndLinked480pYUVTrack) {
   video_track_cb.data_cb = [&, session_id](
       uint32_t track_id, std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-    VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+    VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
   };
 
   ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p_avc,
@@ -22346,18 +22442,6 @@ TEST_F(RecorderGtest,
     uint32_t width = 1920;
     uint32_t height = 1440;
 
-    if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo1 = {VideoFormat::kAVC, video_track_id_1440p_avc,
-                                  width, height};
-      ret = dump_bitstream_.SetUp(dumpinfo1);
-      ASSERT_TRUE(ret == NO_ERROR);
-
-      StreamDumpInfo dumpinfo2 = {VideoFormat::kAVC, video_track_id_480p_avc,
-                                  640, 480};
-      ret = dump_bitstream_.SetUp(dumpinfo2);
-      ASSERT_TRUE(ret == NO_ERROR);
-    }
-
     SessionCb session_status_cb;
     session_status_cb.event_cb = [this](EventType event_type, void *event_data,
                                         size_t event_data_size) -> void {
@@ -22368,6 +22452,18 @@ TEST_F(RecorderGtest,
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
     ASSERT_TRUE(ret == NO_ERROR);
+
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo1 = {VideoFormat::kAVC, session_id, video_track_id_1440p_avc,
+                                  width, height};
+      ret = dump_bitstream_.SetUp(dumpinfo1);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      StreamDumpInfo dumpinfo2 = {VideoFormat::kAVC, session_id, video_track_id_480p_avc,
+                                  640, 480};
+      ret = dump_bitstream_.SetUp(dumpinfo2);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
 
     VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC,
                                             width, height, 30};
@@ -22380,7 +22476,7 @@ TEST_F(RecorderGtest,
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
     };
 
     video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
@@ -22410,7 +22506,7 @@ TEST_F(RecorderGtest,
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
     };
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p_avc,
@@ -22529,18 +22625,6 @@ TEST_F(RecorderGtest,
     uint32_t width = 1920;
     uint32_t height = 1440;
 
-    if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo1 = {VideoFormat::kAVC, video_track_id_1440p_avc,
-                                  width, height};
-      ret = dump_bitstream_.SetUp(dumpinfo1);
-      ASSERT_TRUE(ret == NO_ERROR);
-
-      StreamDumpInfo dumpinfo2 = {VideoFormat::kAVC, video_track_id_480p_avc,
-                                  640, 480};
-      ret = dump_bitstream_.SetUp(dumpinfo2);
-      ASSERT_TRUE(ret == NO_ERROR);
-    }
-
     SessionCb session_status_cb;
     session_status_cb.event_cb = [this](EventType event_type, void *event_data,
                                         size_t event_data_size) -> void {
@@ -22551,6 +22635,18 @@ TEST_F(RecorderGtest,
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
     ASSERT_TRUE(ret == NO_ERROR);
+
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo1 = {VideoFormat::kAVC, session_id, video_track_id_1440p_avc,
+                                  width, height};
+      ret = dump_bitstream_.SetUp(dumpinfo1);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      StreamDumpInfo dumpinfo2 = {VideoFormat::kAVC, session_id, video_track_id_480p_avc,
+                                  640, 480};
+      ret = dump_bitstream_.SetUp(dumpinfo2);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
 
     VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC,
                                             width, height, 30};
@@ -22563,7 +22659,7 @@ TEST_F(RecorderGtest,
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
     };
 
     video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
@@ -22593,7 +22689,7 @@ TEST_F(RecorderGtest,
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
     };
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p_avc,
@@ -22719,18 +22815,6 @@ TEST_F(RecorderGtest, SessionWith960p90FPSEncCopy480pEncAndLinked480pYUVTrack) {
     uint32_t width = 1280;
     uint32_t height = 960;
 
-    if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo1 = {VideoFormat::kAVC, video_track_id_960p_avc,
-                                  width, height};
-      ret = dump_bitstream_.SetUp(dumpinfo1);
-      ASSERT_TRUE(ret == NO_ERROR);
-
-      StreamDumpInfo dumpinfo2 = {VideoFormat::kAVC, video_track_id_480p_avc,
-                                  640, 480};
-      ret = dump_bitstream_.SetUp(dumpinfo2);
-      ASSERT_TRUE(ret == NO_ERROR);
-    }
-
     SessionCb session_status_cb;
     session_status_cb.event_cb = [this](EventType event_type, void *event_data,
                                         size_t event_data_size) -> void {
@@ -22741,6 +22825,18 @@ TEST_F(RecorderGtest, SessionWith960p90FPSEncCopy480pEncAndLinked480pYUVTrack) {
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
     ASSERT_TRUE(ret == NO_ERROR);
+
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo1 = {VideoFormat::kAVC, session_id, video_track_id_960p_avc,
+                                  width, height};
+      ret = dump_bitstream_.SetUp(dumpinfo1);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      StreamDumpInfo dumpinfo2 = {VideoFormat::kAVC, session_id, video_track_id_480p_avc,
+                                  640, 480};
+      ret = dump_bitstream_.SetUp(dumpinfo2);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
 
     VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC,
                                             width, height, 90};
@@ -22753,7 +22849,7 @@ TEST_F(RecorderGtest, SessionWith960p90FPSEncCopy480pEncAndLinked480pYUVTrack) {
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
     };
 
     video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
@@ -22783,7 +22879,7 @@ TEST_F(RecorderGtest, SessionWith960p90FPSEncCopy480pEncAndLinked480pYUVTrack) {
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
     };
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p_avc,
@@ -22902,18 +22998,6 @@ TEST_F(RecorderGtest,
     uint32_t width = 1280;
     uint32_t height = 960;
 
-    if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo1 = {VideoFormat::kAVC, video_track_id_960p_avc,
-                                  width, height};
-      ret = dump_bitstream_.SetUp(dumpinfo1);
-      ASSERT_TRUE(ret == NO_ERROR);
-
-      StreamDumpInfo dumpinfo2 = {VideoFormat::kAVC, video_track_id_480p_avc,
-                                  640, 480};
-      ret = dump_bitstream_.SetUp(dumpinfo2);
-      ASSERT_TRUE(ret == NO_ERROR);
-    }
-
     SessionCb session_status_cb;
     session_status_cb.event_cb = [this](EventType event_type, void *event_data,
                                         size_t event_data_size) -> void {
@@ -22924,6 +23008,18 @@ TEST_F(RecorderGtest,
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
     ASSERT_TRUE(ret == NO_ERROR);
+
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo1 = {VideoFormat::kAVC, session_id, video_track_id_960p_avc,
+                                  width, height};
+      ret = dump_bitstream_.SetUp(dumpinfo1);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      StreamDumpInfo dumpinfo2 = {VideoFormat::kAVC, session_id, video_track_id_480p_avc,
+                                  640, 480};
+      ret = dump_bitstream_.SetUp(dumpinfo2);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
 
     VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC,
                                             width, height, 90};
@@ -22936,7 +23032,7 @@ TEST_F(RecorderGtest,
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
     };
 
     video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
@@ -22966,7 +23062,7 @@ TEST_F(RecorderGtest,
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
     };
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p_avc,
@@ -23096,18 +23192,6 @@ TEST_F(RecorderGtest,
     uint32_t width = 1280;
     uint32_t height = 960;
 
-    if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo1 = {VideoFormat::kAVC, video_track_id_960p_avc,
-                                  width, height};
-      ret = dump_bitstream_.SetUp(dumpinfo1);
-      ASSERT_TRUE(ret == NO_ERROR);
-
-      StreamDumpInfo dumpinfo2 = {VideoFormat::kAVC, video_track_id_480p_avc,
-                                  640, 480};
-      ret = dump_bitstream_.SetUp(dumpinfo2);
-      ASSERT_TRUE(ret == NO_ERROR);
-    }
-
     SessionCb session_status_cb;
     session_status_cb.event_cb = [this](EventType event_type, void *event_data,
                                         size_t event_data_size) -> void {
@@ -23118,6 +23202,18 @@ TEST_F(RecorderGtest,
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
     ASSERT_TRUE(ret == NO_ERROR);
+
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo1 = {VideoFormat::kAVC, session_id, video_track_id_960p_avc,
+                                  width, height};
+      ret = dump_bitstream_.SetUp(dumpinfo1);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      StreamDumpInfo dumpinfo2 = {VideoFormat::kAVC, session_id, video_track_id_480p_avc,
+                                  640, 480};
+      ret = dump_bitstream_.SetUp(dumpinfo2);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
 
     VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC,
                                             width, height, 90};
@@ -23130,7 +23226,7 @@ TEST_F(RecorderGtest,
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
     };
 
     video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
@@ -23160,7 +23256,7 @@ TEST_F(RecorderGtest,
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
     };
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p_avc,
@@ -23305,6 +23401,7 @@ TEST_F(RecorderGtest, SessionWith4kPrivacyMaskEncTrack) {
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = {
         format_type,
+        session_id,
         video_track_id,
         width,
         height };
@@ -23316,7 +23413,7 @@ TEST_F(RecorderGtest, SessionWith4kPrivacyMaskEncTrack) {
     video_track_cb.data_cb =
       [&, session_id] (uint32_t track_id, std::vector<BufferDescriptor> buffers,
                        std::vector<MetaData> meta_buffers) {
-          VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+          VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
@@ -23470,15 +23567,15 @@ TEST_F(RecorderGtest, SessionWith4k_VHDR_PM_TNR_1080pLinked720p) {
   video_track.low_power_mode = false;
 
   if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo = { VideoFormat::kAVC, video_track1_id, w1, h1 };
+    StreamDumpInfo dumpinfo = { VideoFormat::kAVC, s1_id, video_track1_id, w1, h1 };
     ret = dump_bitstream_.SetUp(dumpinfo);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    StreamDumpInfo dumpinfo2 = { VideoFormat::kAVC, video_track2_id, w2, h2 };
+    StreamDumpInfo dumpinfo2 = { VideoFormat::kAVC, s1_id, video_track2_id, w2, h2 };
     ret = dump_bitstream_.SetUp(dumpinfo2);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    StreamDumpInfo dumpinfo3 = { VideoFormat::kAVC, video_track3_id, w3, h3 };
+    StreamDumpInfo dumpinfo3 = { VideoFormat::kAVC, s1_id, video_track3_id, w3, h3 };
     ret = dump_bitstream_.SetUp(dumpinfo3);
     ASSERT_TRUE(ret == NO_ERROR);
   }
@@ -23492,7 +23589,7 @@ TEST_F(RecorderGtest, SessionWith4k_VHDR_PM_TNR_1080pLinked720p) {
    video_track1_cb.data_cb = [&, s1_id] (uint32_t track_id,
                                          std::vector<BufferDescriptor> buffers,
                                          std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(s1_id, track_id, buffers, meta_buffers);
+      VideoTrackEncDataCb(s1_id, track_id, buffers, meta_buffers);
    };
 
     VideoExtraParam extra_param;
@@ -23553,7 +23650,7 @@ TEST_F(RecorderGtest, SessionWith4k_VHDR_PM_TNR_1080pLinked720p) {
   video_track_cb.data_cb = [&, s1_id] (uint32_t track_id,
                                        std::vector<BufferDescriptor> buffers,
                                        std::vector<MetaData> meta_buffers) {
-        VideoTrackTwoEncDataCb(s1_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(s1_id, track_id, buffers, meta_buffers);
   };
 
   video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
@@ -23581,7 +23678,7 @@ TEST_F(RecorderGtest, SessionWith4k_VHDR_PM_TNR_1080pLinked720p) {
   video_track_cb3.data_cb = [&, s1_id] (uint32_t track_id,
                                         std::vector<BufferDescriptor> buffers,
                                         std::vector<MetaData> meta_buffers) {
-        VideoTrackThreeEncDataCb(s1_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(s1_id, track_id, buffers, meta_buffers);
   };
 
   video_track_cb3.event_cb = [&] (uint32_t track_id, EventType event_type,
@@ -23697,11 +23794,9 @@ TEST_F(RecorderGtest,
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t video_track_id_480p_avc = 1;
-  uint32_t video_track_id_480p_yuv = 2;
 
   uint32_t width = 640;
   uint32_t height = 480;
-  float frame_rate = 30;
 
   CameraMetadata meta;
 
@@ -23709,13 +23804,6 @@ TEST_F(RecorderGtest,
     fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
               test_info_->name(), i);
-
-    if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = {VideoFormat::kAVC, video_track_id_480p_avc,
-                                 width, height};
-      ret = dump_bitstream_.SetUp(dumpinfo);
-      ASSERT_TRUE(ret == NO_ERROR);
-    }
 
     SessionCb session_status_cb;
     session_status_cb.event_cb = [this](EventType event_type, void *event_data,
@@ -23728,49 +23816,91 @@ TEST_F(RecorderGtest,
     ASSERT_TRUE(session_id > 0);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo = {VideoFormat::kAVC, session_id, video_track_id_480p_avc,
+                                 width, height};
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
     VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC,
-                                            width, height, frame_rate};
+                                            width,
+                                            height,
+                                            30};
+    uint32_t video_track_id = 1;
+
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo = {
+        VideoFormat::kAVC,
+        session_id,
+        video_track_id,
+        width,
+        height };
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
     TrackCb video_track_cb;
-    video_track_cb.data_cb = [&, session_id](
-        uint32_t track_id, std::vector<BufferDescriptor> buffers,
-        std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+    video_track_cb.data_cb =
+      [&, session_id] (uint32_t track_id, std::vector<BufferDescriptor> buffers,
+                       std::vector<MetaData> meta_buffers) {
+          VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
+      };
+
+    video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
+                                   void *event_data, size_t event_data_size) {
+        VideoTrackEventCb(track_id, event_type, event_data, event_data_size);
     };
-
-    video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
-                                  void *event_data, size_t event_data_size) {
-      VideoTrackEventCb(track_id, event_type, event_data, event_data_size);
-    };
-
-    ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p_avc,
-                                     video_track_param, video_track_cb);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    std::vector<uint32_t> track_ids;
-    track_ids.push_back(video_track_id_480p_avc);
 
     VideoExtraParam extra_param;
-    SourceVideoTrack surface_video_linked;
-    surface_video_linked.source_track_id = video_track_id_480p_avc;
-    extra_param.Update(QMMF_SOURCE_VIDEO_TRACK_ID, surface_video_linked);
+    PostprocPlugin pmr_plugin;
 
-    video_track_param.width = width;
-    video_track_param.height = height;
-    video_track_param.format_type = VideoFormat::kYUV;
-    video_track_param.frame_rate = frame_rate;
+    SupportedPlugins supported_plugins;
+    ret = recorder_.GetSupportedPlugins(&supported_plugins);
+    ASSERT_TRUE(ret == NO_ERROR);
 
-    video_track_cb.data_cb = [&, session_id](
-        uint32_t track_id, std::vector<BufferDescriptor> buffers,
-        std::vector<MetaData> meta_buffers) {
-      VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers
-        ); };
+    bool found = false;
+    for (auto const& plugin_info : supported_plugins) {
+      if (plugin_info.name == "PrivacyMask") {
+        ret = recorder_.CreatePlugin(&pmr_plugin.uid, plugin_info);
+        ASSERT_TRUE(ret == NO_ERROR);
 
-    ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p_yuv,
+        std::string config =
+        "{\"circles\": [         \
+          {                      \
+            \"radius\": 1320,    \
+              \"centre\": {      \
+                \"x\": 1344,     \
+                \"y\": 760       \
+              },                 \
+            \"color\": {         \
+              \"y\": 0,          \
+              \"u\": 128,        \
+              \"v\": 128         \
+            }                    \
+          }                      \
+        ]                        \
+        }";
+
+       fprintf(stderr,"---------- Test ConfigPlugin %s----------\n",
+           config.c_str());
+
+       ret = recorder_.ConfigPlugin(pmr_plugin.uid, config);
+       ASSERT_TRUE(ret == NO_ERROR);
+
+        extra_param.Update(QMMF_POSTPROCESS_PLUGIN, pmr_plugin);
+        found = true;
+      }
+    }
+    ASSERT_TRUE(found == true);
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                      video_track_param, extra_param,
                                      video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    track_ids.push_back(video_track_id_480p_yuv);
+    std::vector<uint32_t> track_ids;
+    track_ids.push_back(video_track_id);
     sessions_.insert(std::make_pair(session_id, track_ids));
 
     ret = SetCameraFocalLength(7.0);
@@ -23784,8 +23914,8 @@ TEST_F(RecorderGtest,
     ret = recorder_.StartSession(session_id);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    // Let session run for time record_duration_, during this time buffer with
-    // valid data would be received in track callback (VideoTrackYUVDataCb).
+    // Let session run for record_duration_, during this time buffer with valid
+    // data would be received in track callback (VideoTrackDataCb).
     sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
@@ -23796,16 +23926,15 @@ TEST_F(RecorderGtest,
       ASSERT_TRUE(ret == NO_ERROR);
     }
 
-    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_480p_yuv);
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_480p_avc);
+    ret = recorder_.DeletePlugin(pmr_plugin.uid);
     ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteSession(session_id);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    ClearSessions();
     dump_bitstream_.CloseAll();
   }
 
@@ -23815,8 +23944,9 @@ TEST_F(RecorderGtest,
   ret = DeInit();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
-          test_info_->test_case_name(), test_info_->name());
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+
 }
 
 /*
@@ -23865,13 +23995,6 @@ TEST_F(RecorderGtest,
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
               test_info_->name(), i);
 
-    if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = {VideoFormat::kAVC, video_track_id_480p_avc,
-                                 width, height};
-      ret = dump_bitstream_.SetUp(dumpinfo);
-      ASSERT_TRUE(ret == NO_ERROR);
-    }
-
     SessionCb session_status_cb;
     session_status_cb.event_cb = [this](EventType event_type, void *event_data,
                                         size_t event_data_size) -> void {
@@ -23883,13 +24006,20 @@ TEST_F(RecorderGtest,
     ASSERT_TRUE(session_id > 0);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo = {VideoFormat::kAVC, session_id, video_track_id_480p_avc,
+                                 width, height};
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
     VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC,
                                             width, height, frame_rate};
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
     };
 
     video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
@@ -24022,13 +24152,6 @@ TEST_F(RecorderGtest,
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
               test_info_->name(), i);
 
-    if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = {VideoFormat::kAVC, video_track_id_480p_avc,
-                                 width, height};
-      ret = dump_bitstream_.SetUp(dumpinfo);
-      ASSERT_TRUE(ret == NO_ERROR);
-    }
-
     SessionCb session_status_cb;
     session_status_cb.event_cb = [this](EventType event_type, void *event_data,
                                         size_t event_data_size) -> void {
@@ -24040,13 +24163,20 @@ TEST_F(RecorderGtest,
     ASSERT_TRUE(session_id > 0);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo = {VideoFormat::kAVC, session_id, video_track_id_480p_avc,
+                                 width, height};
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
     VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC,
                                             width, height, frame_rate};
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
     };
 
     video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
@@ -24204,13 +24334,6 @@ TEST_F(RecorderGtest,
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
               test_info_->name(), i);
 
-    if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = {VideoFormat::kAVC, video_track_id_480p_avc,
-                                 width, height};
-      ret = dump_bitstream_.SetUp(dumpinfo);
-      ASSERT_TRUE(ret == NO_ERROR);
-    }
-
     SessionCb session_status_cb;
     session_status_cb.event_cb = [this](EventType event_type, void *event_data,
                                         size_t event_data_size) -> void {
@@ -24222,13 +24345,20 @@ TEST_F(RecorderGtest,
     ASSERT_TRUE(session_id > 0);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo = {VideoFormat::kAVC, session_id, video_track_id_480p_avc,
+                                 width, height};
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
     VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC,
                                             width, height, frame_rate};
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
     };
 
     video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
@@ -24461,6 +24591,7 @@ TEST_F(RecorderGtest,
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = {
         VideoFormat::kAVC,
+        session_id,
         track_1440p_id,
         1920,
         1440 };
@@ -24471,7 +24602,7 @@ TEST_F(RecorderGtest,
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-          VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+          VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
         };
 
     video_track_cb.event_cb =
@@ -24647,15 +24778,6 @@ TEST_F(RecorderGtest,
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo = {
-      VideoFormat::kAVC,
-      1, 640, 480
-    };
-    ret = dump_bitstream_.SetUp(dumpinfo);
-    ASSERT_TRUE(ret == NO_ERROR);
-  }
-
   SessionCb session_status_cb;
   session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
                                        size_t event_data_size) -> void {
@@ -24665,6 +24787,16 @@ TEST_F(RecorderGtest,
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
   ASSERT_TRUE(ret == NO_ERROR);
+
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = {
+      VideoFormat::kAVC,
+      session_id,
+      1, 640, 480
+    };
+    ret = dump_bitstream_.SetUp(dumpinfo);
+    ASSERT_TRUE(ret == NO_ERROR);
+  }
 
   TrackCb video_track_cb;
   video_track_cb.event_cb =
@@ -24681,7 +24813,7 @@ TEST_F(RecorderGtest,
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
   ret = recorder_.CreateVideoTrack(session_id, video_track_id,
@@ -24937,7 +25069,7 @@ TEST_F(RecorderGtest, Jpeg422BurstSnapshotWithBayerLCAC15fps) {
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
   ret = recorder_.CreateVideoTrack(session_id, video_track_id,
@@ -25225,7 +25357,7 @@ TEST_F(RecorderGtest, SessionWithSingleCam4KEncAllISOModes) {
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
                               std::vector<BufferDescriptor> buffers,
                               std::vector<MetaData> meta_buffers) {
-    VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers); };
+    VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers); };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
         void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
@@ -25393,6 +25525,7 @@ TEST_F(RecorderGtest, SessionWithDualCam4KEncAllISOModes) {
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = {
         video_track_param.format_type,
+        session_id,
         video_track_id,
         stream_width,
         stream_height };
@@ -25404,7 +25537,7 @@ TEST_F(RecorderGtest, SessionWithDualCam4KEncAllISOModes) {
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
                               std::vector<BufferDescriptor> buffers,
                               std::vector<MetaData> meta_buffers) {
-    VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers); };
+    VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers); };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
         void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
@@ -25551,6 +25684,7 @@ TEST_F(RecorderGtest, SessionWithSingleCam4KEncAllExposureValues) {
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = {
         video_track_param.format_type,
+        session_id,
         video_track_id,
         stream_width,
         stream_height };
@@ -25562,7 +25696,7 @@ TEST_F(RecorderGtest, SessionWithSingleCam4KEncAllExposureValues) {
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
                               std::vector<BufferDescriptor> buffers,
                               std::vector<MetaData> meta_buffers) {
-    VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers); };
+    VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers); };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
         void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
@@ -25726,6 +25860,7 @@ TEST_F(RecorderGtest, SessionWithDualCam4KEncAllExposureValues) {
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = {
         video_track_param.format_type,
+        session_id,
         video_track_id,
         stream_width,
         stream_height };
@@ -25737,7 +25872,7 @@ TEST_F(RecorderGtest, SessionWithDualCam4KEncAllExposureValues) {
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
                               std::vector<BufferDescriptor> buffers,
                               std::vector<MetaData> meta_buffers) {
-    VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers); };
+    VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers); };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
         void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
@@ -25941,7 +26076,7 @@ TEST_F(RecorderGtest, SessionWithSingleCam4KEncExposureTime) {
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
                               std::vector<BufferDescriptor> buffers,
                               std::vector<MetaData> meta_buffers) {
-    VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers); };
+    VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers); };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
         void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
@@ -26152,7 +26287,7 @@ TEST_F(RecorderGtest, SessionWithDualCam4KEncExposureTime) {
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
                               std::vector<BufferDescriptor> buffers,
                               std::vector<MetaData> meta_buffers) {
-    VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers); };
+    VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers); };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
         void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
@@ -26356,7 +26491,7 @@ TEST_F(RecorderGtest, SessionWithSingleCam4KEncAllAWBModes) {
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
                               std::vector<BufferDescriptor> buffers,
                               std::vector<MetaData> meta_buffers) {
-    VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers); };
+    VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers); };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
         void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
@@ -26479,6 +26614,7 @@ TEST_F(RecorderGtest, SessionWithDualCam4KEncAllAWBModes) {
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = {
         video_track_param.format_type,
+        session_id,
         video_track_id,
         stream_width,
         stream_height };
@@ -26512,7 +26648,7 @@ TEST_F(RecorderGtest, SessionWithDualCam4KEncAllAWBModes) {
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
                               std::vector<BufferDescriptor> buffers,
                               std::vector<MetaData> meta_buffers) {
-    VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers); };
+    VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers); };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
         void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
@@ -26642,7 +26778,7 @@ TEST_F(RecorderGtest, SessionWithSingleCam4KEncAllExposureMeteringModes) {
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
                               std::vector<BufferDescriptor> buffers,
                               std::vector<MetaData> meta_buffers) {
-    VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers); };
+    VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers); };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
         void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
@@ -26811,6 +26947,7 @@ TEST_F(RecorderGtest, SessionWithDualCam4KEncAllExposureMeteringModes) {
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = {
         video_track_param.format_type,
+        session_id,
         video_track_id,
         stream_width,
         stream_height };
@@ -26822,7 +26959,7 @@ TEST_F(RecorderGtest, SessionWithDualCam4KEncAllExposureMeteringModes) {
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
                               std::vector<BufferDescriptor> buffers,
                               std::vector<MetaData> meta_buffers) {
-    VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers); };
+    VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers); };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
         void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
@@ -26968,22 +27105,6 @@ TEST_F(RecorderGtest, SessionWithDualCam4kEncCopy1080EncAndLinked1080YUV) {
   uint32_t video_track_id_1080p_avc  = 2;
   uint32_t video_track_id_1080p_yuv  = 3;
 
-  if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo1 = {
-      VideoFormat::kAVC,
-      video_track_id_4k_avc, 4096, 2048
-    };
-    ret = dump_bitstream_.SetUp(dumpinfo1);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    StreamDumpInfo dumpinfo2 = {
-      VideoFormat::kAVC,
-      video_track_id_1080p_avc, 2160, 1080
-    };
-    ret = dump_bitstream_.SetUp(dumpinfo2);
-    ASSERT_TRUE(ret == NO_ERROR);
-  }
-
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
@@ -26999,6 +27120,24 @@ TEST_F(RecorderGtest, SessionWithDualCam4kEncCopy1080EncAndLinked1080YUV) {
     ASSERT_TRUE(session_id > 0);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo1 = {
+        VideoFormat::kAVC,
+        session_id,
+        video_track_id_4k_avc, 4096, 2048
+      };
+      ret = dump_bitstream_.SetUp(dumpinfo1);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      StreamDumpInfo dumpinfo2 = {
+        VideoFormat::kAVC,
+        session_id,
+        video_track_id_1080p_avc, 2160, 1080
+      };
+      ret = dump_bitstream_.SetUp(dumpinfo2);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
     VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC,
                                             4096,
                                             2048,
@@ -27007,7 +27146,7 @@ TEST_F(RecorderGtest, SessionWithDualCam4kEncCopy1080EncAndLinked1080YUV) {
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-          VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+          VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
         };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
@@ -27032,7 +27171,7 @@ TEST_F(RecorderGtest, SessionWithDualCam4kEncCopy1080EncAndLinked1080YUV) {
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-          VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+          VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
     };
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_1080p_avc,
@@ -27141,22 +27280,6 @@ TEST_F(RecorderGtest, SessionWithDualCam4kEncCopy1080EncAndLinked1080YUVWithTNR)
   uint32_t video_track_id_1080p_avc  = 2;
   uint32_t video_track_id_1080p_yuv  = 3;
 
-  if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo1 = {
-      VideoFormat::kAVC,
-      video_track_id_4k_avc, 4096, 2048
-    };
-    ret = dump_bitstream_.SetUp(dumpinfo1);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    StreamDumpInfo dumpinfo2 = {
-      VideoFormat::kAVC,
-      video_track_id_1080p_avc, 2160, 1080
-    };
-    ret = dump_bitstream_.SetUp(dumpinfo2);
-    ASSERT_TRUE(ret == NO_ERROR);
-  }
-
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
@@ -27172,6 +27295,24 @@ TEST_F(RecorderGtest, SessionWithDualCam4kEncCopy1080EncAndLinked1080YUVWithTNR)
     ASSERT_TRUE(session_id > 0);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo1 = {
+        VideoFormat::kAVC,
+        session_id,
+        video_track_id_4k_avc, 4096, 2048
+      };
+      ret = dump_bitstream_.SetUp(dumpinfo1);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      StreamDumpInfo dumpinfo2 = {
+        VideoFormat::kAVC,
+        session_id,
+        video_track_id_1080p_avc, 2160, 1080
+      };
+      ret = dump_bitstream_.SetUp(dumpinfo2);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
     VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC,
                                             4096,
                                             2048,
@@ -27180,7 +27321,7 @@ TEST_F(RecorderGtest, SessionWithDualCam4kEncCopy1080EncAndLinked1080YUVWithTNR)
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-          VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+          VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
         };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
@@ -27205,7 +27346,7 @@ TEST_F(RecorderGtest, SessionWithDualCam4kEncCopy1080EncAndLinked1080YUVWithTNR)
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-          VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+          VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
     };
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_1080p_avc,
@@ -27343,18 +27484,6 @@ TEST_F(RecorderGtest, SessionWithSingleCam4kEncCopy1080EncAndCopy720YUV) {
   uint32_t video_track_id_1080p_avc = 2;
   uint32_t video_track_id_720p_yuv = 3;
 
-  if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo1 = {VideoFormat::kAVC, video_track_id_4k_avc,
-                                track1_width, track1_height};
-    ret = dump_bitstream_.SetUp(dumpinfo1);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    StreamDumpInfo dumpinfo2 = {VideoFormat::kAVC, video_track_id_1080p_avc,
-                                track2_width, track2_height};
-    ret = dump_bitstream_.SetUp(dumpinfo2);
-    ASSERT_TRUE(ret == NO_ERROR);
-  }
-
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
@@ -27371,13 +27500,25 @@ TEST_F(RecorderGtest, SessionWithSingleCam4kEncCopy1080EncAndCopy720YUV) {
     ASSERT_TRUE(session_id > 0);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo1 = {VideoFormat::kAVC, session_id, video_track_id_4k_avc,
+                                  track1_width, track1_height};
+      ret = dump_bitstream_.SetUp(dumpinfo1);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      StreamDumpInfo dumpinfo2 = {VideoFormat::kAVC, session_id, video_track_id_1080p_avc,
+                                  track2_width, track2_height};
+      ret = dump_bitstream_.SetUp(dumpinfo2);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
     VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC,
                                             track1_width, track1_height, 30};
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
     };
 
     video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
@@ -27403,7 +27544,7 @@ TEST_F(RecorderGtest, SessionWithSingleCam4kEncCopy1080EncAndCopy720YUV) {
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
     };
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_1080p_avc,
@@ -27514,18 +27655,6 @@ TEST_F(RecorderGtest, SessionWithDualCam4kEncCopy1080EncAndCopy720YUV) {
   uint32_t video_track_id_1080p_avc = 2;
   uint32_t video_track_id_720p_yuv = 3;
 
-  if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo1 = {VideoFormat::kAVC, video_track_id_4k_avc,
-                                track1_width, track1_height};
-    ret = dump_bitstream_.SetUp(dumpinfo1);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    StreamDumpInfo dumpinfo2 = {VideoFormat::kAVC, video_track_id_1080p_avc,
-                                track2_width, track2_height};
-    ret = dump_bitstream_.SetUp(dumpinfo2);
-    ASSERT_TRUE(ret == NO_ERROR);
-  }
-
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
@@ -27542,13 +27671,25 @@ TEST_F(RecorderGtest, SessionWithDualCam4kEncCopy1080EncAndCopy720YUV) {
     ASSERT_TRUE(session_id > 0);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo1 = {VideoFormat::kAVC, session_id, video_track_id_4k_avc,
+                                  track1_width, track1_height};
+      ret = dump_bitstream_.SetUp(dumpinfo1);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      StreamDumpInfo dumpinfo2 = {VideoFormat::kAVC, session_id, video_track_id_1080p_avc,
+                                  track2_width, track2_height};
+      ret = dump_bitstream_.SetUp(dumpinfo2);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
     VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC,
                                             track1_width, track1_height, 30};
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
     };
 
     video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
@@ -27574,7 +27715,7 @@ TEST_F(RecorderGtest, SessionWithDualCam4kEncCopy1080EncAndCopy720YUV) {
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
     };
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_1080p_avc,
@@ -27687,18 +27828,6 @@ TEST_F(RecorderGtest, SessionWithDualCam4kEncCopy1080EncAndCopy720YUVWithTNR) {
   uint32_t video_track_id_1080p_avc = 2;
   uint32_t video_track_id_720p_yuv = 3;
 
-  if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo1 = {VideoFormat::kAVC, video_track_id_4k_avc,
-                                track1_width, track1_height};
-    ret = dump_bitstream_.SetUp(dumpinfo1);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    StreamDumpInfo dumpinfo2 = {VideoFormat::kAVC, video_track_id_1080p_avc,
-                                track2_width, track2_height};
-    ret = dump_bitstream_.SetUp(dumpinfo2);
-    ASSERT_TRUE(ret == NO_ERROR);
-  }
-
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
@@ -27715,13 +27844,25 @@ TEST_F(RecorderGtest, SessionWithDualCam4kEncCopy1080EncAndCopy720YUVWithTNR) {
     ASSERT_TRUE(session_id > 0);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo1 = {VideoFormat::kAVC, session_id, video_track_id_4k_avc,
+                                  track1_width, track1_height};
+      ret = dump_bitstream_.SetUp(dumpinfo1);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      StreamDumpInfo dumpinfo2 = {VideoFormat::kAVC, session_id, video_track_id_1080p_avc,
+                                  track2_width, track2_height};
+      ret = dump_bitstream_.SetUp(dumpinfo2);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
     VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC,
                                             track1_width, track1_height, 30};
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
     };
 
     video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
@@ -27747,7 +27888,7 @@ TEST_F(RecorderGtest, SessionWithDualCam4kEncCopy1080EncAndCopy720YUVWithTNR) {
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
     };
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_1080p_avc,
@@ -27891,6 +28032,7 @@ TEST_F(RecorderGtest, SessionsWith4KEncTrackZZHDR) {
   if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = {
       format_type,
+      session_id,
       video_track_id,
       width,
       height };
@@ -27902,7 +28044,7 @@ TEST_F(RecorderGtest, SessionsWith4KEncTrackZZHDR) {
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
   video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
@@ -27988,21 +28130,6 @@ TEST_F(RecorderGtest, SessionWithDualCam4k30Enc1080p30EncAndLinked1080p30YUVWith
   uint32_t video_track_id_1080p_avc  = 2;
   uint32_t video_track_id_1080p_yuv  = 3;
 
-  if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo1 = {
-      VideoFormat::kAVC,
-      video_track_id_4k_avc, 4096, 2048
-    };
-    ret = dump_bitstream_.SetUp(dumpinfo1);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    StreamDumpInfo dumpinfo2 = {
-      VideoFormat::kAVC,
-      video_track_id_1080p_avc, 2160, 1080
-    };
-    ret = dump_bitstream_.SetUp(dumpinfo2);
-    ASSERT_TRUE(ret == NO_ERROR);
-  }
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
@@ -28019,6 +28146,24 @@ TEST_F(RecorderGtest, SessionWithDualCam4k30Enc1080p30EncAndLinked1080p30YUVWith
     ASSERT_TRUE(session_id > 0);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo1 = {
+        VideoFormat::kAVC,
+        session_id,
+        video_track_id_4k_avc, 4096, 2048
+      };
+      ret = dump_bitstream_.SetUp(dumpinfo1);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      StreamDumpInfo dumpinfo2 = {
+        VideoFormat::kAVC,
+        session_id,
+        video_track_id_1080p_avc, 2160, 1080
+      };
+      ret = dump_bitstream_.SetUp(dumpinfo2);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
     VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC,
                                             4096,
                                             2048,
@@ -28029,7 +28174,7 @@ TEST_F(RecorderGtest, SessionWithDualCam4k30Enc1080p30EncAndLinked1080p30YUVWith
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-          VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+          VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
         };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
@@ -28061,7 +28206,7 @@ TEST_F(RecorderGtest, SessionWithDualCam4k30Enc1080p30EncAndLinked1080p30YUVWith
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-          VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+          VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
     };
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_1080p_avc,
@@ -28190,22 +28335,6 @@ TEST_F(RecorderGtest, SessionWithDualCam4k60Enc1080p30EncAndLinked1080p30YUVWith
   uint32_t video_track_id_1080p_avc  = 2;
   uint32_t video_track_id_1080p_yuv  = 3;
 
-  if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo1 = {
-      VideoFormat::kAVC,
-      video_track_id_4k_avc, 4096, 2048
-    };
-    ret = dump_bitstream_.SetUp(dumpinfo1);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    StreamDumpInfo dumpinfo2 = {
-      VideoFormat::kAVC,
-      video_track_id_1080p_avc, 2160, 1080
-    };
-    ret = dump_bitstream_.SetUp(dumpinfo2);
-    ASSERT_TRUE(ret == NO_ERROR);
-  }
-
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
@@ -28221,6 +28350,24 @@ TEST_F(RecorderGtest, SessionWithDualCam4k60Enc1080p30EncAndLinked1080p30YUVWith
     ASSERT_TRUE(session_id > 0);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo1 = {
+        VideoFormat::kAVC,
+        session_id,
+        video_track_id_4k_avc, 4096, 2048
+      };
+      ret = dump_bitstream_.SetUp(dumpinfo1);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      StreamDumpInfo dumpinfo2 = {
+        VideoFormat::kAVC,
+        session_id,
+        video_track_id_1080p_avc, 2160, 1080
+      };
+      ret = dump_bitstream_.SetUp(dumpinfo2);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
     VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC,
                                             4096,
                                             2048,
@@ -28233,7 +28380,7 @@ TEST_F(RecorderGtest, SessionWithDualCam4k60Enc1080p30EncAndLinked1080p30YUVWith
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-          VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+          VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
         };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
@@ -28266,7 +28413,7 @@ TEST_F(RecorderGtest, SessionWithDualCam4k60Enc1080p30EncAndLinked1080p30YUVWith
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-          VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+          VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
     };
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_1080p_avc,
@@ -28395,22 +28542,6 @@ TEST_F(RecorderGtest, SessionWithDualCam5_7k30Enc1080p30EncAndLinked1080p30YUVWi
   uint32_t video_track_id_1080p_avc  = 2;
   uint32_t video_track_id_1080p_yuv  = 3;
 
-  if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo1 = {
-      VideoFormat::kAVC,
-      video_track_id_5_7k_avc, 5760, 2880
-    };
-    ret = dump_bitstream_.SetUp(dumpinfo1);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    StreamDumpInfo dumpinfo2 = {
-      VideoFormat::kAVC,
-      video_track_id_1080p_avc, 2160, 1080
-    };
-    ret = dump_bitstream_.SetUp(dumpinfo2);
-    ASSERT_TRUE(ret == NO_ERROR);
-  }
-
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
@@ -28426,6 +28557,24 @@ TEST_F(RecorderGtest, SessionWithDualCam5_7k30Enc1080p30EncAndLinked1080p30YUVWi
     ASSERT_TRUE(session_id > 0);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo1 = {
+        VideoFormat::kAVC,
+        session_id,
+        video_track_id_5_7k_avc, 5760, 2880
+      };
+      ret = dump_bitstream_.SetUp(dumpinfo1);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      StreamDumpInfo dumpinfo2 = {
+        VideoFormat::kAVC,
+        session_id,
+        video_track_id_1080p_avc, 2160, 1080
+      };
+      ret = dump_bitstream_.SetUp(dumpinfo2);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
     VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC,
                                             5760,
                                             2880,
@@ -28436,7 +28585,7 @@ TEST_F(RecorderGtest, SessionWithDualCam5_7k30Enc1080p30EncAndLinked1080p30YUVWi
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-          VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+          VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
         };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
@@ -28468,7 +28617,7 @@ TEST_F(RecorderGtest, SessionWithDualCam5_7k30Enc1080p30EncAndLinked1080p30YUVWi
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-          VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+          VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
     };
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_1080p_avc,
@@ -28864,22 +29013,6 @@ TEST_F(RecorderGtest, SessionWithDualCam4k30EncRescale1080p30EncAnd1080p30YUVWit
   uint32_t video_track_id_1080p_avc  = 2;
   uint32_t video_track_id_1080p_yuv  = 3;
 
-  if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo1 = {
-      VideoFormat::kAVC,
-      video_track_id_4k_avc, 4096, 2048
-    };
-    ret = dump_bitstream_.SetUp(dumpinfo1);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    StreamDumpInfo dumpinfo2 = {
-      VideoFormat::kAVC,
-      video_track_id_1080p_avc, 2160, 1080
-    };
-    ret = dump_bitstream_.SetUp(dumpinfo2);
-    ASSERT_TRUE(ret == NO_ERROR);
-  }
-
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
@@ -28895,6 +29028,24 @@ TEST_F(RecorderGtest, SessionWithDualCam4k30EncRescale1080p30EncAnd1080p30YUVWit
     ASSERT_TRUE(session_id > 0);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo1 = {
+        VideoFormat::kAVC,
+        session_id,
+        video_track_id_4k_avc, 4096, 2048
+      };
+      ret = dump_bitstream_.SetUp(dumpinfo1);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      StreamDumpInfo dumpinfo2 = {
+        VideoFormat::kAVC,
+        session_id,
+        video_track_id_1080p_avc, 2160, 1080
+      };
+      ret = dump_bitstream_.SetUp(dumpinfo2);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
     VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC,
                                             4096,
                                             2048,
@@ -28905,7 +29056,7 @@ TEST_F(RecorderGtest, SessionWithDualCam4k30EncRescale1080p30EncAnd1080p30YUVWit
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-          VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+          VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
         };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
@@ -28933,7 +29084,7 @@ TEST_F(RecorderGtest, SessionWithDualCam4k30EncRescale1080p30EncAnd1080p30YUVWit
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-          VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+          VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
     };
 
     VideoExtraParam extra_param;
@@ -29062,22 +29213,6 @@ TEST_F(RecorderGtest, SessionWithDualCam4k60EncRescale1080p30EncAnd1080p30YUVWit
   uint32_t video_track_id_1080p_avc  = 2;
   uint32_t video_track_id_1080p_yuv  = 3;
 
-  if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo1 = {
-      VideoFormat::kAVC,
-      video_track_id_4k_avc, 4096, 2048
-    };
-    ret = dump_bitstream_.SetUp(dumpinfo1);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    StreamDumpInfo dumpinfo2 = {
-      VideoFormat::kAVC,
-      video_track_id_1080p_avc, 2160, 1080
-    };
-    ret = dump_bitstream_.SetUp(dumpinfo2);
-    ASSERT_TRUE(ret == NO_ERROR);
-  }
-
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
@@ -29093,6 +29228,24 @@ TEST_F(RecorderGtest, SessionWithDualCam4k60EncRescale1080p30EncAnd1080p30YUVWit
     ASSERT_TRUE(session_id > 0);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo1 = {
+        VideoFormat::kAVC,
+        session_id,
+        video_track_id_4k_avc, 4096, 2048
+      };
+      ret = dump_bitstream_.SetUp(dumpinfo1);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      StreamDumpInfo dumpinfo2 = {
+        VideoFormat::kAVC,
+        session_id,
+        video_track_id_1080p_avc, 2160, 1080
+      };
+      ret = dump_bitstream_.SetUp(dumpinfo2);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
     VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC,
                                             4096,
                                             2048,
@@ -29103,7 +29256,7 @@ TEST_F(RecorderGtest, SessionWithDualCam4k60EncRescale1080p30EncAnd1080p30YUVWit
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-          VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+          VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
         };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
@@ -29132,7 +29285,7 @@ TEST_F(RecorderGtest, SessionWithDualCam4k60EncRescale1080p30EncAnd1080p30YUVWit
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-          VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+          VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
     };
 
     VideoExtraParam extra_param;
@@ -29261,22 +29414,6 @@ TEST_F(RecorderGtest, SessionWithDualCam5_7k30EncRescale1080p30EncAnd1080p30YUVW
   uint32_t video_track_id_1080p_avc  = 2;
   uint32_t video_track_id_1080p_yuv  = 3;
 
-  if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo1 = {
-      VideoFormat::kAVC,
-      video_track_id_5_7k_avc, 5760, 2880
-    };
-    ret = dump_bitstream_.SetUp(dumpinfo1);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    StreamDumpInfo dumpinfo2 = {
-      VideoFormat::kAVC,
-      video_track_id_1080p_avc, 2160, 1080
-    };
-    ret = dump_bitstream_.SetUp(dumpinfo2);
-    ASSERT_TRUE(ret == NO_ERROR);
-  }
-
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
@@ -29292,6 +29429,24 @@ TEST_F(RecorderGtest, SessionWithDualCam5_7k30EncRescale1080p30EncAnd1080p30YUVW
     ASSERT_TRUE(session_id > 0);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo1 = {
+        VideoFormat::kAVC,
+        session_id,
+        video_track_id_5_7k_avc, 5760, 2880
+      };
+      ret = dump_bitstream_.SetUp(dumpinfo1);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      StreamDumpInfo dumpinfo2 = {
+        VideoFormat::kAVC,
+        session_id,
+        video_track_id_1080p_avc, 2160, 1080
+      };
+      ret = dump_bitstream_.SetUp(dumpinfo2);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
     VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC,
                                             5760,
                                             2880,
@@ -29302,7 +29457,7 @@ TEST_F(RecorderGtest, SessionWithDualCam5_7k30EncRescale1080p30EncAnd1080p30YUVW
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-          VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+          VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
         };
 
     video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
@@ -29330,7 +29485,7 @@ TEST_F(RecorderGtest, SessionWithDualCam5_7k30EncRescale1080p30EncAnd1080p30YUVW
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-          VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+          VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
     };
 
     VideoExtraParam extra_param;
@@ -29611,13 +29766,6 @@ TEST_F(RecorderGtest, SessionWith1440p30FPSSmoothZoom) {
     uint32_t track_width = 1920;
     uint32_t track_height = 1440;
 
-    if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo1 = {VideoFormat::kAVC, video_track_id_1440p_avc,
-                                  track_width, track_height};
-      ret = dump_bitstream_.SetUp(dumpinfo1);
-      ASSERT_TRUE(ret == NO_ERROR);
-    }
-
     SessionCb session_status_cb;
     session_status_cb.event_cb = [this](EventType event_type, void *event_data,
                                         size_t event_data_size) -> void {
@@ -29629,13 +29777,20 @@ TEST_F(RecorderGtest, SessionWith1440p30FPSSmoothZoom) {
     ASSERT_TRUE(session_id > 0);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo1 = {VideoFormat::kAVC, session_id, video_track_id_1440p_avc,
+                                  track_width, track_height};
+      ret = dump_bitstream_.SetUp(dumpinfo1);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
     VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC,
                                             track_width, track_height, 30};
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
     };
 
     video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
@@ -29773,13 +29928,6 @@ TEST_F(RecorderGtest, SessionWith960p90FPSSmoothZoom) {
     uint32_t track_width = 1280;
     uint32_t track_height = 960;
 
-    if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo1 = {VideoFormat::kAVC, video_track_id_1440p_avc,
-                                  track_width, track_height};
-      ret = dump_bitstream_.SetUp(dumpinfo1);
-      ASSERT_TRUE(ret == NO_ERROR);
-    }
-
     SessionCb session_status_cb;
     session_status_cb.event_cb = [this](EventType event_type, void *event_data,
                                         size_t event_data_size) -> void {
@@ -29791,13 +29939,20 @@ TEST_F(RecorderGtest, SessionWith960p90FPSSmoothZoom) {
     ASSERT_TRUE(session_id > 0);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo1 = {VideoFormat::kAVC, session_id, video_track_id_1440p_avc,
+                                  track_width, track_height};
+      ret = dump_bitstream_.SetUp(dumpinfo1);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
     VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC,
                                             track_width, track_height, 90};
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
     };
 
     video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
