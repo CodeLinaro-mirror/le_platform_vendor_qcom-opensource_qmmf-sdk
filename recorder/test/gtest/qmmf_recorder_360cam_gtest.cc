@@ -32,36 +32,14 @@
 #include <utils/Log.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <sys/time.h>
-#include <fcntl.h>
 #include <math.h>
 #include <camera/CameraMetadata.h>
 #include <system/graphics.h>
-#ifdef QCAMERA3_TAG_LOCAL_COPY
-#include "common/utils/qmmf_common_utils.h"
-#else
-#include <QCamera3VendorTags.h>
-#endif
-
-#include <qmmf-sdk/qmmf_queue.h>
-#include <qmmf-sdk/qmmf_recorder_extra_param.h>
-#include <qmmf-sdk/qmmf_recorder_extra_param_tags.h>
 #include "recorder/test/gtest/qmmf_recorder_360cam_gtest.h"
 
-//#define DEBUG
-#define TEST_INFO(fmt, args...)  ALOGD(fmt, ##args)
-#define TEST_ERROR(fmt, args...) ALOGE(fmt, ##args)
-#define TEST_WARN(fmt, args...) ALOGW(fmt, ##args)
-#ifdef DEBUG
-#define TEST_DBG  TEST_INFO
-#else
-#define TEST_DBG(...) ((void)0)
-#endif
+using namespace qcamera;
 
 static const int32_t kDelayAfterSnapshot = 5;
-static const std::string gtest_type = "gtest_360";
-
-using namespace qcamera;
 
 /*
 * CreateDeleteSession: This case will test Create & Delete Session Api using

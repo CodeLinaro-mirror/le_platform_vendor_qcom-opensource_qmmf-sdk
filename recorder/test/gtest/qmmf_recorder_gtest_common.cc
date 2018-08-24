@@ -33,7 +33,6 @@
 #include <utils/Log.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <fcntl.h>
 #include <camera/CameraMetadata.h>
 #include <system/graphics.h>
 #include <random>
@@ -48,26 +47,9 @@
 #include <condition_variable>
 
 #include <qmmf-sdk/qmmf_queue.h>
-#include "common/utils/qmmf_common_utils.h"
 #include "recorder/test/gtest/qmmf_recorder_gtest_common.h"
-#include "recorder/src/service/qmmf_recorder_utils.h"
 
-#ifdef USE_SURFACEFLINGER
-#include <sys/mman.h>
-#include <android/native_window.h>
-#endif
-
-#define DUMP_META_PATH "/data/misc/qmmf/param.dump"
-
-//#define DEBUG
-#define TEST_INFO(fmt, args...)  ALOGD(fmt, ##args)
-#define TEST_ERROR(fmt, args...) ALOGE(fmt, ##args)
-#define TEST_WARN(fmt, args...) ALOGW(fmt, ##args)
-#ifdef DEBUG
-#define TEST_DBG  TEST_INFO
-#else
-#define TEST_DBG(...) ((void)0)
-#endif
+using namespace qcamera;
 
 using namespace qcamera;
 

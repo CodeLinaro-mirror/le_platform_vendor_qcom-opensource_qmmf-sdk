@@ -1,8 +1,12 @@
 # Build recorder test application binary
 bin_PROGRAMS = recorder_gtest
 
-recorder_gtest_SOURCES = qmmf_recorder_gtest.cc
-recorder_gtest_SOURCES += qmmf_recorder_gtest_common.cc
+recorder_gtest_SOURCES = qmmf_recorder_gtest_common.cc
+recorder_gtest_SOURCES += qmmf_recorder_base_gtest.cc
+recorder_gtest_SOURCES += qmmf_recorder_video_gtest.cc
+recorder_gtest_SOURCES += qmmf_recorder_image_gtest.cc
+recorder_gtest_SOURCES += qmmf_recorder_postprocessing_video_gtest.cc
+recorder_gtest_SOURCES += qmmf_recorder_video_snapshot_gtest.cc
 recorder_gtest_SOURCES += qmmf_recorder_360cam_gtest.cc
 
 recorder_gtest_CPPFLAGS = -I$(top_srcdir)/include

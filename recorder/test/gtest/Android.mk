@@ -19,8 +19,12 @@ LOCAL_C_INCLUDES += $(TOP)/system/core/base/include
 LOCAL_C_INCLUDES += $(CAMERA_HAL_PATH)/QCamera2/HAL3
 LOCAL_C_INCLUDES += $(TOP)/external/skia/include/core/
 
-LOCAL_SRC_FILES := qmmf_recorder_gtest.cc
-LOCAL_SRC_FILES += qmmf_recorder_gtest_common.cc
+LOCAL_SRC_FILES := qmmf_recorder_gtest_common.cc
+LOCAL_SRC_FILES += qmmf_recorder_base_gtest.cc
+LOCAL_SRC_FILES += qmmf_recorder_image_gtest.cc
+LOCAL_SRC_FILES += qmmf_recorder_video_gtest.cc
+LOCAL_SRC_FILES += qmmf_recorder_postprocessing_video_gtest.cc
+LOCAL_SRC_FILES += qmmf_recorder_video_snapshot_gtest.cc
 LOCAL_SRC_FILES += qmmf_recorder_360cam_gtest.cc
 
 LOCAL_SHARED_LIBRARIES += libqmmf_recorder_client libqmmf_av_queue libqmmf_memory_interface

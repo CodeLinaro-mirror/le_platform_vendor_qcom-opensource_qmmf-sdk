@@ -36,14 +36,27 @@
 #include <vector>
 #include <map>
 #include <mutex>
+#include <sys/time.h>
+#include <chrono>
 #include <condition_variable>
 #include <cutils/properties.h>
+#include <random>
 
+#include <qmmf-sdk/qmmf_queue.h>
 #include <qmmf-sdk/qmmf_display.h>
 #include <qmmf-sdk/qmmf_display_params.h>
 #include <qmmf-sdk/qmmf_recorder.h>
 #include <qmmf-sdk/qmmf_recorder_params.h>
 #include <qmmf-sdk/qmmf_recorder_extra_param_tags.h>
+
+#include "recorder/src/service/qmmf_recorder_utils.h"
+
+#define DUMP_META_PATH "/data/misc/qmmf/param.dump"
+
+#ifdef USE_SURFACEFLINGER
+#include <sys/mman.h>
+#include <android/native_window.h>
+#endif
 
 #if USE_SKIA
 #include <SkCanvas.h>
@@ -61,6 +74,22 @@
 #include <gui/Surface.h>
 #include <gui/SurfaceComposerClient.h>
 #include <gui/ISurfaceComposer.h>
+#endif
+
+#ifdef QCAMERA3_TAG_LOCAL_COPY
+#include "common/utils/qmmf_common_utils.h"
+#else
+#include <QCamera3VendorTags.h>
+#endif
+
+//#define DEBUG
+#define TEST_INFO(fmt, args...)  ALOGD(fmt, ##args)
+#define TEST_ERROR(fmt, args...) ALOGE(fmt, ##args)
+#define TEST_WARN(fmt, args...) ALOGW(fmt, ##args)
+#ifdef DEBUG
+#define TEST_DBG  TEST_INFO
+#else
+#define TEST_DBG(...) ((void)0)
 #endif
 
 using namespace qmmf;
@@ -362,7 +391,6 @@ class GtestCommon : public ::testing::Test {
 
   bool VendorTagExistsInMeta(const CameraMetadata& meta, const String8& name,
                              const String8& section, uint32_t* tag_id);
-#endif
 
   void CreatePrivacyMaskOverlay(const uint32_t& video_track_id,
                                 const int32_t& width, const int32_t& height,
@@ -370,6 +398,7 @@ class GtestCommon : public ::testing::Test {
 
   void DestroyPrivacyMaskOverlay (const uint32_t& video_track_id,
                                   const uint32_t& mask_id);
+#endif
 
   Recorder              recorder_;
   uint32_t              camera_id_;

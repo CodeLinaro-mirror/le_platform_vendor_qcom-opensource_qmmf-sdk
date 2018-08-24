@@ -28,13 +28,12 @@
 */
 
 #pragma once
+#include "recorder/test/gtest/qmmf_recorder_gtest_common.h"
 
-#include "qmmf_recorder_gtest_common.h"
-
-class RecorderGtest : public GtestCommon  {
+class RecorderBaseGTest : public GtestCommon  {
  public:
-  RecorderGtest() {}
+  RecorderBaseGTest() {}
 
-  ~RecorderGtest() {}
+  ~RecorderBaseGTest() {}
+
 };
-
