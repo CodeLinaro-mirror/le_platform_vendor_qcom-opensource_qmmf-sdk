@@ -395,6 +395,16 @@ class GtestCommon : public ::testing::Test {
                             int32_t sensor_mode_h, int32_t crop_x,
                             int32_t crop_y, int32_t crop_w, int32_t crop_h);
 
+  SessionCb CreateSessionStatusCb() {
+    SessionCb session_status_cb;
+    session_status_cb.event_cb =
+        [this] (EventType event_type, void *event_data,
+                size_t event_data_size) -> void {
+        SessionCallbackHandler(event_type,
+        event_data, event_data_size); };
+    return session_status_cb;
+  }
+
 #ifndef DISABLE_DISPLAY
   void DisplayCallbackHandler(DisplayEventType event_type, void *event_data,
                               size_t event_data_size);

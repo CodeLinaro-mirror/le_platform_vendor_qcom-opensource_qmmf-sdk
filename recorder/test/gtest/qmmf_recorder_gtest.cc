@@ -213,11 +213,7 @@ TEST_F(RecorderGtest, FaceDetectionFor1080pYUVPreview) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_, result_cb);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-    size_t event_data_size) -> void
-    { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -335,11 +331,7 @@ TEST_F(RecorderGtest, FaceDetectionFor1080pAVCVideo) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_, result_cb);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb =
-     [this] (EventType event_type, void *event_data, size_t event_data_size) -> void {
-     SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -466,11 +458,7 @@ TEST_F(RecorderGtest, 1080pZSLCapture) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                       size_t event_data_size) -> void
-      { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   sleep(3);
 
   ImageParam image_param{};
@@ -547,11 +535,7 @@ TEST_F(RecorderGtest, 1080pZSL1080pVideo) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                       size_t event_data_size) -> void
-      { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -685,11 +669,7 @@ TEST_F(RecorderGtest, 4KZSL1080pYUVPreview) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                       size_t event_data_size) -> void
-      { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -807,11 +787,7 @@ TEST_F(RecorderGtest, 4KZSL1080p480pYUVPreview) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                       size_t event_data_size) -> void
-      { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -937,11 +913,7 @@ TEST_F(RecorderGtest, 4KZSLTwo1080pVideo) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                       size_t event_data_size) -> void
-      { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -1127,10 +1099,7 @@ TEST_F(RecorderGtest, CreateDeleteSession) {
     ret = recorder_.StartCamera(camera_id_, camera_start_params_);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
+    SessionCb session_status_cb = CreateSessionStatusCb();
 
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
@@ -1172,11 +1141,7 @@ TEST_F(RecorderGtest, 4KSnapshotDisableEXIF) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                       size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -1300,11 +1265,7 @@ TEST_F(RecorderGtest, 10MPSnapshotDisableEXIF) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                       size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -1433,11 +1394,7 @@ TEST_F(RecorderGtest, 10MPSnapshotDisableEXIFUpdateFocalLength) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                       size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -1575,11 +1532,7 @@ TEST_F(RecorderGtest, 4KSnapshot) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                       size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -1694,11 +1647,7 @@ TEST_F(RecorderGtest, 4KSnapshotWithRaw) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                       size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -1823,11 +1772,7 @@ TEST_F(RecorderGtest, 10MPSnapshot) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                       size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -1942,11 +1887,7 @@ TEST_F(RecorderGtest, 10MPJPEG422InputSnapshot) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                       size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -2090,11 +2031,7 @@ TEST_F(RecorderGtest, 10MPSnapshotMultiThumbnails) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                       size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -2227,11 +2164,7 @@ TEST_F(RecorderGtest, 10MPSnapshotWithEdgeSmooth) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                       size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -2374,11 +2307,7 @@ TEST_F(RecorderGtest, 10MPSnapshotWithLCAC) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                       size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -2523,11 +2452,7 @@ TEST_F(RecorderGtest, 10MPSnapshotWithLCACandEdgeSmooth) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                       size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -2681,10 +2606,7 @@ TEST_F(RecorderGtest, LowResVideo10MPSnapshotWithLCACandEdgeSmoothContinuousCapt
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                       size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type, event_data, event_data_size); };
+  SessionCb session_status_cb = CreateSessionStatusCb();
 
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
@@ -2904,10 +2826,7 @@ TEST_F(RecorderGtest, LowResVideo10MPContinuousSnapshotWithLCAC) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_, result_cb);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                       size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type, event_data, event_data_size); };
+  SessionCb session_status_cb = CreateSessionStatusCb();
 
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
@@ -3086,10 +3005,7 @@ TEST_F(RecorderGtest, LowResVideo10MPContinuousSnapshotWithLCACAndCdsOff) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                       size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type, event_data, event_data_size); };
+  SessionCb session_status_cb = CreateSessionStatusCb();
 
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
@@ -3258,10 +3174,7 @@ TEST_F(RecorderGtest, LowResVideo10MPContinuousSnapshotWithLCACandEdgeSmooth) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                       size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type, event_data, event_data_size); };
+  SessionCb session_status_cb = CreateSessionStatusCb();
 
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
@@ -3829,11 +3742,7 @@ TEST_F(RecorderGtest, BurstSnapshotWithYuvCAC) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                       size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -4006,11 +3915,7 @@ TEST_F(RecorderGtest, BurstSnapshotWithBayerLCAC) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                       size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -4211,11 +4116,7 @@ TEST_F(RecorderGtest, BurstSnapshotWithBayerLCAC15fps) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_, result_cb);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                       size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -4426,8 +4327,8 @@ TEST_F(RecorderGtest, BurstSnapshotWithBayerLCAC15fps) {
 }
 
 /*
-* BurstSnapshotWithBayerLCAC15fpsWithCdsOff:  This test will test burst snapshot with
-*                     post processing. Post processing pipe is Bayer LCAC,
+* BurstSnapshotWithBayerLCAC15fpsWithCdsOff:  This test will test burst snapshot
+*                     with post processing. Post processing pipe is Bayer LCAC,
 *                     Bayer to YUV reprocessing and JPEG with two thumbnails.
 * Api test sequence:
 *  - StartCamera
@@ -4482,11 +4383,7 @@ TEST_F(RecorderGtest, BurstSnapshotWithBayerLCAC15fpsWithCdsOff) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_, result_cb);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                       size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -4736,11 +4633,7 @@ TEST_F(RecorderGtest, AutoBurstCaptureWithBayerLCAC) {
     ret = recorder_.StartCamera(camera_id_, camera_start_params_, result_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void {
-        SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -4987,11 +4880,7 @@ TEST_F(RecorderGtest, ContinuousSnapshotWithBayerLCAC) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_, result_cb);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                       size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -5544,11 +5433,7 @@ TEST_F(RecorderGtest, SessionWith1080pYUVTrack) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -5665,11 +5550,8 @@ TEST_F(RecorderGtest, HFRModeSwitch) {
     ret = recorder_.StartCamera(camera_id_, camera_start_params_);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
 
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -5833,11 +5715,7 @@ TEST_F(RecorderGtest, MultiSessionsWith1080pEncTrack) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                       size_t event_data_size) -> void
-      { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -5889,6 +5767,7 @@ TEST_F(RecorderGtest, MultiSessionsWith1080pEncTrack) {
     uint32_t session_id2;
     ret = recorder_.CreateSession(session_status_cb, &session_id2);
     ASSERT_TRUE(session_id2 > 0);
+
     ASSERT_TRUE(ret == NO_ERROR);
 
     uint32_t video_track_id2 = 2;
@@ -5984,11 +5863,7 @@ TEST_F(RecorderGtest, SessionWith1080pEncTrack) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -6089,12 +5964,7 @@ TEST_F(RecorderGtest, SessionWith1080Enc30fps1080pMJpeg10fps1080pJpegEnc1fps) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this](EventType event_type, void *event_data,
-                                      size_t event_data_size) -> void {
-    SessionCallbackHandler(event_type, event_data, event_data_size);
-  };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -6228,12 +6098,7 @@ TEST_F(RecorderGtest, SessionWith1080Enc30fps1080pMJpeg10fps) {
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this](EventType event_type, void *event_data,
-                                        size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type, event_data, event_data_size);
-    };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -6355,12 +6220,7 @@ TEST_F(RecorderGtest, SessionWith4kMJpeg) {
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this](EventType event_type, void *event_data,
-                                        size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type, event_data, event_data_size);
-    };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -6476,11 +6336,7 @@ TEST_F(RecorderGtest, SessionWith1080pEncTrackPartialMeta) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -6580,13 +6436,7 @@ TEST_F(RecorderGtest, SessionWith4kp30fpsEncTrack) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb =
-      [this] (EventType event_type, void *event_data,
-              size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type,
-      event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -6688,13 +6538,7 @@ TEST_F(RecorderGtest, SessionWith4kp30fps4K1fpsSnapshotEncTrack) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb =
-      [this] (EventType event_type, void *event_data,
-              size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type,
-      event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -6881,12 +6725,7 @@ TEST_F(RecorderGtest, SessionWith4kp30fps4K1fps240p30fpsSnapshotEncTrack) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb =
-      [this] (EventType event_type, void *event_data,
-              size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type,
-      event_data, event_data_size); };
+  SessionCb session_status_cb = CreateSessionStatusCb();
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
@@ -7114,13 +6953,7 @@ TEST_F(RecorderGtest, SessionWith27Kp60fpsEncTrack) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb =
-      [this] (EventType event_type, void *event_data,
-              size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type,
-      event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -7222,13 +7055,7 @@ TEST_F(RecorderGtest, SessionWith1080p120fpsSnapshotVSTABEncTrack) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb =
-      [this] (EventType event_type, void *event_data,
-              size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type,
-      event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -7369,13 +7196,7 @@ TEST_F(RecorderGtest, SessionWith1080p120fps480p30fpsSnapshotEncTrack) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb =
-      [this] (EventType event_type, void *event_data,
-              size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type,
-      event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -7546,13 +7367,7 @@ TEST_F(RecorderGtest, SessionWith1080p120fps480p30fpsEncTrack) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb =
-      [this] (EventType event_type, void *event_data,
-              size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type,
-      event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -7695,13 +7510,7 @@ TEST_F(RecorderGtest, SessionWith1080p120fpsEncTrack) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb =
-      [this] (EventType event_type, void *event_data,
-              size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type,
-      event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -7801,13 +7610,7 @@ TEST_F(RecorderGtest, SessionWith1080p60fpsEncTrack) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb =
-      [this] (EventType event_type, void *event_data,
-              size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type,
-      event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -7907,13 +7710,7 @@ TEST_F(RecorderGtest, SessionWith4kp30fps480p30fpsEncTrack) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb =
-      [this] (EventType event_type, void *event_data,
-              size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type,
-      event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -8053,13 +7850,7 @@ TEST_F(RecorderGtest, SessionWith4kp30fps480p30fpsVSTABEncTrack) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb =
-      [this] (EventType event_type, void *event_data,
-              size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type,
-      event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -8210,13 +8001,7 @@ TEST_F(RecorderGtest, SessionWith27Kp60fps480p30fpsEncTrack) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb =
-      [this] (EventType event_type, void *event_data,
-              size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type,
-      event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -8356,13 +8141,7 @@ TEST_F(RecorderGtest, SessionWith27Kp60fps480p30fpsVSTABEncTrack) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb =
-      [this] (EventType event_type, void *event_data,
-              size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type,
-      event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -8513,13 +8292,7 @@ TEST_F(RecorderGtest, SessionWith27Kp30fps480p30fpsEncTrack) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb =
-      [this] (EventType event_type, void *event_data,
-              size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type,
-      event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -8656,13 +8429,7 @@ TEST_F(RecorderGtest, SessionWith1080p90fps480p30fpsEncTrack) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb =
-      [this] (EventType event_type, void *event_data,
-              size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type,
-      event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -8803,13 +8570,7 @@ TEST_F(RecorderGtest, SessionWith1080p60fps480p30fpsSnapshotEncTrack) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb =
-      [this] (EventType event_type, void *event_data,
-              size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type,
-      event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -8978,13 +8739,7 @@ TEST_F(RecorderGtest, SessionWith480pEncTrack) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb =
-      [this] (EventType event_type, void *event_data,
-              size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type,
-      event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -9091,13 +8846,7 @@ TEST_F(RecorderGtest, SessionWith4KEncTrack) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb =
-        [this] (EventType event_type, void *event_data,
-                size_t event_data_size) -> void {
-        SessionCallbackHandler(event_type,
-        event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -9207,12 +8956,7 @@ TEST_F(RecorderGtest, SessionWith4KEncWithLCACYUV) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
               test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this](EventType event_type, void *event_data,
-                                        size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type, event_data, event_data_size);
-    };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -9327,12 +9071,7 @@ TEST_F(RecorderGtest, SessionWith4KSwTnrEncTrack) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
               test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this](EventType event_type, void *event_data,
-                                        size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type, event_data, event_data_size);
-    };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     assert(session_id > 0);
@@ -9454,12 +9193,7 @@ TEST_F(RecorderGtest, SessionWith4KEnc1080pYUVSwTnrTrack) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
               test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this](EventType event_type, void *event_data,
-                                        size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type, event_data, event_data_size);
-    };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     assert(session_id > 0);
@@ -9618,12 +9352,7 @@ TEST_F(RecorderGtest, SessionWith4KEncWithLCACYUVEIS) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
               test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this](EventType event_type, void *event_data,
-                                        size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type, event_data, event_data_size);
-    };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -9865,11 +9594,7 @@ TEST_F(RecorderGtest, SessionWith4KHazeBusterEncTrack) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -10001,11 +9726,7 @@ TEST_F(RecorderGtest, SessionWith4KEnc1080pYUVHazeBusterTrack) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -10173,11 +9894,7 @@ TEST_F(RecorderGtest, SessionWithTwo1080pEncTracks) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                       size_t event_data_size) -> void {
-    SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -10308,11 +10025,7 @@ TEST_F(RecorderGtest, SessionWith4KAnd1080pYUVTrack) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                       size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -10455,11 +10168,7 @@ TEST_F(RecorderGtest, SessionWithLPM1080pEncYUVSnapshot) {
     // Start 1080p YUV LPM Stream
     TEST_INFO("%s: Starting LPM Stream", __func__);
 
-    SessionCb s1_status_cb;
-    s1_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb s1_status_cb = CreateSessionStatusCb();
     uint32_t s1_id;
     ret = recorder_.CreateSession(s1_status_cb, &s1_id);
     ASSERT_TRUE(s1_id > 0);
@@ -10506,11 +10215,7 @@ TEST_F(RecorderGtest, SessionWithLPM1080pEncYUVSnapshot) {
     // Start 1080p AVC Stream
     TEST_INFO("%s: Starting Enc Stream", __func__);
 
-    SessionCb s2_status_cb;
-    s2_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb s2_status_cb = CreateSessionStatusCb();
     uint32_t s2_id;
     ret = recorder_.CreateSession(s2_status_cb, &s2_id);
     ASSERT_TRUE(s2_id > 0);
@@ -10639,13 +10344,7 @@ TEST_F(RecorderGtest, 1080pEncWithStaticImageOverlay) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb =
-      [this] (EventType event_type, void *event_data,
-              size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type,
-      event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -10804,13 +10503,7 @@ TEST_F(RecorderGtest, 1080pEncWithDateAndTimeOverlay) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb =
-      [this] (EventType event_type, void *event_data,
-              size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type,
-      event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -10986,13 +10679,7 @@ TEST_F(RecorderGtest, 1080pEncWithBoundingBoxOverlay) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb =
-      [this] (EventType event_type, void *event_data,
-              size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type,
-      event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -11147,13 +10834,7 @@ TEST_F(RecorderGtest, 4KEncWithBoundingBoxOverlay) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb =
-      [this] (EventType event_type, void *event_data,
-              size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type,
-      event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -11308,13 +10989,7 @@ TEST_F(RecorderGtest, 1080pEncWithUserTextOverlay) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb =
-      [this] (EventType event_type, void *event_data,
-              size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type,
-      event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -11489,13 +11164,7 @@ TEST_F(RecorderGtest, 1080pEncWithPrivacyMaskOverlay) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb =
-      [this] (EventType event_type, void *event_data,
-              size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type,
-      event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -11653,13 +11322,7 @@ TEST_F(RecorderGtest, 1080pEncWithStaticImageBlobOverlay) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb =
-      [this] (EventType event_type, void *event_data,
-              size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type,
-      event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -11877,13 +11540,7 @@ TEST_F(RecorderGtest, 1080pEncWithStaticImageBlobUpdateBufferOverlay) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb =
-      [this] (EventType event_type, void *event_data,
-              size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type,
-      event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -12092,11 +11749,7 @@ TEST_F(RecorderGtest, SessionWith1080pEncTrackStartStop) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                       size_t event_data_size) -> void
-      { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -12204,11 +11857,7 @@ TEST_F(RecorderGtest, SessionWith4KEncTrackStartStop) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                       size_t event_data_size) -> void
-      { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -12313,11 +11962,7 @@ TEST_F(RecorderGtest, SessionWith4KAnd1080pYUVTrackStartStop) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                       size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -12427,11 +12072,7 @@ TEST_F(RecorderGtest, SessionWithTwo1080pEncTracksStartStop) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                       size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -12560,11 +12201,7 @@ TEST_F(RecorderGtest, SingleSessionCameraParamTest) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_, result_cb);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [&] ( EventType event_type, void *event_data,
-      size_t event_data_size) { SessionCallbackHandler(event_type,
-      event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -12678,11 +12315,7 @@ TEST_F(RecorderGtest, MultiSessionCameraParamTest) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                       size_t event_data_size) -> void
-      { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id1;
   ret = recorder_.CreateSession(session_status_cb, &session_id1);
   ASSERT_TRUE(session_id1 > 0);
@@ -12933,11 +12566,7 @@ TEST_F(RecorderGtest, 4KEncCancelCaptureImage) {
   uint32_t height = 2160;
   float fps = 30;
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [&] (EventType event_type, void *event_data,
-      size_t event_data_size) { SessionCallbackHandler(event_type,
-      event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -13014,8 +12643,7 @@ TEST_F(RecorderGtest, 4KEncCancelCaptureImage) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array,
-                               cb);
+    ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array, cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
     auto ran = std::rand() % 3;
@@ -13084,11 +12712,7 @@ TEST_F(RecorderGtest, 1080pEncCanceCaptureImage) {
   uint32_t height = 1080;
   float fps = 30;
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [&] (EventType event_type, void *event_data,
-      size_t event_data_size) { SessionCallbackHandler(event_type,
-      event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -13234,11 +12858,7 @@ TEST_F(RecorderGtest, 4KVideo480pVideoAnd4KSnapshot) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                       size_t event_data_size) -> void {
-    SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -13419,13 +13039,7 @@ TEST_F(RecorderGtest, EncodingPreBuffer1080p) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb =
-      [this] (EventType event_type, void *event_data,
-              size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type,
-      event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -13624,11 +13238,7 @@ TEST_F(RecorderGtest, DynamicSessionAndTracksUpdateWithCamParams) {
           is_shdr_supported, is_tnr_supported);
 
   // Create Session1
-  SessionCb s1_status_cb;
-  s1_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                       size_t event_data_size) -> void
-      { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+  SessionCb s1_status_cb = CreateSessionStatusCb();
   uint32_t s1_id;
   ret = recorder_.CreateSession(s1_status_cb, &s1_id);
   ASSERT_TRUE(s1_id > 0);
@@ -13729,11 +13339,7 @@ TEST_F(RecorderGtest, DynamicSessionAndTracksUpdateWithCamParams) {
   // Create Session2
   uint32_t s2_id;
   if (is_s2_create) {
-    SessionCb s2_status_cb;
-    s2_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb s2_status_cb = CreateSessionStatusCb();
     ret = recorder_.CreateSession(s2_status_cb, &s2_id);
     ASSERT_TRUE(s2_id > 0);
     ASSERT_TRUE(ret == NO_ERROR);
@@ -13892,13 +13498,7 @@ TEST_F(RecorderGtest, DynamicFloatingFrameRate) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb =
-        [this] (EventType event_type, void *event_data,
-                size_t event_data_size) -> void {
-        SessionCallbackHandler(event_type,
-        event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -14032,11 +13632,7 @@ TEST_F(RecorderGtest, 1080pYUVTrackMatchCameraMetaData) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_, result_cb);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                       size_t event_data_size) -> void
-      { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -14139,13 +13735,7 @@ TEST_F(RecorderGtest, FrameRepeat) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
               test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb =
-        [this] (EventType event_type, void *event_data,
-                size_t event_data_size) -> void {
-        SessionCallbackHandler(event_type,
-        event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -14289,11 +13879,7 @@ TEST_F(RecorderGtest, SessionWith4kEncCopy1080EncAndCopy720YUV) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -14459,11 +14045,7 @@ TEST_F(RecorderGtest, SessionWith4kEncCopy1080EncAndLinked1080YUV) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -14629,11 +14211,7 @@ TEST_F(RecorderGtest, SessionWith4kEnc960EncAndLinked960YUVTrack) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -14794,11 +14372,7 @@ TEST_F(RecorderGtest, SessionWith720EncAndLinked720Enc) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -14943,11 +14517,7 @@ TEST_F(RecorderGtest,
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                       size_t event_data_size) -> void
-      { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC,
                                           1920,
                                           1440,
@@ -15180,13 +14750,7 @@ TEST_F(RecorderGtest,
 
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
-
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this](EventType event_type, void *event_data,
-                                      size_t event_data_size) -> void {
-    SessionCallbackHandler(event_type, event_data, event_data_size);
-  };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC, 1920,
                                           1440, 30};
 
@@ -15433,11 +14997,7 @@ TEST_F(RecorderGtest, ThreeSessionsWith1440pEncAnd1440pYUVTrack) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                       size_t event_data_size) -> void
-      { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC,
                                           1920,
                                           1440,
@@ -15675,11 +15235,7 @@ TEST_F(RecorderGtest, SessionWith1440EncAndLinked1440pEncAndLinked1440pYUVTrack)
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -15839,12 +15395,7 @@ TEST_F(RecorderGtest, SessionWith1440EncWithEISAndLCACEnable) {
   ASSERT_TRUE(ret == NO_ERROR);
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this](EventType event_type, void *event_data,
-                                        size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type, event_data, event_data_size);
-    };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -15971,12 +15522,7 @@ TEST_F(RecorderGtest, SessionWith1440EncWithEISAndLCACEnableAnd12MPSnapshot) {
   ASSERT_TRUE(ret == NO_ERROR);
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this](EventType event_type, void *event_data,
-                                        size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type, event_data, event_data_size);
-    };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -16128,11 +15674,7 @@ TEST_F(RecorderGtest, TimeLapse1080pEncTrack) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -16259,12 +15801,7 @@ TEST_F(RecorderGtest, Session1080pYUVTrackWithDisplay) {
     fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
               test_info_->name(), i);
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this](EventType event_type, void *event_data,
-                                        size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type, event_data, event_data_size);
-    };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
 
     ret = recorder_.CreateSession(session_status_cb, &session_id);
@@ -16362,11 +15899,7 @@ TEST_F(RecorderGtest, 1080pVideo4KVideoTypeSnapshot) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                       size_t event_data_size) -> void {
-    SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -16519,12 +16052,7 @@ TEST_F(RecorderGtest, LandscapeToPortraitRotation) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this](EventType event_type, void *event_data,
-                                      size_t event_data_size) -> void {
-    SessionCallbackHandler(event_type, event_data, event_data_size);
-  };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id_1;
   ret = recorder_.CreateSession(session_status_cb, &session_id_1);
   ASSERT_TRUE(session_id_1 > 0);
@@ -16668,12 +16196,7 @@ TEST_F(RecorderGtest, SessionWith4kEncWithSliceModeAUDAndSPSPPSEnabled) {
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this](EventType event_type, void *event_data,
-                                        size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type, event_data, event_data_size);
-    };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -16777,11 +16300,7 @@ TEST_F(RecorderGtest, SmoothZoomWith1080pEncTrack) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -16932,11 +16451,7 @@ TEST_F(RecorderGtest, SmoothZoomWith1080pEncTrack4KSnapshotFullFOV) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -17116,11 +16631,7 @@ TEST_F(RecorderGtest, SmoothZoomWith1080pEncTrack4KSnapshot) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -17323,12 +16834,7 @@ TEST_F(RecorderGtest, SessionWith1440pEnc480pEnc480pDisplayTrack4FPSVideoTimeLap
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this](EventType event_type, void *event_data,
-                                      size_t event_data_size) -> void {
-    SessionCallbackHandler(event_type, event_data, event_data_size);
-  };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
@@ -17762,11 +17268,7 @@ TEST_F(RecorderGtest, SessionWith4kEnc480pEnc480pDisplayTrack4FPSVideoTimeLapse)
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this](EventType event_type, void *event_data,
-                                      size_t event_data_size) -> void {
-    SessionCallbackHandler(event_type, event_data, event_data_size);
-  };
+  SessionCb session_status_cb = CreateSessionStatusCb();
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
@@ -18189,12 +17691,7 @@ TEST_F(RecorderGtest, Session1080pYUVTrackWithDisplayAlongWithGfxPlane) {
     fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
               test_info_->name(), i);
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this](EventType event_type, void *event_data,
-                                        size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type, event_data, event_data_size);
-    };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
 
     ret = recorder_.CreateSession(session_status_cb, &session_id);
@@ -18290,11 +17787,7 @@ TEST_F(RecorderGtest, SessionWith1080pYUVTrackFocalLength) {
     TEST_INFO("%s Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -18391,11 +17884,7 @@ TEST_F(RecorderGtest, SessionWith1080pEncTrackChangeFocalLength) {
     TEST_INFO("%s Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -18521,11 +18010,7 @@ TEST_F(RecorderGtest, SessionWith1080pEncTrackCaptureChangeFocalLength) {
     TEST_INFO("%s Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -18703,11 +18188,7 @@ TEST_F(RecorderGtest, SessionWith720pEnc1080EncTracksChangeFocalLength) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -18988,11 +18469,7 @@ TEST_F(RecorderGtest,
   uint32_t width = 3840;
   uint32_t height = 2160;
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this](EventType event_type, void *event_data,
-                                      size_t event_data_size) -> void {
-    SessionCallbackHandler(event_type, event_data, event_data_size);
-  };
+  SessionCb session_status_cb = CreateSessionStatusCb();
 
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
@@ -19181,11 +18658,7 @@ TEST_F(RecorderGtest,
   uint32_t width = 3840;
   uint32_t height = 2160;
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this](EventType event_type, void *event_data,
-                                      size_t event_data_size) -> void {
-    SessionCallbackHandler(event_type, event_data, event_data_size);
-  };
+  SessionCb session_status_cb = CreateSessionStatusCb();
 
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
@@ -19387,11 +18860,7 @@ TEST_F(RecorderGtest,
   uint32_t width = 3840;
   uint32_t height = 2160;
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this](EventType event_type, void *event_data,
-                                      size_t event_data_size) -> void {
-    SessionCallbackHandler(event_type, event_data, event_data_size);
-  };
+  SessionCb session_status_cb = CreateSessionStatusCb();
 
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
@@ -19778,11 +19247,7 @@ TEST_F(RecorderGtest,
     uint32_t width = 1920;
     uint32_t height = 1440;
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this](EventType event_type, void *event_data,
-                                        size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type, event_data, event_data_size);
-    };
+    SessionCb session_status_cb = CreateSessionStatusCb();
 
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
@@ -19991,11 +19456,7 @@ TEST_F(RecorderGtest,
     uint32_t width = 1920;
     uint32_t height = 1440;
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this](EventType event_type, void *event_data,
-                                        size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type, event_data, event_data_size);
-    };
+    SessionCb session_status_cb = CreateSessionStatusCb();
 
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
@@ -20199,11 +19660,7 @@ TEST_F(RecorderGtest,
     uint32_t width = 1920;
     uint32_t height = 1440;
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this](EventType event_type, void *event_data,
-                                        size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type, event_data, event_data_size);
-    };
+    SessionCb session_status_cb = CreateSessionStatusCb();
 
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
@@ -20401,11 +19858,7 @@ TEST_F(RecorderGtest,
     uint32_t width = 1920;
     uint32_t height = 1440;
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this](EventType event_type, void *event_data,
-                                        size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type, event_data, event_data_size);
-    };
+    SessionCb session_status_cb = CreateSessionStatusCb();
 
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
@@ -20577,11 +20030,7 @@ TEST_F(RecorderGtest, SessionWith1440p60FPSEncEIS) {
     uint32_t width = 1920;
     uint32_t height = 1440;
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this](EventType event_type, void *event_data,
-                                        size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type, event_data, event_data_size);
-    };
+    SessionCb session_status_cb = CreateSessionStatusCb();
 
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
@@ -20708,11 +20157,7 @@ TEST_F(RecorderGtest, SessionWith1440p60FPSEncEISLCAC) {
     uint32_t width = 1920;
     uint32_t height = 1440;
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this](EventType event_type, void *event_data,
-                                        size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type, event_data, event_data_size);
-    };
+    SessionCb session_status_cb = CreateSessionStatusCb();
 
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
@@ -20844,11 +20289,7 @@ TEST_F(RecorderGtest, SessionWith1440p60FPSEncEISLCACTNR) {
     uint32_t width = 1920;
     uint32_t height = 1440;
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this](EventType event_type, void *event_data,
-                                        size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type, event_data, event_data_size);
-    };
+    SessionCb session_status_cb = CreateSessionStatusCb();
 
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
@@ -20981,11 +20422,7 @@ TEST_F(RecorderGtest, SessionWith1440p60FPSSmoothZoom) {
     uint32_t track_width = 1920;
     uint32_t track_height = 1440;
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this](EventType event_type, void *event_data,
-                                        size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type, event_data, event_data_size);
-    };
+    SessionCb session_status_cb = CreateSessionStatusCb();
 
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
@@ -21155,11 +20592,7 @@ TEST_F(RecorderGtest,
     uint32_t width = 1920;
     uint32_t height = 1440;
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this](EventType event_type, void *event_data,
-                                        size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type, event_data, event_data_size);
-    };
+    SessionCb session_status_cb = CreateSessionStatusCb();
 
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
@@ -21376,11 +20809,7 @@ TEST_F(RecorderGtest,
     uint32_t width = 1280;
     uint32_t height = 960;
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this](EventType event_type, void *event_data,
-                                        size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type, event_data, event_data_size);
-    };
+    SessionCb session_status_cb = CreateSessionStatusCb();
 
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
@@ -21596,11 +21025,7 @@ TEST_F(RecorderGtest,
   uint32_t width = 3840;
   uint32_t height = 2160;
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this](EventType event_type, void *event_data,
-                                      size_t event_data_size) -> void {
-    SessionCallbackHandler(event_type, event_data, event_data_size);
-  };
+  SessionCb session_status_cb = CreateSessionStatusCb();
 
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
@@ -21816,11 +21241,7 @@ TEST_F(RecorderGtest,
     uint32_t width = 1920;
     uint32_t height = 1440;
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this](EventType event_type, void *event_data,
-                                        size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type, event_data, event_data_size);
-    };
+    SessionCb session_status_cb = CreateSessionStatusCb();
 
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
@@ -22043,11 +21464,7 @@ TEST_F(RecorderGtest,
     uint32_t width = 1920;
     uint32_t height = 1440;
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this](EventType event_type, void *event_data,
-                                        size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type, event_data, event_data_size);
-    };
+    SessionCb session_status_cb = CreateSessionStatusCb();
 
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
@@ -22255,11 +21672,7 @@ TEST_F(RecorderGtest, SessionWith4kEncCopy480pEncAndLinked480pYUVTrack) {
   uint32_t width = 3840;
   uint32_t height = 2160;
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this](EventType event_type, void *event_data,
-                                      size_t event_data_size) -> void {
-    SessionCallbackHandler(event_type, event_data, event_data_size);
-  };
+  SessionCb session_status_cb = CreateSessionStatusCb();
 
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
@@ -22442,11 +21855,7 @@ TEST_F(RecorderGtest,
     uint32_t width = 1920;
     uint32_t height = 1440;
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this](EventType event_type, void *event_data,
-                                        size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type, event_data, event_data_size);
-    };
+    SessionCb session_status_cb = CreateSessionStatusCb();
 
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
@@ -22625,11 +22034,7 @@ TEST_F(RecorderGtest,
     uint32_t width = 1920;
     uint32_t height = 1440;
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this](EventType event_type, void *event_data,
-                                        size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type, event_data, event_data_size);
-    };
+    SessionCb session_status_cb = CreateSessionStatusCb();
 
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
@@ -22815,11 +22220,7 @@ TEST_F(RecorderGtest, SessionWith960p90FPSEncCopy480pEncAndLinked480pYUVTrack) {
     uint32_t width = 1280;
     uint32_t height = 960;
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this](EventType event_type, void *event_data,
-                                        size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type, event_data, event_data_size);
-    };
+    SessionCb session_status_cb = CreateSessionStatusCb();
 
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
@@ -22998,11 +22399,7 @@ TEST_F(RecorderGtest,
     uint32_t width = 1280;
     uint32_t height = 960;
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this](EventType event_type, void *event_data,
-                                        size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type, event_data, event_data_size);
-    };
+    SessionCb session_status_cb = CreateSessionStatusCb();
 
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
@@ -23192,11 +22589,7 @@ TEST_F(RecorderGtest,
     uint32_t width = 1280;
     uint32_t height = 960;
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this](EventType event_type, void *event_data,
-                                        size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type, event_data, event_data_size);
-    };
+    SessionCb session_status_cb = CreateSessionStatusCb();
 
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
@@ -23381,11 +22774,7 @@ TEST_F(RecorderGtest, SessionWith4kPrivacyMaskEncTrack) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void {
-        SessionCallbackHandler(event_type, event_data, event_data_size);
-    };
+    SessionCb session_status_cb = CreateSessionStatusCb();
 
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
@@ -24152,11 +23541,7 @@ TEST_F(RecorderGtest,
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
               test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this](EventType event_type, void *event_data,
-                                        size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type, event_data, event_data_size);
-    };
+    SessionCb session_status_cb = CreateSessionStatusCb();
 
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
@@ -24334,11 +23719,7 @@ TEST_F(RecorderGtest,
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
               test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this](EventType event_type, void *event_data,
-                                        size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type, event_data, event_data_size);
-    };
+    SessionCb session_status_cb = CreateSessionStatusCb();
 
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
@@ -24505,11 +23886,7 @@ TEST_F(RecorderGtest,
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                       size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -24778,10 +24155,7 @@ TEST_F(RecorderGtest,
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                       size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type, event_data, event_data_size); };
+  SessionCb session_status_cb = CreateSessionStatusCb();
 
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
@@ -25043,11 +24417,7 @@ TEST_F(RecorderGtest, Jpeg422BurstSnapshotWithBayerLCAC15fps) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_, result_cb);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                       size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -25506,11 +24876,7 @@ TEST_F(RecorderGtest, SessionWithDualCam4KEncAllISOModes) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -25665,11 +25031,7 @@ TEST_F(RecorderGtest, SessionWithSingleCam4KEncAllExposureValues) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -25841,11 +25203,7 @@ TEST_F(RecorderGtest, SessionWithDualCam4KEncAllExposureValues) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -26594,11 +25952,7 @@ TEST_F(RecorderGtest, SessionWithDualCam4KEncAllAWBModes) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -26928,11 +26282,7 @@ TEST_F(RecorderGtest, SessionWithDualCam4KEncAllExposureMeteringModes) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -27110,11 +26460,7 @@ TEST_F(RecorderGtest, SessionWithDualCam4kEncCopy1080EncAndLinked1080YUV) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -27285,11 +26631,7 @@ TEST_F(RecorderGtest, SessionWithDualCam4kEncCopy1080EncAndLinked1080YUVWithTNR)
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -27489,12 +26831,7 @@ TEST_F(RecorderGtest, SessionWithSingleCam4kEncCopy1080EncAndCopy720YUV) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
               test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this](EventType event_type, void *event_data,
-                                        size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type, event_data, event_data_size);
-    };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -27660,12 +26997,7 @@ TEST_F(RecorderGtest, SessionWithDualCam4kEncCopy1080EncAndCopy720YUV) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
               test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this](EventType event_type, void *event_data,
-                                        size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type, event_data, event_data_size);
-    };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -27833,12 +27165,7 @@ TEST_F(RecorderGtest, SessionWithDualCam4kEncCopy1080EncAndCopy720YUVWithTNR) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
               test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this](EventType event_type, void *event_data,
-                                        size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type, event_data, event_data_size);
-    };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -28010,11 +27337,7 @@ TEST_F(RecorderGtest, SessionsWith4KEncTrackZZHDR) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                       size_t event_data_size) -> void
-      { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -28136,11 +27459,7 @@ TEST_F(RecorderGtest, SessionWithDualCam4k30Enc1080p30EncAndLinked1080p30YUVWith
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -28340,11 +27659,7 @@ TEST_F(RecorderGtest, SessionWithDualCam4k60Enc1080p30EncAndLinked1080p30YUVWith
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -28547,11 +27862,7 @@ TEST_F(RecorderGtest, SessionWithDualCam5_7k30Enc1080p30EncAndLinked1080p30YUVWi
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -28733,11 +28044,7 @@ TEST_F(RecorderGtest, SingleCamRaw10BayerSnapshot) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                       size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -28864,11 +28171,7 @@ TEST_F(RecorderGtest, DualCam4KSnapshotWithRaw) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                       size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -29018,11 +28321,7 @@ TEST_F(RecorderGtest, SessionWithDualCam4k30EncRescale1080p30EncAnd1080p30YUVWit
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -29218,11 +28517,7 @@ TEST_F(RecorderGtest, SessionWithDualCam4k60EncRescale1080p30EncAnd1080p30YUVWit
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -29419,10 +28714,7 @@ TEST_F(RecorderGtest, SessionWithDualCam5_7k30EncRescale1080p30EncAnd1080p30YUVW
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
+    SessionCb session_status_cb = CreateSessionStatusCb();
 
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
@@ -29601,11 +28893,7 @@ TEST_F(RecorderGtest, 4kSnapshotWithGPSInfo) {
   ret = recorder_.StartCamera(camera_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                       size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -29627,7 +28915,6 @@ TEST_F(RecorderGtest, 4kSnapshotWithGPSInfo) {
     yuv_track_param.height = 480;
   }
   yuv_track_param.low_power_mode = 1;
-
   yuv_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
@@ -29766,11 +29053,7 @@ TEST_F(RecorderGtest, SessionWith1440p30FPSSmoothZoom) {
     uint32_t track_width = 1920;
     uint32_t track_height = 1440;
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this](EventType event_type, void *event_data,
-                                        size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type, event_data, event_data_size);
-    };
+    SessionCb session_status_cb = CreateSessionStatusCb();
 
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
@@ -29928,11 +29211,7 @@ TEST_F(RecorderGtest, SessionWith960p90FPSSmoothZoom) {
     uint32_t track_width = 1280;
     uint32_t track_height = 960;
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this](EventType event_type, void *event_data,
-                                        size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type, event_data, event_data_size);
-    };
+    SessionCb session_status_cb = CreateSessionStatusCb();
 
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);

@@ -99,11 +99,7 @@ TEST_F(Recorder360Gtest, CreateDeleteSession) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -585,11 +581,7 @@ TEST_F(Recorder360Gtest, Stitched4KYUVTrack) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -685,11 +677,7 @@ TEST_F(Recorder360Gtest, Stitched4KMJpegTrack) {
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -788,11 +776,7 @@ TEST_F(Recorder360Gtest, StitchedHDYUVTrack) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -886,11 +870,7 @@ TEST_F(Recorder360Gtest, Stitched720pYUVTrack) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -980,11 +960,7 @@ TEST_F(Recorder360Gtest, Stitched4KAndFullHDYUVTrack) {
   ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                       size_t event_data_size) -> void
-      { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -1096,11 +1072,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrack) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -1207,11 +1179,7 @@ TEST_F(Recorder360Gtest, StitchedHDEncTrack) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -1320,11 +1288,7 @@ TEST_F(Recorder360Gtest, Stitched720pEncTrack) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -1434,11 +1398,7 @@ TEST_F(Recorder360Gtest, Stitched720p120fpsEncTrack) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -1547,12 +1507,7 @@ TEST_F(Recorder360Gtest, Stitched4KAnd720pEncTrack) {
   ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb =
-      [this] (EventType event_type, void *event_data,
-              size_t event_data_size) -> void { SessionCallbackHandler(event_type,
-      event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -1703,12 +1658,7 @@ TEST_F(Recorder360Gtest, Stitched4KAnd480pEncTrack) {
   ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb =
-      [this] (EventType event_type, void *event_data,
-              size_t event_data_size) -> void { SessionCallbackHandler(event_type,
-      event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -1860,12 +1810,7 @@ TEST_F(Recorder360Gtest, StitchedHDAnd480pEncTrack) {
   ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb =
-      [this] (EventType event_type, void *event_data,
-              size_t event_data_size) -> void { SessionCallbackHandler(event_type,
-      event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -2017,12 +1962,7 @@ TEST_F(Recorder360Gtest, StitchedHDWaitAECModeAnd480pEncTrack) {
   ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb =
-      [this] (EventType event_type, void *event_data,
-              size_t event_data_size) -> void { SessionCallbackHandler(event_type,
-      event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -2178,12 +2118,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNR) {
   ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb =
-      [this] (EventType event_type, void *event_data,
-              size_t event_data_size) -> void { SessionCallbackHandler(event_type,
-      event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -2330,12 +2265,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRAnd1080pYUVTrack) {
   ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb =
-      [this] (EventType event_type, void *event_data,
-              size_t event_data_size) -> void { SessionCallbackHandler(event_type,
-      event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -2515,12 +2445,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRAnd480pYUVTrack) {
   ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb =
-      [this] (EventType event_type, void *event_data,
-              size_t event_data_size) -> void { SessionCallbackHandler(event_type,
-      event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -2704,12 +2629,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAnd480pYUVTrack) 
   ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this](EventType event_type, void *event_data,
-                                      size_t event_data_size) -> void {
-    SessionCallbackHandler(event_type, event_data, event_data_size);
-  };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -2908,12 +2828,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAnd960pYUVTrack) 
   ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this](EventType event_type, void *event_data,
-                                      size_t event_data_size) -> void {
-    SessionCallbackHandler(event_type, event_data, event_data_size);
-  };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -3115,12 +3030,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayMix) {
   ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this](EventType event_type, void *event_data,
-                                      size_t event_data_size) -> void {
-    SessionCallbackHandler(event_type, event_data, event_data_size);
-  };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -3482,12 +3392,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayBlob) {
   ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this](EventType event_type, void *event_data,
-                                      size_t event_data_size) -> void {
-    SessionCallbackHandler(event_type, event_data, event_data_size);
-  };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -3855,12 +3760,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAndOverlayMix) {
   ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this](EventType event_type, void *event_data,
-                                      size_t event_data_size) -> void {
-    SessionCallbackHandler(event_type, event_data, event_data_size);
-  };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -4176,12 +4076,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAndOverlayBlob) {
   ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this](EventType event_type, void *event_data,
-                                      size_t event_data_size) -> void {
-    SessionCallbackHandler(event_type, event_data, event_data_size);
-  };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -4564,12 +4459,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayBlobAnd480pYUVTrack
   ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this](EventType event_type, void *event_data,
-                                      size_t event_data_size) -> void {
-    SessionCallbackHandler(event_type, event_data, event_data_size);
-  };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -4969,12 +4859,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlobAn
   ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this](EventType event_type, void *event_data,
-                                      size_t event_data_size) -> void {
-    SessionCallbackHandler(event_type, event_data, event_data_size);
-  };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -5384,12 +5269,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlobAn
   ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this](EventType event_type, void *event_data,
-                                      size_t event_data_size) -> void {
-    SessionCallbackHandler(event_type, event_data, event_data_size);
-  };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -5792,12 +5672,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNR480pPreviewTrack9
   ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this](EventType event_type, void *event_data,
-                                      size_t event_data_size) -> void {
-    SessionCallbackHandler(event_type, event_data, event_data_size);
-  };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -6024,12 +5899,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNR480pPreviewEncTra
   ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this](EventType event_type, void *event_data,
-                                      size_t event_data_size) -> void {
-    SessionCallbackHandler(event_type, event_data, event_data_size);
-  };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -6295,12 +6165,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
   ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this](EventType event_type, void *event_data,
-                                      size_t event_data_size) -> void {
-    SessionCallbackHandler(event_type, event_data, event_data_size);
-  };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -6770,12 +6635,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
   ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this](EventType event_type, void *event_data,
-                                      size_t event_data_size) -> void {
-    SessionCallbackHandler(event_type, event_data, event_data_size);
-  };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -7234,11 +7094,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNR960pEncTrack960pY
   ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                       size_t event_data_size) -> void
-      { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -7489,11 +7345,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
   ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                       size_t event_data_size) -> void
-      { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -7950,11 +7802,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
   ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                       size_t event_data_size) -> void
-      { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -8407,11 +8255,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
   ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                       size_t event_data_size) -> void
-      { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -8866,11 +8710,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
   ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                       size_t event_data_size) -> void
-      { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -9324,11 +9164,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
   ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                       size_t event_data_size) -> void
-      { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -9779,11 +9615,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
   ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                       size_t event_data_size) -> void
-      { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -10236,11 +10068,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
   ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                       size_t event_data_size) -> void
-      { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -10670,11 +10498,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
   ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                       size_t event_data_size) -> void
-      { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -11126,11 +10950,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
   ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                       size_t event_data_size) -> void
-      { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -11591,11 +11411,7 @@ TEST_F(Recorder360Gtest, Stitched720pYUVSessionAnd4KEncSession) {
   ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                       size_t event_data_size) -> void
-      { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id_720p;
   ret = recorder_.CreateSession(session_status_cb, &session_id_720p);
   ASSERT_TRUE(session_id_720p > 0);
@@ -11762,11 +11578,7 @@ TEST_F(Recorder360Gtest, Stitched720pYUVSessionAnd4KEncSessionAtRunTime) {
   ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                       size_t event_data_size) -> void
-      { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id_720p;
   ret = recorder_.CreateSession(session_status_cb, &session_id_720p);
   ASSERT_TRUE(session_id_720p > 0);
@@ -12214,11 +12026,7 @@ TEST_F(Recorder360Gtest, SideBySide4KYUVTrack) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -12313,11 +12121,7 @@ TEST_F(Recorder360Gtest, SideBySideHDYUVTrack) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -12410,11 +12214,7 @@ TEST_F(Recorder360Gtest, SideBySide720pYUVTrack) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -12505,11 +12305,7 @@ TEST_F(Recorder360Gtest, SideBySide4KAndFullHDYUVTrack) {
   ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                       size_t event_data_size) -> void
-      { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -12625,11 +12421,7 @@ TEST_F(Recorder360Gtest, SideBySide4KEncTrack) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -12737,11 +12529,7 @@ TEST_F(Recorder360Gtest, SideBySideHDEncTrack) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -12850,11 +12638,7 @@ TEST_F(Recorder360Gtest, SideBySide720pEncTrack) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -12964,11 +12748,7 @@ TEST_F(Recorder360Gtest, SideBySide720p120fpsEncTrack) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -13077,12 +12857,7 @@ TEST_F(Recorder360Gtest, SideBySide4KAnd720pEncTrack) {
   ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb =
-      [this] (EventType event_type, void *event_data,
-              size_t event_data_size) -> void { SessionCallbackHandler(event_type,
-      event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -13235,11 +13010,7 @@ TEST_F(Recorder360Gtest, SideBySide4KUHDEncTrackWithMaxFOV) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -13356,11 +13127,7 @@ TEST_F(Recorder360Gtest, SideBySide4KUHDYUVTrackWithMaxPPD) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -13485,11 +13252,7 @@ TEST_F(Recorder360Gtest, SideBySide4KUHDEncTrackWithMaxPPD) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -13629,11 +13392,7 @@ TEST_F(Recorder360Gtest, SideBySide4KUHDEncMaxFOVAndSingleWXGAYUVTrack) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -13798,11 +13557,7 @@ TEST_F(Recorder360Gtest, SideBySide4KUHDEncMaxPPDAndSingleWXGAYUVTrack) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -13980,11 +13735,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAllAWBModes) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -14161,11 +13912,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeAuto) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -14288,11 +14035,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeIncandescent) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -14413,11 +14156,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeFluorescent) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -14538,11 +14277,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeWarmFluorescent) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -14664,11 +14399,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeDaylight) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -14790,11 +14521,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeCloudyDaylight) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -14915,11 +14642,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeTwilight) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -15040,11 +14763,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeShade) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -15173,11 +14892,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAllAEAntiBandingModes) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -15325,11 +15040,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingModeOff) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -15450,11 +15161,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingMode50Hz) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -15575,11 +15282,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingMode60Hz) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -15700,11 +15403,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingModeAuto) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -15835,11 +15534,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAllISOModes) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -16004,11 +15699,7 @@ TEST_F(Recorder360Gtest, TestISOModeAuto) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -16130,11 +15821,7 @@ TEST_F(Recorder360Gtest, TestISOMode100) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -16256,11 +15943,7 @@ TEST_F(Recorder360Gtest, TestISOMode200) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -16382,11 +16065,7 @@ TEST_F(Recorder360Gtest, TestISOMode400) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -16508,11 +16187,7 @@ TEST_F(Recorder360Gtest, TestISOMode800) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -16634,11 +16309,7 @@ TEST_F(Recorder360Gtest, TestISOMode1600) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -16761,11 +16432,7 @@ TEST_F(Recorder360Gtest, TestISOMode3200) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+    SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
     ASSERT_TRUE(session_id > 0);
@@ -16883,11 +16550,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackAnd6KSnapshot) {
   ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
- SessionCb session_status_cb;
-  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                       size_t event_data_size) -> void
-      { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -17016,11 +16679,7 @@ TEST_F(Recorder360Gtest, StitchedHDEncTrackAnd6KSnapshot) {
   ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
- SessionCb session_status_cb;
-  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                       size_t event_data_size) -> void
-      { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -17149,11 +16808,7 @@ TEST_F(Recorder360Gtest, Stitched720pEncTrackAnd6KSnapshot) {
   ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
- SessionCb session_status_cb;
-  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                       size_t event_data_size) -> void
-      { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -17283,11 +16938,7 @@ TEST_F(Recorder360Gtest, Stitched480pEncTrackAnd6KSnapshot) {
   ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
- SessionCb session_status_cb;
-  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                       size_t event_data_size) -> void
-      { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -17419,11 +17070,7 @@ TEST_F(Recorder360Gtest, Stitched480pYUVTrackAnd6KSnapshotWithCancelCapture) {
   ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
   ASSERT_TRUE(ret == NO_ERROR);
 
- SessionCb session_status_cb;
-  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                       size_t event_data_size) -> void
-      { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
@@ -17552,12 +17199,7 @@ TEST_F(Recorder360Gtest, Stitched480pEncTrackAndPrintLumaValues) {
   ret = recorder_.StartCamera(multicam_id_, camera_start_params_, result_cb);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this](EventType event_type, void *event_data,
-                                      size_t event_data_size) -> void {
-    SessionCallbackHandler(event_type, event_data, event_data_size);
-  };
-
+  SessionCb session_status_cb = CreateSessionStatusCb();
   uint32_t session_id;
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
