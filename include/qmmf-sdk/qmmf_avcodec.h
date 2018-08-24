@@ -127,7 +127,7 @@ class IAVCodec {
 
   virtual status_t RegisterInputBuffers(std::vector<BufferDescriptor>& list) = 0;
 
-  virtual status_t Flush(uint32_t port_type) = 0;
+  virtual status_t FlushCodec(uint32_t port_type) = 0;
 
   static IAVCodec* CreateAVCodec(
       CodecMimeType mimetype = CodecMimeType::kMimeTypeVideoEncAVC);

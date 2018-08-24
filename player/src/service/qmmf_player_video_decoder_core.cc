@@ -933,9 +933,9 @@ status_t VideoTrackDecoder::PrepareDrag(bool ignore_fps) {
   while (api_count_ > 0) usleep(kSleepFlush);
 
   assert(avcodec_ != nullptr);
-  ret = avcodec_->Flush(kPortALL);
+  ret = avcodec_->FlushCodec(kPortALL);
   if (ret != OK) {
-    QMMF_ERROR("%s Flush failed on Avcodec", __func__);
+    QMMF_ERROR("%s: track_id(%d) FlushCodec failed", __func__, TrackId());
     return ret;
   }
 

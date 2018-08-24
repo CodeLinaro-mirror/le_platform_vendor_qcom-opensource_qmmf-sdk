@@ -110,7 +110,7 @@ class AVCodec : public IAVCodec {
       ::std::vector<BufferDescriptor>& list) override;
   status_t RegisterInputBuffers(
       ::std::vector<BufferDescriptor>& list) override;
-  status_t Flush(uint32_t port_type) override;
+  status_t FlushCodec(uint32_t port_type) override;
 
  private:
   std::mutex power_mtx_;
@@ -183,6 +183,8 @@ class AVCodec : public IAVCodec {
   status_t HandleOutputPortSettingsChange(OMX_U32 nData2);
 
   status_t PortReconfigOutput();
+
+  status_t Flush(uint32_t port_type);
 
   static OMX_ERRORTYPE OnEvent(OMX_IN OMX_HANDLETYPE component,
                                OMX_IN OMX_PTR app_data,

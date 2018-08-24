@@ -3231,6 +3231,30 @@ bool inline AVCodec::IsPortReconfig() {
   return bPortReconfig_;
 }
 
+status_t AVCodec::FlushCodec(uint32_t index) {
+  QMMF_INFO("%s: Enter", __func__);
+  status_t ret = 0;
+  if (format_type_ == CodecType::kVideoDecoder)
+    while (IsPortReconfig()) {
+      if(IsOutputPortStop()) {
+        return -EPERM;
+      }
+      usleep(kSleepPortReconfig);
+    }
+  api_count_++;
+
+  ret = Flush(index);
+  if (ret != OK) {
+    QMMF_ERROR("%s: Flush failed on port %s", __func__,
+        PORT_NAME(index));
+    api_count_--;
+    return ret;
+  }
+  api_count_--;
+  QMMF_INFO("%s: Exit", __func__);
+  return ret;
+}
+
 status_t AVCodec::Flush(uint32_t index) {
 
   QMMF_INFO("%s Enter", __func__);

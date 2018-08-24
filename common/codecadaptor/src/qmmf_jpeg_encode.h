@@ -84,7 +84,7 @@ class JPEGEncoder : public IAVCodec {
 
   status_t RegisterInputBuffers(::std::vector<BufferDescriptor>& list) override;
 
-  status_t Flush(uint32_t port_type) override;
+  status_t FlushCodec(uint32_t port_type) override;
 
 
  private:

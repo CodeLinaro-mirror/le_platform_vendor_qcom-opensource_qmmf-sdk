@@ -365,7 +365,7 @@ status_t JPEGEncoder::RegisterInputBuffers(vector<BufferDescriptor> &list) {
   return NO_ERROR;
 }
 
-status_t JPEGEncoder::Flush(uint32_t port_type) { return NO_ERROR; }
+status_t JPEGEncoder::FlushCodec(uint32_t port_type) { return NO_ERROR; }
 
 };  // namespace avcodec
 };  // namespace qmmf
