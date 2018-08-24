@@ -393,6 +393,7 @@ int32_t GtestCommon::Init() {
 int32_t GtestCommon::DeInit() {
 
   auto ret = recorder_.Disconnect();
+  track_frame_count_map_.clear();
   EXPECT_TRUE(ret == NO_ERROR);
   return ret;
 }
@@ -484,14 +485,8 @@ void GtestCommon::VideoTrackYUVDataCb(uint32_t session_id, uint32_t track_id,
                                       std::vector<MetaData> meta_buffers) {
   TEST_DBG("%s: Enter track_id: %d", __func__, track_id);
   if (is_dump_yuv_enabled_) {
-    static uint32_t id = 0;
-    static uint32_t id2 = 0;
-    if (track_id == 1)
-      ++id;
-    else
-      ++id2;
-
-    if (id == dump_yuv_freq_ || id2 == dump_yuv_freq_) {
+    track_frame_count_map_[track_id]++;
+    if (!(track_frame_count_map_[track_id] % dump_yuv_freq_)) {
       std::string file_path("/data/misc/qmmf/gtest_track_");
       size_t written_len;
       file_path += std::to_string(track_id) + "_";
@@ -503,7 +498,6 @@ void GtestCommon::VideoTrackYUVDataCb(uint32_t session_id, uint32_t track_id,
             file_path.c_str());
         goto FAIL;
       }
-
       written_len = fwrite(buffers[0].data, sizeof(uint8_t),
                            buffers[0].size, file);
       TEST_DBG("%s: written_len =%d", __func__, written_len);
@@ -519,10 +513,6 @@ void GtestCommon::VideoTrackYUVDataCb(uint32_t session_id, uint32_t track_id,
       if (file != NULL) {
         fclose(file);
       }
-    if (track_id == 1)
-      id = 0;
-    else
-      id2 = 0;
     }
   }
 
@@ -1696,3 +1686,41 @@ void GtestCommon::ClearSurface() {
 #endif
 }
 
+status_t GtestCommon::FillCropMetadata(CameraMetadata& meta,
+                                            int32_t sensor_mode_w,
+                                            int32_t sensor_mode_h,
+                                            int32_t crop_x, int32_t crop_y,
+                                            int32_t crop_w, int32_t crop_h) {
+
+  auto active_array_size = meta.find(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE);
+  if (!active_array_size.count) {
+    TEST_ERROR("%s: Active sensor array size is missing!", __func__);
+    return NAME_NOT_FOUND;
+  }
+  // Take the active pixel array width and height as base on which to
+  // recalculate the actual crop region dimensions.
+  float x = active_array_size.data.i32[2];
+  float y = active_array_size.data.i32[3];
+  float width = active_array_size.data.i32[2];
+  float height = active_array_size.data.i32[3];
+
+  // Get the crop region scale ratios and recalculate them against the base.
+  x *= (static_cast<float>(crop_x) / sensor_mode_w);
+  y *= (static_cast<float>(crop_y) / sensor_mode_h);
+  width *= (static_cast<float>(crop_w) / sensor_mode_w);
+  height *= (static_cast<float>(crop_h) / sensor_mode_h);
+
+  int32_t crop_region[] = {
+      static_cast<int32_t>(round(x)),
+      static_cast<int32_t>(round(y)),
+      static_cast<int32_t>(round(width)),
+      static_cast<int32_t>(round(height)),
+  };
+  auto ret = meta.update(ANDROID_SCALER_CROP_REGION, crop_region, 4);
+  if (NO_ERROR != ret) {
+    TEST_ERROR("%s: Failed to set crop region metadata!", __func__);
+    return ret;
+  }
+
+  return NO_ERROR;
+}

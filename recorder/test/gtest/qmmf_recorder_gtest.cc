@@ -223,9 +223,7 @@ TEST_F(RecorderGtest, FaceDetectionFor1080pYUVPreview) {
   ASSERT_TRUE(session_id > 0);
   ASSERT_TRUE(ret == NO_ERROR);
   VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kYUV,
-                                          stream_width,
-                                          stream_height,
-                                          30};
+                                          stream_width, stream_height, 30};
   video_track_param.low_power_mode = true;
   uint32_t video_track_id = 1;
 
@@ -233,7 +231,8 @@ TEST_F(RecorderGtest, FaceDetectionFor1080pYUVPreview) {
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
     std::vector<BufferDescriptor> buffers,
     std::vector<MetaData> meta_buffers) {
-    VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers); };
+    VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers
+      ); };
 
   video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
     void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
@@ -694,9 +693,7 @@ TEST_F(RecorderGtest, 4KZSL1080pYUVPreview) {
   ASSERT_TRUE(session_id > 0);
   ASSERT_TRUE(ret == NO_ERROR);
   VideoTrackCreateParam preview_track_param{camera_id_, VideoFormat::kYUV,
-                                            1920,
-                                            1080,
-                                            30};
+                                            1920, 1080, 30};
   preview_track_param.low_power_mode = true;
   uint32_t preview_track_id          = 1;
 
@@ -818,9 +815,7 @@ TEST_F(RecorderGtest, 4KZSL1080p480pYUVPreview) {
   ASSERT_TRUE(session_id > 0);
   ASSERT_TRUE(ret == NO_ERROR);
   VideoTrackCreateParam preview_track_param{camera_id_, VideoFormat::kYUV,
-                                            1920,
-                                            1080,
-                                            30};
+                                            1920, 1080, 30};
   preview_track_param.low_power_mode = false;
   uint32_t preview_track_id          = 1;
 
@@ -1192,15 +1187,13 @@ TEST_F(RecorderGtest, 4KSnapshotDisableEXIF) {
   uint32_t preview_track_id = 1;
 
   VideoTrackCreateParam preview_track_param{camera_id_, VideoFormat::kYUV,
-                                          640,
-                                          480,
-                                          30};
+                                          640, 480, 30};
     preview_track_param.low_power_mode = true;
 
   preview_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-          VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
   ret = recorder_.CreateVideoTrack(session_id, preview_track_id,
@@ -1322,15 +1315,13 @@ TEST_F(RecorderGtest, 10MPSnapshotDisableEXIF) {
   uint32_t preview_track_id = 1;
 
   VideoTrackCreateParam preview_track_param{camera_id_, VideoFormat::kYUV,
-                                          640,
-                                          480,
-                                          30};
+                                          640, 480, 30};
     preview_track_param.low_power_mode = true;
 
   preview_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-          VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
+        VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
       };
 
   ret = recorder_.CreateVideoTrack(session_id, preview_track_id,
@@ -1457,16 +1448,13 @@ TEST_F(RecorderGtest, 10MPSnapshotDisableEXIFUpdateFocalLength) {
   uint32_t preview_track_id = 1;
 
   VideoTrackCreateParam preview_track_param{camera_id_, VideoFormat::kYUV,
-                                          640,
-                                          480,
-                                          30};
+                                          640, 480, 30};
     preview_track_param.low_power_mode = true;
 
   preview_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-          VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
-      };
+        VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);};
 
   ret = recorder_.CreateVideoTrack(session_id, preview_track_id,
                                    preview_track_param, preview_track_cb);
@@ -1602,16 +1590,13 @@ TEST_F(RecorderGtest, 4KSnapshot) {
   uint32_t preview_track_id = 1;
 
   VideoTrackCreateParam preview_track_param{camera_id_, VideoFormat::kYUV,
-                                          640,
-                                          480,
-                                          30};
+                                          640, 480, 30};
     preview_track_param.low_power_mode = true;
 
   preview_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-          VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
-      };
+        VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers); };
 
   ret = recorder_.CreateVideoTrack(session_id, preview_track_id,
                                    preview_track_param, preview_track_cb);
@@ -1853,16 +1838,13 @@ TEST_F(RecorderGtest, 10MPSnapshot) {
   uint32_t preview_track_id = 1;
 
   VideoTrackCreateParam preview_track_param{camera_id_, VideoFormat::kYUV,
-                                          640,
-                                          480,
-                                          30};
+                                          640, 480, 30};
     preview_track_param.low_power_mode = true;
 
   preview_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-          VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
-      };
+        VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers); };
 
   ret = recorder_.CreateVideoTrack(session_id, preview_track_id,
                                    preview_track_param, preview_track_cb);
@@ -1975,16 +1957,13 @@ TEST_F(RecorderGtest, 10MPJPEG422InputSnapshot) {
   uint32_t preview_track_id = 1;
 
   VideoTrackCreateParam preview_track_param{camera_id_, VideoFormat::kYUV,
-                                          640,
-                                          480,
-                                          30};
+                                          640, 480, 30};
     preview_track_param.low_power_mode = true;
 
   preview_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-          VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
-      };
+        VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers); };
 
   ret = recorder_.CreateVideoTrack(session_id, preview_track_id,
                                    preview_track_param, preview_track_cb);
@@ -2126,16 +2105,13 @@ TEST_F(RecorderGtest, 10MPSnapshotMultiThumbnails) {
   uint32_t preview_track_id = 1;
 
   VideoTrackCreateParam preview_track_param{camera_id_, VideoFormat::kYUV,
-                                          640,
-                                          480,
-                                          30};
+                                          640, 480, 30};
     preview_track_param.low_power_mode = true;
 
   preview_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-          VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
-      };
+        VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers); };
 
   ret = recorder_.CreateVideoTrack(session_id, preview_track_id,
                                    preview_track_param, preview_track_cb);
@@ -9229,6 +9205,7 @@ TEST_F(RecorderGtest, SessionWith4KEncWithLCACYUV) {
 
     std::vector<uint32_t> track_ids;
     track_ids.push_back(video_track_id);
+
     sessions_.insert(std::make_pair(session_id, track_ids));
 
     CameraMetadata meta;
@@ -10454,8 +10431,7 @@ TEST_F(RecorderGtest, SessionWithLPM1080pEncYUVSnapshot) {
     s1_video_t1_cb.data_cb = [&, s1_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-          VideoTrackYUVDataCb(s1_id, track_id, buffers, meta_buffers);
-        };
+          VideoTrackYUVDataCb(s1_id, track_id, buffers, meta_buffers);};
 
     s1_video_t1_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
         void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
@@ -12303,8 +12279,7 @@ TEST_F(RecorderGtest, SessionWith4KAnd1080pYUVTrackStartStop) {
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
-      };
+        VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);};
 
   video_track_cb.event_cb =
       [this] (uint32_t track_id, EventType event_type,
@@ -12546,8 +12521,7 @@ TEST_F(RecorderGtest, SingleSessionCameraParamTest) {
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
-        VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
-      };
+        VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);};
 
   video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
       void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
@@ -14330,8 +14304,7 @@ TEST_F(RecorderGtest, SessionWith4kEncCopy1080EncAndCopy720YUV) {
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-          VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
-    };
+          VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);};
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_720p_yuv,
                                      video_track_param, extra_param2,
@@ -14499,8 +14472,7 @@ TEST_F(RecorderGtest, SessionWith4kEncCopy1080EncAndLinked1080YUV) {
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-          VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
-    };
+          VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);};
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_1080p_yuv,
                                      video_track_param, extra_param2,
@@ -14666,8 +14638,7 @@ TEST_F(RecorderGtest, SessionWith4kEnc960EncAndLinked960YUVTrack) {
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-          VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
-    };
+          VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);};
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_960p_yuv_linked,
                                      video_track_param, extra_param,
@@ -23212,8 +23183,8 @@ TEST_F(RecorderGtest,
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
-    };
+      VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers
+        ); };
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p_yuv,
                                      video_track_param, extra_param2,
@@ -23791,8 +23762,8 @@ TEST_F(RecorderGtest,
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
-    };
+      VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers
+        ); };
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p_yuv,
                                      video_track_param, extra_param,
@@ -23946,8 +23917,8 @@ TEST_F(RecorderGtest,
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
-    };
+      VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers
+        ); };
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p_yuv,
                                      video_track_param, extra_param,
@@ -24103,8 +24074,8 @@ TEST_F(RecorderGtest,
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
-    };
+      VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers
+        ); };
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p_yuv,
                                      video_track_param, extra_param,
@@ -28983,8 +28954,7 @@ TEST_F(RecorderGtest, SessionWithDualCam4k30EncRescale1080p30EncAnd1080p30YUVWit
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-          VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
-    };
+          VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers); };
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_1080p_yuv,
                                      video_track_param, extra_param_hdr,
@@ -29183,8 +29153,8 @@ TEST_F(RecorderGtest, SessionWithDualCam4k60EncRescale1080p30EncAnd1080p30YUVWit
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-          VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
-    };
+          VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers
+            ); };
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_1080p_yuv,
                                      video_track_param, extra_param_hdr,
@@ -29381,8 +29351,8 @@ TEST_F(RecorderGtest, SessionWithDualCam5_7k30EncRescale1080p30EncAnd1080p30YUVW
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-          VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
-    };
+          VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers
+            ); };
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_1080p_yuv,
                                      video_track_param, extra_param_hdr,
@@ -29495,9 +29465,7 @@ TEST_F(RecorderGtest, 4kSnapshotWithGPSInfo) {
   uint32_t yuv_track_id = 1;
 
   VideoTrackCreateParam yuv_track_param{camera_id_, VideoFormat::kYUV,
-                                        640,
-                                        480,
-                                        30};
+                                        640, 480, 30};
 
   if (camera_id_ == 2) {
     yuv_track_param.width = 960;

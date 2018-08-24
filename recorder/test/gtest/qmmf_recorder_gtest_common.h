@@ -36,6 +36,7 @@
 #include <vector>
 #include <map>
 #include <mutex>
+#include <condition_variable>
 #include <cutils/properties.h>
 
 #include <qmmf-sdk/qmmf_display.h>
@@ -367,6 +368,7 @@ class GtestCommon : public ::testing::Test {
 
   bool VendorTagExistsInMeta(const CameraMetadata& meta, const String8& name,
                              const String8& section, uint32_t* tag_id);
+#endif
 
   void CreatePrivacyMaskOverlay(const uint32_t& video_track_id,
                                 const int32_t& width, const int32_t& height,
@@ -374,7 +376,6 @@ class GtestCommon : public ::testing::Test {
 
   void DestroyPrivacyMaskOverlay (const uint32_t& video_track_id,
                                   const uint32_t& mask_id);
-#endif
 
   Recorder              recorder_;
   uint32_t              camera_id_;
@@ -383,6 +384,7 @@ class GtestCommon : public ::testing::Test {
   CameraStartParam      camera_start_params_;
   RecorderCb            recorder_status_cb_;
   std::map <uint32_t , std::vector<uint32_t> > sessions_;
+  std::map<uint32_t,uint32_t> track_frame_count_map_;
 
   void ParseFaceInfo(const android::CameraMetadata &res,
                      struct FaceInfo &info);
@@ -394,6 +396,10 @@ class GtestCommon : public ::testing::Test {
   void ExtractColorValues(uint32_t hex_color, RGBAValues* color);
 
   void ClearSurface();
+
+  status_t FillCropMetadata(CameraMetadata& meta, int32_t sensor_mode_w,
+                            int32_t sensor_mode_h, int32_t crop_x,
+                            int32_t crop_y, int32_t crop_w, int32_t crop_h);
 
 #ifndef DISABLE_DISPLAY
   void DisplayCallbackHandler(DisplayEventType event_type, void *event_data,
