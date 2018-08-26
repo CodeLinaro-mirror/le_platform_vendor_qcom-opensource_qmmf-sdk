@@ -231,9 +231,10 @@ void PostProcJpeg::AddResult(const void* result) {
   CameraMetadata meta = *(reinterpret_cast<const CameraMetadata *>(result));
 
   if (meta.exists(ANDROID_CONTROL_CAPTURE_INTENT)) {
-    auto cature_intent = meta.find(ANDROID_CONTROL_CAPTURE_INTENT).data.u8[0];
-    if (cature_intent != ANDROID_CONTROL_CAPTURE_INTENT_STILL_CAPTURE) {
-      QMMF_DEBUG("%s Metadata is not related to a still capture!",
+    auto capture_intent = meta.find(ANDROID_CONTROL_CAPTURE_INTENT).data.u8[0];
+    if ( !((capture_intent == ANDROID_CONTROL_CAPTURE_INTENT_STILL_CAPTURE) ||
+         (capture_intent == ANDROID_CONTROL_CAPTURE_INTENT_VIDEO_SNAPSHOT)) ) {
+      QMMF_INFO("%s Metadata is not related to a still capture!",
           __func__);
       return;
     }
