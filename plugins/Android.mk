@@ -122,7 +122,7 @@ LOCAL_SRC_FILES += gtest/qmmf_algo_gtest_configuration.cc
 LOCAL_SRC_FILES += gtest/ion_buffer.cc
 LOCAL_SRC_FILES += gtest/heap_tracker.cc
 
-LOCAL_SHARED_LIBRARIES += libjsoncpp_vendor
+LOCAL_SHARED_LIBRARIES += $(LIB_JSONCPP)
 
 LOCAL_MODULE = qmmf_algo_interface_gtest
 
