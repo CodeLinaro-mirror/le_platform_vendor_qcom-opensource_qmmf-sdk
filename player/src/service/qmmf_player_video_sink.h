@@ -183,6 +183,8 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
 
   inline void SetIgnoreFps(bool value) { ignore_fps_ = value; }
 
+  status_t StartFlush(bool status);
+
  private:
 
   int32_t TrackId() { return track_params_.track_id; }
@@ -216,6 +218,7 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
   int64_t                 audio_accumulated_frames_;
   int64_t                 audio_offset_;
   std::mutex              avsync_lock_;
+  std::mutex              queue_lock_;
 
 #ifndef DISABLE_DISPLAY
   Display*   display_;
@@ -286,6 +289,9 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
   double                                 display_refresh_rate_;
   std::mutex                             ignore_fps_lock_;
   bool                                   ignore_fps_;
+  std::atomic<bool>                      flush_in_progress_;
+
+  static const uint32_t                  kSleepWait;
 };
 
 };  // namespace player
