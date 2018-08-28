@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -115,6 +115,8 @@ class AudioTrackSink : public ::qmmf::avcodec::ICodecSource {
                               void* param,
                               uint32_t param_size);
 
+  status_t SetPosition(int64_t seek_time);
+
   void AddBufferList(::android::Vector<::qmmf::avcodec::CodecBuffer>& list);
 
   status_t GetBuffer(BufferDescriptor& codec_buffer,
@@ -123,6 +125,10 @@ class AudioTrackSink : public ::qmmf::avcodec::ICodecSource {
                         void* client_data) override;
   status_t NotifyPortEvent(::qmmf::avcodec::PortEventType event_type,
                            void* event_data) override;
+
+  status_t GetAudioPresentationTime(uint32_t* frames,
+                                    uint32_t* rate,
+                                    int64_t* offset);
 
  private:
   int32_t TrackId() { return track_params_.track_id; }
@@ -189,6 +195,10 @@ class AudioTrackSink : public ::qmmf::avcodec::ICodecSource {
 #endif
 
   uint32_t               total_bytes_decoded_;
+  int32_t                latency_;
+  int64_t                seek_time_;
+  int64_t                first_seen_timestamp_;
+  std::mutex             av_lock_;
   std::mutex             state_change_lock_;
 };
 
