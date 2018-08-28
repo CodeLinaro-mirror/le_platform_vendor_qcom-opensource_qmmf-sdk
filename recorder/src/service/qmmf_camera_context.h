@@ -223,7 +223,7 @@ class CameraContext : public CameraInterface,
 
   void CameraShutterCb(const CaptureResultExtras &, int64_t time_stamp);
 
-  void CameraPreparedCb(int32_t);
+  void CameraPreparedCb(int32_t stream_id);
 
   void CameraResultCb(const CaptureResult &result);
 
@@ -273,6 +273,10 @@ class CameraContext : public CameraInterface,
   std::mutex               device_access_lock_;
   CameraStartParam         camera_start_params_;
   CameraMetadata           static_meta_;
+
+  std::map<uint32_t, bool> stream_prepared_;
+  QCondition               prepare_done_;
+  std::mutex               prepare_lock_;
 
   // Global Capture request.
   int32_t                  streaming_request_id_;
