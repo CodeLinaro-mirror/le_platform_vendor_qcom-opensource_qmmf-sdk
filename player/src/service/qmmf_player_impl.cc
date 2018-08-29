@@ -699,7 +699,7 @@ status_t PlayerImpl::Resume() {
     for (size_t i = 0; i < num_tracks; i++) {
       if ((tracks_[i].type == TrackType::kVideo) &&
           (!track_map_.editValueFor(tracks_[i].track_id).eos_rendered)) {
-        ret = video_decoder_core_->ResumeTrackDecoder(tracks_[i].track_id);
+        ret = video_decoder_core_->ResumeTrackDecoder(tracks_[i].track_id, false);
         if (ret != NO_ERROR) break;
       } else if ((tracks_[i].type == TrackType::kAudio) &&
                  (!track_map_.editValueFor(tracks_[i].track_id).eos_rendered) &&
