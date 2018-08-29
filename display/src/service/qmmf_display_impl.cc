@@ -437,8 +437,9 @@ status_t DisplayImpl::CreateSurface(DisplayHandle display_handle,
   QMMF_DEBUG("%s: Buffer format: %d", __func__, layer->input_buffer.format);
   QMMF_DEBUG("%s: Color Primaries value: %d", __func__,
       layer->input_buffer.color_metadata.colorPrimaries);
-  if(layer->input_buffer.format == kFormatYCbCr420SemiPlanarVenus ||
-      layer->input_buffer.format == kFormatYCbCr420SPVenusUbwc) {
+  if (layer->input_buffer.format == kFormatYCbCr420SemiPlanarVenus ||
+      layer->input_buffer.format == kFormatYCbCr420SPVenusUbwc ||
+      layer->input_buffer.format == kFormatYCbCr420SemiPlanar) {
     layer->input_buffer.color_metadata.colorPrimaries = ColorPrimaries_BT601_6_525;
     layer->input_buffer.color_metadata.range = Range_Limited;
   }
@@ -1438,7 +1439,8 @@ LayerStack* DisplayImpl::GetLayerStack(DisplayType display_type,
           layer->input_buffer.planes[0].stride =
               queued_buffer_info->second.surface_buffer.plane_info[0].stride;
           if (layer->input_buffer.format == kFormatYCbCr420SemiPlanarVenus ||
-              layer->input_buffer.format == kFormatYCbCr420SPVenusUbwc) {
+              layer->input_buffer.format == kFormatYCbCr420SPVenusUbwc ||
+              layer->input_buffer.format == kFormatYCbCr420SemiPlanar) {
             layer->input_buffer.color_metadata.colorPrimaries =
                 ColorPrimaries_BT601_6_525;
             layer->input_buffer.color_metadata.range = Range_Limited;
