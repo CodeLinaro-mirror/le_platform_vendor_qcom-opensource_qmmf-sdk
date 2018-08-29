@@ -756,18 +756,34 @@ status_t VideoTrackSink::ReturnBuffer(BufferDescriptor& codec_buffer,
   QMMF_VERBOSE("%s: track_id(%d) Received buffer(0x%p) from FBD",
       __func__, TrackId(), codec_buffer.data);
 
+  // Handle Corrupt Frame.
+  if ((codec_buffer.flag &
+       static_cast<uint32_t>(BufferFlags::kFlagDataCorrupt)) &&
+      !(codec_buffer.flag & static_cast<uint32_t>(BufferFlags::kFlagEOS))) {
+    ret = ReturnBufferToCodec(codec_buffer);
+    if (ret != 0)
+      QMMF_ERROR("%s:Error in ReturnBufferToCodec : %d", __func__,
+                 codec_buffer.fd);
+    return ret;
+  }
+
   if (!((codec_buffer.flag & static_cast<uint32_t>(BufferFlags::kFlagEOS)) ||
-      stop_called_ || (!codec_buffer.size && !flush_in_progress_))) {
+        stop_called_ || (!codec_buffer.size && !flush_in_progress_))) {
     auto ret = Dispatcher(codec_buffer);
-    if(ret != 0) {
+    if (ret != 0) {
       QMMF_ERROR("%s: Failed to dispatch buffer with fd:%d", __func__,
-          codec_buffer.fd);
+                 codec_buffer.fd);
       return ret;
     }
 
 #ifdef DUMP_YUV_FRAMES
-  DumpYUVData(codec_buffer);
+    DumpYUVData(codec_buffer);
 #endif
+  } else {
+    ret = ReturnBufferToCodec(codec_buffer);
+    if (ret != 0)
+      QMMF_ERROR("%s: Failed in ReturnBufferToCodec with fd:%d", __func__,
+                 codec_buffer.fd);
   }
 
   if (codec_buffer.flag & static_cast<uint32_t>(BufferFlags::kFlagEOS))

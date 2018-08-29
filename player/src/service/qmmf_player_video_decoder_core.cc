@@ -290,7 +290,8 @@ status_t VideoDecoderCore::PauseTrackDecoder(uint32_t track_id,
   return ret;
 }
 
-status_t VideoDecoderCore::ResumeTrackDecoder(uint32_t track_id) {
+status_t VideoDecoderCore::ResumeTrackDecoder(uint32_t track_id,
+                                              bool notify_input_buf) {
   QMMF_DEBUG("%s: Enter track_id(%d)", __func__, track_id);
 
   if (!isTrackValid(track_id)) {
@@ -302,7 +303,7 @@ status_t VideoDecoderCore::ResumeTrackDecoder(uint32_t track_id) {
       video_track_decoders_.valueFor(track_id);
   assert(track_decoder.get() != nullptr);
 
-  auto ret = track_decoder->ResumeDecoder();
+  auto ret = track_decoder->ResumeDecoder(notify_input_buf);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: track_id(%d) ResumeDecoder failed!", __func__, track_id);
    return ret;
@@ -878,7 +879,7 @@ status_t VideoTrackDecoder::PauseDecoder(const PictureParam& params,
   return ret;
 }
 
-status_t VideoTrackDecoder::ResumeDecoder() {
+status_t VideoTrackDecoder::ResumeDecoder(bool notify_input_buf) {
   QMMF_DEBUG("%s: Enter track_id(%d)", __func__, TrackId());
 
   {
@@ -898,11 +899,14 @@ status_t VideoTrackDecoder::ResumeDecoder() {
     return ret;
   }
 
-  input_buffer_notify_params_.num_free_buffers = unfilled_frame_queue_.Size();
-  if (input_buffer_notify_params_.num_free_buffers > 0) {
-    track_callback_.event_cb(TrackId(), EventType::kInputBufferNotify,
-                             &input_buffer_notify_params_,
-                             sizeof(input_buffer_notify_params_));
+  if (notify_input_buf) {
+    input_buffer_notify_params_.num_free_buffers =
+        unfilled_frame_queue_.Size();
+    if (input_buffer_notify_params_.num_free_buffers > 0) {
+      track_callback_.event_cb(TrackId(), EventType::kInputBufferNotify,
+                               &input_buffer_notify_params_,
+                               sizeof(input_buffer_notify_params_));
+    }
   }
 
   QMMF_DEBUG("%s: Exit track_id(%d)", __func__, TrackId());
@@ -958,14 +962,12 @@ status_t VideoTrackDecoder::PrepareDrag(bool ignore_fps) {
     return ret;
   }
 
-  if (!ignore_fps) {
-    input_buffer_notify_params_.num_free_buffers = unfilled_frame_queue_.Size();
-    if (input_buffer_notify_params_.num_free_buffers > 0) {
-      track_callback_.event_cb(TrackId(), EventType::kInputBufferNotify,
-                               &input_buffer_notify_params_,
-                               sizeof(input_buffer_notify_params_));
-    }
-  }
+  input_buffer_notify_params_.num_free_buffers = unfilled_frame_queue_.Size();
+  if (input_buffer_notify_params_.num_free_buffers > 0)
+    track_callback_.event_cb(TrackId(), EventType::kInputBufferNotify,
+                             &input_buffer_notify_params_,
+                             sizeof(input_buffer_notify_params_));
+
   QMMF_DEBUG("%s: Exit track_id(%d)", __func__, TrackId());
   return NO_ERROR;
 }
@@ -1165,7 +1167,7 @@ status_t VideoTrackDecoder::ReturnBuffer(BufferDescriptor& stream_buffer,
     frames_being_decoded_.Erase(it);
   }
 
-  if (!IsPause()) {
+  if (!IsPause() && !flush_in_progress_) {
     input_buffer_notify_params_.num_free_buffers = unfilled_frame_queue_.Size();
     if (input_buffer_notify_params_.num_free_buffers > 0) {
       track_callback_.event_cb(TrackId(), EventType::kInputBufferNotify,

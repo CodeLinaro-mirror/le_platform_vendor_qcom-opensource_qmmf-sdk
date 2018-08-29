@@ -46,7 +46,8 @@ enum class BufferFlags {
   kFlagIFrame = (1 << 4),
   kFlagPFrame = (1 << 5),
   kFlagBFrame = (1 << 6),
-  kFlagExtraData = (1 << 7)
+  kFlagExtraData = (1 << 7),
+  kFlagDataCorrupt = (1<<8)
 };
 
 struct BufferDescriptor {

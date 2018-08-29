@@ -411,7 +411,7 @@ status_t AudioDecoderCore::SetPosition(uint32_t track_id, int64_t seek_time) {
   shared_ptr<AudioTrackDecoder> track_decoder =
       audio_track_decoders_.valueFor(track_id);
   if (track_decoder.get() == nullptr) {
-    QMMF_ERROR("%s: track decoder is null");
+    QMMF_ERROR("%s: track decoder is null", __func__);
     return -ENODATA;
   }
 
