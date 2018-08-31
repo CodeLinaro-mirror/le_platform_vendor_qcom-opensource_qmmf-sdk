@@ -102,6 +102,7 @@ class AVCodec : public IAVCodec {
   status_t StartCodec() override;
   void setPowerHint();
   void endPowerHint();
+  void SetVenusTurboConfig();
   status_t StopCodec(bool do_flush) override;
   status_t PauseCodec() override;
   status_t ResumeCodec() override;
@@ -250,11 +251,13 @@ class AVCodec : public IAVCodec {
   std::atomic<int>          api_count_;
   std::atomic<bool>         flush_in_progress_;
   std::atomic<bool>         enable_thumbnail_;
+  bool                      enable_turbo_mode_;
 
   static const int64_t  kOutputBufHeaderDelay;
   static const uint32_t kMaxWaitLimitCounter;
   static const uint32_t kSleepPortReconfig;
   static const uint32_t kSleepFlush;
+  static const uint32_t kInputLoad;
 };
 
 };  // namespace avcodec
