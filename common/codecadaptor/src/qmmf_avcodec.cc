@@ -95,6 +95,7 @@ using ::std::unique_lock;
 using ::std::vector;
 
 static const string PROP_POWER_HINT = "qmmf.power.hint.on";
+static const string PROP_VENUS_TURBO = "qmmf.venus.turbo.enable";
 
 // Output buffer header delay 50 msec
 const int64_t AVCodec::kOutputBufHeaderDelay = 50;
@@ -107,6 +108,10 @@ const uint32_t AVCodec::kSleepPortReconfig = 3000;
 
 // sleep time for Flush - 5000 usec
 const uint32_t AVCodec::kSleepFlush = 5000;
+
+// Value too decide whether put encoder in turbo mode or not.
+// Width*Height*Framerate
+const uint32_t AVCodec::kInputLoad = 1920*1440*50;
 
 template<class T>
 static void InitOMXParams(T *params) {
@@ -154,7 +159,8 @@ AVCodec::AVCodec()
       slice_mode_encoding_(false),
       api_count_(0),
       flush_in_progress_(false),
-      enable_thumbnail_(false) {
+      enable_thumbnail_(false),
+      enable_turbo_mode_(false) {
 
   QMMF_INFO("%s Enter", __func__);
 
@@ -192,6 +198,21 @@ AVCodec::~AVCodec() {
   signal_queue_.Clear();
 
   QMMF_INFO("%s Exit", __func__);
+}
+
+void AVCodec::SetVenusTurboConfig() {
+
+  OMX_QCOM_VIDEO_PARAM_PERF_LEVEL perf_param;
+  InitOMXParams(&perf_param);
+  perf_param.ePerfLevel = OMX_QCOM_PerfLevelTurbo;
+  auto ret = omx_client_->SetConfig(
+      static_cast<OMX_INDEXTYPE>(OMX_QcomIndexConfigPerfLevel),
+      reinterpret_cast<OMX_PTR>(&perf_param));
+  if (ret != 0) {
+    QMMF_ERROR("%s Failed to set Venus Turbo Config: %d", __func__, ret);
+    return;
+  }
+  QMMF_INFO("%s Encoder is set to turbo mode!!", __func__);
 }
 
 status_t AVCodec::CreateHandle(char* component_name) {
@@ -574,6 +595,15 @@ status_t AVCodec::ConfigureVideoEncoder(CodecParam& codec_param) {
   uint32_t min_IQP, max_IQP,  min_PQP, max_PQP, min_BQP, max_BQP;
   uint32_t ltr_count, hier_num_layer;
   VideoRateControlType rate_control;
+
+  char prop_val[PROPERTY_VALUE_MAX];
+  property_get(PROP_VENUS_TURBO.c_str(), prop_val, "0");
+  if (atoi(prop_val) == 1) {
+    if (width * height * frame_rate >= kInputLoad) {
+      QMMF_INFO("%s: Setting to turn-on turbo mode is On!", __func__);
+      enable_turbo_mode_ = true;
+    }
+  }
 
   PrependSPSPPSToIDRFramesParams param;
   InitOMXParams(&param);
@@ -2744,6 +2774,10 @@ status_t AVCodec::StartCodec() {
   getInputBufferSource()->NotifyPortEvent(PortEventType::kPortStatus,
                                           static_cast<void*>(&status));
 
+  if (format_type_ == CodecType::kVideoEncoder && enable_turbo_mode_) {
+      SetVenusTurboConfig();
+  }
+
   QMMF_INFO("%s current state(%s), pending state(%s)", __func__,
       OMX_STATE_NAME(state_), OMX_STATE_NAME(state_pending_));
   QMMF_INFO("%s Exit", __func__);
@@ -2936,8 +2970,12 @@ status_t AVCodec::StopCodec(bool do_flush) {
   QMMF_INFO("%s current state(%s), pending state(%s)", __func__,
       OMX_STATE_NAME(state_), OMX_STATE_NAME(state_pending_));
   QMMF_INFO("%s Exit", __func__);
+
   endPowerHint();
+
   api_count_--;
+  enable_turbo_mode_ = false;
+
   return ret;
 }
 
