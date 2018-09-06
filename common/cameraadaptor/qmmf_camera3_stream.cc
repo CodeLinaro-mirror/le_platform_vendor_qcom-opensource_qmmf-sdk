@@ -489,6 +489,7 @@ int32_t Camera3Stream::PopulateMetaInfo(CameraBufferMetaData &info,
     // complete solution is ready from Camera
     // for libgbm formats.
     case HAL_PIXEL_FORMAT_YCbCr_420_888:
+    case HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED:
 #endif
       info.format = BufferFormat::kNV12;
       info.num_planes = 2;
