@@ -166,7 +166,7 @@ void RecorderGtest::SetUp() {
   enable_gfx_ = false;
 #endif
 
-#ifdef ANDROID_O_OR_ABOVE
+#ifdef CAM_ARCH_V2
   vendor_tag_desc_ = nullptr;
 #endif
 
@@ -26784,7 +26784,65 @@ status_t RecorderGtest::SetCameraFocalLength(const float focal_length) {
   return NO_ERROR;
 }
 
-#ifdef ANDROID_O_OR_ABOVE
+void RecorderGtest::CreatePrivacyMaskOverlay (const uint32_t& video_track_id,
+                                              const int32_t& width,
+                                              const int32_t& height,
+                                              uint32_t* mask_id) {
+  // Create BoundingBox type overlay.
+  OverlayParam object_params{};
+  object_params.type  = OverlayType::kPrivacyMask;
+  object_params.color = 0xFF9933FF; //Fill mask with color.
+  // Dummy coordinates for test purpose.
+  object_params.dst_rect.start_x = 20;
+  object_params.dst_rect.start_y = 40;
+  object_params.dst_rect.width   = width/8;
+  object_params.dst_rect.height  = height/8;
+
+  auto ret = recorder_.CreateOverlayObject(video_track_id, object_params,
+                                           mask_id);
+  ASSERT_TRUE(ret == 0);
+  ret = recorder_.SetOverlay(video_track_id, *mask_id);
+  ASSERT_TRUE(ret == 0);
+
+  ret = recorder_.GetOverlayObjectParams(video_track_id, *mask_id,
+                                             object_params);
+  ASSERT_TRUE(ret == 0);
+
+  object_params.dst_rect.start_x = (object_params.dst_rect.start_x +
+    object_params.dst_rect.width < width) ? object_params.dst_rect.start_x + 20
+                                          : 20;
+
+  object_params.dst_rect.width = (object_params.dst_rect.start_x +
+    object_params.dst_rect.width < width) ? object_params.dst_rect.width + 50
+                                          : width/8;
+
+  object_params.dst_rect.start_y = (object_params.dst_rect.start_y +
+    object_params.dst_rect.height < height) ? object_params.dst_rect.start_y +
+                                              10 : 40;
+
+  object_params.dst_rect.height = (object_params.dst_rect.start_y +
+    object_params.dst_rect.height < height) ? object_params.dst_rect.height +
+                                          50 : height/8;
+
+  ret = recorder_.UpdateOverlayObjectParams(video_track_id, *mask_id,
+                                                object_params);
+  ASSERT_TRUE(ret == 0);
+
+}
+
+void RecorderGtest::DestroyPrivacyMaskOverlay (const uint32_t& video_track_id,
+                                               const uint32_t& mask_id) {
+
+  // Remove overlay object from video track.
+  auto ret = recorder_.RemoveOverlay(video_track_id, mask_id);
+  ASSERT_TRUE(ret == 0);
+
+  // Delete overlay object.
+  ret = recorder_.DeleteOverlayObject(video_track_id, mask_id);
+  ASSERT_TRUE(ret == 0);
+}
+
+#ifdef CAM_ARCH_V2
 /**
  * This function can be called only after StartCamera. It tries to fetch
  * tag_id, on success, returns true and fills vendor tag_id. On failure,
@@ -28844,64 +28902,6 @@ TEST_F(RecorderGtest, SessionsWith4KEncTrackZZHDR) {
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 
-}
-
-void RecorderGtest::CreatePrivacyMaskOverlay (const uint32_t& video_track_id,
-                                              const int32_t& width,
-                                              const int32_t& height,
-                                              uint32_t* mask_id) {
-  // Create BoundingBox type overlay.
-  OverlayParam object_params{};
-  object_params.type  = OverlayType::kPrivacyMask;
-  object_params.color = 0xFF9933FF; //Fill mask with color.
-  // Dummy coordinates for test purpose.
-  object_params.dst_rect.start_x = 20;
-  object_params.dst_rect.start_y = 40;
-  object_params.dst_rect.width   = width/8;
-  object_params.dst_rect.height  = height/8;
-
-  auto ret = recorder_.CreateOverlayObject(video_track_id, object_params,
-                                           mask_id);
-  ASSERT_TRUE(ret == 0);
-  ret = recorder_.SetOverlay(video_track_id, *mask_id);
-  ASSERT_TRUE(ret == 0);
-
-  ret = recorder_.GetOverlayObjectParams(video_track_id, *mask_id,
-                                             object_params);
-  ASSERT_TRUE(ret == 0);
-
-  object_params.dst_rect.start_x = (object_params.dst_rect.start_x +
-    object_params.dst_rect.width < width) ? object_params.dst_rect.start_x + 20
-                                          : 20;
-
-  object_params.dst_rect.width = (object_params.dst_rect.start_x +
-    object_params.dst_rect.width < width) ? object_params.dst_rect.width + 50
-                                          : width/8;
-
-  object_params.dst_rect.start_y = (object_params.dst_rect.start_y +
-    object_params.dst_rect.height < height) ? object_params.dst_rect.start_y +
-                                              10 : 40;
-
-  object_params.dst_rect.height = (object_params.dst_rect.start_y +
-    object_params.dst_rect.height < height) ? object_params.dst_rect.height +
-                                          50 : height/8;
-
-  ret = recorder_.UpdateOverlayObjectParams(video_track_id, *mask_id,
-                                                object_params);
-  ASSERT_TRUE(ret == 0);
-
-}
-
-void RecorderGtest::DestroyPrivacyMaskOverlay (const uint32_t& video_track_id,
-                                               const uint32_t& mask_id) {
-
-  // Remove overlay object from video track.
-  auto ret = recorder_.RemoveOverlay(video_track_id, mask_id);
-  ASSERT_TRUE(ret == 0);
-
-  // Delete overlay object.
-  ret = recorder_.DeleteOverlayObject(video_track_id, mask_id);
-  ASSERT_TRUE(ret == 0);
 }
 
 /*

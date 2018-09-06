@@ -69,7 +69,7 @@ Camera3Stream::Camera3Stream(int id, size_t maxSize,
   camera3_stream::rotation = outputConfiguration.rotation;
   camera3_stream::usage = outputConfiguration.grallocFlags;
   camera3_stream::max_buffers = outputConfiguration.bufferCount;
-#ifdef ANDROID_O_OR_ABOVE
+#ifdef CAM_ARCH_V2
   if (HAL_PIXEL_FORMAT_BLOB == outputConfiguration.format) {
     camera3_stream::data_space = HAL_DATASPACE_V0_JFIF;
   }

@@ -85,7 +85,7 @@ const char kAutoOrWarmBootModeArgs[] = {
 };
 
 // Number of histogram color channels.
-#ifdef ANDROID_O_OR_ABOVE
+#ifdef CAM_ARCH_V2
 // Red, Green, Blue
 static const int32_t kHistogramColorChannels = 3;
 #else
@@ -122,7 +122,7 @@ RecorderTest::RecorderTest() :
   TEST_INFO("%s: Enter", __func__);
   static_info_.clear();
   use_display = 0;
-#ifdef ANDROID_O_OR_ABOVE
+#ifdef CAM_ARCH_V2
   vendor_tag_desc_ = nullptr;
 #endif
   TEST_KPI_GET_MASK();
@@ -266,7 +266,7 @@ status_t RecorderTest::RemovePreviewTrack() {
   return ret;
 }
 
-#ifdef ANDROID_O_OR_ABOVE
+#ifdef CAM_ARCH_V2
 /**
  * This function can be called only after StartCamera. It tries to fetch
  * tag_id, on success, returns true and fills vendor tag_id. On failure,
@@ -504,7 +504,7 @@ int32_t RecorderTest::ToggleVHDR() {
   auto status = recorder_.GetCameraParam(camera_id_, meta);
   if (NO_ERROR == status) {
     uint32_t hdr_mode_vtag;
-#ifdef ANDROID_O_OR_ABOVE
+#ifdef CAM_ARCH_V2
     if (VendorTagExistsInMeta(meta, String8("vhdr_mode"),
         String8("org.codeaurora.qcamera3.video_hdr_mode"),
         &hdr_mode_vtag)) {
@@ -551,7 +551,7 @@ std::string RecorderTest::GetCurrentVHDRMode() {
 
   auto status = recorder_.GetCameraParam(camera_id_, meta);
   if (NO_ERROR == status) {
-#ifdef ANDROID_O_OR_ABOVE
+#ifdef CAM_ARCH_V2
     if (VendorTagExistsInMeta(meta, String8("vhdr_mode"),
         String8("org.codeaurora.qcamera3.video_hdr_mode"),
         &hdr_mode_vtag)) {
@@ -589,7 +589,7 @@ void RecorderTest::InitSupportedVHDRModes() {
   camera_metadata_entry_t entry;
   uint32_t hdr_supported_modes_vtag;
 
-#ifdef ANDROID_O_OR_ABOVE
+#ifdef CAM_ARCH_V2
   if (!VendorTagSupported(String8("vhdr_supported_modes"),
       String8("org.codeaurora.qcamera3.video_hdr_mode"),
       &hdr_supported_modes_vtag)) {
@@ -1039,7 +1039,7 @@ status_t RecorderTest::GetSharpnessStrength(int32_t& strength) {
   }
 
   uint32_t sharpness_strength_vtag;
-#ifdef ANDROID_O_OR_ABOVE
+#ifdef CAM_ARCH_V2
   if (VendorTagExistsInMeta(meta, String8("strength"),
       String8("org.codeaurora.qcamera3.sharpness"),
       &sharpness_strength_vtag)) {
@@ -1054,7 +1054,7 @@ status_t RecorderTest::GetSharpnessStrength(int32_t& strength) {
     // In case camera didn't set default.
     // Setting the value to MIN possible by default.
     uint32_t sharpness_range_vtag;
-#ifdef ANDROID_O_OR_ABOVE
+#ifdef CAM_ARCH_V2
     if (!VendorTagSupported(String8("range"),
         String8("org.codeaurora.qcamera3.sharpness"),
         &sharpness_range_vtag)) {
@@ -1088,7 +1088,7 @@ status_t RecorderTest::SetSharpnessStrength(const int32_t& val) {
   }
 
   uint32_t sharpness_strength_vtag;
-#ifdef ANDROID_O_OR_ABOVE
+#ifdef CAM_ARCH_V2
   if (!VendorTagSupported(String8("strength"),
       String8("org.codeaurora.qcamera3.sharpness"),
       &sharpness_strength_vtag)) {
@@ -1481,7 +1481,7 @@ status_t RecorderTest::GetRawHistogramStatistic(const CameraMetadata& meta) {
 
   uint32_t histogram_stats_vtag;
   uint32_t histogram_buckets_vtag;
-#ifdef ANDROID_O_OR_ABOVE
+#ifdef CAM_ARCH_V2
   uint32_t histogram_max_count_vtag;
   if (!VendorTagSupported(String8("max_count"),
       String8("org.codeaurora.qcamera3.histogram"),
@@ -1576,7 +1576,7 @@ status_t RecorderTest::GetRawHistogramStatistic(const CameraMetadata& meta) {
 
   // Setting mode to OFF after dumping
   uint32_t histogram_mode_vtag;
-#ifdef ANDROID_O_OR_ABOVE
+#ifdef CAM_ARCH_V2
   if (VendorTagExistsInMeta(temp_meta, String8("enable"),
       String8("org.codeaurora.qcamera3.histogram"),
       &histogram_mode_vtag)) {
@@ -3698,7 +3698,7 @@ status_t RecorderTest::SetDynamicCameraParam() {
     switch (static_cast<DynamicCameraParamsCmd>(input)) {
       case DynamicCameraParamsCmd::kSharpness: {
         uint32_t sharpness_range_vtag;
-#ifdef ANDROID_O_OR_ABOVE
+#ifdef CAM_ARCH_V2
         if (!VendorTagSupported(String8("range"),
             String8("org.codeaurora.qcamera3.sharpness"),
             &sharpness_range_vtag)) {
@@ -3829,7 +3829,7 @@ status_t RecorderTest::SetDynamicCameraParam() {
       case DynamicCameraParamsCmd::kDumpHistogramStats: {
         // Enabling Histogram stats in Metadata
         uint32_t histogram_mode_vtag;
-#ifdef ANDROID_O_OR_ABOVE
+#ifdef CAM_ARCH_V2
         if (VendorTagSupported(String8("enable"),
             String8("org.codeaurora.qcamera3.histogram"),
             &histogram_mode_vtag)) {
@@ -4254,7 +4254,7 @@ void RecorderTest::CameraResultCallbackHandler(uint32_t camera_id,
   camera_metadata_ro_entry aec_awb_stat_enable =
       result.find(QCAMERA3_EXPOSURE_DATA_ENABLE);
 
-#ifdef ANDROID_O_OR_ABOVE
+#ifdef CAM_ARCH_V2
   if (dump_histogram_stats_) {
     uint32_t histogram_stats_vtag;
     if (VendorTagExistsInMeta(result, String8("stats"),
@@ -4539,7 +4539,7 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
 
     status = recorder_.GetCameraParam(current_camera_id, meta);
     if (NO_ERROR == status) {
-#ifdef ANDROID_O_OR_ABOVE
+#ifdef CAM_ARCH_V2
       uint32_t hdr_mode_vtag;
       if (VendorTagExistsInMeta(meta, String8("vhdr_mode"),
           String8("org.codeaurora.qcamera3.video_hdr_mode"),
@@ -5764,7 +5764,7 @@ bool CameraMetaDataParser::IsSVHDREnabled(const CameraMetadata& metadata) {
   TEST_DBG("%s: Enter", __func__);
   bool ret = false;
 
-#ifdef ANDROID_O_OR_ABOVE
+#ifdef CAM_ARCH_V2
   uint32_t hdr_mode_vtag;
   sp<VendorTagDescriptor> vendor_tag_desc = VendorTagDescriptor
       ::getGlobalVendorTagDescriptor();

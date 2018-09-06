@@ -243,7 +243,7 @@ class Common {
   static bool ValidateStreamFormat(const CameraMetadata& meta,
                                    const int32_t &format) {
     bool is_supported = false;
-#ifdef ANDROID_O_OR_ABOVE
+#ifdef CAM_ARCH_V2
     if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
       auto entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
       for (uint32_t i = 0 ; i < entry.count; i += 4) {
@@ -395,7 +395,7 @@ class Common {
                                             const uint32_t width,
                                             const uint32_t height) {
     bool is_supported = false;
-#ifdef ANDROID_O_OR_ABOVE
+#ifdef CAM_ARCH_V2
     is_supported = ValidateResFromStreamConfigs(meta, width, height);
 #else
     if (meta.exists(ANDROID_SCALER_AVAILABLE_PROCESSED_SIZES)) {
@@ -463,7 +463,7 @@ class Common {
                                       const uint32_t width,
                                       const uint32_t height) {
     bool is_supported = false;
-#ifdef ANDROID_O_OR_ABOVE
+#ifdef CAM_ARCH_V2
     if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
       auto entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
       for (uint32_t i = 0 ; i < entry.count; i += 4) {
@@ -515,7 +515,7 @@ class Common {
     width = 0;
     height = 0;
     camera_metadata_ro_entry entry;
-#ifdef ANDROID_O_OR_ABOVE
+#ifdef CAM_ARCH_V2
     if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
       entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
       for (uint32_t i = 0; i < entry.count; i += 4) {
@@ -578,7 +578,7 @@ class Common {
     bool found = false;
     width = 0xFFFF;
     height = 0xFFFF;
-#ifdef ANDROID_O_OR_ABOVE
+#ifdef CAM_ARCH_V2
     found = GetMinResFromStreamConfigs(meta, width, height);
 #else
     camera_metadata_ro_entry entry;

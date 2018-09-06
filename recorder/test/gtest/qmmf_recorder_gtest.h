@@ -47,7 +47,7 @@
 #include <cairo/cairo.h>
 #endif
 
-#ifdef ANDROID_O_OR_ABOVE
+#ifdef CAM_ARCH_V2
 #include <camera/VendorTagDescriptor.h>
 #endif
 
@@ -143,7 +143,7 @@ struct FaceInfo {
 #define MAX(a,b) ((a) > (b) ? (a) : (b))
 #endif
 
-#ifdef ANDROID_O_OR_ABOVE
+#ifdef CAM_ARCH_V2
 enum ISOModes : int64_t {
   kISOModeAuto = 0,
   kISOModeDeblur,
@@ -296,12 +296,13 @@ class RecorderGtest : public ::testing::Test {
 
   status_t SetCameraFocalLength(const float focal_length);
 
-#ifdef ANDROID_O_OR_ABOVE
+#ifdef CAM_ARCH_V2
   bool VendorTagSupported(const String8& name, const String8& section,
                           uint32_t* tag_id);
 
   bool VendorTagExistsInMeta(const CameraMetadata& meta, const String8& name,
                              const String8& section, uint32_t* tag_id);
+#endif
 
   void CreatePrivacyMaskOverlay(const uint32_t& video_track_id,
                                 const int32_t& width, const int32_t& height,
@@ -309,7 +310,6 @@ class RecorderGtest : public ::testing::Test {
 
   void DestroyPrivacyMaskOverlay (const uint32_t& video_track_id,
                                   const uint32_t& mask_id);
-#endif
 
   Recorder              recorder_;
   uint32_t              camera_id_;
@@ -407,7 +407,7 @@ class RecorderGtest : public ::testing::Test {
 
   bool                  ubwc_stream_enable_;
 
-#ifdef ANDROID_O_OR_ABOVE
+#ifdef CAM_ARCH_V2
   sp<VendorTagDescriptor> vendor_tag_desc_;
 #endif
 

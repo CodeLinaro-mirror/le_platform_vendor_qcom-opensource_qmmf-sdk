@@ -34,7 +34,7 @@
 #include <vector>
 
 #include <camera/CameraMetadata.h>
-#ifdef ANDROID_O_OR_ABOVE
+#ifdef CAM_ARCH_V2
 #include <camera/VendorTagDescriptor.h>
 #endif
 
@@ -161,7 +161,7 @@ using ::qmmf::display::SurfaceFormat;
 #define CLIP(X, L, U) MIN(MAX((X), (L)), (U))
 #endif
 
-#ifdef ANDROID_O_OR_ABOVE
+#ifdef CAM_ARCH_V2
 enum VideoHDRAvailableModes : int32_t {
   kVideoHdrOff,
   kVideoHdrOn
@@ -539,7 +539,7 @@ class RecorderTest {
   int32_t ToggleVideoStabilizationMode();
   int32_t ChooseCamera();
   int32_t SetAntibandingMode();
-#ifdef ANDROID_O_OR_ABOVE
+#ifdef CAM_ARCH_V2
   bool VendorTagSupported(const String8& name, const String8& section,
                           uint32_t* tag_id);
   bool VendorTagExistsInMeta(const CameraMetadata& meta, const String8& name,
@@ -675,7 +675,7 @@ class RecorderTest {
   std::mutex   error_lock_;
   bool         camera_error_;
 
-#ifdef ANDROID_O_OR_ABOVE
+#ifdef CAM_ARCH_V2
   sp<VendorTagDescriptor> vendor_tag_desc_;
 #endif
 };
