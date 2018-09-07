@@ -1469,6 +1469,14 @@ int32_t OverlayItemBoundingBox::UpdateAndDraw() {
   //  |        |
   //  ----------
 
+  uint32_t box_stroke_width = BOUNDING_BOX_STROKE_WIDTH;
+
+  char prop_val[PROPERTY_VALUE_MAX];
+  property_get(PROP_BOX_STROKE_WIDTH, prop_val, "4");
+  box_stroke_width = (static_cast<uint32_t>(atoi(prop_val)) >
+      box_stroke_width) ? static_cast<uint32_t>(atoi(prop_val)) :
+      box_stroke_width;
+
 #if USE_CAIRO
   OVDBG_INFO("%s: Draw bounding box and text!", __func__);
   ClearSurface();
@@ -1514,7 +1522,7 @@ int32_t OverlayItemBoundingBox::UpdateAndDraw() {
   assert(CAIRO_STATUS_SUCCESS == cairo_status(cr_context_));
 
   // Draw rectangle
-  cairo_set_line_width (cr_context_, BOUNDING_BOX_STROKE_WIDTH);
+  cairo_set_line_width (cr_context_, box_stroke_width);
   cairo_set_source_rgba (cr_context_, bbox_color.red, bbox_color.green,
                          bbox_color.blue, bbox_color.alpha);
   double x_rect = 0.0;
@@ -1541,7 +1549,7 @@ int32_t OverlayItemBoundingBox::UpdateAndDraw() {
     paintText.setTextSize(SkIntToScalar(BOUNDING_BOX_TEXT_SIZE));
     paintText.setAntiAlias(true);
 
-    paintBox.setStrokeWidth(BOUNDING_BOX_STROKE_WIDTH);
+    paintBox.setStrokeWidth(box_stroke_width);
     paintBox.setStyle(SkPaint::kStroke_Style);
 
     int32_t xText = 0, yText = 0;
