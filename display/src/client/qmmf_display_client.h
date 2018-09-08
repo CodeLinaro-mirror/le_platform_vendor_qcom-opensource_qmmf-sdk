@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016, 2018, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -37,50 +37,50 @@
 #include <mutex>
 #include <linux/msm_ion.h>
 
-#include "qmmf-sdk/qmmf_display_params.h"
+#include "display/src/client/qmmf_display_client_intf.h"
 #include "display/src/client/qmmf_display_service_intf.h"
 
 namespace qmmf {
 
 namespace display {
 
-class DisplayClient
+class DisplayClient: public IDisplayClient
 {
 public:
   DisplayClient();
 
   ~DisplayClient();
 
-  status_t Connect();
+  status_t Connect() override;
 
-  status_t Disconnect();
+  status_t Disconnect() override;
 
-  status_t CreateDisplay(DisplayType type, DisplayCb& cb);
+  status_t CreateDisplay(DisplayType type, DisplayCb& cb) override;
 
-  status_t DestroyDisplay(DisplayType type);
+  status_t DestroyDisplay(DisplayType type) override;
 
   status_t CreateSurface(SurfaceConfig &surface_config,
-      uint32_t* surface_id);
+      uint32_t* surface_id) override;
 
-  status_t DestroySurface(const uint32_t surface_id);
+  status_t DestroySurface(const uint32_t surface_id) override;
 
   status_t DequeueSurfaceBuffer(const uint32_t surface_id,
-      SurfaceBuffer &surface_buffer);
+      SurfaceBuffer &surface_buffer) override;
 
   status_t QueueSurfaceBuffer(const uint32_t surface_id,
-      SurfaceBuffer &surface_buffer, SurfaceParam &surface_param);
+      SurfaceBuffer &surface_buffer, SurfaceParam &surface_param) override;
 
   status_t GetDisplayParam(DisplayParamType param_type, void *param,
-      size_t param_size);
+      size_t param_size) override;
 
   status_t SetDisplayParam(DisplayParamType param_type, void *param,
-      size_t param_size);
+      size_t param_size) override;
 
   status_t DequeueWBSurfaceBuffer(const uint32_t surface_id,
-      SurfaceBuffer &surface_buffer);
+      SurfaceBuffer &surface_buffer) override;
 
   status_t QueueWBSurfaceBuffer(const uint32_t surface_id,
-      const SurfaceBuffer &surface_buffer);
+      const SurfaceBuffer &surface_buffer) override;
 
   //Callbacks from service.
   void notifyDisplayEvent(DisplayEventType event_type, void *event_data,
