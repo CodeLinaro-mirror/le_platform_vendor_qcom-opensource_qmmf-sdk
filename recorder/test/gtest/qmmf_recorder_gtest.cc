@@ -144,10 +144,8 @@ void RecorderGtest::SetUp() {
   default_cds_threshold_ = atoi(prop_val);
   property_get(PROP_DEFAULT_EIS_MARGINS, prop_val, "1");
   default_eis_margins_ = atoi(prop_val);
-#ifndef DISABLE_DISPLAY
   property_get(PROP_TOGGLE_DISPLAY_USAGE, prop_val, "1");
   use_display_ = (atoi(prop_val) == 0) ? false : true;
-#endif
   property_get(PROP_TOGGLE_OVERLAY_USAGE, prop_val, "0");
   is_apply_overlay_ = (atoi(prop_val) == 0) ? false : true;
   property_get(PROP_UBWC_STREAM_ENABLE, prop_val, "1");
@@ -161,8 +159,8 @@ void RecorderGtest::SetUp() {
   camera_start_params_.frame_rate       = 30;
   camera_start_params_.flags            = 0x0;
 
-#ifndef DISABLE_DISPLAY
   display_started_ = false;
+#ifndef DISABLE_DISPLAY
   enable_gfx_ = false;
 #endif
 
@@ -16896,7 +16894,6 @@ TEST_F(RecorderGtest, TimeLapse1080pEncTrack) {
 
 }
 
-#ifndef DISABLE_DISPLAY
 /*
 * Session1080pYUVTrackWithDisplay: This test will be used to test display
 * functionality. This test will create session with 1080p YUV track and
@@ -16956,7 +16953,6 @@ TEST_F(RecorderGtest, Session1080pYUVTrackWithDisplay) {
 
     VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kYUV,
                                             stream_width, stream_height, 30};
-    video_track_param.low_power_mode = true;
     uint32_t video_track_id_1 = 1;
 
     TrackCb video_track_cb;
@@ -17011,7 +17007,6 @@ TEST_F(RecorderGtest, Session1080pYUVTrackWithDisplay) {
   fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
           test_info_->test_case_name(), test_info_->name());
 }
-#endif
 
 /*
 * 1080pVideo4KVideoTypeSnapshot: This test will test session with 1080p
@@ -24480,8 +24475,6 @@ TEST_F(RecorderGtest, SessionWith4k_VHDR_PM_TNR_1080pLinked720p) {
           test_info_->test_case_name(), test_info_->name());
 }
 
-#ifndef DISABLE_DISPLAY
-
 /*
 * SessionWithVGA480pEncAndLinked480pWithDisplay:
 *     This test will test session with one 640x480 @ 30 fps encoded track,
@@ -24637,6 +24630,7 @@ TEST_F(RecorderGtest,
           test_info_->test_case_name(), test_info_->name());
 }
 
+#ifndef DISABLE_DISPLAY
 /*
 * SessionWithFWVGA480pEncAndLinked480pWithDisplay:
 *     This test will test session with one 848x480 @ 30 fps encoded track,
@@ -26330,15 +26324,15 @@ void RecorderGtest::VideoTrackYUVDataCb(uint32_t session_id, uint32_t track_id,
     }
   }
 
-#ifndef DISABLE_DISPLAY
   if (display_ && use_display_) {
+#ifndef DISABLE_DISPLAY
     if (enable_gfx_) {
       DequeueGfxSurfaceBuffer();
       QueueGfxSurfaceBuffer();
     }
+#endif
     PushFrameToDisplay(buffers[0], meta_buffers[0].cam_buffer_meta_data);
   }
-#endif
 
   auto ret = recorder_.ReturnTrackBuffer(session_id, track_id, buffers);
   ASSERT_TRUE(ret == NO_ERROR);
@@ -26870,7 +26864,6 @@ void RecorderGtest::ClearSurface() {
 #endif
 }
 
-#ifndef DISABLE_DISPLAY
 void RecorderGtest::DisplayCallbackHandler(DisplayEventType event_type,
                                            void *event_data,
                                            size_t event_data_size) {
@@ -26931,6 +26924,7 @@ status_t RecorderGtest::StartDisplay(DisplayType display_type,
   surface_param_.surface_transform.flip_horizontal = 0;
   surface_param_.surface_transform.flip_vertical = 0;
 
+#ifndef DISABLE_DISPLAY
   if (enable_gfx_) {
     memset(&gfx_surface_config_, 0x0, sizeof gfx_surface_config_);
     gfx_surface_config_.width = 352;
@@ -26957,7 +26951,7 @@ status_t RecorderGtest::StartDisplay(DisplayType display_type,
     gfx_surface_param_.surface_transform.flip_horizontal = 0;
     gfx_surface_param_.surface_transform.flip_vertical = 0;
   }
-
+#endif
   TEST_INFO("%s: Exit", __func__);
   return res;
 }
@@ -26973,13 +26967,14 @@ status_t RecorderGtest::StopDisplay(DisplayType display_type) {
       TEST_ERROR("%s DestroySurface Failed!!", __func__);
     }
 
+#ifndef DISABLE_DISPLAY
     if (enable_gfx_) {
       res = display_->DestroySurface(gfx_surface_id_);
       if (res != 0) {
         TEST_ERROR("%s  DestroyGfxSurface Failed!!", __func__);
       }
     }
-
+#endif
     res = display_->DestroyDisplay(display_type);
     if (res != 0) {
       TEST_ERROR("%s DestroyDisplay Failed!!", __func__);
@@ -27027,6 +27022,7 @@ status_t RecorderGtest::PushFrameToDisplay(BufferDescriptor &buffer,
   return NO_ERROR;
 }
 
+#ifndef DISABLE_DISPLAY
 int32_t RecorderGtest::DequeueGfxSurfaceBuffer() {
   TEST_DBG("%s: Enter", __func__);
   auto ret = 0;

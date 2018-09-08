@@ -712,7 +712,6 @@ class TestTrack {
 
   void ExtractColorValues(uint32_t hex_color, RGBAValues* color);
 
-#ifndef DISABLE_DISPLAY
   void DisplayCallbackHandler(DisplayEventType event_type, void *event_data,
       size_t event_data_size);
 
@@ -723,7 +722,6 @@ class TestTrack {
   status_t StopDisplay(DisplayType display_type);
 
   status_t ToggleDisplayState();
-#endif
 
   const TrackInfo& GetTrackHandle(){return track_info_;}
 
@@ -735,13 +733,11 @@ class TestTrack {
   void TrackDataCB(uint32_t track_id, std::vector<BufferDescriptor> buffers,
                    std::vector<MetaData> meta_buffers);
 
-#ifndef DISABLE_DISPLAY
   status_t PushFrameToDisplay(BufferDescriptor& buffer,
                               CameraBufferMetaData& meta_data);
 
   qmmf::display::DisplayParamType display_param_type_;
   int32_t display_param_;
-#endif
 
   TrackInfo track_info_;
 
@@ -757,13 +753,11 @@ class TestTrack {
 
   uint32_t num_yuv_frames_;
 
-#ifndef DISABLE_DISPLAY
   Display*   display_;
   bool display_started_;
   uint32_t   surface_id_;
   SurfaceParam surface_param_;
   SurfaceBuffer surface_buffer_;
-#endif
 
   DumpBitStream dump_bitstream_;
 #if USE_SKIA
