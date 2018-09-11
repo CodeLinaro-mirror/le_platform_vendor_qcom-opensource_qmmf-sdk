@@ -32,6 +32,7 @@
 #include "common/audio/src/service/qmmf_audio_frontend.h"
 
 #include <functional>
+#include <future>
 #include <map>
 #include <vector>
 #include <type_traits>
@@ -50,58 +51,65 @@ namespace qmmf {
 namespace common {
 namespace audio {
 
+using ::std::async;
+using ::std::launch;
 using ::std::vector;
 
 const AudioHandle AudioFrontend::kAudioHandleMax = 100;
 
-AudioFrontend::AudioFrontend() : current_handle_(0) {
-  int result;
+AudioFrontend::AudioFrontend() : current_handle_(0), hal_load_done_(false) {
+  AudioHalLoader hal_loader = [this]() -> int32_t {
+    int result;
 
-  result = qahw_get_version();
-  if (result < QAHW_MODULE_API_VERSION_MIN) {
-    QMMF_ERROR("%s() incorrect QAHW module version[%d]", __func__,
-               result);
-    for (int idx = 0; idx < AudioHAL::kNum; ++idx)
-      modules_[idx] = nullptr;
-    return;
-  }
-  QMMF_INFO("%s() QAHW module version[%d]", __func__, result);
+    result = qahw_get_version();
+    if (result < QAHW_MODULE_API_VERSION_MIN) {
+      QMMF_ERROR("%s() incorrect QAHW module version[%d]", __func__, result);
+      for (int idx = 0; idx < AudioHAL::kNum; ++idx)
+        modules_[idx] = nullptr;
+      return -ENOSYS;
+    }
+    QMMF_INFO("%s() QAHW module version[%d]", __func__, result);
 
-  modules_[AudioHAL::kPrimary] = qahw_load_module(QAHW_MODULE_ID_PRIMARY);
-  if (modules_[AudioHAL::kPrimary] == nullptr)
-    QMMF_ERROR("%s() failed to load QAHW module[%s]", __func__,
-               QAHW_MODULE_ID_PRIMARY);
+    modules_[AudioHAL::kPrimary] = qahw_load_module(QAHW_MODULE_ID_PRIMARY);
+    if (modules_[AudioHAL::kPrimary] == nullptr)
+      QMMF_ERROR("%s() failed to load QAHW module[%s]", __func__,
+                 QAHW_MODULE_ID_PRIMARY);
 
-  result = qahw_init_check(modules_[AudioHAL::kPrimary]);
-  if (result != 0) {
-    QMMF_ERROR("%s() QAHW module[%s] initialization failed: %d[%s]",
-               __func__, QAHW_MODULE_ID_PRIMARY, result, strerror(result));
-    modules_[AudioHAL::kPrimary] = nullptr;
-  }
+    result = qahw_init_check(modules_[AudioHAL::kPrimary]);
+    if (result != 0) {
+      QMMF_ERROR("%s() QAHW module[%s] initialization failed: %d[%s]",
+                 __func__, QAHW_MODULE_ID_PRIMARY, result, strerror(result));
+      modules_[AudioHAL::kPrimary] = nullptr;
+    }
 
-  modules_[AudioHAL::kA2DP] = qahw_load_module(QAHW_MODULE_ID_A2DP);
-  if (modules_[AudioHAL::kA2DP] == nullptr)
-    QMMF_ERROR("%s() failed to load QAHW module[%s]", __func__,
-               QAHW_MODULE_ID_A2DP);
+    modules_[AudioHAL::kA2DP] = qahw_load_module(QAHW_MODULE_ID_A2DP);
+    if (modules_[AudioHAL::kA2DP] == nullptr)
+      QMMF_ERROR("%s() failed to load QAHW module[%s]", __func__,
+                 QAHW_MODULE_ID_A2DP);
 
-  result = qahw_init_check(modules_[AudioHAL::kA2DP]);
-  if (result != 0) {
-    QMMF_ERROR("%s() QAHW module[%s] initialization failed: %d[%s]",
-               __func__, QAHW_MODULE_ID_A2DP, result, strerror(result));
-    modules_[AudioHAL::kA2DP] = nullptr;
-  }
+    result = qahw_init_check(modules_[AudioHAL::kA2DP]);
+    if (result != 0) {
+      QMMF_ERROR("%s() QAHW module[%s] initialization failed: %d[%s]",
+                 __func__, QAHW_MODULE_ID_A2DP, result, strerror(result));
+      modules_[AudioHAL::kA2DP] = nullptr;
+    }
 
-  modules_[AudioHAL::kUSB] = qahw_load_module(QAHW_MODULE_ID_USB);
-  if (modules_[AudioHAL::kUSB] == nullptr)
-    QMMF_ERROR("%s() failed to load QAHW module[%s]", __func__,
-               QAHW_MODULE_ID_USB);
+    modules_[AudioHAL::kUSB] = qahw_load_module(QAHW_MODULE_ID_USB);
+    if (modules_[AudioHAL::kUSB] == nullptr)
+      QMMF_ERROR("%s() failed to load QAHW module[%s]", __func__,
+                 QAHW_MODULE_ID_USB);
 
-  result = qahw_init_check(modules_[AudioHAL::kUSB]);
-  if (result != 0) {
-    QMMF_ERROR("%s() QAHW module[%s] initialization failed: %d[%s]",
-               __func__, QAHW_MODULE_ID_USB, result, strerror(result));
-    modules_[AudioHAL::kUSB] = nullptr;
-  }
+    result = qahw_init_check(modules_[AudioHAL::kUSB]);
+    if (result != 0) {
+      QMMF_ERROR("%s() QAHW module[%s] initialization failed: %d[%s]",
+                 __func__, QAHW_MODULE_ID_USB, result, strerror(result));
+      modules_[AudioHAL::kUSB] = nullptr;
+    }
+
+    return 0;
+  };
+
+  hal_load_result_ = async(launch::async, hal_loader);
 }
 
 AudioFrontend::~AudioFrontend() {
@@ -204,6 +212,14 @@ int32_t AudioFrontend::Configure(const AudioHandle audio_handle,
   if (backend_iterator == backends_.end()) {
     QMMF_ERROR("%s() no backend for key[%d]", __func__, audio_handle);
     return -EINVAL;
+  }
+
+  if (!hal_load_done_) {
+    if (hal_load_result_.get() < 0) {
+      QMMF_ERROR("%s() audio HAL loading failed", __func__);
+      return -ENOSYS;
+    }
+    hal_load_done_ = true;
   }
 
   IAudioBackend* backend;

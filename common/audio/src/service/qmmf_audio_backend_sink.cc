@@ -816,6 +816,7 @@ void AudioBackendSink::Thread() {
   bool flushing = false;
   bool pending_flush = false;
   bool keep_running = true;
+  bool error_detected = false;
   while (keep_running) {
     // wait until there is something to do
     while (buffers.empty() && messages_.empty()) {
@@ -912,6 +913,7 @@ void AudioBackendSink::Thread() {
         QMMF_ERROR("%s() failed to write output stream with result: %d",
                    __func__, result);
         error_handler_(audio_handle_, result);
+        error_detected = true;
       } else if (static_cast<size_t>(result) != qahw_buffer.bytes &&
                  using_offload_) {
         QMMF_VERBOSE("%s() partial write to output stream: result[%d] bytes_written[%zu]",
@@ -948,7 +950,7 @@ void AudioBackendSink::Thread() {
     }
 
     // stop conditions
-    if (stop_received) keep_running = false;
+    if (stop_received || error_detected) keep_running = false;
     else if (eof_received) flushing = true;
 
     if (flushing && !pending_flush) {
