@@ -117,7 +117,7 @@ class PostProcAlg : public IPostProcModule,
   BufferFormat GetQmmfFormat(PixelFormat format);
 
   status_t PrepareAlgBuffer(std::vector<AlgBuffer> &algo_buffs,
-      const std::vector<StreamBuffer> stream_buffs);
+      const std::vector<StreamBuffer> stream_buffs, const bool cached);
 
   StreamBuffer GetStreamBuffer(const AlgBuffer &algo_buf);
 

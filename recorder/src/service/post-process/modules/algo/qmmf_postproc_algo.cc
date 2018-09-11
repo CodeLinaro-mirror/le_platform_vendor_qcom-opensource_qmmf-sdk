@@ -333,14 +333,16 @@ status_t PostProcAlg::Process(
 
   if (state_ == State::ACTIVE) {
     std::vector<AlgBuffer> in_alg_buffers;
-    auto ret = PrepareAlgBuffer(in_alg_buffers, in_buffers);
+    auto ret = PrepareAlgBuffer(in_alg_buffers, in_buffers,
+                                algo_caps_.in_buffer_requirements_.cached_);
     if (ret != NO_ERROR) {
       QMMF_ERROR("%s: Fail to prepare in buffers", __func__);
       return BAD_VALUE;
     }
 
     std::vector<AlgBuffer> out_alg_buffers;
-    ret = PrepareAlgBuffer(out_alg_buffers, out_buffers);
+    ret = PrepareAlgBuffer(out_alg_buffers, out_buffers,
+                           algo_caps_.out_buffer_requirements_.cached_);
     if (ret != NO_ERROR) {
       QMMF_ERROR("%s: Fail to prepare out buffers", __func__);
       return BAD_VALUE;
@@ -501,7 +503,7 @@ BufferFormat PostProcAlg::GetQmmfFormat(PixelFormat format) {
 
 status_t PostProcAlg::PrepareAlgBuffer(
     std::vector<AlgBuffer> &algo_buffs,
-    const std::vector<StreamBuffer> stream_buffs) {
+    const std::vector<StreamBuffer> stream_buffs, const bool cached = false) {
 
   for (auto stream_buffer : stream_buffs) {
     if (stream_buffer.fd == -1 || stream_buffer.data == nullptr) {
@@ -534,7 +536,7 @@ status_t PostProcAlg::PrepareAlgBuffer(
     AlgBuffer buf(reinterpret_cast<uint8_t*>(stream_buffer.data),
                   stream_buffer.fd,
                   stream_buffer.size,
-                  false,
+                  cached,
                   GetAlgFormat(stream_buffer.info.format),
                   stream_buffer.timestamp,
                   stream_buffer.frame_number,
