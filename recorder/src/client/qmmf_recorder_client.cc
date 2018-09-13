@@ -917,7 +917,6 @@ status_t RecorderClient::ReturnImageCaptureBuffer(const uint32_t camera_id,
                                                       &buffer) {
 
   QMMF_DEBUG("%s Enter ", __func__);
-  std::lock_guard<std::mutex> lock(lock_);
   if (!CheckServiceStatus()) {
     return NO_INIT;
   }
