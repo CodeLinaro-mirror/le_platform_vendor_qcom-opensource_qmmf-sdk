@@ -1430,7 +1430,8 @@ int32_t OverlayItemBoundingBox::Init(OverlayParam& param) {
   int32_t width = static_cast<int32_t>(round(scaled_width));
   width = ROUND_TO(width, 16); // Round to multiple of 16.
   width = width > BOUNDING_BOX_BUF_WIDTH ? width : BOUNDING_BOX_BUF_WIDTH;
-  int32_t height = static_cast<int32_t>(round(width / aspect_ratio));
+  int32_t height = (static_cast<int32_t>(width/aspect_ratio + 15)>> 4) << 4;
+  height = height > BOUNDING_BOX_BUF_HEIGHT ? height : BOUNDING_BOX_BUF_HEIGHT;
 
   buffer_width_  = width;
   buffer_height_ = height;
