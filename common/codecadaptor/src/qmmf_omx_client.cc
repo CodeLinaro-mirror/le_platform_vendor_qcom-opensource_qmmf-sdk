@@ -28,12 +28,17 @@
 
 #define LOG_TAG "QMMF_OMX_CLIENT"
 
+#include <atomic>
+
 #include <dlfcn.h>
 #include "common/utils/qmmf_log.h"
 #include "qmmf_omx_client.h"
 
 namespace qmmf {
 namespace avcodec {
+
+using ::std::async;
+using ::std::launch;
 
 const char OmxClient::kOMXPath[] = "libOmxCore.so";
 const char OmxClient::kOMXGetHandleName[] = "OMX_GetHandle";
@@ -44,6 +49,7 @@ const char OmxClient::kOMXGetComponentsOfRoleName[] =
 OmxClient::OmxClient():codec_handle_(NULL), omx_context_() {
 
   QMMF_INFO("%s: Enter ", __func__);
+  lib_load_res_ = async(launch::async, &OmxClient::LoadOMXLib, this);
   QMMF_INFO("%s: Exit", __func__);
 }
 
@@ -54,9 +60,7 @@ OmxClient::~OmxClient() {
   QMMF_INFO("%s: Exit", __func__);
 }
 
-OMX_ERRORTYPE OmxClient::CreateOmxHandle(char* Codecname, void* app_data,
-                                         OMX_CALLBACKTYPE &callbacks) {
-
+OMX_ERRORTYPE OmxClient::LoadOMXLib() {
   OMX_ERRORTYPE ret = OMX_ErrorNone;
   if (nullptr == omx_context_.library_handle_) {
     omx_context_.library_handle_ = dlopen(kOMXPath, RTLD_NOW);
@@ -65,23 +69,34 @@ OMX_ERRORTYPE OmxClient::CreateOmxHandle(char* Codecname, void* app_data,
       QMMF_ERROR("%s load: module=%s\n%s \n", __func__, kOMXPath,
                  err_str ? err_str : "unknown");
       ret = OMX_ErrorComponentNotFound;
-      goto exit;
     }
+  }
+  return ret;
+}
 
-    omx_context_.omx_get_handle_ = (OMXGetHandle)dlsym(
-        omx_context_.library_handle_, kOMXGetHandleName);
+OMX_ERRORTYPE OmxClient::CreateOmxHandle(char *Codecname, void *app_data,
+                                         OMX_CALLBACKTYPE &callbacks) {
+  OMX_ERRORTYPE ret = OMX_ErrorNone;
+  if (lib_load_res_.get() != OMX_ErrorNone) {
+    QMMF_ERROR("%s() dlopen failed for OMX lib", __func__);
+    return OMX_ErrorComponentNotFound;
+  }
+
+  if (nullptr != omx_context_.library_handle_) {
+    omx_context_.omx_get_handle_ =
+        (OMXGetHandle)dlsym(omx_context_.library_handle_, kOMXGetHandleName);
     if (nullptr == omx_context_.omx_get_handle_) {
       QMMF_ERROR("%s load: couldn't find symbol %s\n", __func__,
-          kOMXGetHandleName);
+                 kOMXGetHandleName);
       ret = OMX_ErrorComponentNotFound;
       goto exit;
     }
 
-    omx_context_.omx_free_handle_ = (OMXFreeHandle)dlsym(
-        omx_context_.library_handle_, kOMXFreeHandleName);
+    omx_context_.omx_free_handle_ =
+        (OMXFreeHandle)dlsym(omx_context_.library_handle_, kOMXFreeHandleName);
     if (nullptr == omx_context_.omx_free_handle_) {
       QMMF_ERROR("%s load: couldn't find symbol %s\n", __func__,
-          kOMXFreeHandleName);
+                 kOMXFreeHandleName);
       ret = OMX_ErrorComponentNotFound;
       goto exit;
     }
@@ -90,14 +105,13 @@ OMX_ERRORTYPE OmxClient::CreateOmxHandle(char* Codecname, void* app_data,
         omx_context_.library_handle_, kOMXGetComponentsOfRoleName);
     if (NULL == omx_context_.omx_free_handle_) {
       QMMF_ERROR("%s load: couldn't find symbol %s\n", __func__,
-          kOMXGetComponentsOfRoleName);
+                 kOMXGetComponentsOfRoleName);
       ret = OMX_ErrorComponentNotFound;
       goto exit;
     }
   }
-  ret = omx_context_.omx_get_handle_(&codec_handle_,
-                                     const_cast<char *>(Codecname),
-                                     app_data, &callbacks);
+  ret = omx_context_.omx_get_handle_(
+      &codec_handle_, const_cast<char *>(Codecname), app_data, &callbacks);
   QMMF_INFO("%s created OMX handle(%p)", __func__, codec_handle_);
 
   return ret;
@@ -109,7 +123,7 @@ exit:
     omx_context_.library_handle_ = nullptr;
   }
 
-   return ret;
+  return ret;
 }
 
 OMX_ERRORTYPE OmxClient::ReleaseOmxHandle() {
