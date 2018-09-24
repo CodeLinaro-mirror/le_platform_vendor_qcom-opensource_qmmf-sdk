@@ -400,6 +400,33 @@ status_t AudioDecoderCore::DeleteTrackDecoder(uint32_t track_id) {
   return ret;
 }
 
+status_t AudioDecoderCore::SetPosition(uint32_t track_id, int64_t seek_time) {
+  QMMF_DEBUG("%s: Enter track_id(%d)", __func__, track_id);
+
+  if (!isTrackValid(track_id)) {
+    QMMF_ERROR("%s: Invalid track_id(%d)", __func__, track_id);
+    return BAD_VALUE;
+  }
+
+  shared_ptr<AudioTrackDecoder> track_decoder =
+      audio_track_decoders_.valueFor(track_id);
+  if (track_decoder.get() == nullptr) {
+    QMMF_ERROR("%s: track decoder is null", __func__);
+    return -ENODATA;
+  }
+
+  auto ret = track_decoder->SetPosition(seek_time);
+  if (ret != NO_ERROR) {
+    QMMF_INFO("%s: track_id(%d) SetPosition failed!", __func__,
+              track_id);
+  } else {
+    QMMF_INFO("%s: track_id(%d) SetPosition Successful!", __func__, track_id);
+  }
+
+  QMMF_DEBUG("%s: Exit", __func__);
+  return ret;
+}
+
 bool AudioDecoderCore::isTrackValid(uint32_t track_id) {
   QMMF_DEBUG("%s: Number of Tracks exist = %d",__func__,
       audio_track_decoders_.size());
@@ -889,6 +916,18 @@ status_t AudioTrackDecoder::DeleteDecoder() {
 
   delete avcodec_;
   avcodec_ = nullptr;
+
+  QMMF_DEBUG("%s: Exit track_id(%d)", __func__, TrackId());
+  return ret;
+}
+
+status_t AudioTrackDecoder::SetPosition(int64_t seek_time) {
+  QMMF_DEBUG("%s: Enter track_id(%d)", __func__, TrackId());
+
+  auto ret = audio_track_sink_->SetPosition(seek_time);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s: track_id(%d) SetPosition failed!", __func__, TrackId());
+  }
 
   QMMF_DEBUG("%s: Exit track_id(%d)", __func__, TrackId());
   return ret;

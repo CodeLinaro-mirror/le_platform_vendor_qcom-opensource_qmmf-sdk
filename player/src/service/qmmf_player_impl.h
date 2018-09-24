@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -98,7 +98,7 @@ class PlayerImpl {
                               void *param,
                               size_t param_size);
 
-  void setCurrentState(PlayerState state);
+  bool CheckAndSetState(int check_state, PlayerState new_state);
 
   void NotifyPlayerEventCallback(EventType event_type, void *event_data,
                                  size_t event_data_size);
@@ -135,9 +135,7 @@ class PlayerImpl {
   AudioRawSink*       audio_raw_sink_;
   VideoSink*          video_sink_;
 
-  PlayerState         current_state_;
   pthread_t           prepare_th;
-  Mutex               state_lock_;
   TrickModeSpeed      trick_mode_speed_;
   TrickModeDirection  trick_mode_dir_;
   Mutex               trick_mode_change_lock_;
@@ -149,6 +147,10 @@ class PlayerImpl {
   DefaultKeyedVector<uint32_t, TrackInfo> track_map_;
   std::mutex          drag_lock_;
   bool                drag_;
+
+  std::mutex                  state_lock_;
+  std::mutex                  api_lock_;
+  std::atomic<PlayerState>    current_state_;
 
   /**Not allowed */
   PlayerImpl();

@@ -174,10 +174,12 @@ struct PostprocPlugin : DataTagBase {
 struct PostprocFrameSkip : DataTagBase {
   // Number of skip frames for each sent frame
   uint32_t frame_skip;     // Default: 0 means no skip
+  uint32_t source_framerate;
 
   PostprocFrameSkip()
     : DataTagBase(QMMF_POSTPROCESS_FRAME_SKIP),
-      frame_skip(0) {}
+      frame_skip(0),
+      source_framerate(30) {}
 };
 
 struct HighQualityCaptureSetup : DataTagBase {

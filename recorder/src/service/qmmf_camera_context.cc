@@ -86,7 +86,7 @@ CameraContext::CameraContext()
       new_snapshot_type_(SnapshotMode::kStill),
       jpeg_input_format_(BufferFormat::kUnsupported),
       new_jpeg_input_format_(BufferFormat::kUnsupported),
-      postproc_frame_skip_(0),
+      postproc_frame_skip_{},
       exif_en_(true),
       stream_param_{},
       restart_pipe_(true),
@@ -814,7 +814,8 @@ std::string CameraContext::GetSnapshotJsonConfig() {
     root["thumbnail"][i]["quality"] = thumbnails_[i].quality;
   }
 
-  root["frameskip"] = postproc_frame_skip_;
+  root["frameskip"] = postproc_frame_skip_.frame_skip;
+  root["source framerate"] = postproc_frame_skip_.source_framerate;
   root["jpeg quality"] = snapshot_param_.image_quality;
 
   root["maker note"] = exif_en_;
@@ -841,6 +842,7 @@ status_t CameraContext::ValidateCaptureConfig(const ImageConfigParam &config) {
 }
 
 status_t CameraContext::ConfigImageCapture(const ImageConfigParam &config) {
+
   if (ValidateCaptureConfig(config)) {
     QMMF_ERROR("%s: Invalid Capture configuration", __func__);
     return INVALID_OPERATION;
@@ -885,10 +887,14 @@ status_t CameraContext::ConfigImageCapture(const ImageConfigParam &config) {
   if (config.Exists(QMMF_POSTPROCESS_FRAME_SKIP)) {
     PostprocFrameSkip frame_skip;
     config.Fetch(QMMF_POSTPROCESS_FRAME_SKIP, frame_skip, 0);
+    QMMF_INFO("%s: PostprocFrameSkip: frame_skip: %d, source_framerate: %d ",
+        __func__, frame_skip.frame_skip,
+        frame_skip.source_framerate);
 
     // if new snapshot type is different than existing restart the pipe
-    if (postproc_frame_skip_ != frame_skip.frame_skip) {
-      postproc_frame_skip_ = frame_skip.frame_skip;
+    if ((postproc_frame_skip_.frame_skip != frame_skip.frame_skip ||
+      postproc_frame_skip_.source_framerate != frame_skip.source_framerate)) {
+      postproc_frame_skip_ = frame_skip;
       restart_pipe_ = true;
     }
   }
@@ -1414,8 +1420,17 @@ status_t CameraContext::CreateDeviceStream(CameraStreamParameters& params,
     stream_config.params = &params;
 
     ret = camera_device_->EndConfigure(stream_config);
-
     assert(ret == NO_ERROR);
+
+    std::lock_guard<std::mutex> lk(prepare_lock_);
+    char prop[PROPERTY_VALUE_MAX];
+    property_get("persist.qmmf.static.mem.alloc", prop, "0");
+    stream_prepared_[id] = (std::stoi(prop) == 0) ? true : false;
+
+    if (!stream_prepared_[id]) {
+      ret = camera_device_->Prepare(id);
+      assert(ret == NO_ERROR);
+    }
   }
 
   if (camera_start_params_.zsl_mode && zsl_port_.get() != nullptr) {
@@ -1706,6 +1721,14 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
       request_list.push_back(streaming_active_requests_[i]);
       assert(!streaming_active_requests_[i].metadata.isEmpty());
     }
+
+    for (auto const& stream_id : streaming_active_requests_[0].streamIds) {
+      std::unique_lock<std::mutex> lk(prepare_lock_);
+      prepare_done_.Wait(lk, [this, stream_id] () {
+        return stream_prepared_[stream_id];
+      });
+    }
+
     std::unique_lock<std::mutex> pending_frames_lock(pending_frames_lock_);
     auto req_id = camera_device_->SubmitRequestList(request_list, is_streaming,
                                                     &last_frame_number_);
@@ -2140,8 +2163,13 @@ void CameraContext::CameraShutterCb(const CaptureResultExtras &result,
 
 }
 
-void CameraContext::CameraPreparedCb(int32_t) {
+void CameraContext::CameraPreparedCb(int32_t stream_id) {
 
+  QMMF_INFO("%s: Stream(%d) has been prepared", __func__, stream_id);
+
+  std::lock_guard<std::mutex> lk(prepare_lock_);
+  stream_prepared_[stream_id] = true;
+  prepare_done_.Signal();
 }
 
 template <typename T>
@@ -2358,7 +2386,7 @@ status_t CameraContext::PostProcCreatePipeAndUpdateStreams(
     out_param.buffer_count = REPROC_STREAM_BUFFER_COUNT;
     out_param.max_internal_buffers = REPROC_STREAM_BUFFER_COUNT;
   }
-  out_param.frame_skip = postproc_frame_skip_ > 0 ? true : false;;
+  out_param.frame_skip = postproc_frame_skip_.frame_skip > 0 ? true : false;;
   out_param.exif_en = exif_en_;
   out_param.internal_format = jpeg_input_format_;
 

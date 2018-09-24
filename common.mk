@@ -54,6 +54,12 @@ ifeq ($(IS_ANDROID_O_OR_ABOVE),true)
 LOCAL_VENDOR_MODULE := true
 endif #LOCAL_VENDOR_MODULE
 
+# Enable CAM_ARCH_V2
+ifeq ($(TARGET_BOARD_PLATFORM),qcs605)
+CAM_ARCH_V2 := 1
+LOCAL_CFLAGS += -DCAM_ARCH_V2
+endif #CAM_ARCH_V2
+
 # Disable jpeg postproc
 ifeq ($(TARGET_BOARD_PLATFORM),qcs605)
 DISABLE_PP_JPEG := 1
@@ -79,11 +85,6 @@ endif #DISABLE_OP_MODES
 ifeq ($(TARGET_USES_GRALLOC1),true)
 LOCAL_CFLAGS += -DTARGET_USES_GRALLOC1
 endif #TARGET_USES_GRALLOC1
-
-# Enable Vendor Tag Descriptor
-ifeq ($(TARGET_BOARD_PLATFORM),qcs605)
-LOCAL_CFLAGS += -DUSE_VENDOR_TAG_DESC
-endif #VENDOR_TAG_DESC
 
 # Set HFR Threshold values based on platform
 ifeq ($(TARGET_BOARD_PLATFORM),qcs605)
@@ -142,8 +143,10 @@ ifeq ($(PRODUCT_BRAND),Things)
 CAMERA_HAL_PATH := $(TOP)/hardware/qcom/camera/$(TARGET_BOARD_PLATFORM)
 MEDIA_HAL_PATH := $(TOP)/hardware/qcom/media/$(TARGET_BOARD_PLATFORM)
 DISPLAY_HAL_PATH := $(TOP)/hardware/qcom/display/$(TARGET_BOARD_PLATFORM)
+LIB_JSONCPP := libjsoncpp
 else
 CAMERA_HAL_PATH := $(TOP)/hardware/qcom/camera
 MEDIA_HAL_PATH := $(TOP)/hardware/qcom/media
 DISPLAY_HAL_PATH := $(TOP)/hardware/qcom/display
+LIB_JSONCPP := libjsoncpp_vendor
 endif

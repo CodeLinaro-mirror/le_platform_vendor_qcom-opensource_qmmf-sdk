@@ -36,6 +36,7 @@
 
 #include "player/src/service/qmmf_player_video_sink.h"
 #include "player/src/service/qmmf_player_audio_sink.h"
+#include "player/src/service/qmmf_player_audio_raw_sink.h"
 
 #define ROUND_TO(val, round_to) (val + round_to - 1) & ~(round_to - 1)
 #define HFR_FPS_VALUE 60.0
@@ -49,6 +50,9 @@ using ::qmmf::avcodec::CodecParam;
 using ::qmmf::avcodec::CodecPortStatus;
 using ::qmmf::avcodec::PortreconfigData;
 using ::qmmf::avcodec::PortEventType;
+using ::std::chrono::duration_cast;
+using ::std::chrono::high_resolution_clock;
+using ::std::chrono::microseconds;
 using ::std::chrono::milliseconds;
 using ::std::chrono::seconds;
 using ::std::make_shared;
@@ -57,8 +61,12 @@ using ::std::thread;
 using ::std::mutex;
 using ::std::lock_guard;
 using ::std::this_thread::sleep_for;
+using ::std::weak_ptr;
 
 VideoSink* VideoSink::instance_ = nullptr;
+
+// sleep time for Pause/Flush - 5000 usec
+const uint32_t VideoTrackSink::kSleepWait = 5000;
 
 VideoSink* VideoSink::CreateVideoSink() {
   QMMF_DEBUG("%s Enter ", __func__);
@@ -215,6 +223,42 @@ status_t VideoSink::SetVideoTrackSinkParams(uint32_t track_id,
   return ret;
 }
 
+status_t VideoSink::PrepareTrackAVSinkPipeline(uint32_t track_id,
+    const weak_ptr<AudioTrackSink>& audio_track_sink) {
+  QMMF_DEBUG("%s Enter track_id %d", __func__, track_id);
+  shared_ptr<VideoTrackSink> track_sink = video_track_sinks.valueFor(track_id);
+  assert(track_sink.get() != NULL);
+
+  auto ret = track_sink->PrepareAVSinkPipeline(audio_track_sink);
+  if (ret != NO_ERROR)
+    QMMF_ERROR("%s: track_id(%d) PrepareAVSinkPipeline failed",
+               __func__, track_id);
+  else
+    QMMF_INFO("%s: track_id(%d) PrepareAVSinkPipeline successful",
+              __func__, track_id);
+
+  QMMF_DEBUG("%s: Exit", __func__);
+  return ret;
+}
+
+status_t VideoSink::PrepareTrackAVSinkPipeline(uint32_t track_id,
+    const weak_ptr<AudioRawTrackSink>& audio_track_sink) {
+  QMMF_DEBUG("%s Enter track_id %d", __func__, track_id);
+  shared_ptr<VideoTrackSink> track_sink = video_track_sinks.valueFor(track_id);
+  assert(track_sink.get() != NULL);
+
+  auto ret = track_sink->PrepareAVSinkPipeline(audio_track_sink);
+  if (ret != NO_ERROR)
+    QMMF_ERROR("%s: track_id(%d) PrepareAVSinkPipeline failed",
+               __func__, track_id);
+  else
+    QMMF_INFO("%s: track_id(%d) PrepareAVSinkPipeline successful",
+              __func__, track_id);
+
+  QMMF_DEBUG("%s: Exit", __func__);
+  return ret;
+}
+
 VideoTrackSink::VideoTrackSink()
     : current_width(0),
       current_height(0),
@@ -223,7 +267,9 @@ VideoTrackSink::VideoTrackSink()
       paused_(false),
       port_reconfigured_(false),
       decoded_frame_number_(0),
-      seek_time_(0),
+      seek_time_(-1),
+      audio_accumulated_frames_(0),
+      audio_offset_(-1),
 #ifndef DISABLE_DISPLAY
       display_started_(0),
 #endif
@@ -238,7 +284,8 @@ VideoTrackSink::VideoTrackSink()
       output_frame_interval_(0.0),
       remaining_frame_skip_time_(0.0),
       display_refresh_rate_(0.0),
-      ignore_fps_(false) {
+      ignore_fps_(false),
+      flush_in_progress_(false) {
   QMMF_DEBUG("%s Enter ", __func__);
   memset(&surface_buffer_, 0x0, sizeof(SurfaceBuffer));
 #ifdef DUMP_YUV_FRAMES
@@ -367,6 +414,9 @@ status_t VideoTrackSink::StartSink() {
     output_free_buffer_queue_.Clear();
 
   last_queued_timestamp_ = 0;
+  seek_time_ = -1;
+  audio_accumulated_frames_ = 0;
+  audio_offset_ = -1;
 
   // decoded buffer queue
   for (auto& iter : output_buffer_list_) {
@@ -504,6 +554,27 @@ status_t VideoTrackSink::PrepareDrag(bool ignore_fps) {
   ignore_fps_lock_.lock();
   ignore_fps_ = ignore_fps;
   ignore_fps_lock_.unlock();
+  {
+    std::lock_guard<std::mutex> lock(queue_lock_);
+    auto iter = decoded_buffer_queue_.Begin();
+    for (; iter != decoded_buffer_queue_.End(); ++iter) {
+      std::list<CodecBuffer>::iterator it = output_occupy_buffer_queue_.Begin();
+      for (; it != output_occupy_buffer_queue_.End(); ++it) {
+        if (((*it).fd) == ((*iter).fd)) {
+          QMMF_DEBUG("%s track_id(%d) Buffer found", __func__, TrackId());
+          output_free_buffer_queue_.PushBack(*it);
+          output_occupy_buffer_queue_.Erase(it);
+          get_buffer_wait_.Signal();
+          break;
+        }
+      }
+    }
+    if (!decoded_buffer_queue_.Empty()) decoded_buffer_queue_.Clear();
+  }
+  if(!ignore_fps) {
+    audio_accumulated_frames_ = 0;
+    audio_offset_ = -1;
+  }
 
   QMMF_DEBUG("%s: Exit track_id(%d)", __func__, TrackId());
   return NO_ERROR;
@@ -525,8 +596,33 @@ status_t VideoTrackSink::DeleteSink() {
 
   video_track_decoder_.reset();
 
+  if (!audio_track_sink_.expired())
+    audio_track_sink_.reset();
+  if (!audio_raw_track_sink_.expired())
+    audio_raw_track_sink_.reset();
+
   QMMF_DEBUG("%s: Exit track_id(%d)", __func__, TrackId());
   return ret;
+}
+
+status_t VideoTrackSink::PrepareAVSinkPipeline(
+    const weak_ptr<AudioTrackSink>& audio_track_sink) {
+  QMMF_DEBUG("%s: Enter track_id(%d)", __func__, TrackId());
+
+  audio_track_sink_ = audio_track_sink;
+
+  QMMF_DEBUG("%s: Exit track_id(%d)", __func__, TrackId());
+  return 0;
+}
+
+status_t VideoTrackSink::PrepareAVSinkPipeline(
+    const weak_ptr<AudioRawTrackSink>& audio_track_sink) {
+  QMMF_DEBUG("%s: Enter track_id(%d)", __func__, TrackId());
+
+  audio_raw_track_sink_ = audio_track_sink;
+
+  QMMF_DEBUG("%s: Exit track_id(%d)", __func__, TrackId());
+  return 0;
 }
 
 status_t VideoTrackSink::SetTrickMode(TrickModeSpeed speed,
@@ -540,6 +636,8 @@ status_t VideoTrackSink::SetTrickMode(TrickModeSpeed speed,
 
   if (playback_speed_ == TrickModeSpeed::kSpeed_1x) {
     remaining_frame_skip_time_ = output_frame_interval_;
+    audio_accumulated_frames_ = 0;
+    audio_offset_ = -1;
   }
 
   QMMF_DEBUG("%s: Exit track_id(%d)", __func__, TrackId());
@@ -549,9 +647,12 @@ status_t VideoTrackSink::SetTrickMode(TrickModeSpeed speed,
 status_t VideoTrackSink::SetPosition(int64_t seek_time) {
   QMMF_DEBUG("%s: Enter track_id(%d)", __func__, TrackId());
   QMMF_DEBUG("%s: seek_time(%lld)", __func__, seek_time);
+  lock_guard<mutex> lock(avsync_lock_);
 
-  seek_time_ = static_cast<uint64_t>(seek_time);
+  seek_time_ = seek_time;
   remaining_frame_skip_time_ = output_frame_interval_;
+  audio_accumulated_frames_ = 0;
+  audio_offset_ = -1;
 
   QMMF_DEBUG("%s: Exit track_id(%d)", __func__, TrackId());
   return NO_ERROR;
@@ -603,7 +704,7 @@ status_t VideoTrackSink::GetBuffer(BufferDescriptor& codec_buffer,
   // Give available free buffer to decoder to use on output port.
   int32_t log_counter = 0;
   while (output_free_buffer_queue_.Size() <= 0 && !stop_notify_called_ &&
-         !port_reconfigured_) {
+         !port_reconfigured_ && !flush_in_progress_) {
     std::unique_lock<std::mutex> lock(get_buffer_wait_lock_);
     if (get_buffer_wait_.WaitFor(lock, milliseconds(50)) != 0) {
       log_counter++;
@@ -620,7 +721,11 @@ status_t VideoTrackSink::GetBuffer(BufferDescriptor& codec_buffer,
   } else if (port_reconfigured_) {
     QMMF_DEBUG("%s request for buffer after port reconfigured", __func__);
     return INVALID_OPERATION;
+  } else if (flush_in_progress_) {
+    QMMF_DEBUG("%s request for buffer during flush call", __func__);
+    return -EBADRQC;
   } else {
+    std::lock_guard<std::mutex> lock(queue_lock_);
     CodecBuffer iter = *output_free_buffer_queue_.Begin();
     codec_buffer.fd = (iter).fd;
     codec_buffer.data = (iter).pointer;
@@ -656,7 +761,7 @@ status_t VideoTrackSink::ReturnBuffer(BufferDescriptor& codec_buffer,
       __func__, TrackId(), codec_buffer.data);
 
   if (!((codec_buffer.flag & static_cast<uint32_t>(BufferFlags::kFlagEOS)) ||
-      stop_called_ || !codec_buffer.size)) {
+      stop_called_ || (!codec_buffer.size && !flush_in_progress_))) {
     auto ret = Dispatcher(codec_buffer);
     if(ret != 0) {
       QMMF_ERROR("%s: Failed to dispatch buffer with fd:%d", __func__,
@@ -678,6 +783,7 @@ status_t VideoTrackSink::ReturnBuffer(BufferDescriptor& codec_buffer,
 
 status_t VideoTrackSink::ReturnBufferToCodec(BufferDescriptor& codec_buffer) {
   QMMF_DEBUG("%s: Enter track_id(%d)", __func__, TrackId());
+  std::lock_guard<std::mutex> lock(queue_lock_);
 
   std::list<CodecBuffer>::iterator it = output_occupy_buffer_queue_.Begin();
   bool found = false;
@@ -694,9 +800,7 @@ status_t VideoTrackSink::ReturnBufferToCodec(BufferDescriptor& codec_buffer) {
     }
   }
 
-  if (codec_buffer.fd == 0) {
-    return NO_ERROR;
-  }
+  if (codec_buffer.fd == 0) return NO_ERROR;
 
   assert(found == true);
   QMMF_DEBUG("%s: Exit track_id(%d)", __func__, TrackId());
@@ -705,12 +809,13 @@ status_t VideoTrackSink::ReturnBufferToCodec(BufferDescriptor& codec_buffer) {
 
 status_t VideoTrackSink::SkipFrame(uint64_t timestamp,  bool is_hfr_track) {
   QMMF_DEBUG("%s: Enter track_id(%d)", __func__, TrackId());
+  lock_guard<mutex> lock(avsync_lock_);
 
-  QMMF_VERBOSE("%s comparing seek_time[%llu] to timestamp[%llu]",
-               __func__, seek_time_, timestamp);
-  if (seek_time_ && (timestamp < seek_time_)) {
-    QMMF_DEBUG("%s track_id(%d) discarding frame: seek_time[%llu] timestamp[%llu]",
+  QMMF_VERBOSE("%s: track_id(%d) comparing seek_time[%llu] to timestamp[%llu]",
                __func__, TrackId(), seek_time_, timestamp);
+  if (seek_time_ > 0 && static_cast<int64_t>(timestamp) < seek_time_) {
+    QMMF_DEBUG("%s track_id(%d) seek_time not reached, discarding frame",
+               __func__, TrackId());
     return true;
   } else if (is_hfr_track && (playback_speed_ == TrickModeSpeed::kSpeed_1x)) {
     // This code is only for HFR use case
@@ -740,6 +845,17 @@ status_t VideoTrackSink::Dispatcher(const BufferDescriptor& codec_buffer) {
 
   QMMF_DEBUG("%s: Adding decoded buffer fd(%d) to queue", __func__,
       codec_buffer.fd);
+
+  if (flush_in_progress_) {
+    BufferDescriptor codec_buffer_sink;
+    memset(&codec_buffer_sink, 0x0, sizeof codec_buffer_sink);
+    codec_buffer_sink = codec_buffer;
+    auto ret = ReturnBufferToCodec(codec_buffer_sink);
+    if(ret != 0)
+      QMMF_ERROR("%s: Failed to return buffer to codec with fd:%d",
+                 __func__, codec_buffer.fd);
+    return NO_ERROR;
+  }
 
   BufferDescriptor codec_buffer_sink;
   memset(&codec_buffer_sink, 0x0, sizeof codec_buffer_sink);
@@ -778,9 +894,10 @@ void VideoTrackSink::RendererThread(VideoTrackSink* video_sink) {
 }
 
 void VideoTrackSink::Renderer() {
-  QMMF_DEBUG("%s: Enter ", __func__);
-
+  QMMF_INFO("%s: Enter", __func__);
   status_t ret = 0;
+  uint32_t previous_audio_frames = 0;
+
   int64_t sleep_time_us = 1000000/(track_params_.params.frame_rate);
   bool is_hfr_track = false;
   input_frame_interval_ = 1000000.0 / (double) track_params_.params.frame_rate;
@@ -799,12 +916,14 @@ void VideoTrackSink::Renderer() {
   }
 
   while (!stop_called_) {
+    auto start_time = high_resolution_clock::now();
     // for 90 fps video we need to enable to 2 filters.
     // First filter will skip the frame from SkipFrame function.
     // Second Filter will skip the frame from isFrameSkip function.
     bool skip_frame  = false;
     if (decoded_buffer_queue_.Size() > 0) {
-      if (paused_) {
+      if (paused_ || flush_in_progress_) {
+        usleep(kSleepWait);
         continue;
       }
 
@@ -813,16 +932,20 @@ void VideoTrackSink::Renderer() {
       codec_buffer = iter;
 
       ++(decoded_frame_number_);
-      QMMF_DEBUG("%s: track_id(%d) For decoded/rendered video frame number %u"
-          " timestamps is %llu buffer.fd is %d ",  __func__, TrackId(),
-          decoded_frame_number_, codec_buffer.timestamp, codec_buffer.fd);
+      QMMF_VERBOSE("%s: track_id(%d) processing frame(%u) buffer.fd(%d)",
+                   __func__, TrackId(), decoded_frame_number_, codec_buffer.fd);
 
       skip_frame = SkipFrame(codec_buffer.timestamp, 0);
 
       if (skip_frame) {
         QMMF_DEBUG("%s: Skipping frame number %d to display", __func__,
             decoded_frame_number_);
-        decoded_buffer_queue_.Erase(decoded_buffer_queue_.Begin());
+        {
+          std::lock_guard<std::mutex> lock(queue_lock_);
+          auto decoded_buf = *decoded_buffer_queue_.Begin();
+          if (decoded_buf.fd == codec_buffer.fd)
+            decoded_buffer_queue_.Erase(decoded_buffer_queue_.Begin());
+        }
         ret = ReturnBufferToCodec(codec_buffer);
         if(ret != 0) {
           QMMF_ERROR("%s: Failed to return buffer to codec with fd:%d",
@@ -836,7 +959,12 @@ void VideoTrackSink::Renderer() {
           if (skip_frame) {
             QMMF_DEBUG("%s: Skipping frame number %d to display", __func__,
                        decoded_frame_number_);
-            decoded_buffer_queue_.Erase(decoded_buffer_queue_.Begin());
+            {
+              std::lock_guard<std::mutex> lock(queue_lock_);
+              auto decoded_buf = *decoded_buffer_queue_.Begin();
+              if (decoded_buf.fd == codec_buffer.fd)
+                decoded_buffer_queue_.Erase(decoded_buffer_queue_.Begin());
+            }
             ret = ReturnBufferToCodec(codec_buffer);
             if(ret != 0) {
               QMMF_ERROR("%s: Failed to return buffer to codec with fd:%d",
@@ -844,17 +972,85 @@ void VideoTrackSink::Renderer() {
             }
           }
         }
-        if (!skip_frame) {
-#ifndef DISABLE_DISPLAY
-          status_t ret = PushFrameToDisplay(codec_buffer);
-          if (ret != 0) {
-            QMMF_ERROR("%s PushFrameToDisplay Failed!!", __func__);
+
+      if (!skip_frame) {
+        // if audio is running, grab the timestamp
+      uint32_t audio_frames = 0;
+      uint32_t audio_rate = 0;
+      int64_t audio_offset = -1;
+      if (playback_speed_ == TrickModeSpeed::kSpeed_1x &&
+          playback_dir_ == TrickModeDirection::kNormalForward) {
+        if (shared_ptr<AudioTrackSink> audio_sink = audio_track_sink_.lock()) {
+          audio_sink->GetAudioPresentationTime(&audio_frames, &audio_rate,
+                                               &audio_offset);
+        } else if (shared_ptr<AudioRawTrackSink> audio_sink =
+                   audio_raw_track_sink_.lock()) {
+          audio_sink->GetAudioPresentationTime(&audio_frames, &audio_rate,
+                                               &audio_offset);
+        }
+      }
+
+      // if audio is running, synchronize video to audio
+      if (audio_frames > 0 && previous_audio_frames != audio_frames &&
+          audio_offset >= 0) {
+        lock_guard<mutex> lock(avsync_lock_);
+
+        if (audio_offset_ < 0) {
+          audio_offset_ = audio_offset;
+          audio_accumulated_frames_ = 0;
+        } else {
+          audio_accumulated_frames_ += audio_frames - previous_audio_frames;
+        }
+
+        int64_t audio_processed_time = audio_offset_ + static_cast<int64_t>
+            ((static_cast<float>(audio_accumulated_frames_) / audio_rate) *
+             1000000);
+        int64_t difference = audio_processed_time - codec_buffer.timestamp;
+        QMMF_VERBOSE("%s: previous_audio_frames(%d) audio_frames(%d) audio_accumulated_frames(%lld) audio_offset(%lld) seek_time(%lld) audio_processed_time(%lld) video_time(%lld) difference(%lld)",
+                   __func__, previous_audio_frames, audio_frames,
+                   audio_accumulated_frames_, audio_offset_, seek_time_,
+                   audio_processed_time, codec_buffer.timestamp, difference);
+
+        previous_audio_frames = audio_frames;
+
+        // video frame is too late, drop it
+        if (difference > 20000) {
+          QMMF_WARN("%s: track_id(%d) video behind audio (%lld), dropping frame",
+                    __func__, TrackId(), difference);
+          {
+            std::lock_guard<std::mutex> lock(queue_lock_);
+            auto decoded_buf = *decoded_buffer_queue_.Begin();
+            if (decoded_buf.fd == codec_buffer.fd)
+              decoded_buffer_queue_.Erase(decoded_buffer_queue_.Begin());
           }
-#else
-        QMMF_WARN("%s Display not supported!", __func__);
-#endif
-          if (playback_dir_ == TrickModeDirection::kSlowForward) {
-            QMMF_DEBUG("%s Sleeping for %0.2f ms in Slow Forward", __func__,
+          ReturnBufferToCodec(codec_buffer);
+          continue;
+        }
+
+        // video frame is too early, wait and then check again
+        if (difference < -40000) {
+          int64_t delay = (difference < -60000 ? 30000 : -difference - 20000);
+          int64_t sleep = delay < 0 ? 10000 : delay;
+          QMMF_WARN("%s: track_id(%d) video leading audio (%lld), sleeping for %lld",
+                    __func__, TrackId(), difference, sleep);
+          usleep(sleep);
+          continue;
+        }
+      }
+
+
+      #ifndef DISABLE_DISPLAY
+                ret = PushFrameToDisplay(codec_buffer);
+                if (ret != 0) {
+                  QMMF_ERROR("%s PushFrameToDisplay Failed!!", __func__);
+                }
+      #else
+              QMMF_WARN("%s Display not supported!", __func__);
+      #endif
+
+
+      if (playback_dir_ == TrickModeDirection::kSlowForward) {
+        QMMF_DEBUG("%s Sleeping for %0.2f ms in Slow Forward", __func__,
                        (float)((1000000 / (track_params_.params.frame_rate)) *
                                static_cast<uint32_t>(playback_speed_)) /
                            (float)1000);
@@ -862,34 +1058,39 @@ void VideoTrackSink::Renderer() {
                 microseconds((1000000 / (track_params_.params.frame_rate)) *
                              static_cast<uint32_t>(playback_speed_)));
 
-          } else if (playback_dir_ == TrickModeDirection::kNormalRewind) {
-            QMMF_DEBUG(
+      } else if (playback_dir_ == TrickModeDirection::kNormalRewind){
+        QMMF_DEBUG(
                 "%s Sleeping for %0.2f ms in Normal Rewind", __func__,
                 (float)((1000000 / (track_params_.params.frame_rate) * 6)) /
                     (float)1000);
-            sleep_for(microseconds(
-                (1000000 / (track_params_.params.frame_rate)) * 6));
-
-          } else {
-            ignore_fps_lock_.lock();
-            if (ignore_fps_) {
-              ignore_fps_lock_.unlock();
-            } else {
-              ignore_fps_lock_.unlock();
-              QMMF_DEBUG("%s Sleeping for %0.2f ms in Normal Playback",
-                    __func__, (float)(sleep_time_us)/(float)1000);
-              sleep_for(microseconds(sleep_time_us-500));
-            }
-          }
-
-          ++(displayed_frames_);
-          QMMF_DEBUG("%s: track_id(%d) displayed video frame number %d",
-                     __func__, TrackId(), displayed_frames_);
-
-          QMMF_DEBUG("%s codec buff.fd :: %d", __func__, codec_buffer.fd);
+        sleep_for(microseconds(
+            (1000000 / (track_params_.params.frame_rate)) * 6));
+      } else {
+        ignore_fps_lock_.lock();
+        if (ignore_fps_) {
+          ignore_fps_lock_.unlock();
+        } else {
+          ignore_fps_lock_.unlock();
+          auto end_time = high_resolution_clock::now();
+          auto diff = duration_cast<microseconds>(end_time - start_time).count();
+          auto time_to_sleep = sleep_time_us-diff;
+          QMMF_DEBUG("%s Sleeping for %0.2f ms in Normal Playback",
+                     __func__, (float)(time_to_sleep)/(float)1000);
+          if(time_to_sleep > 0)
+            sleep_for(microseconds(time_to_sleep));
+          else
+            sleep_for(microseconds(500));
         }
       }
+
+      ++(displayed_frames_);
+      QMMF_DEBUG("%s: track_id(%d) displayed video frame number %d",
+          __func__, TrackId(), displayed_frames_);
+
+      QMMF_DEBUG("%s codec buff.fd :: %d", __func__, codec_buffer.fd);
+      }
     }
+  }
   }
   QMMF_DEBUG("%s: Exit ", __func__);
 }
@@ -903,24 +1104,30 @@ void VideoTrackSink::PtsThreadEntry(VideoTrackSink* sink) {
 void VideoTrackSink::PtsThread() {
   QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__, track_params_.track_id);
   uint64_t previous_timestamp = 0UL;
-
+  uint32_t sleep_count = 0;
+  uint32_t sleep_time = 5;
   while (!stop_called_) {
-    sleep_for(milliseconds(track_params_.params.pts_callback_interval));
+    sleep_for(milliseconds(sleep_time));
 
     if (!paused_) {
-      uint64_t timestamp;
-      {
-        lock_guard<mutex> lock(grab_picture_lock);
-        timestamp = last_queued_timestamp_ / 1000;
+      sleep_count++;
+      if((sleep_count * sleep_time) >=
+         track_params_.params.pts_callback_interval) {
+        sleep_count = 0;
+        uint64_t timestamp;
+        {
+          lock_guard<mutex> lock(grab_picture_lock);
+          timestamp = last_queued_timestamp_ / 1000;
+        }
+        if (timestamp != previous_timestamp) {
+          QMMF_DEBUG("%s() sending timestamp[%llu] for track[%u]", __func__,
+                    timestamp, track_params_.track_id);
+          callback_.event_cb(track_params_.track_id,
+                            EventType::kPresentationTimestamp,
+                            &timestamp, sizeof(timestamp));
+        }
+        previous_timestamp = timestamp;
       }
-      if (timestamp != previous_timestamp) {
-        QMMF_DEBUG("%s() sending timestamp[%llu] for track[%u]", __func__,
-                   timestamp, track_params_.track_id);
-        callback_.event_cb(track_params_.track_id,
-                           EventType::kPresentationTimestamp,
-                           &timestamp, sizeof(timestamp));
-      }
-      previous_timestamp = timestamp;
     }
   }
 
@@ -1242,6 +1449,7 @@ status_t VideoTrackSink::PushFrameToDisplay(BufferDescriptor& codec_buffer) {
       QMMF_ERROR("%s QueueSurfaceBuffer Failed!!", __func__);
       return ret;
     } else {
+      std::lock_guard<std::mutex> lock(queue_lock_);
       auto it = decoded_buffer_queue_.Begin();
       for (; it != decoded_buffer_queue_.End(); ++it) {
         QMMF_DEBUG("%s track_id(%d) Checking match %d vs %d ", __func__,
@@ -1456,5 +1664,9 @@ void VideoTrackSink::DumpYUVData(BufferDescriptor& codec_buffer) {
 }
 #endif
 
+status_t VideoTrackSink::StartFlush(bool status) {
+  flush_in_progress_ = status;
+  return NO_ERROR;
+}
 };  // namespace player
 };  // namespace qmmf

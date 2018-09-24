@@ -40,6 +40,7 @@ using qmmf::AACMode;
 using qmmf::AACFormat;
 using qmmf::AudioFormat;
 using qmmf::AudioOutSubtype;
+using qmmf::avcodec::CodecPortStatus;
 using qmmf::avcodec::IAVCodec;
 using qmmf::avcodec::ICodecSource;
 using qmmf::avcodec::kPortIndexInput;
@@ -58,7 +59,9 @@ using qmmf::VideoOutSubtype;
 using std::chrono::duration_cast;
 using std::chrono::high_resolution_clock;
 using std::chrono::microseconds;
+using std::chrono::milliseconds;
 using std::chrono::seconds;
+using std::cv_status;
 using std::ios;
 using std::lock_guard;
 using std::make_shared;
@@ -647,6 +650,7 @@ int32_t VideoDecode::FillCodecParams() {
     video_track_param.width = track_info_.sVideo.ulWidth;
     video_track_param.bitrate = track_info_.sVideo.ulBitRate;
     video_track_param.num_buffers = 1;
+    video_track_param.enable_thumbnail = true;
 
     ALOGI("VideoDecode:%s: height : %d width %d frame_rate %d, bitrate %d ",
           __func__, video_track_param.height, video_track_param.width,
@@ -809,7 +813,9 @@ VideoDecode::OutputCodecSourceImpl::OutputCodecSourceImpl(
     : frame_number_(frame_number),
       frame_counter_(0),
       cb_(cb),
-      output_video_decode_(vid) {
+      output_video_decode_(vid),
+      port_reconfigured_(false),
+      stop_notify_called_(false) {
   ALOGI("VideoDecode:OutputCodecSourceImpl:%s: Enter", __func__);
   ALOGI("VideoDecode:OutputCodecSourceImpl:%s: Exit", __func__);
 }
@@ -832,11 +838,26 @@ int32_t VideoDecode::OutputCodecSourceImpl::GetBuffer(
   ALOGI("VideoDecode:OutputCodecSourceImpl:%s: Enter", __func__);
 
   int32_t ret = 0;
-  while (output_free_buffer_vector_.size() <= 0) {
+  int32_t log_counter = 0;
+  while (output_free_buffer_vector_.size() <= 0 &&
+         !stop_notify_called_ && !port_reconfigured_) {
     ALOGW("VideoDecode:OutputCodecSourceImpl:%s: No buffer available to notify."
           " Wait for new buffer", __func__);
     unique_lock<mutex> lock(wait_for_frame_lock_);
-    wait_for_frame_.wait_for(lock, seconds(1));
+    if(wait_for_frame_.wait_for(lock, milliseconds(50)) != cv_status::timeout) {
+      log_counter++;
+      if (log_counter % 20 == 0) // log the message every 1 sec
+        ALOGW("%s: Timed out on wait", __func__);
+    }
+  }
+  if (stop_notify_called_) {
+    ALOGD("%s() request for buffer after stop", __func__);
+    codec_buffer.fd = -1;
+    codec_buffer.data = nullptr;
+    codec_buffer.capacity = 0;
+  } else if (port_reconfigured_) {
+    ALOGD("%s request for buffer after port reconfigured", __func__);
+    return -ENOSYS;
   }
   {
     lock_guard<mutex> lg(output_free_buffer_vector_lock_);
@@ -909,6 +930,19 @@ int32_t VideoDecode::OutputCodecSourceImpl::NotifyPortEvent(
   int32_t ret = 0;
   switch (event_type) {
     case PortEventType::kPortStatus:
+      switch (*(static_cast<CodecPortStatus*>(event_data))) {
+        case CodecPortStatus::kPortStop:
+          stop_notify_called_ = true;
+          wait_for_frame_.notify_one();
+          break;
+        case CodecPortStatus::kPortIdle:
+        case CodecPortStatus::kPortStart:
+          break;
+      }
+      break;
+    case PortEventType::kPortConfigReceived:
+      port_reconfigured_ = true;
+      wait_for_frame_.notify_one();
       break;
     case PortEventType::kPortSettingsChanged:
       switch (static_cast<PortreconfigData*>(event_data)->reconfig_type) {
@@ -953,6 +987,7 @@ int32_t VideoDecode::OutputCodecSourceImpl::NotifyPortEvent(
             lock_guard<mutex> lg(output_free_buffer_vector_lock_);
             output_free_buffer_vector_.push_back(iter);
           }
+          port_reconfigured_ = false;
           wait_for_frame_.notify_one();
           break;
         default:

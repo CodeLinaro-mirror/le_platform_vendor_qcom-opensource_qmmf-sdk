@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -102,6 +102,7 @@ class AVCodec : public IAVCodec {
   status_t StartCodec() override;
   void setPowerHint();
   void endPowerHint();
+  void SetVenusTurboConfig();
   status_t StopCodec(bool do_flush) override;
   status_t PauseCodec() override;
   status_t ResumeCodec() override;
@@ -230,6 +231,7 @@ class AVCodec : public IAVCodec {
   uint32_t                        in_buff_hdr_size_;
   uint32_t                        out_buff_hdr_size_;
   SignalQueue<CodecCmdType>       signal_queue_;
+  static const uint32_t           extra_output_buffers_;
   static OMX_CALLBACKTYPE  callbacks_;
   static uint32_t power_hint_;
   CodecType                format_type_;
@@ -243,16 +245,19 @@ class AVCodec : public IAVCodec {
   // For Port Reconfig
   bool                      bPortReconfig_;
   ::android::Mutex          port_reconfig_lock_;
-  std::mutex                threadrun_port_reconfig_lock_;
-  QCondition                wait_for_threadrun;
   CodecParam                codec_params_;
   bool                      slice_mode_encoding_;
   AVCodecCb                 avcodec_cb_;
   std::atomic<int>          api_count_;
+  std::atomic<bool>         flush_in_progress_;
+  std::atomic<bool>         enable_thumbnail_;
+  bool                      enable_turbo_mode_;
 
-  static const int64_t kOutputBufHeaderDelay;
+  static const int64_t  kOutputBufHeaderDelay;
   static const uint32_t kMaxWaitLimitCounter;
   static const uint32_t kSleepPortReconfig;
+  static const uint32_t kSleepFlush;
+  static const uint32_t kInputLoad;
 };
 
 };  // namespace avcodec

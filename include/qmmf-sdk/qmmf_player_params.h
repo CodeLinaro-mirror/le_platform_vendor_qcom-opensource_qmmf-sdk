@@ -140,6 +140,7 @@ struct VideoTrackCreateParam {
   VideoCodecType codec;
   VideoOutSubtype out_device;
   uint32_t rotation;
+  bool enable_thumbnail;
 
   ::std::string ToString() const {
     ::std::stringstream stream;
@@ -170,6 +171,8 @@ struct VideoTrackCreateParam {
            << static_cast<::std::underlying_type<VideoOutSubtype>::type>
                          (out_device)
            << "]";
+    stream << "enable_thumbnail[" << ::std::boolalpha << enable_thumbnail
+           << ::std::noboolalpha << "] ";
     return stream.str();
   }
 };

@@ -29,6 +29,7 @@
 
 #pragma once
 
+#include <future>
 #include <map>
 #include <vector>
 
@@ -85,6 +86,8 @@ class AudioFrontend {
   AudioStoppedHandler stopped_handler_;
   AudioBackendMap backends_;
   qahw_module_handle_t* modules_[AudioHAL::kNum];
+  ::std::future<int32_t> hal_load_result_;
+  bool hal_load_done_;
 
   // disable copy, assignment, and move
   AudioFrontend(const AudioFrontend&) = delete;

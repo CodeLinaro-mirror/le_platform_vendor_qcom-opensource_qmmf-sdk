@@ -88,6 +88,7 @@ class SystemKeytone {
   SystemHandle current_handle_;
   SystemToneHandler tone_handler_;
   Tone tone_;
+  ::qmmf::common::audio::AudioBuffer backing_buffer_;
 
   // disable copy, assignment, and move
   SystemKeytone(const SystemKeytone&) = delete;

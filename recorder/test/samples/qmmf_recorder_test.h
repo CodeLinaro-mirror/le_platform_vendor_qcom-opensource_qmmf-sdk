@@ -34,7 +34,7 @@
 #include <vector>
 
 #include <camera/CameraMetadata.h>
-#ifdef ANDROID_O_OR_ABOVE
+#ifdef CAM_ARCH_V2
 #include <camera/VendorTagDescriptor.h>
 #endif
 
@@ -161,7 +161,7 @@ using ::qmmf::display::SurfaceFormat;
 #define CLIP(X, L, U) MIN(MAX((X), (L)), (U))
 #endif
 
-#ifdef ANDROID_O_OR_ABOVE
+#ifdef CAM_ARCH_V2
 enum VideoHDRAvailableModes : int32_t {
   kVideoHdrOff,
   kVideoHdrOn
@@ -455,6 +455,8 @@ class RecorderTest {
 
   status_t Session1080pYUVTrackWithPreview();
 
+  status_t ToggleDisplayState();
+
   status_t CreateAudioPCMTrack();
 
   status_t CreateAudio2PCMTrack();
@@ -537,7 +539,7 @@ class RecorderTest {
   int32_t ToggleVideoStabilizationMode();
   int32_t ChooseCamera();
   int32_t SetAntibandingMode();
-#ifdef ANDROID_O_OR_ABOVE
+#ifdef CAM_ARCH_V2
   bool VendorTagSupported(const String8& name, const String8& section,
                           uint32_t* tag_id);
   bool VendorTagExistsInMeta(const CameraMetadata& meta, const String8& name,
@@ -673,7 +675,7 @@ class RecorderTest {
   std::mutex   error_lock_;
   bool         camera_error_;
 
-#ifdef ANDROID_O_OR_ABOVE
+#ifdef CAM_ARCH_V2
   sp<VendorTagDescriptor> vendor_tag_desc_;
 #endif
 };
@@ -719,6 +721,8 @@ class TestTrack {
   status_t StartDisplay(DisplayType display_type);
 
   status_t StopDisplay(DisplayType display_type);
+
+  status_t ToggleDisplayState();
 #endif
 
   const TrackInfo& GetTrackHandle(){return track_info_;}
@@ -733,7 +737,10 @@ class TestTrack {
 
 #ifndef DISABLE_DISPLAY
   status_t PushFrameToDisplay(BufferDescriptor& buffer,
-    CameraBufferMetaData& meta_data);
+                              CameraBufferMetaData& meta_data);
+
+  qmmf::display::DisplayParamType display_param_type_;
+  int32_t display_param_;
 #endif
 
   TrackInfo track_info_;
@@ -809,6 +816,7 @@ public:
         CREATE_RDI_SESSION_CMD                          = 'r',
         CREATE_YUV_SESSION_DISPLAY_CMD                  = 'Z',
         CREATE_YUV_SESSION_PREVIEW_CMD                  = 'Y',
+        TOGGLE_DISPLAY_STATE                            = 'w',
         START_SESSION_CMD                               = 'A',
         STOP_SESSION_CMD                                = 'B',
         TAKE_SNAPSHOT_CMD                               = 'S',

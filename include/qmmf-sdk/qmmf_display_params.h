@@ -352,6 +352,7 @@ enum class DisplayParamType {
   kSaturation,
   kContrast,
   kBrightness,
+  kDisplayState
 };
 
 /*! @brief This enum represents the events received by Display HAL. */

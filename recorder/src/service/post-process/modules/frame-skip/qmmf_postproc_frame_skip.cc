@@ -43,7 +43,8 @@ PostProcFrameSkip::PostProcFrameSkip()
     : state_(State::CREATED),
       frame_skip_(0),
       frame_duration_(0.0f),
-      last_timestamp_(0) {
+      last_timestamp_(0),
+      frame_count_(0) {
   QMMF_INFO("%s: Enter", __func__);
 }
 
@@ -60,6 +61,10 @@ status_t PostProcFrameSkip::Initialize(const PostProcIOParam &in_param,
   frame_duration_ = 1000000.0 / out_param.frame_rate; // usec
   state_ = State::INITIALIZED;
 
+  char prop_val[PROPERTY_VALUE_MAX];
+  property_get("persist.qmmf.pp.ignore_input", prop_val, "1");
+  // Irrespective of frame duration frames will be skipped with count.
+  ignore_frame_duration_ = (0 == atoi(prop_val)) ? false : true;
   return NO_ERROR;
 }
 
@@ -154,7 +159,12 @@ status_t PostProcFrameSkip::Configure(const std::string config_json_data) {
 
   frame_skip_ = root["frameskip"].asInt();
 
-  QMMF_INFO("%s: Update frame skip to %d", __func__, frame_skip_);
+  if (root.isMember("source framerate") || !root["source framerate"].empty()) {
+    int32_t source_framerate = root["source framerate"].asInt();
+    frame_duration_ = 1000000.0 / source_framerate; // usec
+  }
+  QMMF_INFO("%s: Update frame_skip: %d, frame_duration: %fl ", __func__,
+      frame_skip_, frame_duration_);
 
   return NO_ERROR;
 }
@@ -168,7 +178,7 @@ status_t PostProcFrameSkip::Process(
 
   for (auto buf : in_buffers) {
     if (state_ != State::ACTIVE || SkipFrame(buf)) {
-      QMMF_INFO("%s: skip frame. state %d", __func__, state_);
+      QMMF_INFO("%s: skip frame. state %d buf.fd: %d", __func__, state_, buf.fd);
       Listener_->OnFrameReturn(buf);
     } else {
       QMMF_INFO("%s: process frame", __func__);
@@ -182,22 +192,30 @@ status_t PostProcFrameSkip::Process(
 bool PostProcFrameSkip::SkipFrame(StreamBuffer &buf) {
   bool skip = false;
 
-  if (last_timestamp_) {
-    // frame_skip shows the number of skipped frames
-    float threshhold =
-        (static_cast< float > (frame_skip_) + 0.5) * frame_duration_; // usec
-    float diff = (buf.timestamp - last_timestamp_) / 1000.0; // usec
-    if (diff > threshhold) {
+  if (!ignore_frame_duration_) {
+    if (last_timestamp_) {
+      // frame_skip shows the number of skipped frames
+      float threshhold =
+          (static_cast< float > (frame_skip_) + 0.5) * frame_duration_; // usec
+      float diff = (buf.timestamp - last_timestamp_) / 1000.0; // usec
+      if (diff > threshhold) {
+        last_timestamp_ = buf.timestamp;
+        skip = false;
+      } else {
+        skip = true;
+      }
+    } else {
       last_timestamp_ = buf.timestamp;
+      skip = false;
+    }
+  } else {
+    if (frame_count_ % (frame_skip_ + 1) == 0) {
       skip = false;
     } else {
       skip = true;
     }
-  } else {
-    last_timestamp_ = buf.timestamp;
-    skip = false;
+    ++frame_count_;
   }
-
   return skip;
 }
 

@@ -44,7 +44,8 @@ namespace recorder {
 MemPool::MemPool()
     : buffers_allocated_(0),
       pending_buffer_count_(0),
-      params_({}) {
+      params_({}),
+      signal_buffer_return_(false) {
 
   QMMF_INFO("%s: Enter", __func__);
   QMMF_INFO("%s: Exit (%p)", __func__, this);
@@ -120,6 +121,7 @@ status_t MemPool::Delete() {
   }
   buffers_allocated_ = 0;
   pending_buffer_count_ = 0;
+  signal_buffer_return_ = false;
 #endif
   QMMF_INFO("%s: Exit (%p)", __func__, this);
 
@@ -142,6 +144,11 @@ status_t MemPool::ReturnBufferLocked(const StreamBuffer &buffer) {
 
   gralloc_buffers_[buffer.handle] = true;
   pending_buffer_count_--;
+
+  if (signal_buffer_return_ == true && pending_buffer_count_ == 0) {
+    wait_for_return_.Signal();
+    signal_buffer_return_ = false;
+  }
 
   wait_for_buffer_.Signal();
 #endif
@@ -177,6 +184,28 @@ status_t MemPool::GetBuffer(StreamBuffer* buffer) {
     return ret;
   }
 #endif
+  return NO_ERROR;
+}
+
+status_t MemPool::WaitUntilBufferReturned() {
+  QMMF_VERBOSE("%s: E", __func__);
+
+  std::unique_lock<std::mutex> lock(buffer_lock_);
+  std::chrono::nanoseconds wait_time(kReturnWaitTimeout);
+
+  signal_buffer_return_ = true;
+  while (pending_buffer_count_) {
+    QMMF_VERBOSE("%s: Wait for %d pending buffers to be returned",
+        __func__, pending_buffer_count_);
+
+    auto ret = wait_for_return_.WaitFor(lock, wait_time);
+    if (ret != 0) {
+      QMMF_ERROR("%s: Wait for pending buffer returns timed out", __func__);
+      return TIMED_OUT;
+    }
+  }
+
+  QMMF_VERBOSE("%s: X", __func__);
   return NO_ERROR;
 }
 
