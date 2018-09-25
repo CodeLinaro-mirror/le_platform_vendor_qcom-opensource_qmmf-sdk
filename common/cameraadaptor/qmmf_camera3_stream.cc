@@ -19,6 +19,8 @@
  * limitations under the License.
  */
 
+#define LOG_TAG "RecorderCamera3Stream"
+
 #include "qmmf_camera3_utils.h"
 #include "qmmf_camera3_monitor.h"
 #include "qmmf_camera3_stream.h"
@@ -730,6 +732,8 @@ int32_t Camera3Stream::GetBufferLocked(camera3_stream_buffer *streamBuffer) {
     mem_alloc_slots_[idx] = handle;
     mem_alloc_buffers_.add(mem_alloc_slots_[idx], (NULL == streamBuffer));
     hw_buffer_allocated_++;
+    QMMF_INFO("%s: Allocated new buffer, total buffers allocated = %d",
+        __func__, hw_buffer_allocated_);
   }
 
   if ((NULL == handle) || (0 > idx)) {
