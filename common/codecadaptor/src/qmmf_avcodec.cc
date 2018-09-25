@@ -2751,10 +2751,6 @@ status_t AVCodec::StartCodec() {
     port_reconfig_thread_ = thread([this]() -> void { ThreadRun(); });
   }
 
-  CodecPortStatus status = CodecPortStatus::kPortStart;
-  getInputBufferSource()->NotifyPortEvent(PortEventType::kPortStatus,
-                                          static_cast<void*>(&status));
-
   if (format_type_ == CodecType::kVideoEncoder && enable_turbo_mode_) {
       SetVenusTurboConfig();
   }
