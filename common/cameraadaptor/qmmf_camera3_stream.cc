@@ -18,6 +18,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+#define LOG_TAG "RecorderCamera3Stream"
 #ifdef TARGET_USES_GRALLOC1
 #include <libgralloc1/gralloc_priv.h>
 #include <grallocusage/GrallocUsageConversion.h>
@@ -719,6 +721,8 @@ int32_t Camera3Stream::GetBufferLocked(camera3_stream_buffer *streamBuffer) {
     gralloc_slots_[idx] = handle;
     gralloc_buffers_.add(gralloc_slots_[idx], (NULL == streamBuffer));
     gralloc_buffer_allocated_++;
+    QMMF_INFO("%s: Allocated new buffer, total buffers allocated = %d",
+        __func__, gralloc_buffer_allocated_);
   }
 
   if ((NULL == handle) || (0 > idx)) {
