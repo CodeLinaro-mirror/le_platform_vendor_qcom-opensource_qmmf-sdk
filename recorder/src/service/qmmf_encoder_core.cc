@@ -53,6 +53,9 @@ static const int32_t kDebugTrackFps = 1<<0;
 // changes each field start code.
 static const uint32_t kBitStreamHeaderSize = 96;
 
+// Reduce buffer size by 50%.
+static const float kOutputSizeFactor = 0.5;
+
 EncoderCore* EncoderCore::instance_ = NULL;
 
 EncoderCore* EncoderCore::CreateEncoderCore() {
@@ -813,6 +816,8 @@ status_t TrackEncoder::AllocOutputPortBufs() {
   count_prev = count;
   //TODO: This hardcoding would be fixed by AVCodec layer
   count = OUTPUT_MAX_COUNT;
+
+  size = kOutputSizeFactor * size;
 
   // This Code changes buffer count in slice delivery mode.
   if (track_params_.params.format_type == VideoFormat::kAVC) {
