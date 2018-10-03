@@ -4769,6 +4769,7 @@ void RecorderTest::printInitParamAndTtrackInfo(
         printf("\n\tTrackInfo.track_type = %d\n", track_info->track_type);
         printf("\tTrackInfo.camera_id = %d\n", track_info->camera_id);
         printf("\tTrackInfo.fps = %5.2f\n", track_info->fps);
+        printf("\tTrackInfo.focal_length = %5.2f\n", track_info->focal_length);
         printf("\tTrackInfo.width = %d\n", track_info->width);
         printf("\tTrackInfo.height = %d\n\n", track_info->height);
         if (track_info->track_type == TrackType::kVideoAVC) {
@@ -5032,6 +5033,8 @@ int32_t RecorderTest::ParseConfig(char *fileName, TestInitParams *initParams,
         ALOGE("%s: Unknown Video CodecType(%s)", __func__, value);
         goto READ_FAILED;
       }
+    } else if (!strncmp("FocalLength", key, strlen("FocalLength"))) {
+      track_info.focal_length = atof(value);
     } else if (!strncmp("idr_interval", key, strlen("idr_interval"))) {
       if (track_info.track_type == TrackType::kVideoAVC) {
         track_info.avcparams.idr_interval = atoi(value);
@@ -6061,6 +6064,28 @@ status_t TestTrack::SetUp(TrackInfo& track_info) {
     ret = recorder_test_->GetRecorder().CreateVideoTrack(track_info.session_id,
               track_info.track_id, video_track_param, video_track_cb);
     assert(ret == 0);
+
+    if (track_info.focal_length != 0) {
+      CameraMetadata meta;
+      ret = recorder_test_->GetRecorder().GetDefaultCaptureParam(track_info.camera_id, meta);
+      assert(ret == NO_ERROR);
+      float focal_length = track_info.focal_length;
+
+      if (meta.exists(ANDROID_LENS_INFO_AVAILABLE_FOCAL_LENGTHS)) {
+        camera_metadata_entry_t entry;
+        entry = meta.find(ANDROID_LENS_INFO_AVAILABLE_FOCAL_LENGTHS);
+        for (uint32_t i = 0 ; i < entry.count; i++) {
+          if (entry.data.f[i] == focal_length) {
+            ret = recorder_test_->GetRecorder().GetCameraParam(track_info.camera_id, meta);
+            assert(ret == NO_ERROR);
+            meta.update(ANDROID_LENS_FOCAL_LENGTH, &focal_length, 1);
+            ret = recorder_test_->GetRecorder().SetCameraParam(track_info.camera_id, meta);
+            assert(ret == NO_ERROR);
+            break;
+          }
+        }
+      }
+    }
   } else {
     // Create AudioTrack
     AudioTrackCreateParam audio_track_params{};
