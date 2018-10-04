@@ -31093,18 +31093,22 @@ TEST_F(RecorderGtest, SingleCamRaw10BayerSnapshot) {
   int32_t w = 0, h = 0;
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
 
-  if (!meta.exists(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE)) {
-    QMMF_ERROR("%s: Metadata ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE"
+  if (!meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
+    QMMF_ERROR("%s: Metadata ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS"
                " not available", __func__);
     ASSERT_TRUE(0);
   }
-  entry = meta.find(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE);
-  if (0 == entry.count) {
-    QMMF_ERROR("%s: Active sensor array size is missing!", __func__);
-    ASSERT_TRUE(0);
+  entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
+  for (uint32_t i = 0 ; i < entry.count; i += 4) {
+    if (HAL_PIXEL_FORMAT_RAW10 == entry.data.i32[i]) {
+      if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
+          entry.data.i32[i+3]) {
+        w = static_cast<uint32_t>(entry.data.i32[i+1]);
+        h = static_cast<uint32_t>(entry.data.i32[i+2]);
+      }
+    }
   }
-  w = entry.data.i32[2];
-  h = entry.data.i32[3];
+
   TEST_INFO("%s: Supported RAW RDI W(%d):H(%d)", __func__, w, h);
   ASSERT_TRUE(w > 0 && h > 0);
 
