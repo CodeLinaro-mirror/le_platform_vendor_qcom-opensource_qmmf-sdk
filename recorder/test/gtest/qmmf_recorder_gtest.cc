@@ -25839,6 +25839,139 @@ TEST_F(RecorderGtest, Jpeg422BurstSnapshotWithBayerLCAC15fps) {
       test_info_->test_case_name(), test_info_->name());
 }
 
+/*
+* SessionWith1080pEncWithAWBColorinfo: This case will test a single cam session
+*                                      with 1080p h264 encoded track with AWB
+*                                      colorinfo.
+* API test sequence:
+*  - StartCamera
+*   loop Start {
+*   --------------------------
+*   - CreateSession
+*   - CreateVideoTrack
+*   - StartVideoTrack
+*   - StartSession
+*   - StopSession
+*   - DeleteVideoTrack
+*   - DeleteSession
+*   --------------------------
+*   } loop End
+*  - StopCamera
+*/
+TEST_F(RecorderGtest, SessionWith1080pEncWithAWBColorinfo) {
+  fprintf(stderr, "\n---------- Run Test %s.%s ------------\n",
+          test_info_->test_case_name(), test_info_->name());
+
+  auto ret = Init();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  CameraResultCb result_cb = [&](uint32_t camera_id,
+                                 const CameraMetadata &result) {
+    static uint32_t count = 1;
+    if (count % 15 == 0) {
+      if (result.exists(QCAMERA3_AWB_COLORTEMP)) {
+        auto entry = result.find(QCAMERA3_AWB_COLORTEMP);
+        TEST_INFO("%s: AWB Color Temp: %u", __func__, entry.data.i32[0]);
+      } else {
+        TEST_DBG("%s QCAMERA3_AWB_COLORTEMP does not exists", __func__);
+      }
+      if (result.exists(QCAMERA3_AWB_R_GAIN)) {
+        auto entry = result.find(QCAMERA3_AWB_R_GAIN);
+        TEST_INFO("%s: AWB-R-Gain: %f", __func__, entry.data.f[0]);
+      } else {
+        TEST_DBG("%s QCAMERA3_AWB_R_GAIN does not exists", __func__);
+      }
+      if (result.exists(QCAMERA3_AWB_G_GAIN)) {
+        auto entry = result.find(QCAMERA3_AWB_G_GAIN);
+        TEST_INFO("%s: AWB-G-Gain: %f", __func__, entry.data.f[0]);
+      } else {
+        TEST_DBG("%s QCAMERA3_AWB_G_GAIN does not exists", __func__);
+      }
+      if (result.exists(QCAMERA3_AWB_B_GAIN)) {
+        auto entry = result.find(QCAMERA3_AWB_B_GAIN);
+        TEST_INFO("%s: AWB-B-Gain: %f", __func__, entry.data.f[0]);
+      } else {
+        TEST_DBG("%s QCAMERA3_AWB_B_GAIN does not exists", __func__);
+      }
+    }
+    ++count;
+  };
+
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_, result_cb);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  VideoFormat format_type = VideoFormat::kAVC;
+  uint32_t stream_width = 1920;
+  uint32_t stream_height = 1080;
+
+  for (uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
+
+    SessionCb session_status_cb;
+    session_status_cb.event_cb = [this](EventType event_type, void *event_data,
+                                        size_t event_data_size) -> void {
+      SessionCallbackHandler(event_type, event_data, event_data_size);
+    };
+
+    uint32_t session_id;
+    ret = recorder_.CreateSession(session_status_cb, &session_id);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
+    VideoTrackCreateParam video_track_param{camera_id_, format_type,
+                                            stream_width, stream_height, 30};
+
+    uint32_t video_track_id = 1;
+
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo = {video_track_param.format_type, video_track_id,
+                                 stream_width, stream_height};
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&, session_id](
+        uint32_t track_id, std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+      VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+    };
+
+    video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
+                                  void *event_data, size_t event_data_size) {
+      VideoTrackEventCb(track_id, event_type, event_data, event_data_size);
+    };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                     video_track_param, video_track_cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.StartSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    sleep(record_duration_);
+
+    ret = recorder_.StopSession(session_id, false);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    dump_bitstream_.CloseAll();
+  }
+
+  ret = recorder_.StopCamera(camera_id_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = DeInit();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
+}
+
 status_t RecorderGtest::QueueVideoFrame(VideoFormat format_type,
                                         const uint8_t *buffer, size_t size,
                                         int64_t timestamp, AVQueue *que) {
