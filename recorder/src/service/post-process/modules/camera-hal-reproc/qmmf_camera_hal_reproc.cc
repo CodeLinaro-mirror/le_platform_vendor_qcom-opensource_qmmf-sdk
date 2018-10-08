@@ -330,6 +330,7 @@ status_t CameraHalReproc::GetCapabilities(PostProcCaps &caps) {
   QMMF_VERBOSE("%s: supported dim: min %dx%d max %dx%d", __func__,
     caps.min_width_, caps.min_height_, caps.max_width_, caps.max_height_);
 
+  caps.input_buff_         = 1;
   caps.output_buff_        = 0;
   caps.crop_support_       = false;
   caps.inplace_processing_ = false;

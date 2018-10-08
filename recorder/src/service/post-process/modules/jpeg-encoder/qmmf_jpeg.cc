@@ -117,6 +117,7 @@ status_t PostProcJpeg::ValidateOutput(const PostProcIOParam &output) {
 }
 
 status_t PostProcJpeg::GetCapabilities(PostProcCaps &caps) {
+  caps.input_buff_         = 1;
   caps.output_buff_        = 1;
   caps.min_width_          = kMinWidth;
   caps.min_height_         = kMinHeight;

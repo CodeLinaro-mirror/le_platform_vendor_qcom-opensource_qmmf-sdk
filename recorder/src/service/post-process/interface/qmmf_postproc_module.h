@@ -73,7 +73,8 @@ struct PostProcIOParam {
 };
 
 /** PostProcCaps:
- *    @internal_buff: internal buffers
+ *    @intput_buff_: input buffer count for process API
+ *    @output_buff_: output buffer count for process API
  *    @formats_: supported output formats
  *    @min_width_: min supported output frame width dimension
  *    @min_height_: min supported output frame height dimension
@@ -88,6 +89,7 @@ struct PostProcIOParam {
  *  This class defines the post processing module capabilities
  **/
 struct PostProcCaps {
+  uint32_t               input_buff_;
   uint32_t               output_buff_;
   std::set<BufferFormat> formats_;
   uint32_t               min_width_;

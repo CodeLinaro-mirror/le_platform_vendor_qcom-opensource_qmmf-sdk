@@ -71,6 +71,8 @@ status_t PostProcTest::ValidateOutput(const PostProcIOParam &output) {
 }
 
 status_t PostProcTest::GetCapabilities(PostProcCaps &caps) {
+  caps.input_buff_         = 1;
+  caps.output_buff_        = 0;
   caps.min_width_          = 160;
   caps.min_height_         = 120;
   caps.max_width_          = 5104;

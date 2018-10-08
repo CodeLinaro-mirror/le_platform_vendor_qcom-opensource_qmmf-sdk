@@ -79,6 +79,7 @@ status_t PostProcFrameSkip::ValidateOutput(const PostProcIOParam &output) {
 }
 
 status_t PostProcFrameSkip::GetCapabilities(PostProcCaps &caps) {
+  caps.input_buff_         = 1;
   caps.output_buff_        = 0;
   caps.min_width_          = 160;
   caps.min_height_         = 120;

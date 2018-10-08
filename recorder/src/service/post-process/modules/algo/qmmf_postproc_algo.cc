@@ -185,6 +185,7 @@ status_t PostProcAlg::ValidateOutput(const PostProcIOParam &output) {
 }
 
 status_t PostProcAlg::GetCapabilities(PostProcCaps &caps) {
+  caps.input_buff_         = algo_caps_.in_buffer_requirements_.count_;
   caps.output_buff_        = algo_caps_.out_buffer_requirements_.count_;
   caps.min_width_          = algo_caps_.out_buffer_requirements_.min_width_;
   caps.min_height_         = algo_caps_.out_buffer_requirements_.min_height_;
@@ -200,6 +201,7 @@ status_t PostProcAlg::GetCapabilities(PostProcCaps &caps) {
   }
 
   if (pass_through_) {
+    caps.input_buff_         = 1;
     caps.output_buff_        = 0;
     caps.crop_support_       = false;
     caps.scale_support_      = false;
@@ -338,6 +340,7 @@ status_t PostProcAlg::Process(
       QMMF_ERROR("%s: Fail to prepare in buffers", __func__);
       return BAD_VALUE;
     }
+    assert(in_alg_buffers.size() == algo_caps_.in_buffer_requirements_.count_);
 
     std::vector<AlgBuffer> out_alg_buffers;
     ret = PrepareAlgBuffer(out_alg_buffers, out_buffers);
@@ -345,6 +348,7 @@ status_t PostProcAlg::Process(
       QMMF_ERROR("%s: Fail to prepare out buffers", __func__);
       return BAD_VALUE;
     }
+    assert(out_alg_buffers.size() == algo_caps_.out_buffer_requirements_.count_);
 
     if (dump_in_frame_ == true) {
       for (auto buf : in_alg_buffers) {
@@ -373,11 +377,9 @@ status_t PostProcAlg::Process(
       return BAD_VALUE;
     }
 
-    if (algo_caps_.inplace_processing_) {
-      in_fight_count_ += 1;
-    } else {
-      in_fight_count_ += 2;
-    }
+    // Track input and output buffers together
+    in_fight_count_ += in_alg_buffers.size() + out_alg_buffers.size();
+
   } else {
     for (auto iter : in_buffers) {
       listener_->OnFrameProcessed(iter);

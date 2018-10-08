@@ -417,7 +417,11 @@ status_t PostProcNode::ReturnBuffers() {
 void InputHandler::AddBuf(StreamBuffer& buffer) {
   std::unique_lock<std::mutex> lock(wait_lock_);
   bufs_list_.push_back(buffer);
-  wait_.Signal();
+
+  // Wake up input handler only if there is enough buffers for process
+  if (bufs_list_.size() >= node_->caps_.input_buff_) {
+    wait_.Signal();
+  }
 }
 
 
@@ -478,7 +482,7 @@ status_t InputHandler::GetInputBuffers(std::vector<StreamBuffer> &in_buffs) {
   std::unique_lock<std::mutex> lock(wait_lock_);
 
   std::chrono::nanoseconds wait_time(kFrameTimeout);
-  while (bufs_list_.empty()) {
+  while (bufs_list_.size() < node_->caps_.input_buff_) {
     auto ret = wait_.WaitFor(lock, wait_time);
     if (node_->state_ != PostProcNodeState::ACTIVE) {
       QMMF_DEBUG("%s:%d: Exit State %d", __func__, node_->state_);
@@ -491,17 +495,20 @@ status_t InputHandler::GetInputBuffers(std::vector<StreamBuffer> &in_buffs) {
     }
   }
 
-  StreamBuffer buffer = bufs_list_.front();
-  bufs_list_.pop_front();
+  for (uint32_t i = 0; i < node_->caps_.input_buff_; i++) {
+    StreamBuffer buffer = bufs_list_.front();
+    bufs_list_.pop_front();
 
-  auto ret = MapBuf(buffer);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s:%s: fail to map buffer", __func__,
-        node_->name_.c_str());
-    return ret;
+    auto ret = MapBuf(buffer);
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s:%s: fail to map buffer", __func__,
+          node_->name_.c_str());
+      return ret;
+    }
+
+    in_buffs.push_back(buffer);
   }
 
-  in_buffs.push_back(buffer);
   return NO_ERROR;
 }
 
@@ -517,28 +524,28 @@ status_t InputHandler::ReturnInputBuffers(std::vector<StreamBuffer> &in_buffs) {
 status_t InputHandler::GetOutputBuffers(std::vector<StreamBuffer> &out_buffs,
                                         const std::vector<StreamBuffer>
                                           &in_buffs) {
-  if (node_->caps_.output_buff_ == 0) {
-    return NO_ERROR;
-  }
 
-  for (auto buff : in_buffs) {
+  for (uint32_t i = 0; i < node_->caps_.output_buff_; i++) {
     status_t ret = NO_ERROR;
     StreamBuffer out_buff{};
     do {
       ret = node_->mem_pool_->GetBuffer(&out_buff);
     } while (ret == TIMED_OUT && node_->state_ == PostProcNodeState::ACTIVE);
     if (ret != NO_ERROR) {
-      QMMF_ERROR("%s:%s: fail to get buffer", __func__,
-          node_->name_.c_str());
+      QMMF_ERROR("%s:%s: fail to get buffer", __func__, node_->name_.c_str());
+      for (auto &buf : out_buffs) {
+        node_->NotifyBufferReturned(buf);
+      }
+      out_buffs.clear();
       return ret;
     }
 
     out_buff.stream_id = node_->id_;
-    out_buff.timestamp = buff.timestamp;
-    out_buff.frame_number = buff.frame_number;
-    out_buff.camera_id = buff.camera_id;
-    out_buff.flags = buff.flags;
-    out_buff.info = buff.info;
+    out_buff.timestamp = in_buffs[0].timestamp; // todo: in case of multiple input which time stamp to use?
+    out_buff.frame_number = in_buffs[0].frame_number; // todo: in case of multiple input which frame number to use?
+    out_buff.camera_id = in_buffs[0].camera_id;
+    out_buff.flags = in_buffs[0].flags;
+    out_buff.info = in_buffs[0].info;
 
     ret = MapBuf(out_buff);
     if (ret != NO_ERROR) {
@@ -599,9 +606,23 @@ bool InputHandler::ThreadLoop() {
     return true;
   }
 
-  QMMF_VERBOSE("%s: Process: FD: %d %d name: %s", __func__,
-    in_buffs[0].fd, out_buffs.size() == 0 ? -1 : out_buffs[0].fd,
-    node_->name_.c_str());
+  std::string process_buffs = "Input: ";
+  for (auto &buf : in_buffs) {
+    process_buffs.append(std::to_string(buf.fd));
+    process_buffs.append(", ");
+  }
+  if (node_->caps_.output_buff_) {
+    process_buffs.append("Output: ");
+    for (auto &buf : out_buffs) {
+      process_buffs.append(std::to_string(buf.fd));
+      process_buffs.append(", ");
+    }
+  } else {
+    process_buffs.append("No Output");
+  }
+
+  QMMF_VERBOSE("%s:%s: Process: FDs: %s", __func__, node_->name_.c_str(),
+      process_buffs.c_str());
 
   ret = node_->module_->Process(in_buffs, out_buffs);
   if (ret != NO_ERROR) {
