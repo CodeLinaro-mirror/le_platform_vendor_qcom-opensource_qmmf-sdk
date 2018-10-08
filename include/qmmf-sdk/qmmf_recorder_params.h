@@ -152,7 +152,8 @@ struct PluginInfo {
   }
 
   std::shared_ptr<void> ToBlob() const {
-    std::shared_ptr<void> blob(new uint8_t[Size()]);
+    std::shared_ptr<void> blob(new uint8_t[Size()],
+                               std::default_delete<uint8_t[]>() );
 
     uint16_t name_size, version_size;
 
