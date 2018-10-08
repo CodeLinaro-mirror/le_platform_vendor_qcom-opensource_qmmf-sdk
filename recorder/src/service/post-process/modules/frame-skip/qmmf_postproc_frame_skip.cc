@@ -209,12 +209,12 @@ bool PostProcFrameSkip::SkipFrame(StreamBuffer &buf) {
       skip = false;
     }
   } else {
+    ++frame_count_;
     if (frame_count_ % (frame_skip_ + 1) == 0) {
       skip = false;
     } else {
       skip = true;
     }
-    ++frame_count_;
   }
   return skip;
 }

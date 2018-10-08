@@ -105,7 +105,6 @@ class PostProcJpeg : public IPostProcModule {
 
   QCondition                     wait_for_result_;
   std::mutex                     result_lock_;
-  bool                           skip_first_;
 
   static const uint32_t          kMinWidth;
   static const uint32_t          kMinHeight;
