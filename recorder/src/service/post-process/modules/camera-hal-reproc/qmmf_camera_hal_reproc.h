@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -151,6 +151,10 @@ class CameraHalReproc : public IPostProcModule {
    std::list<StreamBuffer>      input_buffer_;
    std::list<StreamBuffer>      input_buffer_done_;
    std::mutex                   input_buffer_lock_;
+
+   bool                         process_buffer_twice_;
+   bool                         input_buffer_hold_;
+   bool                         discard_output_;
 
    std::list<ReprocessBundle>   reproc_partial_list_;
    std::list<ReprocessBundle>   reproc_ready_list_;

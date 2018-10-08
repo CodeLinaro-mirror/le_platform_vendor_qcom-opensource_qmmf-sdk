@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -43,7 +43,10 @@ namespace recorder {
 CameraHalReproc::CameraHalReproc(IPostProc* context)
     : context_(context),
       abort_(nullptr),
-      frame_processing_(false) {
+      frame_processing_(false),
+      process_buffer_twice_(false),
+      input_buffer_hold_(false),
+      discard_output_(false) {
   QMMF_VERBOSE("%s: Enter ", __func__);
   static_meta_ = context_->GetCameraStaticMeta();
 
@@ -74,7 +77,12 @@ void CameraHalReproc::ReturnInputBuffer(StreamBuffer &buffer) {
   auto iter = input_buffer_done_.begin();
   for (; iter != input_buffer_done_.end(); iter++) {
     if ((*iter).handle == buffer.handle) {
-      listener_->OnFrameProcessed(*iter);
+      if (input_buffer_hold_) {
+        input_buffer_hold_ = false;
+        QMMF_VERBOSE("%s: Hold input fd: %d", __func__, buffer.fd);
+      } else {
+        listener_->OnFrameProcessed(*iter);
+      }
       input_buffer_done_.erase(iter);
       break;
     }
@@ -103,7 +111,12 @@ void CameraHalReproc::ReprocessCallback(StreamBuffer buf) {
     std::lock_guard<std::mutex> lock(module_lock_);
     std::unique_lock<std::mutex> processing_lock(abort_lock_);
     if (state_ == PostProcHalState::ACTIVE) {
-      listener_->OnFrameReady(buf);
+      if (discard_output_) {
+        listener_->OnFrameReturn(buf);
+        discard_output_ = false;
+      } else {
+        listener_->OnFrameReady(buf);
+      }
     } else {
       listener_->OnFrameReturn(buf);
     }
@@ -338,15 +351,33 @@ status_t CameraHalReproc::GetCapabilities(PostProcCaps &caps) {
 
 status_t CameraHalReproc::Start(const int32_t stream_id) {
   QMMF_INFO("%s: Enter", __func__);
+
   std::lock_guard<std::mutex> lock(module_lock_);
   if (state_ != PostProcHalState::INITIALIZED &&
       state_ != PostProcHalState::ABORTED) {
     QMMF_ERROR("%s: Failed: Already configured.", __func__);
     return BAD_VALUE;
   }
-  //state_ = PostProcHalState::STARTING;
+  state_ = PostProcHalState::STARTING;
+
+  // Current camera has HW limiation and first frame quality is different (
+  // because of LTM needs stats from previous frame)
+  // If bellow persist property is enabled then first frame is processed twice
+  // in order to avoid image quality difference.
+  char prop_val[PROPERTY_VALUE_MAX];
+  property_get("persist.qmmf.pp.dual.halreproc", prop_val, "1");
+  process_buffer_twice_ = (0 == atoi(prop_val)) ? false : true;
+  if (process_buffer_twice_) {
+    // hold first input buffer because we have to process it twice
+    input_buffer_hold_ = true;
+    // Discard output of first processing
+    discard_output_ = true;
+    QMMF_DEBUG("%s: Process first buffer twice", __func__);
+  }
 
   state_ = PostProcHalState::ACTIVE;
+
+  QMMF_INFO("%s: Exit", __func__);
 
   return NO_ERROR;
 }
@@ -454,6 +485,11 @@ void CameraHalReproc::AddBuff(const StreamBuffer buf) {
     while (it != end) {
       if (it->timestamp == buf.timestamp) {
         it->buffer = buf;
+        if (process_buffer_twice_) {
+          reproc_ready_list_.push_back(*it);
+          process_buffer_twice_ = false;
+          QMMF_DEBUG("%s: Process buffer fd %d twice", __func__, it->buffer.fd);
+        }
         reproc_ready_list_.push_back(*it);
         reproc_partial_list_.erase(it);
         append = false;
@@ -503,8 +539,13 @@ void CameraHalReproc::AddMeta(const CameraMetadata &metadata) {
     auto it = reproc_partial_list_.begin();
     auto end = reproc_partial_list_.end();
     while (it != end) {
-      if (it->timestamp == timestamp) {
+      if (it->timestamp == timestamp && it->buffer.fd) {
         it->metadata.append(metadata);
+        if (process_buffer_twice_) {
+          reproc_ready_list_.push_back(*it);
+          process_buffer_twice_ = false;
+          QMMF_DEBUG("%s: Process buffer fd %d twice", __func__, it->buffer.fd);
+        }
         reproc_ready_list_.push_back(*it);
         reproc_partial_list_.erase(it);
         append = false;
@@ -601,7 +642,6 @@ status_t CameraHalReproc::StartProcessing(bool from_cb) {
   reprocess_request_.metadata.append(reproc_bundle.metadata);
 
   QMMF_VERBOSE("%s: Submit reprocess request.", __func__);
-
 
   int64_t last_frame_number = -1;
   auto ret = context_->SubmitRequest(reprocess_request_,
