@@ -1,0 +1,86 @@
+/*!
+
+@page Recorder
+
+
+__Recorder__ :
+
+Following are the major features supported by QMMF-SDK Recorder:
+- Video and audio recording
+- Supports linked video tracks
+- JPEG, RAW and YUV snapshots
+- Support for custom client plugins
+- Post processing pipe for both video and snapshot utilizing plugins
+- Capturing multiple images in succession (Burst capture)
+- Capturing images with zero shutter lag
+- Continuously capturing images until canceled
+
+__Basic concepts__ :
+
+- __Session__: A communication line between the client and service containing one or multiple Audio/Video tracks. All tracks within a session changes states (like start, stop, pause) together.
+- __Track__: Stream of either audio or video data configured by the client and transmitted in buffers. The data buffers are taken from the audio or camera device respectably. Each track is associated with a session on its creation.
+- __Linked Video Track__: A track that is taking its data frames not directly from the camera device but from a source track. The source track ID is given to the linked track during its creation. Additional rescalling may be applied if the resolution of the linked track is different from that of the source track.
+- __Post Processing__: Pipe containing different plugins specified by the client at Video Track creation or Image Capture configuration. Those algorithms will be applied on incoming frames from the camera device.
+- __Plugin__: Dynamically loadable library containing a specific algorithm that utilizes the interface defined in <qmmf_alg_plugin.h>. To write a plugin the client needs to follow the defined interface. Plugins can be both proprietary and open source.
+- __Overlay__: Additional layer chosen by the client and applied over each frame from the camera device after post processing.
+
+
+__Adding a plugin__ :
+
+- Call GetSupportedPlugins API to get a list of supported plugins
+- Check if the plugin you want is supported
+- If the plugin is supported you can now create it with unique id.
+- Next you need to update the Image Config container (ImageConfigParam)
+with this tag QMMF_POSTPROCESS_PLUGIN, your plugin (PostprocPlugin) and entry position (first position is 0).
+
+\code{.cpp}
+qmmf::recorder::PostprocPlugin plugin;
+SupportedPlugins supported_plugins;
+recorder.GetSupportedPlugins(&supported_plugins);
+for (auto const& plugin_info : supported_plugins) {
+  if (plugin_info.name == "BayerLcac") {
+    recorder.CreatePlugin(&plugin.uid, plugin_info);
+    image_config.Update(QMMF_POSTPROCESS_PLUGIN, plugin, 0);
+  }
+}
+\endcode
+
+- After you are done delete the plugin.
+
+\code{.cpp}
+    recorder.DeletePlugin(plugin.uid);
+\endcode
+
+See @ref example_rec_10MPSnapshotWithLCAC and @ref example_rec_ContinuousSnapshotWithBayer for reference.
+
+__Workflows__ :
+
+ @tableofcontents
+______
+
+@section workflow_diagrams Workflow diagrams
+
+
+Single Camera Image Capture
+@image html /Images/Image_Capture.png width=900px
+
+Multicamera Image Capture
+@image html /Images/Multicamera_Image_Capture.png width=900px
+
+Single Camera Video Recording
+@image html /Images/Video_Recording.png width=900px
+
+Multicamera Video Recording
+@image html /Images/Multicamera_Video.png width=900px
+
+Audio Recording
+@image html /Images/Recorder_audio_workflow.png
+
+______
+
+@section class_diagram Class Diagram
+@image html /Images/Class_Diagram.png width=900px
+
+______
+
+*/
