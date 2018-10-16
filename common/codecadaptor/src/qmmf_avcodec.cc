@@ -210,6 +210,21 @@ void AVCodec::SetVenusTurboConfig() {
   QMMF_INFO("%s Encoder is set to turbo mode!!", __func__);
 }
 
+void AVCodec::SetRealTimePriorityConfig() {
+  OMX_PARAM_U32TYPE config;
+  int32_t priority = 0;
+  InitOMXParams(&config);
+  config.nU32 = static_cast<OMX_U32> (priority);
+  auto ret = omx_client_->SetConfig(
+      static_cast<OMX_INDEXTYPE> (OMX_IndexConfigPriority),
+      reinterpret_cast<OMX_PTR> (&config));
+  if (ret != 0) {
+    QMMF_ERROR("%s Failed to set video priority: %d", __func__, ret);
+    return;
+  }
+  QMMF_INFO("%s video priority is set to real-time", __func__);
+}
+
 status_t AVCodec::CreateHandle(char* component_name) {
 
   QMMF_INFO("%s Enter", __func__);
@@ -2534,7 +2549,7 @@ void AVCodec::setPowerHint(){
   }
 }
 
-status_t AVCodec::StartCodec() {
+status_t AVCodec::StartCodec(bool enable_rt_priority) {
   QMMF_INFO("%s: Enter", __func__);
 
   status_t ret = 0;
@@ -2771,6 +2786,10 @@ status_t AVCodec::StartCodec() {
 
   if (format_type_ == CodecType::kVideoEncoder && enable_turbo_mode_) {
       SetVenusTurboConfig();
+  }
+
+  if (enable_rt_priority) {
+    SetRealTimePriorityConfig();
   }
 
   QMMF_INFO("%s current state(%s), pending state(%s)", __func__,

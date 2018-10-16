@@ -111,8 +111,9 @@ class IAVCodec {
   /// processed by codec and return buffer using method ReturnBuffer.
   /// Output thread gets empty buffer using method GetBuffer from client and
   /// return filled buffer using method ReturnBuffer.
-  /// to client.
-  virtual status_t StartCodec() = 0;
+  /// to client.enable_rt_priority argument will set the priority of the
+  /// session to real time or non real time.
+  virtual status_t StartCodec(bool enable_rt_priority = false) = 0;
 
   /// \brief This API will optionally wait for EOS (depending on do_flush) on
   /// output port and move the codec in Idle state. It disables both port and

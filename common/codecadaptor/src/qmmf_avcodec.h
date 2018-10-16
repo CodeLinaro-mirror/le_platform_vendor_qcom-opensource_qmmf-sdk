@@ -99,10 +99,11 @@ class AVCodec : public IAVCodec {
                          size_t param_size) override;
   status_t GetParameters(const CodecParamType param_type, void *codec_param,
                          size_t *param_size) override;
-  status_t StartCodec() override;
+  status_t StartCodec(bool enable_rt_priority = false) override;
   void setPowerHint();
   void endPowerHint();
   void SetVenusTurboConfig();
+  void SetRealTimePriorityConfig();
   status_t StopCodec(bool do_flush) override;
   status_t PauseCodec() override;
   status_t ResumeCodec() override;
