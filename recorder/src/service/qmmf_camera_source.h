@@ -355,7 +355,6 @@ class TrackSource : public ICodecSource {
   bool       enable_frame_repeat_;
   std::mutex frame_repeat_lock_;
   std::shared_ptr<CameraRescaler>  rescaler_;
-  CameraStreamParam stream_param_;
 
   bool  connected_tocamera_port_;
   bool  slave_track_source_;

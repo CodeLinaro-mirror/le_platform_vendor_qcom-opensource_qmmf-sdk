@@ -26,6 +26,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <future>
 
 #include <OMX_Core.h>
 #include <OMX_Types.h>
@@ -100,9 +101,13 @@ public:
 
   OMX_ERRORTYPE FillThisBuffer(OMX_BUFFERHEADERTYPE *buffer);
 
+  OMX_ERRORTYPE LoadOMXLib();
+
 private:
   OMX_HANDLETYPE codec_handle_;
   OMXContext_t omx_context_;
+  std::future<OMX_ERRORTYPE> lib_load_res_;
+
   static const char kOMXPath[];
   static const char kOMXGetHandleName[];
   static const char kOMXFreeHandleName[];

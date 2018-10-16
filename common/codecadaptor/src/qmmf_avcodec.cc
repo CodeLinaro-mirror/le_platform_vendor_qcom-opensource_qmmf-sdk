@@ -4208,6 +4208,9 @@ OMX_ERRORTYPE AVCodec::OnFillBufferDone(
   if (buf_header->nFlags & OMX_BUFFERFLAG_ENDOFFRAME)
     codec_buffer.flag |= static_cast<uint32_t>(BufferFlags::kFlagEOF);
 
+  if (buf_header->nFlags & OMX_BUFFERFLAG_DATACORRUPT)
+    codec_buffer.flag |= static_cast<uint32_t>(BufferFlags::kFlagDataCorrupt);
+
   QMMF_DEBUG("%s Codec Buffer Flag(%x)", __func__, codec_buffer.flag);
 
   if(avcodec->format_type_ == CodecType::kVideoDecoder) {

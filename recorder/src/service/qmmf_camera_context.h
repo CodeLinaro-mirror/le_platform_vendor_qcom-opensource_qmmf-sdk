@@ -96,7 +96,7 @@ class CameraContext : public CameraInterface,
 
   status_t WaitAecToConverge(const uint32_t timeout) override;
 
-  status_t SetUpCapture(const ImageParam &param,
+  status_t SetUpCapture(const SnapshotParam& param,
                         const uint32_t num_images) override;
 
   status_t CaptureImage(const std::vector<CameraMetadata> &meta,
@@ -106,7 +106,7 @@ class CameraContext : public CameraInterface,
 
   status_t CancelCaptureImage() override;
 
-  status_t CreateStream(const CameraStreamParam& param,
+  status_t CreateStream(const StreamParam& param,
                         const VideoExtraParam& extra_param) override;
 
   status_t DeleteStream(const uint32_t track_id) override;
@@ -175,7 +175,7 @@ class CameraContext : public CameraInterface,
 
   void RestoreBatchStreamId(std::shared_ptr<CameraPort>& port);
 
-  status_t GetBatchSize(const CameraStreamParam& param, uint32_t& batch_size);
+  status_t GetBatchSize(const StreamParam& param, uint32_t& batch_size);
 
   void InitSupportedFPS();
 
@@ -185,7 +185,7 @@ class CameraContext : public CameraInterface,
 
   status_t CreateZSLStream(const CameraStartParam &param);
 
-  status_t CreateSnapshotStream(const ImageParam &param);
+  status_t CreateSnapshotStream(const SnapshotParam& param);
 
   status_t DeleteSnapshotStream(bool cache = false);
 
@@ -197,11 +197,11 @@ class CameraContext : public CameraInterface,
 
   status_t ResumeActiveStreams(bool state_only = false);
 
-  status_t ValidateResolution(const ImageFormat format, const uint32_t width,
-                              const uint32_t height);
+  status_t ValidateResolution(const BufferFormat& format, const uint32_t& width,
+                              const uint32_t& height);
 
 #ifdef USE_FPS_IDX
-  uint32_t GetSensorModeIndex(uint32_t frame_rate);
+  uint32_t GetSensorModeIndex(uint32_t framerate);
 #endif
 
   void InitHFRModes();
@@ -227,11 +227,9 @@ class CameraContext : public CameraInterface,
 
   void CameraResultCb(const CaptureResult &result);
 
-  int32_t ImageToHalFormat(ImageFormat image);
+  std::function<void(StreamBuffer)> GetStreamCb(const SnapshotParam& param);
 
-  std::function<void(StreamBuffer)> GetStreamCb(const ImageParam &param);
-
-  bool IsPostProcNeeded(const ImageParam &param, const uint32_t sequence_cnt);
+  bool IsPostProcNeeded(const SnapshotParam& param, const uint32_t sequence_cnt);
 
   std::shared_ptr<CameraPort> GetPort(const uint32_t& track_id);
 
@@ -254,7 +252,7 @@ class CameraContext : public CameraInterface,
 
   void HandleFinalResult(const CaptureResult &result);
 
-  status_t ValidateCaptureParams(const ImageParam &image_param);
+  status_t ValidateCaptureParams(const SnapshotParam& param);
 
   std::string GetSnapshotJsonConfig();
 
@@ -341,7 +339,7 @@ class CameraContext : public CameraInterface,
   std::mutex               partial_result_lock_;
 
   // snapshot configuration
-  ImageParam                    snapshot_param_;
+  SnapshotParam                 snapshot_param_;
   std::vector<uint32_t>         capture_plugins_;
   std::vector<ImageThumbnail>   thumbnails_;
   SnapshotMode                  snapshot_type_;
@@ -383,7 +381,7 @@ struct ZSLEntry {
 // same.
 class CameraPort {
  public:
-  CameraPort(const CameraStreamParam& param, size_t batch_size,
+  CameraPort(const StreamParam& param, size_t batch_size,
              CameraPortType port_type, CameraContext *context);
 
   virtual ~CameraPort();
@@ -413,7 +411,7 @@ class CameraPort {
 
   PortState& getPortState();
 
-  float GetPortFramerate() { return params_.frame_rate; }
+  float GetPortFramerate() { return params_.framerate; }
 
   size_t GetPortBatchSize() { return batch_size_; }
 
@@ -438,7 +436,7 @@ class CameraPort {
   uint32_t GetExtraBufferCount();
 
   sp<IBufferProducer>    buffer_producer_impl_;
-  CameraStreamParam      params_;
+  StreamParam      params_;
   CameraStreamParameters cam_stream_params_;
   bool                   ready_to_start_;
   size_t                 batch_size_;
@@ -463,7 +461,7 @@ class CameraPort {
 class ZslPort : public CameraPort {
 
  public:
-  ZslPort(const CameraStreamParam& param, size_t batch_size,
+  ZslPort(const StreamParam& param, size_t batch_size,
           CameraPortType port_type, CameraContext *context);
 
   ~ZslPort();

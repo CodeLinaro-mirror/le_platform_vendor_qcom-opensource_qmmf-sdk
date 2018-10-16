@@ -24063,6 +24063,423 @@ TEST_F(RecorderGtest,
           test_info_->test_case_name(), test_info_->name());
 }
 
+/*
+* SessionWith4kPrivacyMaskEncTrack: This test will test session with
+*        4k h264 track and PrivacyMask.
+*
+* Api test sequence:
+*  - StartCamera
+*   loop Start {
+*   ------------------
+*   - CreateSession
+*   - ConfigPlugin
+*   - CreateVideoTrack
+*   - StartVideoTrack
+*   - StopSession
+*   - DeleteVideoTrack
+*   - DeletePlugin
+*   - DeleteSession
+*   ------------------
+*   } loop End
+*  - StopCamera
+*/
+TEST_F(RecorderGtest, SessionWith4kPrivacyMaskEncTrack) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  VideoFormat format_type = VideoFormat::kAVC;
+  uint32_t width  = 3840;
+  uint32_t height = 2160;
+
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  for(uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
+        test_info_->name(), i);
+
+    SessionCb session_status_cb;
+    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
+                                         size_t event_data_size) -> void {
+        SessionCallbackHandler(event_type, event_data, event_data_size);
+    };
+
+    uint32_t session_id;
+    ret = recorder_.CreateSession(session_status_cb, &session_id);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    VideoTrackCreateParam video_track_param{camera_id_, format_type,
+                                            width,
+                                            height,
+                                            30};
+    uint32_t video_track_id = 1;
+
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo = {
+        format_type,
+        video_track_id,
+        width,
+        height };
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb =
+      [&, session_id] (uint32_t track_id, std::vector<BufferDescriptor> buffers,
+                       std::vector<MetaData> meta_buffers) {
+          VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+      };
+
+    video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
+                                   void *event_data, size_t event_data_size) {
+        VideoTrackEventCb(track_id, event_type, event_data, event_data_size);
+    };
+
+    VideoExtraParam extra_param;
+    PostprocPlugin pmr_plugin;
+
+    SupportedPlugins supported_plugins;
+    ret = recorder_.GetSupportedPlugins(&supported_plugins);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    bool found = false;
+    for (auto const& plugin_info : supported_plugins) {
+      if (plugin_info.name == "PrivacyMask") {
+        ret = recorder_.CreatePlugin(&pmr_plugin.uid, plugin_info);
+        ASSERT_TRUE(ret == NO_ERROR);
+
+        std::string config =
+        "{\"circles\": [         \
+          {                      \
+            \"radius\": 1320,    \
+              \"centre\": {      \
+                \"x\": 1344,     \
+                \"y\": 760       \
+              },                 \
+            \"color\": {         \
+              \"y\": 0,          \
+              \"u\": 128,        \
+              \"v\": 128         \
+            }                    \
+          }                      \
+        ]                        \
+        }";
+
+       fprintf(stderr,"---------- Test ConfigPlugin %s----------\n",
+           config.c_str());
+
+       ret = recorder_.ConfigPlugin(pmr_plugin.uid, config);
+       ASSERT_TRUE(ret == NO_ERROR);
+
+        extra_param.Update(QMMF_POSTPROCESS_PLUGIN, pmr_plugin);
+        found = true;
+      }
+    }
+    ASSERT_TRUE(found == true);
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                     video_track_param, extra_param,
+                                     video_track_cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    std::vector<uint32_t> track_ids;
+    track_ids.push_back(video_track_id);
+    sessions_.insert(std::make_pair(session_id, track_ids));
+
+    ret = recorder_.StartSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    // Let session run for record_duration_, during this time buffer with valid
+    // data would be received in track callback (VideoTrackDataCb).
+    sleep(record_duration_);
+
+    ret = recorder_.StopSession(session_id, false);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeletePlugin(pmr_plugin.uid);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    dump_bitstream_.CloseAll();
+  }
+
+  ret = recorder_.StopCamera(camera_id_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = DeInit();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+
+}
+
+/*
+ * SessionWith4k_VHDR_PM_TNR_1080pLinked720p: This test will test session with
+ *      4k h264 VHDR track and post processing. Post processing pipe is
+ *      Privacy Mask.
+ *
+ * Api test sequence:
+ *  - StartCamera
+ *   loop Start {
+ *   ------------------
+ *   - CreateSession
+ *   - CreateVideoTracks (4k 1080p 720p)
+ *   - StartVideoTracks
+ *   - StopSession
+ *   - DeleteVideoTracks (4k 1080p 720p)
+ *   - DeleteSession
+ *   ------------------
+ *   } loop End
+ *  - StopCamera
+ */
+TEST_F(RecorderGtest, SessionWith4k_VHDR_PM_TNR_1080pLinked720p) {
+  uint32_t w1 = 3840, h1 = 2160;
+  uint32_t w2 = 1920, h2 = 1080;
+  uint32_t w3 = 1280, h3 = 720;
+  float fps = 24;
+
+  uint32_t video_track1_id = 1;
+  uint32_t video_track2_id = 2;
+  uint32_t video_track3_id = 3;
+
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  // Start
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.GetDefaultCaptureParam(camera_id_, static_info_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  InitSupportedVHDRModes();
+  auto is_shdr_supported = IsVHDRSupported();
+
+  fprintf(stderr, "\nis_shdr_supported:%d\n", is_shdr_supported);
+
+  SessionCb s1_status_cb;
+  s1_status_cb.event_cb = [this] (EventType event_type, void *event_data,
+                                  size_t event_data_size) -> void
+      { SessionCallbackHandler(event_type, event_data, event_data_size); };
+
+  uint32_t s1_id;
+  ret = recorder_.CreateSession(s1_status_cb, &s1_id);
+  ASSERT_TRUE(s1_id > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  // Create 4MP AVC Stream
+  VideoTrackCreateParam video_track{camera_id_, VideoFormat::kAVC, w1, h1,fps};
+  video_track.low_power_mode = false;
+
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = { VideoFormat::kAVC, video_track1_id, w1, h1 };
+    ret = dump_bitstream_.SetUp(dumpinfo);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    StreamDumpInfo dumpinfo2 = { VideoFormat::kAVC, video_track2_id, w2, h2 };
+    ret = dump_bitstream_.SetUp(dumpinfo2);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    StreamDumpInfo dumpinfo3 = { VideoFormat::kAVC, video_track3_id, w3, h3 };
+    ret = dump_bitstream_.SetUp(dumpinfo3);
+    ASSERT_TRUE(ret == NO_ERROR);
+  }
+
+  TrackCb video_track1_cb;
+  video_track1_cb.event_cb =
+      [this] (uint32_t track_id, EventType event_type,
+              void *event_data, size_t event_data_size) -> void {
+      VideoTrackEventCb(track_id, event_type, event_data, event_data_size); };
+
+   video_track1_cb.data_cb = [&, s1_id] (uint32_t track_id,
+                                         std::vector<BufferDescriptor> buffers,
+                                         std::vector<MetaData> meta_buffers) {
+      VideoTrackOneEncDataCb(s1_id, track_id, buffers, meta_buffers);
+   };
+
+    VideoExtraParam extra_param;
+    PostprocPlugin pmr_plugin;
+
+    SupportedPlugins supported_plugins;
+    ret = recorder_.GetSupportedPlugins(&supported_plugins);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    bool found = false;
+    for (auto const& plugin_info : supported_plugins) {
+      if (plugin_info.name == "PrivacyMask") {
+        ret = recorder_.CreatePlugin(&pmr_plugin.uid, plugin_info);
+        ASSERT_TRUE(ret == NO_ERROR);
+
+        //Continius capture
+        //30% = 1042,  7% = 1327
+        std::string config = "{\"circles\": [ \
+            {                                 \
+            \"radius\": 1327,                 \
+              \"centre\": {                   \
+                \"x\": 1344,                  \
+                \"y\": 760                    \
+                },                            \
+              \"color\": {                    \
+                \"y\": 0,                     \
+                \"u\": 128,                   \
+                \"v\": 128                    \
+              }                               \
+            }                                 \
+            ]                                 \
+            }";
+
+        fprintf(stderr,"--------- Test2 ConfigPlugin %s----\n", config.c_str());
+
+        ret = recorder_.ConfigPlugin(pmr_plugin.uid, config);
+        ASSERT_TRUE(ret == NO_ERROR);
+
+        extra_param.Update(QMMF_POSTPROCESS_PLUGIN, pmr_plugin);
+        found = true;
+
+      }
+    }
+    ASSERT_TRUE(found == true);
+
+  ret = recorder_.CreateVideoTrack(s1_id, video_track1_id,
+                                   video_track,extra_param, video_track1_cb);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  std::vector<uint32_t> s1_track_ids;
+  s1_track_ids.push_back(video_track1_id);
+
+  // Create track2
+  video_track.width  = w2;
+  video_track.height = h2;
+
+  TrackCb video_track_cb;
+  video_track_cb.data_cb = [&, s1_id] (uint32_t track_id,
+                                       std::vector<BufferDescriptor> buffers,
+                                       std::vector<MetaData> meta_buffers) {
+        VideoTrackTwoEncDataCb(s1_id, track_id, buffers, meta_buffers);
+  };
+
+  video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
+                                 void *event_data, size_t event_data_size) {
+      VideoTrackEventCb(track_id, event_type, event_data, event_data_size);
+  };
+
+  ret = recorder_.CreateVideoTrack(s1_id, video_track2_id,
+                                   video_track,
+                                   video_track_cb);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  s1_track_ids.push_back(video_track2_id);
+
+  // Create track3
+  video_track.width  = w3;
+  video_track.height = h3;
+
+  VideoExtraParam extra_param2;
+  SourceVideoTrack surface_video_copy2;
+  surface_video_copy2.source_track_id = video_track2_id;
+  extra_param2.Update(QMMF_SOURCE_VIDEO_TRACK_ID, surface_video_copy2);
+
+  TrackCb video_track_cb3;
+  video_track_cb3.data_cb = [&, s1_id] (uint32_t track_id,
+                                        std::vector<BufferDescriptor> buffers,
+                                        std::vector<MetaData> meta_buffers) {
+        VideoTrackThreeEncDataCb(s1_id, track_id, buffers, meta_buffers);
+  };
+
+  video_track_cb3.event_cb = [&] (uint32_t track_id, EventType event_type,
+                                  void *event_data, size_t event_data_size) {
+      VideoTrackEventCb(track_id, event_type, event_data, event_data_size);
+  };
+
+  ret = recorder_.CreateVideoTrack(s1_id, video_track3_id,
+                                   video_track, extra_param2,
+                                   video_track_cb3);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  s1_track_ids.push_back(video_track3_id);
+  sessions_.insert(std::make_pair(s1_id, s1_track_ids));
+
+  //Enable TNR - High quality mode.
+  CameraMetadata meta;
+  auto status = recorder_.GetCameraParam(camera_id_, meta);
+  if (NO_ERROR == status) {
+    if (meta.exists(ANDROID_NOISE_REDUCTION_MODE)) {
+      const uint8_t tnr_mode = ANDROID_NOISE_REDUCTION_MODE_HIGH_QUALITY;
+      TEST_INFO("%s Enable TNR mode(%d)", __func__, tnr_mode);
+      meta.update(ANDROID_NOISE_REDUCTION_MODE, &tnr_mode, 1);
+    }
+  }
+
+  // Start Session1
+  ret = recorder_.StartSession(s1_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  sleep(2);
+
+  // Camera Params
+  // CameraMetadata meta;
+  ret = recorder_.GetCameraParam(camera_id_, meta);
+  ASSERT_TRUE(NO_ERROR == ret);
+
+  // SHDR
+  if (is_shdr_supported) {
+      fprintf(stderr, "\nSetting shdr ON..\n");
+      const int32_t vhdrMode = QCAMERA3_VIDEO_HDR_MODE_ON;
+      meta.update(QCAMERA3_VIDEO_HDR_MODE, &vhdrMode, 1);
+  }
+
+  ret = recorder_.SetCameraParam(camera_id_, meta);
+  ASSERT_TRUE(NO_ERROR == ret);
+
+  sleep(record_duration_);
+
+  ret = recorder_.StopSession(s1_id, false);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.DeleteVideoTrack(s1_id, video_track1_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.DeleteVideoTrack(s1_id, video_track2_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.DeleteVideoTrack(s1_id, video_track3_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.DeletePlugin(pmr_plugin.uid);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.DeleteSession(s1_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ClearSessions();
+
+  ret = recorder_.StopCamera(camera_id_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = DeInit();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  dump_bitstream_.CloseAll();
+
+  fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
+}
+
 #ifndef DISABLE_DISPLAY
 
 /*

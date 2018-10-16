@@ -26,7 +26,7 @@
 #include <utils/Vector.h>
 #include <utils/KeyedVector.h>
 
-#include "qmmf_camera3_thread.h"
+#include "common/utils/qmmf_thread.h"
 
 using namespace android;
 
@@ -36,7 +36,7 @@ namespace cameraadaptor {
 
 typedef std::function<void(bool idle)> IdleNotify;
 
-class Camera3Monitor : public Camera3Thread {
+class Camera3Monitor : public ThreadHelper {
  public:
   Camera3Monitor();
   virtual ~Camera3Monitor();

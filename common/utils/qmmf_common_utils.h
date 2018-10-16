@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -186,7 +186,7 @@ class Common {
       default:
         /* Format not supported */
         QMMF_ERROR("%s: error: unsupported format %d (0x%x)", __func__, format,
-          (unsigned int) format);
+            (unsigned int) format);
         return -1;
     }
   }
@@ -229,7 +229,68 @@ class Common {
       default:
         /* Format not supported */
         QMMF_ERROR("%s: error: unsupported format %d (0x%x)", __func__, format,
-          (unsigned int) format);
+            (unsigned int) format);
+        return BufferFormat::kUnsupported;
+    }
+  }
+
+  /** FromImageToQmmfFormat
+   *
+   * Translates Image capture format to QMMF format
+   *
+   * return: QMMF format
+   **/
+  static BufferFormat FromImageToQmmfFormat(const ImageFormat& format) {
+    switch (format) {
+      case ImageFormat::kJPEG:
+        return BufferFormat::kBLOB;
+        break;
+      case ImageFormat::kNV12:
+        return BufferFormat::kNV12;
+        break;
+      case ImageFormat::kBayerRDI8BIT:
+        return BufferFormat::kRAW8;
+        break;
+      case ImageFormat::kBayerRDI10BIT:
+        return BufferFormat::kRAW10;
+        break;
+      case ImageFormat::kBayerRDI12BIT:
+        return BufferFormat::kRAW12;
+        break;
+      default:
+        /* Format not supported */
+        QMMF_ERROR("%s: error: unsupported format %d (0x%x)", __func__, format,
+            (unsigned int) format);
+        return BufferFormat::kUnsupported;
+    }
+  }
+
+  /** FromVideoToQmmfFormat
+   *
+   * Translates Video capture format to QMMF format
+   *
+   * return: QMMF format
+   **/
+  static BufferFormat FromVideoToQmmfFormat(const VideoFormat& format) {
+    switch (format) {
+      case VideoFormat::kAVC:
+      case VideoFormat::kHEVC:
+      case VideoFormat::kYUV:
+        return BufferFormat::kNV21;
+        break;
+      case VideoFormat::kBayerRDI8BIT:
+        return BufferFormat::kRAW8;
+        break;
+      case VideoFormat::kBayerRDI10BIT:
+        return BufferFormat::kRAW10;
+        break;
+      case VideoFormat::kBayerRDI12BIT:
+        return BufferFormat::kRAW12;
+        break;
+      default:
+        /* Format not supported */
+        QMMF_ERROR("%s: error: unsupported format %d (0x%x)", __func__, format,
+            (unsigned int) format);
         return BufferFormat::kUnsupported;
     }
   }

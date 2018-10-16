@@ -68,7 +68,7 @@ MultiCameraManager::MultiCameraManager()
     multicam_type_(MultiCameraConfigType::k360Stitch),
     result_cb_(nullptr),
     error_cb_(nullptr),
-    snapshot_param_{0, 0, 0, ImageFormat::kJPEG},
+    snapshot_param_{0, 0, 0, BufferFormat::kBLOB},
     sequence_cnt_(0),
     jpeg_encoding_enabled_(false),
     snapshot_configured_(false),
@@ -268,14 +268,14 @@ status_t MultiCameraManager::WaitAecToConverge(const uint32_t timeout) {
   return NO_ERROR;
 }
 
-status_t MultiCameraManager::SetUpCapture(const ImageParam &param,
+status_t MultiCameraManager::SetUpCapture(const SnapshotParam& param,
                                           const uint32_t num_images) {
 
   std::unique_lock<std::mutex> lock(lock_);
   status_t ret = NO_ERROR;
 
   if (sequence_cnt_ != 0) {
-    QMMF_WARN("%s: Wait for pending captures, count = %d!", __func__,
+    QMMF_WARN("%s: Wait for pending captures, count = %u!", __func__,
         sequence_cnt_);
     capture_done_.Wait(lock);
   }
@@ -285,16 +285,16 @@ status_t MultiCameraManager::SetUpCapture(const ImageParam &param,
                             (snapshot_param_.height != param.height) ||
                             !snapshot_configured_;
 
-  ImageParam capture_param = snapshot_param_ = param;
-  capture_param.image_format = (param.image_format == ImageFormat::kJPEG) ?
-                               ImageFormat::kNV12 : param.image_format;
+  SnapshotParam sparam = snapshot_param_ = param;
+  sparam.format = (param.format == BufferFormat::kBLOB) ?
+                   BufferFormat::kNV12 : param.format;
   if (reconfigure_needed) {
     snapshot_stitch_algo_->RequestExitAndWait();
-    jpeg_encoding_enabled_ = (param.image_format == ImageFormat::kJPEG);
+    jpeg_encoding_enabled_ = (param.format == BufferFormat::kBLOB);
 
     if (jpeg_encoding_enabled_) {
       jpeg_encoder_->Delete();
-      ret = CreateJpegEncoder(capture_param);
+      ret = CreateJpegEncoder(sparam);
       if (ret != NO_ERROR) {
         QMMF_ERROR("%s: Failed to create JPEG encoder!", __func__);
         return ret;
@@ -303,7 +303,7 @@ status_t MultiCameraManager::SetUpCapture(const ImageParam &param,
 
     // Set buffer params for stitching.
     GrallocMemory::BufferParams buffer_param {};
-    buffer_param.format        = ImageToHalFormat(capture_param.image_format);
+    buffer_param.format        = Common::FromQmmfToHalFormat(sparam.format);
     buffer_param.width         = param.width;
     buffer_param.height        = param.height;
     buffer_param.gralloc_flags = GRALLOC_USAGE_SW_WRITE_OFTEN;
@@ -325,13 +325,13 @@ status_t MultiCameraManager::SetUpCapture(const ImageParam &param,
       StopStream(track_id);
     }
   }
-  SetDefaultSurfaceDim(capture_param.width, capture_param.height);
+  SetDefaultSurfaceDim(sparam.width, sparam.height);
 
   for (auto& camera : camera_contexts_) {
     uint32_t camera_id = camera.first;
     std::shared_ptr<CameraContext> context = camera.second;
 
-    ret = context->SetUpCapture(capture_param, num_images);
+    ret = context->SetUpCapture(sparam, num_images);
     if (ret != NO_ERROR) {
       QMMF_ERROR("%s: Camera %d: SetUpCapture Failed!", __func__,
           camera_id);
@@ -463,7 +463,7 @@ status_t MultiCameraManager::CancelCaptureImage() {
   return NO_ERROR;
 }
 
-status_t MultiCameraManager::CreateStream(const CameraStreamParam& param,
+status_t MultiCameraManager::CreateStream(const StreamParam& param,
                                           const VideoExtraParam& extra_param) {
 
   SourceSurfaceDesc surface;
@@ -504,8 +504,8 @@ status_t MultiCameraManager::CreateStream(const CameraStreamParam& param,
       }
     }
   } else {
-    surface.width = param.cam_stream_dim.width;
-    surface.height = param.cam_stream_dim.height;
+    surface.width  = param.width;
+    surface.height = param.height;
     // Fill the source camera surfaces with default values.
     SetDefaultSurfaceDim(surface.width, surface.height);
     for (auto const& cam_id : camera_ids) {
@@ -534,8 +534,8 @@ status_t MultiCameraManager::CreateStream(const CameraStreamParam& param,
       if (crop.width == 0 && crop.height == 0) {
         auto camera_ids = virtual_camera_map_[virtual_camera_id_];
         for (auto const& cam_id : camera_ids) {
-          source_surface_.at(cam_id).width = param.cam_stream_dim.width;
-          source_surface_.at(cam_id).height = param.cam_stream_dim.height;
+          source_surface_.at(cam_id).width  = param.width;
+          source_surface_.at(cam_id).height = param.height;
         }
       } else if (surface.width < crop.width || surface.height < crop.height) {
         QMMF_ERROR("%s: Invalid QMMF_SURFACE_CROP entry dimensions for "
@@ -563,10 +563,10 @@ status_t MultiCameraManager::CreateStream(const CameraStreamParam& param,
   // context is caching our streams and streams will be destroyed only
   // when new stream is created, and not on delete stream as expected.
   for (ssize_t ctx_idx = camera_contexts_.size() - 1; ctx_idx >= 0; --ctx_idx) {
-    CameraStreamParam stream_param(param);
+    StreamParam stream_param(param);
     auto &camera_surface = source_surface_.at(camera_ids[ctx_idx]);
-    stream_param.cam_stream_dim.width = camera_surface.width;
-    stream_param.cam_stream_dim.height = camera_surface.height;
+    stream_param.width  = camera_surface.width;
+    stream_param.height = camera_surface.height;
 
     stream_param.wait_aec_mode &= (ctx_idx == 0) ? true : false;
 
@@ -828,39 +828,7 @@ status_t MultiCameraManager::SetDefaultSurfaceDim(uint32_t& w, uint32_t& h) {
   return NO_ERROR;
 }
 
-int32_t MultiCameraManager::ImageToHalFormat(const ImageFormat &image) {
-
-  int32_t format;
-  switch (image) {
-    case ImageFormat::kJPEG:
-      format = HAL_PIXEL_FORMAT_BLOB;
-      break;
-    case ImageFormat::kNV12:
-      format = HAL_PIXEL_FORMAT_YCbCr_420_888;
-      break;
-    case ImageFormat::kBayerRDI8BIT:
-      format = HAL_PIXEL_FORMAT_RAW8;
-      break;
-    case ImageFormat::kBayerRDI10BIT:
-      format = HAL_PIXEL_FORMAT_RAW10;
-      break;
-    case ImageFormat::kBayerRDI12BIT:
-      format = HAL_PIXEL_FORMAT_RAW12;
-      break;
-    case ImageFormat::kBayerIdeal:
-      // Not supported.
-      QMMF_ERROR("%s ImageFormat::kBayerIdeal is Not supported!",
-          __func__);
-      return BAD_VALUE;
-      break;
-    default:
-      format = HAL_PIXEL_FORMAT_BLOB;
-      break;
-  }
-  return format;
-}
-
-status_t MultiCameraManager::CreateJpegEncoder(const ImageParam &param) {
+status_t MultiCameraManager::CreateJpegEncoder(const SnapshotParam& param) {
 
   PostProcParam in {}, out {};
   PostProcCb jpeg_cb =
@@ -869,14 +837,14 @@ status_t MultiCameraManager::CreateJpegEncoder(const ImageParam &param) {
 
   in.width = param.width;
   in.height = param.height;
-  in.format = ImageToHalFormat(param.image_format);
+  in.format = Common::FromQmmfToHalFormat(param.format);
   out.width = param.width;
   out.height = param.height;
-  out.format = ImageToHalFormat(ImageFormat::kJPEG);
+  out.format = Common::FromQmmfToHalFormat(BufferFormat::kBLOB);
 
   status_t ret = jpeg_encoder_->Create(0, in, out,
                                        start_params_.frame_rate, 1,
-                                       param.image_quality, nullptr, jpeg_cb,
+                                       param.quality, nullptr, jpeg_cb,
                                        nullptr);
   if (ret < NO_ERROR) {
     QMMF_ERROR("%s: Error with creating jpeg encoder: %d\n", __func__, ret);
@@ -1004,30 +972,24 @@ status_t MultiCameraManager::ReturnJpegBuffer(const int32_t buffer_id) {
   return NO_ERROR;
 }
 
-status_t MultiCameraManager::CreateStreamStitching(const CameraStreamParam&
-                                                   param) {
+status_t MultiCameraManager::CreateStreamStitching(const StreamParam& param) {
 
   StitchingBase::InitParams algo_param {};
   algo_param.multicam_id  = virtual_camera_id_;
   algo_param.camera_ids   = virtual_camera_map_.at(virtual_camera_id_);
   algo_param.stitch_mode  = multicam_type_;
   algo_param.surface_crop = surface_crop_;
-  algo_param.frame_rate   = param.frame_rate;
+  algo_param.frame_rate   = param.framerate;
 
   GrallocMemory::BufferParams buffer_param {};
-  if (param.cam_stream_format != CameraStreamFormat::kRAW10) {
-    buffer_param.format      = HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
-  } else {
-    buffer_param.format      = HAL_PIXEL_FORMAT_RAW10;
-  }
-  buffer_param.width         = param.cam_stream_dim.width;
-  buffer_param.height        = param.cam_stream_dim.height;
+  buffer_param.format        = Common::FromQmmfToHalFormat(param.format);
+  buffer_param.width         = param.width;
+  buffer_param.height        = param.height;
   buffer_param.gralloc_flags = GRALLOC_USAGE_SW_WRITE_OFTEN;
   buffer_param.max_size      = 0;
 
   buffer_param.max_buffer_count = VIDEO_STREAM_BUFFER_COUNT;
-  if (param.cam_stream_dim.width == kWidth4K &&
-      param.cam_stream_dim.height == kHeight4K) {
+  if (param.width == kWidth4K && param.height == kHeight4K) {
     buffer_param.max_buffer_count += EXTRA_DCVS_BUFFERS;
   }
   buffer_param.gralloc_flags |= private_handle_t::PRIV_FLAGS_VIDEO_ENCODER;
@@ -1062,7 +1024,7 @@ status_t MultiCameraManager::DeleteStreamStitching(const uint32_t id) {
 }
 
 status_t MultiCameraManager::CreateCameraStream(const uint32_t& cam_idx, const
-                                                CameraStreamParam& param, const
+                                                StreamParam& param, const
                                                 VideoExtraParam& extra_param) {
 
   auto camera_id = virtual_camera_map_[virtual_camera_id_].at(cam_idx);
@@ -1475,7 +1437,7 @@ int32_t StitchingBase::Run() {
 
   std::lock_guard<std::mutex> lock(frame_lock_);
   stop_frame_sync_ = false;
-  return Camera3Thread::Run(work_thread_name_.c_str());
+  return ThreadHelper::Run(work_thread_name_);
 }
 
 void StitchingBase::RequestExitAndWait() {
@@ -1515,7 +1477,7 @@ bool StitchingBase::ThreadLoop() {
           }
           std::lock_guard<std::mutex> lock(manager_->lock_);
           stop_frame_sync_ = true;
-          Camera3Thread::RequestExit();
+          ThreadHelper::RequestExit();
 
           --manager_->sequence_cnt_;
           manager_->capture_done_.Signal();
@@ -1739,7 +1701,7 @@ status_t StitchingBase::StopFrameSync() {
   }
   // We need to wait thread to exit to avoid ace between
   // flush and ongoing processing in the thread
-  Camera3Thread::RequestExitAndWait();
+  ThreadHelper::RequestExitAndWait();
 
   // Return all unsynced buffers back to the camera contexts.
   for (auto const& camera_id : params_.camera_ids) {
