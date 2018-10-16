@@ -359,7 +359,7 @@ int32_t TimeLapse::StartCamera() {
 
   if (multicam_mode_ == false) {
 
-    CameraStartParam camera_start_params{false, false, 0, 0, 0, 30, 0};
+    CameraStartParam camera_start_params{false, 30, 0};
 
     ret = recorder_.StartCamera(params_.camera_id, camera_start_params);
     cam_id_ = params_.camera_id;
@@ -373,7 +373,6 @@ int32_t TimeLapse::StartCamera() {
     multicam_id = 0;
 
     memset(&multicam_start_params_, 0x0, sizeof multicam_start_params_);
-    multicam_start_params_.zsl_mode         = false;
     multicam_start_params_.enable_partial_metadata = false;
     multicam_start_params_.flags            = 0x0;
 

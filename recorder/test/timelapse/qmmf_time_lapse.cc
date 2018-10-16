@@ -138,8 +138,6 @@ int32_t TimeLapse::Init() {
   }
 
   CameraStartParam camera_start_params{};
-  camera_start_params.zsl_mode         = false;
-  camera_start_params.frame_rate       = 30;
 
   ret = recorder_.StartCamera(params_.camera_id, camera_start_params);
   if (NO_ERROR != ret) {

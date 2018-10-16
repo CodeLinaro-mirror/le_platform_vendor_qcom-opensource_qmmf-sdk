@@ -113,8 +113,6 @@ class MultiCameraManager : public CameraInterface {
   status_t ReturnImageCaptureBuffer(const uint32_t camera_id,
                                     const int32_t buffer_id) override;
 
-  CameraStartParam& GetCameraStartParam() override;
-
   std::vector<int32_t>& GetSupportedFps() override;
 
  private:

@@ -59,9 +59,6 @@
 #endif
 
 static const int32_t kDelayAfterSnapshot = 5;
-static const uint32_t kZslWidth          = 1920;
-static const uint32_t kZslHeight         = 960;
-static const uint32_t kZslQDepth         = 10;
 
 using namespace qcamera;
 
@@ -102,12 +99,6 @@ void Recorder360Gtest::SetUp() {
   multicam_type_ = MultiCameraConfigType::k360Stitch;
 
   multicam_start_params_ = {};
-  multicam_start_params_.zsl_mode         = false;
-  multicam_start_params_.zsl_queue_depth  = kZslQDepth;
-  multicam_start_params_.zsl_width        = kZslWidth;
-  multicam_start_params_.zsl_height       = kZslHeight;
-  multicam_start_params_.frame_rate       = 30;
-  multicam_start_params_.flags            = 0x0;
 
   TEST_INFO("%s Exit ", __func__);
 }

@@ -178,6 +178,131 @@ struct Buffer {
     return format;
   }
 
+  /** FromQmmfToStreamFormat
+   *
+   * Translates QMMF BufferFormat to CameraStreamFormat
+   *
+   * return: CameraStreamFormat
+   **/
+  static inline CameraStreamFormat FromQmmfToStreamFormat(const BufferFormat &format) {
+    CameraStreamFormat cam_stream_format;
+    switch (format) {
+      case BufferFormat::kNV12UBWC:
+      case BufferFormat::kNV12:
+        cam_stream_format = CameraStreamFormat::kNV12;
+        break;
+      case BufferFormat::kNV21:
+        cam_stream_format = CameraStreamFormat::kNV21;
+        break;
+      case BufferFormat::kRAW8:
+        cam_stream_format = CameraStreamFormat::kRAW8;
+        break;
+      case BufferFormat::kRAW10:
+        cam_stream_format = CameraStreamFormat::kRAW10;
+        break;
+      case BufferFormat::kRAW12:
+        cam_stream_format = CameraStreamFormat::kRAW12;
+        break;
+      default:
+        /* Format not supported */
+        QMMF_ERROR("%s: error: unsupported format %d (0x%x)", __func__, format,
+          (unsigned int) format);
+        return CameraStreamFormat::kNV21;
+    }
+    return cam_stream_format;
+  }
+
+  /** FromStreamFormatToImageFormat
+   *
+   * Translates CameraStreamFormat to QMMF BufferFormat
+   *
+   * return: CameraStreamFormat
+   **/
+  static inline ImageFormat FromStreamFormatToImageFormat(const CameraStreamFormat &format) {
+    ImageFormat image_format;
+    switch (format) {
+      case CameraStreamFormat::kNV12:
+        image_format = ImageFormat::kNV12;
+        break;
+      case CameraStreamFormat::kRAW8:
+        image_format = ImageFormat::kBayerRDI8BIT;
+        break;
+      case CameraStreamFormat::kRAW10:
+        image_format = ImageFormat::kBayerRDI10BIT;
+        break;
+      case CameraStreamFormat::kRAW12:
+        image_format = ImageFormat::kBayerRDI12BIT;
+        break;
+      default:
+        /* Format not supported */
+        QMMF_ERROR("%s: error: unsupported format %d (0x%x)", __func__, format,
+          (unsigned int) format);
+        return ImageFormat::kNV12;
+    }
+    return image_format;
+  }
+
+  /** FromStreamFormatToHalFormat
+   *
+   * Translates CameraStreamFormat to HAL format
+   *
+   * return: CameraStreamFormat
+   **/
+  static inline int32_t FromStreamFormatToHalFormat(const CameraStreamFormat &format) {
+    int32_t hal_format;
+    switch (format) {
+      case CameraStreamFormat::kNV12:
+        hal_format = HAL_PIXEL_FORMAT_YCbCr_420_888;
+        break;
+      case CameraStreamFormat::kRAW8:
+        hal_format = HAL_PIXEL_FORMAT_RAW8;
+        break;
+      case CameraStreamFormat::kRAW10:
+        hal_format = HAL_PIXEL_FORMAT_RAW10;
+        break;
+      case CameraStreamFormat::kRAW12:
+        hal_format = HAL_PIXEL_FORMAT_RAW12;
+        break;
+      default:
+        /* Format not supported */
+        QMMF_ERROR("%s: error: unsupported format %d (0x%x)", __func__, format,
+          (unsigned int) format);
+        return HAL_PIXEL_FORMAT_YCbCr_420_888;
+    }
+    return hal_format;
+  }
+
+  /** FromHalFormatToStreamFormat
+   *
+   * Translates HAL format to CameraStreamFormat
+   *
+   * return: CameraStreamFormat
+   **/
+  static inline CameraStreamFormat FromHalFormatToStreamFormat(const int32_t &format) {
+    CameraStreamFormat stream_format;
+    switch (format) {
+      case HAL_PIXEL_FORMAT_YCbCr_420_888:
+        stream_format = CameraStreamFormat::kNV12;
+        break;
+      case HAL_PIXEL_FORMAT_RAW8:
+        stream_format = CameraStreamFormat::kRAW8;
+        break;
+      case HAL_PIXEL_FORMAT_RAW10:
+        stream_format = CameraStreamFormat::kRAW10;
+        break;
+      case HAL_PIXEL_FORMAT_RAW12:
+        stream_format = CameraStreamFormat::kRAW12;
+        break;
+      default:
+        /* Format not supported */
+        QMMF_ERROR("%s: error: unsupported format %d (0x%x)", __func__, format,
+          (unsigned int) format);
+        return CameraStreamFormat::kNV12;
+    }
+    return stream_format;
+  }
+
+
 
 }; //namespace recorder.
 

@@ -401,51 +401,28 @@ typedef std::function<void(uint32_t camera_id,
 
 /// \brief Parameters passed to StartCamera API
 ///
-/// When the zsl mode is set to true during StartCamera, recorder
-/// would start capturing images of resolution max_snapshot_width
-/// and max_snapshot_height from camera at the frame_rate specified.
-/// In non-zsl mode, snapshot resolution and frame rate parameter is
-/// ignored.
 /// flags provide a mechanism to provide a custom initialization
 /// parameter to camera
 struct CameraStartParam {
-  bool     zsl_mode;
   bool     enable_partial_metadata;
-  uint32_t zsl_queue_depth;
-  uint32_t zsl_width;
-  uint32_t zsl_height;
   uint32_t frame_rate;
   uint32_t flags;
 
   CameraStartParam()
-      : zsl_mode(false),
-        enable_partial_metadata(false),
-        zsl_queue_depth(10),
-        zsl_width(3840),
-        zsl_height(2160),
+      : enable_partial_metadata(false),
         frame_rate(30),
         flags(0) {}
 
-  CameraStartParam(bool zsl_mode, bool enable_partial_metadata,
-                   uint32_t zsl_queue_depth, uint32_t zsl_width,
-                   uint32_t zsl_height, uint32_t frame_rate, uint32_t flags)
-      : zsl_mode(zsl_mode),
-        enable_partial_metadata(enable_partial_metadata),
-        zsl_queue_depth(zsl_queue_depth),
-        zsl_width(zsl_width),
-        zsl_height(zsl_height),
+  CameraStartParam(bool enable_partial_metadata, uint32_t frame_rate,
+                   uint32_t flags)
+      : enable_partial_metadata(enable_partial_metadata),
         frame_rate(frame_rate),
         flags(flags) {}
 
   ::std::string ToString() const {
     ::std::stringstream stream;
-    stream << "zsl_mode[" << ::std::boolalpha << zsl_mode << ::std::noboolalpha
-           << "]";
     stream << "enable_partial_metadata[" << ::std::boolalpha
         << enable_partial_metadata << ::std::noboolalpha << "]";
-    stream << "zsl_queue_depth[" << zsl_queue_depth << "] ";
-    stream << "zsl_width[" << zsl_width << "] ";
-    stream << "zsl_height[" << zsl_height << "] ";
     stream << "frame_rate[" << frame_rate << "] ";
     stream << "flags[" << flags << "]";
     return stream.str();
@@ -465,6 +442,34 @@ struct ImageParam {
     stream << "width[" << width << "]";
     stream << "height[" << height << "] ";
     stream << "image_quality[" << image_quality << "] ";
+    stream << "image_format["
+           << static_cast<::std::underlying_type<ImageFormat>::type>
+                         (image_format)
+           << "]";
+    return stream.str();
+  }
+};
+
+/// \brief ZSL queue parameters
+///
+/// Images in ZSL queue might have different dimension than final image.
+struct ZslQueueParam {
+  uint32_t    width;
+  uint32_t    height;
+  uint32_t    queue_depth;
+  ImageFormat image_format;
+
+  ZslQueueParam()
+    : width(3840),
+      height(2160),
+      queue_depth(4),
+      image_format(ImageFormat::kNV12) {}
+
+  ::std::string ToString() const {
+    ::std::stringstream stream;
+    stream << "width[" << width << "]";
+    stream << "height[" << height << "] ";
+    stream << "queue_depth[" << queue_depth << "] ";
     stream << "image_format["
            << static_cast<::std::underlying_type<ImageFormat>::type>
                          (image_format)

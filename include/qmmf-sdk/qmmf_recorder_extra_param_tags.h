@@ -114,7 +114,12 @@ enum class SnapshotMode {
   kVideo,
   // Continuous capture. QMMF will take images until CancelCaptureImage.
   // Capture rate could be set by QMMF_POSTPROCESS_FRAME_SKIP tag.
-  kContinuous
+  kContinuous,
+  // Zero Shutter Lag capture. QMMF starts ZSL continuous stream. Frames
+  // from continuous stream are stored in ZSL queue. Last good frame in
+  // ZSL queue will be used when user call CaptureImage API. ZSL stream
+  // will be stopped when mode is changed or CancelCaptureImage is called.
+  kZsl
 };
 
 struct SourceSurfaceDesc : DataTagBase {
@@ -215,10 +220,14 @@ struct ImageThumbnail : DataTagBase {
 };
 
 struct SnapshotType : DataTagBase {
-  SnapshotMode type;
+  SnapshotMode  type;
+  ZslQueueParam zsl_queue_params;
+  ImageParam    zsl_image_param;
   SnapshotType()
     : DataTagBase(QMMF_SNAPSHOT_TYPE),
-      type(SnapshotMode::kStill) {}
+      type(SnapshotMode::kStill),
+      zsl_queue_params{},
+      zsl_image_param{} {}
 };
 
 struct VideoWaitAECMode : DataTagBase {
