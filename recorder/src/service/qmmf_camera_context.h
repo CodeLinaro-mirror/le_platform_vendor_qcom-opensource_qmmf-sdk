@@ -182,7 +182,7 @@ class CameraContext : public CameraInterface,
 
   status_t CreateZSLStream(const CameraStartParam &param);
 
-  status_t CreateSnapshotStream(const SnapshotParam& param);
+  status_t CreateSnapshotStream(CameraStreamParameters &stream_param);
 
   status_t DeleteSnapshotStream(bool cache = false);
 
@@ -196,6 +196,9 @@ class CameraContext : public CameraInterface,
 
   status_t ValidateResolution(const BufferFormat& format, const uint32_t& width,
                               const uint32_t& height);
+
+  status_t GetSnapshotStreamParams(const SnapshotParam &image_param,
+                                   CameraStreamParameters &stream_param);
 
 #ifdef USE_FPS_IDX
   uint32_t GetSensorModeIndex(uint32_t framerate);
@@ -232,12 +235,11 @@ class CameraContext : public CameraInterface,
 
   status_t PostProcDelete();
 
-  status_t PostProcCreatePipeAndUpdateStreams(
-                                      CameraStreamParameters& stream_param,
-                                      uint32_t frame_rate,
-                                      const std::vector<uint32_t> &plugins);
+  status_t PostProcSetUp(CameraStreamParameters &stream_param);
 
-  int32_t PostProcStart();
+  status_t PostProcCreatePipe(CameraStreamParameters& stream_param,
+                              uint32_t frame_rate,
+                              const std::vector<uint32_t> &plugins);
 
   template <typename T>
   bool QueryPartialTag(const CameraMetadata &result, int32_t tag, T *value,
@@ -346,7 +348,7 @@ class CameraContext : public CameraInterface,
   BufferFormat                  new_jpeg_input_format_;
   PostprocFrameSkip             postproc_frame_skip_;
   bool                          exif_en_;
-  CameraStreamParameters        stream_param_;
+  CameraStreamParameters        snapshot_stream_param_;
   bool                          restart_pipe_;
   bool                          reconfig_pipe_;
   bool                          port_paused_;
