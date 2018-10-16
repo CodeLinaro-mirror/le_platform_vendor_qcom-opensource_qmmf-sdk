@@ -103,7 +103,7 @@ class PostProcPipe {
    void AddResult(const void* result);
 
    /// Start all plugins
-   status_t Start(const int32_t stream_id);
+   status_t Start();
 
    /// Stop all plugins. After this API buffers are returned.
    status_t Stop();

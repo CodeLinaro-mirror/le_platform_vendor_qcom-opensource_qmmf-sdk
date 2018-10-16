@@ -353,7 +353,7 @@ status_t CameraHalReproc::GetCapabilities(PostProcCaps &caps) {
   return NO_ERROR;
 }
 
-status_t CameraHalReproc::Start(const int32_t stream_id) {
+status_t CameraHalReproc::Start() {
   QMMF_INFO("%s: Enter", __func__);
 
   std::lock_guard<std::mutex> lock(module_lock_);

@@ -61,7 +61,7 @@ class PostProcFrameSkip : public IPostProcModule {
 
    status_t ReturnBuff(StreamBuffer &buffer) override { return NO_ERROR; };
 
-   status_t Start(const int32_t stream_id) override;
+   status_t Start() override;
 
    status_t Stop() override;
 

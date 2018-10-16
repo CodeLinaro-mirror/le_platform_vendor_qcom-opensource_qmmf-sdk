@@ -259,7 +259,7 @@ status_t CameraContext::CreateSnapshotStream(const SnapshotParam& param) {
   }
 
   if (postproc_enable_ && restart_pipe_) {
-    ret = PostProcStart(snapshot_request_.streamIds[0]);
+    ret = PostProcStart();
     assert(ret == NO_ERROR);
   }
   restart_pipe_ = false;
@@ -2429,10 +2429,10 @@ status_t CameraContext::PostProcCreatePipeAndUpdateStreams(
   return NO_ERROR;
 }
 
-int32_t CameraContext::PostProcStart(int32_t stream_id) {
+int32_t CameraContext::PostProcStart() {
   postproc_pipe_->AddConsumer(GetConsumerIntf());
   AttachConsumer(postproc_pipe_->GetConsumerIntf());
-  postproc_pipe_->Start(stream_id);
+  postproc_pipe_->Start();
 
   return NO_ERROR;
 }
@@ -2601,7 +2601,7 @@ status_t CameraPort::Start() {
   }
 
   if (postproc_pipe_.get() != nullptr) {
-    postproc_pipe_->Start(camera_stream_id_);
+    postproc_pipe_->Start();
   }
 
   //TODO: protect it with lock.
