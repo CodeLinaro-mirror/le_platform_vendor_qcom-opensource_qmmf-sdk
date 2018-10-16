@@ -237,11 +237,13 @@ class CameraContext : public CameraInterface,
 
   status_t PostProcDelete();
 
-  status_t PostProcSetUp(CameraStreamParameters &stream_param);
+  status_t PostProcSetUp(CameraStreamParameters &stream_param,
+                         RequiredInput required_input = {});
 
   status_t PostProcCreatePipe(CameraStreamParameters& stream_param,
                               uint32_t frame_rate,
-                              const std::vector<uint32_t> &plugins);
+                              const std::vector<uint32_t> &plugins,
+                              RequiredInput required_input = {});
 
   template <typename T>
   bool QueryPartialTag(const CameraMetadata &result, int32_t tag, T *value,

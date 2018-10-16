@@ -58,6 +58,14 @@ struct PipeIOParam {
   bool exif_en;
 };
 
+struct RequiredInput {
+  uint32_t width;
+  uint32_t height;
+  uint32_t stride;
+  uint32_t scanline;
+  int32_t  format;
+};
+
 enum class PostProcPipeState {
   CREATED,
   INITIALIZE,
@@ -76,7 +84,8 @@ class PostProcPipe {
    ~PostProcPipe();
 
    status_t CreatePipe(const PipeIOParam &pipe_out_param,
-       const std::vector<uint32_t> &plugins, PipeIOParam &pipe_in_param);
+       const std::vector<uint32_t> &plugins, PipeIOParam &pipe_in_param,
+       RequiredInput required_input = {});
 
    status_t DeletePipe();
 
@@ -99,6 +108,12 @@ class PostProcPipe {
    void PipeNotifyBufferReturn(StreamBuffer& buffer);
 
  private:
+
+   bool IsCompatibleDimensionWithInput(RequiredInput &required_input,
+                                       PostProcIOParam &real_input);
+
+   bool IsCompatibleFormatWithInput(RequiredInput &required_input,
+                                    PostProcIOParam &real_input);
 
    void LinkPipe(sp<IBufferConsumer>& consumer);
 

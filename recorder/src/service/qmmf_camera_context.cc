@@ -2397,7 +2397,8 @@ status_t CameraContext::PostProcDelete() {
   return NO_ERROR;
 }
 
-status_t CameraContext::PostProcSetUp(CameraStreamParameters &stream_param) {
+status_t CameraContext::PostProcSetUp(CameraStreamParameters &stream_param,
+                                      RequiredInput required_input) {
   status_t ret = NO_ERROR;
   if (!postproc_enable_) {
     QMMF_VERBOSE("%s: Post process is not enabled", __func__);
@@ -2408,7 +2409,7 @@ status_t CameraContext::PostProcSetUp(CameraStreamParameters &stream_param) {
     PauseActiveStreams();
     PostProcDelete();
     ret = PostProcCreatePipe(stream_param, camera_start_params_.frame_rate,
-                              capture_plugins_);
+                             capture_plugins_, required_input);
     if (ret != NO_ERROR) {
       QMMF_ERROR("%s: Error while creating pipe!", __func__);
       return ret;
@@ -2433,7 +2434,8 @@ status_t CameraContext::PostProcSetUp(CameraStreamParameters &stream_param) {
 status_t CameraContext::PostProcCreatePipe(
                                         CameraStreamParameters& stream_param,
                                         uint32_t frame_rate,
-                                        const std::vector<uint32_t> &plugins) {
+                                        const std::vector<uint32_t> &plugins,
+                                        RequiredInput required_input) {
 
   postproc_pipe_ = std::make_shared<PostProcPipe>(this);
   assert(postproc_pipe_.get() != nullptr);
@@ -2456,7 +2458,8 @@ status_t CameraContext::PostProcCreatePipe(
   out_param.internal_format = jpeg_input_format_;
 
   PipeIOParam in_param;
-  auto ret = postproc_pipe_->CreatePipe(out_param, plugins, in_param);
+  auto ret = postproc_pipe_->CreatePipe(out_param, plugins,
+                                        in_param, required_input);
   if (ret != NO_ERROR) {
     return ret;
   }
