@@ -87,7 +87,7 @@ CameraContext::CameraContext()
       new_jpeg_input_format_(BufferFormat::kUnsupported),
       postproc_frame_skip_{},
       exif_en_(true),
-      stream_param_{},
+      snapshot_stream_param_{},
       restart_pipe_(true),
       reconfig_pipe_(false),
       port_paused_(false),
@@ -135,63 +135,24 @@ bool CameraContext::IsInputSupported() {
 
 bool CameraContext::IsStreamParamsChanged(
     const CameraStreamParameters& stream_param) {
-  if ((stream_param.format       != stream_param_.format)       ||
-      (stream_param.width        != stream_param_.width)        ||
-      (stream_param.height       != stream_param_.height)       ||
-      (stream_param.grallocFlags != stream_param_.grallocFlags) ||
-      (stream_param.bufferCount  > stream_param_.bufferCount)) {
+  if ((stream_param.format       != snapshot_stream_param_.format)       ||
+      (stream_param.width        != snapshot_stream_param_.width)        ||
+      (stream_param.height       != snapshot_stream_param_.height)       ||
+      (stream_param.grallocFlags != snapshot_stream_param_.grallocFlags) ||
+      (stream_param.bufferCount  > snapshot_stream_param_.bufferCount)) {
     return true;
   }
   return false;
 }
 
-status_t CameraContext::CreateSnapshotStream(const ImageParam &param) {
+status_t CameraContext::CreateSnapshotStream(
+      CameraStreamParameters &stream_param) {
 
   QMMF_INFO("%s: Enter", __func__);
   int32_t stream_id = -1;
   status_t ret = NO_ERROR;
 
-  CameraStreamParameters stream_param{};
-
-  ret = ValidateResolution(param.image_format, param.width, param.height);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: format(0x%x),width(%d):height(%d) Not supported!",
-               __func__, param.image_format, param.width, param.height);
-    return ret;
-  }
-
-  stream_param.format       = ImageToHalFormat(param.image_format);
-  stream_param.width        = param.width;
-  stream_param.height       = param.height;
-  stream_param.grallocFlags = GRALLOC_USAGE_SW_WRITE_OFTEN |
-                                GRALLOC_USAGE_SW_READ_OFTEN;
-  stream_param.cb           = GetStreamCb(param);
-
-  // Reserve buffers for continuous capture in order to avoid camera and pipe
-  // restart if snapshot mode is switched. Buffer are just reserved, not
-  // allocated because buffer are allocated on demand in camera adapter.
-  stream_param.bufferCount  = std::max(sequence_cnt_,
-    static_cast<uint32_t>(PREVIEW_STREAM_BUFFER_COUNT));
-
-  if (postproc_enable_ && restart_pipe_) {
-    PauseActiveStreams();
-    PostProcDelete();
-    ret = PostProcCreatePipeAndUpdateStreams(stream_param,
-                            camera_start_params_.frame_rate, capture_plugins_);
-    assert(ret == NO_ERROR);
-  } else if (postproc_enable_ && reconfig_pipe_) {
-    ret = postproc_pipe_->Configure(GetSnapshotJsonConfig());
-    if (ret != NO_ERROR) {
-      QMMF_ERROR("%s: Error while configuring pipe! Config: %d", __func__,
-          GetSnapshotJsonConfig().c_str());
-      return ret;
-    }
-  }
-  QMMF_INFO("%s: W(%d) & H(%d) Fmt(0x%x)", __func__, stream_param.width,
-            stream_param.height, stream_param.format);
-
   if (IsStreamParamsChanged(stream_param)) {
-
     if (!snapshot_request_.streamIds.isEmpty()) {
       if (1 < snapshot_request_.streamIds.size()) {
         QMMF_ERROR("%s: Several non-zsl snapshot streams present!\n",
@@ -218,40 +179,33 @@ status_t CameraContext::CreateSnapshotStream(const ImageParam &param) {
     snapshot_request_.streamIds.add(stream_id);
   }
 
-  snapshot_param_ = param;
-  stream_param_ = stream_param;
-
   if (snapshot_type_ == SnapshotMode::kStillPlusRaw) {
-    stream_param.format       = ImageToHalFormat(ImageFormat::kBayerRDI10BIT);
+    CameraStreamParameters raw_stream_param = stream_param;
+    raw_stream_param.format = Common::FromQmmfToHalFormat(BufferFormat::kRAW10);
     Common::GetMaxSupportedCameraRes(static_meta_,
-                                     stream_param.width,
-                                     stream_param.height,
-                                     stream_param.format);
-    stream_param.grallocFlags = GRALLOC_USAGE_SW_WRITE_OFTEN |
-                                  GRALLOC_USAGE_SW_READ_OFTEN;
-    stream_param.cb           = GetStreamCb(param);
-    stream_param.bufferCount  = sequence_cnt_;
+                                     raw_stream_param.width,
+                                     raw_stream_param.height,
+                                     raw_stream_param.format);
+    raw_stream_param.grallocFlags = GRALLOC_USAGE_SW_WRITE_OFTEN |
+                                      GRALLOC_USAGE_SW_READ_OFTEN;
+    raw_stream_param.cb           = stream_param.cb;
+    raw_stream_param.bufferCount  = sequence_cnt_;
 
     QMMF_INFO("%s: Raw Snapshot W(%d) & H(%d) Fmt(0x%x)", __func__,
-        stream_param.width, stream_param.height, stream_param.format);
+        raw_stream_param.width, raw_stream_param.height,
+        raw_stream_param.format);
 
-    ret = CreateDeviceStream(stream_param, camera_start_params_.frame_rate,
+    ret = CreateDeviceStream(raw_stream_param, camera_start_params_.frame_rate,
                              &stream_id);
     if (ret != NO_ERROR) {
       QMMF_ERROR("%s: Failed creating snapshot stream: %d!",
                  __func__, ret);
       return ret;
     }
+
     QMMF_INFO("%s Raw Snapshot stream_id(%d)", __func__, stream_id);
     snapshot_request_.streamIds.add(stream_id);
   }
-
-  if (postproc_enable_ && restart_pipe_) {
-    ret = PostProcStart();
-    assert(ret == NO_ERROR);
-  }
-  restart_pipe_ = false;
-  reconfig_pipe_ = false;
 
   QMMF_INFO("%s: Exit", __func__);
   return ret;
@@ -271,7 +225,7 @@ status_t CameraContext::DeleteSnapshotStream(bool cache) {
     }
   }
   snapshot_request_.streamIds.clear();
-  stream_param_ = CameraStreamParameters();
+  snapshot_stream_param_ = {};
   snapshot_type_ = SnapshotMode::kNone;
   capture_request_id_ = -1;
 
@@ -379,7 +333,11 @@ status_t CameraContext::OpenCamera(const uint32_t camera_id,
     image_param.height = param.zsl_height;
     image_param.image_format = ImageFormat::kJPEG;
 
-    ret = CreateSnapshotStream(image_param);
+    CameraStreamParameters stream_param{};
+    ret = GetSnapshotStreamParams(image_param, stream_param);
+    assert(ret == NO_ERROR);
+
+    ret = CreateSnapshotStream(stream_param);
     if (NO_ERROR != ret) {
       QMMF_ERROR("%s Failed during snapshot stream setup",
                  __func__);
@@ -680,11 +638,28 @@ status_t CameraContext::SetUpCapture(const ImageParam &param,
       }
 
       QMMF_INFO("%s: Snapshot stream reconfigure required", __func__);
-      ret = CreateSnapshotStream(param);
+
+      CameraStreamParameters stream_param{};
+      ret = GetSnapshotStreamParams(param, stream_param);
+      assert(ret == NO_ERROR);
+
+      ret = PostProcSetUp(stream_param);
+      if (NO_ERROR != ret) {
+        QMMF_ERROR("%s Failed during post process set up", __func__);
+        return ret;
+      }
+
+      ret = CreateSnapshotStream(stream_param);
       if (NO_ERROR != ret) {
         QMMF_ERROR("%s Failed during snapshot re-configure", __func__);
         return ret;
       }
+
+      // Store current capture configuration. This is used for
+      // reconfiguration optimizations.
+      snapshot_param_ = param;
+      snapshot_stream_param_ = stream_param;
+
       // Wait AE to converge after reconfiguration if there are active streams.
       WaitAecToConverge(kWaitAecTimeout);
     }
@@ -2028,6 +2003,29 @@ status_t CameraContext::ValidateResolution(const ImageFormat format,
   return NO_ERROR;
 }
 
+status_t CameraContext::GetSnapshotStreamParams(const ImageParam &param,
+    CameraStreamParameters &stream_param) {
+
+  QMMF_VERBOSE("%s Enter ", __func__);
+
+  stream_param.format       = ImageToHalFormat(param.image_format);
+  stream_param.width        = param.width;
+  stream_param.height       = param.height;
+  stream_param.grallocFlags = GRALLOC_USAGE_SW_WRITE_OFTEN |
+                                GRALLOC_USAGE_SW_READ_OFTEN;
+  stream_param.cb           = GetStreamCb(param);
+
+  // Reserve buffers for continuous capture in order to avoid camera and pipe
+  // restart if snapshot mode is switched. Buffer are just reserved, not
+  // allocated because buffer are allocated on demand in camera adapter.
+  stream_param.bufferCount  = std::max(sequence_cnt_,
+    static_cast<uint32_t>(PREVIEW_STREAM_BUFFER_COUNT));
+
+  QMMF_VERBOSE("%s Exit ", __func__);
+
+  return NO_ERROR;
+}
+
 status_t CameraContext::CaptureZSLImage() {
 
   QMMF_INFO("%s: Enter", __func__);
@@ -2399,7 +2397,40 @@ status_t CameraContext::PostProcDelete() {
   return NO_ERROR;
 }
 
-status_t CameraContext::PostProcCreatePipeAndUpdateStreams(
+status_t CameraContext::PostProcSetUp(CameraStreamParameters &stream_param) {
+  status_t ret = NO_ERROR;
+  if (!postproc_enable_) {
+    QMMF_VERBOSE("%s: Post process is not enabled", __func__);
+    return ret;
+  }
+
+  if (restart_pipe_) {
+    PauseActiveStreams();
+    PostProcDelete();
+    ret = PostProcCreatePipe(stream_param, camera_start_params_.frame_rate,
+                              capture_plugins_);
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s: Error while creating pipe!", __func__);
+      return ret;
+    }
+  } else if (reconfig_pipe_) {
+    ret = postproc_pipe_->Configure(GetSnapshotJsonConfig());
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s: Error while configuring pipe! Config: %d", __func__,
+          GetSnapshotJsonConfig().c_str());
+      return ret;
+    }
+  }
+  restart_pipe_ = false;
+  reconfig_pipe_ = false;
+
+  QMMF_INFO("%s: W(%d) & H(%d) Fmt(0x%x)", __func__, stream_param.width,
+            stream_param.height, stream_param.format);
+
+  return ret;
+}
+
+status_t CameraContext::PostProcCreatePipe(
                                         CameraStreamParameters& stream_param,
                                         uint32_t frame_rate,
                                         const std::vector<uint32_t> &plugins) {
@@ -2435,6 +2466,11 @@ status_t CameraContext::PostProcCreatePipeAndUpdateStreams(
     return ret;
   }
 
+  postproc_pipe_->AddConsumer(GetConsumerIntf());
+  AttachConsumer(postproc_pipe_->GetConsumerIntf());
+
+  postproc_pipe_->Start();
+
   stream_param.format = in_param.format;
   stream_param.width  = in_param.width;
   stream_param.height = in_param.height;
@@ -2442,14 +2478,6 @@ status_t CameraContext::PostProcCreatePipeAndUpdateStreams(
 
   QMMF_INFO("%s: input dim %dx%d format %x ", __func__,
       stream_param.width, stream_param.height, stream_param.format);
-
-  return NO_ERROR;
-}
-
-int32_t CameraContext::PostProcStart() {
-  postproc_pipe_->AddConsumer(GetConsumerIntf());
-  AttachConsumer(postproc_pipe_->GetConsumerIntf());
-  postproc_pipe_->Start();
 
   return NO_ERROR;
 }
