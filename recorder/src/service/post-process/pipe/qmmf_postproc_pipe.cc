@@ -338,7 +338,7 @@ bool PostProcPipe::SupportsJPEGFormat(const std::set<BufferFormat> &formats) {
   return false;
 }
 
-status_t PostProcPipe::Start(const int32_t stream_id) {
+status_t PostProcPipe::Start() {
   if (pipe_.empty()) {
     QMMF_ERROR("%s: Pipe is empty", __func__);
     return BAD_VALUE;
@@ -346,7 +346,7 @@ status_t PostProcPipe::Start(const int32_t stream_id) {
   auto iter = pipe_.end();
   while (iter != pipe_.begin()) {
     --iter;
-    (*iter)->Start(stream_id);
+    (*iter)->Start();
   }
   return NO_ERROR;
 }

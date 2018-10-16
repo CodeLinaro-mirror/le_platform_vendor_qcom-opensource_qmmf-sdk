@@ -239,7 +239,7 @@ class CameraContext : public CameraInterface,
                                       uint32_t frame_rate,
                                       const std::vector<uint32_t> &plugins);
 
-  int32_t PostProcStart(int32_t stream_id);
+  int32_t PostProcStart();
 
   template <typename T>
   bool QueryPartialTag(const CameraMetadata &result, int32_t tag, T *value,

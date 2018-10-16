@@ -132,7 +132,7 @@ status_t PostProcJpeg::GetCapabilities(PostProcCaps &caps) {
   return NO_ERROR;
 }
 
-status_t PostProcJpeg::Start(const int32_t stream_id) {
+status_t PostProcJpeg::Start() {
   QMMF_VERBOSE("%s: Enter %p", __func__, this);
 
   auto ret = jpeg_encoder_->Init(image_width_, image_height_);

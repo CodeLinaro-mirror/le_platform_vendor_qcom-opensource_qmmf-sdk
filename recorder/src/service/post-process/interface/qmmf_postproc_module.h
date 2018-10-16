@@ -164,7 +164,7 @@ class IPostProcModule {
 
    virtual void AddResult(const void* result) = 0;
 
-   virtual status_t Start(const int32_t stream_id) = 0;
+   virtual status_t Start() = 0;
 
    virtual status_t Stop() = 0;
 

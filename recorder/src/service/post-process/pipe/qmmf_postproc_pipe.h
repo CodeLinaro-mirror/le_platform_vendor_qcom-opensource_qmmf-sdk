@@ -88,7 +88,7 @@ class PostProcPipe {
 
    void AddResult(const void* result);
 
-   status_t Start(const int32_t stream_id);
+   status_t Start();
 
    status_t Stop();
 
