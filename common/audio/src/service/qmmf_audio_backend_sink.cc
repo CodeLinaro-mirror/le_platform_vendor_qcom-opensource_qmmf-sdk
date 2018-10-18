@@ -819,9 +819,9 @@ void AudioBackendSink::Thread() {
   bool error_detected = false;
   while (keep_running) {
     // wait until there is something to do
-    while (buffers.empty() && messages_.empty()) {
+    if (buffers.empty()) {
       unique_lock<mutex> lk(message_lock_);
-      if (signal_.wait_for(lk, seconds(1)) == cv_status::timeout)
+      if (!signal_.wait_for(lk, seconds(1), [this]{return !messages_.empty();}))
         QMMF_WARN("%s() timed out on wait", __func__);
     }
 
