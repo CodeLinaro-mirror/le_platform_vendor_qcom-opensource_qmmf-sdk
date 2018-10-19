@@ -1,31 +1,31 @@
 /*
-* Copyright (c) 2018, The Linux Foundation. All rights reserved.
-*
-* Redistribution and use in source and binary forms, with or without
-* modification, are permitted provided that the following conditions are
-* met:
-*     * Redistributions of source code must retain the above copyright
-*       notice, this list of conditions and the following disclaimer.
-*     * Redistributions in binary form must reproduce the above
-*       copyright notice, this list of conditions and the following
-*       disclaimer in the documentation and/or other materials provided
-*       with the distribution.
-*     * Neither the name of The Linux Foundation nor the names of its
-*       contributors may be used to endorse or promote products derived
-*       from this software without specific prior written permission.
-*
-* THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
-* WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
-* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT
-* ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
-* BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-* CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-* SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
-* BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
-* WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
-* OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
-* IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-*/
+ * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are
+ * met:
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials provided
+ *       with the distribution.
+ *     * Neither the name of The Linux Foundation nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
+ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
 
 #define LOG_TAG "BufferHandler"
 
@@ -39,32 +39,32 @@ namespace qmmf {
 namespace qmmf_alg_plugin {
 
 /** BufferHandler
-  *    @vaddr: buffer virtuall address
-  *    @fd: buffer fd
-  *    @size: buffer size
-  *    @cached: flag indicating whether buffer is cached
-  *    @pix_fmt: pixel format
-  *    @timestamp: buffer timestamp
-  *    @frame_number: buffer frame number
-  *    @plane: vector of buffer planes
-  *    @platform_buffer: platform buffer
-  *    @input_file_name: input file name
-  *    @file_stride_: input and/or output file stride
-  *    @file_scanline_: input and/or output file scanline
-  *    @border_up: plane[0]'s first row containing actual data
-  *                plane[i]'s border_up = border_up / (i+1)
-  *    @border_left: the first column in each plane's row, containing actual
-  *                  data
-  *    @border_down: (plane[0]'s last row) -
-  *                  (plane[0]'s last row, containing actual data);
-  *                   plane[i]'s border_down = border_down / (i+1)
-  *    @border_right: (last column in the row) -
-  *                   (last column in the row, containing actual data)
-  *
-  * creates new instance of BufferHandler
-  *
-  * return: void
-  **/
+ *    @vaddr: buffer virtuall address
+ *    @fd: buffer fd
+ *    @size: buffer size
+ *    @cached: flag indicating whether buffer is cached
+ *    @pix_fmt: pixel format
+ *    @timestamp: buffer timestamp
+ *    @frame_number: buffer frame number
+ *    @plane: vector of buffer planes
+ *    @platform_buffer: platform buffer
+ *    @input_file_name: input file name
+ *    @file_stride_: input and/or output file stride
+ *    @file_scanline_: input and/or output file scanline
+ *    @border_up: plane[0]'s first row containing actual data
+ *                plane[i]'s border_up = border_up / (i+1)
+ *    @border_left: the first column in each plane's row, containing actual
+ *                  data
+ *    @border_down: (plane[0]'s last row) -
+ *                  (plane[0]'s last row, containing actual data);
+ *                   plane[i]'s border_down = border_down / (i+1)
+ *    @border_right: (last column in the row) -
+ *                   (last column in the row, containing actual data)
+ *
+ * creates new instance of BufferHandler
+ *
+ * return: void
+ **/
 BufferHandler::BufferHandler(
     uint8_t *vaddr, int32_t fd, uint32_t size, bool cached, PixelFormat pix_fmt,
     int64_t timestamp, uint32_t frame_number, std::vector<BufferPlane> &plane,
@@ -87,21 +87,21 @@ BufferHandler::BufferHandler(
       filled_value_(0) {}
 
 /** New
-  *    @requirements: buffer requirements
-  *    @buffer_configurations: buffer configurations
-  *    @border_up: plane[0]'s first row containing actual data
-  *                plane[i]'s border_up = border_up / (i+1)
-  *    @border_left: the first column in each plane's row, containing actual
-  *                  data
-  *    @border_down: (plane[0]'s last row) -
-  *                  (plane[0]'s last row, containing actual data);
-  *                   plane[i]'s border_down = border_down / (i+1)
-  *    @min_border_right: the minimal value of the new buffers's border_right
-  *
-  * creates new instance of qmmf algo buffer handlers
-  *
-  * return: list of shared pointers of buffer handlers
-  **/
+ *    @requirements: buffer requirements
+ *    @buffer_configurations: buffer configurations
+ *    @border_up: plane[0]'s first row containing actual data
+ *                plane[i]'s border_up = border_up / (i+1)
+ *    @border_left: the first column in each plane's row, containing actual
+ *                  data
+ *    @border_down: (plane[0]'s last row) -
+ *                  (plane[0]'s last row, containing actual data);
+ *                   plane[i]'s border_down = border_down / (i+1)
+ *    @min_border_right: the minimal value of the new buffers's border_right
+ *
+ * creates new instance of qmmf algo buffer handlers
+ *
+ * return: list of shared pointers of buffer handlers
+ **/
 std::list<std::shared_ptr<BufferHandler>> BufferHandler::New(
     const BufferRequirements &requirements,
     const std::list<std::shared_ptr<QmmfAlgoConfigurationBuffer>>
@@ -128,27 +128,27 @@ std::list<std::shared_ptr<BufferHandler>> BufferHandler::New(
 }
 
 /** New
-  *    @requirements: buffer requirements
-  *    @pix_fmt: pixel format
-  *    @width: width
-  *    @height: height
-  *    @file_stride: input and/or output file stride
-  *    @file_scanline: input and/or output file scanline
-  *    @input_file_name: input file name
-  *    @output_file_name: output file name
-  *    @border_up: plane[0]'s first row containing actual data
-  *                plane[i]'s border_up = border_up / (i+1)
-  *    @border_left: the first column in each plane's row, containing actual
-  *                  data
-  *    @border_down: (plane[0]'s last row) -
-  *                  (plane[0]'s last row, containing actual data);
-  *                   plane[i]'s border_down = border_down / (i+1)
-  *    @min_border_right: the minimal value of the new buffer's border_right
-  *
-  * creates new instance of qmmf algo buffer handler
-  *
-  * return: shared pointer of buffer handlers
-  **/
+ *    @requirements: buffer requirements
+ *    @pix_fmt: pixel format
+ *    @width: width
+ *    @height: height
+ *    @file_stride: input and/or output file stride
+ *    @file_scanline: input and/or output file scanline
+ *    @input_file_name: input file name
+ *    @output_file_name: output file name
+ *    @border_up: plane[0]'s first row containing actual data
+ *                plane[i]'s border_up = border_up / (i+1)
+ *    @border_left: the first column in each plane's row, containing actual
+ *                  data
+ *    @border_down: (plane[0]'s last row) -
+ *                  (plane[0]'s last row, containing actual data);
+ *                   plane[i]'s border_down = border_down / (i+1)
+ *    @min_border_right: the minimal value of the new buffer's border_right
+ *
+ * creates new instance of qmmf algo buffer handler
+ *
+ * return: shared pointer of buffer handlers
+ **/
 std::shared_ptr<BufferHandler> BufferHandler::New(
     const BufferRequirements &requirements, PixelFormat pix_fmt, uint32_t width,
     uint32_t height, uint32_t file_stride, uint32_t file_scanline,
@@ -157,56 +157,8 @@ std::shared_ptr<BufferHandler> BufferHandler::New(
     uint32_t min_border_right) {
   uint32_t num_planes = 0;
 
-  switch (pix_fmt) {
-    case kRawBggrMipi8:
-    case kRawGbrgMipi8:
-    case kRawGrbgMipi8:
-    case kRawRggbMipi8:
-      num_planes = 1;
-      break;
-    case kRawBggrMipi10:
-    case kRawGbrgMipi10:
-    case kRawGrbgMipi10:
-    case kRawRggbMipi10:
-      num_planes = 1;
-      break;
-    case kRawBggrMipi12:
-    case kRawGbrgMipi12:
-    case kRawGrbgMipi12:
-    case kRawRggbMipi12:
-      num_planes = 1;
-      break;
-    case kRawBggr10:
-    case kRawGbrg10:
-    case kRawGrbg10:
-    case kRawRggb10:
-    case kRawBggr12:
-    case kRawGbrg12:
-    case kRawGrbg12:
-    case kRawRggb12:
-    case kRawBggr16:
-    case kRawGbrg16:
-    case kRawGrbg16:
-    case kRawRggb16:
-      num_planes = 1;
-      break;
-    case kNv12:
-    case kNv12UBWC:
-    case kNv21:
-    case kNv21UBWC:
-    case kNv16:
-    case kNv61:
-      num_planes = 2;
-      break;
-    case kJpeg:
-    case kGrey:
-      num_planes = 1;
-      break;
-    default:
-      std::stringstream err;
-      err << "Not supported pixel format " << std::hex << pix_fmt;
-      Utils::ThrowException(__func__, err.str());
-  }
+  // Get number of planes
+  num_planes = GetNumPlanes(pix_fmt);
 
   // The stride is common for all planes of the buffer
   uint32_t buffer_stride = border_left + file_stride + min_border_right;
@@ -255,7 +207,8 @@ std::shared_ptr<BufferHandler> BufferHandler::New(
 
   size_t addr = reinterpret_cast<size_t>(vaddr);
 
-  // addr is now equal to the starting address of the first plane of the buffer
+  // addr is now equal to the starting address of the first plane of the
+  // buffer
   addr = Utils::MakeDivisibleBy(addr, plane_alignment);
 
   for (uint32_t i = 0; i < planes.size(); i++) {
@@ -473,14 +426,14 @@ void BufferHandler::FillBufferWith(uint8_t value) {
 }
 
 /** MemoryIsCorrupted
-   *
-   * check if the additional padding bytes of the buffer have remained
-   * unchanged after the last call to FillBufferWith()
-   * If FillBufferWith() hasn't been called, the function throws an exception
-   *
-   * return: true, if the value of an offset byte is corrupted;
-   *         false, if all offset bytes have remained unchanged
-   **/
+ *
+ * check if the additional padding bytes of the buffer have remained
+ * unchanged after the last call to FillBufferWith()
+ * If FillBufferWith() hasn't been called, the function throws an exception
+ *
+ * return: true, if the value of an offset byte is corrupted;
+ *         false, if all offset bytes have remained unchanged
+ **/
 bool BufferHandler::MemoryIsCorrupted() const {
   if (false == buffer_is_filled_) {
     Utils::ThrowException(__func__, "The buffer is not filled");
@@ -490,10 +443,9 @@ bool BufferHandler::MemoryIsCorrupted() const {
 
   for (uint32_t plane_index = 0; plane_index < plane_.size(); ++plane_index) {
     const uint8_t *pi =
-        vaddr_ +
-        (plane_[plane_index].offset_ -
-         (border_left_ +
-          border_up_ * plane_[plane_index].stride_ / (plane_index + 1)));
+        vaddr_ + (plane_[plane_index].offset_ -
+                  (border_left_ + border_up_ * plane_[plane_index].stride_ /
+                                      (plane_index + 1)));
 
     // Check the up padding for corruption
     for (uint32_t i = 0;
@@ -565,13 +517,13 @@ bool BufferHandler::MemoryIsCorrupted() const {
 }
 
 /** GetWidthInBytes
-  *    @width_in_pixels: width in pixels
-  *    @pix_fmt: pixel format
-  *
-  * returns width in bytes based on pixel format
-  *
-  * return: width in bytes based on pixel format
-  **/
+ *    @width_in_pixels: width in pixels
+ *    @pix_fmt: pixel format
+ *
+ * returns width in bytes based on pixel format
+ *
+ * return: width in bytes based on pixel format
+ **/
 uint32_t BufferHandler::GetWidthInBytes(uint32_t width_in_pixels,
                                         PixelFormat pix_fmt) {
   uint32_t rc = width_in_pixels;
@@ -590,6 +542,10 @@ uint32_t BufferHandler::GetWidthInBytes(uint32_t width_in_pixels,
     case kJpeg:
     case kGrey:
       rc = width_in_pixels;
+      break;
+    case kBgr24:
+    case kRgb24:
+      rc = width_in_pixels * 3;
       break;
     case kRawBggrMipi10:
     case kRawGbrgMipi10:
@@ -627,22 +583,21 @@ uint32_t BufferHandler::GetWidthInBytes(uint32_t width_in_pixels,
 }
 
 /** GetHeightInLines
-  *    @image_height: image height
-  *    @pix_fmt: pixel format
-  *    @plane: plane
-  *
-  * returns height in lines based on pixel format and plane
-  *
-  * return: height in lines based on pixel format and plane
-  **/
+ *    @image_height: image height
+ *    @pix_fmt: pixel format
+ *    @plane: plane
+ *
+ * returns height in lines based on pixel format and plane
+ *
+ * return: height in lines based on pixel format and plane
+ **/
 uint32_t BufferHandler::GetHeightInLines(uint32_t image_height,
-                                         PixelFormat pix_fmt,
-                                         uint32_t plane) {
+                                         PixelFormat pix_fmt, uint32_t plane) {
   uint32_t rc = image_height;
 
   if (1 < plane) {
-    std::string err = std::string("Not supported plane index ") +
-                  std::to_string(plane);
+    std::string err =
+        std::string("Not supported plane index ") + std::to_string(plane);
     Utils::ThrowException(__func__, err);
   }
 
@@ -685,6 +640,8 @@ uint32_t BufferHandler::GetHeightInLines(uint32_t image_height,
     case kRawGbrg16:
     case kRawGrbg16:
     case kRawRggb16:
+    case kBgr24:
+    case kRgb24:
       if (0 == plane) {
         rc = image_height;
       } else {
@@ -698,6 +655,74 @@ uint32_t BufferHandler::GetHeightInLines(uint32_t image_height,
   }
 
   return rc;
+}
+
+/** GetNumPlanes
+ *    @pix_fmt: pixel format
+ *
+ * returns number of planes based on pixel format
+ *
+ * return: number of planes based on pixel format
+ **/
+uint32_t BufferHandler::GetNumPlanes(PixelFormat pix_fmt) {
+  uint32_t num_planes = 0;
+
+  switch (pix_fmt) {
+    case kRawBggrMipi8:
+    case kRawGbrgMipi8:
+    case kRawGrbgMipi8:
+    case kRawRggbMipi8:
+      num_planes = 1;
+      break;
+    case kRawBggrMipi10:
+    case kRawGbrgMipi10:
+    case kRawGrbgMipi10:
+    case kRawRggbMipi10:
+      num_planes = 1;
+      break;
+    case kRawBggrMipi12:
+    case kRawGbrgMipi12:
+    case kRawGrbgMipi12:
+    case kRawRggbMipi12:
+      num_planes = 1;
+      break;
+    case kRawBggr10:
+    case kRawGbrg10:
+    case kRawGrbg10:
+    case kRawRggb10:
+    case kRawBggr12:
+    case kRawGbrg12:
+    case kRawGrbg12:
+    case kRawRggb12:
+    case kRawBggr16:
+    case kRawGbrg16:
+    case kRawGrbg16:
+    case kRawRggb16:
+      num_planes = 1;
+      break;
+    case kNv12:
+    case kNv12UBWC:
+    case kNv21:
+    case kNv21UBWC:
+    case kNv16:
+    case kNv61:
+      num_planes = 2;
+      break;
+    case kJpeg:
+    case kGrey:
+      num_planes = 1;
+      break;
+    case kBgr24:
+    case kRgb24:
+      num_planes = 1;
+      break;
+    default:
+      std::stringstream err;
+      err << "Not supported pixel format " << std::hex << pix_fmt;
+      Utils::ThrowException(__func__, err.str());
+  }
+
+  return num_planes;
 }
 
 };  // namespace qmmf_alg_plugin
