@@ -5,7 +5,7 @@
     "qmmf_algo_gtest_bayer_lcac.json",
     "qmmf_algo_gtest_svhdr.json",
     "qmmf_algo_gtest_edge_smooth.json",
-    "qmmf_algo_gtest_privacy_mask_resizer.json",
-    "qmmf_algo_gtest_bit_blit.json"
+    "qmmf_algo_gtest_privacy_mask.json",
+    "qmmf_algo_gtest_res_conv_sub.json"
   ]
 }

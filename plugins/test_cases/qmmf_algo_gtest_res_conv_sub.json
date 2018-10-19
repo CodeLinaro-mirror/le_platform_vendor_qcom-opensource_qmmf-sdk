@@ -1,8 +1,8 @@
 {
   "Common": {
     "iteration count": 12,
-    "tested library": "qmmf/alg-plugins/libqmmf_alg_privacy_mask_resizer.so",
-    "configuration file": "privacy_mask_resizer_configuration.json",
+    "tested library": "qmmf/alg-plugins/libqmmf_alg_res_conv_sub.so",
+    "configuration file": "res_conv_sub_configuration.json",
     "calibration file": "",
     "input buffers": [
       {
@@ -15,11 +15,11 @@
     ],
     "output buffers": [
       {
-        "width": 1920,
-        "height": 1080,
-        "stride": 5760,
-        "scanline": 1088,
-        "pixel format": "Rgb24"
+        "width": 278,
+        "height": 278,
+        "stride": 834,
+        "scanline": 278,
+        "pixel format": "Bgr24"
       }
     ]
   }
