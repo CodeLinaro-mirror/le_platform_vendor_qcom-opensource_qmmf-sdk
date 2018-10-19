@@ -6,20 +6,20 @@
     "calibration file": "",
     "input buffers": [
       {
-        "width": 2688,
-        "height": 1520,
-        "stride": 2688,
-        "scanline": 1520,
+        "width": 1920,
+        "height": 1440,
+        "stride": 1920,
+        "scanline": 1472,
         "pixel format": "Nv21"
       }
     ],
     "output buffers": [
       {
-        "width": 2688,
-        "height": 1520,
-        "stride": 2688,
-        "scanline": 1520,
-        "pixel format": "Nv21"
+        "width": 1920,
+        "height": 1080,
+        "stride": 5760,
+        "scanline": 1088,
+        "pixel format": "Rgb24"
       }
     ]
   }
