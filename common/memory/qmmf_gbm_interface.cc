@@ -204,6 +204,10 @@ uint32_t GBMBuffer::GetLocalFormat (int common)
 
 GBMDevice::GBMDevice() {
   gbm_fd_ = open("/dev/dri/card0", O_RDWR);
+  if (gbm_fd_ < 0) {
+    QMMF_WARN("%s: Falling back to /dev/ion \n", __func__);
+    gbm_fd_ = open("/dev/ion", O_RDWR);
+  }
   assert(gbm_fd_ >= 0);
   gbm_device_ = gbm_create_device(gbm_fd_);
   assert(gbm_device_ != nullptr);
