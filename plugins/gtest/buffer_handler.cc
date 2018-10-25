@@ -32,8 +32,8 @@
 #include <chrono>
 #include <cmath>
 
-#include "buffer_handler.h"
 #include <qmmf-alg/qmmf_alg_utils.h>
+#include "buffer_handler.h"
 
 namespace qmmf {
 namespace qmmf_alg_plugin {
@@ -547,6 +547,10 @@ uint32_t BufferHandler::GetWidthInBytes(uint32_t width_in_pixels,
     case kRgb24:
       rc = width_in_pixels * 3;
       break;
+    case kBgrFloat:
+    case kRgbFloat:
+      rc = width_in_pixels * 3 * sizeof(float);
+      break;
     case kRawBggrMipi10:
     case kRawGbrgMipi10:
     case kRawGrbgMipi10:
@@ -642,6 +646,8 @@ uint32_t BufferHandler::GetHeightInLines(uint32_t image_height,
     case kRawRggb16:
     case kBgr24:
     case kRgb24:
+    case kBgrFloat:
+    case kRgbFloat:
       if (0 == plane) {
         rc = image_height;
       } else {
@@ -714,6 +720,8 @@ uint32_t BufferHandler::GetNumPlanes(PixelFormat pix_fmt) {
       break;
     case kBgr24:
     case kRgb24:
+    case kBgrFloat:
+    case kRgbFloat:
       num_planes = 1;
       break;
     default:

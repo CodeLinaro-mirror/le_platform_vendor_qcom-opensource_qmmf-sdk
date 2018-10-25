@@ -7,7 +7,7 @@
     "BlueChannelMean": 128.0,
     "GreenChannelMean": 128.0,
     "RedChannelMean": 128.0,
-    "UseNorm": 0,
+    "UseNorm": 1,
     "InputWidth": 278,
     "InputHeight": 278,
     "KeepAspectRatio": 0,

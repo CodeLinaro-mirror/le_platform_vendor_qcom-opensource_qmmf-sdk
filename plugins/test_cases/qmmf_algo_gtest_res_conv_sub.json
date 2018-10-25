@@ -17,9 +17,9 @@
       {
         "width": 278,
         "height": 278,
-        "stride": 834,
+        "stride": 3336,
         "scanline": 278,
-        "pixel format": "Bgr24"
+        "pixel format": "BgrFloat"
       }
     ]
   }
