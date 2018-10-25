@@ -13,12 +13,13 @@ include $(CLEAR_VARS)
 
 include $(QMMF_SDK_TOP_SRCDIR)/common.mk
 
-LOCAL_C_INCLUDES += $(TOP)/hardware/qcom/camera/QCamera2/HAL3
+LOCAL_C_INCLUDES += $(CAMERA_HAL_PATH)/QCamera2/HAL3
 LOCAL_C_INCLUDES += $(TOP)/external/jsoncpp/include
 
 LOCAL_SRC_FILES := qmmf_postproc_algo.cc
 
-LOCAL_SHARED_LIBRARIES += libcamera_metadata libjsoncpp_vendor
+LOCAL_SHARED_LIBRARIES += libcamera_metadata $(LIB_JSONCPP)
+LOCAL_SHARED_LIBRARIES += libqmmf_memory_interface
 
 LOCAL_MODULE = libqmmf_postproc_algo
 

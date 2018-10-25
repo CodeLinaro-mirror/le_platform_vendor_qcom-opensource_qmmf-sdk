@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -30,7 +30,6 @@
 #define LOG_TAG "RecorderPostProcNode"
 
 #include <sys/mman.h>
-#include <qcom/display/gralloc_priv.h>
 
 #include "qmmf_postproc_node.h"
 
@@ -81,7 +80,7 @@ status_t PostProcNode::Initialize(const PostProcIOParam &in_param,
   mem_pool_params_.format = Common::FromQmmfToHalFormat(out_param.format);
 
   mem_pool_params_.max_buffer_count = out_param.buffer_count;
-  mem_pool_params_.gralloc_flags = out_param.gralloc_flags;
+  mem_pool_params_.alloc_flags = out_param.alloc_flags;
   mem_pool_params_.max_size = 0;
 
   if (out_param.format == BufferFormat::kBLOB) {
@@ -265,6 +264,9 @@ status_t PostProcNode::Stop() {
       name_.c_str());
 
   ReturnBuffers();
+
+  ret = mem_pool_->WaitUntilBufferReturned();
+  assert(ret == NO_ERROR);
 
   {
     std::lock_guard<std::mutex> lock(state_lock_);

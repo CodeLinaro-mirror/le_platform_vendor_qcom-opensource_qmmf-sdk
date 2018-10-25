@@ -52,6 +52,34 @@ if test "x$drone_target" == "xtrue" ; then
 [CPPFLAGS="$CPPFLAGS -D_DRONE_"]
 fi
 
+AC_ARG_WITH([basemachine],
+        AC_HELP_STRING([with-basemachine=@<:@machine name@:>@],
+        [Specify the Machine name]),
+        [case "${withval}" in
+                qcs605) rd_target=true ;;
+                *) rd_target=false ;;
+        esac],
+        [rd_target=false])
+AM_CONDITIONAL([TARGET_USES_GBM], [test x$rd_target = xtrue])
+AM_CONDITIONAL([DISABLE_VIDEO_TIMELAPSE], [test x$rd_target = xtrue])
+AM_CONDITIONAL([DISABLE_PP_JPEG], [test x$rd_target = xtrue])
+AM_CONDITIONAL([DISABLE_DISPLAY], [test x$rd_target = xtrue])
+AM_CONDITIONAL([DISABLE_MULTICAM], [test x$rd_target = xtrue])
+if test "x$rd_target" == "xtrue" ; then
+[CPPFLAGS="$CPPFLAGS -DTARGET_USES_GBM"]
+[CPPFLAGS="$CPPFLAGS -DDISABLE_OP_MODES"]
+[CPPFLAGS="$CPPFLAGS -DDISABLE_PP_JPEG"]
+[CPPFLAGS="$CPPFLAGS -DDISABLE_DISPLAY"]
+[CPPFLAGS="$CPPFLAGS -DQCAMERA3_TAG_LOCAL_COPY"]
+[CPPFLAGS="$CPPFLAGS -DFLUSH_RESTART_NOTAVAILABLE"]
+[CPPFLAGS="$CPPFLAGS -DDISABLE_VID_LPM"]
+[CPPFLAGS="$CPPFLAGS -DDISABLE_VID_QP_RANGE"]
+[CPPFLAGS="$CPPFLAGS -DDISABLE_MULTICAM"]
+[CPPFLAGS="$CPPFLAGS -DCAM_ARCH_V2"]
+[CPPFLAGS="$CPPFLAGS -DJPEG_BLOB_OFFSET=0"]
+[CPPFLAGS="$CPPFLAGS -DUSE_FPS_IDX"]
+fi
+
 AC_ARG_WITH([camerahal],
       AC_HELP_STRING([with-camerahal=@<:@dir@:>@],
          [Specify the location of CameraHal]),
@@ -155,10 +183,14 @@ AC_SUBST([EXIF_CFLAGS], "${exif_incdir}")
 AC_SUBST([OMXCORE_CFLAGS], "${omxcore_incdir}")
 AC_SUBST([OPENMAX_CFLAGS], "${openmax_incdir}")
 
+AM_CONDITIONAL([TARGET_USES_GRALLOC1], [test "x$TARGET_USES_GRALLOC1" = "xtrue"])
+AM_CONDITIONAL([TARGET_USES_GRALLOC2], [test "x$TARGET_USES_GRALLOC2" = "xtrue"])
+
 AC_CONFIG_FILES([ \
     Makefile \
     common/utils/Makefile \
     common/overlay/Makefile \
+    common/memory/Makefile \
     common/cameraadaptor/Makefile \
     common/audio/src/client/Makefile \
     common/audio/src/service/Makefile \

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016, 2018, The Linux Foundation. All rights reserved.
  * Not a Contribution.
  */
 
@@ -173,15 +173,17 @@ void Camera3RequestHandler::TogglePause(bool pause, bool &pending_request) {
 }
 
 void Camera3RequestHandler::RequestExit() {
-  Camera3Thread::RequestExit();
+  ThreadHelper::RequestExit();
 
   pthread_cond_signal(&toggle_pause_signal_);
   pthread_cond_signal(&requests_signal_);
 }
 
 void Camera3RequestHandler::RequestExitAndWait() {
-  RequestExit();
-  Camera3Thread::RequestExitAndWait();
+  pthread_cond_signal(&toggle_pause_signal_);
+  pthread_cond_signal(&requests_signal_);
+
+  ThreadHelper::RequestExitAndWait();
 }
 
 bool Camera3RequestHandler::ThreadLoop() {
@@ -189,12 +191,16 @@ bool Camera3RequestHandler::ThreadLoop() {
 
   if (WaitOnPause()) {
     return true;
+  } else if (ExitPending()) {
+    return false;
   }
 
   CaptureRequest nextRequest;
   res = GetRequest(nextRequest);
   if (0 != res) {
     return true;
+  } else if (ExitPending()) {
+    return false;
   }
 
   camera3_capture_request_t request = camera3_capture_request_t();
@@ -219,11 +225,30 @@ bool Camera3RequestHandler::ThreadLoop() {
     memset(&input_buffer, 0, sizeof(input_buffer));
 
     nextRequest.input->get_input_buffer(input_buffer);
+
+    // remove this hach when camera supports GBM
+#ifdef TARGET_USES_GBM
+    nextRequest.input->buffers_map.insert(
+      std::make_pair(GetGrallocBufferHandle(input_buffer.handle),
+                     input_buffer.handle));
+#else
+    nextRequest.input->buffers_map.insert(
+          std::make_pair(GetAllocBufferHandle(input_buffer.handle),
+                         input_buffer.handle));
+#endif //TARGET_USES_GBM
+
     input_stream_buffer.acquire_fence = -1;
     input_stream_buffer.release_fence = -1;
     input_stream_buffer.status = CAMERA3_BUFFER_STATUS_OK;
     input_stream_buffer.stream = nextRequest.input;
-    input_stream_buffer.buffer = &input_buffer.handle;
+
+    // remove this hach when camera supports GBM
+#ifdef TARGET_USES_GBM
+    input_stream_buffer.buffer = &GetGrallocBufferHandle(input_buffer.handle);
+#else
+    input_stream_buffer.buffer = &GetAllocBufferHandle(input_buffer.handle);
+#endif //TARGET_USES_GBM
+
     request.input_buffer = &input_stream_buffer;
     totalNumBuffers++;
   }
@@ -335,7 +360,10 @@ void Camera3RequestHandler::HandleErrorRequest(
     outputBuffers.editItemAt(i).status = CAMERA3_BUFFER_STATUS_ERROR;
     StreamBuffer b;
     memset(&b, 0, sizeof(b));
-    b.handle = *outputBuffers[i].buffer;
+    b.handle =
+      nextRequest.streams.editItemAt(i)->buffers_map[*outputBuffers[i].buffer];
+    nextRequest.streams.editItemAt(i)->
+      buffers_map.erase(*outputBuffers[i].buffer);
     nextRequest.streams.editItemAt(i)->ReturnBuffer(b);
   }
 

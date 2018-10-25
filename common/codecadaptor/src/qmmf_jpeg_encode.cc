@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -28,6 +28,7 @@
 
 #define LOG_TAG "AVCodecJpegEncode"
 
+#include <atomic>
 #include <cmath>
 #include <chrono>
 #include <cstdlib>
@@ -44,7 +45,6 @@
 #include <utils/RefBase.h>
 #include <cutils/properties.h>
 #include <hardware/camera3.h>
-#include <qcom/display/gralloc_priv.h>
 #include <linux/msm_ion.h>
 #include <media/hardware/HardwareAPI.h>
 
@@ -61,7 +61,7 @@ using std::shared_ptr;
 using namespace android;
 
 JPEGEncoder::JPEGEncoder()
-    : stop_jpeg_(false), job_result_size_(0),
+    : stop_jpeg_(false),
       jpeg_encoder_(nullptr) {
 
   // Set Default Values

@@ -15,7 +15,7 @@ LOCAL_CFLAGS += -DUSE_SKIA=1
 LOCAL_CFLAGS += -DUSE_CAIRO=0
 
 LOCAL_C_INCLUDES += $(TOP)/system/media/camera/include
-LOCAL_C_INCLUDES += $(TOP)/hardware/qcom/camera/QCamera2/HAL3
+LOCAL_C_INCLUDES += $(CAMERA_HAL_PATH)/QCamera2/HAL3
 LOCAL_C_INCLUDES += $(TOP)/external/skia/include/core/
 
 LOCAL_SRC_FILES  := qmmf_recorder_test.cc
@@ -25,7 +25,7 @@ LOCAL_SRC_FILES  += qmmf_recorder_test_amr.cc
 LOCAL_SRC_FILES  += qmmf_recorder_test_mpegh.cc
 
 LOCAL_SHARED_LIBRARIES += libqmmf_utils libqmmf_recorder_client
-LOCAL_SHARED_LIBRARIES += libcamera_client libskia
+LOCAL_SHARED_LIBRARIES += libcamera_client libskia libqmmf_memory_interface
 ifneq ($(DISABLE_DISPLAY),1)
 LOCAL_SHARED_LIBRARIES += libqmmf_display_client
 endif

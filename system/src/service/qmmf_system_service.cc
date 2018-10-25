@@ -188,8 +188,12 @@ status_t SystemService::Disconnect(const SystemHandle system_handle) {
     return -EINVAL;
   }
 
-  IInterface::asBinder(client_handler_iterator->second)->
-      unlinkToDeath(death_notifier_iterator->second);
+  auto client_handler_iterator_binder = IInterface::asBinder(client_handler_iterator->second);
+  if (client_handler_iterator_binder == nullptr) {
+    QMMF_ERROR("Client handler iterator binder is null");
+    return -EFAULT;
+  }
+  client_handler_iterator_binder->unlinkToDeath(death_notifier_iterator->second);
   client_handler_iterator->second.clear();
   death_notifier_iterator->second.clear();
   client_handlers_.erase(client_handler_iterator);

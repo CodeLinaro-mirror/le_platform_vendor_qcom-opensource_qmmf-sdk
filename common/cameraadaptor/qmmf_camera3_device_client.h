@@ -31,6 +31,12 @@
 #include <camera/VendorTagDescriptor.h>
 #include <mutex>
 
+#ifdef TARGET_USES_GBM
+#include <gbm.h>
+#include <gbm_priv.h>
+#include <fcntl.h>
+#endif
+
 #include "qmmf_camera3_types.h"
 #include "qmmf_camera3_internal_types.h"
 #include "qmmf_camera3_stream.h"
@@ -57,39 +63,6 @@ using namespace android;
 namespace qmmf {
 
 namespace cameraadaptor {
-
-#ifdef TARGET_USES_GRALLOC1
-  typedef gralloc1_device_t* mem_alloc_device;
-#else
-  typedef alloc_device_t*    mem_alloc_device;
-#endif
-
-class IAllocDevice {
- public:
-   virtual ~IAllocDevice() {};
-
-   static IAllocDevice* CreateAllocDevice(hw_module_t const* module);
-
-   mem_alloc_device GetDevice() { return device_; }
-   void SetDevice(mem_alloc_device device) { device_ = device; }
-
- private:
-   mem_alloc_device          device_;
-};
-
-#ifdef TARGET_USES_GRALLOC1
-class Gralloc1Device : public IAllocDevice {
- public:
-   Gralloc1Device(hw_module_t const * module);
-   ~Gralloc1Device();
-};
-#else
-class GrallocDevice : public IAllocDevice {
- public:
-   GrallocDevice(hw_module_t const * module);
-   ~GrallocDevice();
-};
-#endif
 
 class Camera3DeviceClient : public camera3_callback_ops,
                             public camera_module_callbacks_t,

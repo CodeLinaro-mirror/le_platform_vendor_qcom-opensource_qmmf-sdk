@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -333,19 +333,22 @@ status_t PostProcAlg::Process(
 
   if (state_ == State::ACTIVE) {
     std::vector<AlgBuffer> in_alg_buffers;
-    auto ret = PrepareAlgBuffer(in_alg_buffers, in_buffers);
+    auto ret = PrepareAlgBuffer(in_alg_buffers, in_buffers,
+                                algo_caps_.in_buffer_requirements_.cached_);
     if (ret != NO_ERROR) {
       QMMF_ERROR("%s: Fail to prepare in buffers", __func__);
       return BAD_VALUE;
     }
 
     std::vector<AlgBuffer> out_alg_buffers;
-    ret = PrepareAlgBuffer(out_alg_buffers, out_buffers);
+    ret = PrepareAlgBuffer(out_alg_buffers, out_buffers,
+                           algo_caps_.out_buffer_requirements_.cached_);
     if (ret != NO_ERROR) {
       QMMF_ERROR("%s: Fail to prepare out buffers", __func__);
       return BAD_VALUE;
     }
 
+    assert(in_alg_buffers.size() == algo_caps_.out_buffer_requirements_.count_);
     if (dump_in_frame_ == true) {
       for (auto buf : in_alg_buffers) {
         DumpFrame(buf, true);
@@ -500,7 +503,7 @@ BufferFormat PostProcAlg::GetQmmfFormat(PixelFormat format) {
 
 status_t PostProcAlg::PrepareAlgBuffer(
     std::vector<AlgBuffer> &algo_buffs,
-    const std::vector<StreamBuffer> stream_buffs) {
+    const std::vector<StreamBuffer> stream_buffs, const bool cached = false) {
 
   for (auto stream_buffer : stream_buffs) {
     if (stream_buffer.fd == -1 || stream_buffer.data == nullptr) {
@@ -512,7 +515,7 @@ status_t PostProcAlg::PrepareAlgBuffer(
     uint32_t offset = 0;
     std::vector<BufferPlane> planes;
     for (uint32_t i = 0; i < stream_buffer.info.num_planes; i++) {
-      // gralloc report stride in pixels except mipi formats, because
+      // alloc report stride in pixels except mipi formats, because
       // mipi stride cannot be represent in pixels.
       uint32_t stride_in_bytes = stream_buffer.info.plane_info[i].stride;
       if (stream_buffer.info.format == BufferFormat::kRAW16) {
@@ -533,7 +536,7 @@ status_t PostProcAlg::PrepareAlgBuffer(
     AlgBuffer buf(reinterpret_cast<uint8_t*>(stream_buffer.data),
                   stream_buffer.fd,
                   stream_buffer.size,
-                  false,
+                  cached,
                   GetAlgFormat(stream_buffer.info.format),
                   stream_buffer.timestamp,
                   stream_buffer.frame_number,

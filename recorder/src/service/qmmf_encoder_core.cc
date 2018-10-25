@@ -443,6 +443,7 @@ status_t TrackEncoder::Init(const shared_ptr<TrackSource>& track_source,
 status_t TrackEncoder::Start() {
 
   QMMF_INFO("%s: Enter track_id(%x)", __func__, TrackId());
+  std::lock_guard<std::mutex> lock(lock_);
 
   assert(avcodec_ != nullptr);
   auto ret = avcodec_->StartCodec();
@@ -463,6 +464,8 @@ status_t TrackEncoder::Start() {
 status_t TrackEncoder::Stop(bool is_force_cleanup) {
 
   QMMF_INFO("%s: Enter track_id(%x)", __func__, TrackId());
+  std::lock_guard<std::mutex> lock(lock_);
+
   if (is_force_cleanup) {
     QMMF_INFO("%s track_id(%x) Force cleanup", __func__, TrackId());
     std::lock_guard<std::mutex> lock(queue_lock_);

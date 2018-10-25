@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -28,6 +28,8 @@
 */
 
 #include "qmmf_transcode_pipe.h"
+
+#include <sys/prctl.h>
 
 #undef LOG_TAG
 #define LOG_TAG "TranscoderPipe"
@@ -167,6 +169,8 @@ void TranscoderPipe::Sendbackward(const TranscodeBuffer& buffer) {
 
 void* TranscoderPipe::Transport(void* arg) {
   QMMF_INFO("%s Enter", __func__);
+
+  prctl(PR_SET_NAME, "TransCodeTransP", 0, 0, 0);
 
   TranscoderPipe* ptr = reinterpret_cast<TranscoderPipe*>(arg);
 

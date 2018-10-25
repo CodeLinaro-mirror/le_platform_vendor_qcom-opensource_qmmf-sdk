@@ -36,10 +36,29 @@ LOCAL_EXPORT_C_INCLUDE_DIRS := $(QMMF_SDK_TOP_SRCDIR)/include
 
 LOCAL_32_BIT_ONLY := true
 
+ifeq ($(DISABLE_DISPLAY),1)
+LOCAL_CFLAGS += -DDISABLE_DISPLAY
+endif
+ifeq ($(DISABLE_PLAYER_SERVICE),1)
+LOCAL_CFLAGS += -DDISABLE_PLAYER_SERVICE
+endif
+ifeq ($(DISABLE_AUDIO_SERVICE),1)
+LOCAL_CFLAGS += -DDISABLE_AUDIO_SERVICE
+endif
+ifeq ($(DISABLE_SYSTEM_SERVICE),1)
+LOCAL_CFLAGS += -DDISABLE_SYSTEM_SERVICE
+endif
+
 # Enable libs/bins installation into vendor
 ifeq ($(IS_ANDROID_O_OR_ABOVE),true)
 LOCAL_VENDOR_MODULE := true
 endif #LOCAL_VENDOR_MODULE
+
+# Enable CAM_ARCH_V2
+ifeq ($(TARGET_BOARD_PLATFORM),qcs605)
+CAM_ARCH_V2 := 1
+LOCAL_CFLAGS += -DCAM_ARCH_V2
+endif #CAM_ARCH_V2
 
 # Disable jpeg postproc
 ifeq ($(TARGET_BOARD_PLATFORM),qcs605)
@@ -66,11 +85,6 @@ endif #DISABLE_OP_MODES
 ifeq ($(TARGET_USES_GRALLOC1),true)
 LOCAL_CFLAGS += -DTARGET_USES_GRALLOC1
 endif #TARGET_USES_GRALLOC1
-
-# Enable Vendor Tag Descriptor
-ifeq ($(TARGET_BOARD_PLATFORM),qcs605)
-LOCAL_CFLAGS += -DUSE_VENDOR_TAG_DESC
-endif #VENDOR_TAG_DESC
 
 # Set HFR Threshold values based on platform
 ifeq ($(TARGET_BOARD_PLATFORM),qcs605)
@@ -112,9 +126,27 @@ ifeq ($(TARGET_BOARD_PLATFORM),qcs605)
 LOCAL_CFLAGS += -DFLUSH_RESTART_NOTAVAILABLE
 endif #FLUSH_RESTART_NOTAVAILABLE
 
+# Enable local QCamera3 tags support
+ifeq ($(TARGET_BOARD_PLATFORM),qcs605)
+LOCAL_CFLAGS += -DQCAMERA3_TAG_LOCAL_COPY
+endif #QCAMERA3_TAG_LOCAL_COPY
+
 # Display service v1, gralloc1 and updated sdm interface
 ifeq ($(TARGET_BOARD_PLATFORM),qcs605)
 ifeq ($(TARGET_USES_GRALLOC1),true)
 LOCAL_CFLAGS += -DQMMF_DISPLAY_INTF_v1
 endif
 endif #QMMF_DISPLAY_INTF_v1
+
+# Set hal paths
+ifeq ($(PRODUCT_BRAND),Things)
+CAMERA_HAL_PATH := $(TOP)/hardware/qcom/camera/$(TARGET_BOARD_PLATFORM)
+MEDIA_HAL_PATH := $(TOP)/hardware/qcom/media/$(TARGET_BOARD_PLATFORM)
+DISPLAY_HAL_PATH := $(TOP)/hardware/qcom/display/$(TARGET_BOARD_PLATFORM)
+LIB_JSONCPP := libjsoncpp
+else
+CAMERA_HAL_PATH := $(TOP)/hardware/qcom/camera
+MEDIA_HAL_PATH := $(TOP)/hardware/qcom/media
+DISPLAY_HAL_PATH := $(TOP)/hardware/qcom/display
+LIB_JSONCPP := libjsoncpp_vendor
+endif

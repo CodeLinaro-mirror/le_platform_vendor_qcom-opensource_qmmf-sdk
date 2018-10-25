@@ -15,7 +15,7 @@ include $(QMMF_SDK_TOP_SRCDIR)/common.mk
 
 LOCAL_C_INCLUDES += $(TOP)/system/media/camera/include
 LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/mm-core/omxcore
-LOCAL_C_INCLUDES += $(TOP)/hardware/qcom/media
+LOCAL_C_INCLUDES += $(MEDIA_HAL_PATH)
 
 LOCAL_SRC_FILES := qmmf_recorder.cc
 LOCAL_SRC_FILES += qmmf_recorder_client.cc
@@ -23,7 +23,7 @@ LOCAL_SRC_FILES += qmmf_recorder_client_ion.cc
 LOCAL_SRC_FILES += qmmf_recorder_extra_param.cc
 
 LOCAL_SHARED_LIBRARIES += libcamera_metadata libcamera_client
-LOCAL_SHARED_LIBRARIES += libqmmf_camera_adaptor libbinder
+LOCAL_SHARED_LIBRARIES += libqmmf_camera_adaptor libbinder libqmmf_memory_interface
 
 LOCAL_MODULE = libqmmf_recorder_client
 

@@ -116,8 +116,8 @@ status_t FakeCamera::WaitAecToConverge(const uint32_t timeout) {
   return NO_ERROR;
 }
 
-status_t FakeCamera::SetUpCapture(const ImageParam &param,
-                                          const uint32_t num_images) {
+status_t FakeCamera::SetUpCapture(const SnapshotParam& param,
+                                  const uint32_t num_images) {
   return NO_ERROR;
 }
 
@@ -137,44 +137,38 @@ status_t FakeCamera::CancelCaptureImage() {
   return NO_ERROR;
 }
 
-status_t FakeCamera::CreateStream(const CameraStreamParam& param,
+status_t FakeCamera::CreateStream(const StreamParam& param,
                                   const VideoExtraParam& extra_param) {
 
   int32_t ret = NO_ERROR;
   std::string ext;
 
-  camera_stream_param_ = param;
+  stream_param_ = param;
   stream_id_ = stream_id_count_++;
   frame_number_ = 0;
 
   QMMF_INFO("%s: width = %d, height = %d, format = %d", __func__,
-            param.cam_stream_dim.width,
-            param.cam_stream_dim.height,
-            param.cam_stream_format);
+      param.width, param.height, param.format);
 
-  mem_pool_params_.width = camera_stream_param_.cam_stream_dim.width;
-  mem_pool_params_.height = camera_stream_param_.cam_stream_dim.height;
+  mem_pool_params_.width = stream_param_.width;
+  mem_pool_params_.height = stream_param_.height;
+  mem_pool_params_.format = Common::FromQmmfToHalFormat(param.format);
 
-  if (param.cam_stream_format == CameraStreamFormat::kRAW10) {
-    mem_pool_params_.format       = HAL_PIXEL_FORMAT_RAW10;
+  if (mem_pool_params_.format== HAL_PIXEL_FORMAT_RAW10) {
     ext = ".raw10";
-  } else if (param.cam_stream_format == CameraStreamFormat::kRAW12) {
-    mem_pool_params_.format       = HAL_PIXEL_FORMAT_RAW12;
+  } else if (mem_pool_params_.format == HAL_PIXEL_FORMAT_RAW12) {
     ext = ".raw12";
-  } else if (param.cam_stream_format == CameraStreamFormat::kRAW8) {
-    mem_pool_params_.format       = HAL_PIXEL_FORMAT_RAW8;
+  } else if (mem_pool_params_.format == HAL_PIXEL_FORMAT_RAW8) {
     ext = ".raw8";
   } else {
-    mem_pool_params_.format       = HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
     ext = ".yuv";
   }
 
   mem_pool_params_.max_buffer_count = 10;
-  mem_pool_params_.gralloc_flags &= GRALLOC_USAGE_ALLOC_MASK;
-  mem_pool_params_.gralloc_flags |= GRALLOC_USAGE_SW_WRITE_OFTEN |
-                                    GRALLOC_USAGE_SW_READ_OFTEN |
-                                    GRALLOC_USAGE_HW_FB |
-                                    private_handle_t::PRIV_FLAGS_VIDEO_ENCODER;
+  mem_pool_params_.alloc_flags =  IMemAllocUsage::kSwWriteOften |
+                                    IMemAllocUsage::kSwReadOften |
+                                    IMemAllocUsage::kHwFb |
+                                    IMemAllocUsage::kVideoEncoder;
 
   mem_pool_params_.max_size = 0;
 
@@ -186,8 +180,8 @@ status_t FakeCamera::CreateStream(const CameraStreamParam& param,
 
   std::string file_path(kCameraBufferPath);
   file_path += "camera_buffer_";
-  file_path += std::to_string(param.cam_stream_dim.width) + "x";
-  file_path += std::to_string(param.cam_stream_dim.height);
+  file_path += std::to_string(param.width) + "x";
+  file_path += std::to_string(param.height);
   file_path += ext;
 
   std::ifstream file(file_path, std::ios::binary | std::ios::ate);
@@ -360,7 +354,7 @@ status_t FakeCamera::GetCameraBuffer(StreamBuffer& buffer) {
 status_t FakeCamera::FillBuffer(StreamBuffer& buffer) {
 
   buffer.timestamp = (int64_t)(((float)frame_number_ /
-      camera_stream_param_.frame_rate) * 1000000000LL);
+      stream_param_.framerate) * 1000000000LL);
   buffer.stream_id = stream_id_;
   buffer.frame_number = ++frame_number_;
   buffer.camera_id = camera_id_;
@@ -378,7 +372,7 @@ void *FakeCamera::StreamThreadLoop(void *userdata) {
   }
 
   int64_t frame_duration =
-    static_cast<int64_t>(1000.0f / pme->camera_stream_param_.frame_rate);
+    static_cast<int64_t>(1000.0f / pme->stream_param_.framerate);
 
   auto time_now = std::chrono::system_clock::now();
   std::chrono::system_clock::time_point time_next(time_now);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -41,6 +41,7 @@
 #include <string>
 #include <thread>
 #include <vector>
+#include <sys/prctl.h>
 
 #include "common/utils/qmmf_log.h"
 #include "qmmf-sdk/qmmf_codec.h"
@@ -354,7 +355,7 @@ void SystemTest::ToneHandler(const int32_t error) {
 
 void SystemTest::StaticThreadEntry(SystemTest* test) {
   QMMF_DEBUG("%s() TRACE", __func__);
-
+  prctl(PR_SET_NAME, "SysTestToneTh", 0, 0, 0);
   test->ToneThread();
 }
 

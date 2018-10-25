@@ -13,9 +13,9 @@ include $(CLEAR_VARS)
 
 include $(QMMF_SDK_TOP_SRCDIR)/common.mk
 
-LOCAL_C_INCLUDES += $(TOP)/hardware/qcom/camera/QCamera2/HAL3
+LOCAL_C_INCLUDES += $(CAMERA_HAL_PATH)/QCamera2/HAL3
 LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/mm-core/omxcore
-LOCAL_C_INCLUDES += $(TOP)/hardware/qcom/media
+LOCAL_C_INCLUDES += $(MEDIA_HAL_PATH)
 
 LOCAL_SRC_FILES := qmmf_system_service.cc
 LOCAL_SRC_FILES += qmmf_system_implementation.cc

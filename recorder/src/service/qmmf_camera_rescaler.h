@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -113,18 +113,16 @@ class CameraRescalerMemPool {
    status_t GetBufferLocked(StreamBuffer* buffer);
 
    status_t PopulateMetaInfo(CameraBufferMetaData &info,
-                             struct private_handle_t *priv_handle);
+                             IBufferHandle &handle);
 
-   status_t AllocGrallocBuffer(buffer_handle_t *buf);
+   status_t AllocHWMemBuffer(IBufferHandle &buf);
 
-   status_t FreeGrallocBuffer(buffer_handle_t buf);
+   status_t FreeHWMemBuffer(IBufferHandle buf);
    IAllocDevice                 *alloc_device_interface_;
-   IMemAllocator                *mem_alloc_interface_;
-   mem_alloc_device              alloc_device_;
-   buffer_handle_t              *gralloc_slots_;
+   IBufferHandle                *mem_alloc_slots_;
    uint32_t                      buffers_allocated_;
    uint32_t                      pending_buffer_count_;
-   std::map<buffer_handle_t, bool> gralloc_buffers_;
+   std::map<IBufferHandle, bool> mem_alloc_buffers_;
 
    RescalerMemPoolParams         init_params_;
    std::mutex                    buffer_lock_;
@@ -167,8 +165,6 @@ class CameraRescalerBase : public CameraRescalerThread,
 
   // Method for returning an output buffer back to the memory pool.
   status_t ReturnBufferToBufferPool(const StreamBuffer &buffer);
-
-  status_t Validate(const VideoTrackParams& track_params);
 
  private:
 
@@ -217,7 +213,8 @@ class CameraRescaler: public CameraRescalerBase {
 
   status_t Stop() override;
 
-  status_t Init(const VideoTrackParams& track_params);
+  status_t Init(const uint32_t& width, const uint32_t& height,
+                const BufferFormat& fmt);
 
   bool IsStop();
 

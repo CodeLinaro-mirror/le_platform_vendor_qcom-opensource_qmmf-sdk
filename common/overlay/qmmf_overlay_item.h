@@ -85,6 +85,7 @@ OVDBG_INFO, ERROR and WARN logs are enabled all the time by default.
 //#define DEBUG_BLIT_TIME
 
 #define PROP_DUMP_BLOB_IMAGE        "persist.qmmf.overlay.dump.blob"
+#define PROP_BOX_STROKE_WIDTH       "persist.qmmf.overlay.stroke.width"
 
 struct DrawInfo {
     uint32_t width;

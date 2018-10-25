@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -1111,7 +1111,11 @@ status_t CodecTest::ReleaseBuffer() {
 InputCodecSourceImpl::InputCodecSourceImpl(char* file_name,
                                            uint32_t num_frame = 0) {
 
-  QMMF_INFO("%s  Enter",__func__);
+  QMMF_INFO("%s Enter", __func__);
+  aacfileIO_ = nullptr;
+  amrfileIO_ = nullptr;
+  g711fileIO_ = nullptr;
+
 switch(audiofiletype) {
   case AudioFileType::kAAC:
     //Only for AAC

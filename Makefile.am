@@ -1,12 +1,15 @@
 BUILD_COMPONENTS =
 BUILD_COMPONENTS += common/utils
+BUILD_COMPONENTS += common/memory
 BUILD_COMPONENTS += common/cameraadaptor
 BUILD_COMPONENTS += common/overlay
 BUILD_COMPONENTS += common/audio/src/client
 BUILD_COMPONENTS += common/audio/src/service
 BUILD_COMPONENTS += common/audio/test/samples
 BUILD_COMPONENTS += common/resizer-c2d
+if !DISABLE_PP_JPEG
 BUILD_COMPONENTS += common/jpeg-encoder
+endif
 BUILD_COMPONENTS += common/codecadaptor
 BUILD_COMPONENTS += common/avqueue
 BUILD_COMPONENTS += common/exif-generator
@@ -17,18 +20,24 @@ BUILD_COMPONENTS += avcodec
 BUILD_COMPONENTS += display/src/client
 BUILD_COMPONENTS += recorder/src/service/post-process/modules/algo
 BUILD_COMPONENTS += recorder/src/service/post-process/modules/camera-hal-reproc
+if !DISABLE_PP_JPEG
 BUILD_COMPONENTS += recorder/src/service/post-process/modules/jpeg-encoder
+endif
 BUILD_COMPONENTS += recorder/src/service/post-process/modules/test
 BUILD_COMPONENTS += recorder/src/service/post-process/modules/frame-skip
+if !DISABLE_DISPLAY
 BUILD_COMPONENTS += display/src/service
 BUILD_COMPONENTS += display/test/samples
 BUILD_COMPONENTS += display/test/gtest
+endif
 BUILD_COMPONENTS += recorder/src/client
 BUILD_COMPONENTS += recorder/src/service
 BUILD_COMPONENTS += recorder/test/samples
 BUILD_COMPONENTS += recorder/test/gtest
 BUILD_COMPONENTS += recorder/test/timelapse
+if !DISABLE_VIDEO_TIMELAPSE
 BUILD_COMPONENTS += recorder/test/videotimelapse
+endif
 BUILD_COMPONENTS += player/src/client
 BUILD_COMPONENTS += player/src/service
 BUILD_COMPONENTS += player/test/demuxer

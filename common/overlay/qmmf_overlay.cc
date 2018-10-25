@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -758,8 +758,8 @@ int32_t OverlayItemStaticImage::Init(OverlayParam& param) {
       pFile = fopen("/data/misc/qmmf/overlay_image_blob.rgb","wb");
       if (pFile ){
         fwrite(image_buffer_, sizeof(char), image_size_, pFile);
+        fclose(pFile);
       }
-      fclose(pFile);
     }
 
     crop_rect_x_      = param.image_info.source_rect.start_x;
@@ -1430,7 +1430,8 @@ int32_t OverlayItemBoundingBox::Init(OverlayParam& param) {
   int32_t width = static_cast<int32_t>(round(scaled_width));
   width = ROUND_TO(width, 16); // Round to multiple of 16.
   width = width > BOUNDING_BOX_BUF_WIDTH ? width : BOUNDING_BOX_BUF_WIDTH;
-  int32_t height = static_cast<int32_t>(round(width / aspect_ratio));
+  int32_t height = (static_cast<int32_t>(width/aspect_ratio + 15)>> 4) << 4;
+  height = height > BOUNDING_BOX_BUF_HEIGHT ? height : BOUNDING_BOX_BUF_HEIGHT;
 
   buffer_width_  = width;
   buffer_height_ = height;
@@ -1468,6 +1469,14 @@ int32_t OverlayItemBoundingBox::UpdateAndDraw() {
   //  |  BOX   |
   //  |        |
   //  ----------
+
+  uint32_t box_stroke_width = BOUNDING_BOX_STROKE_WIDTH;
+
+  char prop_val[PROPERTY_VALUE_MAX];
+  property_get(PROP_BOX_STROKE_WIDTH, prop_val, "4");
+  box_stroke_width = (static_cast<uint32_t>(atoi(prop_val)) >
+      box_stroke_width) ? static_cast<uint32_t>(atoi(prop_val)) :
+      box_stroke_width;
 
 #if USE_CAIRO
   OVDBG_INFO("%s: Draw bounding box and text!", __func__);
@@ -1514,7 +1523,7 @@ int32_t OverlayItemBoundingBox::UpdateAndDraw() {
   assert(CAIRO_STATUS_SUCCESS == cairo_status(cr_context_));
 
   // Draw rectangle
-  cairo_set_line_width (cr_context_, BOUNDING_BOX_STROKE_WIDTH);
+  cairo_set_line_width (cr_context_, box_stroke_width);
   cairo_set_source_rgba (cr_context_, bbox_color.red, bbox_color.green,
                          bbox_color.blue, bbox_color.alpha);
   double x_rect = 0.0;
@@ -1541,7 +1550,7 @@ int32_t OverlayItemBoundingBox::UpdateAndDraw() {
     paintText.setTextSize(SkIntToScalar(BOUNDING_BOX_TEXT_SIZE));
     paintText.setAntiAlias(true);
 
-    paintBox.setStrokeWidth(BOUNDING_BOX_STROKE_WIDTH);
+    paintBox.setStrokeWidth(box_stroke_width);
     paintBox.setStyle(SkPaint::kStroke_Style);
 
     int32_t xText = 0, yText = 0;

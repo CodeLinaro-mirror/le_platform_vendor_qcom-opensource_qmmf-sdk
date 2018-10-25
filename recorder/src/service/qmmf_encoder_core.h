@@ -170,6 +170,8 @@ class TrackEncoder : public ICodecSource {
 
   std::mutex                 queue_lock_;
   QCondition                 wait_for_frame_;
+
+  std::mutex                 lock_;
 };
 
 }; // namespace recorder

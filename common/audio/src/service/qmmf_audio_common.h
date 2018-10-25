@@ -53,6 +53,8 @@ enum AudioHAL {
 // handle to a specific audio client/service connection
 typedef int32_t AudioHandle;
 
+typedef ::std::function<int32_t()> AudioHalLoader;
+
 typedef ::std::function<void(const AudioHandle audio_handle,
                              const int32_t error)> AudioErrorHandler;
 typedef ::std::function<void(const AudioHandle audio_handle,

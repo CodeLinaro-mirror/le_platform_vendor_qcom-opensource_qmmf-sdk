@@ -15,7 +15,7 @@ include $(QMMF_SDK_TOP_SRCDIR)/common.mk
 
 LOCAL_C_INCLUDES += $(TOP)/system/media/camera/include
 LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/mm-core/omxcore
-LOCAL_C_INCLUDES += $(TOP)/hardware/qcom/media
+LOCAL_C_INCLUDES += $(MEDIA_HAL_PATH)
 
 LOCAL_SRC_FILES := qmmf_player_service.cc
 LOCAL_SRC_FILES += qmmf_player_impl.cc
@@ -29,7 +29,7 @@ LOCAL_SRC_FILES += qmmf_player_audio_raw_sink.cc
 LOCAL_SRC_FILES += qmmf_player_video_sink.cc
 
 LOCAL_SHARED_LIBRARIES += libqmmf_player_client libqmmf_codec_adaptor
-LOCAL_SHARED_LIBRARIES += libqmmf_audio_client
+LOCAL_SHARED_LIBRARIES += libqmmf_audio_client libqmmf_memory_interface
 ifneq ($(DISABLE_DISPLAY),1)
 LOCAL_SHARED_LIBRARIES += libqmmf_display_client
 endif

@@ -143,6 +143,18 @@ class BufferHandler : public AlgBuffer {
     **/
   static uint32_t GetWidthInBytes(uint32_t width_in_pixels,
                                   PixelFormat pix_fmt);
+  /** GetHeightInLines
+    *    @image_height: image height
+    *    @pix_fmt: pixel format
+    *    @plane: plane
+    *
+    * returns height in lines based on pixel format and plane
+    *
+    * return: height in lines based on pixel format and plane
+    **/
+  static uint32_t GetHeightInLines(uint32_t image_height,
+                                   PixelFormat pix_fmt,
+                                   uint32_t plane);
 
   /** Compare
     *    @other: other buffer to compare with

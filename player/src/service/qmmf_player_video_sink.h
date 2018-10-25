@@ -67,6 +67,8 @@ namespace player {
 
 class VideoTrackSink;
 class VideoTrackDecoder;
+class AudioTrackSink;
+class AudioRawTrackSink;
 
 class VideoSink {
  public:
@@ -93,6 +95,11 @@ class VideoSink {
                                    CodecParamType param_type,
                                    void* param,
                                    uint32_t param_size);
+
+  status_t PrepareTrackAVSinkPipeline(uint32_t track_id,
+      const ::std::weak_ptr<AudioTrackSink>& audio_track_sink);
+  status_t PrepareTrackAVSinkPipeline(uint32_t track_id,
+      const ::std::weak_ptr<AudioRawTrackSink>& audio_track_sink);
 
  private:
   VideoSink();
@@ -135,6 +142,11 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
   void PassTrackDecoder(
       const ::std::shared_ptr<VideoTrackDecoder>& video_track_decoder);
 
+  status_t PrepareAVSinkPipeline(
+      const ::std::weak_ptr<AudioTrackSink>& audio_track_sink);
+  status_t PrepareAVSinkPipeline(
+      const ::std::weak_ptr<AudioRawTrackSink>& audio_track_sink);
+
   status_t GetBuffer(BufferDescriptor& codec_buffer,
                      void* client_data) override;
 
@@ -171,6 +183,8 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
 
   inline void SetIgnoreFps(bool value) { ignore_fps_ = value; }
 
+  status_t StartFlush(bool status);
+
  private:
 
   int32_t TrackId() { return track_params_.track_id; }
@@ -185,19 +199,26 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
   uint32_t                current_width;
   uint32_t                current_height;
   ::std::shared_ptr<VideoTrackDecoder> video_track_decoder_;
+  ::std::weak_ptr<AudioTrackSink>      audio_track_sink_;
+  ::std::weak_ptr<AudioRawTrackSink>   audio_raw_track_sink_;
 
   ::android::Vector<::qmmf::avcodec::CodecBuffer>  output_buffer_list_;
   TSQueue<::qmmf::avcodec::CodecBuffer>            output_free_buffer_queue_;
   TSQueue<::qmmf::avcodec::CodecBuffer>            output_occupy_buffer_queue_;
 
-  std::mutex              wait_for_frame_lock_;
-  QCondition              wait_for_frame_;
+  std::mutex              get_buffer_wait_lock_;
+  QCondition              get_buffer_wait_;
   bool                    stop_called_;
   bool                    stop_notify_called_;
-  bool                    paused_;
+  std::atomic<bool>       paused_;
+  bool                    port_reconfigured_;
   uint32_t                decoded_frame_number_;
   uint64_t                last_queued_timestamp_;
-  uint64_t                seek_time_;
+  int64_t                 seek_time_;
+  int64_t                 audio_accumulated_frames_;
+  int64_t                 audio_offset_;
+  std::mutex              avsync_lock_;
+  std::mutex              queue_lock_;
 
 #ifndef DISABLE_DISPLAY
   Display*   display_;
@@ -268,6 +289,9 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
   double                                 display_refresh_rate_;
   std::mutex                             ignore_fps_lock_;
   bool                                   ignore_fps_;
+  std::atomic<bool>                      flush_in_progress_;
+
+  static const uint32_t                  kSleepWait;
 };
 
 };  // namespace player

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -43,6 +43,7 @@
 #include <thread>
 #include <time.h>
 #include <vector>
+#include <sys/prctl.h>
 
 #include <cutils/properties.h>
 #include <mm-audio/qahw_api/inc/qahw_api.h>
@@ -605,7 +606,7 @@ int32_t AudioBackendSource::GetRenderedPosition(uint32_t* frames,
 
 void AudioBackendSource::ThreadEntry(AudioBackendSource* backend) {
   QMMF_DEBUG("%s() TRACE", __func__);
-
+  prctl(PR_SET_NAME, "AudioBSourceTh", 0, 0, 0);
   backend->Thread();
 }
 
@@ -629,9 +630,9 @@ void AudioBackendSource::Thread() {
   bool stop_received = false;
   while (keep_running) {
     // wait until there is something to do
-    while (buffers.empty() && messages_.empty()) {
+    if (buffers.empty()) {
       unique_lock<mutex> lk(message_lock_);
-      if (signal_.wait_for(lk, seconds(1)) == cv_status::timeout)
+      if (!signal_.wait_for(lk, seconds(1), [this]{return !messages_.empty();}))
         QMMF_WARN("%s() timed out on wait", __func__);
     }
 

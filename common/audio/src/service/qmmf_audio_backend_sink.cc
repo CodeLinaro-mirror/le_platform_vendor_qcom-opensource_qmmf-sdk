@@ -40,6 +40,7 @@
 #include <queue>
 #include <thread>
 #include <vector>
+#include <sys/prctl.h>
 
 #include <mm-audio/qahw_api/inc/qahw_api.h>
 #include <mm-audio/qahw_api/inc/qahw_defs.h>
@@ -710,10 +711,8 @@ int32_t AudioBackendSink::GetRenderedPosition(uint32_t* frames,
   }
 
   int result = qahw_out_get_render_position(qahw_stream_, frames);
-  if (result < 0) {
-    QMMF_ERROR("%s() Failed to get render position : %d",
-        __func__, result);
-  }
+  if (result < 0)
+    QMMF_ERROR("%s() Failed to get render position : %d", __func__, result);
 
   QMMF_VERBOSE("%s() Total Frames Rendered : %u", __func__, *frames);
 
@@ -731,8 +730,8 @@ int32_t AudioBackendSink::GetRenderedPosition(uint32_t* frames,
   QMMF_VERBOSE("%s() Total Frames Rendered (%llu) Time (%llu)",
       __func__, frame, *time);
 
-  QMMF_VERBOSE("%s() OUTPARAM: frames[%u] time[%llu]", __func__,
-      *frames, *time);
+  QMMF_VERBOSE("%s() OUTPARAM: frames[%u] time[%llu]",
+               __func__, *frames, *time);
   return 0;
 }
 
@@ -800,7 +799,7 @@ int AudioBackendSink::Callback(qahw_stream_callback_event_t event,
 
 void AudioBackendSink::ThreadEntry(AudioBackendSink* backend) {
   QMMF_DEBUG("%s() TRACE", __func__);
-
+  prctl(PR_SET_NAME, "AudioBSinkTh", 0, 0, 0);
   backend->Thread();
 }
 
@@ -817,11 +816,12 @@ void AudioBackendSink::Thread() {
   bool flushing = false;
   bool pending_flush = false;
   bool keep_running = true;
+  bool error_detected = false;
   while (keep_running) {
     // wait until there is something to do
-    while (buffers.empty() && messages_.empty()) {
+    if (buffers.empty()) {
       unique_lock<mutex> lk(message_lock_);
-      if (signal_.wait_for(lk, seconds(1)) == cv_status::timeout)
+      if (!signal_.wait_for(lk, seconds(1), [this]{return !messages_.empty();}))
         QMMF_WARN("%s() timed out on wait", __func__);
     }
 
@@ -898,10 +898,12 @@ void AudioBackendSink::Thread() {
 
       qahw_out_buffer_t qahw_buffer;
       memset(&qahw_buffer, 0, sizeof(qahw_out_buffer_t));
-      qahw_buffer.buffer = reinterpret_cast<uint8_t*>(buffer.data) +
-                           bytes_written;
-      qahw_buffer.bytes = buffer.size - bytes_written;
+
+      qahw_buffer.buffer = reinterpret_cast<uint8_t*>(buffer.data);
+      qahw_buffer.bytes = buffer.size;
+      qahw_buffer.offset = bytes_written;
       qahw_buffer.timestamp = &buffer.timestamp;
+
       QMMF_VERBOSE("%s() to aHAL: qahw_buffer[buffer[%p] bytes[%zu] offset[%zu] timestamp[%lld]]",
                    __func__, qahw_buffer.buffer, qahw_buffer.bytes,
                    qahw_buffer.offset, *(qahw_buffer.timestamp));
@@ -911,6 +913,7 @@ void AudioBackendSink::Thread() {
         QMMF_ERROR("%s() failed to write output stream with result: %d",
                    __func__, result);
         error_handler_(audio_handle_, result);
+        error_detected = true;
       } else if (static_cast<size_t>(result) != qahw_buffer.bytes &&
                  using_offload_) {
         QMMF_VERBOSE("%s() partial write to output stream: result[%d] bytes_written[%zu]",
@@ -947,7 +950,7 @@ void AudioBackendSink::Thread() {
     }
 
     // stop conditions
-    if (stop_received) keep_running = false;
+    if (stop_received || error_detected) keep_running = false;
     else if (eof_received) flushing = true;
 
     if (flushing && !pending_flush) {

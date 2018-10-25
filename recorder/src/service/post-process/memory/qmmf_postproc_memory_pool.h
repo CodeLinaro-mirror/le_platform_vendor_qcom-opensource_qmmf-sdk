@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -30,7 +30,6 @@
 #pragma once
 
 #include <memory>
-#include <qcom/display/gralloc_priv.h>
 
 #include "common/utils/qmmf_common_utils.h"
 #include "common/utils/qmmf_condition.h"
@@ -44,7 +43,7 @@ struct MemPoolParams {
   uint32_t width;
   uint32_t height;
   int32_t  format;
-  int32_t  gralloc_flags;
+  MemAllocFlags  alloc_flags;
   uint32_t max_buffer_count;
   uint32_t max_size;
 };
@@ -65,29 +64,35 @@ class MemPool {
 
    status_t GetBuffer(StreamBuffer* buffer);
 
+   status_t WaitUntilBufferReturned();
+
  private:
 
    status_t GetBufferLocked(StreamBuffer* buffer);
 
    status_t PopulateMetaInfo(CameraBufferMetaData &info,
-                             struct private_handle_t *priv_handle);
+                             IBufferHandle &handle);
 
-   status_t AllocGrallocBuffer(buffer_handle_t *buf);
+   status_t AllocHWMemBuffer(IBufferHandle &buf);
 
-   status_t FreeGrallocBuffer(buffer_handle_t buf);
+   status_t FreeHWMemBuffer(IBufferHandle buf);
 
-   alloc_device_t               *gralloc_device_;
-   buffer_handle_t              *gralloc_slots_;
+   IAllocDevice*                 alloc_device_interface_;
+   IBufferHandle                 *mem_alloc_slots_;
    uint32_t                      buffers_allocated_;
    uint32_t                      pending_buffer_count_;
-   std::map<buffer_handle_t, bool> gralloc_buffers_;
+   std::map<IBufferHandle, bool> mem_alloc_buffers_;
 
    MemPoolParams            params_;
 
    std::mutex               buffer_lock_;
    QCondition               wait_for_buffer_;
 
+   bool                     signal_buffer_return_;
+   QCondition               wait_for_return_;
+
    static const uint32_t kBufferWaitTimeout = 1000000000; // 1 s.
+   static const uint32_t kReturnWaitTimeout = 3000000000; // 3 s.
 };
 
 }; //namespace recorder

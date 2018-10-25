@@ -24,11 +24,7 @@
 #include <functional>
 #include <hardware/camera_common.h>
 #include <hardware/camera3.h>
-#ifdef TARGET_USES_GRALLOC1
-#include <hardware/gralloc1.h>
-#else
-#include <hardware/gralloc.h>
-#endif
+
 #include <camera/CameraMetadata.h>
 
 #include "common/utils/qmmf_common_utils.h"
@@ -49,7 +45,7 @@ typedef struct {
   int32_t format;
   android_dataspace data_space;
   camera3_stream_rotation_t rotation;
-  int32_t grallocFlags;
+  MemAllocFlags allocFlags;
   uint32_t bufferCount;
   StreamCallback cb;
   bool is_pp_enabled = true;

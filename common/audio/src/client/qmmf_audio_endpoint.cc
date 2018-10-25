@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -40,6 +40,8 @@
 namespace qmmf {
 namespace common {
 namespace audio {
+
+using namespace android;
 
 AudioEndPoint::AudioEndPoint()
     : audio_endpoint_client_(nullptr) {
@@ -174,7 +176,10 @@ int32_t AudioEndPoint::SendBuffers(const ::std::vector<AudioBuffer>& buffers) {
 int32_t AudioEndPoint::GetLatency(int32_t* latency) {
   QMMF_DEBUG("%s() TRACE", __func__);
   assert(audio_endpoint_client_ != nullptr);
-  assert(latency != nullptr);
+  if (latency == nullptr) {
+    QMMF_ERROR("%s: latency is null", __func__);
+    return -EINVAL;
+  }
 
   int32_t result = audio_endpoint_client_->GetLatency(latency);
   if (result < 0)
@@ -187,7 +192,10 @@ int32_t AudioEndPoint::GetLatency(int32_t* latency) {
 int32_t AudioEndPoint::GetBufferSize(int32_t* buffer_size) {
   QMMF_DEBUG("%s() TRACE", __func__);
   assert(audio_endpoint_client_ != nullptr);
-  assert(buffer_size != nullptr);
+  if (buffer_size == nullptr) {
+    QMMF_ERROR("%s: buffer_size is null", __func__);
+    return -EINVAL;
+  }
 
   int32_t result = audio_endpoint_client_->GetBufferSize(buffer_size);
   if (result < 0)
@@ -219,8 +227,14 @@ int32_t AudioEndPoint::GetRenderedPosition(uint32_t* frames,
                                            uint64_t* time) {
   QMMF_DEBUG("%s() TRACE", __func__);
   assert(audio_endpoint_client_ != nullptr);
-  assert(frames != nullptr);
-  assert(time != nullptr);
+  if (frames == nullptr) {
+    QMMF_ERROR("%s: frames is null", __func__);
+    return -EINVAL;
+  }
+  if (time == nullptr) {
+    QMMF_ERROR("%s: time is null", __func__);
+    return -EINVAL;
+  }
 
   int32_t result = audio_endpoint_client_->GetRenderedPosition(frames, time);
   if (result < 0)

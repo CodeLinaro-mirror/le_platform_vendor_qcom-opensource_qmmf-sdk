@@ -35,6 +35,7 @@
 #include <utils/List.h>
 #include <utils/RefBase.h>
 #include <hardware/hardware.h>
+#include <sys/prctl.h>
 
 #include "display/src/service/qmmf_display_impl.h"
 #include "display/src/service/qmmf_display_sdm_buffer_sync_handler.h"
@@ -61,52 +62,10 @@ DisplayImpl* DisplayImpl::CreateDisplayCore() {
     QMMF_DEBUG("%s: Enter", __func__);
 
   if(!instance_) {
-
     instance_ = new DisplayImpl;
-    if(!instance_) {
-      QMMF_ERROR("%s: Can't Create Display Instance!", __func__);
-      return nullptr;
-    }
 
-#ifndef TARGET_USES_GRALLOC1
-    int32_t res;
-    void *handle;
-    struct hw_module_t *hmi;
-    handle = dlopen(GRALLOC_MODULE_PATH, RTLD_NOW);
-    if (handle == nullptr) {
-      char const *err_str = dlerror();
-      QMMF_ERROR("load: module=%s\n%s \n", GRALLOC_MODULE_PATH,
-          err_str ? err_str : "unknown");
-      res = -EINVAL;
-    }
-
-    hmi = (struct hw_module_t *)dlsym(handle, HAL_MODULE_INFO_SYM_AS_STR);
-    if (hmi == nullptr) {
-      QMMF_ERROR("load: couldn't find symbol %s\n", HAL_MODULE_INFO_SYM_AS_STR);
-      res = -EINVAL;
-    }
-
-    if (strcmp(GRALLOC_HARDWARE_MODULE_ID, hmi->id) != 0) {
-      QMMF_ERROR("load: id=%s != hmi->id=%s\n", GRALLOC_HARDWARE_MODULE_ID,
-          hmi->id);
-      res = -EINVAL;
-    }
-
-    hmi->dso = handle;
-    res = 0;
-
-    hmi->methods->open(hmi, GRALLOC_HARDWARE_GPU0,
-                          (struct hw_device_t **)&instance_->gralloc_device_);
-    if (0 != res) {
-      QMMF_ERROR("%s: Could not open Gralloc module: %s (%d) \n", __func__,
-                 strerror(-res), res);
-    }
-
-    QMMF_DEBUG("%s: Gralloc Module author: %s, version: %d name: %s\n", __func__,
-        instance_->gralloc_device_->common.module->author,
-        instance_->gralloc_device_->common.module->hal_api_version,
-        instance_->gralloc_device_->common.module->name);
-#endif
+    instance_->alloc_device_interface_ =
+        AllocDeviceFactory::CreateAllocDevice();
   }
 
   QMMF_DEBUG("%s: Display Instance Created Successfully(0x%p)",
@@ -114,14 +73,16 @@ DisplayImpl* DisplayImpl::CreateDisplayCore() {
   return instance_;
 }
 DisplayImpl::DisplayImpl()
-  : current_handle_(0),
+  : alloc_device_interface_(nullptr),
+    current_handle_(0),
     unique_surface_id_(0),
-    layer_stack_(nullptr) {
+    layer_stack_(nullptr),
+    current_display_state_(DisplayState::kStateOff) {
   QMMF_DEBUG("%s: Enter", __func__);
 
   if(!core_intf_) {
 #ifndef QMMF_DISPLAY_INTF_v1
-    DisplayError error = CoreInterface::CreateCore(DisplayDebugHandler::Get(),
+    DisplayError error = CoreInterface::CreateCore(DisplayDebugHandlerV1::Get(),
         &buffer_allocator_, &buffer_sync_handler_, &core_intf_);
     is_first_commit_ = false;
 #else
@@ -155,6 +116,10 @@ DisplayImpl::~DisplayImpl() {
         __func__, error);
   }
   instance_->display_client_info_map_.clear();
+  if (instance_->alloc_device_interface_) {
+    delete instance_->alloc_device_interface_;
+    instance_->alloc_device_interface_ = nullptr;
+  }
   instance_ = nullptr;
   core_intf_ = nullptr;
 
@@ -222,8 +187,7 @@ status_t DisplayImpl::CreateDisplay(sp<RemoteCallBack>& remote_cb,
 #ifndef QMMF_DISPLAY_INTF_v1
     error = displayintf->SetDisplayState(kStateOn);
     if (error != kErrorNone) {
-      QMMF_ERROR("%s: SetDisplayState Failed. Error = %d", __func__,
-          error);
+      QMMF_ERROR("%s: SetDisplayState Failed. Error = %d", __func__, error);
       return error;
     }
 #else
@@ -240,10 +204,13 @@ status_t DisplayImpl::CreateDisplay(sp<RemoteCallBack>& remote_cb,
     }
 #endif
 
+    DisplayState current_state = GetDisplayState();
+    SetDisplayState(DisplayState::kStateOn);
     displayintf->SetIdleTimeoutMs(0);
     error = displayintf->SetVSyncState(true);
     if (error != kErrorNone) {
       QMMF_ERROR("%s: SetVSyncState Failed. Error = %d", __func__, error);
+      SetDisplayState(current_state);
       return error;
     }
 
@@ -278,12 +245,19 @@ status_t DisplayImpl::DestroyDisplay(DisplayHandle display_handle) {
     std::unique_lock<std::mutex> lock(api_lock_);
     display_client_info = display_client_info_map_.find(display_handle);
     if (display_client_info == display_client_info_map_.end()) {
-      QMMF_ERROR("%s:() no displayinfo %u", __func__, display_handle);
+      QMMF_ERROR("%s() no displayinfo %u", __func__, display_handle);
       return -EINVAL;
     }
 
     display_type_info = display_type_info_map_.find(
         display_client_info->second->display_type);
+
+    if (GetDisplayState() == DisplayState::kStateOff) {
+      QMMF_ERROR("%s() Can't destroy the display handle(%u) since the display"
+                 "state is OFF", __func__, display_handle);
+      return ret;
+    }
+
     if (display_type_info->second->num_of_clients > 1) {
       QMMF_ERROR("%s() Cant destroy.There are more users of this display. %d",
           __func__, static_cast<std::underlying_type<DisplayType>::type>
@@ -319,10 +293,12 @@ status_t DisplayImpl::DestroyDisplay(DisplayHandle display_handle) {
     }
 
 #ifndef QMMF_DISPLAY_INTF_v1
+    DisplayState current_state = GetDisplayState();
+    SetDisplayState(DisplayState::kStateOff);
     error = displayintf->SetDisplayState(kStateOff);
     if (error != kErrorNone) {
-      QMMF_ERROR("%s: SetDisplayState Failed. Error = %d", __func__,
-          error);
+      QMMF_ERROR("%s: SetDisplayState Failed. Error = %d", __func__, error);
+      SetDisplayState(current_state);
     }
 #else
     int release_fence = -1;
@@ -396,6 +372,12 @@ status_t DisplayImpl::CreateSurface(DisplayHandle display_handle,
     return -EINVAL;
   }
 
+  if (GetDisplayState() == DisplayState::kStateOff) {
+    QMMF_ERROR("%s() Can't create surface for the display handle(%u) since the"
+               " display state is OFF", __func__, display_handle);
+    return ret;
+  }
+
   auto display_type_info =
       display_type_info_map_.find(display_client_info->second->display_type);
   auto displayintf = display_type_info->second->display_intf;
@@ -462,6 +444,13 @@ status_t DisplayImpl::CreateSurface(DisplayHandle display_handle,
   }
   LayerStack* layer_stack = GetLayerStack(display_client_info->second->display_type,
       false);
+  if (layer_stack == nullptr) {
+    QMMF_ERROR("Layer Stack is null");
+    delete surfaceinfo;
+    FreeLayer(display_handle, *surface_id);
+    return -ENODATA;
+  }
+
   layer_stack->flags.flags=0;
   error = displayintf->Prepare(layer_stack);
   if (error != kErrorNone) {
@@ -530,6 +519,12 @@ status_t DisplayImpl::DestroySurface(DisplayHandle display_handle,
   if (display_client_info == display_client_info_map_.end()) {
     QMMF_ERROR("%s() no displayinfo %u", __func__, display_handle);
     return -EINVAL;
+  }
+
+  if (GetDisplayState() == DisplayState::kStateOff) {
+    QMMF_ERROR("%s() Can't destroy surface for the display handle(%u)"
+               " since the display state is OFF", __func__, display_handle);
+    return ret;
   }
 
   assert(display_client_info->second != nullptr);
@@ -603,8 +598,9 @@ status_t DisplayImpl::DestroySurface(DisplayHandle display_handle,
 
 status_t DisplayImpl::DequeueSurfaceBuffer(DisplayHandle display_handle,
     const uint32_t surface_id, SurfaceBuffer &surface_buffer) {
-    QMMF_DEBUG("%s: Enter for surface id: %u", __func__, surface_id);
+  QMMF_DEBUG("%s: Enter for surface id: %u", __func__, surface_id);
 
+  PrintBuffersState(surface_id);
   int32_t ret = NO_ERROR;
   std::unique_lock<std::mutex> lock(api_lock_);
 
@@ -613,6 +609,14 @@ status_t DisplayImpl::DequeueSurfaceBuffer(DisplayHandle display_handle,
     QMMF_ERROR("%s() no displayinfo %u", __func__, display_handle);
     return -EINVAL;
   }
+  surface_buffer.buf_id = -1;
+  if (GetDisplayState() == DisplayState::kStateOff) {
+    QMMF_ERROR("%s() Can't Dequeue Surface Buffer for the display handle(%u) "
+               "since the display state is OFF for surface:%u", __func__,
+               display_handle, surface_id);
+    return ret;
+  }
+
   assert(display_client_info->second->num_of_client_layers > 0);
   std::map<uint32_t, SurfaceInfo*>::iterator surfaceinfo;
   {
@@ -620,7 +624,6 @@ status_t DisplayImpl::DequeueSurfaceBuffer(DisplayHandle display_handle,
    surfaceinfo = surface_info_map_.find(surface_id);
   }
   assert(surfaceinfo->second != nullptr);
-  surface_buffer.buf_id = -1;
 
   for (auto it = surfaceinfo->second->buffer_state.begin();
           it != surfaceinfo->second->buffer_state.end(); ++it) {
@@ -672,6 +675,7 @@ status_t DisplayImpl::QueueSurfaceBuffer(DisplayHandle display_handle,
     SurfaceParam &surface_param) {
 
   QMMF_DEBUG("%s: Enter for surface id: %u", __func__, surface_id);
+  PrintBuffersState(surface_id);
   std::unique_lock<std::mutex> lock(api_lock_);
 
   int32_t ret = NO_ERROR;
@@ -680,11 +684,59 @@ status_t DisplayImpl::QueueSurfaceBuffer(DisplayHandle display_handle,
     QMMF_ERROR("%s() no displayinfo %u", __func__, display_handle);
     return -EINVAL;
   }
+
   std::map<uint32_t, SurfaceInfo*>::iterator surfaceinfo;
   {
     std::lock_guard<std::mutex> lock(surface_lock_);
     surfaceinfo = surface_info_map_.find(surface_id);
     assert(surfaceinfo->second != nullptr);
+  }
+
+  if (GetDisplayState() == DisplayState::kStateOff) {
+    auto buf_state =
+        surfaceinfo->second->buffer_state.find(surface_buffer.buf_id);
+    assert(buf_state != surfaceinfo->second->buffer_state.end());
+    assert(buf_state->second != nullptr);
+    if (buf_state->second->GetState() == BufferStates::kStateDequeued) {
+      BufferStates state =
+          buf_state->second->SetState(BufferStates::kStateFree);
+      if (state != BufferStates::kStateFree) {
+        QMMF_ERROR("%s Could not Set state::%u of Buffer Ion_Fd::%d", __func__,
+                   static_cast<std::underlying_type<BufferStates>::type>(
+                       BufferStates::kStateFree),
+                   surface_buffer.plane_info[0].ion_fd);
+        return -EPERM;
+      }
+      QMMF_DEBUG("%s: The Buffer ION_FD:%d has been set to state:%u", __func__,
+                 surface_buffer.buf_id,
+                 static_cast<std::underlying_type<BufferStates>::type>(
+                     BufferStates::kStateFree));
+    }
+    for (auto prev_queued_buffer = surfaceinfo->second->buffer_state.begin();
+         prev_queued_buffer != surfaceinfo->second->buffer_state.end();
+         ++prev_queued_buffer) {
+      if (prev_queued_buffer->second->GetState() ==
+          BufferStates::kStateQueued) {
+        BufferStates state =
+            prev_queued_buffer->second->SetState(BufferStates::kStateFree);
+        if (state != BufferStates::kStateFree) {
+          QMMF_ERROR("%s Could not Set state::%u of Buffer Ion_Fd::%d",
+                     __func__,
+                     static_cast<std::underlying_type<BufferStates>::type>(
+                         BufferStates::kStateFree),
+                     prev_queued_buffer->first);
+          return -EPERM;
+        }
+        QMMF_DEBUG("%s: The Buffer ION_FD:%d has been set to state:%u",
+                   __func__, prev_queued_buffer->first,
+                   static_cast<std::underlying_type<BufferStates>::type>(
+                       BufferStates::kStateFree));
+      }
+    }
+    QMMF_ERROR("%s() Can't Queue Surface Buffer for the display handle(%u)"
+               " since the display state is OFF for surface:%u", __func__,
+               display_handle, surface_id);
+    return ret;
   }
 
   QueuedBufferInfo queued_buffer_info;
@@ -693,6 +745,8 @@ status_t DisplayImpl::QueueSurfaceBuffer(DisplayHandle display_handle,
 
   if (surfaceinfo->second->allocate_buffer_mode) {
     auto buf_state = surfaceinfo->second->buffer_state.find(surface_buffer.buf_id);
+    assert(buf_state != surfaceinfo->second->buffer_state.end());
+    assert(buf_state->second != nullptr);
     if (buf_state->second->GetState() == BufferStates::kStateDequeued) {
       for (auto prev_queued_buffer = surfaceinfo->second->buffer_state.begin();
            prev_queued_buffer != surfaceinfo->second->buffer_state.end();
@@ -873,6 +927,13 @@ status_t DisplayImpl::GetDisplayParam(DisplayHandle display_handle,
           error);
       return error;
     }
+  } else if (param_type == DisplayParamType::kDisplayState) {
+    DisplayError error = displayintf->GetDisplayState(
+        reinterpret_cast<sdm::DisplayState*>(param));
+    if (error != kErrorNone) {
+      QMMF_ERROR("%s: GetDisplayState Failed. Error = %d", __func__, error);
+      return error;
+    }
   }
 
   QMMF_DEBUG("%s: Exit", __func__);
@@ -883,6 +944,8 @@ status_t DisplayImpl::SetDisplayParam(DisplayHandle display_handle,
     DisplayParamType param_type, void *param, size_t param_size) {
 
   QMMF_DEBUG("%s: Enter", __func__);
+
+  std::unique_lock<std::mutex> lock(layer_lock_);
 
   uint32_t ret = NO_ERROR;
 
@@ -902,6 +965,74 @@ status_t DisplayImpl::SetDisplayParam(DisplayHandle display_handle,
       QMMF_ERROR("%s: SetPanelBrightness Failed. Error = %d", __func__,
           error);
       return error;
+    }
+  } else if (param_type == DisplayParamType::kDisplayState) {
+    sdm::DisplayState current_display_state;
+    DisplayError error = displayintf->GetDisplayState(&current_display_state);
+    if (error != kErrorNone) {
+      QMMF_ERROR("%s: GetDisplayState Failed. Error = %d", __func__, error);
+      return error;
+    }
+    sdm::DisplayState* new_display_state =
+        reinterpret_cast<sdm::DisplayState*>(param);
+    if (*new_display_state == current_display_state) {
+      QMMF_DEBUG("%s: Expected State is already set, nothing to change", __func__);
+      return kErrorNone;
+    }
+    if (*new_display_state == sdm::DisplayState::kStateOn) {
+#ifndef QMMF_DISPLAY_INTF_v1
+      DisplayError error = displayintf->SetDisplayState(*new_display_state);
+      if (error != kErrorNone) {
+        QMMF_ERROR("%s: SetDisplayState Failed. Error = %d", __func__, error);
+        return error;
+      }
+#else
+      int release_fence = -1;
+      DisplayError error = displayintf->SetDisplayState(*new_display_state, &release_fence);
+      if (error != kErrorNone) {
+        QMMF_ERROR("%s: SetDisplayState Failed. Error = %d", __func__, error);
+        return error;
+      }
+      if (release_fence > -1) {
+        close(release_fence);
+      }
+#endif
+      SetDisplayState(DisplayState::kStateOn);
+      error = displayintf->SetVSyncState(true);
+      if (error != kErrorNone) {
+        QMMF_ERROR("%s: SetVSyncState Failed. Error = %d", __func__, error);
+        SetDisplayState(DisplayState::kStateOff);
+        return error;
+      } else {
+        std::unique_lock<std::mutex> lg(display_on_lock_);
+        display_on_cond_.notify_one();
+      }
+    } else if (*new_display_state == sdm::DisplayState::kStateOff){
+      error = displayintf->SetVSyncState(false);
+      if (error != kErrorNone) {
+        QMMF_ERROR("%s: SetVSyncState Failed. Error = %d", __func__, error);
+        return error;
+      }
+      SetDisplayState(DisplayState::kStateOff);
+#ifndef QMMF_DISPLAY_INTF_v1
+      DisplayError error = displayintf->SetDisplayState(*new_display_state);
+      if (error != kErrorNone) {
+        QMMF_ERROR("%s: SetDisplayState Failed. Error = %d", __func__, error);
+        SetDisplayState(DisplayState::kStateOn);
+        return error;
+      }
+#else
+      int release_fence = -1;
+      DisplayError error = displayintf->SetDisplayState(*new_display_state, &release_fence);
+      if (error != kErrorNone) {
+        QMMF_ERROR("%s: SetDisplayState Failed. Error = %d", __func__, error);
+        SetDisplayState(DisplayState::kStateOn);
+        return error;
+      }
+      if (release_fence > -1) {
+        close(release_fence);
+      }
+#endif
     }
   }
   QMMF_DEBUG("%s: Exit", __func__);
@@ -931,7 +1062,10 @@ status_t DisplayImpl::QueueWBSurfaceBuffer(DisplayHandle display_handle,
 
 void DisplayImpl::HandleVSyncThreadEntry(DisplayImpl* display_impl) {
   QMMF_DEBUG("%s: Enter", __func__);
+
+  prctl(PR_SET_NAME, "DisImplHVSync", 0, 0, 0);
   display_impl->HandleVSync();
+
   QMMF_DEBUG("%s: Exit", __func__);
 }
 
@@ -940,7 +1074,9 @@ void DisplayImpl::HandleVSync() {
 
   DisplayInterface* displayintf;
   QMMF_DEBUG("%s: Start HandleVSync thread while loop", __func__);
+  int32_t wait_iter;
   while (run) {
+    wait_iter = 0;
     api_lock_.lock();
     if (!running_) {
       QMMF_DEBUG("%s: Break HandleVSync thread while loop", __func__);
@@ -950,17 +1086,45 @@ void DisplayImpl::HandleVSync() {
       api_lock_.unlock();
     }
 
+    if (GetDisplayState() == DisplayState::kStateOff) {
+      QMMF_WARN("%s: Display State is OFF", __func__);
+      std::unique_lock<std::mutex> lg(display_on_lock_);
+      if (display_on_cond_.wait_for(lg, microseconds(100000)) ==
+          cv_status::timeout) {
+        continue;
+      }
+    }
+
     if (!is_first_commit_) {
       std::unique_lock<std::mutex> lg(vsync_callback_locker_);
-      if(vsync_callback_.wait_for(lg, microseconds(kHwVSyncTimeoutUs)) == cv_status::timeout) {
+      while (wait_iter < kNumberOfAttempts) {
+        if (vsync_callback_.wait_for(lg, microseconds(kHwVSyncTimeoutUs / 5)) ==
+            cv_status::timeout) {
+          if (GetDisplayState() == DisplayState::kStateOff) {
+            QMMF_WARN("%s: Display State is OFF", __func__);
+            break;
+          }
+          ++wait_iter;
+          if (wait_iter < kNumberOfAttempts) {
+            continue;
+          }
+        } else {
+          break;
+        }
+
         QMMF_ERROR("%s: Timed out since HW Vsync not received", __func__);
+        wait_iter = 0;
         for (auto& client_info_map_it : display_client_info_map_) {
           assert(client_info_map_it.second->remote_cb.get() != nullptr);
           DisplayErrorType error = DisplayErrorType::kVSyncError;
           client_info_map_it.second->remote_cb->notifyDisplayEvent(
               DisplayEventType::kError, &error, sizeof(error));
-          return;
         }
+        continue;
+      }
+      if (GetDisplayState() == DisplayState::kStateOff) {
+        QMMF_WARN("%s: Display State set to OFF", __func__);
+        continue;
       }
       QMMF_DEBUG("%s: HW VSync Signal Received", __func__);
     }
@@ -968,7 +1132,7 @@ void DisplayImpl::HandleVSync() {
     for (auto it = display_type_info_map_.begin();
          it != display_type_info_map_.end(); ++it) {
       QMMF_DEBUG("%s:display_type_info_map_.size()::%d", __func__,
-          display_type_info_map_.size());
+                 display_type_info_map_.size());
 
       int64_t timestamp = 0;
       displayintf = it->second->display_intf;
@@ -984,6 +1148,10 @@ void DisplayImpl::HandleVSync() {
       }
 
       LayerStack* layer_stack = GetLayerStack(it->first, true);
+      if (layer_stack == nullptr) {
+        QMMF_ERROR("Layer Stack is null");
+        continue;
+      }
       if (layer_stack->layers.size()) {
         layer_stack->flags.flags = 0;
 
@@ -999,6 +1167,14 @@ void DisplayImpl::HandleVSync() {
         }
         api_lock_.unlock();
         layer_lock_.lock();
+
+        if (GetDisplayState() == DisplayState::kStateOff) {
+          QMMF_ERROR("%s: Cant Prepare/Commit since the Display state is OFF",
+                     __func__);
+          layer_lock_.unlock();
+          continue;
+        }
+
         auto start_time = high_resolution_clock::now();
         DisplayError error = displayintf->Prepare(layer_stack);
         auto end_time = high_resolution_clock::now();
@@ -1040,6 +1216,7 @@ void DisplayImpl::HandleVSync() {
         if (client_info_map_it.second->display_type == it->first) {
           assert(client_info_map_it.second->remote_cb.get() != nullptr);
           client_info_map_it.second->remote_cb->notifyVSyncEvent(timestamp);
+          QMMF_DEBUG("%s: Notifying vsync to client", __func__);
         }
       }
     }
@@ -1161,15 +1338,15 @@ Layer* DisplayImpl::GetLayer(DisplayHandle display_handle,
 }
 
 LayerStack* DisplayImpl::GetLayerStack(DisplayType display_type,
-    bool queued_buffers_only) {
-
+                                       bool queued_buffers_only) {
   QMMF_VERBOSE("%s: Enter", __func__);
   auto display_type_info = display_type_info_map_.find(display_type);
   assert(display_type_info != display_type_info_map_.end());
   layer_stack_->layers.clear();
   Layer* layer;
-  for(auto it = display_type_info->second->z_order_surface_id_map.begin();
-          it != display_type_info->second->z_order_surface_id_map.end(); it++) {
+  bool push_layers = false;
+  for (auto it = display_type_info->second->z_order_surface_id_map.begin();
+       it != display_type_info->second->z_order_surface_id_map.end(); it++) {
     std::map<uint32_t, SurfaceInfo*>::iterator surfaceinfo;
     {
       std::lock_guard<std::mutex> lock(surface_lock_);
@@ -1180,24 +1357,26 @@ LayerStack* DisplayImpl::GetLayerStack(DisplayType display_type,
       }
     }
     layer = surfaceinfo->second->layer;
-    if(layer != nullptr) {
-      bool push_layer=0;
+    if (layer != nullptr) {
       if (!queued_buffers_only) {
-        push_layer =1;
+        push_layers = true;
+        layer_stack_->layers.push_back(layer);
       } else {
         std::map<int32_t, BufferState*>::iterator it_queued_buffer;
         std::map<int32_t, BufferState*>::iterator it_committed_buffer;
         for (it_queued_buffer = surfaceinfo->second->buffer_state.begin();
              it_queued_buffer != surfaceinfo->second->buffer_state.end();
              ++it_queued_buffer) {
-          if (it_queued_buffer->second->GetState() == BufferStates::kStateQueued) {
+          if (it_queued_buffer->second->GetState() ==
+              BufferStates::kStateQueued) {
             break;
           }
         }
         for (it_committed_buffer = surfaceinfo->second->buffer_state.begin();
              it_committed_buffer != surfaceinfo->second->buffer_state.end();
              ++it_committed_buffer) {
-          if (it_committed_buffer->second->GetState() == BufferStates::kStateCommitted) {
+          if (it_committed_buffer->second->GetState() ==
+              BufferStates::kStateCommitted) {
             break;
           }
         }
@@ -1208,43 +1387,44 @@ LayerStack* DisplayImpl::GetLayerStack(DisplayType display_type,
                 it_committed_buffer->second->SetState(BufferStates::kStateFree);
             if (state != BufferStates::kStateFree) {
               QMMF_ERROR("%s Could not Set state::%u of Buffer Ion_Fd::%d",
-                  __func__,
-                  static_cast<std::underlying_type<BufferStates>::type>
-                             (BufferStates::kStateFree), it_committed_buffer->first);
+                         __func__,
+                         static_cast<std::underlying_type<BufferStates>::type>(
+                         BufferStates::kStateFree),
+                         it_committed_buffer->first);
             } else {
               QMMF_DEBUG("%s The Buffer ION_FD:%d has been set to state:%u",
-                  __func__, it_committed_buffer->first,
-                  static_cast<std::underlying_type<BufferStates>::type>
-                             (BufferStates::kStateFree));
+                         __func__, it_committed_buffer->first,
+                         static_cast<std::underlying_type<BufferStates>::type>(
+                         BufferStates::kStateFree));
             }
           }
-          //Fill layer params for queued buffer
+          // Fill layer params for queued buffer
           auto queued_buffer_info =
               latest_queued_buffer_info_map_.find(it->second);
-          if(queued_buffer_info == latest_queued_buffer_info_map_.end()) {
+          if (queued_buffer_info == latest_queued_buffer_info_map_.end()) {
             return nullptr;
           }
           BufferInfo buffer_info;
           int32_t aligned_width, aligned_height;
-          aligned_width = queued_buffer_info->second.surface_buffer.plane_info[0].width;
-          aligned_height = queued_buffer_info->second.surface_buffer.plane_info[0].height;
+          aligned_width =
+              queued_buffer_info->second.surface_buffer.plane_info[0].width;
+          aligned_height =
+              queued_buffer_info->second.surface_buffer.plane_info[0].height;
           buffer_info.buffer_config.width =
               queued_buffer_info->second.surface_buffer.plane_info[0].width;
           buffer_info.buffer_config.height =
               queued_buffer_info->second.surface_buffer.plane_info[0].height;
-          buffer_info.buffer_config.format =
-              static_cast<LayerBufferFormat>(queued_buffer_info->second.surface_buffer.format);
+          buffer_info.buffer_config.format = static_cast<LayerBufferFormat>(
+              queued_buffer_info->second.surface_buffer.format);
           buffer_info.buffer_config.buffer_count = 1;
           buffer_info.buffer_config.cache = 0;
           buffer_info.alloc_buffer_info.fd = -1;
           buffer_info.alloc_buffer_info.stride = 0;
           buffer_info.alloc_buffer_info.size = 0;
-          auto ret = buffer_allocator_.GetBufferInfo(&buffer_info, aligned_width,
-              aligned_height);
-          if (ret != kErrorNone) {
-              QMMF_ERROR("%s: GetBufferInfo Failed. Error = %d",
-                  __func__, ret);
-          }
+          auto ret = buffer_allocator_.GetBufferInfo(
+                     &buffer_info, aligned_width, aligned_height);
+          if (ret != kErrorNone)
+            QMMF_ERROR("%s: GetBufferInfo Failed. Error = %d", __func__, ret);
           layer->input_buffer.width = aligned_width;
           layer->input_buffer.height = aligned_height;
           layer->input_buffer.unaligned_width =
@@ -1257,64 +1437,70 @@ LayerStack* DisplayImpl::GetLayerStack(DisplayType display_type,
               queued_buffer_info->second.surface_buffer.plane_info[0].offset;
           layer->input_buffer.planes[0].stride =
               queued_buffer_info->second.surface_buffer.plane_info[0].stride;
-          if(layer->input_buffer.format == kFormatYCbCr420SemiPlanarVenus ||
-             layer->input_buffer.format == kFormatYCbCr420SPVenusUbwc) {
+          if (layer->input_buffer.format == kFormatYCbCr420SemiPlanarVenus ||
+              layer->input_buffer.format == kFormatYCbCr420SPVenusUbwc) {
             layer->input_buffer.color_metadata.colorPrimaries =
                 ColorPrimaries_BT601_6_525;
             layer->input_buffer.color_metadata.range = Range_Limited;
           }
-          SetRect(queued_buffer_info->second.surface_param.dst_rect, &layer->dst_rect);
-          SetRect(queued_buffer_info->second.surface_param.src_rect, &layer->src_rect);
-          layer->blending =
-              static_cast<LayerBlending>(queued_buffer_info->second.surface_param.surface_blending);
+          SetRect(queued_buffer_info->second.surface_param.dst_rect,
+                  &layer->dst_rect);
+          SetRect(queued_buffer_info->second.surface_param.src_rect,
+                  &layer->src_rect);
+          layer->blending = static_cast<LayerBlending>(
+              queued_buffer_info->second.surface_param.surface_blending);
           layer->transform.flip_horizontal =
-              queued_buffer_info->second.surface_param.surface_transform.flip_horizontal;
+              queued_buffer_info->second.surface_param.surface_transform
+                  .flip_horizontal;
           layer->transform.flip_vertical =
-              queued_buffer_info->second.surface_param.surface_transform.flip_vertical;
-          layer->transform.rotation =
-              queued_buffer_info->second.surface_param.surface_transform.rotation;
+              queued_buffer_info->second.surface_param.surface_transform
+                  .flip_vertical;
+          layer->transform.rotation = queued_buffer_info->second.surface_param
+                                          .surface_transform.rotation;
           layer->plane_alpha = 0xFF;
-          layer->frame_rate = queued_buffer_info->second.surface_param.frame_rate;
+          layer->frame_rate =
+              queued_buffer_info->second.surface_param.frame_rate;
           layer->solid_fill_color =
               queued_buffer_info->second.surface_param.solid_fill_color;
           layer->flags.solid_fill =
               queued_buffer_info->second.surface_param.surface_flags.solid_fill;
           layer->flags.cursor =
-             queued_buffer_info->second.surface_param.surface_flags.cursor;
+              queued_buffer_info->second.surface_param.surface_flags.cursor;
           layer->input_buffer.planes[0].fd =
               queued_buffer_info->second.surface_buffer.plane_info[0].ion_fd;
-          QMMF_DEBUG("%s: Value of Buffer Ion_Fd = %u", __func__,
-              queued_buffer_info->second.surface_buffer.plane_info[0].ion_fd);
+          QMMF_DEBUG("%s: Buffer Ion_Fd = %u", __func__,
+               queued_buffer_info->second.surface_buffer.plane_info[0].ion_fd);
           layer->input_buffer.buffer_id =
               queued_buffer_info->second.surface_buffer.buf_id;
           layer->flags.updating = true;
 
-          //Commit the queued buffer
+          // Commit the queued buffer
           BufferStates state =
               it_queued_buffer->second->SetState(BufferStates::kStateCommitted);
           if (state != BufferStates::kStateCommitted) {
-           QMMF_ERROR("%s Could not Set state::%u of Buffer Ion_Fd::%d",
-                __func__,
-                static_cast<std::underlying_type<BufferStates>::type>
-                (BufferStates::kStateCommitted), it_queued_buffer->first);
+            QMMF_ERROR("%s Could not Set state::%u of Buffer Ion_Fd::%d",
+                       __func__,
+                       static_cast<std::underlying_type<BufferStates>::type>(
+                       BufferStates::kStateCommitted),
+                       it_queued_buffer->first);
           } else {
             QMMF_DEBUG("%s The Buffer ION_FD:%d has been set to state:%u",
-                __func__, it_queued_buffer->first,
-                static_cast<std::underlying_type<BufferStates>::type>
-                           (BufferStates::kStateCommitted));
+                       __func__, it_queued_buffer->first,
+                       static_cast<std::underlying_type<BufferStates>::type>(
+                       BufferStates::kStateCommitted));
           }
-          push_layer = 1;
-        } else if (it_committed_buffer != surfaceinfo->second->buffer_state.end()) {
-          push_layer = 1;
-        } else {
-          push_layer = 0;
+          push_layers = true;
+          layer_stack_->layers.push_back(layer);
+        } else if (it_committed_buffer !=
+                   surfaceinfo->second->buffer_state.end()) {
+          layer_stack_->layers.push_back(layer);
         }
-      }
-      if(push_layer) {
-        layer_stack_->layers.push_back(layer);
       }
     }
   }
+
+  if (!push_layers)
+    layer_stack_->layers.clear();
 
   QMMF_VERBOSE("%s: Exit", __func__);
   return layer_stack_;
@@ -1351,8 +1537,25 @@ DisplayError DisplayImpl::CECMessage(char *message) {
   return kErrorNotSupported;
 }
 
-DisplayError DisplayImpl::HandleEvent(DisplayEvent event) {
+DisplayError DisplayImpl::HandleEvent(DISPLAY_EVENT event) {
   return kErrorNotSupported;
+}
+
+void DisplayImpl::PrintBuffersState(const uint32_t surface_id) {
+  std::map<uint32_t, SurfaceInfo*>::iterator surfaceinfo;
+  {
+    std::lock_guard<std::mutex> lock(surface_lock_);
+    surfaceinfo = surface_info_map_.find(surface_id);
+    assert(surfaceinfo->second != nullptr);
+  }
+  for (auto buffer_state = surfaceinfo->second->buffer_state.begin();
+       buffer_state != surfaceinfo->second->buffer_state.end();
+       ++buffer_state) {
+    QMMF_DEBUG("%s State of Buffer Ion_Fd::%d is %u", __func__,
+               buffer_state->first,
+               static_cast<std::underlying_type<BufferStates>::type>(
+                   buffer_state->second->GetState()));
+  }
 }
 
 }; // namespace display

@@ -17,11 +17,14 @@ libqmmf_player_service_la_SOURCES = $(source_files)
 
 libqmmf_player_service_la_CPPFLAGS = -I$(top_srcdir)/include
 libqmmf_player_service_la_CPPFLAGS += -I$(top_srcdir)/
+libqmmf_player_service_la_CPPFLAGS += -I$(top_srcdir)/common/memory
 libqmmf_player_service_la_CPPFLAGS += -I$(MMCORE_CFLAGS)
 libqmmf_player_service_la_LDFLAGS  = -llog -lbinder -lutils -lcutils -lfastcvopt
 
 libqmmf_player_service_la_LIBADD   = ../client/libqmmf_player_client.la
 libqmmf_player_service_la_LIBADD   += ../../../common/codecadaptor/libcodec_adaptor.la
 libqmmf_player_service_la_LIBADD   += ../../../common/audio/src/client/libqmmf_audio_client.la
+if !DISABLE_DISPLAY
 libqmmf_player_service_la_LIBADD   += ../../../display/src/client/libqmmf_display_client.la
+endif
 

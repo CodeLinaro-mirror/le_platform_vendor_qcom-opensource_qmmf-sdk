@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016, 2018, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -218,7 +218,7 @@ typedef struct SurfaceTransform {
 /*
  * Input configuration params set by the client for buffer allocation.
  * buffer_count: Number of buffers to be allocated/used.
- * cache: To allocate cached or uncached gralloc buffers.
+ * cache: To allocate cached or uncached buffers.
  * use_buffer: The client will allocate the buffers or display adapter
  * shall use it.
 */
@@ -352,6 +352,15 @@ enum class DisplayParamType {
   kSaturation,
   kContrast,
   kBrightness,
+  kDisplayState
+};
+
+/*! @brief This enum represents the events received by Display HAL. */
+enum DisplayEvent {
+  kIdleTimeout,        // Event triggered by Idle Timer.
+  kThermalEvent,       // Event triggered by Thermal.
+  kIdlePowerCollapse,  // Event triggered by Idle Power Collapse.
+  kPanelDeadEvent,     // Event triggered by ESD.
 };
 
 };

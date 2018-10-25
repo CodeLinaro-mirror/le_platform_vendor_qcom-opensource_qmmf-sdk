@@ -44,6 +44,7 @@
 
 #include "qmmf-sdk/qmmf_display_params.h"
 #include "common/utils/qmmf_log.h"
+#include "qmmf_memory_interface.h"
 #include "display/src/service/qmmf_display_common.h"
 #include "display/src/service/qmmf_remote_cb.h"
 #include "display/src/service/qmmf_display_sdm_buffer_allocator.h"
@@ -71,6 +72,12 @@ using ::sdm::LayerBufferFormat;
 
 #define NUM_DISPLAY_ALLOWED 3
 #define FLOAT(exp) static_cast<float>(exp)
+
+#ifndef QMMF_DISPLAY_INTF_v1
+#define DISPLAY_EVENT DisplayEvent
+#else
+#define DISPLAY_EVENT ::DisplayEvent
+#endif
 
 class DisplayImpl : public DisplayEventHandler
 {
@@ -134,7 +141,8 @@ class DisplayImpl : public DisplayEventHandler
                              void *data);
   virtual DisplayError Refresh();
   virtual DisplayError CECMessage(char *message);
-  DisplayError HandleEvent(DisplayEvent event);
+
+  DisplayError HandleEvent(DISPLAY_EVENT event);
 
  private:
 
@@ -153,14 +161,17 @@ class DisplayImpl : public DisplayEventHandler
   static void HandleVSyncThreadEntry(DisplayImpl* display_impl);
   void HandleVSync();
   static DisplayImpl* instance_;
+  static const int32_t kNumberOfAttempts = 5;
+  std::mutex display_on_lock_;
+  std::condition_variable display_on_cond_;
   DisplayBufferSyncHandler buffer_sync_handler_;
   static CoreInterface* core_intf_;
+  IAllocDevice* alloc_device_interface_;
 #ifndef TARGET_USES_GRALLOC1
-  alloc_device_t *gralloc_device_;
   DisplayBufferAllocatorGralloc buffer_allocator_;
 #else
   DisplayBufferAllocatorGralloc1 buffer_allocator_;
-#endif
+#endif // TARGET_USES_GRALLOC1
 
   enum class BufferStates {
     kStateFree      = 1, // x1 = 0, x2 = 0, x3 = 0
@@ -221,7 +232,8 @@ class DisplayImpl : public DisplayEventHandler
       if (old_state == BufferStates::kInvalid)
         return false;
       else if (old_state == BufferStates::kStateDequeued
-               && new_state == BufferStates::kStateQueued)
+               && (new_state == BufferStates::kStateQueued
+               || new_state == BufferStates::kStateFree))
         return true;
       else if (old_state == BufferStates::kStateQueued
                && (new_state == BufferStates::kStateCommitted
@@ -238,6 +250,7 @@ class DisplayImpl : public DisplayEventHandler
     }
   };
 
+  void PrintBuffersState (const uint32_t surface_id);
   typedef struct SurfaceInfo {
     Layer*                           layer;
     // map of buffer id and buffer info
@@ -276,6 +289,19 @@ class DisplayImpl : public DisplayEventHandler
   std::map<uint32_t, QueuedBufferInfo>         latest_queued_buffer_info_map_;
   LayerStack*                                  layer_stack_;
 
+  // Get/Set functions for Display State
+  std::mutex display_state_lock_;
+  DisplayState current_display_state_;
+
+  inline DisplayState GetDisplayState() {
+    std::lock_guard<std::mutex> lock(display_state_lock_);
+    return current_display_state_;
+  }
+
+  inline void SetDisplayState(DisplayState state) {
+    std::lock_guard<std::mutex> lock(display_state_lock_);
+    current_display_state_ = state;
+  }
 };
 
 }; // namespace display

@@ -5,6 +5,7 @@ libav_codec_la_SOURCES = src/qmmf_avcodec.cc
 
 libav_codec_la_CPPFLAGS = -I$(top_srcdir)/include
 libav_codec_la_CPPFLAGS += -I$(top_srcdir)/
+libav_codec_la_CPPFLAGS += -I$(top_srcdir)/common/memory
 libav_codec_la_CPPFLAGS += -I$(MMCORE_CFLAGS)
 libav_codec_la_CPPFLAGS += -I$(CAMERAHAL_CFLAGS)
 libav_codec_la_CPPFLAGS += -I$(CAMERASTACKCOMMON_CFLAGS)

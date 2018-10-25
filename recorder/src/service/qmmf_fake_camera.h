@@ -58,7 +58,7 @@ class FakeCamera : public CameraInterface {
 
   status_t WaitAecToConverge(const uint32_t timeout) override;
 
-  status_t SetUpCapture(const ImageParam &param,
+  status_t SetUpCapture(const SnapshotParam& param,
                         const uint32_t num_images) override;
 
   status_t CaptureImage(const std::vector<CameraMetadata> &meta,
@@ -68,7 +68,7 @@ class FakeCamera : public CameraInterface {
 
   status_t CancelCaptureImage() override;
 
-  status_t CreateStream(const CameraStreamParam& param,
+  status_t CreateStream(const StreamParam& param,
                         const VideoExtraParam& extra_param) override;
 
   status_t DeleteStream(const uint32_t track_id) override;
@@ -119,7 +119,7 @@ private:
   int32_t                  stream_id_;
   int32_t                  stream_id_count_;
   CameraStartParam         camera_start_params_;
-  CameraStreamParam        camera_stream_param_;
+  StreamParam              stream_param_;
   ResultCb                 result_cb_;
   ErrorCb                  error_cb_;
 

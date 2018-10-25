@@ -5,6 +5,7 @@ recorder_gtest_SOURCES  = qmmf_recorder_gtest.cc
 
 recorder_gtest_CPPFLAGS = -I$(top_srcdir)/include
 recorder_gtest_CPPFLAGS += -I$(top_srcdir)/
+recorder_gtest_CPPFLAGS += -I$(top_srcdir)/common/memory
 recorder_gtest_CPPFLAGS += -I$(CAMERAHAL_CFLAGS)
 recorder_gtest_CPPFLAGS += -DUSE_SKIA=0
 recorder_gtest_CPPFLAGS += -DUSE_CAIRO=1
@@ -20,6 +21,7 @@ bin_PROGRAMS += recorder_360cam_gtest
 recorder_360cam_gtest_SOURCES  = qmmf_recorder_360cam_gtest.cc
 recorder_360cam_gtest_CPPFLAGS = -I$(top_srcdir)/include
 recorder_360cam_gtest_CPPFLAGS += -I$(top_srcdir)/
+recorder_360cam_gtest_CPPFLAGS += -I$(top_srcdir)/common/memory
 recorder_360cam_gtest_CPPFLAGS += -I$(CAMERAHAL_CFLAGS)
 recorder_360cam_gtest_CPPFLAGS += -DUSE_SKIA=0
 recorder_360cam_gtest_CPPFLAGS += -DUSE_CAIRO=1

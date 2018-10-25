@@ -108,13 +108,13 @@ void Camera3Monitor::ChangeState(int id, MonitorState state) {
 }
 
 void Camera3Monitor::RequestExit() {
+  ThreadHelper::RequestExit();
   pthread_cond_signal(&input_signal_);
-  Camera3Thread::RequestExit();
 }
 
 void Camera3Monitor::RequestExitAndWait() {
   pthread_cond_signal(&input_signal_);
-  Camera3Thread::RequestExitAndWait();
+  ThreadHelper::RequestExitAndWait();
 }
 
 Camera3Monitor::MonitorState Camera3Monitor::BuildCompositeState() {
@@ -132,7 +132,7 @@ bool Camera3Monitor::ThreadLoop() {
   pthread_mutex_lock(&input_lock_);
   while (input_queue_.size() == 0 && !monitor_updated_) {
     res = cond_wait_relative(&input_signal_, &input_lock_, WAIT_TIMEOUT);
-    if (ExitPending()) {
+    if (ThreadHelper::ExitPending()) {
       pthread_mutex_unlock(&input_lock_);
       return false;
     }

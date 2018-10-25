@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -43,7 +43,11 @@ namespace recorder {
 CameraHalReproc::CameraHalReproc(IPostProc* context)
     : context_(context),
       abort_(nullptr),
-      frame_processing_(false) {
+      frame_processing_(false),
+      reprocess_request_({}),
+      input_param_({}),
+      output_param_({}),
+      reproc_partial_list_({}) {
   QMMF_VERBOSE("%s: Enter ", __func__);
   static_meta_ = context_->GetCameraStaticMeta();
 
@@ -153,7 +157,7 @@ PostProcIOParam CameraHalReproc::GetInput(const PostProcIOParam &out) {
     // otherwise we cannot achieve 4K JPEG re-processing with one
     // ISP because of camera limitations
     input_param.format = BufferFormat::kNV21;
-    input_param.gralloc_flags |= GRALLOC_USAGE_HW_CAMERA_ZSL;
+    input_param.alloc_flags.flags |= IMemAllocUsage::kHwCameraZsl;
     break;
   case BufferFormat::kNV12:
   case BufferFormat::kNV12UBWC:
@@ -651,7 +655,7 @@ status_t CameraHalReproc::CreateDeviceStreams() {
   out_stream_params.format = Common::FromQmmfToHalFormat(output_param_.format);
   out_stream_params.width = output_param_.width;
   out_stream_params.height = output_param_.height;
-  out_stream_params.grallocFlags = GRALLOC_USAGE_SW_READ_OFTEN;
+  out_stream_params.allocFlags = IMemAllocUsage::kSwReadOften;
   out_stream_params.cb = [&](StreamBuffer buffer)
       { ReprocessCallback(buffer); };
   out_stream_params.is_pp_enabled = true;

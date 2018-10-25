@@ -18,27 +18,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifdef TARGET_USES_GRALLOC1
-#include <libgralloc1/gralloc_priv.h>
-#include <grallocusage/GrallocUsageConversion.h>
-#else
-#include <qcom/display/gralloc_priv.h>
-#endif
 
 #include "qmmf_camera3_utils.h"
 #include "qmmf_camera3_monitor.h"
 #include "qmmf_camera3_stream.h"
+#include "qmmf_memory_interface.h"
 #include "recorder/src/service/qmmf_recorder_common.h"
 
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
-
+#undef LOG_TAG
+#define LOG_TAG "Camera3Stream"
 namespace qmmf {
 
 namespace cameraadaptor {
 
 Camera3Stream::Camera3Stream(int id, size_t maxSize,
                              const CameraStreamParameters &outputConfiguration,
-                             mem_alloc_device device,
+                             IAllocDevice *device,
                              Camera3Monitor &monitor)
     : camera3_stream(),
       mem_alloc_interface_(nullptr),
@@ -49,12 +45,12 @@ Camera3Stream::Camera3Stream(int id, size_t maxSize,
       total_buffer_count_(0),
       pending_buffer_count_(0),
       callbacks_(outputConfiguration.cb),
-      old_usage_(0),
-      client_usage_(outputConfiguration.grallocFlags),
+      old_usage_(),
+      client_usage_(outputConfiguration.allocFlags),
       old_max_buffers_(0),
       client_max_buffers_(outputConfiguration.bufferCount),
-      gralloc_slots_(NULL),
-      gralloc_buffer_allocated_(0),
+      mem_alloc_slots_(NULL),
+      hw_buffer_allocated_(0),
       monitor_(monitor),
       monitor_id_(Camera3Monitor::INVALID_ID),
       is_stream_active_(false),
@@ -65,9 +61,10 @@ Camera3Stream::Camera3Stream(int id, size_t maxSize,
   camera3_stream::format = outputConfiguration.format;
   camera3_stream::data_space = outputConfiguration.data_space;
   camera3_stream::rotation = outputConfiguration.rotation;
-  camera3_stream::usage = outputConfiguration.grallocFlags;
+  camera3_stream::usage =
+    AllocUsageFactory::GetAllocUsage().ToLocal(outputConfiguration.allocFlags);
   camera3_stream::max_buffers = outputConfiguration.bufferCount;
-#ifdef ANDROID_O_OR_ABOVE
+#ifdef CAM_ARCH_V2
   if (HAL_PIXEL_FORMAT_BLOB == outputConfiguration.format) {
     camera3_stream::data_space = HAL_DATASPACE_V0_JFIF;
   }
@@ -80,15 +77,11 @@ Camera3Stream::Camera3Stream(int id, size_t maxSize,
   }
 
   if (NULL == device) {
-    QMMF_ERROR("%s: Gralloc device is invalid!\n", __func__);
+    QMMF_ERROR("%s:Memory allocator device is invalid!\n", __func__);
     status_ = STATUS_ERROR;
   }
 
-  mem_alloc_interface_ = IMemAllocator::CreateMemAllocator(device);
-  if (nullptr == mem_alloc_interface_) {
-    QMMF_ERROR("%s: Gralloc Interface creation failed!\n", __func__);
-    status_ = STATUS_ERROR;
-  }
+  mem_alloc_interface_ = device;
 
   pthread_mutex_init(&lock_, NULL);
   pthread_cond_init(&output_buffer_returned_signal_, NULL);
@@ -102,15 +95,10 @@ Camera3Stream::~Camera3Stream() {
 
   CloseLocked();
 
-  if (nullptr != mem_alloc_interface_) {
-    delete mem_alloc_interface_;
-    mem_alloc_interface_ = nullptr;
-  }
-
   pthread_mutex_destroy(&lock_);
   pthread_cond_destroy(&output_buffer_returned_signal_);
-  if (NULL != gralloc_slots_) {
-    delete[] gralloc_slots_;
+  if (NULL != mem_alloc_slots_) {
+    delete[] mem_alloc_slots_;
   }
 }
 
@@ -133,7 +121,8 @@ camera3_stream *Camera3Stream::BeginConfigure() {
       goto exit;
   }
 
-  camera3_stream::usage = client_usage_;
+  camera3_stream::usage =
+    AllocUsageFactory::GetAllocUsage().ToLocal(client_usage_);
   camera3_stream::max_buffers = client_max_buffers_;
 
   if (monitor_id_ != Camera3Monitor::INVALID_ID) {
@@ -198,7 +187,9 @@ int32_t Camera3Stream::EndConfigure() {
     goto exit;
   }
 
-  if (status_ == STATUS_RECONFIG_ACTIVE && old_usage_ == camera3_stream::usage &&
+  if (status_ == STATUS_RECONFIG_ACTIVE &&
+      AllocUsageFactory::GetAllocUsage().ToCommon(camera3_stream::usage).
+        Equals(old_usage_) &&
       old_max_buffers_ == camera3_stream::max_buffers) {
     status_ = STATUS_CONFIGURED;
     res = 0;
@@ -213,7 +204,8 @@ int32_t Camera3Stream::EndConfigure() {
   }
 
   status_ = STATUS_CONFIGURED;
-  old_usage_ = camera3_stream::usage;
+  old_usage_ =
+    AllocUsageFactory::GetAllocUsage().ToCommon(camera3_stream::usage);
   old_max_buffers_ = camera3_stream::max_buffers;
 
 exit:
@@ -244,7 +236,8 @@ int32_t Camera3Stream::AbortConfigure() {
       goto exit;
   }
 
-  camera3_stream::usage = old_usage_;
+  camera3_stream::usage =
+    AllocUsageFactory::GetAllocUsage().ToLocal(old_usage_);
   camera3_stream::max_buffers = old_max_buffers_;
 
   status_ = (status_ == STATUS_RECONFIG_ACTIVE) ? STATUS_CONFIGURED
@@ -395,17 +388,17 @@ int32_t Camera3Stream::TearDown() {
     goto exit;
   }
 
-  if (0 < gralloc_buffer_allocated_) {
+  if (0 < hw_buffer_allocated_) {
     assert(nullptr != mem_alloc_interface_);
-    for (uint32_t i = 0; i < gralloc_buffers_.size(); i++) {
-      mem_alloc_interface_->FreeBuffer(gralloc_buffers_.keyAt(i));
+    for (uint32_t i = 0; i < mem_alloc_buffers_.size(); i++) {
+      mem_alloc_interface_->FreeBuffer(mem_alloc_buffers_.keyAt(i));
     }
-    gralloc_buffers_.clear();
-    gralloc_buffer_allocated_ = 0;
+    mem_alloc_buffers_.clear();
+    hw_buffer_allocated_ = 0;
   }
 
   for (uint32_t i = 0; i < total_buffer_count_; i++) {
-    gralloc_slots_[i] = NULL;
+    mem_alloc_slots_[i] = NULL;
   }
 
   is_stream_active_ = false;
@@ -455,23 +448,27 @@ exit:
 }
 
 int32_t Camera3Stream::PopulateMetaInfo(CameraBufferMetaData &info,
-                                        struct private_handle_t *priv_handle) {
-  if (NULL == priv_handle) {
-    QMMF_ERROR("%s: Invalid private handle!\n", __func__);
+                                        IBufferHandle &handle) {
+  int alignedW, alignedH;
+  auto ret = mem_alloc_interface_->Perform(handle,
+                                      IAllocDevice::AllocDeviceAction::GetStride,
+                                      static_cast<void*>(&alignedW));
+
+  if (MemAllocError::kAllocOk != ret) {
+    QMMF_ERROR("%s: Error in GetStrideAndHeightFromHandle() : %d\n", __func__,
+               ret);
     return -EINVAL;
   }
-
-  int alignedW, alignedH;
-  auto ret = mem_alloc_interface_->GetStrideAndHeightFromHandle(priv_handle,
-                                                                &alignedW,
-                                                                &alignedH);
-  if (0 != ret) {
+  ret  = mem_alloc_interface_->Perform(handle,
+                                      IAllocDevice::AllocDeviceAction::GetHeight,
+                                       static_cast<void*>(&alignedH));
+  if (MemAllocError::kAllocOk != ret) {
     QMMF_ERROR("%s: Error in GetStrideAndHeightFromHandle() : %d\n", __func__,
                ret);
     return -EINVAL;
   }
 
-  switch (priv_handle->format) {
+  switch (handle->GetFormat()) {
     case HAL_PIXEL_FORMAT_BLOB:
       info.format = BufferFormat::kBLOB;
       info.num_planes = 1;
@@ -482,6 +479,13 @@ int32_t Camera3Stream::PopulateMetaInfo(CameraBufferMetaData &info,
       break;
     case HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS:
     case HAL_PIXEL_FORMAT_NV12_ENCODEABLE:
+#ifdef TARGET_USES_GBM
+    // TODO: To be resolved or enhanced once
+    // complete solution is ready from Camera
+    // for libgbm formats.
+    case HAL_PIXEL_FORMAT_YCbCr_420_888:
+    case HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED:
+#endif
       info.format = BufferFormat::kNV12;
       info.num_planes = 2;
       info.plane_info[0].width = width;
@@ -564,7 +568,7 @@ int32_t Camera3Stream::PopulateMetaInfo(CameraBufferMetaData &info,
       break;
     default:
       QMMF_ERROR("%s: Unsupported format: %d\n", __func__,
-                 priv_handle->format);
+                 handle->GetFormat());
       return -ENOENT;
   }
 
@@ -574,8 +578,6 @@ int32_t Camera3Stream::PopulateMetaInfo(CameraBufferMetaData &info,
 void Camera3Stream::ReturnBufferToClient(const camera3_stream_buffer &buffer,
                                          int64_t timestamp,
                                          int64_t frame_number) {
-  struct private_handle_t *priv_handle = (struct private_handle_t *)
-      *buffer.buffer;
   assert(nullptr != callbacks_);
 
   pthread_mutex_lock(&lock_);
@@ -586,10 +588,11 @@ void Camera3Stream::ReturnBufferToClient(const camera3_stream_buffer &buffer,
   b.frame_number = frame_number;
   b.stream_id = id_;
   b.data_space = data_space;
-  b.handle = *buffer.buffer;
-  b.fd = priv_handle->fd;
-  b.size = priv_handle->size;
-  PopulateMetaInfo(b.info, priv_handle);
+  b.handle = buffers_map[*buffer.buffer];
+  assert(b.handle != nullptr);
+  b.fd = b.handle->GetFD();
+  b.size = b.handle->GetSize();
+  PopulateMetaInfo(b.info, b.handle);
   is_stream_active_ = true;
 
   pthread_mutex_unlock(&lock_);
@@ -642,7 +645,7 @@ int32_t Camera3Stream::ReturnBufferLocked(const StreamBuffer &buffer) {
     return -ENOSYS;
   }
 
-  int32_t idx = gralloc_buffers_.indexOfKey(buffer.handle);
+  int32_t idx = mem_alloc_buffers_.indexOfKey(buffer.handle);
   if (-ENOENT == idx) {
     QMMF_ERROR(
         "%s: Buffer %p returned that wasn't allocated by this"
@@ -650,7 +653,7 @@ int32_t Camera3Stream::ReturnBufferLocked(const StreamBuffer &buffer) {
         __func__, buffer.handle);
     return -EINVAL;
   } else {
-    gralloc_buffers_.replaceValueFor(buffer.handle, true);
+    mem_alloc_buffers_.replaceValueFor(buffer.handle, true);
   }
 
   pending_buffer_count_--;
@@ -668,7 +671,6 @@ int32_t Camera3Stream::ReturnBufferLocked(const StreamBuffer &buffer) {
 }
 
 int32_t Camera3Stream::GetBufferLocked(camera3_stream_buffer *streamBuffer) {
-  status_t res;
   int32_t idx = -1;
   if ((status_ != STATUS_CONFIGURED) && (status_ != STATUS_CONFIG_ACTIVE) &&
       (status_ != STATUS_RECONFIG_ACTIVE) &&
@@ -680,28 +682,28 @@ int32_t Camera3Stream::GetBufferLocked(camera3_stream_buffer *streamBuffer) {
     return -ENOSYS;
   }
 
-  buffer_handle_t handle = NULL;
+  IBufferHandle handle = NULL;
   //Only pre-allocate buffers in case no valid streamBuffer
   //is passed as an argument.
   if (NULL != streamBuffer) {
-    for (uint32_t i = 0; i < gralloc_buffers_.size(); i++) {
-      if (gralloc_buffers_.valueAt(i)) {
-        handle = gralloc_buffers_.keyAt(i);
-        gralloc_buffers_.replaceValueAt(i, false);
+    for (uint32_t i = 0; i < mem_alloc_buffers_.size(); i++) {
+      if (mem_alloc_buffers_.valueAt(i)) {
+        handle = mem_alloc_buffers_.keyAt(i);
+        mem_alloc_buffers_.replaceValueAt(i, false);
         break;
       }
     }
   }
 
   if (NULL != handle) {
-    for (uint32_t i = 0; i < gralloc_buffer_allocated_; i++) {
-      if (gralloc_slots_[i] == handle) {
+    for (uint32_t i = 0; i < hw_buffer_allocated_; i++) {
+      if (mem_alloc_slots_[i] == handle) {
         idx = i;
         break;
       }
     }
   } else if ((NULL == handle) &&
-             (gralloc_buffer_allocated_ < total_buffer_count_)) {
+             (hw_buffer_allocated_ < total_buffer_count_)) {
     assert(nullptr != mem_alloc_interface_);
     // Blob buffers are expected to get allocated with width equal to blob
     // max size and height equal to 1.
@@ -713,19 +715,21 @@ int32_t Camera3Stream::GetBufferLocked(camera3_stream_buffer *streamBuffer) {
       buf_width = camera3_stream::width;
       buf_height = camera3_stream::height;
     }
-    res = mem_alloc_interface_->AllocBuffer(&handle,
+    MemAllocError ret = mem_alloc_interface_->AllocBuffer(
+                                            handle,
                                             buf_width,
                                             buf_height,
                                             camera3_stream::format,
-                                            camera3_stream::usage,
+                                            AllocUsageFactory::GetAllocUsage().
+                                              ToCommon(camera3_stream::usage),
                                             &current_buffer_stride_);
-    if (0 != res) {
-      return res;
+    if (MemAllocError::kAllocOk != ret) {
+      return -ENOMEM;
     }
-    idx = gralloc_buffer_allocated_;
-    gralloc_slots_[idx] = handle;
-    gralloc_buffers_.add(gralloc_slots_[idx], (NULL == streamBuffer));
-    gralloc_buffer_allocated_++;
+    idx = hw_buffer_allocated_;
+    mem_alloc_slots_[idx] = handle;
+    mem_alloc_buffers_.add(mem_alloc_slots_[idx], (NULL == streamBuffer));
+    hw_buffer_allocated_++;
   }
 
   if ((NULL == handle) || (0 > idx)) {
@@ -738,7 +742,13 @@ int32_t Camera3Stream::GetBufferLocked(camera3_stream_buffer *streamBuffer) {
     streamBuffer->acquire_fence = -1;
     streamBuffer->release_fence = -1;
     streamBuffer->status = CAMERA3_BUFFER_STATUS_OK;
-    streamBuffer->buffer = &gralloc_slots_[idx];
+#ifdef TARGET_USES_GBM
+    streamBuffer->buffer = &GetGrallocBufferHandle(mem_alloc_slots_[idx]);
+#else
+    streamBuffer->buffer = &GetAllocBufferHandle(mem_alloc_slots_[idx]);
+#endif //TARGET_USES_GBM
+    buffers_map[*streamBuffer->buffer] =
+      mem_alloc_slots_[idx];
 
     if (pending_buffer_count_ == 0 && status_ != STATUS_CONFIG_ACTIVE &&
         status_ != STATUS_RECONFIG_ACTIVE) {
@@ -773,22 +783,22 @@ int32_t Camera3Stream::ConfigureLocked() {
 
   total_buffer_count_ = MAX(client_max_buffers_, camera3_stream::max_buffers);
   pending_buffer_count_ = 0;
-  gralloc_buffer_allocated_ = 0;
+  hw_buffer_allocated_ = 0;
   is_stream_active_ = false;
-  if (NULL != gralloc_slots_) {
-    delete[] gralloc_slots_;
+  if (NULL != mem_alloc_slots_) {
+    delete[] mem_alloc_slots_;
   }
 
-  if (!gralloc_buffers_.isEmpty()) {
+  if (!mem_alloc_buffers_.isEmpty()) {
     assert(nullptr != mem_alloc_interface_);
-    for (uint32_t i = 0; i < gralloc_buffers_.size(); i++) {
-      mem_alloc_interface_->FreeBuffer(gralloc_buffers_.keyAt(i));
+    for (uint32_t i = 0; i < mem_alloc_buffers_.size(); i++) {
+      mem_alloc_interface_->FreeBuffer(mem_alloc_buffers_.keyAt(i));
     }
-    gralloc_buffers_.clear();
+    mem_alloc_buffers_.clear();
   }
 
-  gralloc_slots_ = new buffer_handle_t[total_buffer_count_];
-  if (NULL == gralloc_slots_) {
+  mem_alloc_slots_ = new IBufferHandle[total_buffer_count_];
+  if (NULL == mem_alloc_slots_) {
     QMMF_ERROR("%s: Unable to allocate buffer handles!\n", __func__);
     status_ = STATUS_ERROR;
     return -ENOMEM;
@@ -810,276 +820,24 @@ int32_t Camera3Stream::CloseLocked() {
   if (pending_buffer_count_ > 0) {
     QMMF_ERROR("%s: Can't disconnect with %zu buffers still dequeued!\n",
                __func__, pending_buffer_count_);
-    for (uint32_t i = 0; i < gralloc_buffers_.size(); i++) {
+    for (uint32_t i = 0; i < mem_alloc_buffers_.size(); i++) {
       QMMF_ERROR("%s: buffer[%d] = %p status: %d\n", __func__, i,
-                 gralloc_buffers_.keyAt(i), gralloc_buffers_.valueAt(i));
+                 mem_alloc_buffers_.keyAt(i), mem_alloc_buffers_.valueAt(i));
     }
     return -ENOSYS;
   }
 
   assert(nullptr != mem_alloc_interface_);
-  for (uint32_t i = 0; i < gralloc_buffers_.size(); i++) {
-    mem_alloc_interface_->FreeBuffer(gralloc_buffers_.keyAt(i));
+  for (uint32_t i = 0; i < mem_alloc_buffers_.size(); i++) {
+    mem_alloc_interface_->FreeBuffer(mem_alloc_buffers_.keyAt(i));
   }
-  gralloc_buffers_.clear();
+  mem_alloc_buffers_.clear();
 
   status_ = (status_ == STATUS_RECONFIG_ACTIVE) ? STATUS_CONFIG_ACTIVE
                                                 : STATUS_INTIALIZED;
   return 0;
 }
 
-#ifdef TARGET_USES_GRALLOC1
-Gralloc1Allocator::Gralloc1Allocator(mem_alloc_device gralloc1_device)
-    : IMemAllocator(gralloc1_device) {
-  assert(nullptr != gralloc1_device);
-
-  CreateDescriptor  = reinterpret_cast<GRALLOC1_PFN_CREATE_DESCRIPTOR>(
-      gralloc1_device->getFunction(gralloc1_device,
-      GRALLOC1_FUNCTION_CREATE_DESCRIPTOR));
-
-  DestroyDescriptor = reinterpret_cast<GRALLOC1_PFN_DESTROY_DESCRIPTOR>(
-      gralloc1_device->getFunction(gralloc1_device,
-      GRALLOC1_FUNCTION_DESTROY_DESCRIPTOR));
-
-  SetDimensions     = reinterpret_cast<GRALLOC1_PFN_SET_DIMENSIONS>(
-      gralloc1_device->getFunction(gralloc1_device,
-      GRALLOC1_FUNCTION_SET_DIMENSIONS));
-
-  SetFormat         = reinterpret_cast<GRALLOC1_PFN_SET_FORMAT>(
-      gralloc1_device->getFunction(gralloc1_device,
-      GRALLOC1_FUNCTION_SET_FORMAT));
-
-  SetProducerUsage  = reinterpret_cast<GRALLOC1_PFN_SET_PRODUCER_USAGE>(
-      gralloc1_device->getFunction(gralloc1_device,
-      GRALLOC1_FUNCTION_SET_PRODUCER_USAGE));
-
-  SetConsumerUsage  = reinterpret_cast<GRALLOC1_PFN_SET_CONSUMER_USAGE>(
-      gralloc1_device->getFunction(gralloc1_device,
-      GRALLOC1_FUNCTION_SET_CONSUMER_USAGE));
-
-  Allocate          = reinterpret_cast<GRALLOC1_PFN_ALLOCATE>(
-      gralloc1_device->getFunction(gralloc1_device,
-      GRALLOC1_FUNCTION_ALLOCATE));
-
-  GetStride         = reinterpret_cast<GRALLOC1_PFN_GET_STRIDE>(
-      gralloc1_device->getFunction(gralloc1_device,
-      GRALLOC1_FUNCTION_GET_STRIDE));
-
-  Release           = reinterpret_cast<GRALLOC1_PFN_RELEASE>(
-      gralloc1_device->getFunction(gralloc1_device,
-      GRALLOC1_FUNCTION_RELEASE));
-
-  Lock              = reinterpret_cast<GRALLOC1_PFN_LOCK>(
-      gralloc1_device->getFunction(gralloc1_device,
-      GRALLOC1_FUNCTION_LOCK));
-
-  UnLock            = reinterpret_cast<GRALLOC1_PFN_UNLOCK>(
-      gralloc1_device->getFunction(gralloc1_device,
-      GRALLOC1_FUNCTION_UNLOCK));
-
-  Perform           = reinterpret_cast<GRALLOC1_PFN_PERFORM>(
-      gralloc1_device->getFunction(gralloc1_device,
-      GRALLOC1_FUNCTION_PERFORM));
-
-  if ((nullptr == CreateDescriptor) || (nullptr == DestroyDescriptor)
-      || (nullptr == SetDimensions) || (nullptr == SetFormat)
-      || (nullptr == SetProducerUsage) || (nullptr == SetConsumerUsage)
-      || (nullptr == Allocate) || (nullptr == GetStride)
-      || (nullptr == Release) || (nullptr == Lock)
-      || (nullptr == UnLock) || (nullptr == Perform)) {
-    QMMF_ERROR("%s: Gralloc device is invalid!\n", __func__);
-  }
-}
-
-mem_alloc_error Gralloc1Allocator::AllocBuffer(buffer_handle_t *buf,
-                                               int32_t width,
-                                               int32_t height,
-                                               int32_t format,
-                                               int32_t usage,
-                                               uint32_t *stride) {
-  mem_alloc_device gralloc1_device = GetDevice();
-  assert(nullptr != gralloc1_device);
-
-  int32_t res = GRALLOC1_ERROR_NONE;
-  gralloc1_buffer_descriptor_t buf_desc;
-  uint64_t producer_flags = 0;
-  uint64_t consumer_flags = 0;
-  if (!width || !height) width = height = 1;
-
-  android_convertGralloc0To1Usage(static_cast<int32_t>(usage),
-                                  &producer_flags,
-                                  &consumer_flags);
-  QMMF_INFO("%s: width:%d height:%d format:%d p_flags:0x%x c_flags:0x%x\n",
-            __func__, width, height, format,
-            static_cast<uint32_t>(producer_flags),
-            static_cast<uint32_t>(consumer_flags));
-
-  if (usage & GRALLOC_USAGE_PRIVATE_ALLOC_UBWC) {
-    QMMF_INFO("%s: Setting UBWC producer_flags", __func__);
-    //UBWC being custom format, needs to be handled seperately
-    producer_flags |= GRALLOC1_PRODUCER_USAGE_PRIVATE_ALLOC_UBWC;
-  }
-
-  res = CreateDescriptor(gralloc1_device, &buf_desc);
-  if (GRALLOC1_ERROR_NONE != res) {
-    QMMF_ERROR("%s: Error in CreateDescriptor\n", __func__);
-    return GRALLOC1_ERROR_BAD_VALUE;
-  }
-
-  res = SetDimensions(gralloc1_device, buf_desc, width, height);
-  if (GRALLOC1_ERROR_NONE != res) {
-    QMMF_ERROR("%s: Error in SetDimensions\n", __func__);
-    return GRALLOC1_ERROR_BAD_VALUE;
-  }
-
-  res = SetFormat(gralloc1_device, buf_desc, format);
-  if (GRALLOC1_ERROR_NONE != res) {
-    QMMF_ERROR("%s: Error in SetFormat\n", __func__);
-    return GRALLOC1_ERROR_BAD_VALUE;
-  }
-
-  res = SetProducerUsage(gralloc1_device, buf_desc, producer_flags);
-  if (GRALLOC1_ERROR_NONE != res) {
-    QMMF_ERROR("%s: Error in SetProducerUsage\n", __func__);
-    return GRALLOC1_ERROR_BAD_VALUE;
-  }
-
-  res = SetConsumerUsage(gralloc1_device, buf_desc, consumer_flags);
-  if (GRALLOC1_ERROR_NONE != res) {
-    QMMF_ERROR("%s: Error in SetConsumerUsage\n", __func__);
-    return GRALLOC1_ERROR_BAD_VALUE;
-  }
-
-  res = Allocate(gralloc1_device, 1, &buf_desc, &buf[0]);
-  if (GRALLOC1_ERROR_NONE != res) {
-    QMMF_ERROR("%s: Error in Allocate\n", __func__);
-    return GRALLOC1_ERROR_BAD_VALUE;
-  }
-
-  res = GetStride(gralloc1_device, *buf, stride);
-  if (GRALLOC1_ERROR_NONE != res) {
-    QMMF_ERROR("%s: Error in GetStride\n", __func__);
-    return GRALLOC1_ERROR_BAD_VALUE;
-  }
-
-  res = DestroyDescriptor(gralloc1_device, buf_desc);
-  if (GRALLOC1_ERROR_NONE != res) {
-    QMMF_ERROR("%s: Error in DestroyDescriptor\n", __func__);
-    return GRALLOC1_ERROR_BAD_VALUE;
-  }
-
-  return GRALLOC1_ERROR_NONE;
-}
-
-mem_alloc_error Gralloc1Allocator::FreeBuffer(buffer_handle_t buf) {
-  mem_alloc_device gralloc1_device = GetDevice();
-  assert(nullptr != gralloc1_device);
-
-  if (nullptr != buf) {
-    int32_t res  = Release(gralloc1_device, buf);
-    if (GRALLOC1_ERROR_NONE != res) {
-      QMMF_ERROR("%s: Error in Release\n", __func__);
-      return GRALLOC1_ERROR_BAD_VALUE;
-    }
-    buf = nullptr;
-  }
-  return GRALLOC1_ERROR_NONE;
-}
-
-mem_alloc_error Gralloc1Allocator::GetStrideAndHeightFromHandle(
-       struct private_handle_t* const priv_handle,
-       int32_t* stride,
-       int32_t* height) {
-  mem_alloc_device gralloc1_device = GetDevice();
-  assert(nullptr != gralloc1_device);
-
-  int32_t res = Perform(gralloc1_device,
-      GRALLOC_MODULE_PERFORM_GET_CUSTOM_STRIDE_AND_HEIGHT_FROM_HANDLE,
-      priv_handle, stride, height);
-  if (GRALLOC1_ERROR_NONE != res) {
-    QMMF_ERROR("%s: Error in Perform\n", __func__);
-    return GRALLOC1_ERROR_BAD_VALUE;
-  }
-
-  return GRALLOC1_ERROR_NONE;
-}
-
-IMemAllocator* IMemAllocator::CreateMemAllocator(mem_alloc_device device) {
-  return (new Gralloc1Allocator(device));
-};
-#else
-GrallocAllocator::GrallocAllocator(mem_alloc_device gralloc_device)
-    : IMemAllocator(gralloc_device) {
-  assert(nullptr != gralloc_device);
-}
-
-
-mem_alloc_error GrallocAllocator::AllocBuffer(buffer_handle_t *buf,
-                                              int32_t width,
-                                              int32_t height,
-                                              int32_t format,
-                                              int32_t usage,
-                                              uint32_t *stride) {
-  mem_alloc_device gralloc_device = GetDevice();
-  assert(nullptr != gralloc_device);
-
-  if (!width || !height) width = height = 1;
-
-  // Filter out any usage bits that should not be passed
-  // to the Gralloc module.
-  usage &= GRALLOC_USAGE_ALLOC_MASK;
-
-  int32_t buf_stride;
-  int32_t res = gralloc_device->alloc(gralloc_device, width, height,
-                              format, usage, buf, &buf_stride);
-  if (0 != res) {
-    QMMF_ERROR("%s: Unable to allocate Gralloc buffer: %d\n", __func__, res);
-    return -EINVAL;
-  }
-  *stride = static_cast<uint32_t>(buf_stride);
-
-  return 0;
-}
-
-mem_alloc_error GrallocAllocator::FreeBuffer(buffer_handle_t buf) {
-  mem_alloc_device gralloc_device = GetDevice();
-  assert(nullptr != gralloc_device);
-
-  if (nullptr != buf) {
-    int32_t res  = gralloc_device->free(gralloc_device, buf);
-    if (0 != res) {
-      QMMF_ERROR("%s: Error in Free\n", __func__);
-      return -EINVAL;
-    }
-    buf = nullptr;
-  }
-  return 0;
-}
-
-mem_alloc_error GrallocAllocator::GetStrideAndHeightFromHandle(
-       struct private_handle_t* const priv_handle,
-       int32_t* stride,
-       int32_t* height) {
-  mem_alloc_device gralloc_device = GetDevice();
-  assert(nullptr != gralloc_device);
-
-  gralloc_module_t const *mapper = reinterpret_cast<gralloc_module_t const *>(
-      gralloc_device->common.module);
-  int32_t res = mapper->perform(mapper,
-        GRALLOC_MODULE_PERFORM_GET_CUSTOM_STRIDE_AND_HEIGHT_FROM_HANDLE,
-        priv_handle, stride, height);
-  if (0 != res) {
-    QMMF_ERROR("%s: Error in querying stride & height: %d\n", __func__, res);
-    return -EINVAL;
-  }
-
-  return 0;
-}
-
-IMemAllocator* IMemAllocator::CreateMemAllocator(mem_alloc_device device) {
-  return (new GrallocAllocator(device));
-};
-#endif  // TARGET_USES_GRALLOC1
 }  // namespace cameraadaptor ends here
 
 }  // namespace qmmf ends here

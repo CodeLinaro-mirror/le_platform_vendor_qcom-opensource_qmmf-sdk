@@ -49,7 +49,11 @@
 #include <cutils/properties.h>
 #include <fastcv/fastcv.h>
 #include <media/msm_media_info.h>
+#ifndef TARGET_USES_GBM
 #include <qcom/display/gralloc_priv.h>
+#else
+#include "common/utils/qmmf_common_utils.h"
+#endif
 #include <utils/Log.h>
 
 #include "player/test/demuxer/qmmf_demuxer_intf.h"
@@ -177,6 +181,8 @@ class VideoDecode {
     std::condition_variable wait_for_frame_;
     std::vector<qmmf::BufferDescriptor> output_free_buffer_vector_;
     std::map<int32_t, qmmf::BufferDescriptor> output_occupy_buffer_map_;
+    bool port_reconfigured_;
+    bool stop_notify_called_;
   };  // Class OutputCodecSourceImpl
 
   friend class OutputCodecSourceImpl;

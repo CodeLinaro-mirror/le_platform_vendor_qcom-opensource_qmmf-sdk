@@ -32,7 +32,6 @@
 #include <mutex>
 
 #include <camera/CameraMetadata.h>
-#include <qcom/display/gralloc_priv.h>
 #include <qmmf-sdk/qmmf_recorder_params.h>
 #include <qmmf-sdk/qmmf_recorder_extra_param_tags.h>
 
@@ -50,7 +49,7 @@ namespace recorder {
 
 using namespace reprocjpegencoder;
 
-class CameraJpeg : public Camera3Thread,
+class CameraJpeg : public ThreadHelper,
                    public ICameraPostProcess,
                    public exif::ExifGenerator,
                    public ExifConverter {

@@ -39,6 +39,7 @@
 #include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/prctl.h>
 
 #include "common/utils/qmmf_common_utils.h"
 #include "player/test/gtest/qmmf_player_parser.h"
@@ -568,7 +569,7 @@ int32_t PlayerGtest::Start() {
 
 void PlayerGtest::ThreadEntry(PlayerGtest* player_gtest) {
   QMMF_DEBUG("%s() TRACE", __func__);
-
+  prctl(PR_SET_NAME, "PlayGtestTh", 0, 0, 0);
   player_gtest->Thread();
 }
 

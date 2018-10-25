@@ -37,7 +37,7 @@
 #include <utils/Log.h>
 #include <assert.h>
 #include <system/graphics.h>
-#ifdef ANDROID_O_OR_ABOVE
+#ifdef QCAMERA3_TAG_LOCAL_COPY
 #include "common/utils/qmmf_common_utils.h"
 #else
 #include <QCamera3VendorTags.h>
@@ -85,7 +85,7 @@ const char kAutoOrWarmBootModeArgs[] = {
 };
 
 // Number of histogram color channels.
-#ifdef ANDROID_O_OR_ABOVE
+#ifdef CAM_ARCH_V2
 // Red, Green, Blue
 static const int32_t kHistogramColorChannels = 3;
 #else
@@ -122,7 +122,7 @@ RecorderTest::RecorderTest() :
   TEST_INFO("%s: Enter", __func__);
   static_info_.clear();
   use_display = 0;
-#ifdef ANDROID_O_OR_ABOVE
+#ifdef CAM_ARCH_V2
   vendor_tag_desc_ = nullptr;
 #endif
   TEST_KPI_GET_MASK();
@@ -266,7 +266,7 @@ status_t RecorderTest::RemovePreviewTrack() {
   return ret;
 }
 
-#ifdef ANDROID_O_OR_ABOVE
+#ifdef CAM_ARCH_V2
 /**
  * This function can be called only after StartCamera. It tries to fetch
  * tag_id, on success, returns true and fills vendor tag_id. On failure,
@@ -504,7 +504,7 @@ int32_t RecorderTest::ToggleVHDR() {
   auto status = recorder_.GetCameraParam(camera_id_, meta);
   if (NO_ERROR == status) {
     uint32_t hdr_mode_vtag;
-#ifdef ANDROID_O_OR_ABOVE
+#ifdef CAM_ARCH_V2
     if (VendorTagExistsInMeta(meta, String8("vhdr_mode"),
         String8("org.codeaurora.qcamera3.video_hdr_mode"),
         &hdr_mode_vtag)) {
@@ -551,7 +551,7 @@ std::string RecorderTest::GetCurrentVHDRMode() {
 
   auto status = recorder_.GetCameraParam(camera_id_, meta);
   if (NO_ERROR == status) {
-#ifdef ANDROID_O_OR_ABOVE
+#ifdef CAM_ARCH_V2
     if (VendorTagExistsInMeta(meta, String8("vhdr_mode"),
         String8("org.codeaurora.qcamera3.video_hdr_mode"),
         &hdr_mode_vtag)) {
@@ -589,7 +589,7 @@ void RecorderTest::InitSupportedVHDRModes() {
   camera_metadata_entry_t entry;
   uint32_t hdr_supported_modes_vtag;
 
-#ifdef ANDROID_O_OR_ABOVE
+#ifdef CAM_ARCH_V2
   if (!VendorTagSupported(String8("vhdr_supported_modes"),
       String8("org.codeaurora.qcamera3.video_hdr_mode"),
       &hdr_supported_modes_vtag)) {
@@ -897,13 +897,14 @@ int32_t RecorderTest::ChooseCamera() {
   // TODO - propagate num cameras
   int num_cameras = 3;
   int input;
-
+  std::string str;
   do {
     printf("\n");
     printf("****** Current Camera is 0 - %d *******\n", camera_id_);
     printf("    Choose Camera: 0 - %d\n", num_cameras-1);
     printf("\n");
-    scanf("%d", &input);
+    std::getline(std::cin, str);
+    input = std::stol(str, nullptr, 10);
   } while ((input > num_cameras - 1) || (input < 0));
   camera_id_ = input;
 
@@ -913,6 +914,7 @@ int32_t RecorderTest::ChooseCamera() {
 int32_t RecorderTest::SetAntibandingMode() {
 
   int input;
+  std::string str;
   uint8_t mode;
   CameraMetadata meta;
 
@@ -923,7 +925,8 @@ int32_t RecorderTest::SetAntibandingMode() {
   printf("  3. 60Hz\n" );
   printf("  4. Auto\n" );
   printf("  0. exit\n");
-  scanf("%d", &input);
+  std::getline(std::cin, str);
+  input = std::stol(str, nullptr, 10);
   auto status = recorder_.GetCameraParam(camera_id_, meta);
 
   switch (input) {
@@ -1036,7 +1039,7 @@ status_t RecorderTest::GetSharpnessStrength(int32_t& strength) {
   }
 
   uint32_t sharpness_strength_vtag;
-#ifdef ANDROID_O_OR_ABOVE
+#ifdef CAM_ARCH_V2
   if (VendorTagExistsInMeta(meta, String8("strength"),
       String8("org.codeaurora.qcamera3.sharpness"),
       &sharpness_strength_vtag)) {
@@ -1051,7 +1054,7 @@ status_t RecorderTest::GetSharpnessStrength(int32_t& strength) {
     // In case camera didn't set default.
     // Setting the value to MIN possible by default.
     uint32_t sharpness_range_vtag;
-#ifdef ANDROID_O_OR_ABOVE
+#ifdef CAM_ARCH_V2
     if (!VendorTagSupported(String8("range"),
         String8("org.codeaurora.qcamera3.sharpness"),
         &sharpness_range_vtag)) {
@@ -1085,7 +1088,7 @@ status_t RecorderTest::SetSharpnessStrength(const int32_t& val) {
   }
 
   uint32_t sharpness_strength_vtag;
-#ifdef ANDROID_O_OR_ABOVE
+#ifdef CAM_ARCH_V2
   if (!VendorTagSupported(String8("strength"),
       String8("org.codeaurora.qcamera3.sharpness"),
       &sharpness_strength_vtag)) {
@@ -1478,7 +1481,7 @@ status_t RecorderTest::GetRawHistogramStatistic(const CameraMetadata& meta) {
 
   uint32_t histogram_stats_vtag;
   uint32_t histogram_buckets_vtag;
-#ifdef ANDROID_O_OR_ABOVE
+#ifdef CAM_ARCH_V2
   uint32_t histogram_max_count_vtag;
   if (!VendorTagSupported(String8("max_count"),
       String8("org.codeaurora.qcamera3.histogram"),
@@ -1573,7 +1576,7 @@ status_t RecorderTest::GetRawHistogramStatistic(const CameraMetadata& meta) {
 
   // Setting mode to OFF after dumping
   uint32_t histogram_mode_vtag;
-#ifdef ANDROID_O_OR_ABOVE
+#ifdef CAM_ARCH_V2
   if (VendorTagExistsInMeta(temp_meta, String8("enable"),
       String8("org.codeaurora.qcamera3.histogram"),
       &histogram_mode_vtag)) {
@@ -3404,6 +3407,36 @@ status_t RecorderTest::Session1080pYUVTrackWithDisplay() {
   return ret;
 }
 
+status_t RecorderTest::ToggleDisplayState() {
+  TEST_INFO("%s: Enter", __func__);
+
+  auto ret = 0;
+#ifndef DISABLE_DISPLAY
+  session_iter_ it = sessions_.begin();
+  if (it == sessions_.end()) {
+    TEST_ERROR("%s: There are no active sessions", __func__);
+    return -EPERM;
+  }
+
+  for (auto track : it->second) {
+    TrackType type = track->GetTrackType();
+    if (type == TrackType::kVideoYUV) {
+      if (use_display == 1) {
+        ret = track->ToggleDisplayState();
+        assert(ret == 0);
+      } else {
+        TEST_ERROR("%s: Display not used", __func__);
+      }
+      break;
+    }
+  }
+#else
+  TEST_ERROR("%s Display is disabled", __func__);
+#endif
+  TEST_INFO("%s: Exit", __func__);
+  return ret;
+}
+
 // 1080P YUV video track with Display Enabled in recorder service.
 status_t RecorderTest::Session1080pYUVTrackWithPreview() {
 
@@ -3537,6 +3570,7 @@ status_t RecorderTest::SetParams() {
   uint32_t input;
   uint32_t value;
   float fps;
+  std::string str;
 
   do {
     printf("\n");
@@ -3553,21 +3587,24 @@ status_t RecorderTest::SetParams() {
     printf("  0. exit \n");
     printf("\n");
     printf("Enter set param option\n");
-    scanf("%d", &input);
+    std::getline(std::cin, str);
+    input = std::stoul(str, nullptr, 10);
 
     switch (input) {
       case 0:
         break;
       case 1:
         printf("Enter bitrate value\n");
-        scanf("%d", &value);
+        std::getline(std::cin, str);
+        value = std::stoul(str, nullptr, 10);
         param_type = CodecParamType::kBitRateType;
         ret = recorder_.SetVideoTrackParam(session_id, 1, param_type, &value,
                                               sizeof(value));
         break;
       case 2:
         printf("Enter fps value\n");
-        scanf("%f", &fps);
+        std::getline(std::cin, str);
+        fps = std::stod(str, nullptr);
         param_type = CodecParamType::kFrameRateType;
         ret = recorder_.SetVideoTrackParam(session_id, 1, param_type, &fps,
                                               sizeof(fps));
@@ -3580,7 +3617,8 @@ status_t RecorderTest::SetParams() {
         break;
       case 4:
         printf("Enter number of P frame value\n");
-        scanf("%d", &value);
+        std::getline(std::cin, str);
+        value = std::stoul(str, nullptr, 10);
         param_type = CodecParamType::kIDRIntervalType;
         VideoEncIdrInterval idr_interval;
         idr_interval.num_pframes = value;
@@ -3596,14 +3634,16 @@ status_t RecorderTest::SetParams() {
         break;
       case 6:
         printf("Enter ltr mark id value\n");
-        scanf("%d", &value);
+        std::getline(std::cin, str);
+        value = std::stoul(str, nullptr, 10);
         param_type = CodecParamType::kMarkLtrType;
         ret = recorder_.SetVideoTrackParam(session_id, 1, param_type, &value,
                                               sizeof(value));
         break;
       case 7:
         printf("Enter ltr use id value\n");
-        scanf("%d", &value);
+        std::getline(std::cin, str);
+        value = std::stoul(str, nullptr, 10);
         param_type = CodecParamType::kUseLtrType;
         VideoEncLtrUse ltr_use;
         ltr_use.id = value;
@@ -3658,7 +3698,7 @@ status_t RecorderTest::SetDynamicCameraParam() {
     switch (static_cast<DynamicCameraParamsCmd>(input)) {
       case DynamicCameraParamsCmd::kSharpness: {
         uint32_t sharpness_range_vtag;
-#ifdef ANDROID_O_OR_ABOVE
+#ifdef CAM_ARCH_V2
         if (!VendorTagSupported(String8("range"),
             String8("org.codeaurora.qcamera3.sharpness"),
             &sharpness_range_vtag)) {
@@ -3789,7 +3829,7 @@ status_t RecorderTest::SetDynamicCameraParam() {
       case DynamicCameraParamsCmd::kDumpHistogramStats: {
         // Enabling Histogram stats in Metadata
         uint32_t histogram_mode_vtag;
-#ifdef ANDROID_O_OR_ABOVE
+#ifdef CAM_ARCH_V2
         if (VendorTagSupported(String8("enable"),
             String8("org.codeaurora.qcamera3.histogram"),
             &histogram_mode_vtag)) {
@@ -4214,7 +4254,7 @@ void RecorderTest::CameraResultCallbackHandler(uint32_t camera_id,
   camera_metadata_ro_entry aec_awb_stat_enable =
       result.find(QCAMERA3_EXPOSURE_DATA_ENABLE);
 
-#ifdef ANDROID_O_OR_ABOVE
+#ifdef CAM_ARCH_V2
   if (dump_histogram_stats_) {
     uint32_t histogram_stats_vtag;
     if (VendorTagExistsInMeta(result, String8("stats"),
@@ -4499,7 +4539,7 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
 
     status = recorder_.GetCameraParam(current_camera_id, meta);
     if (NO_ERROR == status) {
-#ifdef ANDROID_O_OR_ABOVE
+#ifdef CAM_ARCH_V2
       uint32_t hdr_mode_vtag;
       if (VendorTagExistsInMeta(meta, String8("vhdr_mode"),
           String8("org.codeaurora.qcamera3.video_hdr_mode"),
@@ -4833,7 +4873,8 @@ int32_t RecorderTest::ParseConfig(char *fileName, TestInitParams *initParams,
   bool isStreamReadCompleted = false;
   const int MAX_LINE = 128;
   char line[MAX_LINE];
-  char value[50];
+  char *ptr = line;
+  char value[MAX_LINE];
   char key[25];
   uint32_t id = 0;
   int32_t camera_index = -1;
@@ -4845,8 +4886,9 @@ int32_t RecorderTest::ParseConfig(char *fileName, TestInitParams *initParams,
   }
 
   while (fgets(line, MAX_LINE - 1, fp)) {
-    if ((line[0] == '\n') || (line[0] == '/') || line[0] == ' ') continue;
-    strtok(line, "\n");
+    if ((line[0] == '\n') || (line[0] == '/') || line[0] == ' ')
+      continue;
+    strtok_r(line, "\n", &ptr);
     memset(value, 0x0, sizeof(value));
     memset(key, 0x0, sizeof(key));
     if (isStreamReadCompleted) {
@@ -5722,7 +5764,7 @@ bool CameraMetaDataParser::IsSVHDREnabled(const CameraMetadata& metadata) {
   TEST_DBG("%s: Enter", __func__);
   bool ret = false;
 
-#ifdef ANDROID_O_OR_ABOVE
+#ifdef CAM_ARCH_V2
   uint32_t hdr_mode_vtag;
   sp<VendorTagDescriptor> vendor_tag_desc = VendorTagDescriptor
       ::getGlobalVendorTagDescriptor();
@@ -5853,6 +5895,7 @@ TestTrack::TestTrack(RecorderTest* recorder_test)
       num_yuv_frames_(0) {
 #ifndef DISABLE_DISPLAY
   display_started_ = false;
+  display_param_ = 0;
 #endif
   TEST_DBG("%s: Enter", __func__);
   track_info_ = {};
@@ -6696,6 +6739,15 @@ status_t TestTrack::StartDisplay(DisplayType display_type) {
 
   display_started_ = 1;
 
+  display_param_type_ = qmmf::display::DisplayParamType::kDisplayState;
+  display_param_ = 1;
+  auto ret = display_->SetDisplayParam(display_param_type_,
+                                       (void *)(&display_param_), sizeof(int));
+
+  if (ret != 0) {
+    TEST_ERROR("%s SetDisplayParam Failed!!", __func__);
+  }
+
   surface_param_.src_rect = { 0.0, 0.0, (float)track_info_.width,
       (float)track_info_.height };
   surface_param_.dst_rect = { 0.0, 0.0, (float)track_info_.width,
@@ -6741,8 +6793,22 @@ status_t TestTrack::StopDisplay(DisplayType display_type) {
 }
 
 status_t TestTrack::PushFrameToDisplay(BufferDescriptor& buffer,
-    CameraBufferMetaData& meta_data) {
+                                       CameraBufferMetaData& meta_data) {
   if (display_started_ == 1) {
+    display_param_type_ = qmmf::display::DisplayParamType::kDisplayState;
+    auto ret = display_->GetDisplayParam(display_param_type_,
+                                         (void *) (&display_param_),
+                                         sizeof(int));
+
+    if (ret != 0) {
+      TEST_ERROR("%s GetDisplayParam Failed!!", __func__);
+      return ret;
+    }
+    QMMF_INFO("%s display param value %d display_started %d ", __func__,
+              display_param_, display_started_);
+  }
+
+  if (display_started_ == 1 && display_param_ == 1) {
     int32_t ret;
     surface_buffer_.plane_info[0].ion_fd = buffer.fd;
     surface_buffer_.buf_id = buffer.fd;
@@ -6767,6 +6833,35 @@ status_t TestTrack::PushFrameToDisplay(BufferDescriptor& buffer,
     }
   }
   return NO_ERROR;
+}
+
+status_t TestTrack::ToggleDisplayState() {
+  TEST_INFO("%s: Enter", __func__);
+
+  auto ret = 0;
+  if (display_started_ == 0) {
+    TEST_WARN("%s: Display not started, cannot toggle state", __func__);
+    return ret;
+  }
+  assert(display_ != nullptr);
+
+  display_param_type_ = qmmf::display::DisplayParamType::kDisplayState;
+  if (display_param_ == 1) {
+    display_param_ = 0;
+  } else if (display_param_ == 0) {
+    display_param_ = 1;
+  }
+
+  ret = display_->SetDisplayParam(display_param_type_,
+                                  (void *)(&display_param_),
+                                  sizeof(int));
+  if (ret != 0) {
+    TEST_ERROR("%s: SetDisplayParam Failed!!", __func__);
+    return ret;
+  }
+
+  TEST_INFO("%s: Exit", __func__);
+  return ret;
 }
 #endif
 
@@ -6926,6 +7021,8 @@ void CmdMenu::PrintMenu() {
       CmdMenu::CREATE_YUV_SESSION_DISPLAY_CMD);
   printf("   %c. Create Session: (1080p YUV with Preview)\n",
       CmdMenu::CREATE_YUV_SESSION_PREVIEW_CMD);
+  printf("   %c. Toggle Display State\n",
+      CmdMenu::TOGGLE_DISPLAY_STATE);
   printf("   %c. Start Session\n", CmdMenu::START_SESSION_CMD);
   printf("   %c. Stop Session\n", CmdMenu::STOP_SESSION_CMD);
   printf("   %c. Take Snapshot\n", CmdMenu::TAKE_SNAPSHOT_CMD);
@@ -7137,6 +7234,10 @@ int main(int argc,char *argv[]) {
       break;
       case CmdMenu::CREATE_YUV_SESSION_DISPLAY_CMD: {
         test_context.Session1080pYUVTrackWithDisplay();
+      }
+      break;
+      case CmdMenu::TOGGLE_DISPLAY_STATE: {
+        test_context.ToggleDisplayState();
       }
       break;
       case CmdMenu::CREATE_YUV_SESSION_PREVIEW_CMD: {

@@ -33,10 +33,10 @@
 
 #include <utils/KeyedVector.h>
 
+#include "player/src/service/qmmf_player_audio_sink.h"
 #include "include/qmmf-sdk/qmmf_player_params.h"
 #include "include/qmmf-sdk/qmmf_codec.h"
 #include "player/src/service/qmmf_player_common.h"
-#include "player/src/service/qmmf_player_audio_sink.h"
 #include "include/qmmf-sdk/qmmf_avcodec_params.h"
 #include "include/qmmf-sdk/qmmf_avcodec.h"
 #include "include/qmmf-sdk/qmmf_buffer.h"
@@ -78,11 +78,15 @@ class AudioDecoderCore {
 
   status_t PrepareDrag(uint32_t track_id, bool ignore_fps);
 
+  status_t NotifyInputBuffer(uint32_t track_id);
+
   status_t SetAudioTrackDecoderParams(uint32_t track_id,
                                CodecParamType param_type, void* param,
                                uint32_t param_size);
 
   status_t DeleteTrackDecoder(uint32_t track_id);
+
+  status_t SetPosition(uint32_t track_id, int64_t seek_time);
 
  private:
 
@@ -127,9 +131,13 @@ class AudioTrackDecoder : public ::qmmf::avcodec::ICodecSource {
 
   status_t PrepareDrag(bool ignore_fps);
 
+  status_t NotifyInputBuffer();
+
   status_t SetAudioDecoderParams(CodecParamType param_type, void* param,
                                   uint32_t param_size);
 
+
+  status_t SetPosition(int64_t seek_time);
 
   status_t GetBuffer(BufferDescriptor& stream_buffer,
                      void* client_data) override;

@@ -92,6 +92,8 @@ class PostProcFrameSkip : public IPostProcModule {
    uint32_t                       frame_skip_;
    float                          frame_duration_;
    int64_t                        last_timestamp_;
+   bool                           ignore_frame_duration_;
+   int32_t                        frame_count_;
 
 };
 

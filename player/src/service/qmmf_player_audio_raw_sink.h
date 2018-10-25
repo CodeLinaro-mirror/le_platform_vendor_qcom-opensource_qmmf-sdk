@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -63,16 +63,20 @@ class AudioRawSink {
                            PlayerCb& player_callback);
   status_t DeleteTrackSink(uint32_t track_id);
 
+  const ::std::shared_ptr<AudioRawTrackSink>& GetTrackSink(uint32_t track_id);
+
   status_t StartTrackSink(uint32_t track_id);
   status_t StopTrackSink(uint32_t track_id);
   status_t PauseTrackSink(uint32_t track_id);
   status_t ResumeTrackSink(uint32_t track_id);
   status_t PrepareDrag(uint32_t track_id, bool ignore_fps);
+  status_t NotifyInputBuffer(uint32_t track_id);
 
   status_t SetAudioTrackSinkParams(uint32_t track_id,
                                    CodecParamType param_type,
                                    void* param,
                                    uint32_t param_size);
+  status_t SetPosition(uint32_t track_id, int64_t seek_time);
 
   status_t DequeueTrackInputBuffer(uint32_t track_id,
                                    ::std::vector<AVCodecBuffer>& buffers);
@@ -111,13 +115,20 @@ class AudioRawTrackSink {
   status_t PauseSink();
   status_t ResumeSink();
   status_t PrepareDrag(bool ignore_fps);
+  status_t NotifyInputBuffer();
 
   status_t SetAudioSinkParams(CodecParamType param_type,
                               void* param,
                               uint32_t param_size);
+  status_t SetPosition(int64_t seek_time);
 
   status_t DequeueInputBuffer(::std::vector<AVCodecBuffer>& buffers);
   status_t QueueInputBuffer(::std::vector<AVCodecBuffer>& buffers);
+
+  status_t GetAudioPresentationTime(uint32_t* frames,
+                                    uint32_t* rate,
+                                    int64_t* offset);
+
 
  private:
   enum class AudioMessageType {
@@ -154,6 +165,9 @@ class AudioRawTrackSink {
   ::std::queue<AVCodecBuffer> av_buffers_;
   ::qmmf::common::audio::AudioEndPoint* end_point_;
   PlayerIon ion_;
+  int64_t seek_time_;
+  int64_t first_seen_timestamp_;
+  ::std::mutex av_lock_;
 
   ::std::thread* thread_;
   ::std::mutex message_lock_;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -42,12 +42,58 @@
 #include <system/graphics.h>
 #include <system/window.h>
 #include <sys/mman.h>
-#include <qcom/display/gralloc_priv.h>
 #include <camera/CameraMetadata.h>
 
 #include "common/utils/qmmf_log.h"
 #include "common/utils/qmmf_condition.h"
+#include "qmmf_memory_interface.h"
 #include "qmmf-sdk/qmmf_codec.h"
+
+#ifdef TARGET_USES_GBM
+#define HAL_PIXEL_FORMAT_RAW8                    0x123
+#define HAL_PIXEL_FORMAT_NV12_ENCODEABLE         0x102
+#define HAL_PIXEL_FORMAT_NV21_ZSL                0x113
+#define GRALLOC_USAGE_PRIVATE_ALLOC_UBWC         0x20000000
+#define HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS      0x7FA30C04
+#define HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS_UBWC 0x7FA30C06
+
+struct private_handle_t : public native_handle {
+  enum {
+      PRIV_FLAGS_FRAMEBUFFER = 0x00000001,
+      PRIV_FLAGS_VIDEO_ENCODER = 0x00010000
+  };
+
+  int fd;
+  int flags;
+  unsigned int  size;
+  unsigned int  offset;
+  int bufferType;
+  int format;
+  int width;   // holds aligned width of the actual buffer allocated
+  int height;  // holds aligned height of the  actual buffer allocated
+  int unaligned_width;   // holds width client asked to allocate
+  int unaligned_height;  // holds height client asked to allocate
+
+  static const int sNumFds = 2;
+  static inline int sNumInts() {
+      return (((sizeof(private_handle_t) - sizeof(native_handle_t)) /
+              sizeof(int)) - sNumFds);
+  }
+
+  private_handle_t(int fd, unsigned int size, int flags, int bufferType,
+      int format, int width, int height) :
+      fd(fd), flags(flags), size(size), offset(0), bufferType(bufferType),
+      format(format), width(width), height(height), unaligned_width(width),
+      unaligned_height(height) {
+    version = (int) sizeof(native_handle);
+    numInts = sNumInts();
+    numFds = sNumFds;
+  };
+
+  ~private_handle_t() {
+  };
+};
+#endif  // TARGET_USES_GBM
 
 namespace qmmf {
 
@@ -64,7 +110,7 @@ struct StreamBuffer {
   uint32_t camera_id;
   int32_t  stream_id;
   android_dataspace data_space;
-  buffer_handle_t handle;
+  IBufferHandle handle;
   int32_t fd;
   uint32_t size;
   void *data;
@@ -133,7 +179,7 @@ class Common {
       default:
         /* Format not supported */
         QMMF_ERROR("%s: error: unsupported format %d (0x%x)", __func__, format,
-          (unsigned int) format);
+            (unsigned int) format);
         return -1;
     }
   }
@@ -176,7 +222,68 @@ class Common {
       default:
         /* Format not supported */
         QMMF_ERROR("%s: error: unsupported format %d (0x%x)", __func__, format,
-          (unsigned int) format);
+            (unsigned int) format);
+        return BufferFormat::kUnsupported;
+    }
+  }
+
+  /** FromImageToQmmfFormat
+   *
+   * Translates Image capture format to QMMF format
+   *
+   * return: QMMF format
+   **/
+  static BufferFormat FromImageToQmmfFormat(const ImageFormat& format) {
+    switch (format) {
+      case ImageFormat::kJPEG:
+        return BufferFormat::kBLOB;
+        break;
+      case ImageFormat::kNV12:
+        return BufferFormat::kNV12;
+        break;
+      case ImageFormat::kBayerRDI8BIT:
+        return BufferFormat::kRAW8;
+        break;
+      case ImageFormat::kBayerRDI10BIT:
+        return BufferFormat::kRAW10;
+        break;
+      case ImageFormat::kBayerRDI12BIT:
+        return BufferFormat::kRAW12;
+        break;
+      default:
+        /* Format not supported */
+        QMMF_ERROR("%s: error: unsupported format %d (0x%x)", __func__, format,
+            (unsigned int) format);
+        return BufferFormat::kUnsupported;
+    }
+  }
+
+  /** FromVideoToQmmfFormat
+   *
+   * Translates Video capture format to QMMF format
+   *
+   * return: QMMF format
+   **/
+  static BufferFormat FromVideoToQmmfFormat(const VideoFormat& format) {
+    switch (format) {
+      case VideoFormat::kAVC:
+      case VideoFormat::kHEVC:
+      case VideoFormat::kYUV:
+        return BufferFormat::kNV21;
+        break;
+      case VideoFormat::kBayerRDI8BIT:
+        return BufferFormat::kRAW8;
+        break;
+      case VideoFormat::kBayerRDI10BIT:
+        return BufferFormat::kRAW10;
+        break;
+      case VideoFormat::kBayerRDI12BIT:
+        return BufferFormat::kRAW12;
+        break;
+      default:
+        /* Format not supported */
+        QMMF_ERROR("%s: error: unsupported format %d (0x%x)", __func__, format,
+            (unsigned int) format);
         return BufferFormat::kUnsupported;
     }
   }
@@ -190,7 +297,7 @@ class Common {
   static bool ValidateStreamFormat(const CameraMetadata& meta,
                                    const int32_t &format) {
     bool is_supported = false;
-#ifdef ANDROID_O_OR_ABOVE
+#ifdef CAM_ARCH_V2
     if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
       auto entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
       for (uint32_t i = 0 ; i < entry.count; i += 4) {
@@ -342,7 +449,7 @@ class Common {
                                             const uint32_t width,
                                             const uint32_t height) {
     bool is_supported = false;
-#ifdef ANDROID_O_OR_ABOVE
+#ifdef CAM_ARCH_V2
     is_supported = ValidateResFromStreamConfigs(meta, width, height);
 #else
     if (meta.exists(ANDROID_SCALER_AVAILABLE_PROCESSED_SIZES)) {
@@ -410,7 +517,7 @@ class Common {
                                       const uint32_t width,
                                       const uint32_t height) {
     bool is_supported = false;
-#ifdef ANDROID_O_OR_ABOVE
+#ifdef CAM_ARCH_V2
     if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
       auto entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
       for (uint32_t i = 0 ; i < entry.count; i += 4) {
@@ -462,7 +569,7 @@ class Common {
     width = 0;
     height = 0;
     camera_metadata_ro_entry entry;
-#ifdef ANDROID_O_OR_ABOVE
+#ifdef CAM_ARCH_V2
     if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
       entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
       for (uint32_t i = 0; i < entry.count; i += 4) {
@@ -525,7 +632,7 @@ class Common {
     bool found = false;
     width = 0xFFFF;
     height = 0xFFFF;
-#ifdef ANDROID_O_OR_ABOVE
+#ifdef CAM_ARCH_V2
     found = GetMinResFromStreamConfigs(meta, width, height);
 #else
     camera_metadata_ro_entry entry;
@@ -832,7 +939,7 @@ class TSKeyedVector {
 
 };  // namespace qmmf.
 
-#ifdef ANDROID_O_OR_ABOVE
+#ifdef QCAMERA3_TAG_LOCAL_COPY
 namespace qcamera {
 // With the new camera backend design coming in Android-O ,
 // vendor tags names, querying mechanism and file location
@@ -915,4 +1022,4 @@ typedef enum qcamera3_ext_iso_mode {
     QCAMERA3_ISO_MODE_3200,
 } qcamera3_ext_iso_mode_t;
 };  // namespace qcamera.
-#endif  // ANDROID_O_OR_ABOVE
+#endif  // QCAMERA3_TAG_LOCAL_COPY
