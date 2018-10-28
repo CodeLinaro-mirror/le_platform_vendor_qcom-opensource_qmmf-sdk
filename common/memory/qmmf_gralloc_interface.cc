@@ -216,6 +216,6 @@ GrallocDevice::GrallocDevice() {
 }
 
 GrallocDevice::~GrallocDevice() {
-  gralloc_device_->common.close(&gralloc_device_->common);
   dlclose(hw_module_->dso);
+  gralloc_device_->common.close(&gralloc_device_->common);
 }
