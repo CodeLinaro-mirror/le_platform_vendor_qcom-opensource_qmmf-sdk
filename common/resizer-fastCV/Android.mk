@@ -15,7 +15,7 @@ include $(QMMF_SDK_TOP_SRCDIR)/common.mk
 
 LOCAL_SRC_FILES := qmmf_resizer_fastCV.cc
 
-LOCAL_SHARED_LIBRARIES += libfastcvopt libcamera_metadata libqmmf_memory_interface
+LOCAL_SHARED_LIBRARIES += libfastcvopt libcamera_metadata
 
 LOCAL_MODULE = libqmmf_common_resizer_fastcv
 

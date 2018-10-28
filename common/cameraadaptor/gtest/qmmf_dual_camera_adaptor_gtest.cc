@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, 2018, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -28,6 +28,13 @@
 */
 
 #include <inttypes.h>
+#ifndef TARGET_USES_GBM
+#ifdef TARGET_USES_GRALLOC1
+#include <libgralloc1/gralloc_priv.h>
+#else
+#include <qcom/display/gralloc_priv.h>
+#endif
+#endif
 #include "qmmf_dual_camera_adaptor_gtest.h"
 
 #define BUFFER_COUNT 4
@@ -69,8 +76,11 @@ void DualCamera3Gtest::SetUp() {
 void DualCamera3Gtest::StreamCb(StreamBuffer buffer) {
 #ifndef TARGET_USES_GBM
   String8 path;
+  mem_alloc_device allocDevice =
+      device_client_->alloc_device_interface_->GetDevice();
+  gralloc_module_t const *mapper = reinterpret_cast<gralloc_module_t const *>(
+      allocDevice->common.module);
 
-  int32_t ret;
   printf("%s: E streamId: %d buffer: %p size %d ts: %" PRId64 "\n", __func__,
          buffer.stream_id, buffer.handle, buffer.size, buffer.timestamp);
 
@@ -84,15 +94,13 @@ void DualCamera3Gtest::StreamCb(StreamBuffer buffer) {
     }
     FILE *file = fopen(path.string(), "w+");
     uint8_t *mappedBuffer = NULL;
-    MemAllocError mret = device_client_->alloc_device_interface_->MapBuffer(
-                            buffer.handle,
-                            IMemAllocUsage::kSwReadOften, 0,
-                            0, buffer.info.plane_info[0].width,
-                            buffer.info.plane_info[0].height,
-                            (void **)&mappedBuffer);
-    if ((MemAllocError::kAllocOk != mret) || (NULL == mappedBuffer)) {
-       printf("%s: Unable to map buffer: %p res: %d\n", __func__,
-             mappedBuffer, mret);
+    auto ret = mapper->lock(mapper, buffer.handle, GRALLOC_USAGE_SW_READ_OFTEN, 0,
+                      0, buffer.info.plane_info[0].width,
+                      buffer.info.plane_info[0].height,
+                      (void **)&mappedBuffer);
+    if ((0 != ret) || (NULL == mappedBuffer)) {
+       printf("%s: Unable to map gralloc buffer: %p res: %d\n", __func__,
+             mappedBuffer, ret);
     }
     uint64_t size = buffer.size;
     if ((file != nullptr) && (mappedBuffer != nullptr) && (size
@@ -101,12 +109,6 @@ void DualCamera3Gtest::StreamCb(StreamBuffer buffer) {
       printf("%s: Bad Write error (%d) %s\n", __func__, -ret, strerror(ret));
     }
     fclose(file);
-    mret = device_client_->alloc_device_interface_->UnmapBuffer(
-                                                            buffer.handle);
-    if (MemAllocError::kAllocOk != mret) {
-       printf("%s: Unable to unmap buffer: %p res: %d\n", __func__,
-             mappedBuffer, mret);
-    }
   }
 #else
   printf("%s: WARN: Not yet supported.", __func__);
@@ -193,7 +195,7 @@ int32_t DualCamera3Gtest::StartStreaming(CameraContext &ctx, uint32_t width,
     streamParams.format = format;
     streamParams.width = width;
     streamParams.height = height;
-    streamParams.allocFlags = IMemAllocUsage::kHwFb;
+    streamParams.grallocFlags = GRALLOC_USAGE_HW_FB;
 
     streamParams.cb = [&](StreamBuffer buffer) {
       printf("%s: Received buffer from camera Id: %d\n", __func__,

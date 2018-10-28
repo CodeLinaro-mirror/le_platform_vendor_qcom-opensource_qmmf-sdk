@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016 The Linux Foundation. All rights reserved.
  * Not a Contribution.
  */
 
@@ -38,7 +38,6 @@ typedef struct : public camera3_stream_t {
   int32_t stream_id;
   GetInputBuffer get_input_buffer;
   ReturnInputBuffer return_input_buffer;
-  std::unordered_map <buffer_handle_t, IBufferHandle> buffers_map;
 } Camera3InputStream;
 
 typedef struct CaptureRequest_t {

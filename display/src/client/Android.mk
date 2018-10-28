@@ -16,8 +16,6 @@ include $(QMMF_SDK_TOP_SRCDIR)/common.mk
 LOCAL_SRC_FILES := qmmf_display.cc
 LOCAL_SRC_FILES += qmmf_display_client.cc
 
-LOCAL_C_INCLUDES += $(QMMF_SDK_TOP_SRCDIR)/common/memory
-
 LOCAL_SHARED_LIBRARIES += libbinder
 
 LOCAL_MODULE = libqmmf_display_client

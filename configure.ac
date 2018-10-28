@@ -185,14 +185,10 @@ AC_SUBST([EXIF_CFLAGS], "${exif_incdir}")
 AC_SUBST([OMXCORE_CFLAGS], "${omxcore_incdir}")
 AC_SUBST([OPENMAX_CFLAGS], "${openmax_incdir}")
 
-AM_CONDITIONAL([TARGET_USES_GRALLOC1], [test "x$TARGET_USES_GRALLOC1" = "xtrue"])
-AM_CONDITIONAL([TARGET_USES_GRALLOC2], [test "x$TARGET_USES_GRALLOC2" = "xtrue"])
-
 AC_CONFIG_FILES([ \
     Makefile \
     common/utils/Makefile \
     common/overlay/Makefile \
-    common/memory/Makefile \
     common/cameraadaptor/Makefile \
     common/audio/src/client/Makefile \
     common/audio/src/service/Makefile \

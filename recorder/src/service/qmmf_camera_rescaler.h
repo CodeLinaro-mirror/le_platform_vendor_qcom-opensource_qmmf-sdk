@@ -113,16 +113,18 @@ class CameraRescalerMemPool {
    status_t GetBufferLocked(StreamBuffer* buffer);
 
    status_t PopulateMetaInfo(CameraBufferMetaData &info,
-                             IBufferHandle &handle);
+                             struct private_handle_t *priv_handle);
 
-   status_t AllocHWMemBuffer(IBufferHandle &buf);
+   status_t AllocGrallocBuffer(buffer_handle_t *buf);
 
-   status_t FreeHWMemBuffer(IBufferHandle buf);
+   status_t FreeGrallocBuffer(buffer_handle_t buf);
    IAllocDevice                 *alloc_device_interface_;
-   IBufferHandle                *mem_alloc_slots_;
+   IMemAllocator                *mem_alloc_interface_;
+   mem_alloc_device              alloc_device_;
+   buffer_handle_t              *gralloc_slots_;
    uint32_t                      buffers_allocated_;
    uint32_t                      pending_buffer_count_;
-   std::map<IBufferHandle, bool> mem_alloc_buffers_;
+   std::map<buffer_handle_t, bool> gralloc_buffers_;
 
    RescalerMemPoolParams         init_params_;
    std::mutex                    buffer_lock_;

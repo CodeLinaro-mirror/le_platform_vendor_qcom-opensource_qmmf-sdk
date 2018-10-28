@@ -324,9 +324,6 @@ class TrackSource : public ICodecSource {
   // Maps of Unique buffer Id and Buffer.
   std::map<uint32_t, StreamBuffer> buffer_list_;
 
-  // Maps AVCodec and TrackSource description of image buffers
-  std::unordered_map <void*, IBufferHandle> buffers_map_;
-
   std::mutex buffer_list_lock_;
 
   // Input buffer list, to feed buffers to encoder.
@@ -369,8 +366,8 @@ class TrackSource : public ICodecSource {
   std::mutex             consumer_lock_;
   std::shared_ptr<TrackSource> master_track_;
 
-  std::map<IBufferHandle, uint32_t >  buffer_map_;
-  std::map<IBufferHandle, StreamBuffer > stream_buffer_map_;
+  std::map<buffer_handle_t, uint32_t >  buffer_map_;
+  std::map<buffer_handle_t, StreamBuffer > stream_buffer_map_;
 
   bool time_lapse_mode_;
   uint32_t time_lapse_interval_;

@@ -316,7 +316,9 @@ bool CameraRescalerThread::ExitPending() {
 
 CameraRescalerMemPool::CameraRescalerMemPool()
     : alloc_device_interface_(nullptr),
-      mem_alloc_slots_(nullptr),
+      mem_alloc_interface_(nullptr),
+      alloc_device_(nullptr),
+      gralloc_slots_(nullptr),
       buffers_allocated_(0),
       pending_buffer_count_(0),
       buffer_cnt_(RESCALER_BUFFERS_CNT) {
@@ -327,18 +329,24 @@ CameraRescalerMemPool::CameraRescalerMemPool()
 CameraRescalerMemPool::~CameraRescalerMemPool() {
   QMMF_INFO("%s: Enter", __func__);
 
-  if (!mem_alloc_buffers_.empty()) {
-    for (auto const& it : mem_alloc_buffers_) {
-      FreeHWMemBuffer(it.first);
+  if (alloc_device_ != nullptr) {
+    if (!gralloc_buffers_.empty()) {
+      for (auto const& it : gralloc_buffers_) {
+        FreeGrallocBuffer(it.first);
+      }
+      gralloc_buffers_.clear();
     }
-    mem_alloc_buffers_.clear();
-  }
-  if (nullptr != mem_alloc_slots_) {
-    delete[] mem_alloc_slots_;
-  }
-  if (nullptr != alloc_device_interface_) {
-    delete alloc_device_interface_;
-    alloc_device_interface_ = nullptr;
+    if (nullptr != gralloc_slots_) {
+      delete[] gralloc_slots_;
+    }
+    if (nullptr != alloc_device_interface_) {
+      delete alloc_device_interface_;
+      alloc_device_interface_ = nullptr;
+    }
+    if (nullptr != mem_alloc_interface_) {
+      delete mem_alloc_interface_;
+      mem_alloc_interface_ = nullptr;
+    }
   }
   QMMF_INFO("%s: Exit (%p)", __func__, this);
 }
@@ -347,27 +355,53 @@ int32_t CameraRescalerMemPool::Initialize(uint32_t width,
                                           uint32_t height,
                                           int32_t  format) {
   status_t ret = NO_ERROR;
+  hw_module_t const *module = nullptr;
 
   init_params_.width = width;
   init_params_.height = height;
   init_params_.format = format;
-
-  alloc_device_interface_ = AllocDeviceFactory::CreateAllocDevice();
+#ifndef TARGET_USES_GBM
+  ret = hw_get_module(GRALLOC_HARDWARE_MODULE_ID, &module);
+  if ((NO_ERROR != ret) || (nullptr == module)) {
+    QMMF_ERROR("%s: Unable to load GrallocHal module: %d",
+               __func__, ret);
+    return ret;
+  }
+#endif
+  alloc_device_interface_ = IAllocDevice::CreateAllocDevice(module);
   if (nullptr == alloc_device_interface_) {
     QMMF_ERROR("%s: Could not create alloc device", __func__);
     goto FAIL;
   }
 
-  // Allocate mem alloc slots.
+  alloc_device_ = alloc_device_interface_->GetDevice();
+  if (nullptr == alloc_device_) {
+    QMMF_ERROR("%s: Unable to get gralloc device", __func__);
+    goto FAIL;
+  }
+
+  mem_alloc_interface_ = IMemAllocator::CreateMemAllocator(alloc_device_);
+  if (mem_alloc_interface_ == nullptr) {
+    QMMF_ERROR("%s: Could not open allocator module", __func__);
+    goto FAIL;
+  }
+#ifndef TARGET_USES_GBM
+  QMMF_INFO("%s: Gralloc Module author: %s, version: %d name: %s",
+            __func__,
+            alloc_device_->common.module->author,
+            alloc_device_->common.module->hal_api_version,
+            alloc_device_->common.module->name);
+#endif
+  // Allocate gralloc slots.
   if (buffer_cnt_ > 0) {
-    mem_alloc_slots_ = new IBufferHandle[buffer_cnt_];
-    if (mem_alloc_slots_ == nullptr) {
+    gralloc_slots_ = new buffer_handle_t[buffer_cnt_];
+    if (gralloc_slots_ == nullptr) {
       QMMF_ERROR("%s: Unable to allocate buffer handles!", __func__);
       ret = NO_MEMORY;
       goto FAIL;
     }
   } else {
-    mem_alloc_slots_ = nullptr;
+    gralloc_slots_ = nullptr;
   }
 
   return NO_ERROR;
@@ -376,6 +410,10 @@ FAIL:
   if (nullptr != alloc_device_interface_) {
     delete alloc_device_interface_;
     alloc_device_interface_ = nullptr;
+  }
+  if (nullptr != mem_alloc_interface_) {
+    delete mem_alloc_interface_;
+    mem_alloc_interface_ = nullptr;
   }
   return -1;
 }
@@ -389,13 +427,13 @@ status_t CameraRescalerMemPool::ReturnBufferLocked(const StreamBuffer &buffer) {
 
   std::lock_guard<std::mutex> lock(buffer_lock_);
 
-  if (mem_alloc_buffers_.find(buffer.handle) == mem_alloc_buffers_.end()) {
+  if (gralloc_buffers_.find(buffer.handle) == gralloc_buffers_.end()) {
     QMMF_ERROR("%s: Buffer %p returned that wasn't allocated by this node",
         __func__, buffer.handle);
     return BAD_VALUE;
   }
 
-  mem_alloc_buffers_.at(buffer.handle) = true;
+  gralloc_buffers_.at(buffer.handle) = true;
   --pending_buffer_count_;
 
   wait_for_buffer_.Signal();
@@ -409,8 +447,8 @@ status_t CameraRescalerMemPool::GetFreeOutputBuffer(StreamBuffer* buffer) {
 
   buffer->fd = -1;
 
-  if (mem_alloc_slots_ == nullptr) {
-    QMMF_ERROR("%s: Error mem alloc slots!", __func__);
+  if (gralloc_slots_ == nullptr) {
+    QMMF_ERROR("%s: Error gralloc slots!", __func__);
     return NO_ERROR;
   }
 
@@ -435,12 +473,12 @@ status_t CameraRescalerMemPool::GetFreeOutputBuffer(StreamBuffer* buffer) {
 status_t CameraRescalerMemPool::GetBufferLocked(StreamBuffer* buffer) {
   status_t ret = NO_ERROR;
   int32_t idx = -1;
-  IBufferHandle handle = nullptr;
+  buffer_handle_t handle = nullptr;
 
   //Only pre-allocate buffers in case no valid stream Buffer
   //is passed as an argument.
   if (nullptr != buffer) {
-    for (auto& it : mem_alloc_buffers_) {
+    for(auto& it : gralloc_buffers_) {
       if(it.second == true) {
         handle = it.first;
         it.second = false;
@@ -448,23 +486,23 @@ status_t CameraRescalerMemPool::GetBufferLocked(StreamBuffer* buffer) {
       }
     }
   }
-  // Find the slot of the available buffer.
+  // Find the slot of the available gralloc buffer.
   if (nullptr != handle) {
     for (uint32_t i = 0; i < buffers_allocated_; i++) {
-      if (mem_alloc_slots_[i] == handle) {
+      if (gralloc_slots_[i] == handle) {
         idx = i;
         break;
       }
     }
   } else if ((nullptr == handle) &&
              (buffers_allocated_ < buffer_cnt_)) {
-    ret = AllocHWMemBuffer(handle);
+    ret = AllocGrallocBuffer(&handle);
     if (NO_ERROR != ret) {
       return ret;
     }
     idx = buffers_allocated_;
-    mem_alloc_slots_[idx] = handle;
-    mem_alloc_buffers_.emplace(mem_alloc_slots_[idx], (nullptr == buffer));
+    gralloc_slots_[idx] = handle;
+    gralloc_buffers_.emplace(gralloc_slots_[idx], (nullptr == buffer));
     buffers_allocated_++;
   }
 
@@ -475,14 +513,16 @@ status_t CameraRescalerMemPool::GetBufferLocked(StreamBuffer* buffer) {
   }
 
   if (nullptr != buffer) {
-    buffer->handle = mem_alloc_slots_[idx];
-    ret = PopulateMetaInfo(buffer->info, buffer->handle);
+    struct private_handle_t *priv_handle = (struct private_handle_t *)
+        gralloc_slots_[idx];
+    ret = PopulateMetaInfo(buffer->info, priv_handle);
     if (NO_ERROR != ret) {
       QMMF_ERROR("%s: Failed to populate buffer meta info", __func__);
       return ret;
     }
-    buffer->fd = buffer->handle->GetFD();
-    buffer->size = buffer->handle->GetSize();
+    buffer->handle = gralloc_slots_[idx];
+    buffer->fd = priv_handle->fd;
+    buffer->size = priv_handle->size;
     ++pending_buffer_count_;
   }
 
@@ -490,26 +530,24 @@ status_t CameraRescalerMemPool::GetBufferLocked(StreamBuffer* buffer) {
 }
 
 status_t CameraRescalerMemPool::PopulateMetaInfo(CameraBufferMetaData &info,
-                                   IBufferHandle &handle) {
+                                   struct private_handle_t *priv_handle) {
 
-  int alignedW, alignedH;
-  auto ret = alloc_device_interface_->Perform(handle,
-                                    IAllocDevice::AllocDeviceAction::GetHeight,
-                                    static_cast<void*>(&alignedH));
-  if (MemAllocError::kAllocOk != ret) {
-    QMMF_ERROR("%s: Unable to query stride&scanline: %d\n", __func__, ret);
+  if (nullptr == priv_handle) {
+    QMMF_ERROR("%s: Invalid private handle!\n", __func__);
     return BAD_VALUE;
   }
 
-  ret = alloc_device_interface_->Perform(handle,
-                                     IAllocDevice::AllocDeviceAction::GetStride,
-                                     static_cast<void*>(&alignedW));
-    if (MemAllocError::kAllocOk != ret) {
-      QMMF_ERROR("%s: Unable to query stride&scanline: %d\n", __func__, ret);
-      return BAD_VALUE;
-    }
+  int alignedW, alignedH;
+  auto ret = mem_alloc_interface_->GetStrideAndHeightFromHandle(priv_handle,
+                                                                &alignedW,
+                                                                &alignedH);
+  if (0 != ret) {
+    QMMF_ERROR("%s: Unable to query stride&scanline: %d\n", __func__,
+               ret);
+    return ret;
+  }
 
-  switch (handle->GetFormat()) {
+  switch (priv_handle->format) {
     case HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS:
     case HAL_PIXEL_FORMAT_NV12_ENCODEABLE:
       info.format = BufferFormat::kNV12;
@@ -561,22 +599,24 @@ status_t CameraRescalerMemPool::PopulateMetaInfo(CameraBufferMetaData &info,
       break;
     default:
       QMMF_ERROR("%s: Unsupported format: %d", __func__,
-                 handle->GetFormat());
+                 priv_handle->format);
       return NAME_NOT_FOUND;
   }
 
   return NO_ERROR;
 }
 
-status_t CameraRescalerMemPool::AllocHWMemBuffer(IBufferHandle &buf) {
+status_t CameraRescalerMemPool::AllocGrallocBuffer(buffer_handle_t *buf) {
 
+  status_t ret      = NO_ERROR;
   uint32_t width    = init_params_.width;
   uint32_t height   = init_params_.height;
   int32_t  format   = init_params_.format;
-  MemAllocFlags usage = 0;
+  int32_t usage = 0;
 
-  usage.flags |= IMemAllocUsage::kSwWriteOften | IMemAllocUsage::kSwReadOften;
-  usage.flags |= IMemAllocUsage::kHwFb | IMemAllocUsage::kVideoEncoder;
+  usage &= GRALLOC_USAGE_ALLOC_MASK;
+  usage |= GRALLOC_USAGE_SW_WRITE_OFTEN | GRALLOC_USAGE_SW_READ_OFTEN;
+  usage |= GRALLOC_USAGE_HW_FB | private_handle_t::PRIV_FLAGS_VIDEO_ENCODER;
 
   if (!width || !height) {
     width = height = 1;
@@ -584,18 +624,17 @@ status_t CameraRescalerMemPool::AllocHWMemBuffer(IBufferHandle &buf) {
 
   uint32_t stride = 0;
 
-  MemAllocError ret = alloc_device_interface_->AllocBuffer(buf,
-    static_cast<int>(width), static_cast<int>(height), format, usage, &stride);
-  if (MemAllocError::kAllocOk != ret) {
-    QMMF_ERROR("%s: Failed to allocate alloc buffer", __func__);
-    return NO_MEMORY;
+  ret = mem_alloc_interface_->AllocBuffer(buf, static_cast<int>(width),
+                                          static_cast<int>(height), format,
+                                          static_cast<int>(usage), &stride);
+  if (NO_ERROR != ret) {
+    QMMF_ERROR("%s: Failed to allocate gralloc buffer", __func__);
   }
-  return NO_ERROR;
+  return ret;
 }
 
-status_t CameraRescalerMemPool::FreeHWMemBuffer(IBufferHandle buf) {
-  MemAllocError ret = alloc_device_interface_->FreeBuffer(buf);
-  return ret == MemAllocError::kAllocOk ? NO_ERROR : BAD_VALUE;
+status_t CameraRescalerMemPool::FreeGrallocBuffer(buffer_handle_t buf) {
+  return mem_alloc_interface_->FreeBuffer(buf);
 }
 
 CameraRescaler::CameraRescaler()

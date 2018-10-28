@@ -25,7 +25,7 @@ LOCAL_SRC_FILES  += qmmf_recorder_test_amr.cc
 LOCAL_SRC_FILES  += qmmf_recorder_test_mpegh.cc
 
 LOCAL_SHARED_LIBRARIES += libqmmf_utils libqmmf_recorder_client
-LOCAL_SHARED_LIBRARIES += libcamera_client libskia libqmmf_memory_interface
+LOCAL_SHARED_LIBRARIES += libcamera_client libskia
 ifneq ($(DISABLE_DISPLAY),1)
 LOCAL_SHARED_LIBRARIES += libqmmf_display_client
 endif

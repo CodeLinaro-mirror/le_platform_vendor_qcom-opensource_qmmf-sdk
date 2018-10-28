@@ -44,7 +44,6 @@
 
 #include "qmmf-sdk/qmmf_display_params.h"
 #include "common/utils/qmmf_log.h"
-#include "qmmf_memory_interface.h"
 #include "display/src/service/qmmf_display_common.h"
 #include "display/src/service/qmmf_remote_cb.h"
 #include "display/src/service/qmmf_display_sdm_buffer_allocator.h"
@@ -166,12 +165,12 @@ class DisplayImpl : public DisplayEventHandler
   std::condition_variable display_on_cond_;
   DisplayBufferSyncHandler buffer_sync_handler_;
   static CoreInterface* core_intf_;
-  IAllocDevice* alloc_device_interface_;
 #ifndef TARGET_USES_GRALLOC1
+  alloc_device_t *gralloc_device_;
   DisplayBufferAllocatorGralloc buffer_allocator_;
 #else
   DisplayBufferAllocatorGralloc1 buffer_allocator_;
-#endif // TARGET_USES_GRALLOC1
+#endif
 
   enum class BufferStates {
     kStateFree      = 1, // x1 = 0, x2 = 0, x3 = 0

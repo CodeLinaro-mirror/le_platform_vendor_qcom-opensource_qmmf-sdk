@@ -29,7 +29,7 @@ LOCAL_SRC_FILES += qmmf_player_audio_raw_sink.cc
 LOCAL_SRC_FILES += qmmf_player_video_sink.cc
 
 LOCAL_SHARED_LIBRARIES += libqmmf_player_client libqmmf_codec_adaptor
-LOCAL_SHARED_LIBRARIES += libqmmf_audio_client libqmmf_memory_interface
+LOCAL_SHARED_LIBRARIES += libqmmf_audio_client
 ifneq ($(DISABLE_DISPLAY),1)
 LOCAL_SHARED_LIBRARIES += libqmmf_display_client
 endif

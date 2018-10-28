@@ -19,7 +19,6 @@ LOCAL_C_INCLUDES += $(TOP)/external/jsoncpp/include
 LOCAL_SRC_FILES := qmmf_postproc_algo.cc
 
 LOCAL_SHARED_LIBRARIES += libcamera_metadata $(LIB_JSONCPP)
-LOCAL_SHARED_LIBRARIES += libqmmf_memory_interface
 
 LOCAL_MODULE = libqmmf_postproc_algo
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016 The Linux Foundation. All rights reserved.
  * Not a Contribution.
  */
 
@@ -225,30 +225,11 @@ bool Camera3RequestHandler::ThreadLoop() {
     memset(&input_buffer, 0, sizeof(input_buffer));
 
     nextRequest.input->get_input_buffer(input_buffer);
-
-    // remove this hach when camera supports GBM
-#ifdef TARGET_USES_GBM
-    nextRequest.input->buffers_map.insert(
-      std::make_pair(GetGrallocBufferHandle(input_buffer.handle),
-                     input_buffer.handle));
-#else
-    nextRequest.input->buffers_map.insert(
-          std::make_pair(GetAllocBufferHandle(input_buffer.handle),
-                         input_buffer.handle));
-#endif //TARGET_USES_GBM
-
     input_stream_buffer.acquire_fence = -1;
     input_stream_buffer.release_fence = -1;
     input_stream_buffer.status = CAMERA3_BUFFER_STATUS_OK;
     input_stream_buffer.stream = nextRequest.input;
-
-    // remove this hach when camera supports GBM
-#ifdef TARGET_USES_GBM
-    input_stream_buffer.buffer = &GetGrallocBufferHandle(input_buffer.handle);
-#else
-    input_stream_buffer.buffer = &GetAllocBufferHandle(input_buffer.handle);
-#endif //TARGET_USES_GBM
-
+    input_stream_buffer.buffer = &input_buffer.handle;
     request.input_buffer = &input_stream_buffer;
     totalNumBuffers++;
   }
@@ -360,10 +341,7 @@ void Camera3RequestHandler::HandleErrorRequest(
     outputBuffers.editItemAt(i).status = CAMERA3_BUFFER_STATUS_ERROR;
     StreamBuffer b;
     memset(&b, 0, sizeof(b));
-    b.handle =
-      nextRequest.streams.editItemAt(i)->buffers_map[*outputBuffers[i].buffer];
-    nextRequest.streams.editItemAt(i)->
-      buffers_map.erase(*outputBuffers[i].buffer);
+    b.handle = *outputBuffers[i].buffer;
     nextRequest.streams.editItemAt(i)->ReturnBuffer(b);
   }
 

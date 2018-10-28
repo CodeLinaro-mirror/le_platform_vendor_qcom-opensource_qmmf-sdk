@@ -8,7 +8,6 @@ recorder_test_SOURCES  += qmmf_recorder_test_amr.cc
 recorder_test_SOURCES  += qmmf_recorder_test_mpegh.cc
 recorder_test_CPPFLAGS = -I$(top_srcdir)/include
 recorder_test_CPPFLAGS += -I$(top_srcdir)/
-recorder_test_CPPFLAGS += -I$(top_srcdir)/common/memory
 recorder_test_CPPFLAGS += -I$(CAMERAHAL_CFLAGS)
 recorder_test_CPPFLAGS += -DUSE_SKIA=0
 recorder_test_CPPFLAGS += -DUSE_CAIRO=1

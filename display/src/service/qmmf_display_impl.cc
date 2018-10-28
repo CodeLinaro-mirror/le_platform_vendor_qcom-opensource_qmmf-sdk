@@ -62,10 +62,56 @@ DisplayImpl* DisplayImpl::CreateDisplayCore() {
     QMMF_DEBUG("%s: Enter", __func__);
 
   if(!instance_) {
-    instance_ = new DisplayImpl;
 
-    instance_->alloc_device_interface_ =
-        AllocDeviceFactory::CreateAllocDevice();
+    instance_ = new DisplayImpl;
+    if(!instance_) {
+      QMMF_ERROR("%s: Can't Create Display Instance!", __func__);
+      return nullptr;
+    }
+
+#ifndef TARGET_USES_GRALLOC1
+    int32_t res;
+    void *handle;
+    struct hw_module_t *hmi;
+    handle = dlopen(GRALLOC_MODULE_PATH, RTLD_NOW);
+    if (handle == nullptr) {
+      char const *err_str = dlerror();
+      QMMF_ERROR("load: module=%s\n%s \n", GRALLOC_MODULE_PATH,
+          err_str ? err_str : "unknown");
+      free(instance_);
+      instance_ = nullptr;
+      return nullptr;
+    }
+
+    hmi = (struct hw_module_t *)dlsym(handle, HAL_MODULE_INFO_SYM_AS_STR);
+    if (hmi == nullptr) {
+      QMMF_ERROR("load: couldn't find symbol %s\n", HAL_MODULE_INFO_SYM_AS_STR);
+      free(instance_);
+      instance_ = nullptr;
+      dlclose(handle);
+      return nullptr;
+    }
+
+    if (strcmp(GRALLOC_HARDWARE_MODULE_ID, hmi->id) != 0) {
+      QMMF_ERROR("load: id=%s != hmi->id=%s\n", GRALLOC_HARDWARE_MODULE_ID,
+          hmi->id);
+      return nullptr;
+    }
+
+    hmi->dso = handle;
+
+    res = hmi->methods->open(hmi, GRALLOC_HARDWARE_GPU0,
+                             (struct hw_device_t**)&instance_->gralloc_device_);
+    if (0 != res) {
+      QMMF_ERROR("%s: Could not open Gralloc module: %s (%d) \n", __func__,
+                 strerror(-res), res);
+    }
+
+    QMMF_DEBUG("%s: Gralloc Module author: %s, version: %d name: %s\n", __func__,
+        instance_->gralloc_device_->common.module->author,
+        instance_->gralloc_device_->common.module->hal_api_version,
+        instance_->gralloc_device_->common.module->name);
+#endif
   }
 
   QMMF_DEBUG("%s: Display Instance Created Successfully(0x%p)",
@@ -73,8 +119,7 @@ DisplayImpl* DisplayImpl::CreateDisplayCore() {
   return instance_;
 }
 DisplayImpl::DisplayImpl()
-  : alloc_device_interface_(nullptr),
-    current_handle_(0),
+  : current_handle_(0),
     unique_surface_id_(0),
     layer_stack_(nullptr),
     current_display_state_(DisplayState::kStateOff) {
@@ -116,10 +161,6 @@ DisplayImpl::~DisplayImpl() {
         __func__, error);
   }
   instance_->display_client_info_map_.clear();
-  if (instance_->alloc_device_interface_) {
-    delete instance_->alloc_device_interface_;
-    instance_->alloc_device_interface_ = nullptr;
-  }
   instance_ = nullptr;
   core_intf_ = nullptr;
 

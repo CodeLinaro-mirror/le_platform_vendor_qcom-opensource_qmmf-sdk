@@ -30,10 +30,10 @@ LOCAL_SRC_FILES += qmmf_camera3_stream.cc
 LOCAL_SRC_FILES += qmmf_camera3_utils.cc
 LOCAL_SRC_FILES += qmmf_camera3_smooth_zoom.cc
 
-LOCAL_SHARED_LIBRARIES += libcamera_metadata libhardware libqmmf_utils
-LOCAL_SHARED_LIBRARIES += libcamera_client libqmmf_memory_interface
+LOCAL_SHARED_LIBRARIES += libcamera_metadata libhardware
+LOCAL_SHARED_LIBRARIES += libqmmf_utils libcamera_client
 ifeq ($(TARGET_USES_GRALLOC1), true)
-LOCAL_SHARED_LIBRARIES += libgrallocusage_vendor
+LOCAL_STATIC_LIBRARIES += libgrallocusage
 endif
 
 LOCAL_MODULE = libqmmf_camera_adaptor
@@ -54,7 +54,7 @@ LOCAL_C_INCLUDES += $(CAMERA_HAL_PATH)/QCamera2/HAL3
 
 LOCAL_SRC_FILES := gtest/qmmf_camera_adaptor_gtest.cc
 
-LOCAL_SHARED_LIBRARIES += libqmmf_camera_adaptor libcamera_client libqmmf_memory_interface
+LOCAL_SHARED_LIBRARIES += libqmmf_camera_adaptor libcamera_client
 
 LOCAL_MODULE = qmmf_camera_adaptor_gtest
 
@@ -77,7 +77,7 @@ LOCAL_C_INCLUDES += $(TOP)/system/media/camera/include
 
 LOCAL_SRC_FILES := gtest/qmmf_dual_camera_adaptor_gtest.cc
 
-LOCAL_SHARED_LIBRARIES += libqmmf_camera_adaptor libcamera_client libqmmf_memory_interface
+LOCAL_SHARED_LIBRARIES += libqmmf_camera_adaptor libcamera_client
 
 LOCAL_MODULE = qmmf_camera_dual_adaptor_gtest
 

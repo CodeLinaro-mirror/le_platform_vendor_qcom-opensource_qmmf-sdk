@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -30,6 +30,9 @@
 #pragma once
 
 #include <memory>
+#ifndef TARGET_USES_GBM
+#include <qcom/display/gralloc_priv.h>
+#endif
 
 #include "common/utils/qmmf_common_utils.h"
 #include "common/utils/qmmf_condition.h"
@@ -43,7 +46,7 @@ struct MemPoolParams {
   uint32_t width;
   uint32_t height;
   int32_t  format;
-  MemAllocFlags  alloc_flags;
+  int32_t  gralloc_flags;
   uint32_t max_buffer_count;
   uint32_t max_size;
 };
@@ -71,17 +74,17 @@ class MemPool {
    status_t GetBufferLocked(StreamBuffer* buffer);
 
    status_t PopulateMetaInfo(CameraBufferMetaData &info,
-                             IBufferHandle &handle);
+                             struct private_handle_t *priv_handle);
 
-   status_t AllocHWMemBuffer(IBufferHandle &buf);
+   status_t AllocGrallocBuffer(buffer_handle_t *buf);
 
-   status_t FreeHWMemBuffer(IBufferHandle buf);
+   status_t FreeGrallocBuffer(buffer_handle_t buf);
 
-   IAllocDevice*                 alloc_device_interface_;
-   IBufferHandle                 *mem_alloc_slots_;
+   alloc_device_t               *gralloc_device_;
+   buffer_handle_t              *gralloc_slots_;
    uint32_t                      buffers_allocated_;
    uint32_t                      pending_buffer_count_;
-   std::map<IBufferHandle, bool> mem_alloc_buffers_;
+   std::map<buffer_handle_t, bool> gralloc_buffers_;
 
    MemPoolParams            params_;
 

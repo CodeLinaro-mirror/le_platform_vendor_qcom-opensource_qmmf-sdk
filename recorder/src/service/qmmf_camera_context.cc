@@ -138,7 +138,7 @@ bool CameraContext::IsStreamParamsChanged(
   if ((stream_param.format       != stream_param_.format)       ||
       (stream_param.width        != stream_param_.width)        ||
       (stream_param.height       != stream_param_.height)       ||
-      (stream_param.allocFlags.Equals(stream_param_.allocFlags) == false) ||
+      (stream_param.grallocFlags != stream_param_.grallocFlags) ||
       (stream_param.bufferCount  > stream_param_.bufferCount)) {
     return true;
   }
@@ -163,8 +163,8 @@ status_t CameraContext::CreateSnapshotStream(const SnapshotParam& param) {
   stream_param.format       = Common::FromQmmfToHalFormat(param.format);
   stream_param.width        = param.width;
   stream_param.height       = param.height;
-  stream_param.allocFlags   = IMemAllocUsage::kSwWriteOften |
-                                IMemAllocUsage::kSwReadOften;
+  stream_param.grallocFlags = GRALLOC_USAGE_SW_WRITE_OFTEN |
+                                GRALLOC_USAGE_SW_READ_OFTEN;
   stream_param.cb           = GetStreamCb(param);
 
   // Reserve buffers for continuous capture in order to avoid camera and pipe
@@ -227,8 +227,8 @@ status_t CameraContext::CreateSnapshotStream(const SnapshotParam& param) {
                                      stream_param.width,
                                      stream_param.height,
                                      stream_param.format);
-    stream_param.allocFlags   = IMemAllocUsage::kSwWriteOften |
-                                  IMemAllocUsage::kSwReadOften;
+    stream_param.grallocFlags = GRALLOC_USAGE_SW_WRITE_OFTEN |
+                                  GRALLOC_USAGE_SW_READ_OFTEN;
     stream_param.cb           = GetStreamCb(param);
     stream_param.bufferCount  = sequence_cnt_;
 
@@ -2348,7 +2348,7 @@ status_t CameraContext::PostProcCreatePipeAndUpdateStreams(
   out_param.height = stream_param.height;
   out_param.format = stream_param.format;
   out_param.frame_rate = frame_rate;
-  out_param.alloc_flags = stream_param.allocFlags;
+  out_param.gralloc_flags = stream_param.grallocFlags;
   if (snapshot_type_ == SnapshotMode::kContinuous) {
     out_param.buffer_count = 1;
     out_param.max_internal_buffers = 1;
@@ -2374,7 +2374,7 @@ status_t CameraContext::PostProcCreatePipeAndUpdateStreams(
   stream_param.format = in_param.format;
   stream_param.width  = in_param.width;
   stream_param.height = in_param.height;
-  stream_param.allocFlags.flags |= in_param.alloc_flags.flags;
+  stream_param.grallocFlags |= in_param.gralloc_flags;
 
   QMMF_INFO("%s: input dim %dx%d format %x ", __func__,
       stream_param.width, stream_param.height, stream_param.format);
@@ -2435,10 +2435,10 @@ status_t CameraPort::Init() {
   property_get("persist.qmmf.ubwcstream.enable", prop, "0");
   bool is_ubwc_stream_enabled = atoi(prop);
   if (!is_ubwc_stream_enabled) {
-    cam_stream_params_.allocFlags =
-        IMemAllocUsage::kSwReadOften | IMemAllocUsage::kSwWriteOften;
+    cam_stream_params_.grallocFlags =
+        GRALLOC_USAGE_SW_READ_OFTEN | GRALLOC_USAGE_SW_WRITE_OFTEN;
   } else if (!params_.low_power_mode) {
-    cam_stream_params_.allocFlags = IMemAllocUsage::kPrivateAllocUbwc;
+    cam_stream_params_.grallocFlags |= GRALLOC_USAGE_PRIVATE_ALLOC_UBWC;
   }
 
   cam_stream_params_.rotation     = static_cast<camera3_stream_rotation_t> (params_.rotation);
@@ -2451,12 +2451,13 @@ status_t CameraPort::Init() {
     if (!is_lpm_use_preview) {
       cam_stream_params_.format = HAL_PIXEL_FORMAT_YCbCr_420_888;
       if (is_ubwc_stream_enabled) {
-        cam_stream_params_.allocFlags.flags |= IMemAllocUsage::kVideoEncoder;
+        cam_stream_params_.grallocFlags |= private_handle_t::PRIV_FLAGS_VIDEO_ENCODER;
       }
       cam_stream_params_.is_pp_enabled = false;
     }
   } else {
-    cam_stream_params_.allocFlags.flags |= IMemAllocUsage::kVideoEncoder;
+    cam_stream_params_.grallocFlags |= private_handle_t::
+        PRIV_FLAGS_VIDEO_ENCODER;
 
     cam_stream_params_.bufferCount = VIDEO_STREAM_BUFFER_COUNT +
         GetExtraBufferCount();
@@ -2475,7 +2476,7 @@ status_t CameraPort::Init() {
     out_param.height = cam_stream_params_.height;
     out_param.format = cam_stream_params_.format;
     out_param.frame_rate = static_cast<uint32_t>(params_.framerate);
-    out_param.alloc_flags = cam_stream_params_.allocFlags;
+    out_param.gralloc_flags = cam_stream_params_.grallocFlags;
     out_param.buffer_count = cam_stream_params_.bufferCount;
 
     PipeIOParam in_param;
@@ -2982,8 +2983,8 @@ status_t ZslPort::SetUpZSL() {
   zsl_stream_params.format = HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
   zsl_stream_params.width  = cam_start_param.zsl_width;
   zsl_stream_params.height = cam_start_param.zsl_height;
-  zsl_stream_params.allocFlags = IMemAllocUsage::kHwFb |
-                                   IMemAllocUsage::kHwCameraZsl;
+  zsl_stream_params.grallocFlags = GRALLOC_USAGE_HW_FB
+                                   |GRALLOC_USAGE_HW_CAMERA_ZSL;
   zsl_stream_params.cb = [&](StreamBuffer buffer)
       { ZSLCaptureCallback(buffer); };
 

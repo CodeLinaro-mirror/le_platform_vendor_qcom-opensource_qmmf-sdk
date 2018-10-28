@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, 2018, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -218,7 +218,7 @@ typedef struct SurfaceTransform {
 /*
  * Input configuration params set by the client for buffer allocation.
  * buffer_count: Number of buffers to be allocated/used.
- * cache: To allocate cached or uncached buffers.
+ * cache: To allocate cached or uncached gralloc buffers.
  * use_buffer: The client will allocate the buffers or display adapter
  * shall use it.
 */

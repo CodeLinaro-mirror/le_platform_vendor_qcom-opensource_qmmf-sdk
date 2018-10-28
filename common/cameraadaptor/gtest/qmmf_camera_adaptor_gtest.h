@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, 2018, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -80,7 +80,7 @@ class Camera3Gtest : public ::testing::Test {
   int32_t GetMaxYUVSize(int32_t &width, int32_t &height);
   int32_t GetMaxRAWSize(int32_t &width, int32_t &height);
 
-  int32_t StartSreaming(MemAllocFlags usage, uint32_t width, uint32_t height,
+  int32_t StartSreaming(int32_t usage, uint32_t width, uint32_t height,
                         int templateId, int32_t &streamId, int32_t &requestId);
   int32_t StopDeleteStream(int32_t streamId, int32_t requestId);
 

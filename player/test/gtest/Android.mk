@@ -16,7 +16,7 @@ LOCAL_C_INCLUDES += $(TOP)/system/media/camera/include
 LOCAL_SRC_FILES := qmmf_player_gtest.cc
 LOCAL_SRC_FILES += qmmf_player_parser.cc
 
-LOCAL_SHARED_LIBRARIES += libqmmf_player_client libqmmf_memory_interface
+LOCAL_SHARED_LIBRARIES += libqmmf_player_client
 
 LOCAL_MODULE = qmmf_player_gtest
 

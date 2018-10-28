@@ -1521,9 +1521,8 @@ status_t TrackSource::GetBuffer(BufferDescriptor& buffer,
         TrackId(), frames_received_.Size());
 
     auto stream_buffer = frames_received_.Begin();
-    buffer.data = const_cast<void*>(reinterpret_cast<const void*>(
-                     GetAllocBufferHandle(stream_buffer->handle)));
-    buffers_map_[buffer.data] = stream_buffer->handle;
+    buffer.data =
+        const_cast<void*>(reinterpret_cast<const void*>(stream_buffer->handle));
     buffer.fd = stream_buffer->fd;
     buffer.capacity = stream_buffer->frame_length;
     buffer.size = stream_buffer->size;
@@ -1582,9 +1581,7 @@ status_t TrackSource::ReturnBuffer(BufferDescriptor& buffer,
   std::unique_lock<std::mutex> lock(frame_lock_);
   auto iter = frames_being_encoded_.Begin();
   for (; iter != frames_being_encoded_.End(); ++iter) {
-    auto it = buffers_map_.find(buffer.data);
-    if (it != buffers_map_.end() &&
-       (*iter).handle ==  buffers_map_[buffer.data]) {
+    if ((*iter).handle ==  buffer.data) {
       QMMF_VERBOSE("%s: Buffer found in frames_being_encoded_ list!",
           __func__);
 
@@ -1593,7 +1590,6 @@ status_t TrackSource::ReturnBuffer(BufferDescriptor& buffer,
       }
 
       frames_being_encoded_.Erase(iter);
-      buffers_map_.erase(buffer.data);
       found = true;
       break;
     }
@@ -1695,6 +1691,13 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
     buffer.needs_return = false;
     buffer.pending_encodes_per_frame = CalculateEncodesPerFrame();
     buffer.encodes_per_frame_count = buffer.pending_encodes_per_frame;
+  }
+
+  QMMF_VERBOSE("%s: track_id(%d) numInts = %d", __func__, TrackId(),
+      buffer.handle->numInts);
+  for (int32_t i = 0; i < buffer.handle->numInts; i++) {
+    QMMF_VERBOSE("%s: track_id(%x) data[%d] =%d", __func__, TrackId(),
+        i , buffer.handle->data[i]);
   }
 
   QMMF_VERBOSE("%s: track_id(%x) ion_fd = %d", __func__, TrackId(),
