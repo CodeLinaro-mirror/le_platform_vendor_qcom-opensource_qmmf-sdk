@@ -1047,22 +1047,9 @@ status_t CameraContext::CreateStream(const StreamParam& param,
   }
 
   auto ret = port->Init();
-  if (ret != NO_ERROR) {
+  if(ret != NO_ERROR) {
     QMMF_ERROR("%s: CameraPort Can't be Created!", __func__);
     return BAD_VALUE;
-  } else {
-    std::lock_guard<std::mutex> lk(prepare_lock_);
-    char prop[PROPERTY_VALUE_MAX];
-
-    auto stream_id = port->GetCameraStreamId();
-    property_get("persist.qmmf.static.mem.alloc", prop, "0");
-    stream_prepared_[stream_id] = (std::stoi(prop) == 0) ? true : false;
-
-    if (!stream_prepared_[stream_id]) {
-      std::lock_guard<std::mutex> lk(device_access_lock_);
-      ret = camera_device_->Prepare(stream_id);
-      assert(ret == NO_ERROR);
-    }
   }
 
   StoreBatchStreamId(port);
@@ -1399,8 +1386,15 @@ status_t CameraContext::CreateDeviceStream(CameraStreamParameters& params,
     ret = camera_device_->EndConfigure(stream_config);
     assert(ret == NO_ERROR);
 
-    // By default stream is prepared.
-    stream_prepared_[id] = true;
+    std::lock_guard<std::mutex> lk(prepare_lock_);
+    char prop[PROPERTY_VALUE_MAX];
+    property_get("persist.qmmf.static.mem.alloc", prop, "0");
+    stream_prepared_[id] = (std::stoi(prop) == 0) ? true : false;
+
+    if (!stream_prepared_[id]) {
+      ret = camera_device_->Prepare(id);
+      assert(ret == NO_ERROR);
+    }
   }
 
   if (camera_start_params_.zsl_mode && zsl_port_.get() != nullptr) {
