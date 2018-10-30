@@ -3411,7 +3411,6 @@ status_t RecorderTest::ToggleDisplayState() {
   TEST_INFO("%s: Enter", __func__);
 
   auto ret = 0;
-#ifndef DISABLE_DISPLAY
   session_iter_ it = sessions_.begin();
   if (it == sessions_.end()) {
     TEST_ERROR("%s: There are no active sessions", __func__);
@@ -3430,9 +3429,7 @@ status_t RecorderTest::ToggleDisplayState() {
       break;
     }
   }
-#else
-  TEST_ERROR("%s Display is disabled", __func__);
-#endif
+
   TEST_INFO("%s: Exit", __func__);
   return ret;
 }
@@ -3485,14 +3482,12 @@ status_t RecorderTest::StartSession() {
         || (type == TrackType::kVideoHEVC)
         || (type == TrackType::kVideoPreview) ) {
       session_enabled_ = true;
-#ifndef DISABLE_DISPLAY
       if (use_display == 1) {
         auto ret = track->StartDisplay(DisplayType::kPrimary);
         if(ret != 0) {
           ALOGE("%s StartDisplay Failed!!", __func__);
         }
       }
-#endif
     }
   }
   uint32_t session_id = it->first;
@@ -3513,14 +3508,12 @@ status_t RecorderTest::StopSession() {
   assert(result == NO_ERROR);
 
   for (auto track : it->second) {
-#ifndef DISABLE_DISPLAY
     if (use_display == 1) {
       auto ret = track->StopDisplay(DisplayType::kPrimary);
       if(ret != 0) {
         ALOGE("%s StopDisplay Failed!!", __func__);
       }
     }
-#endif
     track->CleanUp();
     TrackType type = track->GetTrackType();
     if ( (type == TrackType::kVideoYUV)
@@ -5893,10 +5886,8 @@ void CheckKPITime::ParseCameraMetaData(const CameraMetadata& metadata) {
 TestTrack::TestTrack(RecorderTest* recorder_test)
     : recorder_test_(recorder_test),
       num_yuv_frames_(0) {
-#ifndef DISABLE_DISPLAY
   display_started_ = false;
   display_param_ = 0;
-#endif
   TEST_DBG("%s: Enter", __func__);
   track_info_ = {};
   TEST_DBG("%s: Exit", __func__);
@@ -6662,9 +6653,7 @@ void TestTrack::TrackDataCB(uint32_t track_id, std::vector<BufferDescriptor>
               num_yuv_frames_ = 0;
             }
           }
-#ifndef DISABLE_DISPLAY
           PushFrameToDisplay(buffers[i], cam_buf_meta);
-#endif
         }
       }
     break;
@@ -6693,7 +6682,6 @@ void TestTrack::TrackDataCB(uint32_t track_id, std::vector<BufferDescriptor>
   TEST_DBG("%s: Exit", __func__);
 }
 
-#ifndef DISABLE_DISPLAY
 void TestTrack::DisplayCallbackHandler(DisplayEventType event_type,
     void *event_data, size_t event_data_size) {
   TEST_DBG("%s Enter ", __func__);
@@ -6863,7 +6851,6 @@ status_t TestTrack::ToggleDisplayState() {
   TEST_INFO("%s: Exit", __func__);
   return ret;
 }
-#endif
 
 status_t DumpBitStream::SetUp(const StreamDumpInfo& dumpinfo) {
 

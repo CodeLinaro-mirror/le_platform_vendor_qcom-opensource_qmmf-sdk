@@ -330,7 +330,6 @@ class RecorderGtest : public ::testing::Test {
 
   void ClearSurface();
 
-#ifndef DISABLE_DISPLAY
   void DisplayCallbackHandler(DisplayEventType event_type, void *event_data,
                               size_t event_data_size);
 
@@ -344,7 +343,7 @@ class RecorderGtest : public ::testing::Test {
 
   status_t PushFrameToDisplay(BufferDescriptor &buffer,
                               CameraBufferMetaData &meta_data);
-
+#ifndef DISABLE_DISPLAY
   int32_t DequeueGfxSurfaceBuffer();
 
   int32_t QueueGfxSurfaceBuffer();
@@ -388,7 +387,6 @@ class RecorderGtest : public ::testing::Test {
   bool                  default_eis_margins_;
   bool                  is_apply_overlay_;
 
-#ifndef DISABLE_DISPLAY
   bool                  use_display_;
   bool                  display_started_;
   Display               *display_;
@@ -396,7 +394,7 @@ class RecorderGtest : public ::testing::Test {
   SurfaceParam          surface_param_;
   SurfaceBuffer         surface_buffer_;
   SurfaceConfig         surface_config_;
-
+#ifndef DISABLE_DISPLAY
   FILE                  *gfx_file;
   bool                  enable_gfx_;
   uint32_t              gfx_surface_id_;
