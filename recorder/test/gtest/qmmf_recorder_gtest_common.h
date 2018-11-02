@@ -41,6 +41,7 @@
 #include <condition_variable>
 #include <cutils/properties.h>
 #include <random>
+//#include <system/graphics.h>
 
 #include <qmmf-sdk/qmmf_queue.h>
 #include <qmmf-sdk/qmmf_display.h>
@@ -48,8 +49,8 @@
 #include <qmmf-sdk/qmmf_recorder.h>
 #include <qmmf-sdk/qmmf_recorder_params.h>
 #include <qmmf-sdk/qmmf_recorder_extra_param_tags.h>
-
-#include "recorder/src/service/qmmf_recorder_utils.h"
+#include "common/utils/qmmf_log.h"
+#include "qmmf_memory_interface.h"
 
 #define DUMP_META_PATH "/data/misc/qmmf/param.dump"
 
@@ -80,7 +81,7 @@
 #include "common/utils/qmmf_common_utils.h"
 #else
 #include <QCamera3VendorTags.h>
-#endif
+#endif  // QCAMERA3_TAG_LOCAL_COPY
 
 //#define DEBUG
 #define TEST_INFO(fmt, args...)  ALOGD(fmt, ##args)
@@ -413,6 +414,34 @@ class GtestCommon : public ::testing::Test {
                      struct FaceInfo &info);
 
   void ApplyFaceOveralyOnStream(struct FaceInfo &info);
+
+  static bool ValidateResFromStreamConfigs(const CameraMetadata& meta,
+                                            const uint32_t width,
+                                            const uint32_t height);
+
+  static bool GetMinResFromStreamConfigs(const CameraMetadata& meta,
+                                          uint32_t &width,
+                                          uint32_t &height);
+
+  static bool ValidateResFromProcessedSizes(const CameraMetadata& meta,
+                                            const uint32_t width,
+                                            const uint32_t height);
+
+  static bool ValidateResFromJpegSizes(const CameraMetadata& meta,
+                                        const uint32_t width,
+                                        const uint32_t height);
+
+  static bool ValidateResFromRawSizes(const CameraMetadata& meta,
+                                      const uint32_t width,
+                                      const uint32_t height);
+
+  static bool GetMaxSupportedCameraRes(const CameraMetadata& meta,
+                                      uint32_t &width, uint32_t &height,
+                                const int32_t format = HAL_PIXEL_FORMAT_RAW10);
+
+  static bool GetMinSupportedCameraRes(const CameraMetadata& meta,
+                                        uint32_t &width,
+                                        uint32_t &height);
 
   status_t DrawOverlay(void *data, int32_t width, int32_t height);
 

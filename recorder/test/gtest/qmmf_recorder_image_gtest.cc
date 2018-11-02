@@ -682,7 +682,7 @@ TEST_F(RecorderImageGTest, 4KSnapshot) {
 }
 
 /*
-* 4KSnapshotWithRaw: This test will test 4K JPEG and RAW snapshot
+* 4KSnapshotStillPlusRaw: This test will test 4K JPEG and RAW snapshot
 *                    on the same time.
 * Api test sequence:
 *  - StartCamera
@@ -693,7 +693,7 @@ TEST_F(RecorderImageGTest, 4KSnapshot) {
 *   } loop End
 *  - StopCamera
 */
-TEST_F(RecorderImageGTest, 4KSnapshotWithRaw) {
+TEST_F(RecorderImageGTest, 4KSnapshotStillPlusRaw) {
   fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
       test_info_->test_case_name(),test_info_->name());
 
@@ -953,7 +953,7 @@ TEST_F(RecorderImageGTest, 10MPSnapshot) {
 }
 
 /*
-* 10MPJPEG422InputSnapshot: This test will test 10MP JPEG snapshot with two
+* 10MPJPEG422Snapshot: This test will test 10MP JPEG snapshot with two
 * thumbnails.
 * Api test sequence:
 *  - StartCamera
@@ -964,7 +964,7 @@ TEST_F(RecorderImageGTest, 10MPSnapshot) {
 *   } loop End
 *  - StopCamera
 */
-TEST_F(RecorderImageGTest, 10MPJPEG422InputSnapshot) {
+TEST_F(RecorderImageGTest, 10MPJPEG422Snapshot) {
   fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
       test_info_->test_case_name(),test_info_->name());
 
@@ -1027,7 +1027,7 @@ TEST_F(RecorderImageGTest, 10MPJPEG422InputSnapshot) {
 
   meta_array.push_back(meta);
 
-  bool res_supported = Common::ValidateResFromJpegSizes(
+  bool res_supported = GtestCommon::ValidateResFromJpegSizes(
       meta, image_param.width, image_param.height);
   ASSERT_TRUE (res_supported != false);
 
@@ -1213,7 +1213,7 @@ TEST_F(RecorderImageGTest, Jpeg422BurstSnapshotWithBayerLCAC15fps) {
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  bool res_supported = Common::ValidateResFromJpegSizes(meta,
+  bool res_supported = GtestCommon::ValidateResFromJpegSizes(meta,
       image_param.width, image_param.height);
   ASSERT_TRUE (res_supported != false);
 
@@ -2093,7 +2093,7 @@ TEST_F(RecorderImageGTest, LowResVideo10MPSnapshotWithLCACandEdgeSmoothContinuou
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  bool res_supported = Common::ValidateResFromJpegSizes(meta,
+  bool res_supported = GtestCommon::ValidateResFromJpegSizes(meta,
       image_param.width, image_param.height);
   ASSERT_TRUE (res_supported != false);
 
@@ -2296,7 +2296,7 @@ TEST_F(RecorderImageGTest, LowResVideo10MPContinuousSnapshotWithLCAC) {
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  bool res_supported = Common::ValidateResFromJpegSizes(meta,
+  bool res_supported = GtestCommon::ValidateResFromJpegSizes(meta,
       image_param.width, image_param.height);
   ASSERT_TRUE (res_supported != false);
 
@@ -2458,7 +2458,7 @@ TEST_F(RecorderImageGTest, LowResVideo10MPContinuousSnapshotWithLCACandEdgeSmoot
   float focal_length = 8.0;
   meta.update(ANDROID_LENS_FOCAL_LENGTH, &focal_length, 1);
 
-    bool res_supported = Common::ValidateResFromJpegSizes(meta,
+    bool res_supported = GtestCommon::ValidateResFromJpegSizes(meta,
         image_param.width, image_param.height);
     ASSERT_TRUE (res_supported != false);
 
@@ -3508,7 +3508,7 @@ TEST_F(RecorderImageGTest, BurstSnapshotWithBayerLCAC15fpsWithCdsOff) {
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  bool res_supported = Common::ValidateResFromJpegSizes(meta,
+  bool res_supported = GtestCommon::ValidateResFromJpegSizes(meta,
     image_param.width, image_param.height);
   ASSERT_TRUE (res_supported != false);
 
@@ -4579,226 +4579,6 @@ TEST_F(RecorderImageGTest, RawBayerRDI8Snapshot) {
 }
 
 /*
-* SessionWithLPM1080pEncYUVSnapshot: This is a multi-session usecase that will
-*                                    test LPM, Encode, Snapshot in parallel.
-* Api test sequence:
-*  - StartCamera
-*   loop Start {
-*   ------------------
-*   - CaptureImage - 1080p Raw YUV
-*   - StartSession - LPM (1080p YUV)
-*   - CaptureImage - 1080p Raw YUV
-*   - StartSession - 1080p Enc (AVC)
-*   - CaptureImage - 1080p Raw YUV
-*   - StopSession  - 1080p Enc
-*   - CaptureImage - 1080p Raw YUV
-*   - StopSession  - LPM
-*   ------------------
-*   } loop End
-*  - StopCamera
-*/
-TEST_F(RecorderImageGTest, SessionWithLPM1080pEncYUVSnapshot) {
-  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
-      test_info_->test_case_name(),test_info_->name());
-
-  // Init and Start
-  auto ret = Init();
-  ASSERT_TRUE(ret == NO_ERROR);
-
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
-  ASSERT_TRUE(ret == NO_ERROR);
-
-  for(uint32_t i = 1; i <= iteration_count_; i++) {
-    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
-        test_info_->name(), i);
-
-    // Take Snapshot
-    TEST_INFO("%s: Taking Snapshot", __func__);
-
-    ImageParam image_param{};
-    image_param.width         = 1920;
-    image_param.height        = 1080;
-    image_param.image_format  = ImageFormat::kNV12;
-
-    std::vector<CameraMetadata> meta_array;
-    camera_metadata_entry_t entry;
-    CameraMetadata meta;
-
-    ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    bool res_supported = false;
-    // Check Supported Raw YUV snapshot resolutions.
-    if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-      entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-      for (uint32_t i = 0 ; i < entry.count; i += 4) {
-        if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
-          if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-              entry.data.i32[i+3]) {
-            if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
-                && image_param.height ==
-                    static_cast<uint32_t>(entry.data.i32[i+2])) {
-              res_supported = true; // 1080p-YUV res supported.
-            }
-          }
-        }
-      }
-    }
-    ASSERT_TRUE(res_supported != false);
-
-    ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
-                                BufferDescriptor buffer,
-                                MetaData meta_data) -> void
-        { SnapshotCb(camera_id, image_count, buffer, meta_data); };
-
-    meta_array.push_back(meta);
-    ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array,
-                                 cb);
-    ASSERT_TRUE(ret == NO_ERROR);
-    sleep(1);
-
-    // Start 1080p YUV LPM Stream
-    TEST_INFO("%s: Starting LPM Stream", __func__);
-
-    SessionCb s1_status_cb = CreateSessionStatusCb();
-    uint32_t s1_id;
-    ret = recorder_.CreateSession(s1_status_cb, &s1_id);
-    ASSERT_TRUE(s1_id > 0);
-    ASSERT_TRUE(ret == NO_ERROR);
-    VideoTrackCreateParam s1_video_t1_param{camera_id_, VideoFormat::kYUV,
-                                            1920, 1080, 30};
-
-    s1_video_t1_param.low_power_mode = true;  // LPM Stream
-
-    uint32_t s1_video_t1_id = 1;
-
-    TrackCb s1_video_t1_cb;
-    s1_video_t1_cb.data_cb = [&, s1_id] (uint32_t track_id,
-        std::vector<BufferDescriptor> buffers,
-        std::vector<MetaData> meta_buffers) {
-          VideoTrackYUVDataCb(s1_id, track_id, buffers, meta_buffers); };
-
-    s1_video_t1_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
-        void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
-        event_type, event_data, event_data_size); };
-
-    ret = recorder_.CreateVideoTrack(s1_id, s1_video_t1_id, s1_video_t1_param,
-                                     s1_video_t1_cb);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    std::vector<uint32_t> s1_track_ids;
-    s1_track_ids.push_back(s1_video_t1_id);
-    sessions_.insert(std::make_pair(s1_id, s1_track_ids));
-
-    ret = recorder_.StartSession(s1_id);
-    ASSERT_TRUE(ret == NO_ERROR);
-    sleep(5);
-
-    // Take Snapshot
-    TEST_INFO("%s: Taking Snapshot", __func__);
-
-    ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array,
-                                   cb);
-    ASSERT_TRUE(ret == NO_ERROR);
-    sleep(1);
-
-    // Start 1080p AVC Stream
-    TEST_INFO("%s: Starting Enc Stream", __func__);
-
-    SessionCb s2_status_cb = CreateSessionStatusCb();
-    uint32_t s2_id;
-    ret = recorder_.CreateSession(s2_status_cb, &s2_id);
-    ASSERT_TRUE(s2_id > 0);
-    ASSERT_TRUE(ret == NO_ERROR);
-    VideoTrackCreateParam s2_video_t1_param{camera_id_, VideoFormat::kAVC,
-                                            1920,
-                                            1080,
-                                            30};
-    s2_video_t1_param.low_power_mode = false;
-
-    uint32_t s2_video_t1_id = 2;
-
-    TrackCb s2_video_t1_cb;
-    s2_video_t1_cb.data_cb = [&, s2_id] (uint32_t track_id,
-        std::vector<BufferDescriptor> buffers,
-        std::vector<MetaData> meta_buffers) {
-          VideoTrackEncDataCb(s2_id, track_id, buffers, meta_buffers);
-        };
-
-    s2_video_t1_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
-        void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
-        event_type, event_data, event_data_size); };
-
-    ret = recorder_.CreateVideoTrack(s2_id, s2_video_t1_id,
-                                      s2_video_t1_param, s2_video_t1_cb);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    std::vector<uint32_t> s2_track_ids;
-    s2_track_ids.push_back(s2_video_t1_id);
-    sessions_.insert(std::make_pair(s2_id, s2_track_ids));
-
-    ret = recorder_.StartSession(s2_id);
-    ASSERT_TRUE(ret == NO_ERROR);
-    sleep(5);
-
-    // Take Snapshot
-    ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array,
-                                   cb);
-    ASSERT_TRUE(ret == NO_ERROR);
-    sleep(1);
-
-    // Delete 1080p AVC Stream
-    ret = recorder_.StopSession(s2_id, false);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    ret = recorder_.DeleteVideoTrack(s2_id, s2_video_t1_id);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    ret = recorder_.DeleteSession(s2_id);
-    ASSERT_TRUE(ret == NO_ERROR);
-    sleep(1);
-
-    // Take Snapshot
-    ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array,
-                                   cb);
-    ASSERT_TRUE(ret == NO_ERROR);
-    sleep(1);
-
-    // Delete 1080p YUV LPM Stream
-    TEST_INFO("%s: Starting LPM Stream", __func__);
-
-    ret = recorder_.StopSession(s1_id, false);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    ret = recorder_.DeleteVideoTrack(s1_id, s1_video_t1_id);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    ret = recorder_.DeleteSession(s1_id);
-    ASSERT_TRUE(ret == NO_ERROR);
-    sleep(1);
-
-    // Take Snapshot
-    ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array,
-                                   cb);
-    ASSERT_TRUE(ret == NO_ERROR);
-    sleep(1);
-  }  // End-for (iteration_count_)
-
-  // Deinit and Stop
-  ret = recorder_.StopCamera(camera_id_);
-  ASSERT_TRUE(ret == NO_ERROR);
-
-  ClearSessions();
-
-  ret = DeInit();
-  ASSERT_TRUE(ret == NO_ERROR);
-
-  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
-      test_info_->test_case_name(), test_info_->name());
-}
-
-/*
 * SingleSnapshotFocalLength: This test will test 4K jpg snapshot
 * focal length change.
 * Api test sequence:
@@ -4896,9 +4676,402 @@ TEST_F(RecorderImageGTest, SingleSnapshotFocalLength) {
       test_info_->test_case_name(), test_info_->name());
 }
 
+/*
+* LowResVideo10MPContinuousSnapshotWithLCACAndCdsOff: This gtest will test Continuous
+*    10MP JPEG snapshot with Bayer LCAC.
+* Api test sequence:
+*  - StartCamera
+*  - Low resolution video 640x480@30fps
+*  - Disable CDS
+*  - Continuous CaptureImage - BayerLcac + JPEG (Continius capture)
+*  - CancelCaptureImage
+*  - StopCamera
+*/
+TEST_F(RecorderImageGTest, LowResVideo10MPContinuousSnapshotWithLCACAndCdsOff) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  SessionCb session_status_cb = CreateSessionStatusCb();
+  uint32_t session_id;
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  ASSERT_TRUE(session_id > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = {
+      VideoFormat::kAVC,
+      session_id,
+      1, 640, 480
+    };
+    ret = dump_bitstream_.SetUp(dumpinfo);
+    ASSERT_TRUE(ret == NO_ERROR);
+  }
+
+  TrackCb video_track_cb;
+  video_track_cb.event_cb =
+      [this] (uint32_t track_id, EventType event_type,
+              void *event_data, size_t event_data_size) -> void {
+      VideoTrackEventCb(track_id, event_type, event_data, event_data_size); };
+
+  uint32_t video_track_id = 1;
+  VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC,
+                                          640,
+                                          480,
+                                          30};
+
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
+      };
+
+  ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                   video_track_param, video_track_cb);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  std::vector<uint32_t> track_ids = {video_track_id};
+  sessions_.insert(std::make_pair(session_id, track_ids));
+
+  ret = recorder_.StartSession(session_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  // Record for sometime
+  sleep(5);
+
+  ImageParam image_param{};
+  image_param.width         = 3872;
+  image_param.height        = 2592;
+  image_param.image_format  = ImageFormat::kJPEG;
+  image_param.image_quality = default_jpeg_quality_;
+
+  std::vector<CameraMetadata> meta_array;
+  CameraMetadata meta;
+  ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  bool res_supported = GtestCommon::ValidateResFromJpegSizes(meta,
+      image_param.width, image_param.height);
+  ASSERT_TRUE (res_supported != false);
+
+  ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
+                              BufferDescriptor buffer,
+                              MetaData meta_data) -> void
+      { SnapshotCb(camera_id, image_count, buffer, meta_data);
+      };
+
+  ImageConfigParam image_config;
+  PostprocPlugin bayer_lcac_plugin, edge_smooth_plugin;
+
+  SupportedPlugins supported_plugins;
+  ret = recorder_.GetSupportedPlugins(&supported_plugins);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  bool found = false;
+  for (auto const& plugin_info : supported_plugins) {
+    if (plugin_info.name == "BayerLcac") {
+      ret = recorder_.CreatePlugin(&bayer_lcac_plugin.uid, plugin_info);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      image_config.Update(QMMF_POSTPROCESS_PLUGIN, bayer_lcac_plugin, 0);
+      found = true;
+    }
+  }
+  ASSERT_TRUE(found == true);
+
+  found = false;
+
+  // Update same focal length to streaming meta.
+  float focal_length = 8.0; // 4 fps mode.
+  ret = SetCameraFocalLength(focal_length);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+
+  SnapshotType snapshot_type;
+  snapshot_type.type = SnapshotMode::kContinuous;
+  image_config.Update(QMMF_SNAPSHOT_TYPE, snapshot_type, 0);
+
+  ret = recorder_.ConfigImageCapture(camera_id_, image_config);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  int32_t cds_mode = 0; // 0-Off, 1-On, 2-Auto
+  TEST_INFO("%s: Disable CDS", __func__);
+  meta.update( QCAMERA3_CDS_MODE, &cds_mode, 1);
+
+  meta_array.clear();
+  meta_array.push_back(meta);
+  ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array, cb);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  // take continuous snapshots till 10 secs to simulate long press.
+  sleep(10);
+
+  focal_length = 6.0;
+  ret = SetCameraFocalLength(focal_length);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.CancelCaptureImage(camera_id_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  //preview
+  sleep(5);
+
+  ret = recorder_.DeletePlugin(bayer_lcac_plugin.uid);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.StopSession(session_id, false);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.DeleteSession(session_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ClearSessions();
+
+  ret = recorder_.StopCamera(camera_id_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = DeInit();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  dump_bitstream_.CloseAll();
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+* LowResVideo10MPJpeg422ContinuousCaptureWithLCACandEdgeSmooth:
+*     This test will test 10MP JPEG single snapshot with reprocessing
+*     (bayer LCAC, edge smooth) followed by Continuous capture with same
+*     configuration.
+*
+* Api test sequence:
+*  - StartCamera
+*  - Low resolution video 640x480@30fps
+*  - Single Capture - BayerLcac + EdgeSmooth + JPEG
+*  - Continuous Capture - BayerLcac + JPEG (Continius capture)
+*  - CancelCaptureImage
+*  - StopCamera
+*/
+TEST_F(RecorderImageGTest,
+       LowResVideo10MPJpeg422ContinuousCaptureWithLCACandEdgeSmooth) {
+
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  SessionCb session_status_cb = CreateSessionStatusCb();
+  uint32_t session_id;
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  ASSERT_TRUE(session_id > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = {
+      VideoFormat::kAVC,
+      session_id,
+      1, 640, 480
+    };
+    ret = dump_bitstream_.SetUp(dumpinfo);
+    ASSERT_TRUE(ret == NO_ERROR);
+  }
+
+  TrackCb video_track_cb;
+  video_track_cb.event_cb =
+      [this] (uint32_t track_id, EventType event_type,
+              void *event_data, size_t event_data_size) -> void {
+      VideoTrackEventCb(track_id, event_type, event_data, event_data_size); };
+
+  uint32_t video_track_id = 1;
+  VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC,
+                                          640,
+                                          480,
+                                          30};
+
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
+      };
+
+  ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                   video_track_param, video_track_cb);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  std::vector<uint32_t> track_ids = {video_track_id};
+  sessions_.insert(std::make_pair(session_id, track_ids));
+
+  ret = recorder_.StartSession(session_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  // Record for sometime
+  sleep(5);
+
+  ImageParam image_param{};
+  image_param.width         = 3872;
+  image_param.height        = 2592;
+  image_param.image_format  = ImageFormat::kJPEG;
+  image_param.image_quality = default_jpeg_quality_;
+
+  std::vector<CameraMetadata> meta_array;
+  CameraMetadata meta;
+  ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  // Update focal length to capture meta to select 4fps sensor mode.
+  float focal_length = 8.0;
+  meta.update(ANDROID_LENS_FOCAL_LENGTH, &focal_length, 1);
+
+  bool res_supported = GtestCommon::ValidateResFromJpegSizes(meta,
+      image_param.width, image_param.height);
+  ASSERT_TRUE(res_supported != false);
+
+  // number of frames 1. Timeout 5s (4fps snapshot).
+  test_wait_.Reset(1, 5);
+
+  ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
+                              BufferDescriptor buffer,
+                              MetaData meta_data) -> void
+      { SnapshotCb(camera_id, image_count, buffer, meta_data);
+        test_wait_.Done();
+      };
+
+  ImageConfigParam image_config;
+  PostprocPlugin bayer_lcac_plugin, edge_smooth_plugin;
+
+  SupportedPlugins supported_plugins;
+  ret = recorder_.GetSupportedPlugins(&supported_plugins);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  bool found = false;
+  for (auto const& plugin_info : supported_plugins) {
+    if (plugin_info.name == "BayerLcac") {
+      ret = recorder_.CreatePlugin(&bayer_lcac_plugin.uid, plugin_info);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      image_config.Update(QMMF_POSTPROCESS_PLUGIN, bayer_lcac_plugin, 0);
+      found = true;
+    }
+  }
+  ASSERT_TRUE(found == true);
+
+  found = false;
+  for (auto const& plugin_info : supported_plugins) {
+    if (plugin_info.name == "EdgeSmooth") {
+      ret = recorder_.CreatePlugin(&edge_smooth_plugin.uid, plugin_info);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      image_config.Update(QMMF_POSTPROCESS_PLUGIN, edge_smooth_plugin, 1);
+      found = true;
+    }
+  }
+  ASSERT_TRUE(found == true);
+
+  HighQualityCaptureSetup high_quality_setup;
+  high_quality_setup.jpeg_input_format = BufferFormat::kNV16;
+  image_config.Update(QMMF_JPEG_CAPTURE_SETUP, high_quality_setup);
+
+  // Update same focal length to streaming meta.
+  focal_length = 8.0;
+  ret = SetCameraFocalLength(focal_length);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.ConfigImageCapture(camera_id_, image_config);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  meta_array.push_back(meta);
+  ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array, cb);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = test_wait_.Wait();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  //Continius capture
+  std::string config = "{\"EdgeSmooth\" : false }";
+  ret = recorder_.ConfigPlugin(edge_smooth_plugin.uid, config);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ImageConfigParam image_config_continius;
+  SnapshotType snapshot_type;
+  snapshot_type.type = SnapshotMode::kContinuous;
+  image_config_continius.Update(QMMF_SNAPSHOT_TYPE, snapshot_type, 0);
+
+  ret = recorder_.ConfigImageCapture(camera_id_, image_config_continius);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  // Lock AE for snapshot
+  uint8_t ae_lock = ANDROID_CONTROL_AE_LOCK_ON;
+  ret = meta.update(ANDROID_CONTROL_AE_LOCK, &ae_lock, 1);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.SetCameraParam(camera_id_, meta);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  meta_array.clear();
+  meta_array.push_back(meta);
+  ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array, cb);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  sleep(6);
+
+  focal_length = 6.0;
+  ret = SetCameraFocalLength(focal_length);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.CancelCaptureImage(camera_id_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  // Unlock AE
+  ae_lock = ANDROID_CONTROL_AE_LOCK_OFF;
+  ret = meta.update(ANDROID_CONTROL_AE_LOCK, &ae_lock, 1);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.SetCameraParam(camera_id_, meta);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  //preview
+  sleep(5);
+
+  ret = recorder_.DeletePlugin(bayer_lcac_plugin.uid);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.StopSession(session_id, false);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.DeleteSession(session_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ClearSessions();
+
+  ret = recorder_.StopCamera(camera_id_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = DeInit();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  dump_bitstream_.CloseAll();
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
 #ifdef ANDROID_O_OR_ABOVE
 /*
-* SingleCamRaw10BayerSnapshot: This test will test BayerRDI (10 bits packed)
+* PreviewAndRaw10BitBayerSnapshot: This test will test BayerRDI (10 bits packed)
 * snapshot for single camera, with max Camera resolution (active sensor
 * array size).
 * Api test sequence:
@@ -4917,7 +5090,7 @@ TEST_F(RecorderImageGTest, SingleSnapshotFocalLength) {
 *  - DeleteSession
 *  - StopCamera
 */
-TEST_F(RecorderImageGTest, SingleCamRaw10BayerSnapshot) {
+TEST_F(RecorderImageGTest, PreviewAndRaw10BitBayerSnapshot) {
   fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
       test_info_->test_case_name(),test_info_->name());
 
@@ -5104,7 +5277,7 @@ TEST_F(RecorderImageGTest, 4kSnapshotWithGPSInfo) {
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  bool res_supported = Common::GetMaxSupportedCameraRes(meta,
+  bool res_supported = GtestCommon::GetMaxSupportedCameraRes(meta,
       image_param.width, image_param.height, HAL_PIXEL_FORMAT_BLOB);
   ASSERT_TRUE(res_supported != false);
 
@@ -5253,7 +5426,7 @@ TEST_F(RecorderImageGTest, DualCam4KSnapshotWithRaw) {
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  bool res_supported = Common::ValidateResFromJpegSizes(meta,
+  bool res_supported = GtestCommon::ValidateResFromJpegSizes(meta,
     image_param.width, image_param.height);
   ASSERT_TRUE (res_supported != false);
 
