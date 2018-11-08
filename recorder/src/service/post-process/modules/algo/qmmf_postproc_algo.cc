@@ -78,8 +78,9 @@ PostProcAlg::PostProcAlg(std::string lib)
     throw e;
   }
 
-  QMMF_INFO("%s: name: %s version: %f location: %s", __func__,
-      algo_caps_.plugin_name_.c_str(), algo_caps_.lib_version_ , Lib_.c_str());
+  QMMF_INFO("%s: name: %s version: %s location: %s", __func__,
+            algo_caps_.plugin_name_.c_str(), algo_caps_.lib_version_.c_str(),
+            Lib_.c_str());
 }
 
 PostProcAlg::~PostProcAlg() {
