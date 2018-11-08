@@ -44,7 +44,8 @@ namespace qmmf {
 
 C2DResizer::C2DResizer()
     : src_surface_id_(0),
-      dst_surface_id_(0){
+      dst_surface_id_(0),
+      aspect_ratio_preserve_(false) {
   QMMF_VERBOSE("%s: Enter", __func__);
   QMMF_VERBOSE("%s: Exit (0x%p)", __func__, this);
 }
@@ -56,6 +57,12 @@ C2DResizer::~C2DResizer() {
 }
 
 RESIZER_STATUS C2DResizer::Init() {
+
+  char prop[PROPERTY_VALUE_MAX];
+  memset(prop, 0, sizeof(prop));
+  property_get(PRESERVE_ASPECT_RATIO, prop, "1");
+  uint32_t value = (uint32_t) atoi(prop);
+  aspect_ratio_preserve_ = (value == 1) ? true : false;
 
   C2D_YUV_SURFACE_DEF surface_def = {
     C2D_COLOR_FORMAT_420_NV12,
@@ -120,6 +127,10 @@ RESIZER_STATUS C2DResizer::Draw(StreamBuffer& src_buffer,
   int32_t plane_y_len = 0;
   uint32_t c2d_color_format = C2D_COLOR_FORMAT_420_NV12;
   C2D_SURFACE_TYPE type;
+  uint32_t x = 0, y = 0;
+  uint32_t w = src_buffer.info.plane_info[0].width;
+  uint32_t h = src_buffer.info.plane_info[0].height;
+  double in_ar = 0, out_ar = 0;
 
   QMMF_DEBUG("%s: src_buffer.fd = %d", __func__, src_buffer.fd);
   QMMF_DEBUG("%s: src_buffer.size = %d", __func__, src_buffer.size);
@@ -272,7 +283,22 @@ RESIZER_STATUS C2DResizer::Draw(StreamBuffer& src_buffer,
     goto EXIT;
   }
 
-  //STEP6: Create C2dObject outof source surface and fill target rectangle
+  //STEP6: save aspect ratio
+  if (aspect_ratio_preserve_) {
+    in_ar = static_cast<double>(w) / h;
+    out_ar = static_cast<double>(dst_buffer.info.plane_info[0].width) /
+                                 dst_buffer.info.plane_info[0].height;
+
+    if (in_ar > out_ar) {
+      w = out_ar * h;
+      x = (src_buffer.info.plane_info[0].width - w) / 2;
+    } else if (in_ar < out_ar) {
+      h = w / out_ar;
+      y = (src_buffer.info.plane_info[0].height - h) / 2;
+    }
+  }
+
+  //STEP7: Create C2dObject outof source surface and fill target rectangle
   //values.
   C2D_OBJECT draw_obj[1];
   draw_obj[0].surface_id  = src_surface_id_;
@@ -283,10 +309,10 @@ RESIZER_STATUS C2DResizer::Draw(StreamBuffer& src_buffer,
     {
       std::lock_guard<std::mutex> l(crop_lock_);
       draw_obj[0].config_mask |= C2D_SOURCE_RECT_BIT;
-      draw_obj[0].source_rect.x = 0;
-      draw_obj[0].source_rect.y = 0;
-      draw_obj[0].source_rect.width = src_buffer.info.plane_info[0].width << 16;
-      draw_obj[0].source_rect.height = src_buffer.info.plane_info[0].height << 16;
+      draw_obj[0].source_rect.x = x << 16;
+      draw_obj[0].source_rect.y = y << 16;
+      draw_obj[0].source_rect.width = w << 16;
+      draw_obj[0].source_rect.height = h << 16;
     }
   }
 

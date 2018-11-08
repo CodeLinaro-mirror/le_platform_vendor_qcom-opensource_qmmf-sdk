@@ -68,7 +68,7 @@ class NEONResizer : public ResizerInterface {
   void*         handle_;
   neonresizer::res_method_t method_;
   std::mutex    lock_;
-
+  bool aspect_ratio_preserve_;
 };
 
 }; //namespace qmmf ends here

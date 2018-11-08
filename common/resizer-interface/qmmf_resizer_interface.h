@@ -33,6 +33,8 @@
 
 namespace qmmf {
 
+#define PRESERVE_ASPECT_RATIO "persist.qmmf.rescaler.ar_pre"
+
 typedef enum {
   RESIZER_STATUS_ERROR = -1,
   RESIZER_STATUS_OK = 0

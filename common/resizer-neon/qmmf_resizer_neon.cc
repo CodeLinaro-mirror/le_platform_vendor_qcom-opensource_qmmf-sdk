@@ -43,7 +43,8 @@ namespace qmmf {
 
 NEONResizer::NEONResizer()
   : handle_(nullptr),
-    method_(neonresizer::RES_BILINEAR_V_SKIP) {
+    method_(neonresizer::RES_BILINEAR_V_SKIP),
+    aspect_ratio_preserve_(false) {
   QMMF_VERBOSE("%s: Enter", __func__);
   QMMF_VERBOSE("%s: Exit (0x%p)", __func__, this);
 }
@@ -63,6 +64,10 @@ RESIZER_STATUS NEONResizer::Init() {
   if (value < neonresizer::RES_NUMBER) {
     method_ = static_cast<neonresizer::res_method_t>(value);
   }
+
+  property_get(PRESERVE_ASPECT_RATIO, prop, "1");
+  value = (uint32_t) atoi(prop);
+  aspect_ratio_preserve_ = (value == 1) ? true : false;
 
   std::lock_guard<std::mutex> lock(lock_);
   if (handle_) {
@@ -118,23 +123,49 @@ RESIZER_STATUS NEONResizer::Draw(StreamBuffer& src_buffer,
 RESIZER_STATUS NEONResizer::FillProcessParams(const StreamBuffer& src_buffer,
                                               const StreamBuffer& dst_buffer,
                                               neonresizer::resn_t &params) {
+  uint32_t x = 0;
+  uint32_t y = 0 ;
+  uint32_t w = src_buffer.info.plane_info[0].width;
+  uint32_t h = src_buffer.info.plane_info[0].height;
+
+  if (aspect_ratio_preserve_) {
+
+    double in_ar = static_cast<double>(w) / h;
+    double out_ar = static_cast<double>(dst_buffer.info.plane_info[0].width) /
+                                        dst_buffer.info.plane_info[0].height;
+    /*save aspect ratio*/
+    if (in_ar > out_ar) {
+      w = out_ar * h;
+      x = (src_buffer.info.plane_info[0].width - w) / 2;
+    } else if (in_ar < out_ar) {
+      h = w / out_ar;
+      y = (src_buffer.info.plane_info[0].height - h) / 2;
+    }
+  }
+
   //default tuning should be generate internaly
   params.resn_tuning = nullptr;
 
-  params.src_luma = (unsigned char *)src_buffer.data;
+  params.src_luma = reinterpret_cast<unsigned char *>(src_buffer.data) +
+    (y * src_buffer.info.plane_info[0].stride + x);
+
   auto luma_len = src_buffer.info.plane_info[0].stride *
                   src_buffer.info.plane_info[0].scanline;
-  params.src_chroma = (unsigned char *)((intptr_t)params.src_luma + luma_len);
+  params.src_chroma =
+    reinterpret_cast<unsigned char *>((intptr_t)src_buffer.data + luma_len
+     + ((y/2) * src_buffer.info.plane_info[0].stride + x));
 
   // Output data pointers
   auto chroma_len = dst_buffer.info.plane_info[0].stride *
                     dst_buffer.info.plane_info[0].scanline;
-  params.dst_luma = (unsigned char *)dst_buffer.data;
-  params.dst_chroma = (unsigned char *)((intptr_t)params.dst_luma + chroma_len);
+
+  params.dst_luma = reinterpret_cast<unsigned char *>(dst_buffer.data);
+  params.dst_chroma =
+      reinterpret_cast<unsigned char *>((intptr_t)params.dst_luma + chroma_len);
 
   // Input buffer dimensions
-  params.src_width = src_buffer.info.plane_info[0].width;
-  params.src_height = src_buffer.info.plane_info[0].height;
+  params.src_width = w;
+  params.src_height = h;
   params.src_stride = src_buffer.info.plane_info[0].stride;
 
   // Output buffer dimensions

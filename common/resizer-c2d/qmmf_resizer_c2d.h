@@ -67,6 +67,7 @@ class C2DResizer : public ResizerInterface {
   std::map<uint32_t, void*> mapped_buffs_;
 
   std::mutex crop_lock_;
+  bool aspect_ratio_preserve_;
 };
 
 }; //namespace qmmf ends here
