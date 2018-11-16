@@ -63,10 +63,10 @@ class NEONResizer : public ResizerInterface {
 
   RESIZER_STATUS FillProcessParams(const StreamBuffer& src_buffer,
                                    const StreamBuffer& dst_buffer,
-                                   neonresizer::resn_t &params);
+                                   neonresizer::Resn &params);
 
-  void*         handle_;
-  neonresizer::res_method_t method_;
+  neonresizer::NeonCore  handle_;
+  neonresizer::ResMethod method_;
   std::mutex    lock_;
 
 };

@@ -40,15 +40,14 @@ uint32_t qmmf_log_level;
 namespace qmmf {
 
 NEONResizer::NEONResizer()
-  : handle_(nullptr),
-    method_(neonresizer::RES_BILINEAR_V_SKIP) {
+  : handle_(),
+    method_(neonresizer::ResMethod::kRES_BILINEAR_V_SKIP) {
   QMMF_VERBOSE("%s: Enter", __func__);
   QMMF_VERBOSE("%s: Exit (0x%p)", __func__, this);
 }
 
 NEONResizer::~NEONResizer() {
   QMMF_VERBOSE("%s: Enter", __func__);
-  DeInit();
   QMMF_VERBOSE("%s: Exit (0x%p)", __func__, this);
 }
 
@@ -57,33 +56,26 @@ RESIZER_STATUS NEONResizer::Init() {
   char prop[PROPERTY_VALUE_MAX];
   memset(prop, 0, sizeof(prop));
   property_get("persist.qmmf.rescaler.method", prop, "0");
-  uint32_t value = (uint32_t) atoi(prop);
-  if (value < neonresizer::RES_NUMBER) {
-    method_ = static_cast<neonresizer::res_method_t>(value);
+  auto value = static_cast<neonresizer::ResMethod>(atoi(prop));
+  if (value < neonresizer::ResMethod::kRES_NUMBER) {
+    method_ = value;
   }
 
   std::lock_guard<std::mutex> lock(lock_);
-  if (handle_) {
-    QMMF_INFO("%s: The neon resizer is already init", __func__);
-    return RESIZER_STATUS_OK;
-  }
-  auto res = neonresizer::resn_init(&handle_);
-  if (neonresizer::RESN_SUCCESS != res) {
-    QMMF_ERROR("%s: Failed! %d", __func__, res);
+  auto ret = handle_.resn_init();
+  if (ret != neonresizer::ResnStatus::kRESN_SUCCESS) {
+    QMMF_ERROR("%s: Failed!", __func__);
     return RESIZER_STATUS_ERROR;
   }
 
-  QMMF_INFO("%s: version: %s", __func__, neonresizer::resn_get_version());
+  QMMF_INFO("%s: version: %s", __func__, handle_.resn_get_version());
 
   return RESIZER_STATUS_OK;
 }
 
 void NEONResizer::DeInit() {
   std::lock_guard<std::mutex> lock(lock_);
-  if (handle_) {
-    neonresizer::resn_deinit(handle_);
-    handle_ = nullptr;
-  }
+    handle_.resn_deinit();
 }
 
 RESIZER_STATUS NEONResizer::Draw(StreamBuffer& src_buffer,
@@ -97,15 +89,10 @@ RESIZER_STATUS NEONResizer::Draw(StreamBuffer& src_buffer,
   }
 
   std::lock_guard<std::mutex> lock(lock_);
-  if (handle_ == nullptr) {
-    QMMF_ERROR("%s The neon resizer handle is null!!!", __func__);
-    return RESIZER_STATUS_ERROR;
-  }
-
-  neonresizer::resn_t params;
+  neonresizer::Resn params;
   FillProcessParams(src_buffer, dst_buffer, params);
-  auto ret = neonresizer::resn_process(handle_, &params);
-  if (neonresizer::RESN_SUCCESS != ret) {
+  auto ret = handle_.resn_process(&params);
+  if (neonresizer::ResnStatus::kRESN_SUCCESS != ret) {
     QMMF_ERROR("%s: Neon process error: %d", __func__, ret);
     return RESIZER_STATUS_ERROR;
   }
@@ -115,7 +102,7 @@ RESIZER_STATUS NEONResizer::Draw(StreamBuffer& src_buffer,
 
 RESIZER_STATUS NEONResizer::FillProcessParams(const StreamBuffer& src_buffer,
                                               const StreamBuffer& dst_buffer,
-                                              neonresizer::resn_t &params) {
+                                              neonresizer::Resn &params) {
   //default tuning should be generate internaly
   params.resn_tuning = nullptr;
 
