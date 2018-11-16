@@ -516,6 +516,7 @@ status_t CameraSource::CreateTrackSource(const uint32_t track_id,
   int32_t port_track_id = -1;
   bool copy_stream_mode = false;
   bool linked_mode = false;
+  VideoTrackParams source_track_params {};
 
   int32_t source_track_id = GetSourceTrackId(track_params.extra_param);
   if (source_track_id != NAME_NOT_FOUND) {
@@ -546,6 +547,7 @@ status_t CameraSource::CreateTrackSource(const uint32_t track_id,
       }
       if (port_track_id != -1) {
         copy_stream_mode = true;
+        source_track_params = track->getParams();
         QMMF_INFO("%s: Copy stream should be create.", __func__);
       }
     } else {
@@ -574,7 +576,9 @@ status_t CameraSource::CreateTrackSource(const uint32_t track_id,
             Common::FromVideoToQmmfFormat(track_params.params.format_type);
         ret = rescaler->Init(track_params.params.width,
                              track_params.params.height,
-                             format);
+                             format,
+                             source_track_params.params.frame_rate,
+                             track_params.params.frame_rate);
         if (ret != NO_ERROR) {
           rescaler = nullptr;
           QMMF_ERROR("%s: Rescaler Init Failed", __func__);
