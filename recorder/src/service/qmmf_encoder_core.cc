@@ -509,9 +509,9 @@ status_t TrackEncoder::Stop(bool is_force_cleanup) {
 
     for (auto& buffer : output_occupy_buffer_queue_) {
       output_free_buffer_queue_.push(buffer);
-      wait_for_frame_.Signal();
     }
     output_occupy_buffer_queue_.clear();
+    wait_for_frame_.Signal();
   }
   assert(avcodec_ != nullptr);
   auto ret = avcodec_->StopCodec(true);
