@@ -36,9 +36,8 @@
 #else
 #include "qmmf_gralloc_interface.h"
 #endif
-#include "qmmf_common_utils.h"
-
-using namespace qmmf;
+#include "qmmf_memory_interface.h"
+#include "common/utils/qmmf_log.h"
 
 const int IMemAllocUsage::kHwCameraZsl = (1 << 0);
 const int IMemAllocUsage::kPrivateAllocUbwc = (1 << 1);

@@ -30,13 +30,11 @@
 #include <fcntl.h>
 
 #include "qmmf_gbm_interface.h"
-#include "qmmf_common_utils.h"
 
 #ifndef LOG_TAG
 #define LOG_TAG "GBM Allocator"
 #endif
 
-using namespace qmmf;
 
 const std::unordered_map<int32_t, int32_t> GBMUsage::usage_flag_map_ = {
   // TODO: keep this map updated with GBM enhancements
