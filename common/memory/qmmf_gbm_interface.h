@@ -31,7 +31,7 @@
 
 #include <gbm_priv.h>
 #include "qmmf_memory_interface.h"
-#include "qmmf_common_utils.h"
+#include "common/utils/qmmf_log.h"
 
 class GBMUsage : public IMemAllocUsage {
  public:
