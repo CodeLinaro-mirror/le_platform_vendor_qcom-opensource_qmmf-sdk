@@ -27,6 +27,8 @@
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+#include <string>
+
 #include "qmmf_simple_test_algo.h"
 
 namespace qmmf {
@@ -54,10 +56,12 @@ class QmmfResizerTestAlgo : public QmmfSimpleTestAlgo {
    *
    * main qmmf algo function to process image data
    *
-   * return: void
+   * return: string
    **/
-  void Process(const std::vector<AlgBuffer> &input_buffers,
+  const std::string Process(const std::vector<AlgBuffer> &input_buffers,
                const std::vector<AlgBuffer> &output_buffers) {
+    std::string res = {};
+
     Validate(input_buffers, output_buffers);
 
     for (AlgBuffer b : output_buffers) {
@@ -88,6 +92,7 @@ class QmmfResizerTestAlgo : public QmmfSimpleTestAlgo {
     for (AlgBuffer b : output_buffers) {
       listener_->OnFrameReady(b);
     }
+    return res;
   }
 };
 
