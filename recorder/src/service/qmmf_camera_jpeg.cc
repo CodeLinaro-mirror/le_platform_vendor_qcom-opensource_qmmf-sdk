@@ -333,10 +333,14 @@ status_t CameraJpeg::FillMetaInfo(const PostProcParam& input,
       info->plane_info[0].height = input.height;
       info->plane_info[0].stride = aligned_width;
       info->plane_info[0].scanline = aligned_height;
+      info->plane_info[0].size = aligned_width * aligned_height;
+      info->plane_info[0].offset = 0;
       info->plane_info[1].width = input.width;
       info->plane_info[1].height = input.height/2;
       info->plane_info[1].stride = aligned_width;
       info->plane_info[1].scanline = aligned_height/2;
+      info->plane_info[1].size = aligned_width * (aligned_height / 2);
+      info->plane_info[1].offset = aligned_width * aligned_height;
       break;
     case HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS_UBWC:
       info->format = BufferFormat::kNV12UBWC;
@@ -345,10 +349,14 @@ status_t CameraJpeg::FillMetaInfo(const PostProcParam& input,
       info->plane_info[0].height = input.height;
       info->plane_info[0].stride = aligned_width;
       info->plane_info[0].scanline = aligned_height;
+      info->plane_info[0].size = aligned_width * aligned_height;
+      info->plane_info[0].offset = 0;
       info->plane_info[1].width = input.width;
       info->plane_info[1].height = input.height/2;
       info->plane_info[1].stride = aligned_width;
       info->plane_info[1].scanline = aligned_height/2;
+      info->plane_info[1].size = aligned_width * (aligned_height / 2);
+      info->plane_info[1].offset = aligned_width * aligned_height;
       break;
     case HAL_PIXEL_FORMAT_NV21_ZSL:
       info->format = BufferFormat::kNV21;
@@ -357,10 +365,14 @@ status_t CameraJpeg::FillMetaInfo(const PostProcParam& input,
       info->plane_info[0].height = input.height;
       info->plane_info[0].stride = aligned_width;
       info->plane_info[0].scanline = aligned_height;
+      info->plane_info[0].size = aligned_width * aligned_height;
+      info->plane_info[0].offset = 0;
       info->plane_info[1].width = input.width;
       info->plane_info[1].height = input.height/2;
       info->plane_info[1].stride = aligned_width;
       info->plane_info[1].scanline = aligned_height/2;
+      info->plane_info[1].size = aligned_width * (aligned_height / 2);
+      info->plane_info[1].offset = aligned_width * aligned_height;
       break;
     case HAL_PIXEL_FORMAT_YCbCr_422_888:
       info->format = BufferFormat::kNV16;
@@ -369,10 +381,14 @@ status_t CameraJpeg::FillMetaInfo(const PostProcParam& input,
       info->plane_info[0].height = input.height;
       info->plane_info[0].stride = aligned_width;
       info->plane_info[0].scanline = aligned_height;
+      info->plane_info[0].size = aligned_width * aligned_height;
+      info->plane_info[0].offset = 0;
       info->plane_info[1].width = input.width;
       info->plane_info[1].height = input.height;
       info->plane_info[1].stride = aligned_width;
       info->plane_info[1].scanline = aligned_height;
+      info->plane_info[1].size = aligned_width * aligned_height;
+      info->plane_info[1].offset = aligned_width * aligned_height;
       break;
     default:
       QMMF_ERROR("%s: Unsupported format: 0x%x", __func__,
