@@ -29,6 +29,8 @@
 
 #define LOG_TAG "QmmfUtilsGtest"
 
+#include <utils/Log.h>
+
 #include <gtest/gtest.h>
 
 #include "common/utils/qmmf_tools.h"
@@ -252,55 +254,6 @@ TEST_F(QmmfAlgoUtilsGtest, LCM) {
     res = Utils::LCM(3840 * 2160 * 3 / 2, 4096);
     ALOGD("res=%d\n", res);
     assert(24883200 == res);
-  }
-
-  fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
-          test_info_->test_case_name(), test_info_->name());
-}
-
-/*
-* Property: This test case will test Get Property API.
-* Api test sequence:
-*  - GetProperty
-*  - SetProperty
-*  - GetProperty
-*/
-TEST_F(QmmfAlgoUtilsGtest, Property) {
-  fprintf(stderr, "\n---------- Run Test %s.%s ------------\n",
-          test_info_->test_case_name(), test_info_->name());
-
-  for (uint32_t i = 1; i <= iteration_count_; i++) {
-    fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
-    ALOGD("%s: Running Test(%s) iteration = %d\n", __func__, test_info_->name(),
-          i);
-
-    int test_int_default = 66;
-    auto res_int = Property::Get("random_property", test_int_default);
-    ASSERT_EQ(res_int, test_int_default);
-
-    int test_float_default = 666.0;
-    auto res_float = Property::Get("random_property", test_float_default);
-    ASSERT_EQ(res_float, test_float_default);
-
-    std::string test_string_default = "6";
-    auto res_string =
-        Property::Get("random_property", test_string_default);
-    ASSERT_EQ(res_string, test_string_default);
-
-    int test_int_property = 22;
-    Property::Set("test_property", test_int_property);
-    res_int = Property::Get("test_property", test_int_default);
-    ASSERT_EQ(res_int, test_int_property);
-
-    float test_float_property = 222.0;
-    Property::Set("test_property", test_float_property);
-    res_float = Property::Get("test_property", test_float_default);
-    ASSERT_EQ(res_float, test_float_property);
-
-    std::string test_string_property = "2";
-    Property::Set("test_property", test_string_property);
-    res_string = Property::Get("test_property", test_string_default);
-    ASSERT_EQ(res_string, test_string_property);
   }
 
   fprintf(stderr, "---------- Test Completed %s.%s ----------\n",

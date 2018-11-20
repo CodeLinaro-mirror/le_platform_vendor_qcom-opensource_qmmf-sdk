@@ -37,11 +37,14 @@
 #include <mutex>
 #include <sstream>
 #include <thread>
+#include <utils/Log.h>
 
 #include <gtest/gtest.h>
 
 #include <qmmf-alg/qmmf_alg_plugin.h>
 #include <qmmf-alg/qmmf_alg_utils.h>
+
+#include "common/utils/qmmf_tools.h"
 
 #include "buffer_handler.h"
 #include "heap_tracker.h"
@@ -372,7 +375,7 @@ class QmmfAlgoEventListener : public IEventListener {
  * Qmmf algorithm test
  *
  **/
-class QmmfAlgoInterfaceGtest : public ::testing::Test {
+class QmmfAlgoInterfaceGtest : public ::testing::Test, public QmmfAlgoTools {
  public:
   QmmfAlgoInterfaceGtest()
       : test_info_(nullptr),
@@ -457,7 +460,7 @@ class QmmfAlgoInterfaceGtest : public ::testing::Test {
 
       Utils::LoadLibHandler(lib_handle_, QMMF_ALG_GET_CAPS_FUNC, get_caps_func_);
 
-      algo_ = LoadPluginFunc(configuration_->calibration_data_);
+      algo_ = LoadPluginFunc(configuration_->calibration_data_, *this);
     } catch (const std::exception &e) {
       Deinit();
       Utils::ThrowException(__func__, e.what());
