@@ -929,13 +929,13 @@ bool CameraSource::IsTrackIdValid(const uint32_t track_id) {
   return (track_sources_.count(track_id) != 0) ? true : false;
 }
 
-uint32_t CameraSource::GetJpegSize(uint8_t *blobBuffer, uint32_t width) {
+uint32_t CameraSource::GetJpegSize(uint8_t *blobBuffer, uint32_t size) {
 
-  uint32_t ret = width;
+  uint32_t ret = size;
   uint32_t blob_size = sizeof(struct camera3_jpeg_blob);
 
-  if (width > blob_size) {
-    size_t offset = width - blob_size - JPEG_BLOB_OFFSET;
+  if (size > blob_size) {
+    size_t offset = size - blob_size - JPEG_BLOB_OFFSET;
     uint8_t *footer = blobBuffer + offset;
     struct camera3_jpeg_blob *jpegBlob = (struct camera3_jpeg_blob *)footer;
 
@@ -945,8 +945,8 @@ uint32_t CameraSource::GetJpegSize(uint8_t *blobBuffer, uint32_t width) {
       QMMF_ERROR("%s Jpeg Blob structure missing!\n", __func__);
     }
   } else {
-    QMMF_ERROR("%s Buffer width: %u equal or smaller than Blob size: %u\n",
-        __func__, width, blob_size);
+    QMMF_ERROR("%s Buffer size: %u equal or smaller than Blob size: %u\n",
+        __func__, size, blob_size);
   }
   return ret;
 }
@@ -1114,7 +1114,7 @@ void CameraSource::SnapshotCallback(uint32_t count, StreamBuffer& buffer) {
       assert(vaddr != nullptr);
       assert(0 < buffer.info.num_planes);
       content_size = GetJpegSize((uint8_t*) vaddr,
-                                 buffer.info.plane_info[0].width);
+                                 buffer.info.plane_info[0].size);
       QMMF_INFO("%s: jpeg buffer size(%d)", __func__, content_size);
       assert(0 < content_size);
       if (buffer.second_thumb) {
