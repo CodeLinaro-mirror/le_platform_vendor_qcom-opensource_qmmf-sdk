@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016, 2019, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -34,8 +34,11 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/ioctl.h>
+#include <ion/ion.h>
+#include <linux/dma-buf.h>
 #include <linux/msm_ion.h>
 
+#include "common/utils/qmmf_tools.h"
 #include "recorder/src/service/qmmf_encoder_core.h"
 
 namespace qmmf {
@@ -51,7 +54,9 @@ static const int32_t kDebugTrackFps = 1<<0;
 // kBitStreamHeaderSize is combined size of au delimiter,
 // vps, sps, pps and frame start code size, as muxer
 // changes each field start code.
+#ifndef TARGET_ION_ABI_VERSION
 static const uint32_t kBitStreamHeaderSize = 96;
+#endif
 
 static const uint64_t kBufferWaitDuration = 5000000000; // 5 sec
 
@@ -90,7 +95,7 @@ EncoderCore::~EncoderCore() {
   instance_ = NULL;
 
   if (ion_device_ > 0) {
-    close(ion_device_);
+    ion_close(ion_device_);
     ion_device_ = -1;
   }
   QMMF_INFO("%s: Exit", __func__);
@@ -103,7 +108,8 @@ status_t EncoderCore::AddSource(const shared_ptr<TrackSource>& track_source,
   assert(track_source.get() != nullptr);
 
   if(ion_device_ < 0) {
-    ion_device_ = open("/dev/ion", O_RDONLY);
+    QMMF_DEBUG("%s: Using Libion API", __func__);
+    ion_device_ = ion_open();
     assert(ion_device_ >=0 );
   }
 
@@ -308,23 +314,24 @@ TrackEncoder::~TrackEncoder() {
 
   int i = 0;
   for(auto& iter : output_buffer_list_) {
-
-    if((iter).data) {
-        munmap((iter).data, (iter).capacity);
-        (iter).data = NULL;
+    if ((iter).data) {
+      SyncEnd((iter).fd);
+      munmap((iter).data, (iter).capacity);
+      (iter).data = NULL;
     }
-    if((iter).fd) {
-        QMMF_INFO("%s track_id(%x) (iter).fd =%d Free", __func__,
-                                   TrackId(), (iter).fd);
-        ioctl(ion_device_, ION_IOC_FREE, &(output_ion_list_[i]));
-        close((iter).fd);
-        (iter).fd = 0;
+
+    if ((iter).fd) {
+      QMMF_INFO("%s track_id(%x) (iter).fd =%d Free", __func__, TrackId(),
+                (iter).fd);
+      if (ion_is_legacy(ion_device_))
+        ion_free(ion_device_, fd_ion_handle_map_[(iter).fd]);
+
+      close((iter).fd);
+      (iter).fd = 0;
     }
     ++i;
   }
   output_buffer_list_.clear();
-  output_ion_list_.clear();
-
   if(avcodec_ != nullptr) {
     delete avcodec_;
   }
@@ -516,9 +523,9 @@ status_t TrackEncoder::ReleaseHeaders() {
   QMMF_INFO("%s: Exit track_id(%x)", __func__, TrackId());
   return ret;
 }
-
+#ifndef TARGET_ION_ABI_VERSION
 status_t TrackEncoder::SynchronizeCache(
-    const struct ion_handle_data& ion_handle,
+    const ion_user_handle_t& ion_handle,
     const BufferDescriptor& buffer,
     const unsigned int flag) {
   QMMF_DEBUG("%s Enter track_id(%d)", __func__, TrackId());
@@ -531,7 +538,7 @@ status_t TrackEncoder::SynchronizeCache(
 
   flush_data.vaddr = buffer.data;
   flush_data.fd = buffer.fd;
-  flush_data.handle = ion_handle.handle;
+  flush_data.handle = ion_handle;
   flush_data.length = kBitStreamHeaderSize;
   custom_data.cmd = flag;
   custom_data.arg = reinterpret_cast<unsigned long>(&flush_data);
@@ -547,7 +554,7 @@ status_t TrackEncoder::SynchronizeCache(
   QMMF_DEBUG("%s Exit track_id(%d)", __func__, TrackId());
   return NO_ERROR;
 }
-
+#endif
 status_t TrackEncoder::GetBuffer(BufferDescriptor& codec_buffer,
                                  void* client_data) {
 
@@ -570,14 +577,14 @@ status_t TrackEncoder::GetBuffer(BufferDescriptor& codec_buffer,
   BufferDescriptor buffer = output_free_buffer_queue_.front();
   lk.unlock();
 
-
+#ifndef TARGET_ION_ABI_VERSION
   auto ret = SynchronizeCache(fd_ion_handle_map_[buffer.fd], buffer,
                               ION_IOC_CLEAN_CACHES);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: Cache Synchronization failed, error(%d)!", __func__, ret);
     return ret;
   }
-
+#endif
   codec_buffer.fd = buffer.fd;
   codec_buffer.data = buffer.data;
   {
@@ -818,16 +825,15 @@ void TrackEncoder::NotifyBufferToClient(BufferDescriptor& codec_buffer) {
 }
 
 status_t TrackEncoder::AllocOutputPortBufs() {
-
   QMMF_INFO("%s: Enter track_id(%x)", __func__, TrackId());
   int32_t ret = 0;
   uint32_t count, size, count_prev;
 
   assert(avcodec_ != nullptr);
-  ret = avcodec_->GetBufferRequirements(kPortIndexOutput,  &count, &size);
+  ret = avcodec_->GetBufferRequirements(kPortIndexOutput, &count, &size);
   assert(ret == NO_ERROR);
   count_prev = count;
-  //TODO: This hardcoding would be fixed by AVCodec layer
+  // TODO: This hardcoding would be fixed by AVCodec layer
   count = OUTPUT_MAX_COUNT;
 
   // This Code changes buffer count in slice delivery mode.
@@ -838,75 +844,67 @@ status_t TrackEncoder::AllocOutputPortBufs() {
   }
 
   assert(ion_device_ >= 0);
-  int32_t ion_type = 0x1 << ION_IOMMU_HEAP_ID;
-  void *vaddr      = NULL;
+  void* vaddr = NULL;
+  uint32_t flags = ION_FLAG_CACHED;
+  uint32_t heap_id_mask = ION_HEAP(ION_SYSTEM_HEAP_ID);
 
-  struct ion_allocation_data alloc;
-  struct ion_fd_data         ion_fddata;
-
-  for(uint32_t i = 0; i < count; i++) {
-
+  for (uint32_t i = 0; i < count; i++) {
     BufferDescriptor buffer{};
-    struct ion_handle_data ionHandleData;
+    int32_t ion_handle = -1;
+    size = (size + 4095) & (~4095);
     vaddr = NULL;
-    memset(&alloc, 0x0, sizeof(ion_allocation_data));
-    memset(&ion_fddata, 0x0, sizeof(ion_fddata));
-    memset(&ionHandleData, 0x0, sizeof(ionHandleData));
 
-    alloc.len = size;
-    alloc.len = (alloc.len + 4095) & (~4095);
-    alloc.align = 4096;
-    alloc.flags = ION_FLAG_CACHED;
-    alloc.heap_id_mask = ion_type;
+    if (!ion_is_legacy(ion_device_)) {
+      ret = ion_alloc_fd(ion_device_, size, 0, heap_id_mask, flags, &buffer.fd);
+      if (ret) {
+        QMMF_ERROR("%s() ion_alloc_fd  command failed: %d[%s]", __func__, errno,
+                   strerror(errno));
+        return errno;
+      }
+    } else {
+      ret = ion_alloc(ion_device_, size, 0, heap_id_mask, flags, &ion_handle);
+      if (ret) {
+        QMMF_ERROR("%s() ion_alloc  command failed: %d[%s]", __func__, errno,
+                   strerror(errno));
+        return errno;
+      }
+      ret = ion_share(ion_device_, ion_handle, &buffer.fd);
+      if (ret) {
+        QMMF_ERROR("%s() ion_share  command failed: %d[%s]", __func__, errno,
+                   strerror(errno));
+        return errno;
+      }
 
-    ret = ioctl(ion_device_, ION_IOC_ALLOC, &alloc);
-    if (ret < 0) {
-      QMMF_ERROR("%s ION allocation failed!", __func__);
-      goto ION_ALLOC_FAILED;
+      fd_ion_handle_map_.insert(::std::make_pair(buffer.fd, ion_handle));
     }
 
-    ion_fddata.handle = alloc.handle;
-    ret = ioctl(ion_device_, ION_IOC_SHARE, &ion_fddata);
-    if (ret < 0) {
-        QMMF_ERROR("%s ION map failed %s", __func__, strerror(errno));
-        goto ION_MAP_FAILED;
-    }
-
-    vaddr = mmap(NULL, alloc.len, PROT_READ  | PROT_WRITE, MAP_SHARED,
-                 ion_fddata.fd, 0);
-
+    vaddr = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, buffer.fd, 0);
     if (vaddr == MAP_FAILED) {
-        QMMF_ERROR("%s  ION mmap failed: %s (%d)", __func__,
-            strerror(errno), errno);
-        goto ION_MAP_FAILED;
+      QMMF_ERROR("%s() unable to map buffer[%d]: %d[%s]", __func__, buffer.fd,
+                 errno, strerror(errno));
+
+      ret = close(buffer.fd);
+      if (ret < 0) {
+        QMMF_ERROR("%s() error closing mapping fd[%d]: %d[%s]", __func__,
+                   buffer.fd, errno, strerror(errno));
+        QMMF_ERROR("%s() [CRITICAL] ion fd has leaked", __func__);
+      }
+      return errno;
     }
+    SyncStart(buffer.fd);
 
-    ionHandleData.handle = ion_fddata.handle;
-    output_ion_list_.push_back(ionHandleData);
-
-    buffer.fd       = ion_fddata.fd;
-    buffer.capacity = alloc.len;
-    buffer.data     = vaddr;
+    buffer.capacity = size;
+    buffer.data = vaddr;
 
     QMMF_INFO("%s buffer.Fd(%d)", __func__, buffer.fd);
     QMMF_DEBUG("%s buffer.capacity(%d)", __func__, buffer.capacity);
     QMMF_DEBUG("%s buffer.vaddr(%p)", __func__, buffer.data);
 
     output_buffer_list_.push_back(buffer);
-    fd_ion_handle_map_.insert(::std::make_pair(buffer.fd, ionHandleData));
   }
 
   QMMF_INFO("%s: Exit track_id(%x)", __func__, TrackId());
   return ret;
-
-ION_MAP_FAILED:
-  struct ion_handle_data ionHandleData;
-  memset(&ionHandleData, 0x0, sizeof(ionHandleData));
-  ionHandleData.handle = ion_fddata.handle;
-  ioctl(ion_device_, ION_IOC_FREE, &ionHandleData);
-ION_ALLOC_FAILED:
-  QMMF_ERROR("%s ION Buffer allocation failed!", __func__);
-  return -1;
 }
 
 #ifdef DUMP_BITSTREAM

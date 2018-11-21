@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016, 2019, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -47,6 +47,7 @@
 
 #include "common/audio/inc/qmmf_audio_definitions.h"
 #include "common/utils/qmmf_log.h"
+#include "common/utils/qmmf_tools.h"
 #include "recorder/src/service/qmmf_recorder_common.h"
 
 namespace qmmf {
@@ -57,7 +58,6 @@ using ::std::map;
 using ::std::queue;
 using ::std::vector;
 
-static const char* kIonFilename = "/dev/ion";
 static const int kBufferAlign   = 4096;
 
 RecorderIon::RecorderIon()
@@ -82,69 +82,52 @@ int32_t RecorderIon::Allocate(const int32_t number, const int32_t size) {
 
   if (number <= 0) return -EINVAL;
   if (size <= 0) return -EINVAL;
-
+  int result;
   request_size_ = size;
   buffer_size_ = (size + kBufferAlign - 1) & ~(kBufferAlign - 1);
 
   // open ion device
-  ion_device_ = open(kIonFilename, O_RDONLY);
+  ion_device_ = ion_open();
   if (ion_device_ < 0) {
-    QMMF_ERROR("%s() error opening ion device: %d[%s]", __func__,
-               errno, strerror(errno));
+    QMMF_ERROR("%s() error opening ion device: %d[%s]", __func__, errno,
+               strerror(errno));
     return errno;
   }
 
+  // Allocate Buffer
   for (int32_t index = 0; index < number; ++index) {
     RecorderIonBuffer buffer;
-    int result;
+    uint32_t heap_id_mask = ION_HEAP(ION_SYSTEM_HEAP_ID);
 
-    buffer.allocate_data.len = buffer_size_;
-    buffer.allocate_data.align = kBufferAlign;
-    buffer.allocate_data.heap_id_mask = ION_HEAP(ION_SYSTEM_HEAP_ID);
-    buffer.allocate_data.flags = 0;
-    buffer.allocate_data.handle = 0;
-
-    // allocate ion buffer
-    result = ioctl(ion_device_, ION_IOC_ALLOC, &buffer.allocate_data);
-    if (result < 0) {
-      QMMF_ERROR("%s() ION_IOC_ALLOC ioctl command failed: %d[%s]",
-                 __func__, errno, strerror(errno));
+    result = ion_alloc_fd(ion_device_, buffer_size_, 0, heap_id_mask, 0,
+                          &buffer.map_fd);
+    if (result) {
+      QMMF_ERROR("%s() ion_alloc_fd  command failed: %d[%s]", __func__, errno,
+                 strerror(errno));
       return errno;
     }
 
-    buffer.free_data.handle = buffer.allocate_data.handle;
-    buffer.share_data.handle = buffer.allocate_data.handle;
-    buffer.share_data.fd = -1;
-
-    // obtain unique fd for sharing
-    result = ioctl(ion_device_, ION_IOC_SHARE, &buffer.share_data);
-    if (result < 0) {
-      QMMF_ERROR("%s() ION_IOC_SHARE ioctl command failed: %d[%s]",
-                 __func__, errno, strerror(errno));
-
-      // on error, attempt to deallocate the ion buffer
-      result = ioctl(ion_device_, ION_IOC_FREE, &buffer.free_data);
-      if (result < 0) {
-        QMMF_ERROR("%s() ION_IOC_FREE ioctl command failed: %d[%s]",
-                    __func__, errno, strerror(errno));
-        QMMF_ERROR("%s() [CRITICAL] ion memory has leaked", __func__);
-      }
-      return errno;
-    }
-
-    ion_buffer_map_.insert({buffer.share_data.fd, buffer});
+    ion_buffer_map_.insert({buffer.map_fd, buffer});
   }
 
   // map buffers into address space
   for (RecorderIonBufferMap::value_type& buffer_value : ion_buffer_map_) {
     buffer_value.second.data = mmap(NULL, buffer_size_, PROT_READ | PROT_WRITE,
-                                    MAP_SHARED,
-                                    buffer_value.second.share_data.fd, 0);
+                                    MAP_SHARED, buffer_value.second.map_fd, 0);
     if (buffer_value.second.data == MAP_FAILED) {
       QMMF_ERROR("%s() unable to map buffer[%d]: %d[%s]", __func__,
-                 buffer_value.second.share_data.fd, errno, strerror(errno));
-      return errno;
+                 buffer_value.second.map_fd, errno, strerror(errno));
+
+      result = close(buffer_value.second.map_fd);
+      if (result < 0) {
+        QMMF_ERROR("%s() error closing mapping fd[%d]: %d[%s]", __func__,
+                   buffer_value.second.map_fd, errno, strerror(errno));
+        QMMF_ERROR("%s() [CRITICAL] ion fd has leaked", __func__);
+      }
+      return result;
     }
+
+    SyncStart(buffer_value.second.map_fd);
 
     QMMF_VERBOSE("%s() allocated ion buffer[%d][%s]", __func__,
                  buffer_value.first, buffer_value.second.ToString().c_str());
@@ -165,37 +148,30 @@ int32_t RecorderIon::Deallocate() {
   for (RecorderIonBufferMap::value_type& buffer_value : ion_buffer_map_) {
     QMMF_VERBOSE("%s() deallocating ion buffer[%s]", __func__,
                  buffer_value.second.ToString().c_str());
+    SyncEnd(buffer_value.second.map_fd);
 
-    // unmap buffer from address space
     result = munmap(buffer_value.second.data, buffer_size_);
     if (result < 0)
       QMMF_ERROR("%s() unable to unmap buffer[%d]: %d[%s]", __func__,
-                 buffer_value.second.share_data.fd, errno, strerror(errno));
+                 buffer_value.second.map_fd, errno, strerror(errno));
+
     buffer_value.second.data = nullptr;
 
-    // close fd
-    result = close(buffer_value.second.share_data.fd);
+    result = close(buffer_value.second.map_fd);
     if (result < 0) {
       QMMF_ERROR("%s() error closing shared fd[%d]: %d[%s]", __func__,
-                 buffer_value.second.share_data.fd, errno, strerror(errno));
+                 buffer_value.second.map_fd, errno, strerror(errno));
       return errno;
     }
-    buffer_value.second.share_data.fd = -1;
 
-    // free ion buffer
-    result = ioctl(ion_device_, ION_IOC_FREE, &buffer_value.second.free_data);
-    if (result < 0) {
-      QMMF_ERROR("%s() ION_IOC_FREE ioctl command failed: %d[%s]",
-                  __func__, errno, strerror(errno));
-      QMMF_ERROR("%s() [CRITICAL] ion memory has leaked", __func__);
-    }
+    buffer_value.second.map_fd = -1;
   }
 
   ion_buffer_map_.clear();
   QMMF_INFO("%s() deallocated all ion buffers", __func__);
 
   // close ion device
-  result = close(ion_device_);
+  result = ion_close(ion_device_);
   if (result < 0) {
     QMMF_ERROR("%s() error closing ion device[%d]: %d[%s]", __func__,
                ion_device_, errno, strerror(errno));
@@ -219,8 +195,8 @@ int32_t RecorderIon::GetList(vector<AudioBuffer>* buffers) {
 
   for (RecorderIonBufferMap::value_type& buffer_value : ion_buffer_map_) {
     AudioBuffer buffer = { buffer_value.second.data,
-                           buffer_value.second.share_data.fd,
-                           buffer_value.second.share_data.fd,
+                           buffer_value.second.map_fd,
+                           buffer_value.second.map_fd,
                            request_size_, 0, 0, 0 };
 
     QMMF_VERBOSE("%s() OUTPARAM: audio_buffer[%s]", __func__,
@@ -241,8 +217,8 @@ int32_t RecorderIon::GetList(queue<BufferDescriptor>* buffers) {
 
   for (RecorderIonBufferMap::value_type& buffer_value : ion_buffer_map_) {
     BufferDescriptor buffer = { buffer_value.second.data,
-      buffer_value.second.share_data.fd,
-      static_cast<uint32_t>(buffer_value.second.share_data.fd), 0U,
+      buffer_value.second.map_fd,
+      static_cast<uint32_t>(buffer_value.second.map_fd), 0U,
       static_cast<uint32_t>(request_size_), 0U, 0U, 0U };
 
     QMMF_VERBOSE("%s() OUTPARAM: codec_buffer[%s]", __func__,
@@ -294,7 +270,7 @@ int32_t RecorderIon::Export(const AudioBuffer& audio_buffer,
     return -EINVAL;
   }
 
-  bn_buffer->ion_fd = ion_buffer_iterator->second.share_data.fd;
+  bn_buffer->ion_fd = ion_buffer_iterator->second.map_fd;
   bn_buffer->size = audio_buffer.size;
   bn_buffer->timestamp = audio_buffer.timestamp;
   bn_buffer->width = 0;

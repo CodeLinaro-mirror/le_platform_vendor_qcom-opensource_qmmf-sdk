@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016, 2019, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -29,11 +29,14 @@
 
 #pragma once
 
-#include <linux/msm_kgsl.h>
-#include <linux/msm_ion.h>
 #include <adreno/c2d2.h>
-#include <utils/String8.h>
 #include <cutils/properties.h>
+#include <ion/ion.h>
+#include <linux/dma-buf.h>
+#include <linux/msm_ion.h>
+#include <linux/msm_kgsl.h>
+#include <utils/String8.h>
+
 
 #if USE_SKIA
 #include <SkCanvas.h>
@@ -138,7 +141,6 @@ class OverlayItem {
       uint32_t               size;
       int32_t                fd;
       void *                 vaddr;
-      struct ion_handle_data handle_data;
   };
 
   int32_t AllocateIonMemory(IonMemInfo& mem_info, uint32_t size);
@@ -156,7 +158,6 @@ class OverlayItem {
   void *                 vaddr_;
   int32_t                ion_fd_;
   uint32_t               size_;
-  struct ion_handle_data handle_data_;
   OverlayLocationType    location_type_;
   bool                   dirty_;
   int32_t                ion_device_;

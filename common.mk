@@ -28,9 +28,12 @@ LOCAL_C_INCLUDES += $(TOP)/frameworks/native/libs/nativebase/include
 LOCAL_C_INCLUDES += $(TOP)/frameworks/native/libs/arect/include
 endif
 
+LOCAL_C_INCLUDES += $(TOP)/system/core/libion/include
+LOCAL_C_INCLUDES += $(TOP)/system/core/libion/kernel-headers
+
 LOCAL_ADDITIONAL_DEPENDENCIES += $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr
 
-LOCAL_SHARED_LIBRARIES := libcutils libutils libdl liblog
+LOCAL_SHARED_LIBRARIES := libcutils libutils libdl liblog libion
 
 LOCAL_EXPORT_C_INCLUDE_DIRS := $(QMMF_SDK_TOP_SRCDIR)/include
 
