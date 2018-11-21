@@ -31,6 +31,7 @@
 
 #include <gtest/gtest.h>
 
+#include "common/utils/qmmf_tools.h"
 #include <qmmf-alg/qmmf_alg_plugin.h>
 #include <qmmf-alg/qmmf_alg_utils.h>
 
@@ -66,8 +67,8 @@ class QmmfAlgoUtilsGtest : public ::testing::Test {
   void SetUp() override {
     test_info_ = ::testing::UnitTest::GetInstance()->current_test_info();
 
-    iteration_count_ = Utils::GetProperty("persist.qmmf.algo.gtest.iter",
-                                          kDefaultIterationCount);
+    iteration_count_ = Property::Get("persist.qmmf.algo.gtest.iter",
+                                     kDefaultIterationCount);
   };
 
   /** SetUp
@@ -274,31 +275,31 @@ TEST_F(QmmfAlgoUtilsGtest, Property) {
           i);
 
     int test_int_default = 66;
-    auto res_int = Utils::GetProperty("random_property", test_int_default);
+    auto res_int = Property::Get("random_property", test_int_default);
     ASSERT_EQ(res_int, test_int_default);
 
     int test_float_default = 666.0;
-    auto res_float = Utils::GetProperty("random_property", test_float_default);
+    auto res_float = Property::Get("random_property", test_float_default);
     ASSERT_EQ(res_float, test_float_default);
 
     std::string test_string_default = "6";
     auto res_string =
-        Utils::GetProperty("random_property", test_string_default);
+        Property::Get("random_property", test_string_default);
     ASSERT_EQ(res_string, test_string_default);
 
     int test_int_property = 22;
-    Utils::SetProperty("test_property", test_int_property);
-    res_int = Utils::GetProperty("test_property", test_int_default);
+    Property::Set("test_property", test_int_property);
+    res_int = Property::Get("test_property", test_int_default);
     ASSERT_EQ(res_int, test_int_property);
 
     float test_float_property = 222.0;
-    Utils::SetProperty("test_property", test_float_property);
-    res_float = Utils::GetProperty("test_property", test_float_default);
+    Property::Set("test_property", test_float_property);
+    res_float = Property::Get("test_property", test_float_default);
     ASSERT_EQ(res_float, test_float_property);
 
     std::string test_string_property = "2";
-    Utils::SetProperty("test_property", test_string_property);
-    res_string = Utils::GetProperty("test_property", test_string_default);
+    Property::Set("test_property", test_string_property);
+    res_string = Property::Get("test_property", test_string_default);
     ASSERT_EQ(res_string, test_string_property);
   }
 

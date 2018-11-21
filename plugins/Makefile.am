@@ -45,6 +45,8 @@ qmmf_algo_interface_gtest_SOURCES += gtest/qmmf_algo_gtest_configuration.cc
 qmmf_algo_interface_gtest_SOURCES += gtest/ion_buffer.cc
 qmmf_algo_interface_gtest_SOURCES += gtest/heap_tracker.cc
 
+qmmf_algo_interface_gtest_CPPFLAGS = -I$(top_srcdir)
+
 qmmf_algo_interface_gtest_LDFLAGS  = -lutils -lcutils -llog -lgtest -lgtest_main
 qmmf_algo_interface_gtest_LDFLAGS  += -ldl -ljsoncpp -lpthread
 
@@ -52,6 +54,8 @@ qmmf_algo_interface_gtest_LDFLAGS  += -ldl -ljsoncpp -lpthread
 bin_PROGRAMS += qmmf_utils_gtest
 
 qmmf_utils_gtest_SOURCES = gtest/qmmf_utils_gtest.cc
+
+qmmf_utils_gtest_CPPFLAGS = -I$(top_srcdir)
 
 qmmf_utils_gtest_LDFLAGS  = -lutils -lcutils -llog -lgtest -lgtest_main
 qmmf_utils_gtest_LDFLAGS  += -ldl
