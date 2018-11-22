@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016, 2019, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -27,6 +27,9 @@
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+/*! @file qmmf_display_service.h
+*/
+
 #pragma once
 
 #include <map>
@@ -43,6 +46,10 @@ namespace display {
 
 using namespace android;
 
+/**
+ * @brief Delegation to binder native < IDisplayService >
+ * and implementation of binder CB.
+ */
 class DisplayService : public BnInterface<IDisplayService> {
  public:
   DisplayService();
@@ -51,11 +58,21 @@ class DisplayService : public BnInterface<IDisplayService> {
 
  private:
 
+  /**
+   * @brief The class is responsible for sending the notification back to
+   * the client,
+   *
+   * if this binder object unexpectedly goes away, typically because Service
+   * process has been killed.
+   */
   class DeathNotifier : public IBinder::DeathRecipient {
   public:
     DeathNotifier(sp<DisplayService> parent) :
         parent_(parent) {}
 
+    /**
+     * @brief Method called when binder object unexpectedly goes away
+     */
     void binderDied(const wp<IBinder>&) override {
       QMMF_WARN("DisplaySerive:%s: Client Exited or died!", __func__);
       assert(parent_.get() != nullptr);
@@ -67,37 +84,130 @@ class DisplayService : public BnInterface<IDisplayService> {
 
   friend class DeathNotifier;
 
-  // Method of BnInterface<IDisplayService>.
-  // This method would get call to handle incoming messages from clients.
+  /**
+   * @brief Native < IDisplayService > onTransact method
+   * 
+   * This method is responsible for handling incoming messages from clients.
+   * Based on the incoming call from client, it calls corresponding service method
+   * and returns the status back to the client.
+   *
+   * @param[in] code : Mapping of the method calls from client based
+   *                  on enum ::QMMF_DISPLAY_SERVICE_CMDS
+   * @param data[in] : Data sent by the Proxy implementation of < IDisplayService >
+   *                  This data may be used by the service method.
+   * @param reply[out] : Data sent in response from the native/service
+   *                    to the proxy/client
+   */
   status_t onTransact(uint32_t code, const Parcel& data,
       Parcel* reply, uint32_t flags = 0) override;
 
+  /**
+   * @brief Connect API does the following:
+   *
+   *  - Open ion_device_
+   *  - Call CreateDisplayCore of DisplayImpl to create instance of DisplayImpl
+   * and create Allocator Device for buffer management
+   *  - Connect to DisplayImpl
+   *  - Allocate DeathNotifier
+   */
   status_t Connect() override;
 
+  /**
+   * @brief Disconnect API does following:
+   *
+   * - Close ion_device_
+   * - Delete DeathNotifier
+   * - Disconnect from DisplayImpl
+   * - Delete DisplayImpl instance
+   */
   status_t Disconnect() override;
 
+  /**
+   * @brief CreateDisplay API does following:
+   *
+   * - Create RemoteCallBack based on service_cb
+   * - Call DisplayImpl CreateDisplay
+   * - For RemoteCallBack, register a recipient for a notification if this binder
+   * goes away by calling linkToDeath of DeathRecipient
+   *
+   * @param[out] service_cb : Callbacks from DisplayService to DisplayClient
+   * @param[in] display_type : Client specify the type of display from enum ::DisplayType
+   * @param[out] display_handle : allocated by DisplayImpl
+   */
   status_t CreateDisplay(const sp<IDisplayServiceCallback>&
     service_cb, DisplayType display_type, DisplayHandle* display_handle)
     override;
 
+  /**
+   * @brief DestroyDisplay APT has following functionality:
+   *
+   * - For RemoteCallBack, remove the previously registered death notification
+   * by calling unlinkToDeath of DeathRecipient.
+   * - Call DisplayImpl DestroyDisplay
+   *
+   * @param[in] display_handle : Destroy display corresponding to display_handle
+   */
   status_t DestroyDisplay(DisplayHandle display_handle) override;
 
+  /**
+   * @brief CreateSurface API has following functionality:
+
+   * - CreateSurface based om surface_id
+   * - Call DisplayImpl CreateSurface API
+   *
+   * @param[in] surface_config : params for buffer allocation specified by struct ::SurfaceConfig
+   * @param[in] display_handle : Specify display for which surface is created
+   * @param[out] surface_id : unique id for each surface
+   */
   status_t CreateSurface(DisplayHandle display_handle,
       SurfaceConfig &surface_config, uint32_t* surface_id) override;
 
+  /**
+   * @brief DestroySurface API has following functionality:
+   *
+   * - DestroySurface based om surface_id
+   * - Call DisplayImpl DestroySurface API
+   *
+   * @param[in] display_handle : Specify display for which surface is destroyed
+   * @param[in] surface_id : unique surface_id to be destroyed
+   */
   status_t DestroySurface(DisplayHandle display_handle,
       const uint32_t surface_id) override;
 
+  /**
+   * @brief Call DisplayImpl DequeueSurfaceBuffer
+   *
+   * @param[in] display_handle : Specify display
+   * @param[in] surface_id : Specify display for which buffer is to be dequeued
+   * @param[out] surface_buffer : Dequeued buffer specified by struct ::SurfaceBuffer
+   */
   status_t DequeueSurfaceBuffer(DisplayHandle display_handle,
       const uint32_t surface_id, SurfaceBuffer &surface_buffer) override;
 
+  /**
+   * @brief Call DisplayImpl QueueSurfaceBuffer
+   *
+   * @param[in] display_handle : Specify display
+   * @param[in] surface_id : Specify display for which buffer is to be queued
+   * @param[in] surface_buffer : Queued buffer specified by struct ::SurfaceBuffer
+   */
   status_t QueueSurfaceBuffer(DisplayHandle display_handle,
       const uint32_t surface_id, SurfaceBuffer &surface_buffer,
       SurfaceParam &surface_param) override;
 
+  /**
+   * @brief Call DisplayImpl GetDisplayParam to get the Display Params
+   *
+   * @param[in] param_type : Specify Display param type such as Brightness or State
+   * @param[out] param : Display param value
+   */
   status_t GetDisplayParam(DisplayHandle display_handle,
       DisplayParamType param_type, void *param, size_t param_size) override;
 
+  /**
+   * @brief Call DisplayImpl SetDisplayParam to set the display params
+   * based on param_type and param value
+   */
   status_t SetDisplayParam(DisplayHandle display_handle,
       DisplayParamType param_type, void *param, size_t param_size) override;
 
@@ -124,20 +234,15 @@ class DisplayService : public BnInterface<IDisplayService> {
   std::mutex                                            client_handlers_lock_;
 
   typedef struct BufInfo {
-    // Transferred ION Id.
-    int32_t ion_fd;
-    // Memory mapped buffer.
-    void    *pointer;
-    // Size
-    size_t  frame_len;
-    // ION handle
-    ion_user_handle_t ion_handle;
-    // surface_id
-    uint32_t surface_id;
+    int32_t ion_fd; /**< Transferred ION Id */
+    void    *pointer; /**< Memory mapped buffer */
+    size_t  frame_len; /**< Size */
+    ion_user_handle_t ion_handle; /**< ION handle */
+    uint32_t surface_id; /**< surface_id */
   } BufInfo;
 
-  // map <buffer index, buffer_info>
   typedef std::map<int32_t, BufInfo*> buf_info_map;
+  /**< map <buffer index, BufInfo> */
   buf_info_map buf_info_map_;
 
 };

@@ -1,0 +1,295 @@
+/*
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are
+ * met:
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials provided
+ *       with the distribution.
+ *     * Neither the name of The Linux Foundation nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
+ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+/*!
+
+@page Display
+
+
+# Display :
+
+Following are the major features supported by QMMF-SDK Display:
+- Support UI/Video layer Creation
+- Dequeue and queue of layers from client to Display service
+- Support for controlling various display states and parameters
+- Create up to 4 surfaces (3RGB, 1 YUV), without Rotation
+- Rotation, Brightness, Suspend Resume of Display
+- Supports both Client allocated buffers and Display can allocate its own buffers
+- Supports only hardware(MDP) Composition, no GPU composition on 8053 target
+- Supports a display_panel for resolution of max 2.7K on 8053 target
+.
+
+\n
+
+ @tableofcontents
+______
+
+@section Display_Diagrams Display Class Diagram
+\n
+@image html /Images/Display_Class_Diagram.png width=1200px
+
+\n\n
+______
+
+@section Display_Buffer_Mgmt Buffer Management
+
+We can have 2 modes of buffer allocation in Display
+- Use Buffer (Buffers allocated by Client to Display)
+- Allocate Buffer (Buffers are allocated by the Display Service)
+.
+
+<BLOCKQUOTE>
+<b> use_buffer </b> flag of surfaceConfig is used to distinguish
+between these two modes of buffer allocation.
+
+\code{.cpp}
+typedef struct SurfaceConfig {
+  uint32_t width;
+  uint32_t height;
+  SurfaceFormat format;
+  uint32_t buffer_count; // Number of buffers to be allocated/used
+  bool cache; // To allocate cached or uncached buffers.
+  bool use_buffer; // The client will allocate the buffers or display adapter
+  SurfaceTransform surface_transform;
+  uint32_t z_order;
+} SurfaceConfig;
+\endcode
+</BLOCKQUOTE>
+
+<BLOCKQUOTE>
+The SurfaceConfig params are passed as an argument during CreateSurface.
+- If the flag is set to 1, means Use Buffer Mode
+- If the flag is set to 0, means Allocate Buffer Mode
+.
+
+</BLOCKQUOTE>
+
+@subsection Use_Buffer_Mode Use Buffer Mode
+
+- Create Surface by setting the <b> use_buffer </b> flag to 1.
+\code{.cpp}
+SurfaceConfig surface_config;
+uint32_t surface_id;
+memset(&surface_config, 0x0, sizeof surface_config);
+surface_config.width = 1920;
+surface_config.height = 1080;
+surface_config.format = SurfaceFormat::kFormatYCbCr420SemiPlanarVenus;
+surface_config.buffer_count = 4;
+surface_config.cache = 0;
+// use_buffer is 1 for Use Buffer Mode
+surface_config.use_buffer = 1;
+surface_config.z_order = 1;
+
+ret = display_->CreateSurface(surface_config, &surface_id);
+\endcode
+
+- Display Service checks the use_buffer set to 1 and hence no buffers
+will be allocated by the service.
+
+- Client allocates the buffer by using Buffer Allocator.
+
+- Since Client already has the buffer so, QueueSurfaceBuffer is called
+instead of DequeueSurfaceBuffer.
+
+@subsection Allocate_Buffer_Mode Allocate Buffer Mode
+
+- Client sets the use_buffer flag to 0 for Allocate Buffer Mode
+- Buffers are allocated by the Display Service as a part of CreateSurface API
+- Client need to call DequeueSurfaceBuffer to get the empty buffer allocated
+by the service, before it can call QueueSurfaceBuffer
+.
+\n
+
+______
+
+@section Display_Buffer_States Buffer States
+
+There are mainly 4 buffer states used by Display:
+- kStateFree : The buffer is free and can be used by client.
+- kStateDequeued : The buffer is being used by client to fill the data for rendering.
+- kStateQueued : The buffer is ready for composition and display.
+- kStateCommitted : The buffer is being used by display for rendering.
+.
+
+Following section explains how Buffer States are changes during different Buffer Allocation Modes.
+
+@image html /Images/Display_Buffer_State.png width=800px
+\n
+
+@subsection bs_Use_Buffer_Mode Use Buffer Mode
+
+- Buffer is allocated by the Display Service and Buffer State is set to <b> kStateFree </b>
+- Client calls DequeueSurfaceBuffer to get the free buffer, the buffer state is changed to
+<b> kStateDequeued </b> as a part of DequeuSurfaceBuffer.
+- From <b> kStateDequeued </b>, following state change can happen:
+ - The buffer state can be changed to <b> kStateFree </b>, if the display went to Suspended state
+ - The buffer state is changed to <b> kStateQueued </b>, when QueueSurfaceBuffer is called.
+- If Display is getting the buffers at higher rate compared to the refresh rate, then the
+<b> kStateQueued </b> buffers are discarded.
+\n
+Generally the refresh rate for Display is 60 Hz i.e. every 16.66 ms. If the fps is high, let's say 120,
+then we will be getting buffers every 8.33 ms, so discard the already queued buffers.
+\n
+From <b> kStateQueued </b>, following state change can happen:
+ - The buffer state of older queued buffer is changed to <b> kStateFree </b> if new <b> kStateQueued </b>
+ buffer came.
+ - The buffer can move to <b> kStateCommitted </b>. In this case the already <b> kStateCommitted </b> buffer state
+ is changed to <b> kStateFree </b>. This step happens as a part of GetLayerStack API at every 16.66 ms (refresh rate).
+- Once a buffer comes to <b> kStateCommitted </b> state, it is used by the Display for rendering.
+From <b> kStateCommitted </b> state, buffer change it's state to <b> kStateFree </b>, only if there
+is a <b> kStateQueued </b> buffer available whose state can be changed to <b> kStateCommitted </b>
+This step happens as a part of GetLayerStack API at every 16.66 ms (refresh rate)
+.
+
+@subsection bs_Allocate_Buffer_Mode Allocate Buffer Mode
+
+- Client directly call QueueSurfaceBuffer API, as it already has the buffer.
+The buffer state is changed set to <b> kStateQueued </b> as a part of QueueSurfaceBuffer API.
+- Other Buffer State transition is same as Use Buffer Mode
+.
+\n
+
+______
+
+@section Display_Debug_Knobs Debug Knobs
+
+- The following setprop can be used to enable Display Logging of sdm:
+  - <b> adb shell setprop persist.qmmf.display.log 1 </b>
+- The following setprop can be used to enable qmmf-sdk logs
+  <b> adb shell setprop persist.qmmf.sdk.log.level </b> with following values
+  - 0, Info/Error/Warning
+  - 1, Debug logs are enabled
+  - 2, Verbose logs are enabled
+- The Prepare time and Commit time should be less than 16.66ms for refresh rate of 60Hz
+- The ion usage for a particular usecase can be dumped to a file using following:
+  - <b> cat /sys/kernel/debug/ion/heaps/system > dump_usage.txt </b>
+.
+\n
+
+______
+
+@section Display_Rotation Display Rotation
+
+We can rotate the Display with following 4 values with the help of SurfaceTransform.
+- Rotate by 0 degree
+- Rotate by 90 degrees
+- Rotate by 180 degree
+- Rotate by 270 degree
+.
+
+We can define the Transform params at CreateSurface. The params are also checked at HandleVSync event for the queued buffer.
+<BLOCKQUOTE>
+The following structure defines rotation and flip values for a display layer.
+\code{.cpp}
+typedef struct SurfaceTransform {
+  float rotation; // rotate the layer based on left most pixel coordinate
+  bool flip_horizontal; // Mirror reversal of the layer across a horizontal axis
+  bool flip_vertical; // Mirror reversal of the layer across a vertical axis
+} SurfaceTransform;
+\endcode
+</BLOCKQUOTE>
+
+<BLOCKQUOTE>
+Followings are the SurfaceTransform flag values for different kind of Rotations.
+- 0 degree
+\code{.cpp}
+surface_param.surface_transform.rotation = 0.0f;
+surface_param.surface_transform.flip_horizontal = 0;
+surface_param.surface_transform.flip_vertical = 0;
+\endcode
+- 90 degrees
+\code{.cpp}
+surface_param.surface_transform.rotation = 90.0f;
+surface_param.surface_transform.flip_horizontal = 0;
+surface_param.surface_transform.flip_vertical = 0;
+\endcode
+- 180 degrees
+\code{.cpp}
+surface_param.surface_transform.rotation = 0.0f;
+surface_param.surface_transform.flip_horizontal = 1;
+surface_param.surface_transform.flip_vertical = 1;
+\endcode
+- 270 degrees
+\code{.cpp}
+surface_param.surface_transform.rotation = 90.0f;
+surface_param.surface_transform.flip_horizontal = 1;
+surface_param.surface_transform.flip_vertical = 1;
+\endcode
+.
+</BLOCKQUOTE>
+\n
+
+______
+
+@section Display_Scaling Display Scaling
+
+The Display can be scaled from a src Resolution to a dest Resolution with the help of SurfaceParam
+
+<BLOCKQUOTE>
+\code{.cpp}
+typedef struct SurfaceParam {
+  SurfaceTransform surface_transform;
+  SurfaceRect src_rect; // Rectangular area of the buffer to consider for composition
+  SurfaceRect dst_rect; // The target position where the frame will be displayed
+  SurfaceBlending surface_blending;
+  SurfaceFlags surface_flags;
+  uint8_t plane_alpha; // Alpha value applied to the whole surface
+  uint32_t frame_rate;
+  uint32_t solid_fill_color;
+} SurfaceParam;
+\endcode
+
+The Rectangular Area defined by SurfaceRect for src and dest rectangles is defined by following struct
+\code{.cpp}
+typedef struct SurfaceRect {
+  float left; // leftmost pixel position
+  float top; // top pixel position
+  float right; // right pixel position
+  float bottom; // bottom pixel position
+} SurfaceRect;
+\endcode
+</BLOCKQUOTE>
+
+<BLOCKQUOTE>
+Following is the snippet for scaling a 1080p area to 480p
+\code{.cpp}
+memset(&surface_param, 0x0, sizeof surface_param);
+
+surface_param.src_rect = {0.0, 0.0, 1920.0, 1080.0};
+surface_param.dst_rect = {0.0, 0.0, 480.0, 360.0};
+// other params
+
+display_->QueueSurfaceBuffer(surface_id, surface_buffer, surface_param);
+\endcode
+</BLOCKQUOTE>
+\n
+
+______
+
+*/

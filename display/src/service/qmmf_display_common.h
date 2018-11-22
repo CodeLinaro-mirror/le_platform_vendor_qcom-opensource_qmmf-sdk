@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, 2018, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016, 2018, 2019, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -25,6 +25,9 @@
 * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
 * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*/
+
+/*! @file qmmf_display_common.h
 */
 
 #pragma once
@@ -57,8 +60,8 @@ namespace display {
 #define QMMF_LEVEL2(...) ((void)0)
 #endif
 
-/* handle to a specific display client/service connection */
 typedef int32_t DisplayHandle;
+/**< handle to a specific display client/service connection */
 
 #ifndef TARGET_USES_GRALLOC1
 #define GRALLOC_MODULE_PATH    "/usr/lib/hw/gralloc.default.so"
