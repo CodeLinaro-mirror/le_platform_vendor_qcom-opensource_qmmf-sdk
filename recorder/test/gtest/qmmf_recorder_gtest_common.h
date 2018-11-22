@@ -141,6 +141,7 @@ static const uint32_t kColorLightBlue  = 0x189BF2FF;
 #define FHD_1080p_STREAM_WIDTH    1920
 #define FHD_1080p_STREAM_HEIGHT   1080
 #define MAX_EXP_TABLE_KNEES       50
+#define MAX_DUMP_SIZE             4294967295 //4GB
 
 static const uint32_t kBitRate4k30    = 45000000;
 static const uint32_t kBitRate1440p30 = 25000000;
@@ -265,6 +266,14 @@ typedef struct StreamDumpInfo {
   uint32_t      height;
 } StreamDumpInfo;
 
+typedef struct SplitFileInfo {
+  struct StreamDumpInfo streaminfo;
+  time_t                timestamp;
+  uint32_t              part_number;
+  BufferDescriptor*     header;
+  int32_t               file_fd;
+} SplitFileInfo;
+
 struct RGBAValues {
   double red;
   double green;
@@ -340,17 +349,11 @@ class DumpBitStream {
  public:
   DumpBitStream() : is_enabled_(false) {};
 
-  ~DumpBitStream() {file_fds_.clear();}
+  ~DumpBitStream() {split_file_info_.clear();}
 
   bool IsEnabled() {return is_enabled_;}
 
-  bool IsUsed() {return (is_enabled_ && file_fds_.size());}
-
-  int32_t GetFileFd(const uint32_t &session_id, const uint32_t &track_id) {
-    uint8_t key_by_session_track_id = session_id << 4 | track_id;
-    EXPECT_TRUE(file_fds_.count(key_by_session_track_id));
-    return file_fds_[key_by_session_track_id];
-  }
+  bool IsUsed() {return (is_enabled_ && split_file_info_.size());}
 
   void Enable(const bool enable) {is_enabled_ = enable;}
 
@@ -359,12 +362,33 @@ class DumpBitStream {
   status_t Dump(const std::vector<BufferDescriptor>& buffers,
     const uint32_t &session_id, const uint32_t &track_id);
 
-  void Close(int32_t file_fd);
+  int32_t GetFileFd(const uint32_t &session_id, const uint32_t &track_id) {
+    uint8_t key_by_session_track_id = GenerateKey(session_id, track_id);
+    EXPECT_TRUE(split_file_info_.count(key_by_session_track_id));
+    return split_file_info_[key_by_session_track_id].file_fd;
+  }
+
+  void Close(const uint32_t &session_id, const uint32_t &track_id);
 
   void CloseAll();
  private:
   bool is_enabled_;
-  std::map<uint8_t, int32_t> file_fds_;
+
+  std::map<uint8_t, SplitFileInfo> split_file_info_;
+
+  status_t SplitFile(const uint8_t file_index);
+
+  uint8_t GenerateKey(const uint32_t &session_id, const uint32_t &track_id) {
+    return static_cast<uint8_t>(session_id << 4 | track_id);
+  }
+
+  std::string GetFileName(const SplitFileInfo& file_info);
+
+  uint64_t GetFileSize(const int32_t file_fd) {
+    off_t fsize = lseek(file_fd, 0, SEEK_END);
+    EXPECT_TRUE(fsize >= 0);
+    return static_cast<uint64_t>(fsize);
+  }
 };
 
 class FrameTrace {
