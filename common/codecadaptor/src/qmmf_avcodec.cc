@@ -2760,6 +2760,10 @@ status_t AVCodec::StartCodec(bool enable_rt_priority) {
     return ret;
   }
 
+  if (enable_rt_priority) {
+    SetRealTimePriorityConfig();
+  }
+
   QMMF_INFO("%s: Move to Component to Executing state", __func__);
   ret = SetState(OMX_StateExecuting, OMX_TRUE);
   assert(ret == OK);
@@ -2786,10 +2790,6 @@ status_t AVCodec::StartCodec(bool enable_rt_priority) {
 
   if (format_type_ == CodecType::kVideoEncoder && enable_turbo_mode_) {
       SetVenusTurboConfig();
-  }
-
-  if (enable_rt_priority) {
-    SetRealTimePriorityConfig();
   }
 
   QMMF_INFO("%s current state(%s), pending state(%s)", __func__,
