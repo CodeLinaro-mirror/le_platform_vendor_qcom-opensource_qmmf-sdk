@@ -470,6 +470,8 @@ int32_t Camera3Stream::PopulateMetaInfo(CameraBufferMetaData &info,
     return -EINVAL;
   }
 
+  QMMF_DEBUG("%s: format(0x%x)", __func__, handle->GetFormat());
+
   switch (handle->GetFormat()) {
     case HAL_PIXEL_FORMAT_BLOB:
       info.format = BufferFormat::kBLOB;
@@ -481,13 +483,8 @@ int32_t Camera3Stream::PopulateMetaInfo(CameraBufferMetaData &info,
       break;
     case HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS:
     case HAL_PIXEL_FORMAT_NV12_ENCODEABLE:
-#ifdef TARGET_USES_GBM
-    // TODO: To be resolved or enhanced once
-    // complete solution is ready from Camera
-    // for libgbm formats.
     case HAL_PIXEL_FORMAT_YCbCr_420_888:
     case HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED:
-#endif
       info.format = BufferFormat::kNV12;
       info.num_planes = 2;
       info.plane_info[0].width = width;
@@ -718,13 +715,12 @@ int32_t Camera3Stream::GetBufferLocked(camera3_stream_buffer *streamBuffer) {
       buf_height = camera3_stream::height;
     }
     MemAllocError ret = mem_alloc_interface_->AllocBuffer(
-                                            handle,
-                                            buf_width,
-                                            buf_height,
-                                            camera3_stream::format,
-                                            AllocUsageFactory::GetAllocUsage().
-                                              ToCommon(camera3_stream::usage),
-                                            &current_buffer_stride_);
+        handle,
+        buf_width,
+        buf_height,
+        camera3_stream::format,
+        AllocUsageFactory::GetAllocUsage().ToCommon(camera3_stream::usage),
+        &current_buffer_stride_);
     if (MemAllocError::kAllocOk != ret) {
       return -ENOMEM;
     }
