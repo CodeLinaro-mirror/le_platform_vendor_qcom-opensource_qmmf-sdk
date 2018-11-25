@@ -35,6 +35,9 @@
 #else
 #include <QCamera3VendorTags.h>
 #endif
+#ifdef TARGET_USES_GBM
+#include "common/memory/qmmf_gbm_interface.h"
+#endif
 
 #ifdef DISABLE_OP_MODES
 #define QCAMERA3_SENSORMODE_ZZHDR_OPMODE 0xf002
@@ -452,7 +455,21 @@ int32_t Camera3DeviceClient::ConfigureStreamsLocked(bool is_pp_enabled) {
   config.streams = streams.editArray();
   config.num_streams = streams.size();
 
+#ifdef TARGET_USES_GBM
+  for (uint32_t i = 0; i < config.num_streams; i++) {
+    config.streams[i]->usage =
+        GBMUsage().LocalToGralloc(config.streams[i]->usage);
+  }
+#endif
+
   res = device_->ops->configure_streams(device_, &config);
+
+#ifdef TARGET_USES_GBM
+  for (uint32_t i = 0; i < config.num_streams; i++) {
+    config.streams[i]->usage =
+        GBMUsage().GrallocToLocal(config.streams[i]->usage);
+  }
+#endif
 
   if (res == -EINVAL) {
     for (uint32_t i = 0; i < streams_.size(); i++) {
