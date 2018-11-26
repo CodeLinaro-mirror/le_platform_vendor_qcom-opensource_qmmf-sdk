@@ -11508,4 +11508,215 @@ TEST_F(VideoGtest, SessionWith4kEncWithANRModes) {
           test_info_->test_case_name(), test_info_->name());
 }
 
+/*
+* SessionWith4kEncWithDynamicContrastControl: This case will test a  session
+*                                             with 4k h264 encoded track with
+*                                             DynamicContrastControl modes.
+* API test sequence:
+*   StartCamera
+*   loop Start {
+*   --------------------------
+*   - CreateSession
+*   - CreateVideoTrack
+*   - StartVideoTrack
+*   - StartSession
+*   - Set DynamicContrastControl
+*   - StopSession
+*   - DeleteVideoTrack
+*   - DeleteSession
+*   --------------------------
+*   } loop End
+*  StopCamera
+*/
+TEST_F(VideoGtest, SessionWith4kEncWithDynamicContrastControl) {
+  fprintf(stderr, "\n---------- Run Test %s.%s ------------\n",
+          test_info_->test_case_name(), test_info_->name());
+
+  auto ret = Init();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  VideoFormat format_type = VideoFormat::kAVC;
+  uint32_t stream_width = 3840;
+  uint32_t stream_height = 2160;
+
+  float min_contrast_range, min_boost_range, min_supress_range,
+      max_contrast_range, max_boost_range, max_supress_range;
+  for (uint32_t i = 1; i <= iteration_count_; i++) {
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
+              test_info_->name(), i);
+
+    SessionCb session_status_cb = CreateSessionStatusCb();
+    uint32_t session_id;
+    ret = recorder_.CreateSession(session_status_cb, &session_id);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
+    VideoTrackCreateParam video_track_param{camera_id_, format_type,
+                                            stream_width, stream_height, 30};
+
+    uint32_t video_track_id = 1;
+
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo = {format_type, session_id, video_track_id,
+                                 stream_width, stream_height};
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&, session_id](
+        uint32_t track_id, std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
+    };
+
+    video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
+                                  void *event_data, size_t event_data_size) {
+      VideoTrackEventCb(track_id, event_type, event_data, event_data_size);
+    };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                     video_track_param, video_track_cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.StartSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    CameraMetadata meta;
+    ret = recorder_.GetCameraParam(camera_id_, meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    uint32_t dynamic_strength_vtag, boost_strength_vtag, supress_strength_vtag,
+        dynamic_strength_range_vtag, boost_strength_range_vtag,
+        supress_strength_range_vtag;
+
+    if (!VendorTagSupported(String8("ltmDynamicContrastStrength"),
+                            String8("org.quic.camera.ltmDynamicContrast"),
+                            &dynamic_strength_vtag)) {
+      TEST_ERROR("%s: dynamic_strength_vtag is not supported", __func__);
+      ASSERT_TRUE(0);
+    }
+    if (!VendorTagSupported(String8("ltmDarkBoostStrength"),
+                            String8("org.quic.camera.ltmDynamicContrast"),
+                            &boost_strength_vtag)) {
+      TEST_ERROR("%s: boost_strength_vtag is not supported", __func__);
+      ASSERT_TRUE(0);
+    }
+    if (!VendorTagSupported(String8("ltmBrightSupressStrength"),
+                            String8("org.quic.camera.ltmDynamicContrast"),
+                            &supress_strength_vtag)) {
+      TEST_ERROR("%s: supress_strength_vtag is not supported", __func__);
+      ASSERT_TRUE(0);
+    }
+
+    if (VendorTagSupported(String8("ltmDynamicContrastStrengthRange"),
+                           String8("org.quic.camera.ltmDynamicContrast"),
+                           &dynamic_strength_range_vtag)) {
+      auto entry = meta.find(dynamic_strength_range_vtag);
+      min_contrast_range = entry.data.f[0];
+      max_contrast_range = entry.data.f[1];
+      fprintf(stderr, "min_contrast_range = %f , max_contrast_range = %f \n",
+              min_contrast_range, max_contrast_range);
+    } else {
+      TEST_ERROR("%s: dynamic_strength_range_vtag is not supported", __func__);
+      ASSERT_TRUE(0);
+    }
+
+    if (VendorTagSupported(String8("ltmDarkBoostStrengthRange"),
+                           String8("org.quic.camera.ltmDynamicContrast"),
+                           &boost_strength_range_vtag)) {
+      auto entry = meta.find(boost_strength_range_vtag);
+      min_boost_range = entry.data.f[0];
+      max_boost_range = entry.data.f[1];
+      fprintf(stderr, "min_boost_range = %f , max_boost_range = %f \n",
+              min_boost_range, max_boost_range);
+    } else {
+      TEST_ERROR("%s: boost_strength_range_vtag is not supported", __func__);
+      ASSERT_TRUE(0);
+    }
+
+    if (VendorTagSupported(String8("ltmBrightSupressStrengthRange"),
+                           String8("org.quic.camera.ltmDynamicContrast"),
+                           &supress_strength_range_vtag)) {
+      auto entry = meta.find(supress_strength_range_vtag);
+      min_supress_range = entry.data.f[0];
+      max_supress_range = entry.data.f[1];
+      fprintf(stderr, "min_supress_range = %f , max_supress_range = %f \n",
+              min_supress_range, max_supress_range);
+    } else {
+      TEST_ERROR("%s: supress_strength_range_vtag is not supported", __func__);
+      ASSERT_TRUE(0);
+    }
+
+    for (float count = min_contrast_range + 1; count < max_contrast_range;
+         count += 20) {
+      float value = count;
+
+      ret = meta.update(dynamic_strength_vtag, &value, 1);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      fprintf(stderr,
+              "Dynamic Contrast Strength values are getting changed to [%f]\n",
+              count);
+      ret = recorder_.SetCameraParam(camera_id_, meta);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      sleep(record_duration_ / 10);
+    }
+
+    for (float count = min_boost_range + 1; count < max_boost_range;
+         count += 20) {
+      float value = count;
+
+      ret = meta.update(boost_strength_vtag, &value, 1);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      fprintf(stderr, "DarkBoostStrength values are getting changed to [%f]\n",
+              count);
+      ret = recorder_.SetCameraParam(camera_id_, meta);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      sleep(record_duration_ / 10);
+    }
+
+    for (float count = min_supress_range + 1; count < max_supress_range;
+         count += 20) {
+      float value = count;
+
+      ret = meta.update(supress_strength_vtag, &value, 1);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      fprintf(stderr,
+              "BrightSupressStrength values are getting changed to [%f]\n",
+              count);
+      ret = recorder_.SetCameraParam(camera_id_, meta);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      sleep(record_duration_ / 10);
+    }
+
+    ret = recorder_.StopSession(session_id, false);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    dump_bitstream_.CloseAll();
+  }
+
+  ret = recorder_.StopCamera(camera_id_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = DeInit();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
+}
+
 #endif
