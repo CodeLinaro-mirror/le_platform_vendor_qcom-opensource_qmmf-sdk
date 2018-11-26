@@ -9149,6 +9149,163 @@ TEST_F(VideoGtest, SessionWith960p90FPSSmoothZoom) {
           test_info_->test_case_name(), test_info_->name());
 }
 
+/*
+* SessionWithSingleCam4kEncLinked4kEncAndVGA: This test will test
+*                           single cam session with one 4k Enc track,
+*                           1 linked 4k Enc Track and one more VGA stream
+*                           from camera
+*
+* API test sequence:
+*  - StartCamera
+*   loop Start {
+*   ------------------
+*   - CreateSession
+*   - CreateVideoTrack - 4K avc, Master From Camera
+*   - CreateVideoTrack - 4K avc, Linked
+*   - CreateVideoTrack - 480p yuv, From Camera
+*   - StartSession
+*   - StopSession
+*   - DeleteVideoTrack - 4K avc, Linked
+*   - DeleteVideoTrack - 4K avc, Master From Camera
+*   - DeleteVideoTrack - 480p yuv, From Camera
+*   - DeleteSession
+*   ------------------
+*   } loop End
+*  - StopCamera
+*/
+TEST_F(VideoGtest, SessionWithSingleCam4kEncLinked4kEncAndVGA) {
+  fprintf(stderr, "\n---------- Run Test %s.%s ------------\n",
+          test_info_->test_case_name(), test_info_->name());
+
+  auto ret = Init();
+  ASSERT_TRUE(ret == NO_ERROR);
+  camera_start_params_.frame_rate = 30;
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  uint32_t video_track_id_4k_avc_main = 1;
+  uint32_t video_track_id_vga = 2;
+  uint32_t video_track_id_4k_avc_slave = 3;
+
+  for (uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
+              test_info_->name(), i);
+
+    SessionCb session_status_cb = CreateSessionStatusCb();
+    uint32_t session_id;
+    ret = recorder_.CreateSession(session_status_cb, &session_id);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo1 = {VideoFormat::kAVC, session_id,
+                                  video_track_id_4k_avc_main, 3840, 2160};
+      ret = dump_bitstream_.SetUp(dumpinfo1);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      StreamDumpInfo dumpinfo2 = {VideoFormat::kYUV, session_id,
+                                  video_track_id_vga, 640, 480};
+      ret = dump_bitstream_.SetUp(dumpinfo2);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      StreamDumpInfo dumpinfo3 = {VideoFormat::kAVC, session_id,
+                                  video_track_id_4k_avc_slave, 3840, 2160};
+      ret = dump_bitstream_.SetUp(dumpinfo3);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
+    VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC, 3840,
+                                            2160, 30};
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&, session_id](
+        uint32_t track_id, std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
+    };
+
+    video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
+                                  void *event_data, size_t event_data_size) {
+      VideoTrackEventCb(track_id, event_type, event_data, event_data_size);
+    };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_4k_avc_main,
+                                     video_track_param, video_track_cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    std::vector<uint32_t> track_ids;
+    track_ids.push_back(video_track_id_4k_avc_main);
+
+    VideoExtraParam extra_param;
+    SourceVideoTrack surface_video_linked_1;
+    surface_video_linked_1.source_track_id = video_track_id_4k_avc_main;
+    extra_param.Update(QMMF_SOURCE_VIDEO_TRACK_ID, surface_video_linked_1);
+
+    video_track_param.width = 3840;
+    video_track_param.height = 2160;
+
+    video_track_cb.data_cb = [&, session_id](
+        uint32_t track_id, std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
+    };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_4k_avc_slave,
+                                     video_track_param, extra_param,
+                                     video_track_cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    track_ids.push_back(video_track_id_4k_avc_slave);
+
+    video_track_param.width = 640;
+    video_track_param.height = 480;
+    video_track_param.format_type = VideoFormat::kYUV;
+
+    video_track_cb.data_cb = [&, session_id](
+        uint32_t track_id, std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+      VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
+    };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_vga,
+                                     video_track_param, video_track_cb);
+
+    ret = recorder_.StartSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    // Let session run for time record_duration_, during this time buffer with
+    // valid data would be received in track callback (VideoTrackYUVDataCb).
+    sleep(record_duration_);
+
+    ret = recorder_.StopSession(session_id, false);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_4k_avc_slave);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_4k_avc_main);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_vga);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ClearSessions();
+    dump_bitstream_.CloseAll();
+  }
+
+  ret = recorder_.StopCamera(camera_id_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = DeInit();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
+}
+
 #ifdef CAM_ARCH_V2
 /*
 * SessionWithSingleCam4KEncAllExposureValues: This case will test a single cam session with
