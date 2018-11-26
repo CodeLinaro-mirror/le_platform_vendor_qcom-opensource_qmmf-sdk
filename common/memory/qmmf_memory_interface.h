@@ -231,11 +231,14 @@ class IAllocDevice {
   /** AllocDeviceAction
   * @GetStride - reads stride from handle
   * @GetHeight - reads height from handle
+  * @GetAlignedWidth - reads aligned width in pixels from handle
+  * @GetAlignedHeight - reads aligned height in pixels from handle
   *
   * Enumeration type for performing action on BufferHandler.
   *
   **/
-  enum class AllocDeviceAction {GetStride, GetHeight};
+  enum class AllocDeviceAction {GetStride, GetHeight,
+                                GetAlignedWidth, GetAlignedHeight};
 
   virtual ~IAllocDevice(){};
 

@@ -321,6 +321,30 @@ MemAllocError GBMDevice::Perform(const IBufferHandle& handle,
       *static_cast<int32_t*>(result) = gbm_bo_get_stride(bo->GetNativeHandle());
       return MemAllocError::kAllocOk;
     }
+    case AllocDeviceAction::GetAlignedWidth: {
+      uint32_t align_width;
+      auto ret = gbm_perform(GBM_PERFORM_GET_BO_ALIGNED_WIDTH,
+                             bo->GetNativeHandle(), &align_width);
+      if(ret == GBM_ERROR_NONE) {
+        *static_cast<int32_t*>(result) = align_width;
+        return MemAllocError::kAllocOk;
+      } else {
+        QMMF_ERROR("%s: Get aligned width action failed.", __func__);
+        return MemAllocError::kAllocFail;
+      }
+    }
+    case AllocDeviceAction::GetAlignedHeight: {
+      uint32_t align_height;
+      auto ret = gbm_perform(GBM_PERFORM_GET_BO_ALIGNED_HEIGHT,
+                             bo->GetNativeHandle(), &align_height);
+      if(ret == GBM_ERROR_NONE) {
+        *static_cast<int32_t*>(result) = align_height;
+        return MemAllocError::kAllocOk;
+      } else {
+        QMMF_ERROR("%s: Get aligned height action failed.", __func__);
+        return MemAllocError::kAllocFail;
+      }
+    }
     default:
       QMMF_ERROR("%s: Unrecognized action to perform.", __func__);
       return MemAllocError::kAllocFail;

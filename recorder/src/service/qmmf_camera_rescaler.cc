@@ -510,20 +510,20 @@ status_t CameraRescalerMemPool::PopulateMetaInfo(CameraBufferMetaData &info,
 
   int alignedW, alignedH;
   auto ret = alloc_device_interface_->Perform(handle,
-                                    IAllocDevice::AllocDeviceAction::GetHeight,
-                                    static_cast<void*>(&alignedH));
+      IAllocDevice::AllocDeviceAction::GetAlignedHeight,
+      static_cast<void*>(&alignedH));
   if (MemAllocError::kAllocOk != ret) {
     QMMF_ERROR("%s: Unable to query stride&scanline: %d\n", __func__, ret);
     return BAD_VALUE;
   }
 
   ret = alloc_device_interface_->Perform(handle,
-                                     IAllocDevice::AllocDeviceAction::GetStride,
-                                     static_cast<void*>(&alignedW));
-    if (MemAllocError::kAllocOk != ret) {
-      QMMF_ERROR("%s: Unable to query stride&scanline: %d\n", __func__, ret);
-      return BAD_VALUE;
-    }
+      IAllocDevice::AllocDeviceAction::GetAlignedWidth,
+      static_cast<void*>(&alignedW));
+  if (MemAllocError::kAllocOk != ret) {
+    QMMF_ERROR("%s: Unable to query stride&scanline: %d\n", __func__, ret);
+    return BAD_VALUE;
+  }
 
   switch (handle->GetFormat()) {
     case HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS:
