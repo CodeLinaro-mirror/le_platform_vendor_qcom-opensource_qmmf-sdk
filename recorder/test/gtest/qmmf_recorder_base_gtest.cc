@@ -471,7 +471,7 @@ TEST_F(RecorderBaseGTest, MultiSessionCameraParamTest) {
   uint32_t video_track_id = 1;
 
   if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo = { format_type, video_track_id, session_id1,
+    StreamDumpInfo dumpinfo = { format_type, session_id1, video_track_id,
                                 width, height };
     ret = dump_bitstream_.SetUp(dumpinfo);
     ASSERT_TRUE(ret == NO_ERROR);
