@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017, 2019, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -26,6 +26,9 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
+/*! @file qmmf_player_ion.h
+*/
 
 #pragma once
 
@@ -93,7 +96,7 @@ class PlayerIon
   int32_t buffer_size_;
   int32_t request_size_;
 
-  // disable copy, assignment, and move
+  /// disable copy, assignment, and move
   PlayerIon(const PlayerIon&) = delete;
   PlayerIon(PlayerIon&&) = delete;
   PlayerIon& operator=(const PlayerIon&) = delete;

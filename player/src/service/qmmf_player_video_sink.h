@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -25,6 +25,9 @@
 * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
 * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*/
+
+/*! @file qmmf_player_video_sink.h
 */
 
 #pragma once
@@ -106,7 +109,7 @@ class VideoSink {
 
   static VideoSink* instance_;
 
-  // Map of track it and TrackSinks.
+  /**< Map of track it and TrackSinks */
   ::android::DefaultKeyedVector<uint32_t, ::std::shared_ptr<VideoTrackSink>>
       video_track_sinks;
 };
@@ -230,14 +233,14 @@ class VideoTrackSink : public ::qmmf::avcodec::ICodecSource {
   SurfaceConfig surface_config_;
 
   typedef struct BufInfo {
-    // FD at service
+    /**< FD at service */
     uint32_t buf_id;
 
-    // Memory mapped buffer.
+    /**< Memory mapped buffer */
     void*    vaddr;
   } BufInfo;
 
-  //map<fd , buf_info>
+  /**< map<fd , buf_info> */
   ::android::DefaultKeyedVector<int32_t, BufInfo> buf_info_map;
 
 #ifdef DUMP_YUV_FRAMES

@@ -31,10 +31,730 @@
 
 @page Code_Examples_Player Player
 
-This tutorial demonstrates how to build a C++ sample application that can execute QMMF Recorder.
+This tutorial demonstrates how to build a C++ sample application that can
+execute QMMF Player.
 
-__Note__: While this sample code does not do any error checking, it is strongly recommended that users check for errors when using the QMMF APIs.
+__Note__: While this sample code does not do any error checking, it is strongly
+recommended that users check for errors when using the QMMF APIs.
 
 \n
 
+@tableofcontents
+
+________________________________________________________________________________
+@section example_rec_Start-Stop Start-Stop
+
+This is example code for doing a start/stop of mp4 Playback utilizing the QMMF APIs.
+When we Start the playback, the decoding of the video and audio data begins which is
+continuously fed by the application.
+There are two ways to stop:
+1. Stop: Stops the playback
+2. Stop with Grab Picture: Stops the playback and captures the last displayed buffer
+
+<BLOCKQUOTE>
+Following headers are required to call Player APIs
+\code{.cpp}
+#include <qmmf-sdk/qmmf_player_params.h>
+#include <qmmf-sdk/qmmf_player.h>
+using namespace player;
+\endcode
+</BLOCKQUOTE>
+
+<BLOCKQUOTE>
+Create client player instance to connect to service
+\code{.cpp}
+Player player_;
+\endcode
+</BLOCKQUOTE>
+
+<BLOCKQUOTE>
+Connect to service
+\code{.cpp}
+// Register Player Callbacks from player service
+PlayerCb player_cb;
+player_cb.event_cb = [this](EventType event_type,
+                            void *event_data,
+                            size_t event_data_size) {
+/* Application handler which handles player callback events */
+};
+
+// Connect to player service
+player_.Connect(player_cb);
+\endcode
+</BLOCKQUOTE>
+
+<BLOCKQUOTE>
+Preparing the pipeline
+\code{.cpp}
+// Fill the audio and video track params and ids from demuxer
+uint32_t audio_track_id_;
+uint32_t video_track_id_;
+AudioTrackCreateParam audio_track_param;
+VideoTrackCreateParam video_track_param;
+
+// Register Audio Callbacks from player service
+TrackCb audio_track_cb;
+audio_track_cb.event_cb = [this](uint32_t track_id,
+                                 EventType event_type,
+                                 void* event_data,
+                                 size_t event_data_size) {
+/* Application handler which handles audio callback events */
+};
+
+// Register Video Callbacks from player service
+TrackCb video_track_cb;
+video_track_cb.event_cb = [this](uint32_t track_id,
+                                 EventType event_type,
+                                 void* event_data,
+                                 size_t event_data_size) {
+/* Application handler which handles video callback events */
+};
+
+// Create Audio Track
+player_.CreateAudioTrack(audio_track_id_, audio_track_param,
+                         audio_track_cb);
+// Create Video Track
+player_.CreateVideoTrack(video_track_id_, video_track_param,
+                         video_track_cb);
+// Prepare the service
+player_.Prepare();
+\endcode
+</BLOCKQUOTE>
+
+<BLOCKQUOTE>
+Start the playback
+\code{.cpp}
+// Spawn threads(for audio and video) which continously:
+// 1. Dequeue buffers from player
+std::vector<TrackBuffer> buffers;
+player_.DequeueInputBuffer(track_id, buffers);
+
+// 2. Fill data
+
+// 3. Queue Buffer to player service
+player_.QueueInputBuffer(track_id, buffers);
+
+// Start the service
+player_.Start();
+\endcode
+</BLOCKQUOTE>
+
+<BLOCKQUOTE>
+Stop the playback
+\n
+The user can stop the playback either when the file is completely played or
+at any point of time during playback.
+\code{.cpp}
+// 1. Stop Playback without last displayed buffer capture
+player_.Stop();
+
+// 2. Stop Playback with last displayed buffer capture
+PictureParam param;
+memset(&param, 0x0, sizeof param);
+param.enable = true;
+param.format = VideoCodecType::kYUV;
+param.width = /* Track width */
+param.height = /* Track height */
+param.quality = 1;
+
+PictureCallback picture_cb;
+picture_cb.data_cb = [this]
+    (uint32_t track_id, BufferDescriptor& buffer) {
+    /* Callback to process the last displayed buffer */
+};
+player_.Stop(picture_cb, param);
+\endcode
+</BLOCKQUOTE>
+
+<BLOCKQUOTE>
+Delete the pipeline
+\code{.cpp}
+// Delete Audio track
+player_.DeleteAudioTrack(audio_track_id_);
+
+// Delete Video track
+player_.DeleteVideoTrack(video_track_id_);
+\endcode
+</BLOCKQUOTE>
+
+<BLOCKQUOTE>
+Disconnect from service
+\code{.cpp}
+player_.Disconnect();
+\endcode
+</BLOCKQUOTE>
+
+________________________________________________________________________________
+@section example_rec_Pause_Resume Pause-Resume
+
+This is example code for doing pause-resume during a mp4 Playback
+utilizing the QMMF APIs.
+When we pause, all the processing in Player service comes to a halt.
+There are two kinds of pause:
+1. Pause: Pause the playback
+2. Pause with Grab Picture: Pause the playback and capture the latest
+   displayed buffer when paused.
+
+When we resume, the processing in Player Service commences.
+
+<BLOCKQUOTE>
+Following headers are required to call Player APIs
+\code{.cpp}
+#include <qmmf-sdk/qmmf_player_params.h>
+#include <qmmf-sdk/qmmf_player.h>
+using namespace player;
+\endcode
+</BLOCKQUOTE>
+
+<BLOCKQUOTE>
+Create client player instance to connect to service
+\code{.cpp}
+Player player_;
+\endcode
+</BLOCKQUOTE>
+
+<BLOCKQUOTE>
+Connect to service
+\code{.cpp}
+// Register Player Callbacks from player service
+PlayerCb player_cb;
+player_cb.event_cb = [this](EventType event_type,
+                            void *event_data,
+                            size_t event_data_size) {
+/* Application handler which handles player callback events */
+};
+
+// Connect to player service
+player_.Connect(player_cb);
+\endcode
+</BLOCKQUOTE>
+
+<BLOCKQUOTE>
+Preparing the pipeline
+\code{.cpp}
+// Fill the audio and video track params and ids from demuxer
+uint32_t audio_track_id_;
+uint32_t video_track_id_;
+AudioTrackCreateParam audio_track_param;
+VideoTrackCreateParam video_track_param;
+
+// Register Audio Callbacks from player service
+TrackCb audio_track_cb;
+audio_track_cb.event_cb = [this](uint32_t track_id,
+                                 EventType event_type,
+                                 void* event_data,
+                                 size_t event_data_size) {
+/* Application handler which handles audio callback events */
+};
+
+// Register Video Callbacks from player service
+TrackCb video_track_cb;
+video_track_cb.event_cb = [this](uint32_t track_id,
+                                 EventType event_type,
+                                 void* event_data,
+                                 size_t event_data_size) {
+/* Application handler which handles video callback events */
+};
+
+// Create Audio Track
+player_.CreateAudioTrack(audio_track_id_, audio_track_param,
+                         audio_track_cb);
+// Create Video Track
+player_.CreateVideoTrack(video_track_id_, video_track_param,
+                         video_track_cb);
+// Prepare the service
+player_.Prepare();
+\endcode
+</BLOCKQUOTE>
+
+<BLOCKQUOTE>
+Start the playback
+\code{.cpp}
+// Spawn threads(for audio and video) which continously:
+// 1. Dequeue buffers from player
+std::vector<TrackBuffer> buffers;
+player_.DequeueInputBuffer(track_id, buffers);
+
+// 2. Fill data
+
+// 3. Queue Buffer to player service
+player_.QueueInputBuffer(track_id, buffers);
+
+// Start the service
+player_.Start();
+\endcode
+</BLOCKQUOTE>
+
+<BLOCKQUOTE>
+Pause and Resume
+\code{.cpp}
+// 1. Pause without latest displayed buffer capture
+ player_.Pause();
+
+// 2. Pause without latest displayed buffer capture
+PictureParam param;
+memset(&param, 0x0, sizeof param);
+param.enable = true;
+param.format = VideoCodecType::kYUV;
+param.width = /* Track width */
+param.height = /* Track height */
+param.quality = 1;
+
+PictureCallback picture_cb;
+picture_cb.data_cb = [this]
+    (uint32_t track_id, BufferDescriptor& buffer) {
+    /* Callback to process the latest displayed buffer */
+};
+player_.Pause(picture_cb, param);
+
+// Resume
+player_.Resume();
+\endcode
+</BLOCKQUOTE>
+
+<BLOCKQUOTE>
+Stop the playback
+\n
+The user can stop the playback either when the file is completely played or at any point of time during playback.
+\code{.cpp}
+player_.Stop();
+\endcode
+</BLOCKQUOTE>
+
+<BLOCKQUOTE>
+Delete the pipeline
+\code{.cpp}
+// Delete Audio track
+player_.DeleteAudioTrack(audio_track_id_);
+
+// Delete Video track
+player_.DeleteVideoTrack(video_track_id_);
+\endcode
+</BLOCKQUOTE>
+
+<BLOCKQUOTE>
+Disconnect from service
+\code{.cpp}
+player_.Disconnect();
+\endcode
+</BLOCKQUOTE>
+
+________________________________________________________________________________
+@section example_rec_Drag Drag
+
+This is example code for drag during a mp4 Playback utilizing the QMMF APIs.
+When we drag, only the IDR frames are displayed on the screen till we stop the
+drag and no audio is played.
+
+<BLOCKQUOTE>
+Following headers are required to call Player APIs
+\code{.cpp}
+#include <qmmf-sdk/qmmf_player_params.h>
+#include <qmmf-sdk/qmmf_player.h>
+using namespace player;
+\endcode
+</BLOCKQUOTE>
+
+<BLOCKQUOTE>
+Create client player instance to connect to service
+\code{.cpp}
+Player player_;
+\endcode
+</BLOCKQUOTE>
+
+<BLOCKQUOTE>
+Connect to service
+\code{.cpp}
+// Register Player Callbacks from player service
+PlayerCb player_cb;
+player_cb.event_cb = [this](EventType event_type,
+                            void *event_data,
+                            size_t event_data_size) {
+/* Application handler which handles player callback events */
+};
+
+// Connect to player service
+player_.Connect(player_cb);
+\endcode
+</BLOCKQUOTE>
+
+<BLOCKQUOTE>
+Preparing the pipeline
+\code{.cpp}
+// Fill the audio and video track params and ids from demuxer
+uint32_t audio_track_id_;
+uint32_t video_track_id_;
+AudioTrackCreateParam audio_track_param;
+VideoTrackCreateParam video_track_param;
+
+// Register Audio Callbacks from player service
+TrackCb audio_track_cb;
+audio_track_cb.event_cb = [this](uint32_t track_id,
+                                 EventType event_type,
+                                 void* event_data,
+                                 size_t event_data_size) {
+/* Application handler which handles audio callback events */
+};
+
+// Register Video Callbacks from player service
+TrackCb video_track_cb;
+video_track_cb.event_cb = [this](uint32_t track_id,
+                                 EventType event_type,
+                                 void* event_data,
+                                 size_t event_data_size) {
+/* Application handler which handles video callback events */
+};
+
+// Create Audio Track
+player_.CreateAudioTrack(audio_track_id_, audio_track_param,
+                         audio_track_cb);
+// Create Video Track
+player_.CreateVideoTrack(video_track_id_, video_track_param,
+                         video_track_cb);
+// Prepare the service
+player_.Prepare();
+\endcode
+</BLOCKQUOTE>
+
+<BLOCKQUOTE>
+Start the playback
+\code{.cpp}
+// Spawn threads(for audio and video) which continously:
+// 1. Dequeue buffers from player
+std::vector<TrackBuffer> buffers;
+player_.DequeueInputBuffer(track_id, buffers);
+
+// 2. Fill data
+
+// 3. Queue Buffer to player service
+player_.QueueInputBuffer(track_id, buffers);
+
+// Start the service
+player_.Start();
+\endcode
+</BLOCKQUOTE>
+
+<BLOCKQUOTE>
+Drag
+\code{.cpp}
+// Pause
+player_.Pause();
+
+// Drag
+player_.Drag();
+
+// The drag continues till we Resume from application
+
+// Resume
+player_.Resume();
+\endcode
+</BLOCKQUOTE>
+
+<BLOCKQUOTE>
+Stop the playback
+\n
+The user can stop the playback either when the file is completely played or at any point of time during playback.
+\code{.cpp}
+player_.Stop();
+\endcode
+</BLOCKQUOTE>
+
+<BLOCKQUOTE>
+Delete the pipeline
+\code{.cpp}
+// Delete Audio track
+player_.DeleteAudioTrack(audio_track_id_);
+
+// Delete Video track
+player_.DeleteVideoTrack(video_track_id_);
+\endcode
+</BLOCKQUOTE>
+
+<BLOCKQUOTE>
+Disconnect from service
+\code{.cpp}
+player_.Disconnect();
+\endcode
+</BLOCKQUOTE>
+
+________________________________________________________________________________
+@section example_rec_Set_Position Set Position
+
+This is example code for set position during a mp4 Playback utilizing the QMMF APIs.
+When we set position, we directly jump to time point where the user expects and the playback
+continues from the new position.
+
+<BLOCKQUOTE>
+Following headers are required to call Player APIs
+\code{.cpp}
+#include <qmmf-sdk/qmmf_player_params.h>
+#include <qmmf-sdk/qmmf_player.h>
+using namespace player;
+\endcode
+</BLOCKQUOTE>
+
+<BLOCKQUOTE>
+Create client player instance to connect to service
+\code{.cpp}
+Player player_;
+\endcode
+</BLOCKQUOTE>
+
+<BLOCKQUOTE>
+Connect to service
+\code{.cpp}
+// Register Player Callbacks from player service
+PlayerCb player_cb;
+player_cb.event_cb = [this](EventType event_type,
+                            void *event_data,
+                            size_t event_data_size) {
+/* Application handler which handles player callback events */
+};
+
+// Connect to player service
+player_.Connect(player_cb);
+\endcode
+</BLOCKQUOTE>
+
+<BLOCKQUOTE>
+Preparing the pipeline
+\code{.cpp}
+// Fill the audio and video track params and ids from demuxer
+uint32_t audio_track_id_;
+uint32_t video_track_id_;
+AudioTrackCreateParam audio_track_param;
+VideoTrackCreateParam video_track_param;
+
+// Register Audio Callbacks from player service
+TrackCb audio_track_cb;
+audio_track_cb.event_cb = [this](uint32_t track_id,
+                                 EventType event_type,
+                                 void* event_data,
+                                 size_t event_data_size) {
+/* Application handler which handles audio callback events */
+};
+
+// Register Video Callbacks from player service
+TrackCb video_track_cb;
+video_track_cb.event_cb = [this](uint32_t track_id,
+                                 EventType event_type,
+                                 void* event_data,
+                                 size_t event_data_size) {
+/* Application handler which handles video callback events */
+};
+
+// Create Audio Track
+player_.CreateAudioTrack(audio_track_id_, audio_track_param,
+                         audio_track_cb);
+// Create Video Track
+player_.CreateVideoTrack(video_track_id_, video_track_param,
+                         video_track_cb);
+// Prepare the service
+player_.Prepare();
+\endcode
+</BLOCKQUOTE>
+
+<BLOCKQUOTE>
+Start the playback
+\code{.cpp}
+// Spawn threads(for audio and video) which continously:
+// 1. Dequeue buffers from player
+std::vector<TrackBuffer> buffers;
+player_.DequeueInputBuffer(track_id, buffers);
+
+// 2. Fill data
+
+// 3. Queue Buffer to player service
+player_.QueueInputBuffer(track_id, buffers);
+
+// Start the service
+player_.Start();
+\endcode
+</BLOCKQUOTE>
+
+<BLOCKQUOTE>
+Set Position
+\code{.cpp}
+player_.SetPosition(/* time to seek to in microseconds */);
+\endcode
+</BLOCKQUOTE>
+
+<BLOCKQUOTE>
+Stop the playback
+\n
+The user can stop the playback either when the file is completely played or at any point of time during playback.
+\code{.cpp}
+player_.Stop();
+\endcode
+</BLOCKQUOTE>
+
+<BLOCKQUOTE>
+Delete the pipeline
+\code{.cpp}
+// Delete Audio track
+player_.DeleteAudioTrack(audio_track_id_);
+
+// Delete Video track
+player_.DeleteVideoTrack(video_track_id_);
+\endcode
+</BLOCKQUOTE>
+
+<BLOCKQUOTE>
+Disconnect from service
+\code{.cpp}
+player_.Disconnect();
+\endcode
+</BLOCKQUOTE>
+
+________________________________________________________________________________
+@section example_rec_Trick_Modes Trick Modes
+
+This is example code for setting trick modes during a mp4 Playback utilizing the QMMF APIs.
+\n
+When we set any Trick Mode, no audio is played.
+\n
+Player supports the following trick modes:
+1. Fast Forward: Supports 2x, 4x, 8x
+2. Slow Forward: Supports 1/2x, 1/4x, 1/8x
+3. Rewind
+
+<BLOCKQUOTE>
+Following headers are required to call Player APIs
+\code{.cpp}
+#include <qmmf-sdk/qmmf_player_params.h>
+#include <qmmf-sdk/qmmf_player.h>
+using namespace player;
+\endcode
+</BLOCKQUOTE>
+
+<BLOCKQUOTE>
+Create client player instance to connect to service
+\code{.cpp}
+Player player_;
+\endcode
+</BLOCKQUOTE>
+
+<BLOCKQUOTE>
+Connect to service
+\code{.cpp}
+// Register Player Callbacks from player service
+PlayerCb player_cb;
+player_cb.event_cb = [this](EventType event_type,
+                            void *event_data,
+                            size_t event_data_size) {
+/* Application handler which handles player callback events */
+};
+
+// Connect to player service
+player_.Connect(player_cb);
+\endcode
+</BLOCKQUOTE>
+
+<BLOCKQUOTE>
+Preparing the pipeline
+\code{.cpp}
+// Fill the audio and video track params and ids from demuxer
+uint32_t audio_track_id_;
+uint32_t video_track_id_;
+AudioTrackCreateParam audio_track_param;
+VideoTrackCreateParam video_track_param;
+
+// Register Audio Callbacks from player service
+TrackCb audio_track_cb;
+audio_track_cb.event_cb = [this](uint32_t track_id,
+                                 EventType event_type,
+                                 void* event_data,
+                                 size_t event_data_size) {
+/* Application handler which handles audio callback events */
+};
+
+// Register Video Callbacks from player service
+TrackCb video_track_cb;
+video_track_cb.event_cb = [this](uint32_t track_id,
+                                 EventType event_type,
+                                 void* event_data,
+                                 size_t event_data_size) {
+/* Application handler which handles video callback events */
+};
+
+// Create Audio Track
+player_.CreateAudioTrack(audio_track_id_, audio_track_param,
+                         audio_track_cb);
+// Create Video Track
+player_.CreateVideoTrack(video_track_id_, video_track_param,
+                         video_track_cb);
+// Prepare the service
+player_.Prepare();
+\endcode
+</BLOCKQUOTE>
+
+<BLOCKQUOTE>
+Start the playback
+\code{.cpp}
+// Spawn threads(for audio and video) which continously:
+// 1. Dequeue buffers from player
+std::vector<TrackBuffer> buffers;
+player_.DequeueInputBuffer(track_id, buffers);
+
+// 2. Fill data
+
+// 3. Queue Buffer to player service
+player_.QueueInputBuffer(track_id, buffers);
+
+// Start the service
+player_.Start();
+\endcode
+</BLOCKQUOTE>
+
+<BLOCKQUOTE>
+Trick Modes
+\code{.cpp}
+/*
+  Valid values for playback_dir_:
+  Normal Playback -> 1
+  Fast Forward -> 2
+  Slow Forward -> 3
+  Rewind -> 4
+*/
+TrickModeDirection playback_dir_;
+
+/*
+  Valid values for playback_speed_:
+  For Normal Playback or Rewind -> 1
+  Fast Forward -> 2, 4, 8
+  SF -> 2, 4, 8
+*/
+TrickModeSpeed playback_speed_;
+
+// Call SetTrickMode
+player_.SetTrickMode(playback_speed_, playback_dir_);
+\endcode
+</BLOCKQUOTE>
+
+<BLOCKQUOTE>
+Stop the playback
+\n
+The user can stop the playback either when the file is completely played or at any point of time during playback.
+\code{.cpp}
+player_.Stop();
+\endcode
+</BLOCKQUOTE>
+
+<BLOCKQUOTE>
+Delete the pipeline
+\code{.cpp}
+// Delete Audio track
+player_.DeleteAudioTrack(audio_track_id_);
+
+// Delete Video track
+player_.DeleteVideoTrack(video_track_id_);
+\endcode
+</BLOCKQUOTE>
+
+<BLOCKQUOTE>
+Disconnect from service
+\code{.cpp}
+player_.Disconnect();
+\endcode
+</BLOCKQUOTE>
 */
