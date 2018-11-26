@@ -76,8 +76,8 @@ TEST_F(RecorderVideoSnapshotGTest, 1080pZSL1080pVideo) {
                                           1920, 1080, 30};
   uint32_t video_track_id = 1;
   if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo = { video_track_param.format_type, video_track_id,
-      session_id, video_track_param.width, video_track_param.height };
+    StreamDumpInfo dumpinfo = { video_track_param.format_type, session_id,
+      video_track_id, video_track_param.width, video_track_param.height };
     ret = dump_bitstream_.SetUp(dumpinfo);
     ASSERT_TRUE(ret == NO_ERROR);
   }
@@ -447,8 +447,8 @@ TEST_F(RecorderVideoSnapshotGTest, 4KZSLTwo1080pVideo) {
                                           1920, 1080, 30 };
   uint32_t video_track_id_1 = 1;
   if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo = { video_track_param.format_type, video_track_id_1,
-      session_id, video_track_param.width, video_track_param.height };
+    StreamDumpInfo dumpinfo = { video_track_param.format_type, session_id,
+      video_track_id_1, video_track_param.width, video_track_param.height };
     ret = dump_bitstream_.SetUp(dumpinfo);
     ASSERT_TRUE(ret == NO_ERROR);
   }
@@ -473,8 +473,8 @@ TEST_F(RecorderVideoSnapshotGTest, 4KZSLTwo1080pVideo) {
 
   uint32_t video_track_id_2 = 2;
   if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo = { video_track_param.format_type, video_track_id_2,
-      session_id, video_track_param.width, video_track_param.height };
+    StreamDumpInfo dumpinfo = { video_track_param.format_type, session_id,
+      video_track_id_2, video_track_param.width, video_track_param.height };
     ret = dump_bitstream_.SetUp(dumpinfo);
   }
 
@@ -590,7 +590,7 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWith1080Enc30fps1080pMJpeg10fps1080pJp
   uint32_t video_track_id_1 = 1;
 
   if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo = { format_type, video_track_id_1, session_id,
+    StreamDumpInfo dumpinfo = { format_type, session_id, video_track_id_1,
                                 width, height };
     ret = dump_bitstream_.SetUp(dumpinfo);
     ASSERT_TRUE(ret == NO_ERROR);
@@ -620,8 +620,8 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWith1080Enc30fps1080pMJpeg10fps1080pJp
   VideoTrackCreateParam video_track_param_2{camera_id_, VideoFormat::kJPEG,
                                             1920, 1080, 10};
   if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo = { VideoFormat::kJPEG, video_track_id_mjpeg,
-                                session_id, width, height};
+    StreamDumpInfo dumpinfo = { VideoFormat::kJPEG, session_id,
+                                video_track_id_mjpeg, width, height};
     ret = dump_bitstream_.SetUp(dumpinfo);
     ASSERT_TRUE(ret == NO_ERROR);
   }
@@ -725,7 +725,7 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWith4kp30fps4K1fpsSnapshotEncTrack) {
 
   uint32_t video_track_id = 1;
   if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo = { format_type, video_track_id, session_id,
+    StreamDumpInfo dumpinfo = { format_type, session_id, video_track_id,
                                 width, height };
     ret = dump_bitstream_.SetUp(dumpinfo);
     ASSERT_TRUE(ret == NO_ERROR);
@@ -753,7 +753,7 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWith4kp30fps4K1fpsSnapshotEncTrack) {
 
   uint32_t video_track4K1fps_id = 2;
   if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo = { format_type, video_track_id, session_id,
+    StreamDumpInfo dumpinfo = { format_type, session_id, video_track_id,
                                 width, height };
     ret = dump_bitstream_.SetUp(dumpinfo);
   }
@@ -884,7 +884,7 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWith4kp30fps4K1fps240p30fpsSnapshotEnc
 
     uint32_t video_track_id = 1;
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = { format_type, video_track_id, session_id,
+      StreamDumpInfo dumpinfo = { format_type, session_id, video_track_id,
                                   width, height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
@@ -912,8 +912,8 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWith4kp30fps4K1fps240p30fpsSnapshotEnc
 
     uint32_t video_track4K1fps_id = 2;
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = { format_type, video_track4K1fps_id,
-                                  session_id, width, height };
+      StreamDumpInfo dumpinfo = { format_type, session_id,
+                                  video_track4K1fps_id, width, height };
       ret = dump_bitstream_.SetUp(dumpinfo);
     }
 
@@ -940,7 +940,7 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWith4kp30fps4K1fps240p30fpsSnapshotEnc
     width = 480;
     height = 320;
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = { format_type, video_track240p_id, session_id,
+      StreamDumpInfo dumpinfo = { format_type, session_id, video_track240p_id,
                                   width, height };
       ret = dump_bitstream_.SetUp(dumpinfo);
     }
@@ -1070,7 +1070,7 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWith1080p120fpsSnapshotEISEncTrack) {
 
   uint32_t video_track_id = 1;
   if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo = { format_type, video_track_id, session_id,
+    StreamDumpInfo dumpinfo = { format_type, session_id, video_track_id,
                                 width, height };
     ret = dump_bitstream_.SetUp(dumpinfo);
     ASSERT_TRUE(ret == NO_ERROR);
@@ -1203,7 +1203,7 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWith1080p120fps480p30fpsSnapshotEncTra
                                           width, height, fps};
    uint32_t video_track_id = 1;
   if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo = { format_type, video_track_id, session_id,
+    StreamDumpInfo dumpinfo = { format_type, session_id, video_track_id,
                                 width, height };
     ret = dump_bitstream_.SetUp(dumpinfo);
     ASSERT_TRUE(ret == NO_ERROR);
@@ -1234,7 +1234,7 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWith1080p120fps480p30fpsSnapshotEncTra
   fps = 30;
   uint32_t video_track480p_id = 2;
   if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo = { format_type, video_track480p_id, session_id,
+    StreamDumpInfo dumpinfo = { format_type, session_id, video_track480p_id,
                                 width, height };
     ret = dump_bitstream_.SetUp(dumpinfo);
   }
@@ -1363,7 +1363,7 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWith1080p60fps480p30fpsSnapshotEncTrac
   uint32_t video_track_id = 1;
 
   if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo = { format_type, video_track_id, session_id,
+    StreamDumpInfo dumpinfo = { format_type, session_id, video_track_id,
                                 width, height };
     ret = dump_bitstream_.SetUp(dumpinfo);
     ASSERT_TRUE(ret == NO_ERROR);
@@ -1395,7 +1395,7 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWith1080p60fps480p30fpsSnapshotEncTrac
   uint32_t video_track480p_id = 2;
 
   if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo = { format_type, video_track_id, session_id,
+    StreamDumpInfo dumpinfo = { format_type, session_id, video_track_id,
                                 width, height };
     ret = dump_bitstream_.SetUp(dumpinfo);
     ASSERT_TRUE(ret == NO_ERROR);
@@ -1530,7 +1530,7 @@ TEST_F(RecorderVideoSnapshotGTest, 4KEncCancelCaptureImage) {
   uint32_t video_track_id = 1;
 
   if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo = { format_type, video_track_id, session_id,
+    StreamDumpInfo dumpinfo = { format_type, session_id, video_track_id,
                                 width, height };
     ret = dump_bitstream_.SetUp(dumpinfo);
     ASSERT_TRUE(ret == NO_ERROR);
@@ -1706,7 +1706,7 @@ TEST_F(RecorderVideoSnapshotGTest, 4KVideo480pVideoAnd4KSnapshot) {
   ASSERT_TRUE(ret == NO_ERROR);
 
   if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo = { format_type, video_track_id1, session_id,
+    StreamDumpInfo dumpinfo = { format_type, session_id, video_track_id1,
       video_track_param.width, video_track_param.height };
     ret = dump_bitstream_.SetUp(dumpinfo);
     ASSERT_TRUE(ret == NO_ERROR);
@@ -1731,7 +1731,7 @@ TEST_F(RecorderVideoSnapshotGTest, 4KVideo480pVideoAnd4KSnapshot) {
   ASSERT_TRUE(ret == NO_ERROR);
 
   if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo = { format_type, video_track_id2, session_id,
+    StreamDumpInfo dumpinfo = { format_type, session_id, video_track_id2,
       video_track_param.width, video_track_param.height };
     ret = dump_bitstream_.SetUp(dumpinfo);
   }
@@ -1885,7 +1885,7 @@ TEST_F(RecorderVideoSnapshotGTest, EncodingPreBuffer1080p) {
                                           width, height, fps};
   uint32_t video_track_id = 1;
   video_track_param.codec_param.avc.insert_aud_delimiter = false;
-  StreamDumpInfo dumpinfo = { format_type, video_track_id, session_id,
+  StreamDumpInfo dumpinfo = { format_type, session_id, video_track_id,
                               width, height };
   ret = dump_bitstream_.SetUp(dumpinfo);
   ASSERT_TRUE(ret == NO_ERROR);
@@ -2018,13 +2018,13 @@ TEST_F(RecorderVideoSnapshotGTest,
     ASSERT_TRUE(ret == NO_ERROR);
 
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo_track1 = { VideoFormat::kAVC, session1_trackid_avc,
-                                         session_id1, width, height };
+      StreamDumpInfo dumpinfo_track1 = { VideoFormat::kAVC, session_id1,
+                                         session1_trackid_avc, width, height };
       ret = dump_bitstream_.SetUp(dumpinfo_track1);
       ASSERT_TRUE(ret == NO_ERROR);
 
-      StreamDumpInfo dumpinfo_track2 = { VideoFormat::kAVC, session2_trackid_avc,
-                                         session_id1, width, height };
+      StreamDumpInfo dumpinfo_track2 = { VideoFormat::kAVC, session_id1,
+                                         session2_trackid_avc, width, height };
       ret = dump_bitstream_.SetUp(dumpinfo_track2);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -2471,13 +2471,13 @@ TEST_F(RecorderVideoSnapshotGTest, ThreeSessionsWith1440pEncAnd1440pYUVTrack) {
     ASSERT_TRUE(ret == NO_ERROR);
 
     if (dump_bitstream_.IsEnabled()) {
-        StreamDumpInfo dumpinfo_track1 = { VideoFormat::kAVC, session1_track_id,
-                                           session_id1, width, height };
+        StreamDumpInfo dumpinfo_track1 = { VideoFormat::kAVC, session_id1,
+                                           session1_track_id, width, height };
         ret = dump_bitstream_.SetUp(dumpinfo_track1);
         ASSERT_TRUE(ret == NO_ERROR);
 
-        StreamDumpInfo dumpinfo_track2 = { VideoFormat::kAVC, session1_track_id,
-                                           session_id1, width, height };
+        StreamDumpInfo dumpinfo_track2 = { VideoFormat::kAVC, session_id1,
+                                           session1_track_id, width, height };
         ret = dump_bitstream_.SetUp(dumpinfo_track2);
         ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -2680,7 +2680,7 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWith1440EncWithEISAndLCACEnableAnd12MP
     uint32_t video_track_id = 1;
 
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = { format_type, video_track_id, session_id,
+      StreamDumpInfo dumpinfo = { format_type, session_id, video_track_id,
                                   width, height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
@@ -2839,7 +2839,7 @@ TEST_F(RecorderVideoSnapshotGTest, 1080pVideo4KVideoTypeSnapshot) {
   ASSERT_TRUE(ret == NO_ERROR);
 
   if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo = { format_type, video_track_id1, session_id,
+    StreamDumpInfo dumpinfo = { format_type, session_id, video_track_id1,
       video_track_param.width, video_track_param.height };
     ret = dump_bitstream_.SetUp(dumpinfo);
     ASSERT_TRUE(ret == NO_ERROR);
@@ -2987,7 +2987,7 @@ TEST_F(RecorderVideoSnapshotGTest, SmoothZoomWith1080pEncTrack4KSnapshotFullFOV)
     uint32_t video_track_id = 1;
 
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = { format_type, video_track_id, session_id,
+      StreamDumpInfo dumpinfo = { format_type, session_id, video_track_id,
                                   width, height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
@@ -3161,7 +3161,7 @@ TEST_F(RecorderVideoSnapshotGTest, SmoothZoomWith1080pEncTrack4KSnapshot) {
     uint32_t video_track_id = 1;
 
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = { format_type, video_track_id, session_id,
+      StreamDumpInfo dumpinfo = { format_type, session_id, video_track_id,
                                   width, height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
@@ -3335,8 +3335,8 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWith1080pEncTrackCaptureChangeFocalLen
     uint32_t video_track_id = 1;
 
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = { VideoFormat::kAVC, video_track_id,
-                                  session_id, 1920, 1080 };
+      StreamDumpInfo dumpinfo = { VideoFormat::kAVC, session_id,
+                                  video_track_id, 1920, 1080 };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }

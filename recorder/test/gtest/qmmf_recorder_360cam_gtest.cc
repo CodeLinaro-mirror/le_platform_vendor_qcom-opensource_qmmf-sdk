@@ -664,8 +664,8 @@ TEST_F(Recorder360Gtest, Stitched4KMJpegTrack) {
                                             stream_width, stream_height, 30 };
     uint32_t video_track_id = 1;
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = { video_track_param.format_type, video_track_id,
-                                  session_id, stream_width, stream_height };
+      StreamDumpInfo dumpinfo = { video_track_param.format_type, session_id,
+                                  video_track_id, stream_width, stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -1063,8 +1063,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrack) {
 
     uint32_t video_track_id = 1;
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = { video_track_param.format_type, video_track_id,
-                                  session_id, stream_width, stream_height };
+      StreamDumpInfo dumpinfo = { video_track_param.format_type, session_id,
+                                  video_track_id, stream_width, stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -1172,8 +1172,8 @@ TEST_F(Recorder360Gtest, StitchedHDEncTrack) {
 
     uint32_t video_track_id = 1;
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = { video_track_param.format_type, video_track_id,
-                                  session_id, stream_width, stream_height };
+      StreamDumpInfo dumpinfo = { video_track_param.format_type, session_id,
+                                  video_track_id, stream_width, stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -1280,8 +1280,8 @@ TEST_F(Recorder360Gtest, Stitched720pEncTrack) {
 
     uint32_t video_track_id = 1;
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = { video_track_param.format_type, video_track_id,
-                                  session_id, stream_width, stream_height };
+      StreamDumpInfo dumpinfo = { video_track_param.format_type, session_id,
+                                   video_track_id, stream_width, stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -1390,8 +1390,8 @@ TEST_F(Recorder360Gtest, Stitched720p120fpsEncTrack) {
 
     uint32_t video_track_id = 1;
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = { video_track_param.format_type, video_track_id,
-                                   session_id, stream_width, stream_height };
+      StreamDumpInfo dumpinfo = { video_track_param.format_type, session_id,
+                                   video_track_id, stream_width, stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -1508,7 +1508,7 @@ TEST_F(Recorder360Gtest, Stitched4KAnd720pEncTrack) {
 
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = { video_track_param.format_type,
-        video_track_id_4k, session_id, stream_width, stream_height };
+        session_id, video_track_id_4k, stream_width, stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -1540,7 +1540,7 @@ TEST_F(Recorder360Gtest, Stitched4KAnd720pEncTrack) {
 
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = { video_track_param.format_type,
-        video_track_id_720p, session_id, stream_width, stream_height };
+        session_id, video_track_id_720p, stream_width, stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -1661,7 +1661,7 @@ TEST_F(Recorder360Gtest, Stitched4KAnd480pEncTrack) {
 
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = { video_track_param.format_type,
-        video_track_id_4k, session_id, stream_width, stream_height };
+        session_id, video_track_id_4k, stream_width, stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -1692,7 +1692,7 @@ TEST_F(Recorder360Gtest, Stitched4KAnd480pEncTrack) {
 
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = { video_track_param.format_type,
-        video_track_id_480p, session_id, stream_width, stream_height };
+        session_id, video_track_id_480p, stream_width, stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -1811,7 +1811,7 @@ TEST_F(Recorder360Gtest, StitchedHDAnd480pEncTrack) {
 
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = { video_track_param.format_type,
-        video_track_id_HD, session_id, stream_width, stream_height };
+        session_id, video_track_id_HD, stream_width, stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -1842,7 +1842,7 @@ TEST_F(Recorder360Gtest, StitchedHDAnd480pEncTrack) {
 
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = { video_track_param.format_type,
-        video_track_id_480p, session_id, stream_width, stream_height };
+        session_id, video_track_id_480p, stream_width, stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -1964,7 +1964,7 @@ TEST_F(Recorder360Gtest, StitchedHDWaitAECModeAnd480pEncTrack) {
 
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = { video_track_param.format_type,
-        video_track_id_HD, session_id, stream_width, stream_height };
+        session_id, video_track_id_HD, stream_width, stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -2002,7 +2002,7 @@ TEST_F(Recorder360Gtest, StitchedHDWaitAECModeAnd480pEncTrack) {
 
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = { video_track_param.format_type,
-        video_track_id_480p, session_id,  stream_width, stream_height };
+        session_id, video_track_id_480p,  stream_width, stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -2137,7 +2137,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNR) {
 
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = { video_track_param.format_type,
-        video_track_id_4k, session_id, stream_width, stream_height };
+        session_id, video_track_id_4k, stream_width, stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -2290,7 +2290,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRAnd1080pYUVTrack) {
 
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = { video_track_param.format_type,
-        video_track_id_4k, session_id, stream_width, stream_height };
+        session_id, video_track_id_4k, stream_width, stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -2471,7 +2471,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRAnd480pYUVTrack) {
 
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = { video_track_param.format_type,
-        video_track_id_4k, session_id, stream_width, stream_height };
+        session_id, video_track_id_4k, stream_width, stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -2655,7 +2655,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAnd480pYUVTrack) 
 
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = { video_track_param.format_type,
-        video_track_id_4k, session_id, stream_width, stream_height };
+        session_id, video_track_id_4k, stream_width, stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -2856,7 +2856,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAnd960pYUVTrack) 
 
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = { video_track_param.format_type,
-        video_track_id_4k, session_id, stream_width, stream_height };
+        session_id, video_track_id_4k, stream_width, stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -3056,7 +3056,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayMix) {
 
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = { video_track_param.format_type,
-        video_track_id_4k, session_id, stream_width, stream_height };
+        session_id, video_track_id_4k, stream_width, stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -3418,7 +3418,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayBlob) {
 
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = {video_track_param.format_type,
-        video_track_id_4k, session_id, stream_width, stream_height};
+        session_id, video_track_id_4k, stream_width, stream_height};
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -3787,7 +3787,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAndOverlayMix) {
 
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = {video_track_param.format_type,
-        video_track_id_4k, session_id, stream_width, stream_height};
+        session_id, video_track_id_4k, stream_width, stream_height};
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -4103,7 +4103,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAndOverlayBlob) {
 
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = {video_track_param.format_type,
-        video_track_id_4k, session_id, stream_width, stream_height};
+        session_id, video_track_id_4k, stream_width, stream_height};
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -4486,7 +4486,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayBlobAnd480pYUVTrack
 
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = {video_track_param.format_type,
-        video_track_id_4k, session_id, stream_width, stream_height};
+        session_id, video_track_id_4k, stream_width, stream_height};
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -4886,7 +4886,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlobAn
 
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = {video_track_param.format_type,
-        video_track_id_4k, session_id, stream_width, stream_height};
+        session_id, video_track_id_4k, stream_width, stream_height};
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -5296,7 +5296,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlobAn
 
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = {video_track_param.format_type,
-        video_track_id_4k, session_id, stream_width, stream_height};
+        session_id, video_track_id_4k, stream_width, stream_height};
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -5699,7 +5699,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNR480pPreviewTrack9
 
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = {video_track_param.format_type,
-        video_track_id_4k, session_id, stream_width, stream_height};
+        session_id, video_track_id_4k, stream_width, stream_height};
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -5926,7 +5926,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNR480pPreviewEncTra
 
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = {video_track_param.format_type,
-        video_track_id_4k, session_id, stream_width, stream_height};
+        session_id, video_track_id_4k, stream_width, stream_height};
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -5996,7 +5996,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNR480pPreviewEncTra
 
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = {video_track_param.format_type,
-        video_track_id_480p, session_id, stream_width, stream_height};
+        session_id, video_track_id_480p, stream_width, stream_height};
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -6192,7 +6192,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
 
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = {video_track_param.format_type,
-        video_track_id_4k, session_id, stream_width, stream_height};
+        session_id, video_track_id_4k, stream_width, stream_height};
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -6262,7 +6262,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
 
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = {video_track_param.format_type,
-        video_track_id_480p, session_id, stream_width, stream_height};
+        session_id, video_track_id_480p, stream_width, stream_height};
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -6662,7 +6662,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
 
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = {video_track_param.format_type,
-        video_track_id_4k, session_id, stream_width, stream_height};
+        session_id, video_track_id_4k, stream_width, stream_height};
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -6732,7 +6732,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
 
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = {video_track_param.format_type,
-        video_track_id_480p, session_id, stream_width, stream_height};
+        session_id, video_track_id_480p, stream_width, stream_height};
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -7114,7 +7114,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNR960pEncTrack960pY
 
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = { master_video_track_param.format_type,
-        video_track_id_4k, session_id, master_video_track_param.width,
+        session_id, video_track_id_4k, master_video_track_param.width,
         master_video_track_param.height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
@@ -7177,7 +7177,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNR960pEncTrack960pY
 
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = { second_video_track_param.format_type,
-        video_track_id_960p, session_id, second_video_track_param.width,
+        session_id, video_track_id_960p, second_video_track_param.width,
         second_video_track_param.height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
@@ -7364,7 +7364,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
 
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = { master_video_track_param.format_type,
-        video_track_id_4k, session_id,  master_video_track_param.width,
+        session_id, video_track_id_4k,  master_video_track_param.width,
         master_video_track_param.height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
@@ -7428,7 +7428,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
 
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = { second_video_track_param.format_type,
-        video_track_id_960p, session_id, second_video_track_param.width,
+        session_id, video_track_id_960p, second_video_track_param.width,
         second_video_track_param.height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
@@ -7819,7 +7819,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
     uint32_t video_track_id_4k  = 1;
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = { master_video_track_param.format_type,
-        video_track_id_4k, session_id, master_video_track_param.width,
+        session_id, video_track_id_4k, master_video_track_param.width,
         master_video_track_param.height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
@@ -7883,7 +7883,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
 
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = { second_video_track_param.format_type,
-        video_track_id_960p, session_id, second_video_track_param.width,
+        session_id, video_track_id_960p, second_video_track_param.width,
         second_video_track_param.height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
@@ -8274,7 +8274,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
 
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = { master_video_track_param.format_type,
-        video_track_id_4k, session_id,  master_video_track_param.width,
+        session_id, video_track_id_4k,  master_video_track_param.width,
         master_video_track_param.height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
@@ -8337,7 +8337,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
 
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = { second_video_track_param.format_type,
-        video_track_id_960p, session_id, second_video_track_param.width,
+        session_id, video_track_id_960p, second_video_track_param.width,
         second_video_track_param.height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
@@ -8728,7 +8728,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
     uint32_t video_track_id_4k  = 1;
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = { master_video_track_param.format_type,
-        video_track_id_4k, session_id, master_video_track_param.width,
+        session_id, video_track_id_4k, master_video_track_param.width,
         master_video_track_param.height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
@@ -8791,7 +8791,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
 
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = { second_video_track_param.format_type,
-        video_track_id_960p, session_id, second_video_track_param.width,
+        session_id, video_track_id_960p, second_video_track_param.width,
         second_video_track_param.height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
@@ -9182,7 +9182,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
     uint32_t video_track_id_4k  = 1;
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = { master_video_track_param.format_type,
-        video_track_id_4k, session_id, master_video_track_param.width,
+        session_id, video_track_id_4k, master_video_track_param.width,
         master_video_track_param.height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
@@ -9244,7 +9244,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
 
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = { second_video_track_param.format_type,
-        video_track_id_720p, session_id, second_video_track_param.width,
+        session_id, video_track_id_720p, second_video_track_param.width,
         second_video_track_param.height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
@@ -9633,7 +9633,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
     uint32_t video_track_id_4k  = 1;
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = { master_video_track_param.format_type,
-        video_track_id_4k, session_id, master_video_track_param.width,
+        session_id, video_track_id_4k, master_video_track_param.width,
         master_video_track_param.height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
@@ -9697,7 +9697,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
 
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = { second_video_track_param.format_type,
-        video_track_id_720p, session_id, second_video_track_param.width,
+        session_id, video_track_id_720p, second_video_track_param.width,
         second_video_track_param.height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
@@ -10086,7 +10086,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
     uint32_t video_track_id_4k  = 1;
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = { master_video_track_param.format_type,
-        video_track_id_4k, session_id, master_video_track_param.width,
+        session_id, video_track_id_4k, master_video_track_param.width,
         master_video_track_param.height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
@@ -10127,7 +10127,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
 
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = { second_video_track_param.format_type,
-        yuv_track_id_720p_src, session_id, second_video_track_param.width,
+        session_id, yuv_track_id_720p_src, second_video_track_param.width,
         second_video_track_param.height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
@@ -10516,7 +10516,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
     uint32_t video_track_id_4k  = 1;
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = { master_video_track_param.format_type,
-        video_track_id_4k, session_id, master_video_track_param.width,
+        session_id, video_track_id_4k, master_video_track_param.width,
         master_video_track_param.height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
@@ -10579,7 +10579,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
 
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = { second_video_track_param.format_type,
-        video_track_id_720p, session_id, second_video_track_param.width,
+        session_id, video_track_id_720p, second_video_track_param.width,
         second_video_track_param.height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
@@ -10969,7 +10969,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
     uint32_t video_track_id_4k  = 1;
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = { master_video_track_param.format_type,
-        video_track_id_4k, session_id, master_video_track_param.width,
+        session_id, video_track_id_4k, master_video_track_param.width,
         master_video_track_param.height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
@@ -11033,7 +11033,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
 
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = { second_video_track_param.format_type,
-        video_track_id_480p, session_id, second_video_track_param.width,
+        session_id, video_track_id_480p, second_video_track_param.width,
         second_video_track_param.height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
@@ -11438,7 +11438,7 @@ TEST_F(Recorder360Gtest, Stitched720pYUVSessionAnd4KEncSession) {
 
   if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = { video_track_param.format_type,
-      video_track_id_4k, session_id_4k, stream_width, stream_height };
+      session_id_4k, video_track_id_4k, stream_width, stream_height };
     ret = dump_bitstream_.SetUp(dumpinfo);
     ASSERT_TRUE(ret == NO_ERROR);
   }
@@ -11609,7 +11609,7 @@ TEST_F(Recorder360Gtest, Stitched720pYUVSessionAnd4KEncSessionAtRunTime) {
 
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = { video_track_param.format_type,
-        video_track_id_4k, session_id_4k, stream_width, stream_height };
+        session_id_4k, video_track_id_4k, stream_width, stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -12412,8 +12412,8 @@ TEST_F(Recorder360Gtest, SideBySide4KEncTrack) {
 
     uint32_t video_track_id = 1;
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = { video_track_param.format_type, video_track_id,
-                                  session_id, stream_width, stream_height };
+      StreamDumpInfo dumpinfo = { video_track_param.format_type, session_id,
+                                  video_track_id, stream_width, stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -12521,8 +12521,8 @@ TEST_F(Recorder360Gtest, SideBySideHDEncTrack) {
     uint32_t video_track_id = 1;
 
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = { video_track_param.format_type, video_track_id,
-                                  session_id, stream_width, stream_height };
+      StreamDumpInfo dumpinfo = { video_track_param.format_type, session_id,
+                                  video_track_id, stream_width, stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -12630,8 +12630,8 @@ TEST_F(Recorder360Gtest, SideBySide720pEncTrack) {
     uint32_t video_track_id = 1;
 
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = { video_track_param.format_type, video_track_id,
-                                  session_id, stream_width, stream_height };
+      StreamDumpInfo dumpinfo = { video_track_param.format_type, session_id,
+                                  video_track_id, stream_width, stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -12739,8 +12739,8 @@ TEST_F(Recorder360Gtest, SideBySide720p120fpsEncTrack) {
 
     uint32_t video_track_id = 1;
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = { video_track_param.format_type, video_track_id,
-                                  session_id, stream_width, stream_height };
+      StreamDumpInfo dumpinfo = { video_track_param.format_type, session_id,
+                                  video_track_id, stream_width, stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -12859,7 +12859,7 @@ TEST_F(Recorder360Gtest, SideBySide4KAnd720pEncTrack) {
 
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = { video_track_param.format_type,
-        video_track_id_4k, session_id, stream_width, stream_height };
+        session_id, video_track_id_4k, stream_width, stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -12891,7 +12891,7 @@ TEST_F(Recorder360Gtest, SideBySide4KAnd720pEncTrack) {
 
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = { video_track_param.format_type,
-        video_track_id_720p, session_id, stream_width, stream_height };
+        session_id, video_track_id_720p, stream_width, stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -13001,8 +13001,8 @@ TEST_F(Recorder360Gtest, SideBySide4KUHDEncTrackWithMaxFOV) {
 
     uint32_t video_track_id = 1;
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = { video_track_param.format_type, video_track_id,
-                                  session_id, stream_width, stream_height };
+      StreamDumpInfo dumpinfo = { video_track_param.format_type, session_id,
+                                  video_track_id, stream_width, stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -13245,8 +13245,8 @@ TEST_F(Recorder360Gtest, SideBySide4KUHDEncTrackWithMaxPPD) {
     uint32_t video_track_id = 1;
 
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = { video_track_param.format_type, video_track_id,
-                                  session_id, stream_width, stream_height };
+      StreamDumpInfo dumpinfo = { video_track_param.format_type, session_id,
+                                  video_track_id, stream_width, stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -13388,7 +13388,7 @@ TEST_F(Recorder360Gtest, SideBySide4KUHDEncMaxFOVAndSingleWXGAYUVTrack) {
 
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = { video_track_param.format_type,
-        video_track_id_4k, session_id, stream_width, stream_height };
+        session_id, video_track_id_4k, stream_width, stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -13552,7 +13552,7 @@ TEST_F(Recorder360Gtest, SideBySide4KUHDEncMaxPPDAndSingleWXGAYUVTrack) {
 
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = { video_track_param.format_type,
-        video_track_id_4k, session_id, stream_width, stream_height };
+        session_id, video_track_id_4k, stream_width, stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -13727,8 +13727,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncAllAWBModes) {
 
     uint32_t video_track_id = 1;
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = { video_track_param.format_type, video_track_id,
-                                  session_id, stream_width, stream_height };
+      StreamDumpInfo dumpinfo = { video_track_param.format_type, session_id,
+                                  video_track_id, stream_width, stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -13905,8 +13905,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeAuto) {
 
     uint32_t video_track_id = 1;
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = { video_track_param.format_type, video_track_id,
-                                  session_id, stream_width, stream_height };
+      StreamDumpInfo dumpinfo = { video_track_param.format_type, session_id,
+                                  video_track_id, stream_width, stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -14026,8 +14026,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeIncandescent) {
 
     uint32_t video_track_id = 1;
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = { video_track_param.format_type, video_track_id,
-                                  session_id, stream_width, stream_height };
+      StreamDumpInfo dumpinfo = { video_track_param.format_type, session_id,
+                                  video_track_id, stream_width, stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -14147,8 +14147,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeFluorescent) {
 
     uint32_t video_track_id = 1;
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = { video_track_param.format_type, video_track_id,
-                                  session_id, stream_width, stream_height };
+      StreamDumpInfo dumpinfo = { video_track_param.format_type, session_id,
+                                  video_track_id, stream_width, stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -14269,8 +14269,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeWarmFluorescent) {
 
     uint32_t video_track_id = 1;
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = { video_track_param.format_type, video_track_id,
-                                  session_id, stream_width, stream_height };
+      StreamDumpInfo dumpinfo = { video_track_param.format_type, session_id,
+                                  video_track_id, stream_width, stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -14391,8 +14391,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeDaylight) {
 
     uint32_t video_track_id = 1;
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = { video_track_param.format_type, video_track_id,
-                                  session_id, stream_width, stream_height };
+      StreamDumpInfo dumpinfo = { video_track_param.format_type, session_id,
+                                  video_track_id, stream_width, stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -14512,8 +14512,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeCloudyDaylight) {
 
     uint32_t video_track_id = 1;
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = { video_track_param.format_type, video_track_id,
-                                  session_id, stream_width, stream_height };
+      StreamDumpInfo dumpinfo = { video_track_param.format_type, session_id,
+                                  video_track_id, stream_width, stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -14633,8 +14633,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeTwilight) {
 
     uint32_t video_track_id = 1;
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = { video_track_param.format_type, video_track_id,
-                                  session_id, stream_width, stream_height };
+      StreamDumpInfo dumpinfo = { video_track_param.format_type, session_id,
+                                  video_track_id, stream_width, stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -14754,8 +14754,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeShade) {
 
     uint32_t video_track_id = 1;
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = { video_track_param.format_type, video_track_id,
-                                  session_id, stream_width, stream_height };
+      StreamDumpInfo dumpinfo = { video_track_param.format_type, session_id,
+                                  video_track_id, stream_width, stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -14883,8 +14883,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncAllAEAntiBandingModes) {
 
     uint32_t video_track_id = 1;
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = { video_track_param.format_type, video_track_id,
-                                  session_id, stream_width, stream_height };
+      StreamDumpInfo dumpinfo = { video_track_param.format_type, session_id,
+                                  video_track_id, stream_width, stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -15031,8 +15031,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingModeOff) {
 
     uint32_t video_track_id = 1;
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = { video_track_param.format_type, video_track_id,
-                                  session_id, stream_width, stream_height };
+      StreamDumpInfo dumpinfo = { video_track_param.format_type, session_id,
+                                  video_track_id, stream_width, stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -15152,8 +15152,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingMode50Hz) {
 
     uint32_t video_track_id = 1;
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = { video_track_param.format_type, video_track_id,
-                                  session_id, stream_width, stream_height };
+      StreamDumpInfo dumpinfo = { video_track_param.format_type, session_id,
+                                  video_track_id, stream_width, stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -15273,8 +15273,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingMode60Hz) {
 
     uint32_t video_track_id = 1;
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = { video_track_param.format_type, video_track_id,
-                                  session_id, stream_width, stream_height };
+      StreamDumpInfo dumpinfo = { video_track_param.format_type, session_id,
+                                  video_track_id, stream_width, stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -15394,8 +15394,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingModeAuto) {
 
     uint32_t video_track_id = 1;
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = { video_track_param.format_type, video_track_id,
-                                  session_id, stream_width, stream_height };
+      StreamDumpInfo dumpinfo = { video_track_param.format_type, session_id,
+                                  video_track_id, stream_width, stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -15525,8 +15525,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncAllISOModes) {
 
     uint32_t video_track_id = 1;
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = { video_track_param.format_type, video_track_id,
-                                  session_id, stream_width, stream_height };
+      StreamDumpInfo dumpinfo = { video_track_param.format_type, session_id,
+                                  video_track_id, stream_width, stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -15690,8 +15690,8 @@ TEST_F(Recorder360Gtest, TestISOModeAuto) {
 
     uint32_t video_track_id = 1;
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = { video_track_param.format_type, video_track_id,
-                                  session_id, stream_width, stream_height };
+      StreamDumpInfo dumpinfo = { video_track_param.format_type, session_id,
+                                  video_track_id, stream_width, stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -15812,8 +15812,8 @@ TEST_F(Recorder360Gtest, TestISOMode100) {
 
     uint32_t video_track_id = 1;
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = { video_track_param.format_type, video_track_id,
-                                  session_id, stream_width, stream_height };
+      StreamDumpInfo dumpinfo = { video_track_param.format_type, session_id,
+                                  video_track_id, stream_width, stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -15934,8 +15934,8 @@ TEST_F(Recorder360Gtest, TestISOMode200) {
 
     uint32_t video_track_id = 1;
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = { video_track_param.format_type, video_track_id,
-                                  session_id, stream_width, stream_height };
+      StreamDumpInfo dumpinfo = { video_track_param.format_type, session_id,
+                                  video_track_id, stream_width, stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -16056,8 +16056,8 @@ TEST_F(Recorder360Gtest, TestISOMode400) {
 
     uint32_t video_track_id = 1;
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = { video_track_param.format_type, video_track_id,
-                                  session_id, stream_width, stream_height };
+      StreamDumpInfo dumpinfo = { video_track_param.format_type, session_id,
+                                  video_track_id, stream_width, stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -16178,8 +16178,8 @@ TEST_F(Recorder360Gtest, TestISOMode800) {
 
     uint32_t video_track_id = 1;
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = { video_track_param.format_type, video_track_id,
-                                  session_id, stream_width, stream_height };
+      StreamDumpInfo dumpinfo = { video_track_param.format_type, session_id,
+                                  video_track_id, stream_width, stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -16301,8 +16301,8 @@ TEST_F(Recorder360Gtest, TestISOMode1600) {
 
     uint32_t video_track_id = 1;
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = { video_track_param.format_type, video_track_id,
-                                  session_id, stream_width, stream_height };
+      StreamDumpInfo dumpinfo = { video_track_param.format_type, session_id,
+                                  video_track_id, stream_width, stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -16424,8 +16424,8 @@ TEST_F(Recorder360Gtest, TestISOMode3200) {
 
     uint32_t video_track_id = 1;
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = { video_track_param.format_type, video_track_id,
-                                  session_id, stream_width, stream_height };
+      StreamDumpInfo dumpinfo = { video_track_param.format_type, session_id,
+                                  video_track_id, stream_width, stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -16542,8 +16542,8 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackAnd6KSnapshot) {
 
   uint32_t video_track_id = 1;
   if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo = { video_track_param.format_type, video_track_id,
-                                session_id, stream_width, stream_height };
+    StreamDumpInfo dumpinfo = { video_track_param.format_type, session_id,
+                                video_track_id, stream_width, stream_height };
     ret = dump_bitstream_.SetUp(dumpinfo);
     ASSERT_TRUE(ret == NO_ERROR);
   }
@@ -16671,8 +16671,8 @@ TEST_F(Recorder360Gtest, StitchedHDEncTrackAnd6KSnapshot) {
 
   uint32_t video_track_id = 1;
   if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo = { video_track_param.format_type, video_track_id,
-                                session_id, stream_width, stream_height };
+    StreamDumpInfo dumpinfo = { video_track_param.format_type, session_id,
+                                video_track_id, stream_width, stream_height };
     ret = dump_bitstream_.SetUp(dumpinfo);
     ASSERT_TRUE(ret == NO_ERROR);
   }
@@ -16801,8 +16801,8 @@ TEST_F(Recorder360Gtest, Stitched720pEncTrackAnd6KSnapshot) {
 
   uint32_t video_track_id = 1;
   if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo = { video_track_param.format_type, video_track_id,
-                                session_id, stream_width, stream_height };
+    StreamDumpInfo dumpinfo = { video_track_param.format_type, session_id,
+                                video_track_id, stream_width, stream_height };
     ret = dump_bitstream_.SetUp(dumpinfo);
     ASSERT_TRUE(ret == NO_ERROR);
   }
@@ -16930,8 +16930,8 @@ TEST_F(Recorder360Gtest, Stitched480pEncTrackAnd6KSnapshot) {
 
   uint32_t video_track_id = 1;
   if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo = { video_track_param.format_type, video_track_id,
-                                session_id, stream_width, stream_height };
+    StreamDumpInfo dumpinfo = { video_track_param.format_type, session_id,
+                                video_track_id, stream_width, stream_height };
     ret = dump_bitstream_.SetUp(dumpinfo);
     ASSERT_TRUE(ret == NO_ERROR);
   }
@@ -17062,8 +17062,8 @@ TEST_F(Recorder360Gtest, Stitched480pYUVTrackAnd6KSnapshotWithCancelCapture) {
 
   uint32_t video_track_id = 1;
   if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo = { video_track_param.format_type, video_track_id,
-                                session_id, stream_width, stream_height };
+    StreamDumpInfo dumpinfo = { video_track_param.format_type, session_id,
+                                video_track_id, stream_width, stream_height };
     ret = dump_bitstream_.SetUp(dumpinfo);
     ASSERT_TRUE(ret == NO_ERROR);
   }
@@ -17194,8 +17194,8 @@ TEST_F(Recorder360Gtest, Stitched480pEncTrackAndPrintLumaValues) {
 
   uint32_t video_track_id = 1;
   if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo = { video_track_param.format_type, video_track_id,
-                                session_id, stream_width, stream_height};
+    StreamDumpInfo dumpinfo = { video_track_param.format_type, session_id,
+                                video_track_id, stream_width, stream_height};
     ret = dump_bitstream_.SetUp(dumpinfo);
     ASSERT_TRUE(ret == NO_ERROR);
   }
