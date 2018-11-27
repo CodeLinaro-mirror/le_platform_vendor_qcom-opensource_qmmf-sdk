@@ -384,16 +384,10 @@ void DisplayWestonClient::BufferHandler() {
         QMMF_DEBUG("%s: No buffers queued, wait", __func__);
         if (buffer_handler_.wait_for(lg, seconds(1)) == cv_status::timeout) {
           QMMF_WARN("%s: Timed out on wait, continuing", __func__);
-          continue;
         }
-        if (stop_) {
-          QMMF_DEBUG("%s: Got signal for stop", __func__);
-          break;
-        }
-        QMMF_DEBUG("%s: Got signal from QueueSurfaceBuffer,get buffer index",
-                   __func__);
-        break;
       }
+      QMMF_DEBUG("%s: Got signal from QueueSurfaceBuffer,get buffer index",
+                 __func__);
       idx = GetQueuedBufferIndex();
     }
     if (stop_) {
@@ -402,6 +396,7 @@ void DisplayWestonClient::BufferHandler() {
     }
 
     auto ready_buffer = &bo_buffer_list_[idx];
+    QMMF_DEBUG("%s: ready_buffer: %p idx: %d done", __func__, ready_buffer, idx);
     struct gbm_buffer_params *params =
         gbm_buffer_backend_create_params(gbm_buf_backend_);
 
