@@ -5069,7 +5069,7 @@ TEST_F(RecorderImageGTest,
       test_info_->test_case_name(), test_info_->name());
 }
 
-#ifdef ANDROID_O_OR_ABOVE
+#ifdef CAM_ARCH_V2
 /*
 * PreviewAndRaw10BitBayerSnapshot: This test will test BayerRDI (10 bits packed)
 * snapshot for single camera, with max Camera resolution (active sensor
