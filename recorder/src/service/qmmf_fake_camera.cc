@@ -165,11 +165,10 @@ status_t FakeCamera::CreateStream(const StreamParam& param,
   }
 
   mem_pool_params_.max_buffer_count = 10;
-  mem_pool_params_.gralloc_flags &= GRALLOC_USAGE_ALLOC_MASK;
-  mem_pool_params_.gralloc_flags |= GRALLOC_USAGE_SW_WRITE_OFTEN |
-                                    GRALLOC_USAGE_SW_READ_OFTEN |
-                                    GRALLOC_USAGE_HW_FB |
-                                    private_handle_t::PRIV_FLAGS_VIDEO_ENCODER;
+  mem_pool_params_.alloc_flags =  IMemAllocUsage::kSwWriteOften |
+                                    IMemAllocUsage::kSwReadOften |
+                                    IMemAllocUsage::kHwFb |
+                                    IMemAllocUsage::kVideoEncoder;
 
   mem_pool_params_.max_size = 0;
 

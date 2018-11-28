@@ -349,6 +349,32 @@ struct VideoTrackCreateParam {
     codec_param.avc.slice_header_spacing = 1024;
   }
 
+  void setAVCVariableFramerateVideoParam() {
+    // Setting Variable Framerate Video Parameters for AVC
+    codec_param.avc.idr_interval = 1;
+    codec_param.avc.bitrate      = 10000000;
+    codec_param.avc.profile = AVCProfileType::kBaseline;
+    codec_param.avc.level   = AVCLevelType::kLevel3;
+    codec_param.avc.ratecontrol_type =
+        VideoRateControlType::kVariableSkipFrames;
+    codec_param.avc.qp_params.enable_init_qp = true;
+    codec_param.avc.qp_params.init_qp.init_IQP = 51;
+    codec_param.avc.qp_params.init_qp.init_PQP = 51;
+    codec_param.avc.qp_params.init_qp.init_BQP = 51;
+    codec_param.avc.qp_params.init_qp.init_QP_mode = 0x7;
+    codec_param.avc.qp_params.enable_qp_range = true;
+    codec_param.avc.qp_params.qp_range.min_QP = 26;
+    codec_param.avc.qp_params.qp_range.max_QP = 51;
+    codec_param.avc.qp_params.enable_qp_IBP_range = true;
+    codec_param.avc.qp_params.qp_IBP_range.min_IQP = 26;
+    codec_param.avc.qp_params.qp_IBP_range.max_IQP = 51;
+    codec_param.avc.qp_params.qp_IBP_range.min_PQP = 26;
+    codec_param.avc.qp_params.qp_IBP_range.max_PQP = 51;
+    codec_param.avc.qp_params.qp_IBP_range.min_BQP = 26;
+    codec_param.avc.qp_params.qp_IBP_range.max_BQP = 51;
+    codec_param.avc.insert_aud_delimiter = true;
+  }
+
   void setHEVCDefaultVideoParam() {
     // Setting default Parameters for HEVC
     codec_param.hevc.idr_interval = 1;

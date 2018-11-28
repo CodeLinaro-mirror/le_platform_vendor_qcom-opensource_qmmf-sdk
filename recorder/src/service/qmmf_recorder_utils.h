@@ -92,7 +92,7 @@ class IBufferProducer : public RefBase {
   QCondition buffer_received_;
 
   // Map of unique buffer handle and reference count.
-  std::map<buffer_handle_t, uint32_t>  buffers_;
+  std::map<IBufferHandle, uint32_t>  buffers_;
 
   // List of consumers.
   std::map<uintptr_t, sp<IBufferConsumer>> buffer_consumers_;

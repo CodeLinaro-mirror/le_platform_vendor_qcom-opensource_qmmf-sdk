@@ -36,6 +36,7 @@
 #include <binder/IPCThreadState.h>
 #include <cutils/properties.h>
 
+#include "common/utils/qmmf_log.h"
 #include "recorder/src/service/qmmf_recorder_service.h"
 #ifndef DISABLE_AUDIO_SERVICE
 #include "common/audio/src/service/qmmf_audio_service.h"
@@ -76,7 +77,7 @@ using namespace system;
   do { \
     printf(__VA_ARGS__); \
     printf("\n"); \
-    ALOGD(__VA_ARGS__); \
+    QMMF_DEBUG(__VA_ARGS__); \
 } while(0)
 
 uint32_t qmmf_log_level;

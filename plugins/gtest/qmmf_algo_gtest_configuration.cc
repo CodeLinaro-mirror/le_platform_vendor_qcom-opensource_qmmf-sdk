@@ -29,8 +29,9 @@
 
 #define LOG_TAG "QmmfAlgoGtestConfiguration"
 
+#include <qmmf-alg/qmmf_alg_utils.h>
+
 #include "qmmf_algo_gtest_configuration.h"
-#include "qmmf-plugin/qmmf_alg_utils.h"
 #include "qmmf_json_helper.h"
 
 namespace qmmf {

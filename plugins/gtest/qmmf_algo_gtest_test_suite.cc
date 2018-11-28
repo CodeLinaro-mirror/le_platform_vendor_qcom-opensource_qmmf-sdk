@@ -31,7 +31,8 @@
 
 #include <fstream>
 
-#include "qmmf-plugin/qmmf_alg_utils.h"
+#include <qmmf-alg/qmmf_alg_utils.h>
+
 #include "qmmf_algo_gtest_test_suite.h"
 #include "qmmf_json_helper.h"
 
@@ -44,9 +45,7 @@ const std::string QmmfAlgoGtestTestSuite::kDefaultTestSuite(
     "{ "
     "  \"test contents\": ["
     "   \"qmmf_algo_gtest_yuv_cac.json\","
-    "   \"qmmf_algo_gtest_hazebuster.json\","
     "   \"qmmf_algo_gtest_bayer_lcac.json\","
-    "   \"qmmf_algo_gtest_sw_tnr.json\","
     "   \"qmmf_algo_gtest_binning_correction.json\","
     "   \"qmmf_algo_gtest_svhdr.json\","
     "   \"qmmf_algo_gtest_edge_smooth.json\","

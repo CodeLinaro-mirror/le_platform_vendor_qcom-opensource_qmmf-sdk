@@ -10,6 +10,7 @@ transcode_app_SOURCES  += qmmf_transcode_test.cc
 transcode_app_CPPFLAGS = $(CFLAGS)
 transcode_app_CPPFLAGS += -I$(top_srcdir)/include
 transcode_app_CPPFLAGS += -I$(top_srcdir)/
+transcode_app_CPPFLAGS += -I$(top_srcdir)/common/memory
 transcode_app_LDFLAGS  = -lutils -lcutils -llog
 transcode_app_LDADD    = ../demuxer/libdemuxer.la
 transcode_app_LDADD    += ../../../avcodec/libav_codec.la

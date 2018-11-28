@@ -31,8 +31,8 @@
 
 #include <gtest/gtest.h>
 
-#include "qmmf-plugin/qmmf_alg_plugin.h"
-#include "qmmf-plugin/qmmf_alg_utils.h"
+#include <qmmf-alg/qmmf_alg_plugin.h>
+#include <qmmf-alg/qmmf_alg_utils.h>
 
 namespace qmmf {
 

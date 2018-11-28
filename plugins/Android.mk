@@ -7,16 +7,6 @@ include $(QMMF_SDK_TOP_SRCDIR)/build.mk
 
 ifneq (,$(BUILD_QMMMF))
 
-include $(CLEAR_VARS)
-
-LOCAL_COPY_HEADERS_TO := qmmf-sdk
-LOCAL_COPY_HEADERS := ../include/qmmf-plugin/qmmf_alg_plugin.h
-LOCAL_COPY_HEADERS += ../include/qmmf-plugin/qmmf_alg_types.h
-LOCAL_COPY_HEADERS += ../include/qmmf-plugin/qmmf_alg_utils.h
-LOCAL_COPY_HEADERS += ../include/qmmf-plugin/qmmf_alg_intf.h
-
-include $(BUILD_COPY_HEADERS)
-
 # Build qmmf test outplace algorithm library
 
 include $(CLEAR_VARS)

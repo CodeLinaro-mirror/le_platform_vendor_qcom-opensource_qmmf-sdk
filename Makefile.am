@@ -1,5 +1,6 @@
 BUILD_COMPONENTS =
 BUILD_COMPONENTS += common/utils
+BUILD_COMPONENTS += common/memory
 BUILD_COMPONENTS += common/cameraadaptor
 BUILD_COMPONENTS += common/overlay
 BUILD_COMPONENTS += common/audio/src/client
@@ -55,10 +56,3 @@ SUBDIRS = $(BUILD_COMPONENTS)
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = qmmf-sdk.pc
 EXTRA_DIST = $(pkgconfig_DATA)
-
-Export qmmf-sdk headers:
-sdkincdir=$(includedir)/qmmf-sdk
-sdkinc_HEADERS =$(top_srcdir)/include/qmmf-plugin/qmmf_alg_plugin.h
-sdkinc_HEADERS +=$(top_srcdir)/include/qmmf-plugin/qmmf_alg_types.h
-sdkinc_HEADERS +=$(top_srcdir)/include/qmmf-plugin/qmmf_alg_utils.h
-sdkinc_HEADERS +=$(top_srcdir)/include/qmmf-plugin/qmmf_alg_intf.h

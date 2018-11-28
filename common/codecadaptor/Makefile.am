@@ -9,6 +9,7 @@ endif
 
 libcodec_adaptor_la_CPPFLAGS = -I$(top_srcdir)/include
 libcodec_adaptor_la_CPPFLAGS += -I$(top_srcdir)/
+libcodec_adaptor_la_CPPFLAGS += -I$(top_srcdir)/common/memory
 libcodec_adaptor_la_CPPFLAGS += -I$(MMCORE_CFLAGS)
 libcodec_adaptor_la_CPPFLAGS += -I$(OMXCORE_CFLAGS)
 libcodec_adaptor_la_CPPFLAGS += -I$(OPENMAX_CFLAGS)

@@ -1,4 +1,4 @@
-/* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -45,11 +45,6 @@
 #include <utils/RefBase.h>
 #include <cutils/properties.h>
 #include <hardware/camera3.h>
-#ifndef TARGET_USES_GBM
-#include <qcom/display/gralloc_priv.h>
-#else
-#include "common/utils/qmmf_common_utils.h"
-#endif
 #include <linux/msm_ion.h>
 #include <media/hardware/HardwareAPI.h>
 
@@ -344,7 +339,7 @@ status_t JPEGEncoder::GetParameters(const CodecParamType param_type,
   return NO_ERROR;
 }
 
-status_t JPEGEncoder::StartCodec() {
+status_t JPEGEncoder::StartCodec(bool enable_rt_priority) {
   std::lock_guard<std::mutex> l(stop_jpeg_mutex_);
   stop_jpeg_ = false;
   jpeg_thread_id_ = thread(JpegEncodeThread, this);
@@ -370,7 +365,7 @@ status_t JPEGEncoder::RegisterInputBuffers(vector<BufferDescriptor> &list) {
   return NO_ERROR;
 }
 
-status_t JPEGEncoder::Flush(uint32_t port_type) { return NO_ERROR; }
+status_t JPEGEncoder::FlushCodec(uint32_t port_type) { return NO_ERROR; }
 
 };  // namespace avcodec
 };  // namespace qmmf

@@ -185,7 +185,7 @@ status_t MultiCameraManager::OpenCamera(const uint32_t virtual_camera_id,
 
 #ifndef DISABLE_PP_JPEG
   jpeg_encoder_ = std::make_shared<CameraJpeg>();
-  jpeg_memory_pool_ = std::make_shared<GrallocMemory>();
+  jpeg_memory_pool_ = std::make_shared<HWMemory>();
   ret = jpeg_memory_pool_->Initialize();
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: Jpeg encoder's memory pool initialization failed!",
@@ -302,11 +302,11 @@ status_t MultiCameraManager::SetUpCapture(const SnapshotParam& param,
     }
 
     // Set buffer params for stitching.
-    GrallocMemory::BufferParams buffer_param {};
+    HWMemory::BufferParams buffer_param {};
     buffer_param.format        = Common::FromQmmfToHalFormat(sparam.format);
     buffer_param.width         = param.width;
     buffer_param.height        = param.height;
-    buffer_param.gralloc_flags = GRALLOC_USAGE_SW_WRITE_OFTEN;
+    buffer_param.alloc_flags = IMemAllocUsage::kSwWriteOften;
     buffer_param.max_buffer_count = SNAPSHOT_STREAM_BUFFER_COUNT;
 
     QMMF_INFO("%s W(%d) & H(%d)", __func__, buffer_param.width,
@@ -856,11 +856,11 @@ status_t MultiCameraManager::CreateJpegEncoder(const SnapshotParam& param) {
   jpeg_encoder_->Start();
 
   // Set buffer params for jpeg encoding.
-  GrallocMemory::BufferParams buffer_param{};
+  HWMemory::BufferParams buffer_param {};
   buffer_param.format           = HAL_PIXEL_FORMAT_BLOB;
   buffer_param.width            = param.width;
   buffer_param.height           = param.height;
-  buffer_param.gralloc_flags    = GRALLOC_USAGE_SW_WRITE_OFTEN;
+  buffer_param.alloc_flags    = IMemAllocUsage::kSwWriteOften;
   // TODO: Need to revisit the calculation of max_size.
   //       Width and height need to be extracted from metadata.
   buffer_param.max_size         = (param.width * param.height) * 2;
@@ -879,7 +879,7 @@ void MultiCameraManager::EncodeJpegImage(const StreamBuffer &buffer) {
 
   status_t ret = jpeg_memory_pool_->GetBuffer(output_buffer.handle);
   if (NO_ERROR != ret) {
-    QMMF_ERROR("%s: Unable to retrieve gralloc buffer", __func__);
+    QMMF_ERROR("%s: Unable to retrieve buffer", __func__);
     status_t ret = snapshot_stitch_algo_->ImageBufferReturned(buffer.fd);
     if (NO_ERROR != ret) {
       QMMF_ERROR("%s: Unable to return stitched buffer!", __func__);
@@ -897,10 +897,9 @@ void MultiCameraManager::EncodeJpegImage(const StreamBuffer &buffer) {
     }
     return;
   }
-  const struct private_handle_t *priv_handle =
-      static_cast<const private_handle_t *>(output_buffer.handle);
-  output_buffer.fd           = priv_handle->fd;
-  output_buffer.size         = priv_handle->size;
+
+  output_buffer.fd           = output_buffer.handle->GetFD();
+  output_buffer.size         = output_buffer.handle->GetSize();
   output_buffer.frame_number = buffer.frame_number;
   output_buffer.timestamp    = buffer.timestamp;
   output_buffer.camera_id    = buffer.camera_id;
@@ -981,18 +980,18 @@ status_t MultiCameraManager::CreateStreamStitching(const StreamParam& param) {
   algo_param.surface_crop = surface_crop_;
   algo_param.frame_rate   = param.framerate;
 
-  GrallocMemory::BufferParams buffer_param {};
+  HWMemory::BufferParams buffer_param {};
   buffer_param.format        = Common::FromQmmfToHalFormat(param.format);
   buffer_param.width         = param.width;
   buffer_param.height        = param.height;
-  buffer_param.gralloc_flags = GRALLOC_USAGE_SW_WRITE_OFTEN;
+  buffer_param.alloc_flags = IMemAllocUsage::kSwWriteOften;
   buffer_param.max_size      = 0;
 
   buffer_param.max_buffer_count = VIDEO_STREAM_BUFFER_COUNT;
   if (param.width == kWidth4K && param.height == kHeight4K) {
     buffer_param.max_buffer_count += EXTRA_DCVS_BUFFERS;
   }
-  buffer_param.gralloc_flags |= private_handle_t::PRIV_FLAGS_VIDEO_ENCODER;
+  buffer_param.alloc_flags.flags |= IMemAllocUsage::kVideoEncoder;
 
   std::shared_ptr<StreamStitching> stitching_algo =
       std::make_shared<StreamStitching>(algo_param, this);
@@ -1413,7 +1412,7 @@ status_t StitchingBase::Initialize() {
     QMMF_WARN("%s: Memory pool already initialized", __func__);
     return NO_ERROR;
   }
-  memory_pool_ = std::make_shared<GrallocMemory>();
+  memory_pool_ = std::make_shared<HWMemory>();
 
   auto ret = memory_pool_->Initialize();
   if (NO_ERROR != ret) {
@@ -1428,7 +1427,7 @@ status_t StitchingBase::Initialize() {
   return NO_ERROR;
 }
 
-status_t StitchingBase::Configure(GrallocMemory::BufferParams &param) {
+status_t StitchingBase::Configure(HWMemory::BufferParams &param) {
 
   return memory_pool_->Configure(param);
 }
@@ -1514,7 +1513,7 @@ bool StitchingBase::ThreadLoop() {
 
   auto ret = memory_pool_->GetBuffer(b.handle);
   if (NO_ERROR != ret) {
-    QMMF_ERROR("%s: Unable to retrieve gralloc buffer", __func__);
+    QMMF_ERROR("%s: Unable to retrieve buffer", __func__);
     return true;
   }
   ret = memory_pool_->PopulateMetaInfo(b.info, b.handle);
@@ -1522,10 +1521,9 @@ bool StitchingBase::ThreadLoop() {
     QMMF_ERROR("%s: Failed to populate buffer meta info", __func__);
     return ret;
   }
-  const struct private_handle_t *priv_handle =
-      static_cast<const private_handle_t *>(b.handle);
-  b.fd           = priv_handle->fd;
-  b.size         = priv_handle->size;
+
+  b.fd           = b.handle->GetFD();
+  b.size         = b.handle->GetSize();
   b.frame_number = input_buffers[0].frame_number;
   b.timestamp    = input_buffers[0].timestamp;
   b.camera_id    = params_.multicam_id;
@@ -1544,11 +1542,11 @@ bool StitchingBase::ThreadLoop() {
   {
     std::lock_guard<std::mutex> lock(buffers_lock_);
     for (auto const& buffer : input_buffers) {
-      std::pair<buffer_handle_t, StreamBuffer> pair (buffer.handle, buffer);
+      std::pair<IBufferHandle, StreamBuffer> pair (buffer.handle, buffer);
       process_buffers_map_.insert(pair);
     }
     for (auto const& buffer : output_buffers) {
-      std::pair<buffer_handle_t, StreamBuffer> pair (buffer.handle, buffer);
+      std::pair<IBufferHandle, StreamBuffer> pair (buffer.handle, buffer);
       process_buffers_map_.insert(pair);
     }
   }
@@ -1743,7 +1741,7 @@ status_t StitchingBase::StopFrameSync() {
   return NO_ERROR;
 }
 
-status_t StitchingBase::ReturnProcessedBuffer(buffer_handle_t &handle,
+status_t StitchingBase::ReturnProcessedBuffer(IBufferHandle &handle,
                                               qmmf_alg_status_t status) {
 
   status_t ret = NO_ERROR;
@@ -2085,14 +2083,12 @@ EXIT:
 status_t StitchingBase::PopulateImageFormat(qmmf_alg_format_t &fmt,
                                             const StreamBuffer *buffer) {
 
-  struct private_handle_t *priv_handle = (struct private_handle_t *)
-      buffer->handle;
-  if (nullptr == priv_handle) {
-    QMMF_ERROR("%s: Invalid private handle!", __func__);
+  if (nullptr == buffer->handle) {
+    QMMF_ERROR("%s: Invalid buffer handle!", __func__);
     return BAD_VALUE;
   }
 
-  switch (priv_handle->format) {
+  switch (buffer->handle->GetFormat()) {
     case HAL_PIXEL_FORMAT_BLOB:
       fmt.pix_fmt = QMMF_ALG_PIXFMT_JPEG;
       break;
@@ -2109,11 +2105,11 @@ status_t StitchingBase::PopulateImageFormat(qmmf_alg_format_t &fmt,
       break;
     default:
       QMMF_ERROR("%s: Unsupported format: 0x%x", __func__,
-          priv_handle->format);
+          buffer->handle->GetFormat());
       return NAME_NOT_FOUND;
   }
-  fmt.width      = priv_handle->unaligned_width;
-  fmt.height     = priv_handle->unaligned_height;
+  fmt.width      = buffer->handle->GetWidth();
+  fmt.height     = buffer->handle->GetHeight();
   fmt.num_planes = buffer->info.num_planes;
 
   for (uint32_t i = 0; i < buffer->info.num_planes; ++i) {
@@ -2209,97 +2205,73 @@ void StitchingBase::ProcessCallback(qmmf_alg_cb_t *cb_data) {
       algo->registered_buffers_.erase(cb_data->buf->fd);
     }
   }
-  algo->ReturnProcessedBuffer(cb_data->buf->handle, cb_data->status);
+  IBufferHandle handle = static_cast<IBufferHandle>(cb_data->buf->handle);
+  algo->ReturnProcessedBuffer(handle, cb_data->status);
 }
 
-GrallocMemory::GrallocMemory(alloc_device_t *gralloc_device)
-    : gralloc_device_(gralloc_device),
-      gralloc_slots_(nullptr),
+HWMemory::HWMemory(alloc_device_t *alloc_device)
+    : alloc_device_interface_(nullptr),
+      mem_alloc_slots_(nullptr),
       buffers_allocated_(0),
       pending_buffer_count_(0) {
 
   QMMF_INFO("%s: Enter", __func__);
 
-  if (nullptr != gralloc_device_) {
-    QMMF_INFO("%s: Gralloc Module author: %s, version: %d name: %s", __func__,
-        gralloc_device_->common.module->author,
-        gralloc_device_->common.module->hal_api_version,
-        gralloc_device_->common.module->name);
-  }
   QMMF_INFO("%s: Exit (%p)", __func__, this);
 }
 
-GrallocMemory::~GrallocMemory() {
+HWMemory::~HWMemory() {
 
   QMMF_INFO("%s: Enter", __func__);
 
-  delete[] gralloc_slots_;
-  gralloc_slots_ = nullptr;
+  delete[] mem_alloc_slots_;
+  mem_alloc_slots_ = nullptr;
 
-  for (auto& it : gralloc_buffers_) {
-    FreeGrallocBuffer(it.first);
+  for (auto& it : mem_alloc_buffers_) {
+    FreeHWMemBuffer(it.first);
   }
-  gralloc_buffers_.clear();
+  mem_alloc_buffers_.clear();
 
-  if (nullptr != gralloc_device_) {
-    gralloc_device_->common.close(&gralloc_device_->common);
+  if (nullptr != alloc_device_interface_) {
+    delete alloc_device_interface_;
   }
   QMMF_INFO("%s: Exit (%p)", __func__, this);
 }
 
-status_t GrallocMemory::Initialize() {
+status_t HWMemory::Initialize() {
 
   status_t ret = NO_ERROR;
-  hw_module_t const *module = nullptr;
 
-  if (nullptr != gralloc_device_) {
-    QMMF_WARN("%s: Gralloc allocator already created", __func__);
+  if (nullptr != alloc_device_interface_) {
+    QMMF_WARN("%s: Memory allocator already created", __func__);
     return ret;
   }
 
-  ret = hw_get_module(GRALLOC_HARDWARE_MODULE_ID, &module);
-  if ((NO_ERROR != ret) || (nullptr == module)) {
-    QMMF_ERROR("%s: Unable to load Gralloc module: %d", __func__, ret);
-    return ret;
-  }
-
-  ret = module->methods->open(module, GRALLOC_HARDWARE_GPU0,
-                              (struct hw_device_t **)&gralloc_device_);
-  if (NO_ERROR != ret) {
-    QMMF_ERROR("%s: Could not open Gralloc module: %s (%d)", __func__,
-        strerror(-ret), ret);
-    dlclose(module->dso);
-    return ret;
-  }
-
-  QMMF_INFO("%s: Gralloc Module author: %s, version: %d name: %s", __func__,
-      gralloc_device_->common.module->author,
-      gralloc_device_->common.module->hal_api_version,
-      gralloc_device_->common.module->name);
+  alloc_device_interface_ = AllocDeviceFactory::CreateAllocDevice();
 
   return ret;
 }
 
-status_t GrallocMemory::Configure(BufferParams &params) {
+status_t HWMemory::Configure(BufferParams &params) {
 
-  if (gralloc_device_ == nullptr) {
-    QMMF_ERROR("%s: Gralloc allocator not created", __func__);
+  if (alloc_device_interface_ == nullptr) {
+    QMMF_ERROR("%s: Memory allocator not created", __func__);
     return INVALID_OPERATION;
   }
 
-  delete[] gralloc_slots_;
-  gralloc_slots_ = nullptr;
+  delete[] mem_alloc_slots_;
+  mem_alloc_slots_ = nullptr;
 
-  for (auto& it : gralloc_buffers_) {
-    FreeGrallocBuffer(it.first);
+  for (auto& it : mem_alloc_buffers_) {
+    FreeHWMemBuffer(it.first);
   }
-  gralloc_buffers_.clear();
+  mem_alloc_buffers_.clear();
   buffers_allocated_ = 0;
 
   params_ = params;
 
-  gralloc_slots_ = new buffer_handle_t[params_.max_buffer_count];
-  if (nullptr == gralloc_slots_) {
+  mem_alloc_slots_ = new IBufferHandle[params_.max_buffer_count];
+  if (nullptr == mem_alloc_slots_) {
     QMMF_ERROR("%s: Unable to allocate buffer handles!\n", __func__);
     return NO_MEMORY;
   }
@@ -2307,7 +2279,7 @@ status_t GrallocMemory::Configure(BufferParams &params) {
   return NO_ERROR;
 }
 
-status_t GrallocMemory::GetBuffer(buffer_handle_t &buffer) {
+status_t HWMemory::GetBuffer(IBufferHandle &buffer) {
 
   std::unique_lock<std::mutex> lock(buffer_lock_);
   std::chrono::nanoseconds wait_time(kBufferWaitTimeout);
@@ -2331,7 +2303,7 @@ status_t GrallocMemory::GetBuffer(buffer_handle_t &buffer) {
   return NO_ERROR;
 }
 
-status_t GrallocMemory::ReturnBuffer(const buffer_handle_t &buffer) {
+status_t HWMemory::ReturnBuffer(const IBufferHandle &buffer) {
 
   std::lock_guard<std::mutex> lock(buffer_lock_);
   QMMF_DEBUG("%s: Buffer(%p) returned to memory pool", __func__, buffer);
@@ -2343,39 +2315,39 @@ status_t GrallocMemory::ReturnBuffer(const buffer_handle_t &buffer) {
   return ret;
 }
 
-status_t GrallocMemory::GetBufferLocked(buffer_handle_t &buffer) {
+status_t HWMemory::GetBufferLocked(IBufferHandle &buffer) {
 
   status_t ret = NO_ERROR;
   int32_t idx = -1;
-  buffer_handle_t handle = nullptr;
+  IBufferHandle handle = nullptr;
 
   //Only pre-allocate buffers in case no valid streamBuffer
   //is passed as an argument.
 
-  for (auto& buffer : gralloc_buffers_) {
+  for (auto& buffer : mem_alloc_buffers_) {
     if (buffer.second == true) {
       handle = buffer.first;
       buffer.second = false;
       break;
     }
   }
-  // Find the slot of the available gralloc buffer.
+  // Find the slot of the available buffer.
   if (nullptr != handle) {
     for (uint32_t i = 0; i < buffers_allocated_; ++i) {
-      if (gralloc_slots_[i] == handle) {
+      if (mem_alloc_slots_[i] == handle) {
         idx = i;
         break;
       }
     }
   } else if ((nullptr == handle) &&
              (buffers_allocated_ < params_.max_buffer_count)) {
-    ret = AllocGrallocBuffer(&handle);
+    ret = AllocHWMemBuffer(&handle);
     if (NO_ERROR != ret) {
       return ret;
     }
     idx = buffers_allocated_;
-    gralloc_slots_[idx] = handle;
-    gralloc_buffers_.emplace(gralloc_slots_[idx], false);
+    mem_alloc_slots_[idx] = handle;
+    mem_alloc_buffers_.emplace(mem_alloc_slots_[idx], false);
     ++buffers_allocated_;
   }
 
@@ -2384,71 +2356,69 @@ status_t GrallocMemory::GetBufferLocked(buffer_handle_t &buffer) {
     return INVALID_OPERATION;
   }
 
-  buffer = gralloc_slots_[idx];
+  buffer = mem_alloc_slots_[idx];
   ++pending_buffer_count_;
 
   return ret;
 }
 
 
-status_t GrallocMemory::ReturnBufferLocked(const buffer_handle_t &buffer) {
+status_t HWMemory::ReturnBufferLocked(const IBufferHandle &buffer) {
 
   if (pending_buffer_count_ == 0) {
     QMMF_ERROR("%s: Not expecting any buffers!", __func__);
     return INVALID_OPERATION;
   }
 
-  if (gralloc_buffers_.count(buffer) == 0) {
+  if (mem_alloc_buffers_.count(buffer) == 0) {
     QMMF_ERROR("%s: Buffer %p returned that wasn't allocated by this"
         " Memory Pool!", __func__, buffer);
     return BAD_VALUE;
   }
 
-  gralloc_buffers_[buffer] = true;
+  mem_alloc_buffers_[buffer] = true;
   --pending_buffer_count_;
 
   return NO_ERROR;
 }
 
-status_t GrallocMemory::PopulateMetaInfo(CameraBufferMetaData &info,
-                                             buffer_handle_t &buffer) {
-
-  if (nullptr == buffer) {
-    QMMF_ERROR("%s: Invalid buffer handle!\n", __func__);
-    return BAD_VALUE;
-  }
-
+status_t HWMemory::PopulateMetaInfo(CameraBufferMetaData &info,
+                                             IBufferHandle &handle) {
   {
     std::lock_guard<std::mutex> lock(buffer_lock_);
     bool is_valid_handle = false;
     for (uint32_t i = 0; i < buffers_allocated_; ++i) {
-      if (gralloc_slots_[i] == buffer) {
+      if (mem_alloc_slots_[i] == handle) {
         is_valid_handle = true;
         break;
       }
     }
     if (!is_valid_handle) {
-      QMMF_ERROR("%s: Buffer handle wasn't allocated by this Gralloc"
+      QMMF_ERROR("%s: Buffer handle wasn't allocated by this Memory allocator"
           " Memory Pool!", __func__);
       return BAD_VALUE;
     }
   }
 
-  struct private_handle_t *priv_handle = (struct private_handle_t *) buffer;
-
   int aligned_width, aligned_height;
-  gralloc_module_t const *mapper = reinterpret_cast<gralloc_module_t const *>(
-          gralloc_device_->common.module);
-  status_t ret = mapper->perform(
-      mapper,
-      GRALLOC_MODULE_PERFORM_GET_CUSTOM_STRIDE_AND_HEIGHT_FROM_HANDLE,
-      priv_handle, &aligned_width, &aligned_height);
-  if (0 != ret) {
-    QMMF_ERROR("%s: Unable to query stride&scanline: %d\n", __func__, ret);
-    return ret;
+
+  auto ret = alloc_device_interface_->Perform(handle,
+    IAllocDevice::AllocDeviceAction::GetStride,
+    static_cast<void *>(&aligned_width));
+  if (MemAllocError::kAllocOk != ret) {
+    QMMF_ERROR("%s: Unable to query Perform: %d\n", __func__, ret);
+    return BAD_VALUE;
   }
 
-  switch (priv_handle->format) {
+  ret = alloc_device_interface_->Perform(handle,
+    IAllocDevice::AllocDeviceAction::GetHeight,
+    static_cast<void *>(&aligned_height));
+  if (MemAllocError::kAllocOk != ret) {
+    QMMF_ERROR("%s: Unable to query Perform: %d\n", __func__, ret);
+    return BAD_VALUE;
+  }
+
+  switch (handle->GetFormat()) {
     case HAL_PIXEL_FORMAT_BLOB:
       info.format = BufferFormat::kBLOB;
       info.num_planes = 1;
@@ -2532,60 +2502,55 @@ status_t GrallocMemory::PopulateMetaInfo(CameraBufferMetaData &info,
       break;
     default:
       QMMF_ERROR("%s: Unsupported format: %d", __func__,
-          priv_handle->format);
+          handle->GetFormat());
       return NAME_NOT_FOUND;
   }
 
   return NO_ERROR;
 }
 
-status_t GrallocMemory::AllocGrallocBuffer(buffer_handle_t *buf) {
+status_t HWMemory::AllocHWMemBuffer(IBufferHandle *buf) {
 
-  if (gralloc_device_ == nullptr) {
-    QMMF_ERROR("%s: Gralloc allocator not created", __func__);
+  if (alloc_device_interface_ == nullptr) {
+    QMMF_ERROR("%s: Memory allocator not created", __func__);
     return INVALID_OPERATION;
   }
 
-  status_t ret      = NO_ERROR;
-  uint32_t width    = params_.width;
-  uint32_t height   = params_.height;
-  int32_t  format   = params_.format;
-  int32_t  usage    = params_.gralloc_flags;
-  uint32_t max_size = params_.max_size;
+  int32_t  format      = params_.format;
+  MemAllocFlags  usage = params_.alloc_flags;
+  uint32_t width       = params_.width;
+  uint32_t height      = params_.height;
 
-  // Filter out any usage bits that shouldn't be passed to the gralloc module.
-  usage &= GRALLOC_USAGE_ALLOC_MASK;
+  if (params_.max_size > 0) {
+    // Blob buffers are expected to get allocated with width equal to blob
+    // max size and height equal to 1.
+    width = params_.max_size;
+    height = 1;
+  }
 
   if (!width || !height) {
     width = height = 1;
   }
 
-  int stride = 0;
-  if (0 < max_size) {
-    // Blob buffers are expected to get allocated with width equal to blob
-    // max size and height equal to 1.
-    ret = gralloc_device_->alloc(gralloc_device_, static_cast<int>(max_size),
-                                 static_cast<int>(1), format,
-                                 static_cast<int>(usage), buf, &stride);
-  } else {
-    ret = gralloc_device_->alloc(gralloc_device_, static_cast<int>(width),
-                                 static_cast<int>(height), format,
-                                 static_cast<int>(usage), buf, &stride);
-  }
-  if (NO_ERROR != ret) {
-    QMMF_ERROR("%s: Failed to allocate gralloc buffer", __func__);
+  uint32_t stride = 0;
+  MemAllocError ret = alloc_device_interface_->AllocBuffer(*buf,
+                               width, height, format, usage, &stride);
+  if (MemAllocError::kAllocOk != ret) {
+    QMMF_ERROR("%s: Failed to allocate buffer", __func__);
+    return NO_MEMORY;
   }
 
-  return ret;
+  return NO_ERROR;
 }
 
-status_t GrallocMemory::FreeGrallocBuffer(buffer_handle_t buf) {
+status_t HWMemory::FreeHWMemBuffer(IBufferHandle buf) {
 
-  if (gralloc_device_ == nullptr) {
-    QMMF_ERROR("%s: Gralloc allocator not created", __func__);
+  if (alloc_device_interface_ == nullptr) {
+    QMMF_ERROR("%s: Memory allocator not created", __func__);
     return INVALID_OPERATION;
   }
-  return gralloc_device_->free(gralloc_device_, buf);
+  MemAllocError ret = alloc_device_interface_->FreeBuffer(buf);
+  return ret == MemAllocError::kAllocOk ? NO_ERROR : BAD_VALUE;
 }
 
 }; //namespace recorder.

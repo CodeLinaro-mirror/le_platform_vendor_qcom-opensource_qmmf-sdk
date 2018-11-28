@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -33,7 +33,7 @@
 #include <vector>
 #include <set>
 
-#include "qmmf-plugin/qmmf_alg_plugin.h"
+#include <qmmf-alg/qmmf_alg_plugin.h>
 
 #include "include/qmmf-sdk/qmmf_codec.h"
 
@@ -54,7 +54,7 @@ using namespace qmmf_alg_plugin;
  *    @scanline: Scanline in lines
  *    @frame_rate: Frame rate
  *    @format: QMMF image format
- *    @gralloc_flags: output buffers gralloc flags
+ *    @alloc_flags: output buffers alloc flags
  *    @buffer_count: output buffer count
  *
  *  This class defines module input and output parameters
@@ -66,7 +66,7 @@ struct PostProcIOParam {
   uint32_t     scanline;
   uint32_t     frame_rate;
   BufferFormat format;
-  int32_t      gralloc_flags;
+  MemAllocFlags alloc_flags;
   uint32_t     buffer_count;
   uint32_t     buffer_max;
   BufferFormat internal_format;

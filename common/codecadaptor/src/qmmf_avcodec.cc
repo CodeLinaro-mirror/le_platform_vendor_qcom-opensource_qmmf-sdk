@@ -48,11 +48,6 @@
 #include <QOMX_AudioExtensions.h>
 #include <QOMX_AudioIndexExtensions.h>
 #include <media/hardware/HardwareAPI.h>
-#ifndef TARGET_USES_GBM
-#include <qcom/display/gralloc_priv.h>
-#else
-#include <gbm_priv.h>
-#endif
 #include <math.h>
 #include <sys/prctl.h>
 
@@ -213,6 +208,21 @@ void AVCodec::SetVenusTurboConfig() {
     return;
   }
   QMMF_INFO("%s Encoder is set to turbo mode!!", __func__);
+}
+
+void AVCodec::SetRealTimePriorityConfig() {
+  OMX_PARAM_U32TYPE config;
+  int32_t priority = 0;
+  InitOMXParams(&config);
+  config.nU32 = static_cast<OMX_U32> (priority);
+  auto ret = omx_client_->SetConfig(
+      static_cast<OMX_INDEXTYPE> (OMX_IndexConfigPriority),
+      reinterpret_cast<OMX_PTR> (&config));
+  if (ret != 0) {
+    QMMF_ERROR("%s Failed to set video priority: %d", __func__, ret);
+    return;
+  }
+  QMMF_INFO("%s video priority is set to real-time", __func__);
 }
 
 status_t AVCodec::CreateHandle(char* component_name) {
@@ -2539,7 +2549,7 @@ void AVCodec::setPowerHint(){
   }
 }
 
-status_t AVCodec::StartCodec() {
+status_t AVCodec::StartCodec(bool enable_rt_priority) {
   QMMF_INFO("%s: Enter", __func__);
 
   status_t ret = 0;
@@ -2776,6 +2786,10 @@ status_t AVCodec::StartCodec() {
 
   if (format_type_ == CodecType::kVideoEncoder && enable_turbo_mode_) {
       SetVenusTurboConfig();
+  }
+
+  if (enable_rt_priority) {
+    SetRealTimePriorityConfig();
   }
 
   QMMF_INFO("%s current state(%s), pending state(%s)", __func__,
@@ -3236,6 +3250,30 @@ bool inline AVCodec::IsPortReconfig() {
   return bPortReconfig_;
 }
 
+status_t AVCodec::FlushCodec(uint32_t index) {
+  QMMF_INFO("%s: Enter", __func__);
+  status_t ret = 0;
+  if (format_type_ == CodecType::kVideoDecoder)
+    while (IsPortReconfig()) {
+      if(IsOutputPortStop()) {
+        return -EPERM;
+      }
+      usleep(kSleepPortReconfig);
+    }
+  api_count_++;
+
+  ret = Flush(index);
+  if (ret != OK) {
+    QMMF_ERROR("%s: Flush failed on port %s", __func__,
+        PORT_NAME(index));
+    api_count_--;
+    return ret;
+  }
+  api_count_--;
+  QMMF_INFO("%s: Exit", __func__);
+  return ret;
+}
+
 status_t AVCodec::Flush(uint32_t index) {
 
   QMMF_INFO("%s Enter", __func__);
@@ -3500,20 +3538,7 @@ OMX_BUFFERHEADERTYPE *AVCodec::GetInputBufferHdr(BufferDescriptor& buffer) {
     media_buffer->buffer_type =
         MetadataBufferType::kMetadataBufferTypeGrallocSource;
 
-    private_handle_t *handle = reinterpret_cast<private_handle_t *>(buffer.data);
-    QMMF_VERBOSE("%s fd = %d offset = %u size = %u width = %d height = %d "
-        "unaligned_width = %d unaligned_height = %d", __func__,
-        handle->fd, handle->offset, handle->size, handle->width, handle->height,
-        handle->unaligned_width, handle->unaligned_height);
-
-#ifdef TARGET_USES_GBM
-    media_buffer->meta_handle = reinterpret_cast<buffer_handle_t>(handle->bo);
-    QMMF_VERBOSE("%s: GBM PRIV_HANDLE(%p) BO(%p) FD(%d) Size(%d)",
-              __func__, handle, media_buffer->meta_handle, handle->fd,
-              handle->size);
-#else
     media_buffer->meta_handle = reinterpret_cast<buffer_handle_t>(buffer.data);
-#endif
 
     used_input_buffhdr_list_.PushBack(header);
     free_input_buffhdr_list_.Erase(free_input_buffhdr_list_.Begin());
@@ -4110,29 +4135,21 @@ OMX_ERRORTYPE AVCodec::OnEmptyBufferDone(
 
   //TODO: use pBuffer
   AVCodec *avcodec = (AVCodec *)app_data;
+  uint32_t flags = buf_header->nFlags;
   BufferDescriptor stream_buffer;
   memset(&stream_buffer, 0x0, sizeof stream_buffer);
+
   if (avcodec->format_type_ == CodecType::kVideoEncoder) {
     encoder_media_buffer_type* mediaBuffer =
         (encoder_media_buffer_type*)buf_header->pBuffer;
     assert(mediaBuffer->meta_handle != nullptr);
 
-#ifdef TARGET_USES_GBM
-    struct gbm_bo* bo = const_cast<struct gbm_bo*>(reinterpret_cast
-        <const struct gbm_bo*>(mediaBuffer->meta_handle));
-    stream_buffer.data = bo->user_data;
-    QMMF_VERBOSE("%s: GBM PRIV_HANDLE(%p) BO(%p) FD(%d) Size(%d)",
-              __func__, stream_buffer.data, bo, bo->ion_fd, bo->size);
-#else
     stream_buffer.data =
         const_cast<void*>(reinterpret_cast<const void*>
         (mediaBuffer->meta_handle));
-#endif
 
     avcodec->UpdateBufferHeaderList(buf_header);
 
-    QMMF_DEBUG("%s EBD fd(%d), ts(%lld)", __func__,
-        mediaBuffer->meta_handle->data[0], buf_header->nTimeStamp);
   } else if(avcodec->format_type_ == CodecType::kAudioEncoder) {
     assert(buf_header->pBuffer != nullptr);
     stream_buffer.data = buf_header->pBuffer;
@@ -4148,7 +4165,7 @@ OMX_ERRORTYPE AVCodec::OnEmptyBufferDone(
   }
 
   avcodec->getInputBufferSource()->ReturnBuffer(stream_buffer, nullptr);
-  if(buf_header->nFlags & OMX_BUFFERFLAG_EOS) {
+  if (flags & OMX_BUFFERFLAG_EOS) {
     QMMF_INFO("%s No more buffer to process on input port", __func__);
     CodecPortStatus status = CodecPortStatus::kPortIdle;
     avcodec->getInputBufferSource()->NotifyPortEvent(PortEventType::kPortStatus,

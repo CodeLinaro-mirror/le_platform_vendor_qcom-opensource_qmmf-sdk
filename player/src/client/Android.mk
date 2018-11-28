@@ -18,7 +18,7 @@ LOCAL_C_INCLUDES += $(TOP)/system/media/camera/include
 LOCAL_SRC_FILES := qmmf_player.cc
 LOCAL_SRC_FILES += qmmf_player_client.cc
 
-LOCAL_SHARED_LIBRARIES += libbinder
+LOCAL_SHARED_LIBRARIES += libbinder libqmmf_memory_interface
 
 LOCAL_MODULE = libqmmf_player_client
 
