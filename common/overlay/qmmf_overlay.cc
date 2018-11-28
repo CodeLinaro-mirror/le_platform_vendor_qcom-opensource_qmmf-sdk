@@ -674,8 +674,7 @@ void OverlayItem::ClearSurface() {
   cairo_surface_flush(cr_surface_);
   cairo_set_operator(cr_context_, CAIRO_OPERATOR_OVER);
   assert(CAIRO_STATUS_SUCCESS == cairo_status(cr_context_));
-  // After flush, atleast 5ms is required to avoid flickers.
-  usleep(5000);
+  cairo_surface_mark_dirty(cr_surface_);
 #endif
 }
 
@@ -1183,9 +1182,7 @@ int32_t OverlayItemDateAndTime::UpdateAndDraw() {
   assert(CAIRO_STATUS_SUCCESS == cairo_status(cr_context_));
 
   cairo_surface_flush(cr_surface_);
-  // After flush, atleast 5ms is required to avoid flickers.
-  usleep(5000);
-
+  cairo_surface_mark_dirty(cr_surface_);
 #elif USE_SKIA
 
 #ifndef DEBUG_BACKGROUND_SURFACE
