@@ -1,31 +1,31 @@
 /*
-* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
-*
-* Redistribution and use in source and binary forms, with or without
-* modification, are permitted provided that the following conditions are
-* met:
-*     * Redistributions of source code must retain the above copyright
-*       notice, this list of conditions and the following disclaimer.
-*     * Redistributions in binary form must reproduce the above
-*       copyright notice, this list of conditions and the following
-*       disclaimer in the documentation and/or other materials provided
-*       with the distribution.
-*     * Neither the name of The Linux Foundation nor the names of its
-*       contributors may be used to endorse or promote products derived
-*       from this software without specific prior written permission.
-*
-* THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
-* WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
-* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT
-* ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
-* BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-* CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-* SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
-* BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
-* WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
-* OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
-* IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-*/
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are
+ * met:
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials provided
+ *       with the distribution.
+ *     * Neither the name of The Linux Foundation nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
+ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
 
 #define LOG_TAG "PlatformBuffer"
 
@@ -43,13 +43,13 @@ namespace qmmf {
 namespace qmmf_alg_plugin {
 
 /** PlatformBuffer
-  *    @size: size of the requested buffer
-  *    @cached: flag indicating whether buffer is cached
-  *
-  * Constructs PlatformBuffer
-  *
-  * return: void
-  **/
+ *    @size: size of the requested buffer
+ *    @cached: flag indicating whether buffer is cached
+ *
+ * Constructs PlatformBuffer
+ *
+ * return: void
+ **/
 PlatformBuffer::PlatformBuffer(uint32_t size, bool cached)
     : addr_(static_cast<uint8_t*>(MAP_FAILED)),
       size_(size),
@@ -66,7 +66,9 @@ PlatformBuffer::PlatformBuffer(uint32_t size, bool cached)
   alloc.len = size;
   alloc.align = 0;
   alloc.heap_id_mask = 0x1 << ION_IOMMU_HEAP_ID;
-  alloc.flags = ION_FLAG_CACHED;
+  if (cached_) {
+    alloc.flags = ION_FLAG_CACHED;
+  }
 
   int32_t rc = ioctl(ion_fd_, ION_IOC_ALLOC, &alloc);
   if (rc < 0) {
@@ -92,11 +94,11 @@ PlatformBuffer::PlatformBuffer(uint32_t size, bool cached)
 }
 
 /** PlatformBuffer
-  *
-  * Destructs PlatformBuffer
-  *
-  * return: void
-  **/
+ *
+ * Destructs PlatformBuffer
+ *
+ * return: void
+ **/
 PlatformBuffer::~PlatformBuffer() {
   if (MAP_FAILED != addr_) {
     munmap(addr_, size_);
@@ -119,13 +121,13 @@ PlatformBuffer::~PlatformBuffer() {
 }
 
 /** New
-  *    @size: buffer size
-  *    @cached: flag indicating whether buffer is cached
-  *
-  * creates new instance of PlatformBuffer
-  *
-  * return: shared pointer of PlatformBuffer
-  **/
+ *    @size: buffer size
+ *    @cached: flag indicating whether buffer is cached
+ *
+ * creates new instance of PlatformBuffer
+ *
+ * return: shared pointer of PlatformBuffer
+ **/
 std::shared_ptr<PlatformBuffer> PlatformBuffer::New(uint32_t size,
                                                     bool cached) {
   std::shared_ptr<PlatformBuffer> new_handler(new PlatformBuffer(size, cached));
@@ -133,44 +135,44 @@ std::shared_ptr<PlatformBuffer> PlatformBuffer::New(uint32_t size,
 }
 
 /** GetAddr
-  *
-  * returns addres
-  *
-  * return: address
-  **/
+ *
+ * returns addres
+ *
+ * return: address
+ **/
 uint8_t* PlatformBuffer::GetAddr() const { return addr_; }
 
 /** GetFd
-  *
-  * returns fd
-  *
-  * return: fd
-  **/
+ *
+ * returns fd
+ *
+ * return: fd
+ **/
 int32_t PlatformBuffer::GetFd() const { return fd_; }
 
 /** CacheFlush
-  *
-  * flushes cache
-  *
-  * return: void
-  **/
+ *
+ * flushes cache
+ *
+ * return: void
+ **/
 void PlatformBuffer::CacheFlush() const { Cache(ION_IOC_CLEAN_CACHES); };
 
 /** CacheInvalidate
-  *
-  * flushes cache
-  *
-  * return: void
-  **/
+ *
+ * flushes cache
+ *
+ * return: void
+ **/
 void PlatformBuffer::CacheInalidate() const { Cache(ION_IOC_INV_CACHES); };
 
 /** Cache
-  *    @cmd: cache cmd
-  *
-  * aplies cache cmd
-  *
-  * return: void
-  **/
+ *    @cmd: cache cmd
+ *
+ * aplies cache cmd
+ *
+ * return: void
+ **/
 void PlatformBuffer::Cache(uint32_t cmd) const {
   if (cached_) {
     struct ion_flush_data cache_inv_data {};

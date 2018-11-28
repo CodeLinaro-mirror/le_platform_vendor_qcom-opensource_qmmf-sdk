@@ -1,0 +1,26 @@
+{
+  "Common": {
+    "iteration count": 12,
+    "tested library": "qmmf/alg-plugins/libqmmf_alg_res_conv_sub.so",
+    "configuration file": "res_conv_sub_configuration.json",
+    "calibration file": "",
+    "input buffers": [
+      {
+        "width": 1920,
+        "height": 1440,
+        "stride": 1920,
+        "scanline": 1472,
+        "pixel format": "Nv21"
+      }
+    ],
+    "output buffers": [
+      {
+        "width": 278,
+        "height": 278,
+        "stride": 3336,
+        "scanline": 278,
+        "pixel format": "BgrFloat"
+      }
+    ]
+  }
+}
