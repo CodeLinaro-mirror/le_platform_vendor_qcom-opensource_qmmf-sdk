@@ -1601,6 +1601,7 @@ TEST_F(RecorderImageGTest, 10MPSnapshotWithEdgeSmooth) {
 
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
   ASSERT_TRUE(ret == NO_ERROR);
+  meta_array.push_back(meta);
 
   bool res_supported = false;
   // Check Supported JPEG snapshot resolutions.
@@ -1653,7 +1654,6 @@ TEST_F(RecorderImageGTest, 10MPSnapshotWithEdgeSmooth) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    meta_array.push_back(meta);
     ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array, cb);
     ASSERT_TRUE(ret == NO_ERROR);
     // Take snapshot after every 5 sec.
@@ -1761,6 +1761,7 @@ TEST_F(RecorderImageGTest, 10MPSnapshotWithLCAC) {
 
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
   ASSERT_TRUE(ret == NO_ERROR);
+  meta_array.push_back(meta);
 
   bool res_supported = false;
   // Check Supported JPEG snapshot resolutions.
@@ -1813,7 +1814,6 @@ TEST_F(RecorderImageGTest, 10MPSnapshotWithLCAC) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    meta_array.push_back(meta);
     ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array, cb);
     ASSERT_TRUE(ret == NO_ERROR);
     sleep(5);
@@ -1921,6 +1921,7 @@ TEST_F(RecorderImageGTest, 10MPSnapshotWithLCACandEdgeSmooth) {
 
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
   ASSERT_TRUE(ret == NO_ERROR);
+  meta_array.push_back(meta);
 
   bool res_supported = false;
   // Check Supported JPEG snapshot resolutions.
@@ -1985,7 +1986,6 @@ TEST_F(RecorderImageGTest, 10MPSnapshotWithLCACandEdgeSmooth) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    meta_array.push_back(meta);
     ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array, cb);
     ASSERT_TRUE(ret == NO_ERROR);
     sleep(5);
@@ -4253,6 +4253,7 @@ TEST_F(RecorderImageGTest, MaxSnapshotThumb) {
   uint8_t intent = ANDROID_CONTROL_CAPTURE_INTENT_PREVIEW;
   ret = meta.update(ANDROID_CONTROL_CAPTURE_INTENT, &intent, 1);
   ASSERT_TRUE(ret == NO_ERROR);
+  meta_array.push_back(meta);
 
   fprintf(stderr,"Capturing %dx%d JPEG with %dx%d thumbnail\n",
       image_param.width, image_param.height, thumb_size[0], thumb_size[1]);
@@ -4266,8 +4267,6 @@ TEST_F(RecorderImageGTest, MaxSnapshotThumb) {
                                 MetaData meta_data) -> void
         { SnapshotCb(camera_id, image_count, buffer, meta_data); };
 
-
-    meta_array.push_back(meta);
     ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array,
                                  cb);
     ASSERT_TRUE(ret == NO_ERROR);
@@ -4318,6 +4317,7 @@ TEST_F(RecorderImageGTest, 1080pRawYUVSnapshot) {
 
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
   ASSERT_TRUE(ret == NO_ERROR);
+  meta_array.push_back(meta);
 
   bool res_supported = false;
   // Check Supported Raw YUV snapshot resolutions.
@@ -4348,7 +4348,6 @@ TEST_F(RecorderImageGTest, 1080pRawYUVSnapshot) {
                                 MetaData meta_data) -> void
         { SnapshotCb(camera_id, image_count, buffer, meta_data); };
 
-    meta_array.push_back(meta);
     ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array,
                                  cb);
     ASSERT_TRUE(ret == NO_ERROR);
