@@ -1,0 +1,17 @@
+QMMF SDK comes with inline code documentation and workflow diagrams.
+This documentation provides the QTI Multimedia Framework (QMMF)
+software development kit (SDK) user guide and API reference guide.
+
+
+To generate this documentation follow the steps.
+
+1. Install doxygen (if you don't have it already)
+sudo apt-get install doxygen
+
+2. Run
+doxygen doxy_qmmf_conf
+in docs/Doxygen
+
+3. This will generate additional directory
+doxygen with html folder in it. Inside the folder
+open index.html and you are ready.

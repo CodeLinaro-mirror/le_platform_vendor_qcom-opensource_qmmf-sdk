@@ -1,0 +1,11 @@
+/*!
+
+@page Code_Examples_Player Player
+
+This tutorial demonstrates how to build a C++ sample application that can execute QMMF Recorder.
+
+__Note__: While this sample code does not do any error checking, it is strongly recommended that users check for errors when using the QMMF APIs.
+
+\n
+
+*/
