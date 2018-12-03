@@ -1,0 +1,21 @@
+/*!
+
+
+@page Overview Overview
+
+[TOC]
+
+__Purpose__
+
+This document provides the QTI&trade; Multimedia Framework (QMMF) software development kit (SDK) user guide and API reference guide.
+
+__Capabilities__
+
+The QTI&trade; Multimedia Framework (QMMF) SDK
+abstracts the low-level interface with camera, video, audio, and display and provides a higher, usecase-level
+interface for IOT application developers
+
+
+- @subpage Recorder
+
+*/
