@@ -71,15 +71,18 @@ PostProcAlg::PostProcAlg(std::string lib)
   pass_through_ = (0 == atoi(prop_val)) ? false : true;
 
   try {
-    algo_caps_ = algo_->GetCaps();
+    QmmfAlgGetCapabilites GetCapsFunc;
+    Utils::LoadLibHandler(lib_handle_, QMMF_ALG_GET_CAPS_FUNC, GetCapsFunc);
+    algo_caps_ = *GetCapsFunc();
   } catch (const std::exception &e) {
     QMMF_ERROR("%s: Error getting capabilities, exception: %s", __func__,
         e.what());
     throw e;
   }
 
-  QMMF_INFO("%s: name: %s version: %f location: %s", __func__,
-      algo_caps_.plugin_name_.c_str(), algo_caps_.lib_version_ , Lib_.c_str());
+  QMMF_INFO("%s: name: %s version: %s location: %s", __func__,
+            algo_caps_.plugin_name_.c_str(), algo_caps_.lib_version_.c_str(),
+            Lib_.c_str());
 }
 
 PostProcAlg::~PostProcAlg() {
@@ -348,7 +351,8 @@ status_t PostProcAlg::Process(
       return BAD_VALUE;
     }
 
-    assert(in_alg_buffers.size() == algo_caps_.out_buffer_requirements_.count_);
+    assert(in_alg_buffers.size() ==
+           algo_caps_.out_buffer_requirements_.count_);
     if (dump_in_frame_ == true) {
       for (auto buf : in_alg_buffers) {
         DumpFrame(buf, true);

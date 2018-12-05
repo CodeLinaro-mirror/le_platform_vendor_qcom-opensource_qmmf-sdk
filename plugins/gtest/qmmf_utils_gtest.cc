@@ -330,7 +330,7 @@ TEST_F(QmmfAlgoUtilsGtest, DllManipulation) {
                      lib_handle);
 
       QmmfAlgLoadPlugin LoadPluginFunc;
-      Utils::LoadLibHandler(lib_handle, "QmmfAlgoNew", LoadPluginFunc);
+      Utils::LoadLibHandler(lib_handle, QMMF_ALG_LIB_LOAD_FUNC, LoadPluginFunc);
 
     } catch (const std::exception& e) {
       Utils::UnloadLib(lib_handle);
