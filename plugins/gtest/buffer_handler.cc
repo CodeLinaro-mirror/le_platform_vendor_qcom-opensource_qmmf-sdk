@@ -31,6 +31,7 @@
 
 #include <chrono>
 #include <cmath>
+#include <utils/Log.h>
 
 #include <qmmf-alg/qmmf_alg_utils.h>
 #include "buffer_handler.h"

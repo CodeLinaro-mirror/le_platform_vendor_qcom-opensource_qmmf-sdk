@@ -32,6 +32,7 @@
 #include <fcntl.h>
 #include <linux/msm_ion.h>
 #include <sys/ioctl.h>
+#include <unistd.h>
 #include <sys/mman.h>
 #include <cstring>
 

@@ -59,7 +59,7 @@ PostProcAlg::PostProcAlg(std::string lib)
     QmmfAlgLoadPlugin LoadPluginFunc;
     Utils::LoadLibHandler(lib_handle_, QMMF_ALG_LIB_LOAD_FUNC, LoadPluginFunc);
     std::vector<uint8_t> calibration_data;
-    algo_ = LoadPluginFunc(calibration_data);
+    algo_ = LoadPluginFunc(calibration_data, *this);
   } catch (const std::exception &e) {
     QMMF_ERROR("%s: Error loading: %s exception: %s", __func__,
         Lib_.c_str(), e.what());
