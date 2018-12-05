@@ -2048,7 +2048,7 @@ TEST_F(RecorderImageGTest, LowResVideo10MPSnapshotWithLCACandEdgeSmoothContinuou
   ASSERT_TRUE(ret == NO_ERROR);
 
   if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo = { VideoFormat::kAVC, 1, session_id, 640, 480 };
+    StreamDumpInfo dumpinfo = { VideoFormat::kAVC, session_id, 1, 640, 480 };
     ret = dump_bitstream_.SetUp(dumpinfo);
     ASSERT_TRUE(ret == NO_ERROR);
   }
@@ -2251,7 +2251,7 @@ TEST_F(RecorderImageGTest, LowResVideo10MPContinuousSnapshotWithLCAC) {
   ASSERT_TRUE(ret == NO_ERROR);
 
   if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo = { VideoFormat::kAVC, 1, session_id, 640, 480 };
+    StreamDumpInfo dumpinfo = { VideoFormat::kAVC, session_id, 1, 640, 480 };
     ret = dump_bitstream_.SetUp(dumpinfo);
     ASSERT_TRUE(ret == NO_ERROR);
   }
@@ -2409,7 +2409,7 @@ TEST_F(RecorderImageGTest, LowResVideo10MPContinuousSnapshotWithLCACandEdgeSmoot
   ASSERT_TRUE(ret == NO_ERROR);
 
   if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo = { VideoFormat::kAVC, 1, session_id, 640, 480 };
+    StreamDumpInfo dumpinfo = { VideoFormat::kAVC, session_id, 1, 640, 480 };
     ret = dump_bitstream_.SetUp(dumpinfo);
     ASSERT_TRUE(ret == NO_ERROR);
   }

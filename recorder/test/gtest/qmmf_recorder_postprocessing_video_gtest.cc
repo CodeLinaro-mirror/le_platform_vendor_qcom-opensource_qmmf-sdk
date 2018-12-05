@@ -98,7 +98,7 @@ TEST_F(RecorderPostprocessVideoGTest, HFRModeSwitch) {
                                             width, height, 30};
     uint32_t video_track_id = 1;
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = { format_type, video_track_id, session_id,
+      StreamDumpInfo dumpinfo = { format_type, session_id, video_track_id,
                                   width, height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
@@ -256,7 +256,7 @@ TEST_F(RecorderPostprocessVideoGTest, SessionWith4KEncWithLCACYUV) {
     uint32_t video_track_id = 1;
 
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = { format_type, video_track_id, session_id,
+      StreamDumpInfo dumpinfo = { format_type, session_id, video_track_id,
                                   width, height};
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
@@ -369,7 +369,7 @@ TEST_F(RecorderPostprocessVideoGTest, SessionWith4KEnc1080pYUVSwTnrTrack) {
                                             height, 30};
     uint32_t video_track_id_4k = 1;
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = { format_type, video_track_id_4k, session_id,
+      StreamDumpInfo dumpinfo = { format_type, session_id, video_track_id_4k,
                                   width, height};
       ret = dump_bitstream_.SetUp(dumpinfo);
       assert(ret == NO_ERROR);
@@ -529,7 +529,7 @@ TEST_F(RecorderPostprocessVideoGTest, SessionWith4KEncWithLCACYUVEIS) {
     uint32_t video_track_id = 1;
 
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = { format_type, video_track_id, session_id,
+      StreamDumpInfo dumpinfo = { format_type, session_id, video_track_id,
                                   width, height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
@@ -649,7 +649,7 @@ TEST_F(RecorderPostprocessVideoGTest, SessionWith4KHazeBusterEncTrack) {
                                             width, height, 30};
     uint32_t video_track_id = 1;
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = { format_type, video_track_id, session_id,
+      StreamDumpInfo dumpinfo = { format_type, session_id, video_track_id,
                                   width, height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
@@ -774,7 +774,7 @@ TEST_F(RecorderPostprocessVideoGTest, SessionWith4KEnc1080pYUVHazeBusterTrack) {
                                             width, height, 30};
     uint32_t video_track_id_4k = 1;
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = { format_type, video_track_id_4k, session_id,
+      StreamDumpInfo dumpinfo = { format_type, session_id, video_track_id_4k,
                                   width, height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
@@ -934,7 +934,7 @@ TEST_F(RecorderPostprocessVideoGTest, SessionWith1440EncWithEISAndLCACEnable) {
     uint32_t video_track_id = 1;
 
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = { format_type, video_track_id, session_id,
+      StreamDumpInfo dumpinfo = { format_type, session_id, video_track_id,
                                   width, height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
@@ -1081,8 +1081,8 @@ TEST_F(RecorderPostprocessVideoGTest, SessionWith1440pEnc480pEnc480pDisplayTrack
     height = 1440;
 
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = { VideoFormat::kAVC, session1_video_trackid,
-                                  session_id1, width, height };
+      StreamDumpInfo dumpinfo = { VideoFormat::kAVC, session_id1,
+                                  session1_video_trackid, width, height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -1141,8 +1141,8 @@ TEST_F(RecorderPostprocessVideoGTest, SessionWith1440pEnc480pEnc480pDisplayTrack
     video_track_param.format_type = VideoFormat::kAVC;
 
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = { VideoFormat::kAVC, session2_video_trackid,
-                                  session_id2, width, height };
+      StreamDumpInfo dumpinfo = { VideoFormat::kAVC, session_id2,
+                                  session2_video_trackid, width, height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -1509,8 +1509,8 @@ TEST_F(RecorderPostprocessVideoGTest, SessionWith4kEnc480pEnc480pDisplayTrack4FP
     height = 2160;
 
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = { VideoFormat::kAVC, session1_video_trackid,
-                                  session_id1, width, height };
+      StreamDumpInfo dumpinfo = { VideoFormat::kAVC, session_id1,
+                                  session1_video_trackid, width, height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -1569,8 +1569,8 @@ TEST_F(RecorderPostprocessVideoGTest, SessionWith4kEnc480pEnc480pDisplayTrack4FP
     video_track_param.format_type = VideoFormat::kAVC;
 
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = { VideoFormat::kAVC, session2_video_trackid,
-                                  session_id2, width, height };
+      StreamDumpInfo dumpinfo = { VideoFormat::kAVC, session_id2,
+                                  session2_video_trackid, width, height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -1916,13 +1916,13 @@ TEST_F(RecorderPostprocessVideoGTest,
   uint32_t width = 3840;
   uint32_t height = 2160;
   if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo1 = { VideoFormat::kAVC, video_track_id_4kp_avc,
-                                 session_id, width, height};
+    StreamDumpInfo dumpinfo1 = { VideoFormat::kAVC, session_id,
+                                 video_track_id_4kp_avc, width, height};
     ret = dump_bitstream_.SetUp(dumpinfo1);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    StreamDumpInfo dumpinfo2 = { VideoFormat::kAVC, video_track_id_480p_avc,
-                                 session_id, 848, 480 };
+    StreamDumpInfo dumpinfo2 = { VideoFormat::kAVC, session_id,
+                                 video_track_id_480p_avc, 848, 480 };
     ret = dump_bitstream_.SetUp(dumpinfo2);
     ASSERT_TRUE(ret == NO_ERROR);
   }
@@ -2096,13 +2096,13 @@ TEST_F(RecorderPostprocessVideoGTest,
   ASSERT_TRUE(ret == NO_ERROR);
 
   if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo1 = { VideoFormat::kAVC, video_track_id_4kp_avc,
-                                 session_id, width, height};
+    StreamDumpInfo dumpinfo1 = { VideoFormat::kAVC, session_id,
+                                 video_track_id_4kp_avc, width, height};
     ret = dump_bitstream_.SetUp(dumpinfo1);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    StreamDumpInfo dumpinfo2 = { VideoFormat::kAVC, video_track_id_480p_avc,
-                                  session_id, 848, 480};
+    StreamDumpInfo dumpinfo2 = { VideoFormat::kAVC, session_id,
+                                  video_track_id_480p_avc, 848, 480};
     ret = dump_bitstream_.SetUp(dumpinfo2);
     ASSERT_TRUE(ret == NO_ERROR);
   }
@@ -2282,13 +2282,13 @@ TEST_F(RecorderPostprocessVideoGTest,
   uint32_t height = 2160;
 
   if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo1 = {VideoFormat::kAVC, video_track_id_4kp_avc,
-                                session_id, width, height};
+    StreamDumpInfo dumpinfo1 = {VideoFormat::kAVC, session_id,
+                                video_track_id_4kp_avc, width, height};
     ret = dump_bitstream_.SetUp(dumpinfo1);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    StreamDumpInfo dumpinfo2 = {VideoFormat::kAVC, video_track_id_480p_avc,
-                                session_id, 848, 480};
+    StreamDumpInfo dumpinfo2 = {VideoFormat::kAVC, session_id,
+                                video_track_id_480p_avc, 848, 480};
     ret = dump_bitstream_.SetUp(dumpinfo2);
     ASSERT_TRUE(ret == NO_ERROR);
   }
@@ -2471,13 +2471,13 @@ TEST_F(RecorderPostprocessVideoGTest,
     uint32_t width = 1920;
     uint32_t height = 1440;
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo1 = { VideoFormat::kAVC, video_track_id_1440p_avc,
-                                   session_id, width, height };
+      StreamDumpInfo dumpinfo1 = { VideoFormat::kAVC, session_id,
+                                   video_track_id_1440p_avc, width, height };
       ret = dump_bitstream_.SetUp(dumpinfo1);
       ASSERT_TRUE(ret == NO_ERROR);
 
-      StreamDumpInfo dumpinfo2 = { VideoFormat::kAVC, video_track_id_480p_avc,
-                                   session_id, 640, 480};
+      StreamDumpInfo dumpinfo2 = { VideoFormat::kAVC, session_id,
+                                   video_track_id_480p_avc, 640, 480};
       ret = dump_bitstream_.SetUp(dumpinfo2);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -2665,13 +2665,13 @@ TEST_F(RecorderPostprocessVideoGTest,
     uint32_t width = 1920;
     uint32_t height = 1440;
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo1 = { VideoFormat::kAVC, video_track_id_1440p_avc,
-                                   session_id, width, height};
+      StreamDumpInfo dumpinfo1 = { VideoFormat::kAVC, session_id,
+                                   video_track_id_1440p_avc, width, height};
       ret = dump_bitstream_.SetUp(dumpinfo1);
       ASSERT_TRUE(ret == NO_ERROR);
 
-      StreamDumpInfo dumpinfo2 = { VideoFormat::kAVC, video_track_id_480p_avc,
-                                   session_id, 640, 480};
+      StreamDumpInfo dumpinfo2 = { VideoFormat::kAVC, session_id,
+                                   video_track_id_480p_avc, 640, 480};
       ret = dump_bitstream_.SetUp(dumpinfo2);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -2851,13 +2851,13 @@ TEST_F(RecorderPostprocessVideoGTest,
     uint32_t width = 1920;
     uint32_t height = 1440;
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo1 = { VideoFormat::kAVC, video_track_id_1440p_avc,
-                                   session_id, width, height};
+      StreamDumpInfo dumpinfo1 = { VideoFormat::kAVC, session_id,
+                                   video_track_id_1440p_avc, width, height};
       ret = dump_bitstream_.SetUp(dumpinfo1);
       ASSERT_TRUE(ret == NO_ERROR);
 
-      StreamDumpInfo dumpinfo2 = { VideoFormat::kAVC, video_track_id_480p_avc,
-                                   session_id, 640, 480};
+      StreamDumpInfo dumpinfo2 = { VideoFormat::kAVC, session_id,
+                                   video_track_id_480p_avc, 640, 480};
       ret = dump_bitstream_.SetUp(dumpinfo2);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -3029,13 +3029,13 @@ TEST_F(RecorderPostprocessVideoGTest,
     uint32_t width = 1920;
     uint32_t height = 1440;
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo1 = { VideoFormat::kAVC, video_track_id_1440p_avc,
-                                   session_id, width, height};
+      StreamDumpInfo dumpinfo1 = { VideoFormat::kAVC, session_id,
+                                   video_track_id_1440p_avc, width, height};
       ret = dump_bitstream_.SetUp(dumpinfo1);
       ASSERT_TRUE(ret == NO_ERROR);
 
-      StreamDumpInfo dumpinfo2 = { VideoFormat::kAVC, video_track_id_480p_avc,
-                                   session_id, 640, 480};
+      StreamDumpInfo dumpinfo2 = { VideoFormat::kAVC, session_id,
+                                   video_track_id_480p_avc, 640, 480};
       ret = dump_bitstream_.SetUp(dumpinfo2);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -3192,8 +3192,8 @@ TEST_F(RecorderPostprocessVideoGTest, SessionWith1440p60FPSEncEIS) {
     uint32_t width = 1920;
     uint32_t height = 1440;
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo1 = { VideoFormat::kAVC, video_track_id_1440p_avc,
-                                   session_id, width, height };
+      StreamDumpInfo dumpinfo1 = { VideoFormat::kAVC, session_id,
+                                   video_track_id_1440p_avc, width, height };
       ret = dump_bitstream_.SetUp(dumpinfo1);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -3306,8 +3306,8 @@ TEST_F(RecorderPostprocessVideoGTest, SessionWith1440p60FPSEncEISLCAC) {
     uint32_t width = 1920;
     uint32_t height = 1440;
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo1 = { VideoFormat::kAVC, video_track_id_1440p_avc,
-                                   session_id, width, height };
+      StreamDumpInfo dumpinfo1 = { VideoFormat::kAVC, session_id,
+                                   video_track_id_1440p_avc, width, height };
       ret = dump_bitstream_.SetUp(dumpinfo1);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -3428,8 +3428,8 @@ TEST_F(RecorderPostprocessVideoGTest, SessionWith1440p60FPSEncEISLCACTNR) {
     uint32_t width = 1920;
     uint32_t height = 1440;
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo1 = { VideoFormat::kAVC, video_track_id_1440p_avc,
-                                   session_id, width, height};
+      StreamDumpInfo dumpinfo1 = { VideoFormat::kAVC, session_id,
+                                   video_track_id_1440p_avc, width, height};
       ret = dump_bitstream_.SetUp(dumpinfo1);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -3553,8 +3553,8 @@ TEST_F(RecorderPostprocessVideoGTest, SessionWith1440p60FPSSmoothZoom) {
     uint32_t track_width = 1920;
     uint32_t track_height = 1440;
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo1 = { VideoFormat::kAVC, video_track_id_1440p_avc,
-                                   session_id, track_width, track_height };
+      StreamDumpInfo dumpinfo1 = { VideoFormat::kAVC, session_id,
+                          video_track_id_1440p_avc, track_width, track_height};
       ret = dump_bitstream_.SetUp(dumpinfo1);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -3976,13 +3976,13 @@ TEST_F(RecorderPostprocessVideoGTest,
     uint32_t width = 1920;
     uint32_t height = 1440;
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo1 = {VideoFormat::kAVC, video_track_id_1440p_avc,
-                                  session_id, width, height};
+      StreamDumpInfo dumpinfo1 = {VideoFormat::kAVC, session_id,
+                                  video_track_id_1440p_avc, width, height};
       ret = dump_bitstream_.SetUp(dumpinfo1);
       ASSERT_TRUE(ret == NO_ERROR);
 
-      StreamDumpInfo dumpinfo2 = {VideoFormat::kAVC, video_track_id_480p_avc,
-                                  session_id, 640, 480};
+      StreamDumpInfo dumpinfo2 = {VideoFormat::kAVC, session_id,
+                                  video_track_id_480p_avc, 640, 480};
       ret = dump_bitstream_.SetUp(dumpinfo2);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -4186,13 +4186,13 @@ TEST_F(RecorderPostprocessVideoGTest,
     ASSERT_TRUE(ret == NO_ERROR);
 
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo1 = { VideoFormat::kAVC, video_track_id_960p_avc,
-                                   session_id, width, height };
+      StreamDumpInfo dumpinfo1 = { VideoFormat::kAVC, session_id,
+                                 video_track_id_960p_avc, width, height };
       ret = dump_bitstream_.SetUp(dumpinfo1);
       ASSERT_TRUE(ret == NO_ERROR);
 
-      StreamDumpInfo dumpinfo2 = { VideoFormat::kAVC, video_track_id_480p_avc,
-                                   session_id, 640, 480 };
+      StreamDumpInfo dumpinfo2 = { VideoFormat::kAVC, session_id,
+                                 video_track_id_480p_avc, 640, 480 };
       ret = dump_bitstream_.SetUp(dumpinfo2);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -4390,13 +4390,13 @@ TEST_F(RecorderPostprocessVideoGTest,
   uint32_t width = 3840;
   uint32_t height = 2160;
   if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo1 = {VideoFormat::kAVC, video_track_id_4kp_avc,
-                                session_id, width, height};
+    StreamDumpInfo dumpinfo1 = {VideoFormat::kAVC, session_id,
+                                video_track_id_4kp_avc, width, height};
     ret = dump_bitstream_.SetUp(dumpinfo1);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    StreamDumpInfo dumpinfo2 = {VideoFormat::kAVC, video_track_id_480p_avc,
-                                session_id, 848, 480};
+    StreamDumpInfo dumpinfo2 = {VideoFormat::kAVC, session_id,
+                                video_track_id_480p_avc, 848, 480};
     ret = dump_bitstream_.SetUp(dumpinfo2);
     ASSERT_TRUE(ret == NO_ERROR);
   }
@@ -4598,13 +4598,13 @@ TEST_F(RecorderPostprocessVideoGTest,
     uint32_t width = 1920;
     uint32_t height = 1440;
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo1 = {VideoFormat::kAVC, video_track_id_1440p_avc,
-                                  session_id, width, height};
+      StreamDumpInfo dumpinfo1 = {VideoFormat::kAVC, session_id,
+                                  video_track_id_1440p_avc, width, height};
       ret = dump_bitstream_.SetUp(dumpinfo1);
       ASSERT_TRUE(ret == NO_ERROR);
 
-      StreamDumpInfo dumpinfo2 = {VideoFormat::kAVC, video_track_id_480p_avc,
-                                  session_id, 640, 480};
+      StreamDumpInfo dumpinfo2 = {VideoFormat::kAVC, session_id,
+                                  video_track_id_480p_avc, 640, 480};
       ret = dump_bitstream_.SetUp(dumpinfo2);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -4809,13 +4809,13 @@ TEST_F(RecorderPostprocessVideoGTest,
     uint32_t width = 1920;
     uint32_t height = 1440;
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo1 = {VideoFormat::kAVC, video_track_id_1440p_avc,
-                                  session_id, width, height};
+      StreamDumpInfo dumpinfo1 = {VideoFormat::kAVC, session_id,
+                                  video_track_id_1440p_avc, width, height};
       ret = dump_bitstream_.SetUp(dumpinfo1);
       ASSERT_TRUE(ret == NO_ERROR);
 
-      StreamDumpInfo dumpinfo2 = {VideoFormat::kAVC, video_track_id_480p_avc,
-                                  session_id, 640, 480};
+      StreamDumpInfo dumpinfo2 = {VideoFormat::kAVC, session_id,
+                                  video_track_id_480p_avc, 640, 480};
       ret = dump_bitstream_.SetUp(dumpinfo2);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -5011,8 +5011,8 @@ TEST_F(RecorderPostprocessVideoGTest, SessionWithDualCam4KEncAllISOModes) {
 
     uint32_t video_track_id = 1;
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = { video_track_param.format_type, video_track_id,
-                                  session_id, stream_width, stream_height };
+      StreamDumpInfo dumpinfo = { video_track_param.format_type, session_id,
+                                  video_track_id, stream_width, stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -5150,8 +5150,8 @@ TEST_F(RecorderPostprocessVideoGTest, SessionWithDualCam4KEncExposureTime) {
 
     uint32_t video_track_id = 1;
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = { video_track_param.format_type, video_track_id,
-                                  session_id, stream_width, stream_height };
+      StreamDumpInfo dumpinfo = { video_track_param.format_type, session_id,
+                                  video_track_id, stream_width, stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -5308,8 +5308,8 @@ TEST_F(RecorderPostprocessVideoGTest, SessionWithDualCam4KEncAllAWBModes) {
 
     uint32_t video_track_id = 1;
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = { video_track_param.format_type, video_track_id,
-                                  session_id, stream_width, stream_height };
+      StreamDumpInfo dumpinfo = { video_track_param.format_type, session_id,
+                                  video_track_id, stream_width, stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -5418,13 +5418,13 @@ TEST_F(RecorderPostprocessVideoGTest, SessionWithDualCam4kEncCopy1080EncAndLinke
     ASSERT_TRUE(ret == NO_ERROR);
 
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo1 = { VideoFormat::kAVC, video_track_id_4k_avc,
-                                   session_id, 4096, 2048 };
+      StreamDumpInfo dumpinfo1 = { VideoFormat::kAVC, session_id,
+                                  video_track_id_4k_avc, 4096, 2048 };
       ret = dump_bitstream_.SetUp(dumpinfo1);
       ASSERT_TRUE(ret == NO_ERROR);
 
-      StreamDumpInfo dumpinfo2 = { VideoFormat::kAVC, video_track_id_1080p_avc,
-                                   session_id, 2160, 1080 };
+      StreamDumpInfo dumpinfo2 = { VideoFormat::kAVC, session_id,
+                                 video_track_id_1080p_avc, 2160, 1080 };
       ret = dump_bitstream_.SetUp(dumpinfo2);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -5579,13 +5579,13 @@ TEST_F(RecorderPostprocessVideoGTest, SessionWithDualCam4kEncCopy1080EncAndLinke
     ASSERT_TRUE(ret == NO_ERROR);
 
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo1 = { VideoFormat::kAVC, video_track_id_4k_avc,
-                                   session_id, 4096, 2048 };
+      StreamDumpInfo dumpinfo1 = { VideoFormat::kAVC, session_id,
+                                  video_track_id_4k_avc, 4096, 2048 };
       ret = dump_bitstream_.SetUp(dumpinfo1);
       ASSERT_TRUE(ret == NO_ERROR);
 
-      StreamDumpInfo dumpinfo2 = { VideoFormat::kAVC, video_track_id_1080p_avc,
-                                   session_id, 2160, 1080 };
+      StreamDumpInfo dumpinfo2 = { VideoFormat::kAVC, session_id,
+                                 video_track_id_1080p_avc, 2160, 1080 };
       ret = dump_bitstream_.SetUp(dumpinfo2);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -6278,7 +6278,7 @@ TEST_F(RecorderPostprocessVideoGTest, SessionsWith4KEncTrackZZHDR) {
   extra_param.Update(QMMF_VIDEO_HDR_MODE, vid_hdr_mode);
 
   if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo = { format_type, video_track_id, session_id,
+    StreamDumpInfo dumpinfo = { format_type, session_id, video_track_id,
                                 width, height };
     ret = dump_bitstream_.SetUp(dumpinfo);
     ASSERT_TRUE(ret == NO_ERROR);
@@ -6386,13 +6386,13 @@ TEST_F(RecorderPostprocessVideoGTest, SessionWithDualCam4k30Enc1080p30EncAndLink
     ASSERT_TRUE(ret == NO_ERROR);
 
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo1 = { VideoFormat::kAVC, video_track_id_4k_avc,
-                                   session_id, 4096, 2048 };
+      StreamDumpInfo dumpinfo1 = { VideoFormat::kAVC, session_id,
+                                  video_track_id_4k_avc, 4096, 2048 };
       ret = dump_bitstream_.SetUp(dumpinfo1);
       ASSERT_TRUE(ret == NO_ERROR);
 
-      StreamDumpInfo dumpinfo2 = { VideoFormat::kAVC, video_track_id_1080p_avc,
-                                   session_id, 2160, 1080 };
+      StreamDumpInfo dumpinfo2 = { VideoFormat::kAVC, session_id,
+                                  video_track_id_1080p_avc, 2160, 1080 };
       ret = dump_bitstream_.SetUp(dumpinfo2);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -6759,13 +6759,13 @@ TEST_F(RecorderPostprocessVideoGTest,
     ASSERT_TRUE(ret == NO_ERROR);
 
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo1 = { VideoFormat::kAVC, video_track_id_5_7k_avc,
-                                   session_id, 5760, 2880 };
+      StreamDumpInfo dumpinfo1 = { VideoFormat::kAVC, session_id,
+                                   video_track_id_5_7k_avc, 5760, 2880 };
       ret = dump_bitstream_.SetUp(dumpinfo1);
       ASSERT_TRUE(ret == NO_ERROR);
 
-      StreamDumpInfo dumpinfo2 = { VideoFormat::kAVC, video_track_id_1080p_avc,
-                                   session_id, 2160, 1080 };
+      StreamDumpInfo dumpinfo2 = { VideoFormat::kAVC, session_id,
+                                   video_track_id_1080p_avc, 2160, 1080 };
       ret = dump_bitstream_.SetUp(dumpinfo2);
       ASSERT_TRUE(ret == NO_ERROR);
     }
