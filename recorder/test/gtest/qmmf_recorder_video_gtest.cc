@@ -4289,6 +4289,11 @@ TEST_F(VideoGtest, SessionWith4KAnd1080pYUVTrackStartStop) {
 
   video_track_param.width  = 1920;
   video_track_param.height = 1080;
+
+  if (ubwc_stream_enable_) {
+    video_track_param.low_power_mode = true;
+  }
+
   ret = recorder_.CreateVideoTrack(session_id, track2_id,
                                     video_track_param, video_track_cb);
   ASSERT_TRUE(ret == NO_ERROR);
