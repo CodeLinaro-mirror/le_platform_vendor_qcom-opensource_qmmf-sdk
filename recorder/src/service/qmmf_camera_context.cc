@@ -2434,13 +2434,14 @@ status_t CameraPort::Init() {
   property_get("persist.qmmf.ubwcstream.enable", prop, "0");
   bool is_ubwc_stream_enabled = atoi(prop);
   if (!is_ubwc_stream_enabled) {
-    cam_stream_params_.allocFlags =
+    cam_stream_params_.allocFlags.flags =
         IMemAllocUsage::kSwReadOften | IMemAllocUsage::kSwWriteOften;
   } else if (!params_.low_power_mode) {
-    cam_stream_params_.allocFlags = IMemAllocUsage::kPrivateAllocUbwc;
+    cam_stream_params_.allocFlags.flags = IMemAllocUsage::kPrivateAllocUbwc;
   }
 
-  cam_stream_params_.rotation     = static_cast<camera3_stream_rotation_t> (params_.rotation);
+  cam_stream_params_.rotation =
+      static_cast<camera3_stream_rotation_t> (params_.rotation);
   bool is_lpm_use_preview = false;
   memset(prop, 0, sizeof(prop));
   property_get("persist.camera.lpm.preview", prop, "0");
@@ -2456,7 +2457,6 @@ status_t CameraPort::Init() {
     }
   } else {
     cam_stream_params_.allocFlags.flags |= IMemAllocUsage::kVideoEncoder;
-
     cam_stream_params_.bufferCount = VIDEO_STREAM_BUFFER_COUNT +
         GetExtraBufferCount();
   }
@@ -2510,8 +2510,9 @@ status_t CameraPort::Init() {
   }
   port_state_ = PortState::PORT_CREATED;
 
-  QMMF_INFO("%s: Camera Device Stream(%d) is created Succussfully!",
-      __func__, camera_stream_id_);
+  QMMF_INFO("%s: Camera Device Stream(%d) is created Succussfully with"
+            "flag(0x%x) and format(0x%x)!", __func__, camera_stream_id_,
+            cam_stream_params_.allocFlags.flags, cam_stream_params_.format);
   QMMF_INFO("%s: track_id(0%x) is mapped to camera stream_id(%d)",
       __func__, params_.id, camera_stream_id_);
   return NO_ERROR;
