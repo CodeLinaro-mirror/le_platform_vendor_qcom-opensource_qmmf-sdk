@@ -39,6 +39,110 @@ ___
 __Buffer flow for Capture and YUV__
 @image html /Images/Buffers_flow_capture_YUV_Diagram.png width=600px
 
+___
+
+__Buffer flow for PCM Audio__
+@startuml
+
+skinparam ArrowColor blue
+hide footbox
+
+title PCM Audio Buffer Flow
+
+participant Client as c #green
+participant Recorder as r
+participant RecorderClient as rc
+participant RecorderService as rs
+participant RecorderImpl as ri
+participant AudioRawTrackSource as arts
+participant AudioEndPoint as aep
+participant AudioService as as
+participant AudioHAL as ahal
+participant Microphone as mic #green
+
+note over arts
+  Buffer
+  Allocation
+end note
+arts -> aep : AudioEndPoint::SendBuffers()
+aep -> as
+as -> ahal
+mic -> ahal
+ahal -> as
+as -> aep
+aep -> arts : AudioRawTrackSource::BufferHandler()
+arts -> ri  : RecorderImpl::AudioTrackBufferCb()
+ri -> rc    : RecorderClient::NotifyAudioTrackData()
+rc -> c     : <client_callback>()
+[<- c
+[-> c
+c -> r      : Recorder::ReturnTrackBuffer()
+r -> rc     : RecorderClient::ReturnTrackBuffer()
+rc -> rs    : RecorderService::ReturnTrackBuffer()
+rs -> ri    : RecorderImpl::ReturnTrackBuffer()
+ri -> arts  : AudioRawTrackSource::ReturnTrackBuffer()
+
+@enduml
+
+___
+
+__Buffer flow for Encoded Audio__
+@startuml
+
+skinparam ArrowColor blue
+hide footbox
+
+title Encoded Audio Buffer Flow
+
+participant Client as c #green
+participant Recorder as r
+participant RecorderClient as rc
+participant RecorderService as rs
+participant RecorderImpl as ri
+participant AudioEncoderCore as aec
+participant AudioTrackEncoder as ate
+box #LightBlue
+participant AVCodec as avco <<Output Port>>
+participant AVCodec as avci <<Input Port>>
+end box
+participant AudioEncodedTrackSource as aets
+participant AudioEndPoint as aep
+participant AudioService as as
+participant AudioHAL as ahal
+participant Microphone as mic #green
+
+note over aets
+  Buffer
+  Allocation
+end note
+aets -> aep  : AudioEndPoint::SendBuffers()
+aep -> as
+as -> ahal
+mic -> ahal
+ahal -> as
+as -> aep
+aep -> aets  : AudioEncodedTrackSource::BufferHandler()
+aets -> avci : AudioTrackEncoder::GetBuffer()
+avci -> aets : AudioTrackEncoder::ReturnBuffer()
+note over ate
+  Buffer
+  Allocation
+end note
+ate -> avco  : AudioTrackEncoder::GetBuffer()
+avco -> ate  : AudioTrackEncoder::ReturnBuffer()
+ate -> ri    : RecorderImpl::AudioTrackBufferCb()
+ri -> rc     : RecorderClient::NotifyAudioTrackData()
+rc -> c      : <client_callback>()
+[<- c
+[-> c
+c -> r     : Recorder::ReturnTrackBuffer()
+r -> rc    : RecorderClient::ReturnTrackBuffer()
+rc -> rs   : RecorderService::ReturnTrackBuffer()
+rs -> ri   : RecorderImpl::ReturnTrackBuffer()
+ri -> aec  : AudioEncoderCore::ReturnTrackBuffer()
+aec -> ate : AudioTrackEncoder::OnBufferReturnFromClient()
+
+@enduml
 
 ___
 

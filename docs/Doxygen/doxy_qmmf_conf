@@ -32,7 +32,7 @@ DOXYFILE_ENCODING      = UTF-8
 # title of most generated pages and in a few other places.
 # The default value is: My Project.
 
-PROJECT_NAME           = Qmmf-sdk
+PROJECT_NAME           = "Qmmf SDK"
 
 # The PROJECT_NUMBER tag can be used to enter a project or revision number. This
 # could be handy for archiving the generated documentation or if some version
@@ -796,7 +796,8 @@ INPUT                  = . ../../include/qmmf-sdk \
           ../../recorder/src/service/qmmf_camera_source.h \
           ../../recorder/src/service/post-process/pipe/qmmf_postproc_pipe.h \
           ../../recorder/src/service/post-process/interface/qmmf_postproc.h \
-          ../../recorder/src/service/qmmf_camera_interface.h
+          ../../recorder/src/service/qmmf_camera_interface.h \
+          ../../recorder ../../plugins
 
 # This tag can be used to specify the character encoding of the source files
 # that doxygen parses. Internally doxygen uses the UTF-8 encoding. Doxygen uses
@@ -2374,7 +2375,7 @@ DIAFILE_DIRS           =
 # generate a warning when it encounters a \startuml command in this case and
 # will not generate output for the diagram.
 
-PLANTUML_JAR_PATH      = .
+PLANTUML_JAR_PATH      =
 
 # When using plantuml, the PLANTUML_CFG_FILE tag can be used to specify a
 # configuration file for plantuml.

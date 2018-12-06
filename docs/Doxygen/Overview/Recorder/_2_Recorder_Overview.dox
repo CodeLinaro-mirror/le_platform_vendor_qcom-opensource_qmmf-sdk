@@ -34,7 +34,7 @@
 __Recorder__ :
 
 Following are the major features supported by QMMF-SDK Recorder:
-- Video and audio recording
+- Video and audio recording, both raw and encoded formats
 - Supports linked video tracks
 - JPEG, RAW and YUV snapshots
 - Support for custom client plugins
@@ -80,8 +80,6 @@ for (auto const& plugin_info : supported_plugins) {
 \endcode
 
 See @ref example_rec_10MPSnapshotWithLCAC and @ref example_rec_ContinuousSnapshotWithBayer for reference.
-
-
 
 ____
 */

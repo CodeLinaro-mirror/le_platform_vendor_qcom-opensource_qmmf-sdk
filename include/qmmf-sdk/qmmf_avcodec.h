@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -40,21 +40,45 @@
 namespace qmmf {
 namespace avcodec {
 
-/// @brief ICodecSource interface called on input and output port of AVCodec
-///
-/// Methods of ICodecSource are implemented by the client and AVCodec calls
-/// these methods on input and ouput ports on a separate thread.
-/// In case of input port, GetBuffer method should return a filled buffer to
-/// be processed by AVCodec.
-/// In case of output port, ReturnBuffer will return a codec-processed buffer
-/// to client.
+/*! @brief Interface of the input and output ports of AVCodec.
+ *
+ *  Methods are implemented by the client and AVCodec calls these methods from
+ *  the input and output ports, each on a separate thread.
+ */
 class ICodecSource {
  public:
+
+  //! Destructor
   virtual ~ICodecSource() {};
+  
+  /*! @brief Callback method meant to send a buffer to AVCodec.
+   *
+   *  @param [out] buffer_descriptor For an input port, a filled buffer needs to
+   *                                 be returned.  For an output port, an empty
+   *                                 buffer needs to be returned.
+   *  @param [in] client_data Pointer to client-private data.
+   *  @returns Status indicating success or failure.
+   */
   virtual status_t GetBuffer(BufferDescriptor& buffer_descriptor,
                              void* client_data) = 0;
+  
+  /*! @brief Callback method meant to receive a buffer from AVCodec.
+   *
+   *  @param [in] buffer_descriptor For an input port, an empty buffer is 
+   *                                returned.  For an output port, an filled
+   *                                buffer is returned.
+   *  @param [in] client_data Pointer to client-private data.
+   *  @returns Status indicating success or failure.
+   */
   virtual status_t ReturnBuffer(BufferDescriptor& buffer_descriptor,
                                 void* client_data) = 0;
+  
+  /*! @brief Callback method meant to receive port events from AVCodec.
+   *
+   *  @param [in] event_type Indicates the type of port event that occurred.
+   *  @param [in] event_data Pointer to type-specific details of the event.
+   *  @returns Status indicating success or failure.
+   */
   virtual status_t NotifyPortEvent(PortEventType event_type,
                                    void* event_data) = 0;
 };
