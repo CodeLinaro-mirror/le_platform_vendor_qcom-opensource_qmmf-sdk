@@ -7,16 +7,6 @@ include $(QMMF_SDK_TOP_SRCDIR)/build.mk
 
 ifneq (,$(BUILD_QMMMF))
 
-include $(CLEAR_VARS)
-
-LOCAL_COPY_HEADERS_TO := qmmf-sdk
-LOCAL_COPY_HEADERS := ../include/qmmf-plugin/qmmf_alg_plugin.h
-LOCAL_COPY_HEADERS += ../include/qmmf-plugin/qmmf_alg_types.h
-LOCAL_COPY_HEADERS += ../include/qmmf-plugin/qmmf_alg_utils.h
-LOCAL_COPY_HEADERS += ../include/qmmf-plugin/qmmf_alg_intf.h
-
-include $(BUILD_COPY_HEADERS)
-
 # Build qmmf test outplace algorithm library
 
 include $(CLEAR_VARS)
@@ -131,5 +121,149 @@ LOCAL_VENDOR_MODULE := false
 endif
 
 include $(BUILD_NATIVE_TEST)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := qmmf_algo_gtest_bayer_lcac.json
+LOCAL_MODULE_CLASS := EXECUTABLES
+LOCAL_MODULE_PATH := $(TARGET_OUT_DATA)/misc/qmmf/
+LOCAL_SRC_FILES := test_cases/$(LOCAL_MODULE)
+LOCAL_MODULE_OWNER := qti
+include $(BUILD_PREBUILT)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := qmmf_algo_gtest_binning_correction.json
+LOCAL_MODULE_CLASS := EXECUTABLES
+LOCAL_MODULE_PATH := $(TARGET_OUT_DATA)/misc/qmmf/
+LOCAL_SRC_FILES := test_cases/$(LOCAL_MODULE)
+LOCAL_MODULE_OWNER := qti
+include $(BUILD_PREBUILT)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := qmmf_algo_gtest_bit_blit.json
+LOCAL_MODULE_CLASS := EXECUTABLES
+LOCAL_MODULE_PATH := $(TARGET_OUT_DATA)/misc/qmmf/
+LOCAL_SRC_FILES := test_cases/$(LOCAL_MODULE)
+LOCAL_MODULE_OWNER := qti
+include $(BUILD_PREBUILT)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := qmmf_algo_gtest_edge_smooth.json
+LOCAL_MODULE_CLASS := EXECUTABLES
+LOCAL_MODULE_PATH := $(TARGET_OUT_DATA)/misc/qmmf/
+LOCAL_SRC_FILES := test_cases/$(LOCAL_MODULE)
+LOCAL_MODULE_OWNER := qti
+include $(BUILD_PREBUILT)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := qmmf_algo_gtest_inplace_history.json
+LOCAL_MODULE_CLASS := EXECUTABLES
+LOCAL_MODULE_PATH := $(TARGET_OUT_DATA)/misc/qmmf/
+LOCAL_SRC_FILES := test_cases/$(LOCAL_MODULE)
+LOCAL_MODULE_OWNER := qti
+include $(BUILD_PREBUILT)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := qmmf_algo_gtest_inplace.json
+LOCAL_MODULE_CLASS := EXECUTABLES
+LOCAL_MODULE_PATH := $(TARGET_OUT_DATA)/misc/qmmf/
+LOCAL_SRC_FILES := test_cases/$(LOCAL_MODULE)
+LOCAL_MODULE_OWNER := qti
+include $(BUILD_PREBUILT)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := qmmf_algo_gtest_outplace_history.json
+LOCAL_MODULE_CLASS := EXECUTABLES
+LOCAL_MODULE_PATH := $(TARGET_OUT_DATA)/misc/qmmf/
+LOCAL_SRC_FILES := test_cases/$(LOCAL_MODULE)
+LOCAL_MODULE_OWNER := qti
+include $(BUILD_PREBUILT)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := qmmf_algo_gtest_outplace.json
+LOCAL_MODULE_CLASS := EXECUTABLES
+LOCAL_MODULE_PATH := $(TARGET_OUT_DATA)/misc/qmmf/
+LOCAL_SRC_FILES := test_cases/$(LOCAL_MODULE)
+LOCAL_MODULE_OWNER := qti
+include $(BUILD_PREBUILT)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := qmmf_algo_gtest_privacy_mask.json
+LOCAL_MODULE_CLASS := EXECUTABLES
+LOCAL_MODULE_PATH := $(TARGET_OUT_DATA)/misc/qmmf/
+LOCAL_SRC_FILES := test_cases/$(LOCAL_MODULE)
+LOCAL_MODULE_OWNER := qti
+include $(BUILD_PREBUILT)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := qmmf_algo_gtest_res_conv_sub.json
+LOCAL_MODULE_CLASS := EXECUTABLES
+LOCAL_MODULE_PATH := $(TARGET_OUT_DATA)/misc/qmmf/
+LOCAL_SRC_FILES := test_cases/$(LOCAL_MODULE)
+LOCAL_MODULE_OWNER := qti
+include $(BUILD_PREBUILT)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := qmmf_algo_gtest_svhdr.json
+LOCAL_MODULE_CLASS := EXECUTABLES
+LOCAL_MODULE_PATH := $(TARGET_OUT_DATA)/misc/qmmf/
+LOCAL_SRC_FILES := test_cases/$(LOCAL_MODULE)
+LOCAL_MODULE_OWNER := qti
+include $(BUILD_PREBUILT)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := qmmf_algo_gtest_yuv_cac.json
+LOCAL_MODULE_CLASS := EXECUTABLES
+LOCAL_MODULE_PATH := $(TARGET_OUT_DATA)/misc/qmmf/
+LOCAL_SRC_FILES := test_cases/$(LOCAL_MODULE)
+LOCAL_MODULE_OWNER := qti
+include $(BUILD_PREBUILT)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := bayer_lcac_calibration.json
+LOCAL_MODULE_CLASS := EXECUTABLES
+LOCAL_MODULE_PATH := $(TARGET_OUT_DATA)/misc/qmmf/
+LOCAL_SRC_FILES := test_cases/calibration/$(LOCAL_MODULE)
+LOCAL_MODULE_OWNER := qti
+include $(BUILD_PREBUILT)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := binning_correction_calibration.json
+LOCAL_MODULE_CLASS := EXECUTABLES
+LOCAL_MODULE_PATH := $(TARGET_OUT_DATA)/misc/qmmf/
+LOCAL_SRC_FILES := test_cases/calibration/$(LOCAL_MODULE)
+LOCAL_MODULE_OWNER := qti
+include $(BUILD_PREBUILT)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := bit_blit_configuration.json
+LOCAL_MODULE_CLASS := EXECUTABLES
+LOCAL_MODULE_PATH := $(TARGET_OUT_DATA)/misc/qmmf/
+LOCAL_SRC_FILES := test_cases/calibration/$(LOCAL_MODULE)
+LOCAL_MODULE_OWNER := qti
+include $(BUILD_PREBUILT)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := privacy_mask_configuration.json
+LOCAL_MODULE_CLASS := EXECUTABLES
+LOCAL_MODULE_PATH := $(TARGET_OUT_DATA)/misc/qmmf/
+LOCAL_SRC_FILES := test_cases/calibration/$(LOCAL_MODULE)
+LOCAL_MODULE_OWNER := qti
+include $(BUILD_PREBUILT)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := res_conv_sub_configuration.json
+LOCAL_MODULE_CLASS := EXECUTABLES
+LOCAL_MODULE_PATH := $(TARGET_OUT_DATA)/misc/qmmf/
+LOCAL_SRC_FILES := test_cases/calibration/$(LOCAL_MODULE)
+LOCAL_MODULE_OWNER := qti
+include $(BUILD_PREBUILT)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := yuv_cac_calibration_nv21.json
+LOCAL_MODULE_CLASS := EXECUTABLES
+LOCAL_MODULE_PATH := $(TARGET_OUT_DATA)/misc/qmmf/
+LOCAL_SRC_FILES := test_cases/calibration/$(LOCAL_MODULE)
+LOCAL_MODULE_OWNER := qti
+include $(BUILD_PREBUILT)
 
 endif # BUILD_QMMMF

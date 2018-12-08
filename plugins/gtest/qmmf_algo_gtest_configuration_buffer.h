@@ -34,7 +34,7 @@
 #include <memory>
 #include <string>
 
-#include "qmmf-plugin/qmmf_alg_types.h"
+#include <qmmf-alg/qmmf_alg_types.h>
 
 namespace qmmf {
 namespace qmmf_alg_plugin {

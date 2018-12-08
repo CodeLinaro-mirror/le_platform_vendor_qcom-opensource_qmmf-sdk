@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016, 2018, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -27,6 +27,9 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/*! @file qmmf_device.h
+*/
+
 #pragma once
 
 #include <iomanip>
@@ -41,6 +44,7 @@
 namespace qmmf {
 
 // basic types of audio and video devices
+/// basic types of audio and video devices
 enum class DeviceType {
   kVideoIn,
   kVideoOut,
@@ -49,6 +53,7 @@ enum class DeviceType {
 };
 
 // specific subtypes of video input devices
+/// specific subtypes of video input devices
 enum class VideoInSubtype {
   kNone = 0,
   kCamera,
@@ -56,6 +61,7 @@ enum class VideoInSubtype {
 };
 
 // specific subtypes of video output devices
+/// specific subtypes of video output devices
 enum class VideoOutSubtype {
   kNone = 0,
   kLCD,
@@ -64,6 +70,7 @@ enum class VideoOutSubtype {
 };
 
 // specific subtypes of audio input devices
+/// specific subtypes of audio input devices
 enum class AudioInSubtype {
   kNone = 0,
   kBuiltIn,
@@ -77,6 +84,7 @@ enum class AudioInSubtype {
 };
 
 // specific subtypes of audio output devices
+/// specific subtypes of audio output devices
 enum class AudioOutSubtype {
   kNone = 0,
   kBuiltIn,
@@ -90,6 +98,7 @@ enum class AudioOutSubtype {
 };
 
 // handle to a specific device
+/// handle to a specific device
 typedef int32_t DeviceId;
 
 // TODO(kwestfie@codeaurora.org): remove when system is handling devices
@@ -147,6 +156,7 @@ union DeviceSubType {
 };
 
 // describes a particular device
+/// describes a particular device
 struct DeviceInfo {
   DeviceType type;
   DeviceSubType subtype;
@@ -165,7 +175,7 @@ struct DeviceInfo {
 
 struct Dimension {
   // represented by width then height
-  ::std::pair<int32_t, int32_t> dimension;
+  ::std::pair<int32_t, int32_t> dimension; /// represented by width then height
 
   ::std::string ToString() const {
     ::std::stringstream stream;

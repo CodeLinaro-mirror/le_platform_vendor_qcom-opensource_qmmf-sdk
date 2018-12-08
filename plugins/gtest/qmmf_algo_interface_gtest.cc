@@ -1,31 +1,31 @@
 /*
-* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
-*
-* Redistribution and use in source and binary forms, with or without
-* modification, are permitted provided that the following conditions are
-* met:
-*     * Redistributions of source code must retain the above copyright
-*       notice, this list of conditions and the following disclaimer.
-*     * Redistributions in binary form must reproduce the above
-*       copyright notice, this list of conditions and the following
-*       disclaimer in the documentation and/or other materials provided
-*       with the distribution.
-*     * Neither the name of The Linux Foundation nor the names of its
-*       contributors may be used to endorse or promote products derived
-*       from this software without specific prior written permission.
-*
-* THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
-* WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
-* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT
-* ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
-* BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-* CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-* SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
-* BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
-* WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
-* OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
-* IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-*/
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are
+ * met:
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials provided
+ *       with the distribution.
+ *     * Neither the name of The Linux Foundation nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
+ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
 
 #define LOG_TAG "QmmfAlgoInterfaceGtest"
 
@@ -37,11 +37,14 @@
 #include <mutex>
 #include <sstream>
 #include <thread>
+#include <utils/Log.h>
 
 #include <gtest/gtest.h>
 
-#include "qmmf-plugin/qmmf_alg_plugin.h"
-#include "qmmf-plugin/qmmf_alg_utils.h"
+#include <qmmf-alg/qmmf_alg_plugin.h>
+#include <qmmf-alg/qmmf_alg_utils.h>
+
+#include "common/utils/qmmf_tools.h"
 
 #include "buffer_handler.h"
 #include "heap_tracker.h"
@@ -372,7 +375,7 @@ class QmmfAlgoEventListener : public IEventListener {
  * Qmmf algorithm test
  *
  **/
-class QmmfAlgoInterfaceGtest : public ::testing::Test {
+class QmmfAlgoInterfaceGtest : public ::testing::Test, public QmmfAlgoTools {
  public:
   QmmfAlgoInterfaceGtest()
       : test_info_(nullptr),
@@ -380,28 +383,29 @@ class QmmfAlgoInterfaceGtest : public ::testing::Test {
         algo_(nullptr),
         test_suite_(QmmfAlgoGtestTestSuite::New(app_test_suite_file_,
                                                 app_test_content_file_)),
-        configuration_(nullptr) {}
+        configuration_(nullptr),
+        get_caps_func_(nullptr) {}
 
   ~QmmfAlgoInterfaceGtest() { Deinit(); }
 
   /** UpdateTestSuiteFile
-  *    @test_suite_file: application test suite file
-  *
-  * Updates test suite file
-  *
-  * return: void
-  **/
+   *    @test_suite_file: application test suite file
+   *
+   * Updates test suite file
+   *
+   * return: void
+   **/
   static void UpdateTestSuiteFile(std::string &test_suite_file) {
     app_test_suite_file_ = test_suite_file;
   };
 
   /** UpdateTestContentFile
-  *    @test_content_file: application test content file
-  *
-  * Updates test content file
-  *
-  * return: void
-  **/
+   *    @test_content_file: application test content file
+   *
+   * Updates test content file
+   *
+   * return: void
+   **/
   static void UpdateTestContentFile(std::string &test_content_file) {
     app_test_content_file_ = test_content_file;
   };
@@ -418,30 +422,32 @@ class QmmfAlgoInterfaceGtest : public ::testing::Test {
   std::shared_ptr<QmmfAlgoGtestTestSuite> test_suite_;
   std::shared_ptr<QmmfAlgoGtestConfiguration> configuration_;
 
+  QmmfAlgGetCapabilites get_caps_func_;
+
   /** SetUp
-  *
-  * Gtest setup
-  *
-  * return: void
-  **/
+   *
+   * Gtest setup
+   *
+   * return: void
+   **/
   void SetUp() override {
     test_info_ = ::testing::UnitTest::GetInstance()->current_test_info();
   };
 
   /** SetUp
-  *
-  * Gtest tear down
-  *
-  * return: void
-  **/
+   *
+   * Gtest tear down
+   *
+   * return: void
+   **/
   void TearDown() override{};
 
   /** Init
-  *
-  * Initialize current test
-  *
-  * return: void
-  **/
+   *
+   * Initialize current test
+   *
+   * return: void
+   **/
   void Init() {
     try {
       auto alg_lib_folder = Utils::GetLibFolder();
@@ -449,9 +455,12 @@ class QmmfAlgoInterfaceGtest : public ::testing::Test {
                      lib_handle_);
 
       QmmfAlgLoadPlugin LoadPluginFunc;
-      Utils::LoadLibHandler(lib_handle_, "QmmfAlgoNew", LoadPluginFunc);
+      Utils::LoadLibHandler(lib_handle_, QMMF_ALG_LIB_LOAD_FUNC,
+                            LoadPluginFunc);
 
-      algo_ = LoadPluginFunc(configuration_->calibration_data_);
+      Utils::LoadLibHandler(lib_handle_, QMMF_ALG_GET_CAPS_FUNC, get_caps_func_);
+
+      algo_ = LoadPluginFunc(configuration_->calibration_data_, *this);
     } catch (const std::exception &e) {
       Deinit();
       Utils::ThrowException(__func__, e.what());
@@ -459,11 +468,11 @@ class QmmfAlgoInterfaceGtest : public ::testing::Test {
   }
 
   /** Deinit
-  *
-  * Deinitialize current test
-  *
-  * return: void
-  **/
+   *
+   * Deinitialize current test
+   *
+   * return: void
+   **/
   void Deinit() {
     if (nullptr != algo_) {
       delete algo_;
@@ -474,11 +483,11 @@ class QmmfAlgoInterfaceGtest : public ::testing::Test {
   }
 
   /** GetNumThreads
-  *
-  * Show current number of enable threads
-  *
-  * return: number of threads
-  **/
+   *
+   * Show current number of enable threads
+   *
+   * return: number of threads
+   **/
   uint32_t GetNumThreads() {
     std::ifstream f("/proc/self/status");
     std::string str((std::istreambuf_iterator<char>(f)),
@@ -492,11 +501,11 @@ class QmmfAlgoInterfaceGtest : public ::testing::Test {
   }
 
   /** GetIonBuffers
-  *
-  * Show current number of ION buffers
-  *
-  * return: number of ION buffers
-  **/
+   *
+   * Show current number of ION buffers
+   *
+   * return: number of ION buffers
+   **/
   uint32_t GetIonBuffers() {
     std::ifstream f("/sys/kernel/debug/ion/heaps/system");
     std::string str = std::string((std::istreambuf_iterator<char>(f)),
@@ -514,30 +523,29 @@ class QmmfAlgoInterfaceGtest : public ::testing::Test {
   }
 
   /** GetMemoryUsage
-  *
-  * Show current memory usage
-  *
-  * return: memory usage
-  **/
+   *
+   * Show current memory usage
+   *
+   * return: memory usage
+   **/
   uint32_t GetMemoryUsage() { return heap_tracker_get_total_allocations(); }
 
   /** InvokeAlgo
-  *    @tested_library: tested library
-  *    @check_for_leaks: check for leaks
-  *
-  * Invokes algo
-  *
-  * return: void
-  **/
+   *    @tested_library: tested library
+   *    @check_for_leaks: check for leaks
+   *
+   * Invokes algo
+   *
+   * return: void
+   **/
   void InvokeAlgo(std::string tested_library, bool check_for_leaks) {
     auto InitThreadStart = GetNumThreads();
     auto InitIONStart = GetIonBuffers();
     auto InitMemStart = GetMemoryUsage();
-
     {
       Init();
 
-      const auto caps = algo_->GetCaps();
+      const auto caps = get_caps_func_();
 
       algo_->Configure(configuration_->configuration_data_);
 
@@ -545,23 +553,23 @@ class QmmfAlgoInterfaceGtest : public ::testing::Test {
       std::vector<AlgBuffer> output_buffers;
 
       auto input_buffer_handlers = BufferHandler::New(
-          caps.in_buffer_requirements_, configuration_->input_buffers_);
+          caps->in_buffer_requirements_, configuration_->input_buffers_);
       auto output_buffer_handlers = BufferHandler::New(
-          caps.out_buffer_requirements_, configuration_->output_buffers_);
+          caps->out_buffer_requirements_, configuration_->output_buffers_);
 
       for (auto &b : input_buffer_handlers) {
         b->ReadInputFile();
       }
 
-      QmmfAlgoEventListener l(caps.inplace_processing_, input_buffer_handlers,
+      QmmfAlgoEventListener l(caps->inplace_processing_, input_buffer_handlers,
                               output_buffer_handlers, algo_);
       algo_->SetCallbacks(&l);
 
       // Open cl driver creates callback on first invocation. So wait one
       //    process iteration to avoid false positive test failures
       if (check_for_leaks) {
-        l.GetIdleBuffers(caps.in_buffer_requirements_.count_, input_buffers,
-                         caps.out_buffer_requirements_.count_, output_buffers,
+        l.GetIdleBuffers(caps->in_buffer_requirements_.count_, input_buffers,
+                         caps->out_buffer_requirements_.count_, output_buffers,
                          configuration_, kOneFrameProcessTimeout);
 
         algo_->RegisterInputBuffers(input_buffers);
@@ -572,16 +580,16 @@ class QmmfAlgoInterfaceGtest : public ::testing::Test {
         l.Wait(kOneFrameProcessTimeout);
       }
 
-      l.GetIdleBuffers(caps.in_buffer_requirements_.count_, input_buffers,
-                       caps.out_buffer_requirements_.count_, output_buffers,
+      l.GetIdleBuffers(caps->in_buffer_requirements_.count_, input_buffers,
+                       caps->out_buffer_requirements_.count_, output_buffers,
                        configuration_, kOneFrameProcessTimeout);
-
-      algo_->RegisterInputBuffers(input_buffers);
-      algo_->RegisterOutputBuffers(output_buffers);
 
       auto ProcessThreadStart = GetNumThreads();
       auto ProcessIONStart = GetIonBuffers();
       auto ProcessMemStart = GetMemoryUsage();
+
+      algo_->RegisterInputBuffers(input_buffers);
+      algo_->RegisterOutputBuffers(output_buffers);
 
       algo_->Process(input_buffers, output_buffers);
 
@@ -590,13 +598,14 @@ class QmmfAlgoInterfaceGtest : public ::testing::Test {
       auto ProcessThreadEnd = GetNumThreads();
       auto ProcessIONEnd = GetIonBuffers();
       auto ProcessMemEnd = GetMemoryUsage();
+
       if (check_for_leaks) {
-        EXPECT_GE(ProcessThreadStart, ProcessThreadEnd) << "Failed lib: "
-                                                        << tested_library;
-        EXPECT_EQ(ProcessIONStart, ProcessIONEnd) << "Failed lib: "
-                                                  << tested_library;
-        EXPECT_GE(ProcessMemStart, ProcessMemEnd) << "Failed lib: "
-                                                  << tested_library;
+        EXPECT_GE(ProcessThreadStart, ProcessThreadEnd)
+            << "Failed lib: " << tested_library;
+        EXPECT_EQ(ProcessIONStart, ProcessIONEnd)
+            << "Failed lib: " << tested_library;
+        EXPECT_GE(ProcessMemStart, ProcessMemEnd)
+            << "Failed lib: " << tested_library;
       }
 
       Deinit();
@@ -607,8 +616,8 @@ class QmmfAlgoInterfaceGtest : public ::testing::Test {
     auto InitIONEnd = GetIonBuffers();
 
     if (check_for_leaks) {
-      EXPECT_GE(InitThreadStart, InitThreadEnd) << "Failed lib: "
-                                                << tested_library;
+      EXPECT_GE(InitThreadStart, InitThreadEnd)
+          << "Failed lib: " << tested_library;
       EXPECT_EQ(InitIONStart, InitIONEnd) << "Failed lib: " << tested_library;
       EXPECT_GE(InitMemStart, InitMemEnd) << "Failed lib: " << tested_library;
     }
@@ -619,11 +628,11 @@ std::string QmmfAlgoInterfaceGtest::app_test_suite_file_ = "";
 std::string QmmfAlgoInterfaceGtest::app_test_content_file_ = "";
 
 /*
-    * NewInstance: This test case will test new instance API.
-    * Api test sequence:
-    *  - new instance
-    *  - destroy instance
-    */
+ * NewInstance: This test case will test new instance API.
+ * Api test sequence:
+ *  - new instance
+ *  - destroy instance
+ */
 TEST_F(QmmfAlgoInterfaceGtest, NewInstance) {
   std::stringstream err;
   fprintf(stderr, "\n---------- Run Test %s.%s ------------\n",
@@ -660,12 +669,12 @@ TEST_F(QmmfAlgoInterfaceGtest, NewInstance) {
 }
 
 /*
-* GetCaps: This test case will test GetCaps API.
-* Api test sequence:
-*  - new instance
-*  - GetCaps
-*  - destroy instance
-*/
+ * GetCaps: This test case will test GetCaps API.
+ * Api test sequence:
+ *  - new instance
+ *  - GetCaps
+ *  - destroy instance
+ */
 TEST_F(QmmfAlgoInterfaceGtest, GetCaps) {
   std::stringstream err;
   fprintf(stderr, "\n---------- Run Test %s.%s ------------\n",
@@ -687,9 +696,9 @@ TEST_F(QmmfAlgoInterfaceGtest, GetCaps) {
 
         Init();
 
-        const auto caps = algo_->GetCaps();
+        const auto caps = get_caps_func_();
         ALOGD("%s: Algorithm Capabilities =\n%s\n", __func__,
-              caps.ToString().c_str());
+              caps->ToString().c_str());
 
         Deinit();
       }
@@ -706,14 +715,14 @@ TEST_F(QmmfAlgoInterfaceGtest, GetCaps) {
           test_info_->test_case_name(), test_info_->name());
 }
 /*
-* GetInputRequirements: This test case will test algorithm input requirements.
-* Api test sequence:
-*  - new instance
-*  - GetCaps
-*  - RegisterInputBuffers
-*  - UnregisterInputBuffers
-*  - destroy instance
-*/
+ * GetInputRequirements: This test case will test algorithm input requirements.
+ * Api test sequence:
+ *  - new instance
+ *  - GetCaps
+ *  - RegisterInputBuffers
+ *  - UnregisterInputBuffers
+ *  - destroy instance
+ */
 TEST_F(QmmfAlgoInterfaceGtest, GetInputRequirements) {
   std::stringstream err;
   fprintf(stderr, "\n---------- Run Test %s.%s ------------\n",
@@ -735,129 +744,213 @@ TEST_F(QmmfAlgoInterfaceGtest, GetInputRequirements) {
 
         Init();
 
-        const auto caps = algo_->GetCaps();
+        const auto caps = get_caps_func_();
         Requirements try_out_requirements;
         BufferRequirements buffer_requirements;
-        if (caps.inplace_processing_) {
-          buffer_requirements = caps.in_buffer_requirements_;
+        if (caps->inplace_processing_) {
+          buffer_requirements = caps->in_buffer_requirements_;
         } else {
-          buffer_requirements = caps.out_buffer_requirements_;
+          buffer_requirements = caps->out_buffer_requirements_;
         }
 
-        // Min requirements
-        try_out_requirements.width_ = buffer_requirements.min_width_;
-        try_out_requirements.height_ = buffer_requirements.min_height_;
-        try_out_requirements.stride_ =
-            Utils::LCM(buffer_requirements.min_width_,
-                       buffer_requirements.stride_alignment_);
+        algo_->Configure(configuration_->configuration_data_);
 
-        try_out_requirements.scanline_ = buffer_requirements.min_height_;
-        try_out_requirements.formats_.insert(
-            try_out_requirements.formats_.end(),
-            buffer_requirements.pixel_formats_.begin(),
-            buffer_requirements.pixel_formats_.end());
+        if (caps->scale_support_) {
+          try_out_requirements.width_ = buffer_requirements.min_width_;
+          try_out_requirements.height_ = buffer_requirements.min_height_;
+          try_out_requirements.stride_ =
+              Utils::LCM(buffer_requirements.min_width_,
+                         buffer_requirements.stride_alignment_);
 
-        auto result_input_requirements =
-            algo_->GetInputRequirements(try_out_requirements);
+          try_out_requirements.scanline_ = buffer_requirements.min_height_;
+          try_out_requirements.formats_.insert(
+              try_out_requirements.formats_.end(),
+              buffer_requirements.pixel_formats_.begin(),
+              buffer_requirements.pixel_formats_.end());
 
-        EXPECT_LE(result_input_requirements.width_,
-                  buffer_requirements.max_width_)
-            << "Failed lib: " << tested_library;
-        EXPECT_GE(result_input_requirements.width_,
-                  buffer_requirements.min_width_)
-            << "Failed lib: " << tested_library;
-        EXPECT_LE(result_input_requirements.height_,
-                  buffer_requirements.max_height_)
-            << "Failed lib: " << tested_library;
-        EXPECT_GE(result_input_requirements.height_,
-                  buffer_requirements.min_height_)
-            << "Failed lib: " << tested_library;
-        EXPECT_GE(result_input_requirements.stride_,
-                  try_out_requirements.stride_)
-            << "Failed lib: " << tested_library;
-        EXPECT_GE(result_input_requirements.scanline_,
-                  try_out_requirements.scanline_)
-            << "Failed lib: " << tested_library;
+          std::string config =
+              "{"
+              "\"res_conv_sub_tuning\" : {"
+              "\"InputWidth\" : 278,"
+              "\"InputHeight\" : 278"
+              "}"
+              "}";
+          algo_->Configure(config);
 
-        for (const auto &s : result_input_requirements.formats_) {
-          const bool is_in = buffer_requirements.pixel_formats_.find(s) !=
-                             buffer_requirements.pixel_formats_.end();
-          EXPECT_TRUE(is_in) << "Failed lib: " << tested_library;
-        }
+          auto result_input_requirements =
+              algo_->GetInputRequirements(try_out_requirements);
 
-        // Max requirements
-        try_out_requirements.width_ = buffer_requirements.max_width_;
-        try_out_requirements.height_ = buffer_requirements.max_height_;
-        try_out_requirements.stride_ =
-            Utils::LCM(buffer_requirements.max_width_,
-                       buffer_requirements.stride_alignment_);
-        try_out_requirements.scanline_ = buffer_requirements.max_height_;
+          EXPECT_LE(result_input_requirements.width_, 278u)
+              << "Failed lib: " << tested_library;
+          EXPECT_LE(result_input_requirements.height_, 278u)
+              << "Failed lib: " << tested_library;
+          EXPECT_GE(result_input_requirements.stride_, 278u)
+              << "Failed lib: " << tested_library;
+          EXPECT_GE(result_input_requirements.scanline_, 278u)
+              << "Failed lib: " << tested_library;
 
-        result_input_requirements =
-            algo_->GetInputRequirements(try_out_requirements);
+          for (const auto &s : result_input_requirements.formats_) {
+            const bool is_in = buffer_requirements.pixel_formats_.find(s) !=
+                               buffer_requirements.pixel_formats_.end();
+            EXPECT_TRUE(is_in) << "Failed lib: " << tested_library;
+          }
 
-        EXPECT_LE(result_input_requirements.width_,
-                  buffer_requirements.max_width_)
-            << "Failed lib: " << tested_library;
-        EXPECT_GE(result_input_requirements.width_,
-                  buffer_requirements.min_width_)
-            << "Failed lib: " << tested_library;
-        EXPECT_LE(result_input_requirements.height_,
-                  buffer_requirements.max_height_)
-            << "Failed lib: " << tested_library;
-        EXPECT_GE(result_input_requirements.height_,
-                  buffer_requirements.min_height_)
-            << "Failed lib: " << tested_library;
-        EXPECT_GE(result_input_requirements.stride_,
-                  try_out_requirements.stride_)
-            << "Failed lib: " << tested_library;
-        EXPECT_GE(result_input_requirements.scanline_,
-                  try_out_requirements.scanline_)
-            << "Failed lib: " << tested_library;
+          config =
+              "{"
+              "\"res_conv_sub_tuning\" : {"
+              "\"InputWidth\" : 0,"
+              "\"InputHeight\" : 0,"
+              "\"RatioWidth\": 2.0,"
+              "\"RatioHeight\": 2.0,"
+              "}"
+              "}";
+          algo_->Configure(config);
 
-        for (const auto &s : result_input_requirements.formats_) {
-          const bool is_in = buffer_requirements.pixel_formats_.find(s) !=
-                             buffer_requirements.pixel_formats_.end();
-          EXPECT_TRUE(is_in) << "Failed lib: " << tested_library;
-        }
+          result_input_requirements =
+              algo_->GetInputRequirements(try_out_requirements);
 
-        // Average requirements
-        try_out_requirements.width_ =
-            (buffer_requirements.min_width_ + buffer_requirements.max_width_) >>
-            1;
-        try_out_requirements.height_ = (buffer_requirements.min_height_ +
-                                        buffer_requirements.max_height_) >>
-                                       1;
-        try_out_requirements.stride_ = Utils::LCM(
-            try_out_requirements.width_, buffer_requirements.stride_alignment_);
-        try_out_requirements.scanline_ = try_out_requirements.height_;
+          EXPECT_LE(result_input_requirements.width_,
+                    buffer_requirements.max_width_)
+              << "Failed lib: " << tested_library;
+          EXPECT_GE(result_input_requirements.width_,
+                    buffer_requirements.min_width_)
+              << "Failed lib: " << tested_library;
+          EXPECT_LE(result_input_requirements.height_,
+                    buffer_requirements.max_height_)
+              << "Failed lib: " << tested_library;
+          EXPECT_GE(result_input_requirements.height_,
+                    buffer_requirements.min_height_)
+              << "Failed lib: " << tested_library;
+          EXPECT_GE(result_input_requirements.stride_,
+                    try_out_requirements.stride_)
+              << "Failed lib: " << tested_library;
+          EXPECT_GE(result_input_requirements.scanline_,
+                    try_out_requirements.scanline_)
+              << "Failed lib: " << tested_library;
 
-        result_input_requirements =
-            algo_->GetInputRequirements(try_out_requirements);
+          for (const auto &s : result_input_requirements.formats_) {
+            const bool is_in = buffer_requirements.pixel_formats_.find(s) !=
+                               buffer_requirements.pixel_formats_.end();
+            EXPECT_TRUE(is_in) << "Failed lib: " << tested_library;
+          }
 
-        EXPECT_LE(result_input_requirements.width_,
-                  buffer_requirements.max_width_)
-            << "Failed lib: " << tested_library;
-        EXPECT_GE(result_input_requirements.width_,
-                  buffer_requirements.min_width_)
-            << "Failed lib: " << tested_library;
-        EXPECT_LE(result_input_requirements.height_,
-                  buffer_requirements.max_height_)
-            << "Failed lib: " << tested_library;
-        EXPECT_GE(result_input_requirements.height_,
-                  buffer_requirements.min_height_)
-            << "Failed lib: " << tested_library;
-        EXPECT_GE(result_input_requirements.stride_,
-                  try_out_requirements.stride_)
-            << "Failed lib: " << tested_library;
-        EXPECT_GE(result_input_requirements.scanline_,
-                  try_out_requirements.scanline_)
-            << "Failed lib: " << tested_library;
+        } else {
+          // Min requirements
+          try_out_requirements.width_ = buffer_requirements.min_width_;
+          try_out_requirements.height_ = buffer_requirements.min_height_;
+          try_out_requirements.stride_ =
+              Utils::LCM(buffer_requirements.min_width_,
+                         buffer_requirements.stride_alignment_);
 
-        for (const auto &s : result_input_requirements.formats_) {
-          const bool is_in = buffer_requirements.pixel_formats_.find(s) !=
-                             buffer_requirements.pixel_formats_.end();
-          EXPECT_TRUE(is_in) << "Failed lib: " << tested_library;
+          try_out_requirements.scanline_ = buffer_requirements.min_height_;
+          try_out_requirements.formats_.insert(
+              try_out_requirements.formats_.end(),
+              buffer_requirements.pixel_formats_.begin(),
+              buffer_requirements.pixel_formats_.end());
+
+          auto result_input_requirements =
+              algo_->GetInputRequirements(try_out_requirements);
+
+          EXPECT_LE(result_input_requirements.width_,
+                    buffer_requirements.max_width_)
+              << "Failed lib: " << tested_library;
+          EXPECT_GE(result_input_requirements.width_,
+                    buffer_requirements.min_width_)
+              << "Failed lib: " << tested_library;
+          EXPECT_LE(result_input_requirements.height_,
+                    buffer_requirements.max_height_)
+              << "Failed lib: " << tested_library;
+          EXPECT_GE(result_input_requirements.height_,
+                    buffer_requirements.min_height_)
+              << "Failed lib: " << tested_library;
+          EXPECT_GE(result_input_requirements.stride_,
+                    try_out_requirements.stride_)
+              << "Failed lib: " << tested_library;
+          EXPECT_GE(result_input_requirements.scanline_,
+                    try_out_requirements.scanline_)
+              << "Failed lib: " << tested_library;
+
+          for (const auto &s : result_input_requirements.formats_) {
+            const bool is_in = buffer_requirements.pixel_formats_.find(s) !=
+                               buffer_requirements.pixel_formats_.end();
+            EXPECT_TRUE(is_in) << "Failed lib: " << tested_library;
+          }
+
+          // Max requirements
+          try_out_requirements.width_ = buffer_requirements.max_width_;
+          try_out_requirements.height_ = buffer_requirements.max_height_;
+          try_out_requirements.stride_ =
+              Utils::LCM(buffer_requirements.max_width_,
+                         buffer_requirements.stride_alignment_);
+          try_out_requirements.scanline_ = buffer_requirements.max_height_;
+
+          result_input_requirements =
+              algo_->GetInputRequirements(try_out_requirements);
+
+          EXPECT_LE(result_input_requirements.width_,
+                    buffer_requirements.max_width_)
+              << "Failed lib: " << tested_library;
+          EXPECT_GE(result_input_requirements.width_,
+                    buffer_requirements.min_width_)
+              << "Failed lib: " << tested_library;
+          EXPECT_LE(result_input_requirements.height_,
+                    buffer_requirements.max_height_)
+              << "Failed lib: " << tested_library;
+          EXPECT_GE(result_input_requirements.height_,
+                    buffer_requirements.min_height_)
+              << "Failed lib: " << tested_library;
+          EXPECT_GE(result_input_requirements.stride_,
+                    try_out_requirements.stride_)
+              << "Failed lib: " << tested_library;
+          EXPECT_GE(result_input_requirements.scanline_,
+                    try_out_requirements.scanline_)
+              << "Failed lib: " << tested_library;
+
+          for (const auto &s : result_input_requirements.formats_) {
+            const bool is_in = buffer_requirements.pixel_formats_.find(s) !=
+                               buffer_requirements.pixel_formats_.end();
+            EXPECT_TRUE(is_in) << "Failed lib: " << tested_library;
+          }
+
+          // Average requirements
+          try_out_requirements.width_ = (buffer_requirements.min_width_ +
+                                         buffer_requirements.max_width_) >>
+                                        1;
+          try_out_requirements.height_ = (buffer_requirements.min_height_ +
+                                          buffer_requirements.max_height_) >>
+                                         1;
+          try_out_requirements.stride_ =
+              Utils::LCM(try_out_requirements.width_,
+                         buffer_requirements.stride_alignment_);
+          try_out_requirements.scanline_ = try_out_requirements.height_;
+
+          result_input_requirements =
+              algo_->GetInputRequirements(try_out_requirements);
+
+          EXPECT_LE(result_input_requirements.width_,
+                    buffer_requirements.max_width_)
+              << "Failed lib: " << tested_library;
+          EXPECT_GE(result_input_requirements.width_,
+                    buffer_requirements.min_width_)
+              << "Failed lib: " << tested_library;
+          EXPECT_LE(result_input_requirements.height_,
+                    buffer_requirements.max_height_)
+              << "Failed lib: " << tested_library;
+          EXPECT_GE(result_input_requirements.height_,
+                    buffer_requirements.min_height_)
+              << "Failed lib: " << tested_library;
+          EXPECT_GE(result_input_requirements.stride_,
+                    try_out_requirements.stride_)
+              << "Failed lib: " << tested_library;
+          EXPECT_GE(result_input_requirements.scanline_,
+                    try_out_requirements.scanline_)
+              << "Failed lib: " << tested_library;
+
+          for (const auto &s : result_input_requirements.formats_) {
+            const bool is_in = buffer_requirements.pixel_formats_.find(s) !=
+                               buffer_requirements.pixel_formats_.end();
+            EXPECT_TRUE(is_in) << "Failed lib: " << tested_library;
+          }
         }
 
         Deinit();
@@ -876,12 +969,12 @@ TEST_F(QmmfAlgoInterfaceGtest, GetInputRequirements) {
 }
 
 /*
-* Configure: This test case will test Configure API
-* Api test sequence:
-*  - new instance
-*  - Configure
-*  - destroy instance
-*/
+ * Configure: This test case will test Configure API
+ * Api test sequence:
+ *  - new instance
+ *  - Configure
+ *  - destroy instance
+ */
 TEST_F(QmmfAlgoInterfaceGtest, Configure) {
   std::stringstream err;
   fprintf(stderr, "\n---------- Run Test %s.%s ------------\n",
@@ -921,15 +1014,15 @@ TEST_F(QmmfAlgoInterfaceGtest, Configure) {
 }
 
 /*
-* RegisterUnregisterInputBuffers: This test case will test
-*   RegisterUnregisterInputBuffers API.
-* Api test sequence:
-*  - new instance
-*  - GetCaps
-*  - RegisterInputBuffers
-*  - UnregisterInputBuffers
-*  - destroy instance
-*/
+ * RegisterUnregisterInputBuffers: This test case will test
+ *   RegisterUnregisterInputBuffers API.
+ * Api test sequence:
+ *  - new instance
+ *  - GetCaps
+ *  - RegisterInputBuffers
+ *  - UnregisterInputBuffers
+ *  - destroy instance
+ */
 TEST_F(QmmfAlgoInterfaceGtest, RegisterUnregisterInputBuffers) {
   std::stringstream err;
   fprintf(stderr, "\n---------- Run Test %s.%s ------------\n",
@@ -951,14 +1044,14 @@ TEST_F(QmmfAlgoInterfaceGtest, RegisterUnregisterInputBuffers) {
 
         Init();
 
-        const auto caps = algo_->GetCaps();
+        const auto caps = get_caps_func_();
         const auto b = configuration_->input_buffers_.front();
 
-        for (auto &pix_fmt : caps.in_buffer_requirements_.pixel_formats_) {
+        for (auto &pix_fmt : caps->in_buffer_requirements_.pixel_formats_) {
           std::vector<AlgBuffer> buffers;
 
           auto buffer_handler = BufferHandler::New(
-              caps.in_buffer_requirements_, pix_fmt, b->width_, b->height_,
+              caps->in_buffer_requirements_, pix_fmt, b->width_, b->height_,
               b->stride_, b->scanline_, std::string(""), std::string(""));
           AlgBuffer b = *buffer_handler;
           buffers.push_back(b);
@@ -983,15 +1076,15 @@ TEST_F(QmmfAlgoInterfaceGtest, RegisterUnregisterInputBuffers) {
 }
 
 /*
-* RegisterUnregisterOutputBuffers: This test case will test
-*   RegisterUnregisterOutputBuffers API.
-* Api test sequence:
-*  - new instance
-*  - GetCaps
-*  - RegisterOutputBuffers
-*  - UnregisterOutputBuffers
-*  - destroy instance
-*/
+ * RegisterUnregisterOutputBuffers: This test case will test
+ *   RegisterUnregisterOutputBuffers API.
+ * Api test sequence:
+ *  - new instance
+ *  - GetCaps
+ *  - RegisterOutputBuffers
+ *  - UnregisterOutputBuffers
+ *  - destroy instance
+ */
 TEST_F(QmmfAlgoInterfaceGtest, RegisterUnregisterOutputBuffers) {
   std::stringstream err;
   fprintf(stderr, "\n---------- Run Test %s.%s ------------\n",
@@ -1014,14 +1107,14 @@ TEST_F(QmmfAlgoInterfaceGtest, RegisterUnregisterOutputBuffers) {
         Init();
 
         if (configuration_->output_buffers_.size() > 0) {
-          const auto caps = algo_->GetCaps();
+          const auto caps = get_caps_func_();
           const auto b = configuration_->output_buffers_.front();
 
-          for (auto &pix_fmt : caps.out_buffer_requirements_.pixel_formats_) {
+          for (auto &pix_fmt : caps->out_buffer_requirements_.pixel_formats_) {
             std::vector<AlgBuffer> buffers;
 
             auto buffer_handler = BufferHandler::New(
-                caps.out_buffer_requirements_, pix_fmt, b->width_, b->height_,
+                caps->out_buffer_requirements_, pix_fmt, b->width_, b->height_,
                 b->stride_, b->scanline_, std::string(""), std::string(""));
             AlgBuffer b = *buffer_handler;
             buffers.push_back(b);
@@ -1047,23 +1140,23 @@ TEST_F(QmmfAlgoInterfaceGtest, RegisterUnregisterOutputBuffers) {
 }
 
 /*
-* Process: This test case will test Process API.
-* Api test sequence:
-*  - new instance
-*  - GetCaps
-*  - Configure
-*  - RegisterInputBuffers
-*  - RegisterOutputBuffers
-*  - Process
-*  - UnregisterInputBuffers
-*  - UnregisterOutputBuffers
-*  - RegisterInputBuffers
-*  - RegisterOutputBuffers
-*  - Process
-*  - UnregisterInputBuffers
-*  - UnregisterOutputBuffers
-*  - destroy instance
-*/
+ * Process: This test case will test Process API.
+ * Api test sequence:
+ *  - new instance
+ *  - GetCaps
+ *  - Configure
+ *  - RegisterInputBuffers
+ *  - RegisterOutputBuffers
+ *  - Process
+ *  - UnregisterInputBuffers
+ *  - UnregisterOutputBuffers
+ *  - RegisterInputBuffers
+ *  - RegisterOutputBuffers
+ *  - Process
+ *  - UnregisterInputBuffers
+ *  - UnregisterOutputBuffers
+ *  - destroy instance
+ */
 TEST_F(QmmfAlgoInterfaceGtest, Process) {
   std::stringstream err;
   fprintf(stderr, "\n---------- Run Test %s.%s ------------\n",
@@ -1097,22 +1190,22 @@ TEST_F(QmmfAlgoInterfaceGtest, Process) {
 }
 
 /*
-* Abort: This test case will test Abort API.
-* Api test sequence:
-*  - new instance
-*  - GetCaps
-*  - Configure
-*  - RegisterInputBuffers
-*  - RegisterOutputBuffers
-*  - Abort
-*  - Process
-*  - Process
-*  - Process
-*  - Abort
-*  - UnregisterInputBuffers
-*  - UnregisterOutputBuffers
-*  - destroy instance
-*/
+ * Abort: This test case will test Abort API.
+ * Api test sequence:
+ *  - new instance
+ *  - GetCaps
+ *  - Configure
+ *  - RegisterInputBuffers
+ *  - RegisterOutputBuffers
+ *  - Abort
+ *  - Process
+ *  - Process
+ *  - Process
+ *  - Abort
+ *  - UnregisterInputBuffers
+ *  - UnregisterOutputBuffers
+ *  - destroy instance
+ */
 TEST_F(QmmfAlgoInterfaceGtest, Abort) {
   std::stringstream err;
   fprintf(stderr, "\n---------- Run Test %s.%s ------------\n",
@@ -1128,7 +1221,7 @@ TEST_F(QmmfAlgoInterfaceGtest, Abort) {
     try {
       Init();
 
-      const auto caps = algo_->GetCaps();
+      const auto caps = get_caps_func_();
 
       algo_->Configure(configuration_->configuration_data_);
 
@@ -1139,12 +1232,12 @@ TEST_F(QmmfAlgoInterfaceGtest, Abort) {
 
       for (uint32_t i = 0; i < 3; i++) {
         auto input_handlers = BufferHandler::New(
-            caps.in_buffer_requirements_, configuration_->input_buffers_);
+            caps->in_buffer_requirements_, configuration_->input_buffers_);
         input_buffer_handlers.insert(input_buffer_handlers.end(),
                                      input_handlers.begin(),
                                      input_handlers.end());
         auto output_handlers = BufferHandler::New(
-            caps.out_buffer_requirements_, configuration_->output_buffers_);
+            caps->out_buffer_requirements_, configuration_->output_buffers_);
         output_buffer_handlers.insert(output_buffer_handlers.end(),
                                       output_handlers.begin(),
                                       output_handlers.end());
@@ -1154,7 +1247,7 @@ TEST_F(QmmfAlgoInterfaceGtest, Abort) {
         b->ReadInputFile();
       }
 
-      QmmfAlgoEventListener l(caps.inplace_processing_, input_buffer_handlers,
+      QmmfAlgoEventListener l(caps->inplace_processing_, input_buffer_handlers,
                               output_buffer_handlers, algo_);
 
       algo_->SetCallbacks(&l);
@@ -1167,8 +1260,8 @@ TEST_F(QmmfAlgoInterfaceGtest, Abort) {
         ALOGD("%s: Running Test(%s) iteration = %d\n", __func__,
               test_info_->name(), i);
 
-        l.GetIdleBuffers(caps.in_buffer_requirements_.count_, input_buffers,
-                         caps.out_buffer_requirements_.count_, output_buffers,
+        l.GetIdleBuffers(caps->in_buffer_requirements_.count_, input_buffers,
+                         caps->out_buffer_requirements_.count_, output_buffers,
                          configuration_, kOneFrameProcessTimeout);
 
         algo_->RegisterInputBuffers(input_buffers);
@@ -1194,23 +1287,23 @@ TEST_F(QmmfAlgoInterfaceGtest, Abort) {
 }
 
 /*
-* Thread: This test case will test thread joining.
-* Api test sequence:
-*  - new instance
-*  - GetCaps
-*  - Configure
-*  - RegisterInputBuffers
-*  - RegisterOutputBuffers
-*  - Process
-*  - UnregisterInputBuffers
-*  - UnregisterOutputBuffers
-*  - RegisterInputBuffers
-*  - RegisterOutputBuffers
-*  - Process
-*  - UnregisterInputBuffers
-*  - UnregisterOutputBuffers
-*  - destroy instance
-*/
+ * Thread: This test case will test thread joining.
+ * Api test sequence:
+ *  - new instance
+ *  - GetCaps
+ *  - Configure
+ *  - RegisterInputBuffers
+ *  - RegisterOutputBuffers
+ *  - Process
+ *  - UnregisterInputBuffers
+ *  - UnregisterOutputBuffers
+ *  - RegisterInputBuffers
+ *  - RegisterOutputBuffers
+ *  - Process
+ *  - UnregisterInputBuffers
+ *  - UnregisterOutputBuffers
+ *  - destroy instance
+ */
 TEST_F(QmmfAlgoInterfaceGtest, Thread) {
   std::stringstream err;
   fprintf(stderr, "\n---------- Run Test %s.%s ------------\n",
@@ -1259,19 +1352,19 @@ TEST_F(QmmfAlgoInterfaceGtest, Thread) {
 }
 
 /*
-* SimulateCamera: This test case will measure timing performance simulating
-* camera input at 30 fps.
-* Api test sequence:
-*  - new instance
-*  - GetCaps
-*  - Configure
-*  - RegisterInputBuffers
-*  - RegisterOutputBuffers
-*  - Process
-*  - UnregisterInputBuffers
-*  - UnregisterOutputBuffers
-*  - destroy instance
-*/
+ * SimulateCamera: This test case will measure timing performance simulating
+ * camera input at 30 fps.
+ * Api test sequence:
+ *  - new instance
+ *  - GetCaps
+ *  - Configure
+ *  - RegisterInputBuffers
+ *  - RegisterOutputBuffers
+ *  - Process
+ *  - UnregisterInputBuffers
+ *  - UnregisterOutputBuffers
+ *  - destroy instance
+ */
 TEST_F(QmmfAlgoInterfaceGtest, SimulateCamera) {
   std::stringstream err;
   fprintf(stderr, "\n---------- Run Test %s.%s ------------\n",
@@ -1287,7 +1380,7 @@ TEST_F(QmmfAlgoInterfaceGtest, SimulateCamera) {
     try {
       Init();
 
-      const auto caps = algo_->GetCaps();
+      const auto caps = get_caps_func_();
 
       algo_->Configure(configuration_->configuration_data_);
 
@@ -1298,12 +1391,12 @@ TEST_F(QmmfAlgoInterfaceGtest, SimulateCamera) {
 
       for (uint32_t i = 0; i < 3; i++) {
         auto input_handlers = BufferHandler::New(
-            caps.in_buffer_requirements_, configuration_->input_buffers_);
+            caps->in_buffer_requirements_, configuration_->input_buffers_);
         input_buffer_handlers.insert(input_buffer_handlers.end(),
                                      input_handlers.begin(),
                                      input_handlers.end());
         auto output_handlers = BufferHandler::New(
-            caps.out_buffer_requirements_, configuration_->output_buffers_);
+            caps->out_buffer_requirements_, configuration_->output_buffers_);
         output_buffer_handlers.insert(output_buffer_handlers.end(),
                                       output_handlers.begin(),
                                       output_handlers.end());
@@ -1313,7 +1406,7 @@ TEST_F(QmmfAlgoInterfaceGtest, SimulateCamera) {
         b->ReadInputFile();
       }
 
-      QmmfAlgoEventListener l(caps.inplace_processing_, input_buffer_handlers,
+      QmmfAlgoEventListener l(caps->inplace_processing_, input_buffer_handlers,
                               output_buffer_handlers, algo_);
 
       algo_->SetCallbacks(&l);
@@ -1325,8 +1418,8 @@ TEST_F(QmmfAlgoInterfaceGtest, SimulateCamera) {
         ALOGD("%s: Running Test(%s) iteration = %d\n", __func__,
               test_info_->name(), i);
 
-        l.GetIdleBuffers(caps.in_buffer_requirements_.count_, input_buffers,
-                         caps.out_buffer_requirements_.count_, output_buffers,
+        l.GetIdleBuffers(caps->in_buffer_requirements_.count_, input_buffers,
+                         caps->out_buffer_requirements_.count_, output_buffers,
                          configuration_, kOneFrameProcessTimeout);
         algo_->RegisterInputBuffers(input_buffers);
         algo_->RegisterOutputBuffers(output_buffers);
@@ -1358,18 +1451,18 @@ TEST_F(QmmfAlgoInterfaceGtest, SimulateCamera) {
 }
 
 /*
-* TimingPerformance: This test case will measure timing performance
-* Api test sequence:
-*  - new instance
-*  - GetCaps
-*  - Configure
-*  - RegisterInputBuffers
-*  - RegisterOutputBuffers
-*  - Process
-*  - UnregisterInputBuffers
-*  - UnregisterOutputBuffers
-*  - destroy instance
-*/
+ * TimingPerformance: This test case will measure timing performance
+ * Api test sequence:
+ *  - new instance
+ *  - GetCaps
+ *  - Configure
+ *  - RegisterInputBuffers
+ *  - RegisterOutputBuffers
+ *  - Process
+ *  - UnregisterInputBuffers
+ *  - UnregisterOutputBuffers
+ *  - destroy instance
+ */
 TEST_F(QmmfAlgoInterfaceGtest, TimingPerformance) {
   std::stringstream err;
   fprintf(stderr, "\n---------- Run Test %s.%s ------------\n",
@@ -1385,7 +1478,7 @@ TEST_F(QmmfAlgoInterfaceGtest, TimingPerformance) {
     try {
       Init();
 
-      const auto caps = algo_->GetCaps();
+      const auto caps = get_caps_func_();
 
       algo_->Configure(configuration_->configuration_data_);
 
@@ -1396,12 +1489,12 @@ TEST_F(QmmfAlgoInterfaceGtest, TimingPerformance) {
 
       for (uint32_t i = 0; i < 3; i++) {
         auto input_handlers = BufferHandler::New(
-            caps.in_buffer_requirements_, configuration_->input_buffers_);
+            caps->in_buffer_requirements_, configuration_->input_buffers_);
         input_buffer_handlers.insert(input_buffer_handlers.end(),
                                      input_handlers.begin(),
                                      input_handlers.end());
         auto output_handlers = BufferHandler::New(
-            caps.out_buffer_requirements_, configuration_->output_buffers_);
+            caps->out_buffer_requirements_, configuration_->output_buffers_);
         output_buffer_handlers.insert(output_buffer_handlers.end(),
                                       output_handlers.begin(),
                                       output_handlers.end());
@@ -1411,7 +1504,7 @@ TEST_F(QmmfAlgoInterfaceGtest, TimingPerformance) {
         b->ReadInputFile();
       }
 
-      QmmfAlgoEventListener l(caps.inplace_processing_, input_buffer_handlers,
+      QmmfAlgoEventListener l(caps->inplace_processing_, input_buffer_handlers,
                               output_buffer_handlers, algo_);
 
       algo_->SetCallbacks(&l);
@@ -1422,8 +1515,8 @@ TEST_F(QmmfAlgoInterfaceGtest, TimingPerformance) {
         ALOGD("%s: Running Test(%s) iteration = %d\n", __func__,
               test_info_->name(), i);
 
-        l.GetIdleBuffers(caps.in_buffer_requirements_.count_, input_buffers,
-                         caps.out_buffer_requirements_.count_, output_buffers,
+        l.GetIdleBuffers(caps->in_buffer_requirements_.count_, input_buffers,
+                         caps->out_buffer_requirements_.count_, output_buffers,
                          configuration_, kOneFrameProcessTimeout);
         algo_->RegisterInputBuffers(input_buffers);
         algo_->RegisterOutputBuffers(output_buffers);
@@ -1450,18 +1543,18 @@ TEST_F(QmmfAlgoInterfaceGtest, TimingPerformance) {
 }
 
 /*
-* Consistency: This test case will check algorithm output consistency
-* Api test sequence:
-*  - new instance
-*  - GetCaps
-*  - Configure
-*  - RegisterInputBuffers
-*  - RegisterOutputBuffers
-*  - Process
-*  - UnregisterInputBuffers
-*  - UnregisterOutputBuffers
-*  - destroy instance
-*/
+ * Consistency: This test case will check algorithm output consistency
+ * Api test sequence:
+ *  - new instance
+ *  - GetCaps
+ *  - Configure
+ *  - RegisterInputBuffers
+ *  - RegisterOutputBuffers
+ *  - Process
+ *  - UnregisterInputBuffers
+ *  - UnregisterOutputBuffers
+ *  - destroy instance
+ */
 TEST_F(QmmfAlgoInterfaceGtest, Consistency) {
   std::stringstream err;
   fprintf(stderr, "\n---------- Run Test %s.%s ------------\n",
@@ -1477,7 +1570,7 @@ TEST_F(QmmfAlgoInterfaceGtest, Consistency) {
     try {
       Init();
 
-      const auto caps = algo_->GetCaps();
+      const auto caps = get_caps_func_();
 
       algo_->Configure(configuration_->configuration_data_);
 
@@ -1488,12 +1581,12 @@ TEST_F(QmmfAlgoInterfaceGtest, Consistency) {
 
       for (uint32_t i = 0; i < 4; i++) {
         auto input_handlers = BufferHandler::New(
-            caps.in_buffer_requirements_, configuration_->input_buffers_);
+            caps->in_buffer_requirements_, configuration_->input_buffers_);
         input_buffer_handlers.insert(input_buffer_handlers.end(),
                                      input_handlers.begin(),
                                      input_handlers.end());
         auto output_handlers = BufferHandler::New(
-            caps.out_buffer_requirements_, configuration_->output_buffers_);
+            caps->out_buffer_requirements_, configuration_->output_buffers_);
         output_buffer_handlers.insert(output_buffer_handlers.end(),
                                       output_handlers.begin(),
                                       output_handlers.end());
@@ -1503,7 +1596,7 @@ TEST_F(QmmfAlgoInterfaceGtest, Consistency) {
         b->ReadInputFile();
       }
 
-      QmmfAlgoEventListener l(caps.inplace_processing_, input_buffer_handlers,
+      QmmfAlgoEventListener l(caps->inplace_processing_, input_buffer_handlers,
                               output_buffer_handlers, algo_);
 
       algo_->SetCallbacks(&l);
@@ -1518,17 +1611,17 @@ TEST_F(QmmfAlgoInterfaceGtest, Consistency) {
         ALOGD("%s: Running Test(%s) iteration = %d\n", __func__,
               test_info_->name(), i);
         if (1 == i) {
-          l.GetIdleBuffers(caps.in_buffer_requirements_.count_, input_buffers,
-                           caps.out_buffer_requirements_.count_, output_buffers,
-                           configuration_, kOneFrameProcessTimeout,
-                           &ref_input_buffer_handlers,
+          l.GetIdleBuffers(caps->in_buffer_requirements_.count_, input_buffers,
+                           caps->out_buffer_requirements_.count_,
+                           output_buffers, configuration_,
+                           kOneFrameProcessTimeout, &ref_input_buffer_handlers,
                            &ref_output_buffer_handlers);
         } else {
-          l.GetIdleBuffers(caps.in_buffer_requirements_.count_, input_buffers,
-                           caps.out_buffer_requirements_.count_, output_buffers,
-                           configuration_, kOneFrameProcessTimeout,
-                           &tested_input_buffer_handlers,
-                           &tested_output_buffer_handlers);
+          l.GetIdleBuffers(
+              caps->in_buffer_requirements_.count_, input_buffers,
+              caps->out_buffer_requirements_.count_, output_buffers,
+              configuration_, kOneFrameProcessTimeout,
+              &tested_input_buffer_handlers, &tested_output_buffer_handlers);
         }
 
         algo_->RegisterInputBuffers(input_buffers);
@@ -1543,7 +1636,7 @@ TEST_F(QmmfAlgoInterfaceGtest, Consistency) {
           std::vector<std::shared_ptr<BufferHandler>> ref_buffer_handlers;
           std::vector<std::shared_ptr<BufferHandler>> tested_buffer_handlers;
 
-          if (caps.inplace_processing_ == true) {
+          if (caps->inplace_processing_ == true) {
             ref_buffer_handlers = ref_input_buffer_handlers;
             tested_buffer_handlers = tested_input_buffer_handlers;
           } else {
@@ -1555,22 +1648,27 @@ TEST_F(QmmfAlgoInterfaceGtest, Consistency) {
               << "Failed lib: " << tested_library;
 
           for (auto &tb : tested_buffer_handlers) {
-            auto it = std::find_if(std::begin(ref_buffer_handlers),
-                                   std::end(ref_buffer_handlers),
-                                   [&tb](std::shared_ptr<BufferHandler> &rb) {
-                                     bool rc = false;
-                                     try {
-                                       rc = tb->Compare(rb);
-                                     } catch (const std::exception &e) {
-                                     }
-                                     return rc;
-                                   });
+            auto it = std::find_if(
+                std::begin(ref_buffer_handlers), std::end(ref_buffer_handlers),
+                [&tb](std::shared_ptr<BufferHandler> &rb) {
+                  bool rc = false;
+                  try {
+                    rc = tb->Compare(rb);
+                  } catch (const std::exception &e) {
+                    ALOGE(">>>> %s", e.what());
+                    std::ofstream f1("/data/misc/qmmf/pesho.1");
+                    std::ofstream f2("/data/misc/qmmf/pesho.2");
+                    f1.write((const char *)tb->vaddr_, tb->size_);
+                    f2.write((const char *)rb->vaddr_, rb->size_);
+                  }
+                  return rc;
+                });
             if (it == std::end(ref_buffer_handlers)) {
               Utils::ThrowException(__func__,
                                     "Reference is different from algo output");
             }
 
-            if (caps.inplace_processing_ == true) {
+            if (caps->inplace_processing_ == true) {
               tb->ReadInputFile();
             }
           }
@@ -1594,18 +1692,18 @@ TEST_F(QmmfAlgoInterfaceGtest, Consistency) {
 }
 
 /*
-* Stride: This test case will check algorithm input output stride support
-* Api test sequence:
-*  - new instance
-*  - GetCaps
-*  - Configure
-*  - RegisterInputBuffers
-*  - RegisterOutputBuffers
-*  - Process
-*  - UnregisterInputBuffers
-*  - UnregisterOutputBuffers
-*  - destroy instance
-*/
+ * Stride: This test case will check algorithm input output stride support
+ * Api test sequence:
+ *  - new instance
+ *  - GetCaps
+ *  - Configure
+ *  - RegisterInputBuffers
+ *  - RegisterOutputBuffers
+ *  - Process
+ *  - UnregisterInputBuffers
+ *  - UnregisterOutputBuffers
+ *  - destroy instance
+ */
 TEST_F(QmmfAlgoInterfaceGtest, Stride) {
   std::stringstream err;
   fprintf(stderr, "\n---------- Run Test %s.%s ------------\n",
@@ -1621,7 +1719,7 @@ TEST_F(QmmfAlgoInterfaceGtest, Stride) {
     try {
       Init();
 
-      const auto caps = algo_->GetCaps();
+      const auto caps = get_caps_func_();
 
       algo_->Configure(configuration_->configuration_data_);
 
@@ -1632,16 +1730,16 @@ TEST_F(QmmfAlgoInterfaceGtest, Stride) {
 
       for (uint32_t i = 0; i < 4; i++) {
         uint32_t additional_stride =
-            std::max(256u, caps.in_buffer_requirements_.stride_alignment_);
+            std::max(256u, caps->in_buffer_requirements_.stride_alignment_);
 
-        auto input_handlers = BufferHandler::New(caps.in_buffer_requirements_,
+        auto input_handlers = BufferHandler::New(caps->in_buffer_requirements_,
                                                  configuration_->input_buffers_,
                                                  0, 0, 0, additional_stride);
         input_buffer_handlers.insert(input_buffer_handlers.end(),
                                      input_handlers.begin(),
                                      input_handlers.end());
         auto output_handlers = BufferHandler::New(
-            caps.out_buffer_requirements_, configuration_->output_buffers_, 0,
+            caps->out_buffer_requirements_, configuration_->output_buffers_, 0,
             0, 0, additional_stride);
         output_buffer_handlers.insert(output_buffer_handlers.end(),
                                       output_handlers.begin(),
@@ -1652,7 +1750,7 @@ TEST_F(QmmfAlgoInterfaceGtest, Stride) {
         b->ReadInputFile();
       }
 
-      QmmfAlgoEventListener l(caps.inplace_processing_, input_buffer_handlers,
+      QmmfAlgoEventListener l(caps->inplace_processing_, input_buffer_handlers,
                               output_buffer_handlers, algo_);
 
       algo_->SetCallbacks(&l);
@@ -1667,17 +1765,17 @@ TEST_F(QmmfAlgoInterfaceGtest, Stride) {
         ALOGD("%s: Running Test(%s) iteration = %d\n", __func__,
               test_info_->name(), i);
         if (1 == i) {
-          l.GetIdleBuffers(caps.in_buffer_requirements_.count_, input_buffers,
-                           caps.out_buffer_requirements_.count_, output_buffers,
-                           configuration_, kOneFrameProcessTimeout,
-                           &ref_input_buffer_handlers,
+          l.GetIdleBuffers(caps->in_buffer_requirements_.count_, input_buffers,
+                           caps->out_buffer_requirements_.count_,
+                           output_buffers, configuration_,
+                           kOneFrameProcessTimeout, &ref_input_buffer_handlers,
                            &ref_output_buffer_handlers);
         } else {
-          l.GetIdleBuffers(caps.in_buffer_requirements_.count_, input_buffers,
-                           caps.out_buffer_requirements_.count_, output_buffers,
-                           configuration_, kOneFrameProcessTimeout,
-                           &tested_input_buffer_handlers,
-                           &tested_output_buffer_handlers);
+          l.GetIdleBuffers(
+              caps->in_buffer_requirements_.count_, input_buffers,
+              caps->out_buffer_requirements_.count_, output_buffers,
+              configuration_, kOneFrameProcessTimeout,
+              &tested_input_buffer_handlers, &tested_output_buffer_handlers);
         }
 
         algo_->RegisterInputBuffers(input_buffers);
@@ -1692,7 +1790,7 @@ TEST_F(QmmfAlgoInterfaceGtest, Stride) {
           std::vector<std::shared_ptr<BufferHandler>> ref_buffer_handlers;
           std::vector<std::shared_ptr<BufferHandler>> tested_buffer_handlers;
 
-          if (caps.inplace_processing_ == true) {
+          if (caps->inplace_processing_ == true) {
             ref_buffer_handlers = ref_input_buffer_handlers;
             tested_buffer_handlers = tested_input_buffer_handlers;
           } else {
@@ -1719,7 +1817,7 @@ TEST_F(QmmfAlgoInterfaceGtest, Stride) {
                                     "Reference is different from algo output");
             }
 
-            if (caps.inplace_processing_ == true) {
+            if (caps->inplace_processing_ == true) {
               tb->ReadInputFile();
             }
           }
@@ -1743,27 +1841,27 @@ TEST_F(QmmfAlgoInterfaceGtest, Stride) {
 }
 
 /*
-* HeapIonThreadLeaks: This test case will test API for leaks
-* Api test sequence:
-*  - mark ion, heap and thread usage for current instance
-*  - new instance
-*  - GetCaps
-*  - Configure
-*  - RegisterInputBuffers
-*  - RegisterOutputBuffers
-*  - Process
-*  - UnregisterInputBuffers
-*  - UnregisterOutputBuffers
-*  - mark ion, heap and thread usage for process
-*  - RegisterInputBuffers
-*  - RegisterOutputBuffers
-*  - Process
-*  - UnregisterInputBuffers
-*  - UnregisterOutputBuffers
-*  - compare ion, heap and thread usage for process
-*  - destroy instance
-*  - compare ion, heap and thread usage for current instance
-*/
+ * HeapIonThreadLeaks: This test case will test API for leaks
+ * Api test sequence:
+ *  - mark ion, heap and thread usage for current instance
+ *  - new instance
+ *  - GetCaps
+ *  - Configure
+ *  - RegisterInputBuffers
+ *  - RegisterOutputBuffers
+ *  - Process
+ *  - UnregisterInputBuffers
+ *  - UnregisterOutputBuffers
+ *  - mark ion, heap and thread usage for process
+ *  - RegisterInputBuffers
+ *  - RegisterOutputBuffers
+ *  - Process
+ *  - UnregisterInputBuffers
+ *  - UnregisterOutputBuffers
+ *  - compare ion, heap and thread usage for process
+ *  - destroy instance
+ *  - compare ion, heap and thread usage for current instance
+ */
 TEST_F(QmmfAlgoInterfaceGtest, HeapIonThreadLeaks) {
   std::stringstream err;
   fprintf(stderr, "\n---------- Run Test %s.%s ------------\n",
@@ -1802,18 +1900,18 @@ TEST_F(QmmfAlgoInterfaceGtest, HeapIonThreadLeaks) {
 }
 
 /*
-* MemoryCorruption: This test case will check algorithm for memory corruption
-* Api test sequence:
-*  - new instance
-*  - GetCaps
-*  - Configure
-*  - RegisterInputBuffers
-*  - RegisterOutputBuffers
-*  - Process
-*  - UnregisterInputBuffers
-*  - UnregisterOutputBuffers
-*  - destroy instance
-*/
+ * MemoryCorruption: This test case will check algorithm for memory corruption
+ * Api test sequence:
+ *  - new instance
+ *  - GetCaps
+ *  - Configure
+ *  - RegisterInputBuffers
+ *  - RegisterOutputBuffers
+ *  - Process
+ *  - UnregisterInputBuffers
+ *  - UnregisterOutputBuffers
+ *  - destroy instance
+ */
 TEST_F(QmmfAlgoInterfaceGtest, MemoryCorruption) {
   std::stringstream err;
   fprintf(stderr, "\n---------- Run Test %s.%s ------------\n",
@@ -1829,7 +1927,7 @@ TEST_F(QmmfAlgoInterfaceGtest, MemoryCorruption) {
     try {
       Init();
 
-      const auto caps = algo_->GetCaps();
+      const auto caps = get_caps_func_();
 
       algo_->Configure(configuration_->configuration_data_);
 
@@ -1840,16 +1938,16 @@ TEST_F(QmmfAlgoInterfaceGtest, MemoryCorruption) {
 
       for (uint32_t i = 0; i < 4; i++) {
         uint32_t border =
-            std::max(32u, caps.in_buffer_requirements_.stride_alignment_);
+            std::max(32u, caps->in_buffer_requirements_.stride_alignment_);
 
         auto input_handlers = BufferHandler::New(
-            caps.in_buffer_requirements_, configuration_->input_buffers_,
+            caps->in_buffer_requirements_, configuration_->input_buffers_,
             border, border, border, border);
         input_buffer_handlers.insert(input_buffer_handlers.end(),
                                      input_handlers.begin(),
                                      input_handlers.end());
         auto output_handlers = BufferHandler::New(
-            caps.out_buffer_requirements_, configuration_->output_buffers_,
+            caps->out_buffer_requirements_, configuration_->output_buffers_,
             border, border, border, border);
         output_buffer_handlers.insert(output_buffer_handlers.end(),
                                       output_handlers.begin(),
@@ -1859,7 +1957,7 @@ TEST_F(QmmfAlgoInterfaceGtest, MemoryCorruption) {
       // This can be an arbitrary value;
       uint8_t padded_value = 0;
 
-      if (caps.inplace_processing_ == true) {
+      if (caps->inplace_processing_ == true) {
         for (auto &b : input_buffer_handlers) {
           b->FillBufferWith(padded_value);
           padded_value += 127;
@@ -1875,7 +1973,7 @@ TEST_F(QmmfAlgoInterfaceGtest, MemoryCorruption) {
         b->ReadInputFile();
       }
 
-      QmmfAlgoEventListener l(caps.inplace_processing_, input_buffer_handlers,
+      QmmfAlgoEventListener l(caps->inplace_processing_, input_buffer_handlers,
                               output_buffer_handlers, algo_);
 
       algo_->SetCallbacks(&l);
@@ -1890,17 +1988,17 @@ TEST_F(QmmfAlgoInterfaceGtest, MemoryCorruption) {
         ALOGD("%s: Running Test(%s) iteration = %d\n", __func__,
               test_info_->name(), i);
         if (1 == i) {
-          l.GetIdleBuffers(caps.in_buffer_requirements_.count_, input_buffers,
-                           caps.out_buffer_requirements_.count_, output_buffers,
-                           configuration_, kOneFrameProcessTimeout,
-                           &ref_input_buffer_handlers,
+          l.GetIdleBuffers(caps->in_buffer_requirements_.count_, input_buffers,
+                           caps->out_buffer_requirements_.count_,
+                           output_buffers, configuration_,
+                           kOneFrameProcessTimeout, &ref_input_buffer_handlers,
                            &ref_output_buffer_handlers);
         } else {
-          l.GetIdleBuffers(caps.in_buffer_requirements_.count_, input_buffers,
-                           caps.out_buffer_requirements_.count_, output_buffers,
-                           configuration_, kOneFrameProcessTimeout,
-                           &tested_input_buffer_handlers,
-                           &tested_output_buffer_handlers);
+          l.GetIdleBuffers(
+              caps->in_buffer_requirements_.count_, input_buffers,
+              caps->out_buffer_requirements_.count_, output_buffers,
+              configuration_, kOneFrameProcessTimeout,
+              &tested_input_buffer_handlers, &tested_output_buffer_handlers);
         }
 
         algo_->RegisterInputBuffers(input_buffers);
@@ -1915,7 +2013,7 @@ TEST_F(QmmfAlgoInterfaceGtest, MemoryCorruption) {
           std::vector<std::shared_ptr<BufferHandler>> ref_buffer_handlers;
           std::vector<std::shared_ptr<BufferHandler>> tested_buffer_handlers;
 
-          if (caps.inplace_processing_ == true) {
+          if (caps->inplace_processing_ == true) {
             ref_buffer_handlers = ref_input_buffer_handlers;
             tested_buffer_handlers = tested_input_buffer_handlers;
           } else {
@@ -1958,7 +2056,7 @@ TEST_F(QmmfAlgoInterfaceGtest, MemoryCorruption) {
           }
 
           for (auto &tb : tested_buffer_handlers) {
-            if (caps.inplace_processing_ == true) {
+            if (caps->inplace_processing_ == true) {
               tb->ReadInputFile();
             }
           }

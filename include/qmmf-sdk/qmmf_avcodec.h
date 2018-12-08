@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -26,6 +26,9 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/*! @file qmmf_avcodec.h
+*/
+
 #pragma once
 
 #include <memory>
@@ -37,7 +40,7 @@
 namespace qmmf {
 namespace avcodec {
 
-/// \brief ICodecSource interface called on input and output port of AVCodec
+/// @brief ICodecSource interface called on input and output port of AVCodec
 ///
 /// Methods of ICodecSource are implemented by the client and AVCodec calls
 /// these methods on input and ouput ports on a separate thread.
@@ -60,12 +63,12 @@ class IAVCodec {
  public:
   virtual ~IAVCodec() {};
 
-  /// \brief Enables clients to get Codec components name that support the given
+  /// @brief Enables clients to get Codec components name that support the given
   /// mimetype.
   virtual status_t GetComponentName(CodecMimeType mime_type,
       uint32_t *num_comps, ::std::vector<::std::string>& comp_names) = 0;
 
-  /// \brief Enables clients to configure Codec
+  /// @brief Enables clients to configure Codec
   ///
   /// This API will configure codec and moves component in Idle state.
   /// Client will get error notification through callback specified in
@@ -79,12 +82,12 @@ class IAVCodec {
                                   const AVCodecCb& avcodec_cb = {nullptr},
                                   ::std::string comp_name = "") = 0;
 
-  /// \brief Enables clients to Get buffer requirement on a given port.
+  /// @brief Enables clients to Get buffer requirement on a given port.
   virtual status_t GetBufferRequirements(uint32_t port_type,
                                          uint32_t* buf_count,
                                          uint32_t* buf_size) = 0;
 
-  /// \brief This API will request avcodec to allocate buffer on a given port.
+  /// @brief This API will request avcodec to allocate buffer on a given port.
   /// Buffer can be meta or non meta mode and specified in CodecParam
   /// parameter. avcodec will create Bufferheader based on buf count.
   ///
@@ -93,28 +96,29 @@ class IAVCodec {
       uint32_t buf_size, const ::std::shared_ptr<ICodecSource>& source,
       ::std::vector<BufferDescriptor> &buffer_list) = 0;
 
-  /// \brief This API will release Bufferheader on both port and deallocate
+  /// @brief This API will release Bufferheader on both port and deallocate
   /// buffer in case of AllocateBuffer mode.
   virtual status_t ReleaseBuffer() = 0;
 
-  /// \brief This API will set codec run time parameter.
+  /// @brief This API will set codec run time parameter.
   virtual status_t SetParameters(CodecParamType param_type, void *codec_param,
                                  size_t param_size) = 0;
 
-  /// \brief This API will query codec run time parameter.
+  /// @brief This API will query codec run time parameter.
   virtual status_t GetParameters(const CodecParamType param_type,
                                  void *codec_param, size_t *param_size) = 0;
 
-  /// \brief This API will move the codec in executing state and create two
+  /// @brief This API will move the codec in executing state and create two
   /// thread, one for inpurt port and one for output port.
   /// Input thread will pull data from client using method GetBuffer to be
   /// processed by codec and return buffer using method ReturnBuffer.
   /// Output thread gets empty buffer using method GetBuffer from client and
   /// return filled buffer using method ReturnBuffer.
-  /// to client.
-  virtual status_t StartCodec() = 0;
+  /// to client.enable_rt_priority argument will set the priority of the
+  /// session to real time or non real time.
+  virtual status_t StartCodec(bool enable_rt_priority = false) = 0;
 
-  /// \brief This API will optionally wait for EOS (depending on do_flush) on
+  /// @brief This API will optionally wait for EOS (depending on do_flush) on
   /// output port and move the codec in Idle state. It disables both port and
   /// deregister buffer header on both port.
   virtual status_t StopCodec(bool do_flush) = 0;
@@ -127,7 +131,7 @@ class IAVCodec {
 
   virtual status_t RegisterInputBuffers(std::vector<BufferDescriptor>& list) = 0;
 
-  virtual status_t Flush(uint32_t port_type) = 0;
+  virtual status_t FlushCodec(uint32_t port_type) = 0;
 
   static IAVCodec* CreateAVCodec(
       CodecMimeType mimetype = CodecMimeType::kMimeTypeVideoEncAVC);

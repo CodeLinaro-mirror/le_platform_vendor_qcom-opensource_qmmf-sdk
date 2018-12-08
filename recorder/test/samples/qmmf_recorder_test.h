@@ -121,6 +121,7 @@ if (kpi_debug_mask & KPI_ONLY) { \
 
 using namespace qmmf;
 using namespace recorder;
+using namespace overlay;
 using namespace android;
 using namespace qcamera;
 using ::qmmf::display::DisplayEventType;
@@ -219,6 +220,7 @@ struct TrackInfo {
   uint32_t  width;
   uint32_t  height;
   float     fps;
+  float     focal_length;
   TrackType track_type;
   int32_t   ltr_count;
   uint32_t  session_id;
@@ -233,6 +235,7 @@ struct TrackInfo {
       : width(3840),
         height(2160),
         fps(30),
+        focal_length(0),
         track_type(TrackType::kVideoAVC),
         ltr_count(0),
         session_id(-1),
@@ -243,14 +246,14 @@ struct TrackInfo {
         avcparams(),
         hevcparams() {}
 
-  TrackInfo(uint32_t width, uint32_t height, float fps, TrackType track_type,
-            int32_t ltr_count, uint32_t session_id, uint32_t track_id,
-            int32_t camera_id, uint32_t low_power_mode,
-            DeviceId device_id, AVCParams avcparams,
-            HEVCParams hevcparams)
+  TrackInfo(uint32_t width, uint32_t height, float fps, float focal_length,
+            TrackType track_type, int32_t ltr_count, uint32_t session_id,
+            uint32_t track_id, int32_t camera_id, uint32_t low_power_mode,
+            DeviceId device_id, AVCParams avcparams, HEVCParams hevcparams)
       : width(width),
         height(height),
         fps(fps),
+        focal_length(focal_length),
         track_type(track_type),
         ltr_count(ltr_count),
         session_id(session_id),
@@ -712,7 +715,6 @@ class TestTrack {
 
   void ExtractColorValues(uint32_t hex_color, RGBAValues* color);
 
-#ifndef DISABLE_DISPLAY
   void DisplayCallbackHandler(DisplayEventType event_type, void *event_data,
       size_t event_data_size);
 
@@ -723,7 +725,6 @@ class TestTrack {
   status_t StopDisplay(DisplayType display_type);
 
   status_t ToggleDisplayState();
-#endif
 
   const TrackInfo& GetTrackHandle(){return track_info_;}
 
@@ -735,13 +736,11 @@ class TestTrack {
   void TrackDataCB(uint32_t track_id, std::vector<BufferDescriptor> buffers,
                    std::vector<MetaData> meta_buffers);
 
-#ifndef DISABLE_DISPLAY
   status_t PushFrameToDisplay(BufferDescriptor& buffer,
                               CameraBufferMetaData& meta_data);
 
   qmmf::display::DisplayParamType display_param_type_;
   int32_t display_param_;
-#endif
 
   TrackInfo track_info_;
 
@@ -757,13 +756,11 @@ class TestTrack {
 
   uint32_t num_yuv_frames_;
 
-#ifndef DISABLE_DISPLAY
   Display*   display_;
   bool display_started_;
   uint32_t   surface_id_;
   SurfaceParam surface_param_;
   SurfaceBuffer surface_buffer_;
-#endif
 
   DumpBitStream dump_bitstream_;
 #if USE_SKIA

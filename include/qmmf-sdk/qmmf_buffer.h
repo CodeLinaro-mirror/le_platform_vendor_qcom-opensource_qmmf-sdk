@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016, 2018, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -27,6 +27,9 @@
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+/*! @file qmmf_buffer.h
+*/
+
 #pragma once
 
 #include <cstdint>
@@ -37,10 +40,15 @@
 namespace qmmf {
 
 //  BufferFlags will be used to determine the type of encoded frame
+
+/**
+ *
+ *  BufferFlags will be used to determine the type of encoded frame
+ */
 enum class BufferFlags {
   kFlagNone = 0,
-  kFlagEOF = (1 << 0),          //  EOF: End of Frame
-  kFlagEOS = (1 << 1),          //  EOS: End of Stream
+  kFlagEOF = (1 << 0),        /**< EOF: End of Frame */ //  EOF: End of Frame
+  kFlagEOS = (1 << 1),        /**< EOS: End of Stream */ //  EOS: End of Stream
   kFlagCodecConfig = (1 << 2),
   kFlagIDRFrame = (1 << 3),
   kFlagIFrame = (1 << 4),

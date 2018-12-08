@@ -27,18 +27,64 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#pragma once
+
 #ifdef TARGET_USES_GRALLOC1
 #include <grallocusage/GrallocUsageConversion.h>
 #include <libgralloc1/gralloc_priv.h>
 #elif TARGET_USES_GBM
 #include <gbm_priv.h>
 #include <system/window.h>
+
+// todo: add and move to platform specific header
+#define HAL_PIXEL_FORMAT_RAW8                    0x123
+#define HAL_PIXEL_FORMAT_NV12_ENCODEABLE         0x102
+#define HAL_PIXEL_FORMAT_NV21_ZSL                0x113
+#define GRALLOC_USAGE_PRIVATE_ALLOC_UBWC         0x10000000
+#define HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS      0x7FA30C04
+#define HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS_UBWC 0x7FA30C06
+
+struct private_handle_t : public native_handle {
+  enum {
+      PRIV_FLAGS_FRAMEBUFFER = 0x00000001,
+      PRIV_FLAGS_VIDEO_ENCODER = 0x00010000
+  };
+
+  int fd;
+  int flags;
+  unsigned int  size;
+  unsigned int  offset;
+  int bufferType;
+  int format;
+  int width;   // holds aligned width of the actual buffer allocated
+  int height;  // holds aligned height of the  actual buffer allocated
+  int unaligned_width;   // holds width client asked to allocate
+  int unaligned_height;  // holds height client asked to allocate
+
+  static const int sNumFds = 2;
+  static inline int sNumInts() {
+      return (((sizeof(private_handle_t) - sizeof(native_handle_t)) /
+              sizeof(int)) - sNumFds);
+  }
+
+  private_handle_t(int fd, unsigned int size, int flags, int bufferType,
+      int format, int width, int height) :
+      fd(fd), flags(flags), size(size), offset(0), bufferType(bufferType),
+      format(format), width(width), height(height), unaligned_width(width),
+      unaligned_height(height) {
+    version = (int) sizeof(native_handle);
+    numInts = sNumInts();
+    numFds = sNumFds;
+  };
+
+  ~private_handle_t() {
+  };
+};
+
 #else
 #include <qcom/display/gralloc_priv.h>
 #endif
 #include <unordered_map>
-
-#pragma once
 
 /** MemAllocError
 * @Fail - error while memory allocator operation

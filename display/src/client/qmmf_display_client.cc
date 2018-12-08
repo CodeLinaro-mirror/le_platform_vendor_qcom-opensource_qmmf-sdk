@@ -42,7 +42,6 @@
 #include <vector>
 
 #include "display/src/client/qmmf_display_client.h"
-#include "display/src/service/qmmf_display_common.h"
 
 uint32_t qmmf_log_level;
 
@@ -72,7 +71,6 @@ DisplayClient::DisplayClient()
 {
   QMMF_GET_LOG_LEVEL();
   QMMF_DEBUG("%s Enter ", __func__);
-
 #ifdef ANDROID_O_OR_ABOVE
   ProcessState::initWithDriver("/dev/vndbinder");
 #endif

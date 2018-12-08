@@ -103,20 +103,15 @@ status_t PostProcFactory::GetSupportedPlugins(SupportedPlugins *plugins) {
       void *lib_handle;
       Utils::LoadLib(library, lib_handle);
 
-      QmmfAlgLoadPlugin LoadPluginFunc;
-      Utils::LoadLibHandler(lib_handle, QMMF_ALG_LIB_LOAD_FUNC, LoadPluginFunc);
+      QmmfAlgGetCapabilites GetCapsFunc;
+      Utils::LoadLibHandler(lib_handle, QMMF_ALG_GET_CAPS_FUNC, GetCapsFunc);
+      auto caps = *GetCapsFunc();
 
-      std::vector<uint8_t> calibration_data;
-      auto plugin = LoadPluginFunc(calibration_data);
-
-      auto caps = plugin->GetCaps();
       PluginInfo plugin_info(caps.plugin_name_, caps.lib_version_,
-                      caps.runtime_enable_disable_);
+                             caps.runtime_enable_disable_);
       plugins->push_back(plugin_info);
       plugin_libraries_.emplace(plugin_info.name, library);
 
-      delete plugin;
-      Utils::UnloadLib(lib_handle);
     } catch (const std::exception &e) {
       QMMF_ERROR("%s: Error getting plugin info for %s exception: %s",
           __func__, library.c_str(), e.what());

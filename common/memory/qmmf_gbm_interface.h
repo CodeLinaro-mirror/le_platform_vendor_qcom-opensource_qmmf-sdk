@@ -31,7 +31,7 @@
 
 #include <gbm_priv.h>
 #include "qmmf_memory_interface.h"
-#include "qmmf_common_utils.h"
+#include "common/utils/qmmf_log.h"
 
 class GBMUsage : public IMemAllocUsage {
  public:
@@ -39,6 +39,9 @@ class GBMUsage : public IMemAllocUsage {
   int32_t ToLocal(MemAllocFlags common) const;
   MemAllocFlags ToCommon(int32_t local) const;
   int32_t ToGralloc(MemAllocFlags common) const;
+  MemAllocFlags GrallocToCommon(int32_t gralloc) const;
+  int32_t LocalToGralloc(int32_t local) const;
+  int32_t GrallocToLocal(int32_t gralloc) const;
  private:
   static const std::unordered_map<int32_t, int32_t> usage_flag_map_;
   static const std::unordered_map<int32_t, int32_t> gralloc_usage_flag_map_;

@@ -36,9 +36,29 @@
 #include <vector>
 #include <map>
 #include <mutex>
+#include <sys/time.h>
+#include <chrono>
+#include <condition_variable>
 #include <cutils/properties.h>
+#include <random>
+#include <fstream>
+//#include <system/graphics.h>
 
+#include <qmmf-sdk/qmmf_queue.h>
+#include <qmmf-sdk/qmmf_display.h>
+#include <qmmf-sdk/qmmf_display_params.h>
+#include <qmmf-sdk/qmmf_recorder.h>
+#include <qmmf-sdk/qmmf_recorder_params.h>
+#include <qmmf-sdk/qmmf_recorder_extra_param_tags.h>
+#include "common/utils/qmmf_log.h"
+#include "qmmf_memory_interface.h"
 
+#define DUMP_META_PATH "/data/misc/qmmf/param.dump"
+
+#ifdef USE_SURFACEFLINGER
+#include <sys/mman.h>
+#include <android/native_window.h>
+#endif
 
 #if USE_SKIA
 #include <SkCanvas.h>
@@ -47,18 +67,36 @@
 #include <cairo/cairo.h>
 #endif
 
-#ifdef CAM_ARCH_V2
+#ifdef QCAMERA3_TAG_LOCAL_COPY
 #include <camera/VendorTagDescriptor.h>
 #endif
 
-#include <qmmf-sdk/qmmf_display.h>
-#include <qmmf-sdk/qmmf_display_params.h>
-#include <qmmf-sdk/qmmf_recorder.h>
-#include <qmmf-sdk/qmmf_recorder_params.h>
-#include <qmmf-sdk/qmmf_recorder_extra_param_tags.h>
+#ifdef USE_SURFACEFLINGER
+#include <ui/DisplayInfo.h>
+#include <gui/Surface.h>
+#include <gui/SurfaceComposerClient.h>
+#include <gui/ISurfaceComposer.h>
+#endif
+
+#ifdef QCAMERA3_TAG_LOCAL_COPY
+#include "common/utils/qmmf_common_utils.h"
+#else
+#include <QCamera3VendorTags.h>
+#endif  // QCAMERA3_TAG_LOCAL_COPY
+
+//#define DEBUG
+#define TEST_INFO(fmt, args...)  ALOGD(fmt, ##args)
+#define TEST_ERROR(fmt, args...) ALOGE(fmt, ##args)
+#define TEST_WARN(fmt, args...) ALOGW(fmt, ##args)
+#ifdef DEBUG
+#define TEST_DBG  TEST_INFO
+#else
+#define TEST_DBG(...) ((void)0)
+#endif
 
 using namespace qmmf;
 using namespace recorder;
+using namespace overlay;
 using namespace android;
 using ::qmmf::display::DisplayEventType;
 using ::qmmf::display::DisplayType;
@@ -69,6 +107,45 @@ using ::qmmf::display::SurfaceParam;
 using ::qmmf::display::SurfaceConfig;
 using ::qmmf::display::SurfaceBlending;
 using ::qmmf::display::SurfaceFormat;
+
+static const uint32_t kZslWidth      = 1920;
+static const uint32_t kZslHeight     = 1080;
+static const uint32_t kZslQDepth     = 10;
+
+#if USE_SKIA
+static const uint32_t kColorRed        = 0xFFFF0000;
+static const uint32_t kColorDarkGray   = 0x202020FF;
+static const uint32_t kColorYellow     = 0xFFFF00FF;
+static const uint32_t kColorBlue       = 0x0000CCFF;
+static const uint32_t kColorWhilte     = 0xFFFFFFFF;
+static const uint32_t kColorOrange     = 0xFF8000FF;
+static const uint32_t kColorLightGreen = 0x33CC00FF;
+static const uint32_t kColorLightBlue  = 0x189BF2FF;
+#elif USE_CAIRO
+static const uint32_t kColorRed        = 0xFF0000FF;
+static const uint32_t kColorDarkGray   = 0x202020FF;
+static const uint32_t kColorYellow     = 0xFFFF00FF;
+static const uint32_t kColorBlue       = 0x0000CCFF;
+static const uint32_t kColorWhilte     = 0xFFFFFFFF;
+static const uint32_t kColorOrange     = 0xFF8000FF;
+static const uint32_t kColorLightGreen = 0x33CC00FF;
+static const uint32_t kColorLightBlue  = 0x189BF2FF;
+#endif
+
+
+#define TEXT_SIZE                 40
+#define DATETIME_PIXEL_SIZE       30
+#define DATETIME_TEXT_BUF_WIDTH   192
+#define DATETIME_TEXT_BUF_HEIGHT  108
+#define FHD_1080p_STREAM_WIDTH    1920
+#define FHD_1080p_STREAM_HEIGHT   1080
+#define MAX_EXP_TABLE_KNEES       50
+
+static const uint32_t kBitRate4k30    = 45000000;
+static const uint32_t kBitRate1440p30 = 25000000;
+static const uint32_t kBitRate1440p60 = 45000000;
+static const uint32_t kBitRate960p90  = 45000000;
+static const uint32_t kBitRate480p    = 4000000;
 
 template<class T>
 struct Rect {
@@ -143,7 +220,7 @@ struct FaceInfo {
 #define MAX(a,b) ((a) > (b) ? (a) : (b))
 #endif
 
-#ifdef CAM_ARCH_V2
+#ifdef QCAMERA3_TAG_LOCAL_COPY
 enum ISOModes : int64_t {
   kISOModeAuto = 0,
   kISOModeDeblur,
@@ -172,9 +249,10 @@ enum AWbModes : uint8_t {
 
 typedef struct StreamDumpInfo {
   VideoFormat   format;
+  uint32_t      session_id;
   uint32_t      track_id;
-  uint32_t       width;
-  uint32_t       height;
+  uint32_t      width;
+  uint32_t      height;
 } StreamDumpInfo;
 
 struct RGBAValues {
@@ -183,6 +261,50 @@ struct RGBAValues {
   double blue;
   double alpha;
 };
+
+typedef struct ExposureTable {
+  uint8_t is_valid;
+  float sensitivity_correction_factor;
+  int32_t knee_count;
+  float gain_knee_entries[MAX_EXP_TABLE_KNEES];
+  int64_t exp_time_knee_entries[MAX_EXP_TABLE_KNEES];
+  int32_t increment_priority_knee_entries[MAX_EXP_TABLE_KNEES];
+  float exp_index_knee_entries[MAX_EXP_TABLE_KNEES];
+  float thres_anti_banding_min_exp_time_pct;
+
+  ExposureTable() {
+    is_valid = 0;
+    sensitivity_correction_factor = 0.0;
+    knee_count = 0;
+    memset(gain_knee_entries, 0.0, sizeof(gain_knee_entries));
+    memset(exp_time_knee_entries, 0, sizeof(exp_time_knee_entries));
+    memset(increment_priority_knee_entries, 0, sizeof(increment_priority_knee_entries));
+    memset(exp_index_knee_entries, 0.0, sizeof(exp_index_knee_entries));
+    thres_anti_banding_min_exp_time_pct = 0.0;
+  }
+} ExposureTable;
+
+#ifdef USE_SURFACEFLINGER
+class SFDisplaySink
+{
+ public:
+  SFDisplaySink(uint32_t width, uint32_t height);
+
+  ~SFDisplaySink();
+
+  void HandlePreviewBuffer(BufferDescriptor &buffer,
+      CameraBufferMetaData &meta_data);
+
+ private:
+  int32_t CreatePreviewSurface(uint32_t width, uint32_t height);
+
+  void DestroyPreviewSurface();
+
+  sp<SurfaceComposerClient> surface_client_;
+  sp<Surface>               preview_surface_;
+  sp<SurfaceControl>        surface_control_;
+};
+#endif
 
 class DumpBitStream {
  public:
@@ -194,31 +316,32 @@ class DumpBitStream {
 
   bool IsUsed() {return (is_enabled_ && file_fds_.size());}
 
-  int32_t GetFileFd(const uint32_t count)
-                   {EXPECT_TRUE(count > 0);
-                    EXPECT_TRUE(count <= file_fds_.size());
-                    return file_fds_[count-1];}
+  int32_t GetFileFd(const uint32_t &session_id, const uint32_t &track_id) {
+    uint8_t key_by_session_track_id = session_id << 4 | track_id;
+    EXPECT_TRUE(file_fds_.count(key_by_session_track_id));
+    return file_fds_[key_by_session_track_id];
+  }
 
   void Enable(const bool enable) {is_enabled_ = enable;}
 
   status_t SetUp(const StreamDumpInfo& dumpinfo);
 
   status_t Dump(const std::vector<BufferDescriptor>& buffers,
-                const int32_t file_fd);
+    const uint32_t &session_id, const uint32_t &track_id);
 
   void Close(int32_t file_fd);
 
   void CloseAll();
  private:
   bool is_enabled_;
-  std::vector<int32_t> file_fds_;
+  std::map<uint8_t, int32_t> file_fds_;
 };
 
-class RecorderGtest : public ::testing::Test {
+class GtestCommon : public ::testing::Test {
  public:
-  RecorderGtest() : recorder_(), face_bbox_active_(false), camera_error_(false) {};
+  GtestCommon() : recorder_(), face_bbox_active_(false), camera_error_(false) {}
 
-  ~RecorderGtest() {};
+  ~GtestCommon() {}
 
  protected:
   const ::testing::TestInfo* test_info_;
@@ -252,17 +375,9 @@ class RecorderGtest : public ::testing::Test {
                            std::vector<BufferDescriptor> buffers,
                            std::vector<MetaData> meta_buffers);
 
-  void VideoTrackOneEncDataCb(uint32_t session_id, uint32_t track_id,
-                              std::vector<BufferDescriptor> buffers,
-                              std::vector<MetaData> meta_buffers);
-
-  void VideoTrackTwoEncDataCb(uint32_t session_id, uint32_t track_id,
-                              std::vector<BufferDescriptor> buffers,
-                              std::vector<MetaData> meta_buffers);
-
-  void VideoTrackThreeEncDataCb(uint32_t session_id, uint32_t track_id,
-                                std::vector<BufferDescriptor> buffers,
-                                std::vector<MetaData> meta_buffers);
+  void VideoTrackEncDataCb(uint32_t session_id, uint32_t track_id,
+                              std::vector<BufferDescriptor> &buffers,
+                              std::vector<MetaData> &meta_buffers);
 
   void VideoTrackEventCb(uint32_t track_id, EventType event_type,
                          void *event_data, size_t event_data_size);
@@ -296,13 +411,22 @@ class RecorderGtest : public ::testing::Test {
 
   status_t SetCameraFocalLength(const float focal_length);
 
+  void RemoveSpaces(std::string &str);
+
+  void TokenizeString(std::string const &str, const char delim,
+                      std::vector<std::string> &out);
+
+  status_t ParseExposureTable(std::string dir_path, std::string fileName,
+                              std::vector<ExposureTable> &exp_tables);
+
+  status_t PopulateExpTable(std::vector<ExposureTable> &exp_tables);
+
 #ifdef CAM_ARCH_V2
   bool VendorTagSupported(const String8& name, const String8& section,
                           uint32_t* tag_id);
 
   bool VendorTagExistsInMeta(const CameraMetadata& meta, const String8& name,
                              const String8& section, uint32_t* tag_id);
-#endif
 
   void CreatePrivacyMaskOverlay(const uint32_t& video_track_id,
                                 const int32_t& width, const int32_t& height,
@@ -310,6 +434,7 @@ class RecorderGtest : public ::testing::Test {
 
   void DestroyPrivacyMaskOverlay (const uint32_t& video_track_id,
                                   const uint32_t& mask_id);
+#endif
 
   Recorder              recorder_;
   uint32_t              camera_id_;
@@ -318,17 +443,61 @@ class RecorderGtest : public ::testing::Test {
   CameraStartParam      camera_start_params_;
   RecorderCb            recorder_status_cb_;
   std::map <uint32_t , std::vector<uint32_t> > sessions_;
+  std::map<uint32_t,uint32_t> track_frame_count_map_;
+  static const std::string    kQmmfFolderPath;
 
   void ParseFaceInfo(const android::CameraMetadata &res,
                      struct FaceInfo &info);
 
   void ApplyFaceOveralyOnStream(struct FaceInfo &info);
 
+  static bool ValidateResFromStreamConfigs(const CameraMetadata& meta,
+                                            const uint32_t width,
+                                            const uint32_t height);
+
+  static bool GetMinResFromStreamConfigs(const CameraMetadata& meta,
+                                          uint32_t &width,
+                                          uint32_t &height);
+
+  static bool ValidateResFromProcessedSizes(const CameraMetadata& meta,
+                                            const uint32_t width,
+                                            const uint32_t height);
+
+  static bool ValidateResFromJpegSizes(const CameraMetadata& meta,
+                                        const uint32_t width,
+                                        const uint32_t height);
+
+  static bool ValidateResFromRawSizes(const CameraMetadata& meta,
+                                      const uint32_t width,
+                                      const uint32_t height);
+
+  static bool GetMaxSupportedCameraRes(const CameraMetadata& meta,
+                                      uint32_t &width, uint32_t &height,
+                                const int32_t format = HAL_PIXEL_FORMAT_RAW10);
+
+  static bool GetMinSupportedCameraRes(const CameraMetadata& meta,
+                                        uint32_t &width,
+                                        uint32_t &height);
+
   status_t DrawOverlay(void *data, int32_t width, int32_t height);
 
   void ExtractColorValues(uint32_t hex_color, RGBAValues* color);
 
   void ClearSurface();
+
+  status_t FillCropMetadata(CameraMetadata& meta, int32_t sensor_mode_w,
+                            int32_t sensor_mode_h, int32_t crop_x,
+                            int32_t crop_y, int32_t crop_w, int32_t crop_h);
+
+  SessionCb CreateSessionStatusCb() {
+    SessionCb session_status_cb;
+    session_status_cb.event_cb =
+        [this] (EventType event_type, void *event_data,
+                size_t event_data_size) -> void {
+        SessionCallbackHandler(event_type,
+        event_data, event_data_size); };
+    return session_status_cb;
+  }
 
 #ifndef DISABLE_DISPLAY
   void DisplayCallbackHandler(DisplayEventType event_type, void *event_data,
@@ -407,7 +576,7 @@ class RecorderGtest : public ::testing::Test {
 
   bool                  ubwc_stream_enable_;
 
-#ifdef CAM_ARCH_V2
+#ifdef QCAMERA3_TAG_LOCAL_COPY
   sp<VendorTagDescriptor> vendor_tag_desc_;
 #endif
 

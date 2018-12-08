@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016, 2018, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -31,7 +31,11 @@
 
 #include "qmmf-sdk/qmmf_display.h"
 #include "qmmf-sdk/qmmf_display_params.h"
+#include "display/src/client/qmmf_display_client_intf.h"
 #include "display/src/client/qmmf_display_client.h"
+#ifdef ENABLE_WESTON_CLIENT
+#include "display/src/client/qmmf_display_weston_client.h"
+#endif
 #include "display/src/service/qmmf_display_common.h"
 namespace qmmf {
 
@@ -40,7 +44,11 @@ namespace display {
 Display::Display()
     : display_client_(nullptr) {
 
+#ifndef ENABLE_WESTON_CLIENT
   display_client_ = new DisplayClient();
+#else
+  display_client_ = new DisplayWestonClient();
+#endif
   assert( display_client_ != NULL);
 }
 

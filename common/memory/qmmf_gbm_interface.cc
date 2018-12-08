@@ -30,13 +30,11 @@
 #include <fcntl.h>
 
 #include "qmmf_gbm_interface.h"
-#include "qmmf_common_utils.h"
 
 #ifndef LOG_TAG
 #define LOG_TAG "GBM Allocator"
 #endif
 
-using namespace qmmf;
 
 const std::unordered_map<int32_t, int32_t> GBMUsage::usage_flag_map_ = {
   // TODO: keep this map updated with GBM enhancements
@@ -46,8 +44,8 @@ const std::unordered_map<int32_t, int32_t> GBMUsage::usage_flag_map_ = {
   {IMemAllocUsage::kPrivateMmHeap,    0},
   {IMemAllocUsage::kPrivateUncached,  GBM_BO_USAGE_UNCACHED_QTI},
   {IMemAllocUsage::kProtected,        GBM_BO_USAGE_PROTECTED_QTI},
-  {IMemAllocUsage::kSwReadOften,      GBM_BO_USAGE_UNCACHED_QTI},
-  {IMemAllocUsage::kSwWriteOften,     GBM_BO_USAGE_UNCACHED_QTI},
+  {IMemAllocUsage::kSwReadOften,      0},
+  {IMemAllocUsage::kSwWriteOften,     0},
   {IMemAllocUsage::kVideoEncoder,     GBM_BO_USAGE_VIDEO_ENCODER_QTI}};
 
 const std::unordered_map<int32_t, int32_t> GBMUsage::gralloc_usage_flag_map_ = {
@@ -58,8 +56,7 @@ const std::unordered_map<int32_t, int32_t> GBMUsage::gralloc_usage_flag_map_ = {
   {IMemAllocUsage::kSwReadOften,      GRALLOC_USAGE_SW_READ_OFTEN},
   {IMemAllocUsage::kSwWriteOften,     GRALLOC_USAGE_SW_WRITE_OFTEN},
   {IMemAllocUsage::kHwFb,             GRALLOC_USAGE_HW_FB},
-  {IMemAllocUsage::kVideoEncoder,
-   private_handle_t::PRIV_FLAGS_VIDEO_ENCODER}};
+  {IMemAllocUsage::kVideoEncoder,     private_handle_t::PRIV_FLAGS_VIDEO_ENCODER}};
 
 int32_t GBMUsage::ToLocal(int32_t common) const {
   int32_t local_usage = 0;
@@ -68,17 +65,8 @@ int32_t GBMUsage::ToLocal(int32_t common) const {
       local_usage |= it.second;
     }
   }
+  QMMF_VERBOSE("%s: local_usage(0x%x)", __func__, local_usage);
   return local_usage;
-}
-int32_t GBMUsage::ToGralloc(MemAllocFlags common) const {
-  int32_t gralloc;
-  gralloc = 0;
-  for (auto &it : gralloc_usage_flag_map_) {
-    if (it.first & common.flags) {
-      gralloc |= it.first;
-    }
-  }
-  return gralloc;
 }
 
 int32_t GBMUsage::ToLocal(MemAllocFlags common) const {
@@ -88,7 +76,20 @@ int32_t GBMUsage::ToLocal(MemAllocFlags common) const {
       local_usage |= it.second;
     }
   }
+  QMMF_VERBOSE("%s: local_usage(0x%x)", __func__, local_usage);
   return local_usage;
+}
+
+int32_t GBMUsage::ToGralloc(MemAllocFlags common) const {
+  int32_t gralloc;
+  gralloc = 0;
+  for (auto &it : gralloc_usage_flag_map_) {
+    if (it.first & common.flags) {
+      gralloc |= it.second;
+    }
+  }
+  QMMF_VERBOSE("%s: gralloc(0x%x)", __func__, gralloc);
+  return gralloc;
 }
 
 MemAllocFlags GBMUsage::ToCommon(int32_t local) const {
@@ -99,7 +100,32 @@ MemAllocFlags GBMUsage::ToCommon(int32_t local) const {
       common.flags |= it.first;
     }
   }
+  QMMF_VERBOSE("%s: common.flags(0x%x)", __func__, common.flags);
   return common;
+}
+
+MemAllocFlags GBMUsage::GrallocToCommon(int32_t gralloc) const {
+  MemAllocFlags common;
+  common.flags = 0;
+  for (auto &it : gralloc_usage_flag_map_) {
+    if (it.second & gralloc) {
+      common.flags |= it.first;
+    }
+  }
+  QMMF_VERBOSE("%s: common.flags(0x%x)", __func__, common.flags);
+  return common;
+}
+
+int32_t GBMUsage::LocalToGralloc(int32_t local) const {
+  MemAllocFlags common = ToCommon(local);
+  QMMF_VERBOSE("%s: gralloc(0x%x)", __func__, ToGralloc(common));
+  return (ToGralloc(common));
+}
+
+int32_t GBMUsage::GrallocToLocal(int32_t gralloc) const {
+  MemAllocFlags common = GrallocToCommon(gralloc);
+  QMMF_VERBOSE("%s: local(0x%x)", __func__, ToLocal(common));
+  return (ToLocal(common));
 }
 
 const std::unordered_map<uint32_t, uint32_t> GBMBuffer::to_gbm_ = {
@@ -110,33 +136,52 @@ const std::unordered_map<uint32_t, uint32_t> GBMBuffer::to_gbm_ = {
   {HAL_PIXEL_FORMAT_RGBA_1010102,            GBM_FORMAT_RGBA1010102},
   {HAL_PIXEL_FORMAT_RGBA_8888,               GBM_FORMAT_RGBA8888},
   {HAL_PIXEL_FORMAT_RGBX_8888,               GBM_FORMAT_RGBX8888},
+
   {HAL_PIXEL_FORMAT_BLOB,                    GBM_FORMAT_BLOB},
-  {HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED,  GBM_FORMAT_YCbCr_420_888},
-  {HAL_PIXEL_FORMAT_NV12_ENCODEABLE,         GBM_FORMAT_NV12_ENCODEABLE},
-  {HAL_PIXEL_FORMAT_NV21_ZSL,                0},
   {HAL_PIXEL_FORMAT_RAW10,                   GBM_FORMAT_RAW10},
+  {HAL_PIXEL_FORMAT_RAW16,                   GBM_FORMAT_RAW16},
+  {HAL_PIXEL_FORMAT_RAW8,                    0},
   {HAL_PIXEL_FORMAT_RAW12,                   0},
-  {HAL_PIXEL_FORMAT_RAW16,                   0},
+
+  {HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED,  GBM_FORMAT_IMPLEMENTATION_DEFINED},
+
+  {HAL_PIXEL_FORMAT_NV12_ENCODEABLE,         GBM_FORMAT_NV12_ENCODEABLE},
+  {HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS,      GBM_FORMAT_YCbCr_420_SP_VENUS},
+  {HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS_UBWC, GBM_FORMAT_YCbCr_420_SP_VENUS_UBWC},
+
   {HAL_PIXEL_FORMAT_YCbCr_420_888,           GBM_FORMAT_YCbCr_420_888},
-  {HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS,      0},
-  {HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS_UBWC, 0},
+  {HAL_PIXEL_FORMAT_YCbCr_422_SP,            GBM_FORMAT_YCbCr_422_SP},
   {HAL_PIXEL_FORMAT_YCbCr_422_I,             0},
-  {HAL_PIXEL_FORMAT_YCbCr_422_SP,            0},
   {HAL_PIXEL_FORMAT_YCrCb_420_SP,            0},
-  {HAL_PIXEL_FORMAT_YV12,                    0}};
+  {HAL_PIXEL_FORMAT_YV12,                    0},
+  {HAL_PIXEL_FORMAT_YCbCr_422_888,           0},
+
+  {HAL_PIXEL_FORMAT_NV21_ZSL,                GBM_FORMAT_NV21_ZSL},
+};
 
 const std::unordered_map<int32_t, int32_t> GBMBuffer::from_gbm_ = {
   // TODO: keep this map updated with GBM enhancements
-  {GBM_FORMAT_BGRA8888,        HAL_PIXEL_FORMAT_BGRA_8888},
-  {GBM_FORMAT_RGB565,          HAL_PIXEL_FORMAT_RGB_565},
-  {GBM_FORMAT_RGB888,          HAL_PIXEL_FORMAT_RGB_888},
-  {GBM_FORMAT_RGBA1010102,     HAL_PIXEL_FORMAT_RGBA_1010102},
-  {GBM_FORMAT_RGBA8888,        HAL_PIXEL_FORMAT_RGBA_8888},
-  {GBM_FORMAT_RGBX8888,        HAL_PIXEL_FORMAT_RGBX_8888},
-  {GBM_FORMAT_YCbCr_420_888,   HAL_PIXEL_FORMAT_YCbCr_420_888},
-  {GBM_FORMAT_BLOB,            HAL_PIXEL_FORMAT_BLOB},
-  {GBM_FORMAT_NV12_ENCODEABLE, HAL_PIXEL_FORMAT_NV12_ENCODEABLE},
-  {GBM_FORMAT_RAW10,           HAL_PIXEL_FORMAT_RAW10}
+  {GBM_FORMAT_BGRA8888,                 HAL_PIXEL_FORMAT_BGRA_8888},
+  {GBM_FORMAT_RGB565,                   HAL_PIXEL_FORMAT_RGB_565},
+  {GBM_FORMAT_RGB888,                   HAL_PIXEL_FORMAT_RGB_888},
+  {GBM_FORMAT_RGBA1010102,              HAL_PIXEL_FORMAT_RGBA_1010102},
+  {GBM_FORMAT_RGBA8888,                 HAL_PIXEL_FORMAT_RGBA_8888},
+  {GBM_FORMAT_RGBX8888,                 HAL_PIXEL_FORMAT_RGBX_8888},
+
+  {GBM_FORMAT_BLOB,                     HAL_PIXEL_FORMAT_BLOB},
+  {GBM_FORMAT_RAW10,                    HAL_PIXEL_FORMAT_RAW10},
+  {GBM_FORMAT_RAW16,                    HAL_PIXEL_FORMAT_RAW16},
+
+  {GBM_FORMAT_IMPLEMENTATION_DEFINED,   HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED},
+
+  {GBM_FORMAT_NV12_ENCODEABLE,          HAL_PIXEL_FORMAT_NV12_ENCODEABLE},
+  {GBM_FORMAT_YCbCr_420_SP_VENUS,       HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS},
+  {GBM_FORMAT_YCbCr_420_SP_VENUS_UBWC,  HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS_UBWC},
+
+  {GBM_FORMAT_YCbCr_422_SP,             HAL_PIXEL_FORMAT_YCbCr_422_SP},
+  {GBM_FORMAT_YCbCr_420_888,            HAL_PIXEL_FORMAT_YCbCr_420_888},
+
+  {GBM_FORMAT_NV21_ZSL,                 HAL_PIXEL_FORMAT_NV21_ZSL},
 };
 
 struct gbm_bo *GBMBuffer::GetNativeHandle() const{
@@ -146,7 +191,6 @@ struct gbm_bo *GBMBuffer::GetNativeHandle() const{
 void GBMBuffer::SetNativeHandle(struct gbm_bo *bo) {
   generic_handle_ = bo;
 }
-
 
 buffer_handle_t &GBMBuffer::RepackToGralloc()
 {
@@ -166,19 +210,27 @@ int GBMBuffer::GetUsage ()
   MemAllocFlags cmn = GBMUsage().ToCommon(generic_handle_->usage_flags);
   return cmn.flags;
 }
+
 int GBMBuffer::GetFD() { return gbm_bo_get_fd(generic_handle_); }
+
 int GBMBuffer::GetFormat() {
   int format = 0;
   uint32_t gbm_format = 0;
 
+  assert(nullptr != generic_handle_);
   gbm_format = gbm_bo_get_format(generic_handle_);
+  QMMF_VERBOSE("%s: gbm_format = 0x%x", __func__, gbm_format);
 
   for (auto &it : from_gbm_) {
     if ((uint32_t)it.first == gbm_format) {
-      return (int)it.second;
+      format = (int)it.second;
+      break;
     }
   }
 
+  if (!format) {
+    QMMF_ERROR("%s: Format not found!", __func__);
+  }
   return format;
 }
 uint32_t GBMBuffer::GetSize() {
@@ -189,7 +241,9 @@ uint32_t GBMBuffer::GetSize() {
   return bo_size;
 }
 uint32_t GBMBuffer::GetWidth() { return gbm_bo_get_width(generic_handle_); }
+
 uint32_t GBMBuffer::GetHeight() { return gbm_bo_get_height(generic_handle_); }
+
 uint32_t GBMBuffer::GetLocalFormat (int common)
 {
   uint32_t gbm_format = 0;
@@ -204,6 +258,10 @@ uint32_t GBMBuffer::GetLocalFormat (int common)
 
 GBMDevice::GBMDevice() {
   gbm_fd_ = open("/dev/dri/card0", O_RDWR);
+  if (gbm_fd_ < 0) {
+    QMMF_WARN("%s: Falling back to /dev/ion \n", __func__);
+    gbm_fd_ = open("/dev/ion", O_RDWR);
+  }
   assert(gbm_fd_ >= 0);
   gbm_device_ = gbm_create_device(gbm_fd_);
   assert(gbm_device_ != nullptr);
@@ -236,6 +294,7 @@ MemAllocError GBMDevice::AllocBuffer(IBufferHandle& handle, int32_t width,
 
   gbm_hnd->SetNativeHandle(bo);
   *stride = gbm_bo_get_stride(bo);
+
   return MemAllocError::kAllocOk;
 }
 

@@ -31,8 +31,8 @@
 
 #include <cstring>
 
-#include "qmmf-plugin/qmmf_alg_plugin.h"
-#include "qmmf-plugin/qmmf_alg_utils.h"
+#include <qmmf-alg/qmmf_alg_plugin.h>
+#include <qmmf-alg/qmmf_alg_utils.h>
 
 namespace qmmf {
 
@@ -55,7 +55,7 @@ class QmmfSimpleTestAlgo : public IAlgPlugin {
                                                0, {kNv12, kNv21}),
               BufferRequirements(160, 120, 3840, 2160, true, 1, 0, 0,
                                  {kNv12, kNv21}),
-              false, 0, false, false, false, 1.0) {}
+              false, 0, false, false, false, "1.0", "undefined") {}
 
  protected:
   /** GetCaps
@@ -82,10 +82,13 @@ class QmmfSimpleTestAlgo : public IAlgPlugin {
    * Set algorithm specific config data
    *    @config_json_data: config data in JSON format
    *
-   * return: void
+   * return: string
    **/
-  void Configure(const std::string config_json_data) {
+  const std::string Configure(const std::string &config_json_data) {
+    std::string res = {};
     config_json_data_ = config_json_data;
+
+    return res;
   }
 
   /** GetInputRequirements
@@ -95,7 +98,7 @@ class QmmfSimpleTestAlgo : public IAlgPlugin {
    *
    * return: Requirements
    **/
-  Requirements GetInputRequirements(const Requirements &out) { return out; }
+  const Requirements GetInputRequirements(const Requirements &out) { return out; }
 
   /** RegisterInputBuffers
   *    @buffers: vector of input buffers to register
@@ -184,8 +187,10 @@ class QmmfSimpleTestAlgo : public IAlgPlugin {
    *
    * return: void
    **/
-  void Process(const std::vector<AlgBuffer> &input_buffers,
+  const std::string Process(const std::vector<AlgBuffer> &input_buffers,
                const std::vector<AlgBuffer> &output_buffers) {
+    std::string res = {};
+
     Validate(input_buffers, output_buffers);
 
     if (listener_ == nullptr) {
@@ -236,6 +241,8 @@ class QmmfSimpleTestAlgo : public IAlgPlugin {
         listener_->OnFrameReady(b);
       }
     }
+
+    return res;
   }
 
   /** Validate

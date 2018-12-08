@@ -33,9 +33,10 @@
 #include <mutex>
 #include <string>
 
-#include "qmmf-plugin/qmmf_alg_plugin.h"
+#include <qmmf-alg/qmmf_alg_plugin.h>
 
 #include "common/utils/qmmf_common_utils.h"
+#include "common/utils/qmmf_tools.h"
 
 #include "../../interface/qmmf_postproc_module.h"
 
@@ -46,7 +47,8 @@ namespace recorder {
 using namespace qmmf_alg_plugin;
 
 class PostProcAlg : public IPostProcModule,
-                    public IEventListener {
+                    public IEventListener,
+                    public QmmfAlgoTools {
 
  public:
 

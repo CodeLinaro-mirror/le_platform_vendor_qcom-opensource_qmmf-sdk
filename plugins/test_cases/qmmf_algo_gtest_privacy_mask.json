@@ -1,8 +1,8 @@
 {
   "Common": {
     "iteration count": 12,
-    "tested library": "qmmf/alg-plugins/libqmmf_alg_sw_tnr.so",
-    "configuration file": "",
+    "tested library": "qmmf/alg-plugins/libqmmf_alg_privacy_mask.so",
+    "configuration file": "privacy_mask_configuration.json",
     "calibration file": "",
     "input buffers": [
       {
@@ -12,7 +12,6 @@
         "scanline": 1472,
         "pixel format": "Nv21"
       }
-    ],
-    "output buffers": []
+    ]
   }
 }

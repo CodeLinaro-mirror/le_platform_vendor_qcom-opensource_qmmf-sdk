@@ -210,6 +210,21 @@ void AVCodec::SetVenusTurboConfig() {
   QMMF_INFO("%s Encoder is set to turbo mode!!", __func__);
 }
 
+void AVCodec::SetRealTimePriorityConfig() {
+  OMX_PARAM_U32TYPE config;
+  int32_t priority = 0;
+  InitOMXParams(&config);
+  config.nU32 = static_cast<OMX_U32> (priority);
+  auto ret = omx_client_->SetConfig(
+      static_cast<OMX_INDEXTYPE> (OMX_IndexConfigPriority),
+      reinterpret_cast<OMX_PTR> (&config));
+  if (ret != 0) {
+    QMMF_ERROR("%s Failed to set video priority: %d", __func__, ret);
+    return;
+  }
+  QMMF_INFO("%s video priority is set to real-time", __func__);
+}
+
 status_t AVCodec::CreateHandle(char* component_name) {
 
   QMMF_INFO("%s Enter", __func__);
@@ -2534,7 +2549,7 @@ void AVCodec::setPowerHint(){
   }
 }
 
-status_t AVCodec::StartCodec() {
+status_t AVCodec::StartCodec(bool enable_rt_priority) {
   QMMF_INFO("%s: Enter", __func__);
 
   status_t ret = 0;
@@ -2743,6 +2758,10 @@ status_t AVCodec::StartCodec() {
     QMMF_ERROR("%s: Wait for state %s failed", __func__,
                OMX_STATE_NAME(OMX_StateIdle));
     return ret;
+  }
+
+  if (enable_rt_priority) {
+    SetRealTimePriorityConfig();
   }
 
   QMMF_INFO("%s: Move to Component to Executing state", __func__);
@@ -3229,6 +3248,30 @@ bool inline AVCodec::IsPortReconfig() {
 
   Mutex::Autolock autoLock(port_reconfig_lock_);
   return bPortReconfig_;
+}
+
+status_t AVCodec::FlushCodec(uint32_t index) {
+  QMMF_INFO("%s: Enter", __func__);
+  status_t ret = 0;
+  if (format_type_ == CodecType::kVideoDecoder)
+    while (IsPortReconfig()) {
+      if(IsOutputPortStop()) {
+        return -EPERM;
+      }
+      usleep(kSleepPortReconfig);
+    }
+  api_count_++;
+
+  ret = Flush(index);
+  if (ret != OK) {
+    QMMF_ERROR("%s: Flush failed on port %s", __func__,
+        PORT_NAME(index));
+    api_count_--;
+    return ret;
+  }
+  api_count_--;
+  QMMF_INFO("%s: Exit", __func__);
+  return ret;
 }
 
 status_t AVCodec::Flush(uint32_t index) {
@@ -4092,8 +4135,10 @@ OMX_ERRORTYPE AVCodec::OnEmptyBufferDone(
 
   //TODO: use pBuffer
   AVCodec *avcodec = (AVCodec *)app_data;
+  uint32_t flags = buf_header->nFlags;
   BufferDescriptor stream_buffer;
   memset(&stream_buffer, 0x0, sizeof stream_buffer);
+
   if (avcodec->format_type_ == CodecType::kVideoEncoder) {
     encoder_media_buffer_type* mediaBuffer =
         (encoder_media_buffer_type*)buf_header->pBuffer;
@@ -4120,7 +4165,7 @@ OMX_ERRORTYPE AVCodec::OnEmptyBufferDone(
   }
 
   avcodec->getInputBufferSource()->ReturnBuffer(stream_buffer, nullptr);
-  if(buf_header->nFlags & OMX_BUFFERFLAG_EOS) {
+  if (flags & OMX_BUFFERFLAG_EOS) {
     QMMF_INFO("%s No more buffer to process on input port", __func__);
     CodecPortStatus status = CodecPortStatus::kPortIdle;
     avcodec->getInputBufferSource()->NotifyPortEvent(PortEventType::kPortStatus,

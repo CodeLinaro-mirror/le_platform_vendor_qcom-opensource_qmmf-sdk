@@ -65,6 +65,7 @@ AM_CONDITIONAL([DISABLE_VIDEO_TIMELAPSE], [test x$rd_target = xtrue])
 AM_CONDITIONAL([DISABLE_PP_JPEG], [test x$rd_target = xtrue])
 AM_CONDITIONAL([DISABLE_DISPLAY], [test x$rd_target = xtrue])
 AM_CONDITIONAL([DISABLE_MULTICAM], [test x$rd_target = xtrue])
+AM_CONDITIONAL([ENABLE_WESTON_CLIENT], [test x$rd_target = xtrue])
 if test "x$rd_target" == "xtrue" ; then
 [CPPFLAGS="$CPPFLAGS -DTARGET_USES_GBM"]
 [CPPFLAGS="$CPPFLAGS -DDISABLE_OP_MODES"]
@@ -76,6 +77,9 @@ if test "x$rd_target" == "xtrue" ; then
 [CPPFLAGS="$CPPFLAGS -DDISABLE_VID_QP_RANGE"]
 [CPPFLAGS="$CPPFLAGS -DDISABLE_MULTICAM"]
 [CPPFLAGS="$CPPFLAGS -DCAM_ARCH_V2"]
+[CPPFLAGS="$CPPFLAGS -DJPEG_BLOB_OFFSET=0"]
+[CPPFLAGS="$CPPFLAGS -DUSE_FPS_IDX"]
+[CPPFLAGS="$CPPFLAGS -DENABLE_WESTON_CLIENT"]
 fi
 
 AC_ARG_WITH([camerahal],
@@ -230,4 +234,12 @@ AC_CONFIG_FILES([ \
     player/test/transcode_app/Makefile \
     player/test/screen-nail/Makefile  \
 ])
+
+if test "x$rd_target" == "xtrue" ; then
+AC_PATH_PROG([wayland_scanner], [wayland-scanner])
+if test x$wayland_scanner = x; then
+    PKG_CHECK_MODULES(WAYLAND_SCANNER, [wayland-scanner])
+    wayland_scanner=`$PKG_CONFIG --variable=wayland_scanner wayland-scanner`
+fi
+fi
 AC_OUTPUT

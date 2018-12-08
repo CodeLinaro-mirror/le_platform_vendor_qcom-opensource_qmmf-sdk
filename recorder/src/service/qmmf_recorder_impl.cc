@@ -30,6 +30,10 @@
 #define LOG_TAG "RecorderImpl"
 
 #include "recorder/src/service/qmmf_recorder_impl.h"
+
+#include <functional>
+#include <future>
+
 #include "recorder/src/client/qmmf_recorder_params_internal.h"
 
 #ifdef LOG_LEVEL_KPI
@@ -508,17 +512,72 @@ status_t RecorderImpl::StartSession(const uint32_t client_id,
   QMMF_INFO("%s: client_id(%d):session_id(%d) number of tracks(%d) to start",
       __func__, client_id, session_id, tracks_in_session.size());
 
-  // All the tracks associated to one session starts together.
+  std::future<uint32_t> audio_tracks_result;
+  std::function<uint32_t()> audio_tracks = [&]() -> uint32_t {
+    uint32_t ret = NO_ERROR;
+
+    // all of the audio tracks associated to one session starts together
+    for (auto const& track : tracks_in_session) {
+      uint32_t client_track_id  = track.first;
+      TrackInfo track_info      = track.second;
+      uint32_t service_track_id = track_info.track_id;
+
+      if (track_info.type == TrackType::kAudio) {
+        QMMF_INFO("%s: Track to Start, client_id(%u):session_id(%u), "
+            "client_track_id(%u):service_track_id(%x)", __func__, client_id,
+            session_id, client_track_id, service_track_id);
+
+        assert(audio_source_ != nullptr);
+        ret = audio_source_->StartTrackSource(service_track_id);
+        if (ret != NO_ERROR) {
+            QMMF_ERROR("%s: client_id(%d):session_id(%d), audio->"
+                "StartTrackSource failed for client_track_id(%d):"
+                "service_track_id(%x)", __func__, client_id, session_id,
+                client_track_id, service_track_id);
+          break;
+        }
+
+        if (track_info.format.audio != AudioFormat::kPCM) {
+          assert(audio_encoder_core_ != nullptr);
+          std::shared_ptr<IAudioTrackSource> track_source;
+          ret = audio_source_->getTrackSource(service_track_id, &track_source);
+          if (ret != NO_ERROR || track_source == nullptr) {
+            QMMF_ERROR("%s: client_id(%d):session_id(%d), audio->getTrackSource "
+                "failed for client_track_id(%d):service_track_id(%x)", __func__,
+                client_id, session_id, client_track_id, service_track_id);
+            break;
+          }
+          ret = audio_encoder_core_->StartTrackEncoder(service_track_id,
+                                                       track_source);
+          if (ret != NO_ERROR) {
+            QMMF_ERROR("%s: client_id(%d):session_id(%d), audio->"
+                "StartTrackEncoder failed for client_track_id(%d):"
+                "service_track_id(%x)", __func__, client_id, session_id,
+                client_track_id, service_track_id);
+            break;
+          }
+        }
+      }
+
+      QMMF_INFO("%s: client_id(%d):session_id(%d), client_track_id(%d):"
+          "service_track_id(%x) Started Successfully!", __func__, client_id,
+          session_id, client_track_id, service_track_id);
+    }
+
+    return ret;
+  };
+  audio_tracks_result = std::async(std::launch::async, audio_tracks);
+
+  // all of the video tracks associated to one session starts together
   for (auto const& track : tracks_in_session) {
     uint32_t client_track_id  = track.first;
     TrackInfo track_info      = track.second;
     uint32_t service_track_id = track_info.track_id;
 
-    QMMF_INFO("%s: Track to Start, client_id(%u):session_id(%u), "
-        "client_track_id(%u):service_track_id(%x)", __func__,
-        client_id, session_id, client_track_id, service_track_id);
-
     if (track_info.type == TrackType::kVideo) {
+      QMMF_INFO("%s: Track to Start, client_id(%u):session_id(%u), "
+          "client_track_id(%u):service_track_id(%x)", __func__,
+          client_id, session_id, client_track_id, service_track_id);
 
       assert(camera_source_ != nullptr);
       ret = camera_source_->StartTrackSource(service_track_id);
@@ -542,52 +601,20 @@ status_t RecorderImpl::StartSession(const uint32_t client_id,
         }
       }
     }
-    else if (track_info.type == TrackType::kAudio) {
 
-      assert(audio_source_ != nullptr);
-      ret = audio_source_->StartTrackSource(service_track_id);
-      if (ret != NO_ERROR) {
-          QMMF_ERROR("%s: client_id(%d):session_id(%d), "
-              "audio->StartTrackSource failed for "
-              " client_track_id(%d):service_track_id(%x)", __func__,
-              client_id, session_id, client_track_id, service_track_id);
-        break;
-      }
-      if (track_info.format.audio != AudioFormat::kPCM) {
-
-        assert(audio_encoder_core_ != nullptr);
-        std::shared_ptr<IAudioTrackSource> track_source;
-        ret = audio_source_->getTrackSource(service_track_id, &track_source);
-        if (ret != NO_ERROR || track_source == nullptr) {
-          QMMF_ERROR("%s: client_id(%d):session_id(%d), "
-              "audio->getTrackSource failed for "
-              " client_track_id(%d):service_track_id(%x)", __func__,
-              client_id, session_id, client_track_id, service_track_id);
-          break;
-        }
-        ret = audio_encoder_core_->StartTrackEncoder(service_track_id,
-                                                     track_source);
-        if (ret != NO_ERROR) {
-          QMMF_ERROR("%s: client_id(%d):session_id(%d), "
-              "audio->StartTrackEncoder failed for "
-              "client_track_id(%d):service_track_id(%x)", __func__,
-              client_id, session_id, client_track_id, service_track_id);
-          break;
-        }
-      }
-    }
     QMMF_INFO("%s: client_id(%d):session_id(%d), "
         "client_track_id(%d):service_track_id(%x) Started Successfully!",
         __func__, client_id, session_id, client_track_id, service_track_id);
-  } // tracks loop ends.
+  }
 
-  if (ret == NO_ERROR) {
+  if (audio_tracks_result.get() == NO_ERROR && ret == NO_ERROR) {
     QMMF_INFO("%s: client_id(%d):session_id(%d) with num tracks(%d) Started"
         " Successfully!", __func__, client_id, session_id,
         tracks_in_session.size());
 
     ChangeSessionState(session_id, SessionState::kActive);
   }
+
   QMMF_DEBUG("%s: Exit client_id(%d):session_id(%d)", __func__,
       client_id, session_id);
   return ret;

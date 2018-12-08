@@ -29,10 +29,13 @@
 
 #define LOG_TAG "QmmfUtilsGtest"
 
+#include <utils/Log.h>
+
 #include <gtest/gtest.h>
 
-#include "qmmf-plugin/qmmf_alg_plugin.h"
-#include "qmmf-plugin/qmmf_alg_utils.h"
+#include "common/utils/qmmf_tools.h"
+#include <qmmf-alg/qmmf_alg_plugin.h>
+#include <qmmf-alg/qmmf_alg_utils.h>
 
 namespace qmmf {
 
@@ -66,8 +69,8 @@ class QmmfAlgoUtilsGtest : public ::testing::Test {
   void SetUp() override {
     test_info_ = ::testing::UnitTest::GetInstance()->current_test_info();
 
-    iteration_count_ = Utils::GetProperty("persist.qmmf.algo.gtest.iter",
-                                          kDefaultIterationCount);
+    iteration_count_ = Property::Get("persist.qmmf.algo.gtest.iter",
+                                     kDefaultIterationCount);
   };
 
   /** SetUp
@@ -258,55 +261,6 @@ TEST_F(QmmfAlgoUtilsGtest, LCM) {
 }
 
 /*
-* Property: This test case will test Get Property API.
-* Api test sequence:
-*  - GetProperty
-*  - SetProperty
-*  - GetProperty
-*/
-TEST_F(QmmfAlgoUtilsGtest, Property) {
-  fprintf(stderr, "\n---------- Run Test %s.%s ------------\n",
-          test_info_->test_case_name(), test_info_->name());
-
-  for (uint32_t i = 1; i <= iteration_count_; i++) {
-    fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
-    ALOGD("%s: Running Test(%s) iteration = %d\n", __func__, test_info_->name(),
-          i);
-
-    int test_int_default = 66;
-    auto res_int = Utils::GetProperty("random_property", test_int_default);
-    ASSERT_EQ(res_int, test_int_default);
-
-    int test_float_default = 666.0;
-    auto res_float = Utils::GetProperty("random_property", test_float_default);
-    ASSERT_EQ(res_float, test_float_default);
-
-    std::string test_string_default = "6";
-    auto res_string =
-        Utils::GetProperty("random_property", test_string_default);
-    ASSERT_EQ(res_string, test_string_default);
-
-    int test_int_property = 22;
-    Utils::SetProperty("test_property", test_int_property);
-    res_int = Utils::GetProperty("test_property", test_int_default);
-    ASSERT_EQ(res_int, test_int_property);
-
-    float test_float_property = 222.0;
-    Utils::SetProperty("test_property", test_float_property);
-    res_float = Utils::GetProperty("test_property", test_float_default);
-    ASSERT_EQ(res_float, test_float_property);
-
-    std::string test_string_property = "2";
-    Utils::SetProperty("test_property", test_string_property);
-    res_string = Utils::GetProperty("test_property", test_string_default);
-    ASSERT_EQ(res_string, test_string_property);
-  }
-
-  fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
-          test_info_->test_case_name(), test_info_->name());
-}
-
-/*
 * DllManipulation: This test case will test Get Property API.
 * Api test sequence:
 *  - LoadLib
@@ -330,7 +284,7 @@ TEST_F(QmmfAlgoUtilsGtest, DllManipulation) {
                      lib_handle);
 
       QmmfAlgLoadPlugin LoadPluginFunc;
-      Utils::LoadLibHandler(lib_handle, "QmmfAlgoNew", LoadPluginFunc);
+      Utils::LoadLibHandler(lib_handle, QMMF_ALG_LIB_LOAD_FUNC, LoadPluginFunc);
 
     } catch (const std::exception& e) {
       Utils::UnloadLib(lib_handle);

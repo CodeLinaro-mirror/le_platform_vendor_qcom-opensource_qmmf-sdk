@@ -1047,9 +1047,22 @@ status_t CameraContext::CreateStream(const StreamParam& param,
   }
 
   auto ret = port->Init();
-  if(ret != NO_ERROR) {
+  if (ret != NO_ERROR) {
     QMMF_ERROR("%s: CameraPort Can't be Created!", __func__);
     return BAD_VALUE;
+  } else {
+    std::lock_guard<std::mutex> lk(prepare_lock_);
+    char prop[PROPERTY_VALUE_MAX];
+
+    auto stream_id = port->GetCameraStreamId();
+    property_get("persist.qmmf.static.mem.alloc", prop, "0");
+    stream_prepared_[stream_id] = (std::stoi(prop) == 0) ? true : false;
+
+    if (!stream_prepared_[stream_id]) {
+      std::lock_guard<std::mutex> lk(device_access_lock_);
+      ret = camera_device_->Prepare(stream_id);
+      assert(ret == NO_ERROR);
+    }
   }
 
   StoreBatchStreamId(port);
@@ -1386,15 +1399,8 @@ status_t CameraContext::CreateDeviceStream(CameraStreamParameters& params,
     ret = camera_device_->EndConfigure(stream_config);
     assert(ret == NO_ERROR);
 
-    std::lock_guard<std::mutex> lk(prepare_lock_);
-    char prop[PROPERTY_VALUE_MAX];
-    property_get("persist.qmmf.static.mem.alloc", prop, "0");
-    stream_prepared_[id] = (std::stoi(prop) == 0) ? true : false;
-
-    if (!stream_prepared_[id]) {
-      ret = camera_device_->Prepare(id);
-      assert(ret == NO_ERROR);
-    }
+    // By default stream is prepared.
+    stream_prepared_[id] = true;
   }
 
   if (camera_start_params_.zsl_mode && zsl_port_.get() != nullptr) {
@@ -1758,11 +1764,10 @@ status_t CameraContext::CancelRequest() {
   int64_t last_frame_mumber;
   assert(streaming_request_id_ >= 0);
 
-  QMMF_INFO("%s: Issuing CancelRequest!", __func__);
-  auto ret = camera_device_->CancelRequest(streaming_request_id_,
-                                           &last_frame_mumber);
+  QMMF_INFO("%s: Issuing Flush!", __func__);
+  auto ret = camera_device_->Flush(&last_frame_mumber);
   assert(ret == NO_ERROR);
-  QMMF_INFO("%s: last_frame_mumber(%lld) after CancelRequest", __func__,
+  QMMF_INFO("%s: last_frame_mumber(%lld) after Flush", __func__,
       last_frame_mumber);
 
   ret = camera_device_->WaitUntilIdle();
@@ -2429,13 +2434,14 @@ status_t CameraPort::Init() {
   property_get("persist.qmmf.ubwcstream.enable", prop, "0");
   bool is_ubwc_stream_enabled = atoi(prop);
   if (!is_ubwc_stream_enabled) {
-    cam_stream_params_.allocFlags =
+    cam_stream_params_.allocFlags.flags =
         IMemAllocUsage::kSwReadOften | IMemAllocUsage::kSwWriteOften;
   } else if (!params_.low_power_mode) {
-    cam_stream_params_.allocFlags = IMemAllocUsage::kPrivateAllocUbwc;
+    cam_stream_params_.allocFlags.flags = IMemAllocUsage::kPrivateAllocUbwc;
   }
 
-  cam_stream_params_.rotation     = static_cast<camera3_stream_rotation_t> (params_.rotation);
+  cam_stream_params_.rotation =
+      static_cast<camera3_stream_rotation_t> (params_.rotation);
   bool is_lpm_use_preview = false;
   memset(prop, 0, sizeof(prop));
   property_get("persist.camera.lpm.preview", prop, "0");
@@ -2451,7 +2457,6 @@ status_t CameraPort::Init() {
     }
   } else {
     cam_stream_params_.allocFlags.flags |= IMemAllocUsage::kVideoEncoder;
-
     cam_stream_params_.bufferCount = VIDEO_STREAM_BUFFER_COUNT +
         GetExtraBufferCount();
   }
@@ -2505,8 +2510,9 @@ status_t CameraPort::Init() {
   }
   port_state_ = PortState::PORT_CREATED;
 
-  QMMF_INFO("%s: Camera Device Stream(%d) is created Succussfully!",
-      __func__, camera_stream_id_);
+  QMMF_INFO("%s: Camera Device Stream(%d) is created Succussfully with"
+            "flag(0x%x) and format(0x%x)!", __func__, camera_stream_id_,
+            cam_stream_params_.allocFlags.flags, cam_stream_params_.format);
   QMMF_INFO("%s: track_id(0%x) is mapped to camera stream_id(%d)",
       __func__, params_.id, camera_stream_id_);
   return NO_ERROR;

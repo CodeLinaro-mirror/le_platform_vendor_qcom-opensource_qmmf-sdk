@@ -446,7 +446,7 @@ status_t TrackEncoder::Start() {
   std::lock_guard<std::mutex> lock(lock_);
 
   assert(avcodec_ != nullptr);
-  auto ret = avcodec_->StartCodec();
+  auto ret = avcodec_->StartCodec(true);
   // Initial debug purpose.
   assert(ret == NO_ERROR);
   if (ret != NO_ERROR) {

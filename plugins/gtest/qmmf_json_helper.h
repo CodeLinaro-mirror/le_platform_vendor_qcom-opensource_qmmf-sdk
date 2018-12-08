@@ -36,7 +36,7 @@
 #include <memory>
 #include <string>
 
-#include "qmmf-plugin/qmmf_alg_utils.h"
+#include <qmmf-alg/qmmf_alg_utils.h>
 
 namespace qmmf {
 namespace qmmf_alg_plugin {

@@ -339,7 +339,7 @@ status_t JPEGEncoder::GetParameters(const CodecParamType param_type,
   return NO_ERROR;
 }
 
-status_t JPEGEncoder::StartCodec() {
+status_t JPEGEncoder::StartCodec(bool enable_rt_priority) {
   std::lock_guard<std::mutex> l(stop_jpeg_mutex_);
   stop_jpeg_ = false;
   jpeg_thread_id_ = thread(JpegEncodeThread, this);
@@ -365,7 +365,7 @@ status_t JPEGEncoder::RegisterInputBuffers(vector<BufferDescriptor> &list) {
   return NO_ERROR;
 }
 
-status_t JPEGEncoder::Flush(uint32_t port_type) { return NO_ERROR; }
+status_t JPEGEncoder::FlushCodec(uint32_t port_type) { return NO_ERROR; }
 
 };  // namespace avcodec
 };  // namespace qmmf
