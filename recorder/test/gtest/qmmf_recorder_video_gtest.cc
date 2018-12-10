@@ -3087,19 +3087,19 @@ TEST_F(VideoGtest, 1080pEncWithBoundingBoxOverlay) {
                                            object_params);
     ASSERT_TRUE(ret == 0);
 
-    object_params.dst_rect.start_x = ((object_params.dst_rect.start_x +
+    object_params.dst_rect.start_x = ((object_params.dst_rect.start_x + 5 +
         object_params.dst_rect.width) < static_cast<int32_t> (width)) ?
                                 object_params.dst_rect.start_x + 5 : 20;
 
-    object_params.dst_rect.width = ((object_params.dst_rect.start_x +
+    object_params.dst_rect.width = ((object_params.dst_rect.start_x + 5 +
         object_params.dst_rect.width) < static_cast<int32_t> (width)) ?
                                 object_params.dst_rect.width + 5 : 200;
 
-    object_params.dst_rect.start_y = ((object_params.dst_rect.start_y +
+    object_params.dst_rect.start_y = ((object_params.dst_rect.start_y + 2 +
         object_params.dst_rect.height) < static_cast<int32_t> (height)) ?
                                   object_params.dst_rect.start_y + 2 : 20;
 
-    object_params.dst_rect.height = ((object_params.dst_rect.start_y +
+    object_params.dst_rect.height = ((object_params.dst_rect.start_y + 2 +
         object_params.dst_rect.height) < static_cast<int32_t> (height)) ?
                                   object_params.dst_rect.height + 2 : 100;
 
@@ -3239,19 +3239,19 @@ TEST_F(VideoGtest, 4KEncWithBoundingBoxOverlay) {
                                            object_params);
     ASSERT_TRUE(ret == 0);
 
-    object_params.dst_rect.start_x = ((object_params.dst_rect.start_x +
+    object_params.dst_rect.start_x = ((object_params.dst_rect.start_x + 5 +
         object_params.dst_rect.width) < static_cast<int32_t> (width)) ?
                                 object_params.dst_rect.start_x + 5 : 20;
 
-    object_params.dst_rect.width = ((object_params.dst_rect.start_x +
+    object_params.dst_rect.width = ((object_params.dst_rect.start_x + 5 +
         object_params.dst_rect.width) < static_cast<int32_t> (width)) ?
                                 object_params.dst_rect.width + 5 : 200;
 
-    object_params.dst_rect.start_y = ((object_params.dst_rect.start_y +
+    object_params.dst_rect.start_y = ((object_params.dst_rect.start_y + 2 +
         object_params.dst_rect.height) < static_cast<int32_t> (height)) ?
                                   object_params.dst_rect.start_y + 2 : 20;
 
-    object_params.dst_rect.height = ((object_params.dst_rect.start_y +
+    object_params.dst_rect.height = ((object_params.dst_rect.start_y + 2 +
         object_params.dst_rect.height) < static_cast<int32_t> (height)) ?
                                   object_params.dst_rect.height + 2 : 100;
 
@@ -3564,16 +3564,16 @@ TEST_F(VideoGtest, 1080pEncWithPrivacyMaskOverlay) {
                                              object_params);
       ASSERT_TRUE(ret == 0);
 
-      object_params.dst_rect.start_x = (object_params.dst_rect.start_x +
+      object_params.dst_rect.start_x = (object_params.dst_rect.start_x + 20 +
           object_params.dst_rect.width < 1920) ? object_params.dst_rect.start_x + 20 : 20;
 
-      object_params.dst_rect.width = (object_params.dst_rect.start_x +
+      object_params.dst_rect.width = (object_params.dst_rect.start_x + 50 +
           object_params.dst_rect.width < 1920) ? object_params.dst_rect.width + 50 : 1920/8;
 
-      object_params.dst_rect.start_y = (object_params.dst_rect.start_y +
+      object_params.dst_rect.start_y = (object_params.dst_rect.start_y + 10 +
           object_params.dst_rect.height < 1080) ? object_params.dst_rect.start_y + 10 : 40;
 
-      object_params.dst_rect.height = (object_params.dst_rect.start_y +
+      object_params.dst_rect.height = (object_params.dst_rect.start_y + 50 +
           object_params.dst_rect.height < 1080) ? object_params.dst_rect.height + 50 : 1080/8;
 
       ret = recorder_.UpdateOverlayObjectParams(video_track_id, mask_id,
@@ -3756,25 +3756,25 @@ TEST_F(VideoGtest, 1080pEncWithStaticImageBlobOverlay) {
       object_params.image_info.image_type = OverlayImageType::kBlobType;
 
       object_params.dst_rect.start_x =
-          ((object_params.dst_rect.start_x + object_params.dst_rect.width) <
+          ((object_params.dst_rect.start_x  + 5 + object_params.dst_rect.width) <
            static_cast<int32_t>(width))
               ? object_params.dst_rect.start_x + 5
               : 20;
 
       object_params.dst_rect.width =
-          ((object_params.dst_rect.start_x + object_params.dst_rect.width) <
+          ((object_params.dst_rect.start_x + 5 + object_params.dst_rect.width) <
            static_cast<int32_t>(width))
               ? object_params.dst_rect.width + 5
               : 200;
 
       object_params.dst_rect.start_y =
-          ((object_params.dst_rect.start_y + object_params.dst_rect.height) <
+          ((object_params.dst_rect.start_y + 2 + object_params.dst_rect.height) <
            static_cast<int32_t>(height))
               ? object_params.dst_rect.start_y + 2
               : 20;
 
       object_params.dst_rect.height =
-          ((object_params.dst_rect.start_y + object_params.dst_rect.height) <
+          ((object_params.dst_rect.start_y + 2 + object_params.dst_rect.height) <
            static_cast<int32_t>(height))
               ? object_params.dst_rect.height + 2
               : 100;
@@ -3960,25 +3960,25 @@ TEST_F(VideoGtest, 1080pEncWithStaticImageBlobUpdateBufferOverlay) {
       object_params.image_info.image_type = OverlayImageType::kBlobType;
 
       object_params.dst_rect.start_x =
-          ((object_params.dst_rect.start_x + object_params.dst_rect.width) <
+          ((object_params.dst_rect.start_x + 5 + object_params.dst_rect.width) <
            static_cast<int32_t>(width))
               ? object_params.dst_rect.start_x + 5
               : 20;
 
       object_params.dst_rect.width =
-          ((object_params.dst_rect.start_x + object_params.dst_rect.width) <
+          ((object_params.dst_rect.start_x + 5 + object_params.dst_rect.width) <
            static_cast<int32_t>(width))
               ? object_params.dst_rect.width + 5
               : 200;
 
       object_params.dst_rect.start_y =
-          ((object_params.dst_rect.start_y + object_params.dst_rect.height) <
+          ((object_params.dst_rect.start_y + 2 + object_params.dst_rect.height) <
            static_cast<int32_t>(height))
               ? object_params.dst_rect.start_y + 2
               : 20;
 
       object_params.dst_rect.height =
-          ((object_params.dst_rect.start_y + object_params.dst_rect.height) <
+          ((object_params.dst_rect.start_y + 2 + object_params.dst_rect.height) <
            static_cast<int32_t>(height))
               ? object_params.dst_rect.height + 2
               : 100;
