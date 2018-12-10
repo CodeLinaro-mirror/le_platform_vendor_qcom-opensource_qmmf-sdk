@@ -91,6 +91,22 @@ class QmmfSimpleTestAlgo : public IAlgPlugin {
     return res;
   }
 
+  /** Configure
+   *    @type: binary data type
+   *    @config_data:config binary data
+   *
+   * Set algorithm specific config data
+   *
+   * return: std::vector<uint8_t>
+   **/
+  const std::vector<uint8_t> Configure(
+      __attribute__((unused)) const int32_t type,
+      __attribute__((unused)) const std::vector<uint8_t> &config_data) {
+    std::vector<uint8_t> res = {};
+
+    return res;
+  }
+
   /** GetInputRequirements
    *    @out: output parameters
    *
