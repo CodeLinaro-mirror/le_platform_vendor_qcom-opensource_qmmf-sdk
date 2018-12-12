@@ -9364,8 +9364,8 @@ TEST_F(VideoGtest, SessionWithSingleCam4KEncDynamicExposureTables) {
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = {
         video_track_param.format_type,
-        video_track_id,
         session_id,
+        video_track_id,
         stream_width,
         stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
@@ -10863,8 +10863,8 @@ TEST_F(VideoGtest, SessionWithSingleCam4KEncADRC) {
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = {
         video_track_param.format_type,
-        video_track_id,
         session_id,
+        video_track_id,
         stream_width,
         stream_height };
       ret = dump_bitstream_.SetUp(dumpinfo);
