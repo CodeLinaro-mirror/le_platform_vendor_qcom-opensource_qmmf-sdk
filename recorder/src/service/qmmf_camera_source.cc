@@ -54,6 +54,7 @@ namespace recorder {
 using ::std::make_shared;
 using ::std::shared_ptr;
 
+const uint32_t TrackSource::kWaitNumFrames = 5; //frames
 static const nsecs_t kWaitDuration = 5000000000; // 5 s.
 static const int32_t kDebugTrackFps = 1<<0;
 static const int32_t kDebugSourceTrackFps = 1<<1;
@@ -1156,6 +1157,11 @@ TrackSource::TrackSource(const VideoTrackParams& params,
       "remaining_frame_skip_time_(%f)",  __func__, input_frame_interval_,
       output_frame_interval_, remaining_frame_skip_time_);
 
+  auto wait = output_frame_interval_ * 1000 * kWaitNumFrames;
+  wait_duration_ = wait < kWaitDuration ? kWaitDuration : wait;
+  QMMF_INFO("%s: track_id(%x) wait_duration_:(%lld) ns",
+      __func__, TrackId(), wait_duration_);
+
   if (track_params_.extra_param.Exists(QMMF_VIDEO_ROTATE)) {
     VideoRotate video_rotate;
     track_params_.extra_param.Fetch(QMMF_VIDEO_ROTATE, video_rotate);
@@ -1549,7 +1555,7 @@ status_t TrackSource::GetBuffer(BufferDescriptor& buffer,
 
   {
     std::unique_lock<std::mutex> lock(lock_);
-    std::chrono::nanoseconds wait_time(kWaitDuration);
+    std::chrono::nanoseconds wait_time(GetWaitTime());
     while (frames_received_.Size() == 0) {
       QMMF_DEBUG("%s: track_id(%x) Wait for bufferr!!", __func__,
           TrackId());
@@ -2010,7 +2016,16 @@ void TrackSource::UpdateFrameRate(const float frame_rate) {
           __func__, TrackId(), track_params_.params.frame_rate, frame_rate);
     track_params_.params.frame_rate = frame_rate;
     output_frame_interval_ = 1000000.0 / frame_rate;
+    auto wait = output_frame_interval_ * 1000 * kWaitNumFrames;
+    wait_duration_ = wait < kWaitDuration ? kWaitDuration : wait;
+    QMMF_INFO("%s: track_id(%x) wait_duration_:(%lld) ns",
+        __func__, TrackId(), wait_duration_);
   }
+}
+
+uint64_t TrackSource::GetWaitTime(){
+  std::lock_guard<std::mutex> lock(frame_skip_lock_);
+  return wait_duration_;
 }
 
 void TrackSource::EnableFrameRepeat(const bool enable_frame_repeat) {

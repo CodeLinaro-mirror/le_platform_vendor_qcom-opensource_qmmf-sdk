@@ -305,6 +305,8 @@ class TrackSource : public ICodecSource {
   bool IsNeedScaler(const VideoTrackParams& slave_track,
                     const VideoTrackParams& master_track);
 
+  uint64_t GetWaitTime();
+
   VideoTrackParams         track_params_;
   sp<IBufferConsumer>      buffer_consumer_impl_;
   bool                     is_stop_;
@@ -375,6 +377,8 @@ class TrackSource : public ICodecSource {
   uint32_t num_consumers_;
 
   int32_t rotation_;
+  uint64_t wait_duration_;
+  static const uint32_t kWaitNumFrames;
 };
 
 }; //namespace recorder
