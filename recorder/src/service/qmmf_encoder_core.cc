@@ -58,6 +58,7 @@ static const int32_t kDebugTrackFps = 1<<0;
 static const uint32_t kBitStreamHeaderSize = 96;
 #endif
 
+const uint32_t TrackEncoder::kWaitNumFrames_ = 5; //frames
 static const uint64_t kBufferWaitDuration = 5000000000; // 5 sec
 
 EncoderCore* EncoderCore::instance_ = NULL;
@@ -315,7 +316,8 @@ TrackEncoder::TrackEncoder(int32_t ion_device)
       is_force_cleanup_(false),
       num_bytes_(0),
       prevtv_{0, 0},
-      count_(0) {
+      count_(0),
+      wait_duration_(kBufferWaitDuration) {
 
   QMMF_GET_LOG_LEVEL();
   QMMF_INFO("%s: Enter", __func__);
@@ -463,6 +465,13 @@ status_t TrackEncoder::Init(const shared_ptr<TrackSource>& track_source,
   file_fd_ = open(bitstream_filepath.c_str(), O_CREAT | O_WRONLY | O_TRUNC,
        0655);
 #endif
+
+  auto output_frame_interval = 1000000.0 / track_params_.params.frame_rate;
+  auto wait = output_frame_interval * 1000 * kWaitNumFrames_;
+  wait_duration_ = wait < kBufferWaitDuration ? kBufferWaitDuration : wait;
+  QMMF_INFO("%s: track_id(%x) wait_duration_:(%lld) ns",
+      __func__, TrackId(), wait_duration_);
+
   QMMF_INFO("%s: Exit", __func__);
   return ret;
 }
@@ -527,6 +536,17 @@ status_t TrackEncoder::SetParams(CodecParamType param_type, void* param,
     QMMF_ERROR("%s: set parameter failed for track(%x)", __func__,
         TrackId());
   }
+
+  if (param_type == CodecParamType::kFrameRateType) {
+    float fps = *(static_cast<float*>(param));
+    auto output_frame_interval = 1000000.0 / fps;
+    std::lock_guard<std::mutex> autoLock(wait_duration_lock_);
+    auto wait = output_frame_interval * 1000 * kWaitNumFrames_;
+    wait_duration_ = wait < kBufferWaitDuration ? kBufferWaitDuration : wait;
+    QMMF_INFO("%s: track_id(%x) wait_duration_:(%lld) ns",
+        __func__, TrackId(), wait_duration_);
+  }
+
   QMMF_INFO("%s: Exit track_id(%x)", __func__, TrackId());
   return ret;
 }
@@ -581,7 +601,7 @@ status_t TrackEncoder::GetBuffer(BufferDescriptor& codec_buffer,
   QMMF_DEBUG("%s: Enter track_id(%x)", __func__, TrackId());
 
   std::unique_lock<std::mutex> lk(queue_lock_);
-  std::chrono::nanoseconds wait_time(kBufferWaitDuration);
+  std::chrono::nanoseconds wait_time(GetWaitTime());
 
   // Give available free buffer to encoder to use on output port.
   while (output_free_buffer_queue_.empty()) {
@@ -973,6 +993,11 @@ void TrackEncoder::DumpBitStream(BufferDescriptor& codec_buffer) {
   QMMF_VERBOSE("%s: Enter track_id(%x)", __func__, TrackId());
 }
 #endif
+
+uint64_t TrackEncoder::GetWaitTime(){
+  std::lock_guard<std::mutex> l(wait_duration_lock_);
+  return wait_duration_;
+}
 
 };  // namespace recorder
 
