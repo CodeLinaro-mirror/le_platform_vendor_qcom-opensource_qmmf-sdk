@@ -1915,7 +1915,27 @@ status_t AVCodec::SetupAVCEncoderParameters(CodecParam& param) {
   }
 
   if (h264_type.nBFrames != 0) {
-      h264_type.nAllowedPictureTypes |= OMX_VIDEO_PictureTypeB;
+    h264_type.nAllowedPictureTypes |= OMX_VIDEO_PictureTypeB;
+  } else {
+    QOMX_VIDEO_INTRAPERIODTYPE intra;
+    InitOMXParams(&intra);
+    intra.nPortIndex = kPortIndexOutput;
+    ret = omx_client_->GetConfig(
+        static_cast<OMX_INDEXTYPE>(QOMX_IndexConfigVideoIntraperiod),
+        reinterpret_cast<OMX_PTR>(&intra));
+    if (ret != 0) {
+      QMMF_ERROR("%s Failed to get video intra period", __func__);
+      return ret;
+    }
+    intra.nPFrames = frame_rate * iframe_interval;
+    intra.nBFrames = 0;
+    ret = omx_client_->SetConfig(
+        static_cast<OMX_INDEXTYPE>(QOMX_IndexConfigVideoIntraperiod),
+        reinterpret_cast<OMX_PTR>(&intra));
+    if (ret != 0) {
+      QMMF_ERROR("%s Failed to set video intra period", __func__);
+      return ret;
+    }
   }
 
   h264_type.bEnableUEP = OMX_FALSE;
