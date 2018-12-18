@@ -5133,30 +5133,18 @@ TEST_F(RecorderImageGTest, PreviewAndRaw10BitBayerSnapshot) {
   // Record for sometime
   sleep(5);
 
-  camera_metadata_entry_t entry;
   CameraMetadata meta;
-  int32_t w = 0, h = 0;
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
 
-  if (!meta.exists(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE)) {
-    QMMF_ERROR("%s: Metadata ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE"
-               " not available", __func__);
-    ASSERT_TRUE(0);
-  }
-  entry = meta.find(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE);
-  if (0 == entry.count) {
-    QMMF_ERROR("%s: Active sensor array size is missing!", __func__);
-    ASSERT_TRUE(0);
-  }
-  w = entry.data.i32[2];
-  h = entry.data.i32[3];
-  TEST_INFO("%s: Supported RAW RDI W(%d):H(%d)", __func__, w, h);
-  ASSERT_TRUE(w > 0 && h > 0);
-
   ImageParam image_param{};
-  image_param.width        = w;
-  image_param.height       = h;
   image_param.image_format = ImageFormat::kBayerRDI10BIT;
+
+  GtestCommon::GetMaxSupportedCameraRes(meta, image_param.width,
+    image_param.height);
+
+  TEST_INFO("%s: Supported RAW RDI W(%d):H(%d)", __func__, image_param.width,
+            image_param.height);
+  ASSERT_TRUE(image_param.width > 0 && image_param.height > 0);
 
   std::vector<CameraMetadata> meta_array;
   meta_array.push_back(meta);
