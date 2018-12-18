@@ -31,6 +31,7 @@
 
 #include <mutex>
 
+#include <cutils/properties.h>
 #include <qcom/display/gralloc_priv.h>
 #include <qmmf-sdk/qmmf_recorder_params.h>
 #include <qmmf-sdk/qmmf_recorder_extra_param_tags.h>
@@ -351,6 +352,7 @@ class CameraContext : public CameraInterface,
   bool                          reconfig_pipe_;
   bool                          port_paused_;
   std::set<int32_t>             stopped_stream_ids_;
+  uint32_t                      snapshot_count_;
 };
 
 enum class CameraPortType {

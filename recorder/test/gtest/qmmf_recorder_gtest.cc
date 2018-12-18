@@ -3759,10 +3759,6 @@ TEST_F(RecorderGtest, LowResVideo10MPContinuousSnapshotWithLCACandEdgeSmooth) {
   ret = recorder_.ConfigImageCapture(camera_id_, image_config);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  uint8_t intent = ANDROID_CONTROL_CAPTURE_INTENT_VIDEO_SNAPSHOT;
-  ret = meta.update(ANDROID_CONTROL_CAPTURE_INTENT, &intent, 1);
-  ASSERT_TRUE(ret == NO_ERROR);
-
   meta_array.clear();
   meta_array.push_back(meta);
   ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array, cb);
@@ -4015,6 +4011,630 @@ TEST_F(RecorderGtest,
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
+
+/*
+* 10MPContinuousSnapshotWithManualAE: This test will test session with one
+*         VGA YUV track and continuous 10MP snapshot with AE locked region.
+*
+* Api test sequence:
+*  - StartCamera
+*   loop Start {
+*   -----------------
+*   - CreateSession
+*   - CreateVideoTrack - YUV
+*   - StartSession
+*   - Set AE region
+*   - Wait AE to converge
+*   - Lock AE for video and capture
+*   - Continuous CaptureImage - BayerLcac + JPEG
+*   - Unlock AE
+*   - StopSession
+*   - DeleteVideoTrack
+*   - DeleteSession
+*   ------------------
+*   } loop End
+*  - StopCamera
+*/
+TEST_F(RecorderGtest, 10MPContinuousSnapshotWithManualAE) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  std::mutex aec_lock;
+  std::condition_variable aec_updated;
+
+  bool exposure_converged, exposure_locked;
+  int32_t exposure_senstivity;
+  int64_t exposure_time;
+
+  CameraResultCb result_cb;
+  result_cb = [&] (uint32_t camera_id, const CameraMetadata &result) {
+    if (!exposure_locked && result.exists(ANDROID_CONTROL_AE_STATE)) {
+      std::lock_guard<std::mutex> lk(aec_lock);
+      auto state = result.find(ANDROID_CONTROL_AE_STATE).data.u8[0];
+
+      exposure_converged = (state == ANDROID_CONTROL_AE_STATE_CONVERGED);
+      exposure_locked = (state == ANDROID_CONTROL_AE_STATE_LOCKED);
+
+      exposure_senstivity = result.find(ANDROID_SENSOR_SENSITIVITY).data.i32[0];
+      exposure_time = result.find(ANDROID_SENSOR_EXPOSURE_TIME).data.i64[0];
+      aec_updated.notify_one();
+    }
+  };
+
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_, result_cb);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  fprintf(stderr,"\n ---------- After StartCamera ------------\n");
+  SessionCb session_status_cb;
+  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
+                                       size_t event_data_size) -> void {
+      SessionCallbackHandler(event_type, event_data, event_data_size); };
+
+  for (uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
+        test_info_->name(), i);
+
+    exposure_converged = false;
+    exposure_locked = false;
+
+    uint32_t session_id;
+    ret = recorder_.CreateSession(session_status_cb, &session_id);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    TrackCb video_track_cb;
+    video_track_cb.event_cb =
+        [this] (uint32_t track_id, EventType event_type,
+                void *event_data, size_t event_data_size) -> void {
+        VideoTrackEventCb(track_id, event_type, event_data, event_data_size); };
+
+    uint32_t video_track_id = 1;
+    VideoTrackCreateParam video_track_param {
+      camera_id_, VideoFormat::kYUV, 848, 480, 30
+    };
+
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+        std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+          VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
+        };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                     video_track_param, video_track_cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    std::vector<uint32_t> track_ids = {video_track_id};
+    sessions_.insert(std::make_pair(session_id, track_ids));
+
+    if (use_display_) {
+      ret = StartDisplay(DisplayType::kPrimary, 848, 480, 848, 480);
+      if (ret != 0) {
+        TEST_ERROR("%s: StartDisplay Failed!!", __func__);
+      }
+    }
+
+    ret = recorder_.StartSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    fprintf(stderr,"\n ---------- Staying in preview for = %d sec before"
+            "switching to take photos ------------\n", record_duration_);
+    sleep(record_duration_);
+
+    // set AE region and Lock exposure for pveview
+    CameraMetadata preview_meta;
+    ret = recorder_.GetCameraParam(camera_id_, preview_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    int32_t exposure_region[5];
+    assert(preview_meta.exists(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE));
+    int32_t start_x = preview_meta.find(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE).data.i32[0];
+    int32_t start_y = preview_meta.find(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE).data.i32[1];
+    int32_t width = preview_meta.find(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE).data.i32[2];
+    int32_t height = preview_meta.find(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE).data.i32[3];
+
+
+    exposure_region[0] = start_x + width / 4; // xmin
+    exposure_region[1] = start_y + width / 4; // ymin
+    exposure_region[2] = exposure_region[0] + width / 2; // xmax
+    exposure_region[3] = exposure_region[1] + height / 2; // ymax
+    exposure_region[4] = 1000; // weight
+    ret = preview_meta.update(ANDROID_CONTROL_AE_REGIONS, exposure_region, 5);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    TEST_INFO("%s: AE Region: X[%d, %d], Y[%d, %d], WEIGHT(%d)", __func__,
+        exposure_region[0], exposure_region[2], exposure_region[1],
+        exposure_region[3], exposure_region[4]);
+
+    uint8_t ae_mode =  ANDROID_CONTROL_AE_MODE_ON;
+    ret = preview_meta.update(ANDROID_CONTROL_AE_MODE, &ae_mode, 1);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.SetCameraParam(camera_id_, preview_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    {
+      // Wait for AE convergence
+      std::unique_lock<std::mutex> lk(aec_lock);
+      std::chrono::seconds wait_time(5);
+
+      auto status = aec_updated.wait_for(
+          lk, wait_time, [&]() -> bool { return exposure_converged; });
+      ASSERT_TRUE(status);
+      TEST_INFO("%s: AE Converged successfully", __func__);
+      TEST_INFO("%s: Exposure: Sensitivity(%d), Time(%lld)", __func__,
+          exposure_senstivity, exposure_time);
+    }
+
+    ret = recorder_.GetCameraParam(camera_id_, preview_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = preview_meta.update(ANDROID_SENSOR_SENSITIVITY, &exposure_senstivity, 1);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = preview_meta.update(ANDROID_SENSOR_EXPOSURE_TIME, &exposure_time, 1);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ae_mode = ANDROID_CONTROL_AE_MODE_OFF;
+    ret = preview_meta.update(ANDROID_CONTROL_AE_MODE, &ae_mode, 1);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.SetCameraParam(camera_id_, preview_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    TEST_INFO("%s: AE Locked", __func__);
+
+    fprintf(stderr,"\n ---------- AE Locked ------------\n");
+
+    // Set up capture with manual AE
+    std::vector<CameraMetadata> meta_array;
+    camera_metadata_entry_t entry;
+    CameraMetadata meta;
+
+    // Apply all AE settings in snapshot meta
+    ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = meta.update(ANDROID_SENSOR_SENSITIVITY, &exposure_senstivity, 1);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = meta.update(ANDROID_SENSOR_EXPOSURE_TIME, &exposure_time, 1);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ae_mode = ANDROID_CONTROL_AE_MODE_OFF;
+    ret = meta.update(ANDROID_CONTROL_AE_MODE, &ae_mode, 1);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+
+    ImageParam image_param{};
+    image_param.width         = 3872;
+    image_param.height        = 2592;
+    image_param.image_format  = ImageFormat::kJPEG;
+    image_param.image_quality = default_jpeg_quality_;
+
+    // Update focal length to capture meta to select 4fps sensor mode.
+    float focal_length = 8.0;
+    meta.update(ANDROID_LENS_FOCAL_LENGTH, &focal_length, 1);
+
+    bool res_supported = false;
+    // Check Supported JPEG snapshot resolutions.
+    if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
+      entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
+      for (uint32_t i = 0 ; i < entry.count; i += 4) {
+        if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
+          if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
+              entry.data.i32[i+3]) {
+            if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
+                && image_param.height ==
+                    static_cast<uint32_t>(entry.data.i32[i+2])) {
+              res_supported = true; // 3840x2160 JPEG supported.
+            }
+          }
+        }
+      }
+    }
+    ASSERT_TRUE(res_supported != false);
+
+    ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
+                                BufferDescriptor buffer,
+                                MetaData meta_data) -> void
+        { SnapshotCb(camera_id, image_count, buffer, meta_data); };
+
+    ImageConfigParam image_config;
+    PostprocPlugin bayer_lcac_plugin;
+
+    SupportedPlugins supported_plugins;
+    ret = recorder_.GetSupportedPlugins(&supported_plugins);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    bool found = false;
+    for (auto const& plugin_info : supported_plugins) {
+      if (plugin_info.name == "BayerLcac") {
+        ret = recorder_.CreatePlugin(&bayer_lcac_plugin.uid, plugin_info);
+        ASSERT_TRUE(ret == NO_ERROR);
+
+        image_config.Update(QMMF_POSTPROCESS_PLUGIN, bayer_lcac_plugin, 0);
+        found = true;
+      }
+    }
+    ASSERT_TRUE(found == true);
+
+    // Update same focal length to streaming meta.
+    focal_length = 8.0;
+    ret = SetCameraFocalLength(focal_length);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    SnapshotType snapshot_type;
+    snapshot_type.type = SnapshotMode::kContinuous;
+    image_config.Update(QMMF_SNAPSHOT_TYPE, snapshot_type, 0);
+
+    PostprocFrameSkip frame_skip;
+    frame_skip.frame_skip = 1;
+    frame_skip.source_framerate = 4;
+    image_config.Update(QMMF_POSTPROCESS_FRAME_SKIP, frame_skip, 0);
+
+    ret = recorder_.ConfigImageCapture(camera_id_, image_config);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    // for continuous capture only one meta is needed
+    meta_array.clear();
+    meta_array.push_back(meta);
+
+    ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array, cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    // take continuous snapshots to simulate long press.
+    fprintf(stderr,"\n ---------- Taking snapshot for = %d sec ------------\n",
+        record_duration_);
+    sleep(record_duration_);
+
+    focal_length = 6.0;
+    ret = SetCameraFocalLength(focal_length);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.CancelCaptureImage(camera_id_);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    TEST_INFO("%s: Coming back to preview with locked AE", __func__);
+    fprintf(stderr,"\n ---------- Coming back to preview and staying for ="
+            "%d sec with locked AE ------------\n", record_duration_);
+    sleep(record_duration_);
+
+    ret = recorder_.StopSession(session_id, false);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    if (use_display_) {
+      ret = StopDisplay(DisplayType::kPrimary);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
+    ret = recorder_.DeletePlugin(bayer_lcac_plugin.uid);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ClearSessions();
+  }
+
+  ret = recorder_.StopCamera(camera_id_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = DeInit();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+* 10MPContinuousSnapshotAELock: This test will test session with one
+*         VGA YUV track and continuous 10MP snapshot with AE locked region.
+*
+* Api test sequence:
+*  - StartCamera
+*   loop Start {
+*   -----------------
+*   - CreateSession
+*   - CreateVideoTrack - YUV
+*   - StartSession
+*   - Set AE region
+*   - Wait AE to converge
+*   - Lock AE for video and capture
+*   - Continuous CaptureImage - BayerLcac + JPEG
+*   - Unlock AE
+*   - StopSession
+*   - DeleteVideoTrack
+*   - DeleteSession
+*   ------------------
+*   } loop End
+*  - StopCamera
+*/
+TEST_F(RecorderGtest, 10MPContinuousSnapshotAELock) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  std::mutex aec_lock;
+  std::condition_variable aec_updated;
+
+  bool exposure_converged, exposure_locked;
+
+  CameraResultCb result_cb;
+  result_cb = [&] (uint32_t camera_id, const CameraMetadata &result) {
+    if (!exposure_locked && result.exists(ANDROID_CONTROL_AE_STATE)) {
+      std::lock_guard<std::mutex> lk(aec_lock);
+      auto state = result.find(ANDROID_CONTROL_AE_STATE).data.u8[0];
+
+      exposure_converged = (state == ANDROID_CONTROL_AE_STATE_CONVERGED);
+      exposure_locked = (state == ANDROID_CONTROL_AE_STATE_LOCKED);
+
+      aec_updated.notify_one();
+    }
+  };
+
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_, result_cb);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  fprintf(stderr,"\n ---------- After StartCamera ------------\n");
+  SessionCb session_status_cb;
+  session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
+                                       size_t event_data_size) -> void {
+      SessionCallbackHandler(event_type, event_data, event_data_size); };
+
+  for (uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
+        test_info_->name(), i);
+
+    exposure_converged = false;
+    exposure_locked = false;
+
+    uint32_t session_id;
+    ret = recorder_.CreateSession(session_status_cb, &session_id);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    TrackCb video_track_cb;
+    video_track_cb.event_cb =
+        [this] (uint32_t track_id, EventType event_type,
+                void *event_data, size_t event_data_size) -> void {
+        VideoTrackEventCb(track_id, event_type, event_data, event_data_size); };
+
+    uint32_t video_track_id = 1;
+    VideoTrackCreateParam video_track_param {
+      camera_id_, VideoFormat::kYUV, 848, 480, 30
+    };
+
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+        std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+          VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
+        };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                     video_track_param, video_track_cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    std::vector<uint32_t> track_ids = {video_track_id};
+    sessions_.insert(std::make_pair(session_id, track_ids));
+
+    if (use_display_) {
+      ret = StartDisplay(DisplayType::kPrimary, 848, 480, 848, 480);
+      if (ret != 0) {
+        TEST_ERROR("%s: StartDisplay Failed!!", __func__);
+      }
+    }
+
+    ret = recorder_.StartSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    fprintf(stderr,"\n ---------- Staying in preview for = %d sec before switching to take photos ------------\n",
+        record_duration_);
+    sleep(record_duration_);
+
+    // set AE region and Lock exposure for pveview
+    CameraMetadata preview_meta;
+    ret = recorder_.GetCameraParam(camera_id_, preview_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    int32_t exposure_region[5];
+    assert(preview_meta.exists(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE));
+    int32_t start_x = preview_meta.find(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE).data.i32[0];
+    int32_t start_y = preview_meta.find(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE).data.i32[1];
+    int32_t width = preview_meta.find(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE).data.i32[2];
+    int32_t height = preview_meta.find(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE).data.i32[3];
+
+
+    exposure_region[0] = start_x + width / 4; // xmin
+    exposure_region[1] = start_y + width / 4; // ymin
+    exposure_region[2] = exposure_region[0] + width / 2; // xmax
+    exposure_region[3] = exposure_region[1] + height / 2; // ymax
+    exposure_region[4] = 1000; // weight
+    ret = preview_meta.update(ANDROID_CONTROL_AE_REGIONS, exposure_region, 5);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    TEST_INFO("%s: AE Region: X[%d, %d], Y[%d, %d], WEIGHT(%d)", __func__,
+        exposure_region[0], exposure_region[2], exposure_region[1],
+        exposure_region[3], exposure_region[4]);
+
+    uint8_t ae_mode =  ANDROID_CONTROL_AE_MODE_ON;
+    ret = preview_meta.update(ANDROID_CONTROL_AE_MODE, &ae_mode, 1);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.SetCameraParam(camera_id_, preview_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    {
+      // Wait for AE convergence
+      std::unique_lock<std::mutex> lk(aec_lock);
+      std::chrono::seconds wait_time(5);
+
+      auto status = aec_updated.wait_for(
+          lk, wait_time, [&]() -> bool { return exposure_converged; });
+      ASSERT_TRUE(status);
+      TEST_INFO("%s: AE Converged successfully", __func__);
+    }
+
+    ret = recorder_.GetCameraParam(camera_id_, preview_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    // Lock AE
+    uint8_t ae_lock = ANDROID_CONTROL_AE_LOCK_ON;
+    ret = preview_meta.update(ANDROID_CONTROL_AE_LOCK, &ae_lock, 1);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.SetCameraParam(camera_id_, preview_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    TEST_INFO("%s: AE Locked", __func__);
+
+    fprintf(stderr,"\n ---------- AE Locked ------------\n");
+
+    // Set up capture with manual AE
+    std::vector<CameraMetadata> meta_array;
+    camera_metadata_entry_t entry;
+    CameraMetadata meta;
+
+    // Apply all AE settings in snapshot meta
+    ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = meta.update(ANDROID_CONTROL_AE_LOCK, &ae_lock, 1);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ImageParam image_param{};
+    image_param.width         = 3872;
+    image_param.height        = 2592;
+    image_param.image_format  = ImageFormat::kJPEG;
+    image_param.image_quality = default_jpeg_quality_;
+
+    // Update focal length to capture meta to select 4fps sensor mode.
+    float focal_length = 8.0;
+    meta.update(ANDROID_LENS_FOCAL_LENGTH, &focal_length, 1);
+
+    bool res_supported = false;
+    // Check Supported JPEG snapshot resolutions.
+    if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
+      entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
+      for (uint32_t i = 0 ; i < entry.count; i += 4) {
+        if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
+          if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
+              entry.data.i32[i+3]) {
+            if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
+                && image_param.height ==
+                    static_cast<uint32_t>(entry.data.i32[i+2])) {
+              res_supported = true; // 3840x2160 JPEG supported.
+            }
+          }
+        }
+      }
+    }
+    ASSERT_TRUE(res_supported != false);
+
+    ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
+                                BufferDescriptor buffer,
+                                MetaData meta_data) -> void
+        { SnapshotCb(camera_id, image_count, buffer, meta_data); };
+
+    ImageConfigParam image_config;
+    PostprocPlugin bayer_lcac_plugin;
+
+    SupportedPlugins supported_plugins;
+    ret = recorder_.GetSupportedPlugins(&supported_plugins);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    bool found = false;
+    for (auto const& plugin_info : supported_plugins) {
+      if (plugin_info.name == "BayerLcac") {
+        ret = recorder_.CreatePlugin(&bayer_lcac_plugin.uid, plugin_info);
+        ASSERT_TRUE(ret == NO_ERROR);
+
+        image_config.Update(QMMF_POSTPROCESS_PLUGIN, bayer_lcac_plugin, 0);
+        found = true;
+      }
+    }
+    ASSERT_TRUE(found == true);
+
+    // Update same focal length to streaming meta.
+    focal_length = 8.0;
+    ret = SetCameraFocalLength(focal_length);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    SnapshotType snapshot_type;
+    snapshot_type.type = SnapshotMode::kContinuous;
+    image_config.Update(QMMF_SNAPSHOT_TYPE, snapshot_type, 0);
+
+    PostprocFrameSkip frame_skip;
+    frame_skip.frame_skip = 1;
+    frame_skip.source_framerate = 4;
+    image_config.Update(QMMF_POSTPROCESS_FRAME_SKIP, frame_skip, 0);
+
+    ret = recorder_.ConfigImageCapture(camera_id_, image_config);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    // for continuous capture only one meta is needed
+    meta_array.clear();
+    meta_array.push_back(meta);
+
+    ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array, cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    // take continuous snapshots to simulate long press.
+    fprintf(stderr,"\n ---------- Taking snapshot for = %d sec ------------\n",
+        record_duration_);
+    sleep(record_duration_);
+
+    focal_length = 6.0;
+    ret = SetCameraFocalLength(focal_length);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.CancelCaptureImage(camera_id_);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    TEST_INFO("%s: Coming back to preview with locked AE", __func__);
+    fprintf(stderr,"\n ---------- Coming back to preview and staying for = %d sec with locked AE ------------\n",
+        record_duration_);
+    sleep(record_duration_);
+
+    ret = recorder_.StopSession(session_id, false);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    if (use_display_) {
+      ret = StopDisplay(DisplayType::kPrimary);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
+    ret = recorder_.DeletePlugin(bayer_lcac_plugin.uid);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ClearSessions();
+  }
+
+  ret = recorder_.StopCamera(camera_id_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = DeInit();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
 /*
 * BurstSnapshotWithThumbnails: This test will test 1080p Burst jpg snapshot
 *                              with enabled first and secondary thumbnails.
@@ -15487,176 +16107,6 @@ TEST_F(RecorderGtest, SessionWith720EncAndLinked720Enc) {
 }
 
 /*
-* SessionWith1440pEncCopy480EncAndLinked480YUV: This test will test session with
-*                                          one 1440 Enc track, one Copy 480 Enc
-                                           Track and one 480 linked.
-* Api test sequence:
-*  - StartCamera
-*   loop Start {
-*   ------------------
-*   - CreateSession
-*   - CreateVideoTrack - Master
-*   - CreateVideoTrack - Copy
-*   - CreateVideoTrack - Linked
-*   - StartSession
-*   - StopSession
-*   - DeleteVideoTrack - Linked
-*   - DeleteVideoTrack - Copy
-*   - DeleteVideoTrack - Master
-*   - DeleteSession
-*   ------------------
-*   } loop End
-*  - StopCamera
-*/
-TEST_F(RecorderGtest, SessionWith1440pEncCopy480EncAndLinked480YUV) {
-  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
-      test_info_->test_case_name(),test_info_->name());
-
-  auto ret = Init();
-  ASSERT_TRUE(ret == NO_ERROR);
-
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
-  ASSERT_TRUE(ret == NO_ERROR);
-
-  uint32_t video_track_id_1440p_avc = 1;
-  uint32_t video_track_id_480p_avc  = 2;
-  uint32_t video_track_id_480p_yuv  = 3;
-
-  if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo1 = {
-      VideoFormat::kAVC,
-      video_track_id_1440p_avc, 1920, 1440
-    };
-    ret = dump_bitstream_.SetUp(dumpinfo1);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    StreamDumpInfo dumpinfo2 = {
-      VideoFormat::kAVC,
-      video_track_id_480p_avc, 848, 480
-    };
-    ret = dump_bitstream_.SetUp(dumpinfo2);
-    ASSERT_TRUE(ret == NO_ERROR);
-  }
-
-  for(uint32_t i = 1; i <= iteration_count_; i++) {
-    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
-    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
-        test_info_->name(), i);
-
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this] (EventType event_type, void *event_data,
-                                         size_t event_data_size) -> void
-        { SessionCallbackHandler(event_type, event_data, event_data_size); };
-
-    uint32_t session_id;
-    ret = recorder_.CreateSession(session_status_cb, &session_id);
-    ASSERT_TRUE(session_id > 0);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC,
-                                            1920,
-                                            1440,
-                                            30};
-    TrackCb video_track_cb;
-    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
-        std::vector<BufferDescriptor> buffers,
-        std::vector<MetaData> meta_buffers) {
-          VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
-        };
-
-    video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
-        void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
-        event_type, event_data, event_data_size); };
-
-    ret = recorder_.CreateVideoTrack(session_id, video_track_id_1440p_avc,
-                                     video_track_param, video_track_cb);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    std::vector<uint32_t> track_ids;
-    track_ids.push_back(video_track_id_1440p_avc);
-
-    VideoExtraParam extra_param;
-    SourceVideoTrack surface_video_copy;
-    surface_video_copy.source_track_id = video_track_id_1440p_avc;
-    extra_param.Update(QMMF_SOURCE_VIDEO_TRACK_ID, surface_video_copy);
-
-    video_track_param.width  = 848;
-    video_track_param.height = 480;
-
-    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
-        std::vector<BufferDescriptor> buffers,
-        std::vector<MetaData> meta_buffers) {
-          VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
-    };
-
-    ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p_avc,
-                                     video_track_param, extra_param,
-                                     video_track_cb);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    track_ids.push_back(video_track_id_480p_avc);
-
-    VideoExtraParam extra_param2;
-    SourceVideoTrack surface_video_linked;
-    surface_video_linked.source_track_id = video_track_id_480p_avc;
-    extra_param2.Update(QMMF_SOURCE_VIDEO_TRACK_ID, surface_video_linked);
-
-    video_track_param.width   = 848;
-    video_track_param.height  = 480;
-    video_track_param.format_type = VideoFormat::kYUV;
-
-    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
-        std::vector<BufferDescriptor> buffers,
-        std::vector<MetaData> meta_buffers) {
-          VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
-    };
-
-    ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p_yuv,
-                                     video_track_param, extra_param2,
-                                     video_track_cb);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    track_ids.push_back(video_track_id_480p_yuv);
-    sessions_.insert(std::make_pair(session_id, track_ids));
-
-    ret = recorder_.StartSession(session_id);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    // Let session run for time record_duration_, during this time buffer with
-    // valid data would be received in track callback (VideoTrackYUVDataCb).
-    sleep(record_duration_);
-
-    ret = recorder_.StopSession(session_id, false);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_480p_yuv);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_480p_avc);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_1440p_avc);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    ret = recorder_.DeleteSession(session_id);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    ClearSessions();
-    dump_bitstream_.CloseAll();
-  }
-
-  ret = recorder_.StopCamera(camera_id_);
-  ASSERT_TRUE(ret == NO_ERROR);
-
-  ret = DeInit();
-  ASSERT_TRUE(ret == NO_ERROR);
-
-  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
-      test_info_->test_case_name(), test_info_->name());
-}
-
-
-/*
 * SessionsWith1440pEncAndLinked1440pYUVTrackAndSessionWith1440Enc:
 *   This test will test one session with one 1440p Enc track & one linked
 *   1440p YUV track and second session with one 1440p Enc track.
@@ -20507,202 +20957,485 @@ TEST_F(RecorderGtest,
 }
 
 /*
-* SessionWith4kEncCopy480pEncAndLinked480pEISWIthSAR: This test will test session
-*     with one 4k30 Enc track, one copy 480p Enc Track and one 480p linked with YUV
-* API test sequence:
+* SessionWith4kEncCopy480pEncAndLinked480pEISWithManualAE:
+*     This test will test session with one 4k30 Enc track, one copy 480p Enc
+*     Track and one 480p linked with EIS.
+*
+* Api test sequence:
 *  - StartCamera
-*  - CreateSession
-*  - CreateVideoTrack - Master
-*  - CreateVideoTrack - Copy
-*  - CreateVideoTrack - Linked
 *   loop Start {
 *   -----------------
+*   - CreateSession
+*   - CreateVideoTrack - YUV
 *   - StartSession
 *   - StopSession
+*   - DeleteVideoTrack - YUV
+*   - DeleteSession
+*   - CreateSession
+*   - CreateVideoTrack - Master
+*   - CreateVideoTrack - Copy
+*   - CreateVideoTrack - Linked
+*   - StartSession
+*   - StopSession
+*   - DeleteVideoTrack - Linked
+*   - DeleteVideoTrack - Copy
+*   - DeleteVideoTrack - Master
+*   - DeleteSession
 *   ------------------
 *   } loop End
-*  - DeleteVideoTrack - Linked
-*  - DeleteVideoTrack - Copy
-*  - DeleteVideoTrack - Master
-*  - DeleteSession
 *  - StopCamera
 */
-TEST_F(RecorderGtest,
-       SessionWith4kEncCopy480pEncAndLinked480pEISWithSAR) {
+TEST_F(RecorderGtest, SessionWith4kEncCopy480pEncAndLinked480pEISWithManualAE) {
   fprintf(stderr, "\n---------- Run Test %s.%s ------------\n",
           test_info_->test_case_name(), test_info_->name());
 
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  std::mutex aec_lock;
+  std::condition_variable aec_updated;
+
+  bool exposure_converged, exposure_locked;
+  int32_t exposure_senstivity;
+  int64_t exposure_time;
+
+  CameraResultCb result_cb;
+  result_cb = [&] (uint32_t camera_id, const CameraMetadata &result) {
+    if (!exposure_locked && result.exists(ANDROID_CONTROL_AE_STATE)) {
+      std::lock_guard<std::mutex> lk(aec_lock);
+      auto state = result.find(ANDROID_CONTROL_AE_STATE).data.u8[0];
+
+      exposure_converged = (state == ANDROID_CONTROL_AE_STATE_CONVERGED);
+      exposure_locked = (state == ANDROID_CONTROL_AE_STATE_LOCKED);
+
+      exposure_senstivity = result.find(ANDROID_SENSOR_SENSITIVITY).data.i32[0];
+      exposure_time = result.find(ANDROID_SENSOR_EXPOSURE_TIME).data.i64[0];
+      aec_updated.notify_one();
+    }
+  };
+
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_, result_cb);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t video_track_id_4kp_avc = 1;
   uint32_t video_track_id_480p_avc = 2;
   uint32_t video_track_id_480p_yuv = 3;
+
   CameraMetadata meta;
-  uint8_t vstab_mode;
-
-  uint32_t width = 3840;
-  uint32_t height = 2160;
-
-  if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo1 = {VideoFormat::kAVC, video_track_id_4kp_avc,
-                                width, height};
-    ret = dump_bitstream_.SetUp(dumpinfo1);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    StreamDumpInfo dumpinfo2 = {VideoFormat::kAVC, video_track_id_480p_avc, 848,
-                                480};
-    ret = dump_bitstream_.SetUp(dumpinfo2);
-    ASSERT_TRUE(ret == NO_ERROR);
-  }
-
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [this](EventType event_type, void *event_data,
-                                      size_t event_data_size) -> void {
-    SessionCallbackHandler(event_type, event_data, event_data_size);
-  };
-
-  uint32_t session_id;
-  ret = recorder_.CreateSession(session_status_cb, &session_id);
-  ASSERT_TRUE(session_id > 0);
-  ASSERT_TRUE(ret == NO_ERROR);
-
-  VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC, width,
-                                          height, 30};
-
-  video_track_param.codec_param.avc.bitrate = kBitRate4k30;
-  video_track_param.codec_param.avc.ratecontrol_type =
-      VideoRateControlType::kVariable;
-  video_track_param.codec_param.avc.sar_enabled = true;
-  video_track_param.codec_param.avc.sar_width = 1;
-  video_track_param.codec_param.avc.sar_height = 1;
-
-  TrackCb video_track_cb;
-  video_track_cb.data_cb = [&, session_id](
-      uint32_t track_id, std::vector<BufferDescriptor> buffers,
-      std::vector<MetaData> meta_buffers) {
-    VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
-  };
-
-  video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
-                                void *event_data, size_t event_data_size) {
-    VideoTrackEventCb(track_id, event_type, event_data, event_data_size);
-  };
-
-  ret = recorder_.CreateVideoTrack(session_id, video_track_id_4kp_avc,
-                                   video_track_param, video_track_cb);
-  ASSERT_TRUE(ret == NO_ERROR);
-
-  std::vector<uint32_t> track_ids;
-  track_ids.push_back(video_track_id_4kp_avc);
-
-  VideoExtraParam extra_param;
-  SourceVideoTrack surface_video_copy;
-  surface_video_copy.source_track_id = video_track_id_4kp_avc;
-  extra_param.Update(QMMF_SOURCE_VIDEO_TRACK_ID, surface_video_copy);
-
-  width  = 848;
-  height = 480;
-
-  video_track_param.width = width;
-  video_track_param.height = height;
-  video_track_param.frame_rate = 30;
-  video_track_param.codec_param.avc.bitrate = kBitRate480p;
-  video_track_param.codec_param.avc.sar_enabled = true;
-  video_track_param.codec_param.avc.sar_width = 1;
-  video_track_param.codec_param.avc.sar_height = 1;
-
-  video_track_cb.data_cb = [&, session_id](
-      uint32_t track_id, std::vector<BufferDescriptor> buffers,
-      std::vector<MetaData> meta_buffers) {
-    VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
-  };
-
-  ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p_avc,
-                                   video_track_param, extra_param,
-                                   video_track_cb);
-  ASSERT_TRUE(ret == NO_ERROR);
-
-  track_ids.push_back(video_track_id_480p_avc);
-
-  VideoExtraParam extra_param2;
-  SourceVideoTrack surface_video_linked;
-  surface_video_linked.source_track_id = video_track_id_480p_avc;
-  extra_param2.Update(QMMF_SOURCE_VIDEO_TRACK_ID, surface_video_linked);
-
-  video_track_param.width = width;
-  video_track_param.height = height;
-  video_track_param.format_type = VideoFormat::kYUV;
-  video_track_param.frame_rate = 30;
-  video_track_param.codec_param.avc.sar_enabled = false;
-
-  video_track_cb.data_cb = [&, session_id](
-      uint32_t track_id, std::vector<BufferDescriptor> buffers,
-      std::vector<MetaData> meta_buffers) {
-    VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
-  };
-
-  ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p_yuv,
-                                   video_track_param, extra_param2,
-                                   video_track_cb);
-  ASSERT_TRUE(ret == NO_ERROR);
-
-  track_ids.push_back(video_track_id_480p_yuv);
-  sessions_.insert(std::make_pair(session_id, track_ids));
-
-  auto status = recorder_.GetCameraParam(camera_id_, meta);
-  if (NO_ERROR == status) {
-    if (!default_eis_margins_) {
-      // Video stabilization horizontal margin.
-      float h_margin = 0.033;
-      meta.update(QCAMERA3_IS_H_MARGIN_CFG, &h_margin, 1);
-
-      // Video stabilization vertical margin.
-      float v_margin = 0.033;
-      meta.update(QCAMERA3_IS_V_MARGIN_CFG, &v_margin, 1);
-    }
-
-    // Enable EIS
-    vstab_mode = 1;
-    vstab_mode = ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_ON;
-    meta.update(ANDROID_CONTROL_VIDEO_STABILIZATION_MODE, &vstab_mode, 1);
-
-    ret = recorder_.SetCameraParam(camera_id_, meta);
-    ASSERT_TRUE(ret == NO_ERROR);
-  }
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
-              test_info_->name(), i);
+        test_info_->name(), i);
+
+    exposure_converged = false;
+    exposure_locked = false;
+
+    SessionCb session_status_cb;
+    session_status_cb.event_cb = [this](EventType event_type, void *event_data,
+                                        size_t event_data_size) -> void {
+      SessionCallbackHandler(event_type, event_data, event_data_size);
+    };
+
+    uint32_t session_id;
+    ret = recorder_.CreateSession(session_status_cb, &session_id);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&, session_id](
+        uint32_t track_id, std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+      VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
+    };
+
+    video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
+                                  void *event_data, size_t event_data_size) {
+      VideoTrackEventCb(track_id, event_type, event_data, event_data_size);
+    };
+
+    uint32_t width = 848;
+    uint32_t height = 480;
+
+    VideoTrackCreateParam video_track_param {
+      camera_id_, VideoFormat::kYUV, width, height, 30
+    };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p_yuv,
+                                     video_track_param, video_track_cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.GetCameraParam(camera_id_, meta);
+    if (NO_ERROR == ret) {
+      if (!default_eis_margins_) {
+        // Video stabilization horizontal margin.
+        float h_margin = 0.033;
+        meta.update(QCAMERA3_IS_H_MARGIN_CFG, &h_margin, 1);
+
+        // Video stabilization vertical margin.
+        float v_margin = 0.033;
+        meta.update(QCAMERA3_IS_V_MARGIN_CFG, &v_margin, 1);
+      }
+
+      // Enable EIS
+      uint8_t vstab_mode = ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_ON;
+      meta.update(ANDROID_CONTROL_VIDEO_STABILIZATION_MODE, &vstab_mode, 1);
+
+      // Get Active Pixel Array
+      auto pixel_array = meta.find(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE);
+      int32_t array_width = pixel_array.data.i32[2];
+      int32_t array_height = pixel_array.data.i32[3];
+
+      int32_t region_width = 320, region_height = 320, x_step = 0, y_step = 0;
+      if (iteration_count_ > 1) {
+        x_step = (array_width - region_width) / (iteration_count_ - 1);
+        y_step = (array_height - region_height) / (iteration_count_ - 1);
+      }
+
+      // Set exposure region witch size 320x320 and move it diagonally
+      // each iteration, begining at coordinates [0, 0]
+      int32_t exposure_region[5];
+      exposure_region[0] = (i - 1) * x_step;
+      exposure_region[1] = (i - 1) * y_step;
+      exposure_region[2] = exposure_region[0] + region_width;
+      exposure_region[3] = exposure_region[1] + region_height;
+      exposure_region[4] = 1000;
+      meta.update(ANDROID_CONTROL_AE_REGIONS, exposure_region, 5);
+
+      TEST_INFO("%s: AE Region: X[%d, %d], Y[%d, %d], WEIGHT(%d)", __func__,
+          exposure_region[0], exposure_region[2], exposure_region[1],
+          exposure_region[3], exposure_region[4]);
+
+      fprintf(stderr, "\n %s: AE Region: X[%d, %d], Y[%d, %d], WEIGHT(%d) \n", __func__,
+          exposure_region[0], exposure_region[2], exposure_region[1],
+          exposure_region[3], exposure_region[4]);
+
+      // Set auto exposure mode
+      uint8_t exposure_mode =  ANDROID_CONTROL_AE_MODE_ON;
+      meta.update(ANDROID_CONTROL_AE_MODE, &exposure_mode, 1);
+
+      // Unlock AE
+      uint8_t ae_lock = ANDROID_CONTROL_AE_LOCK_OFF;
+      ret = meta.update(ANDROID_CONTROL_AE_LOCK, &ae_lock, 1);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      ret = recorder_.SetCameraParam(camera_id_, meta);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
+    std::vector<uint32_t> track_ids;
+    track_ids.push_back(video_track_id_480p_yuv);
+    sessions_.insert(std::make_pair(session_id, track_ids));
+
+    if (use_display_) {
+      ret = StartDisplay(DisplayType::kPrimary, width, height, 848, 480);
+      if (ret != 0) {
+        TEST_ERROR("%s: StartDisplay Failed!!", __func__);
+      }
+    }
+
     ret = recorder_.StartSession(session_id);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    // Let session run for time record_duration_, during this time buffer with
-    // valid data would be received in track callback (VideoTrackYUVDataCb).
+    {
+      // Wait for AE convergence
+      std::unique_lock<std::mutex> lk(aec_lock);
+      std::chrono::seconds wait_time(5);
+
+      auto status = aec_updated.wait_for(
+          lk, wait_time, [&]() -> bool { return exposure_converged; });
+      ASSERT_TRUE(status);
+      TEST_INFO("%s: AE Converged successfully", __func__);
+      TEST_INFO("%s: Exposure: Sensitivity(%d), Time(%lld)", __func__,
+          exposure_senstivity, exposure_time);
+    }
+
+    ret = recorder_.GetCameraParam(camera_id_, meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    // Lock AE
+    uint8_t ae_lock = ANDROID_CONTROL_AE_LOCK_ON;
+    ret = meta.update(ANDROID_CONTROL_AE_LOCK, &ae_lock, 1);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.SetCameraParam(camera_id_, meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    {
+      // Wait for AE lock to avoid flickering
+      std::unique_lock<std::mutex> lk(aec_lock);
+      std::chrono::seconds wait_time(5);
+
+      auto status = aec_updated.wait_for(
+          lk, wait_time, [&]() -> bool { return exposure_locked; });
+      ASSERT_TRUE(status);
+      TEST_INFO("%s: AE Locked successfully", __func__);
+      TEST_INFO("%s: Exposure: Sensitivity(%d), Time(%lld)", __func__,
+          exposure_senstivity, exposure_time);
+    }
+
     sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
     ASSERT_TRUE(ret == NO_ERROR);
+
+    if (use_display_) {
+      ret = StopDisplay(DisplayType::kPrimary);
+      if (ret != 0) {
+        TEST_ERROR("%s: StopDisplay Failed!!", __func__);
+      }
+    }
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_480p_yuv);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    track_ids.clear();
+    ClearSessions();
+
+    width = 3840;
+    height = 2160;
+
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo1 = {
+          VideoFormat::kAVC, video_track_id_4kp_avc, width, height
+      };
+      ret = dump_bitstream_.SetUp(dumpinfo1);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      StreamDumpInfo dumpinfo2 = {
+          VideoFormat::kAVC, video_track_id_480p_avc, 848, 480
+      };
+      ret = dump_bitstream_.SetUp(dumpinfo2);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
+    ret = recorder_.CreateSession(session_status_cb, &session_id);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    video_track_param.width = width;
+    video_track_param.height = height;
+    video_track_param.format_type = VideoFormat::kAVC;
+    video_track_param.frame_rate = 30;
+
+    video_track_param.setAVCDefaultVideoParam();
+
+    video_track_param.codec_param.avc.bitrate = kBitRate4k30;
+    video_track_param.codec_param.avc.ratecontrol_type =
+        VideoRateControlType::kVariable;
+
+    video_track_cb.data_cb = [&, session_id](
+        uint32_t track_id, std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+      VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+    };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_4kp_avc,
+                                     video_track_param, video_track_cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    track_ids.push_back(video_track_id_4kp_avc);
+
+    VideoExtraParam extra_param;
+    SourceVideoTrack video_source;
+    video_source.source_track_id = video_track_id_4kp_avc;
+    extra_param.Update(QMMF_SOURCE_VIDEO_TRACK_ID, video_source);
+
+    width  = 848;
+    height = 480;
+
+    video_track_param.width = width;
+    video_track_param.height = height;
+    video_track_param.frame_rate = 30;
+    video_track_param.codec_param.avc.bitrate = kBitRate480p;
+
+    video_track_cb.data_cb = [&, session_id](
+        uint32_t track_id, std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+      VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+    };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p_avc,
+                                     video_track_param, extra_param,
+                                     video_track_cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    track_ids.push_back(video_track_id_480p_avc);
+
+    video_source.source_track_id = video_track_id_480p_avc;
+    extra_param.Update(QMMF_SOURCE_VIDEO_TRACK_ID, video_source);
+
+    video_track_param.width = width;
+    video_track_param.height = height;
+    video_track_param.format_type = VideoFormat::kYUV;
+    video_track_param.frame_rate = 30;
+
+    video_track_cb.data_cb = [&, session_id](
+        uint32_t track_id, std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+      VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
+    };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p_yuv,
+                                     video_track_param, extra_param,
+                                     video_track_cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    track_ids.push_back(video_track_id_480p_yuv);
+    sessions_.insert(std::make_pair(session_id, track_ids));
+
+    ret = recorder_.GetCameraParam(camera_id_, meta);
+    if (NO_ERROR == ret) {
+      if (!default_eis_margins_) {
+        // Video stabilization horizontal margin.
+        float h_margin = 0.033;
+        meta.update(QCAMERA3_IS_H_MARGIN_CFG, &h_margin, 1);
+
+        // Video stabilization vertical margin.
+        float v_margin = 0.033;
+        meta.update(QCAMERA3_IS_V_MARGIN_CFG, &v_margin, 1);
+      }
+
+      // Enable EIS
+      uint8_t vstab_mode = ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_ON;
+      meta.update(ANDROID_CONTROL_VIDEO_STABILIZATION_MODE, &vstab_mode, 1);
+
+      TEST_INFO("%s: Set Exposure: Sensitivity(%d), Time(%lld)", __func__,
+          exposure_senstivity, exposure_time);
+
+      // Update cached exposure settings
+      meta.update(ANDROID_SENSOR_SENSITIVITY, &exposure_senstivity, 1);
+      meta.update(ANDROID_SENSOR_EXPOSURE_TIME, &exposure_time, 1);
+
+      // Unlock AE
+      uint8_t ae_lock = ANDROID_CONTROL_AE_LOCK_OFF;
+      ret = meta.update(ANDROID_CONTROL_AE_LOCK, &ae_lock, 1);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      // Set manual exposure mode
+      uint8_t exposure_mode =  ANDROID_CONTROL_AE_MODE_OFF;
+      meta.update(ANDROID_CONTROL_AE_MODE, &exposure_mode, 1);
+
+      ret = recorder_.SetCameraParam(camera_id_, meta);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
+    if (use_display_) {
+      ret = StartDisplay(DisplayType::kPrimary, width, height, 848, 480);
+      if (ret != 0) {
+        TEST_ERROR("%s: StartDisplay Failed!!", __func__);
+      }
+    }
+
+    ret = recorder_.StartSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    sleep(record_duration_);
+
+    ret = recorder_.StopSession(session_id, false);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    if (use_display_) {
+      ret = StopDisplay(DisplayType::kPrimary);
+      if (ret != 0) {
+        TEST_ERROR("%s: StopDisplay Failed!!", __func__);
+      }
+    }
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_480p_yuv);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_480p_avc);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_4kp_avc);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    track_ids.clear();
+    ClearSessions();
+    dump_bitstream_.CloseAll();
+
+    width  = 848;
+    height = 480;
+
+    video_track_param.width = width;
+    video_track_param.height = height;
+    video_track_param.format_type = VideoFormat::kYUV;
+    video_track_param.frame_rate = 30;
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p_yuv,
+                                     video_track_param, video_track_cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    track_ids.push_back(video_track_id_480p_yuv);
+    sessions_.insert(std::make_pair(session_id, track_ids));
+
+    ret = recorder_.GetCameraParam(camera_id_, meta);
+    if (NO_ERROR == ret) {
+      if (!default_eis_margins_) {
+        // Video stabilization horizontal margin.
+        float h_margin = 0.033;
+        meta.update(QCAMERA3_IS_H_MARGIN_CFG, &h_margin, 1);
+
+        // Video stabilization vertical margin.
+        float v_margin = 0.033;
+        meta.update(QCAMERA3_IS_V_MARGIN_CFG, &v_margin, 1);
+      }
+
+      // Enable EIS
+      uint8_t vstab_mode = ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_ON;
+      meta.update(ANDROID_CONTROL_VIDEO_STABILIZATION_MODE, &vstab_mode, 1);
+
+      TEST_INFO("%s: Set Exposure: Sensitivity(%d), Time(%lld)", __func__,
+          exposure_senstivity, exposure_time);
+
+      // Update cached exposure settings
+      meta.update(ANDROID_SENSOR_SENSITIVITY, &exposure_senstivity, 1);
+      meta.update(ANDROID_SENSOR_EXPOSURE_TIME, &exposure_time, 1);
+
+      // Unlock AE
+      uint8_t ae_lock = ANDROID_CONTROL_AE_LOCK_OFF;
+      ret = meta.update(ANDROID_CONTROL_AE_LOCK, &ae_lock, 1);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      // Set manual exposure mode
+      uint8_t exposure_mode =  ANDROID_CONTROL_AE_MODE_OFF;
+      meta.update(ANDROID_CONTROL_AE_MODE, &exposure_mode, 1);
+
+      ret = recorder_.SetCameraParam(camera_id_, meta);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
+    if (use_display_) {
+      ret = StartDisplay(DisplayType::kPrimary, width, height, 848, 480);
+      if (ret != 0) {
+        TEST_ERROR("%s: StartDisplay Failed!!", __func__);
+      }
+    }
+
+    ret = recorder_.StartSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    sleep(record_duration_);
+
+    ret = recorder_.StopSession(session_id, false);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    if (use_display_) {
+      ret = StopDisplay(DisplayType::kPrimary);
+      if (ret != 0) {
+        TEST_ERROR("%s: StopDisplay Failed!!", __func__);
+      }
+    }
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_480p_yuv);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ClearSessions();
   }
-
-  ret = recorder_.DeleteVideoTrack(session_id, video_track_id_480p_yuv);
-  ASSERT_TRUE(ret == NO_ERROR);
-
-  ret = recorder_.DeleteVideoTrack(session_id, video_track_id_480p_avc);
-  ASSERT_TRUE(ret == NO_ERROR);
-
-  ret = recorder_.DeleteVideoTrack(session_id, video_track_id_4kp_avc);
-  ASSERT_TRUE(ret == NO_ERROR);
-
-  ret = recorder_.DeleteSession(session_id);
-  ASSERT_TRUE(ret == NO_ERROR);
-
-  ClearSessions();
-  dump_bitstream_.CloseAll();
 
   ret = recorder_.StopCamera(camera_id_);
   ASSERT_TRUE(ret == NO_ERROR);
@@ -20713,6 +21446,1417 @@ TEST_F(RecorderGtest,
   fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
           test_info_->test_case_name(), test_info_->name());
 }
+
+/*
+* SessionWith1440p60FPSEncCopy480pEncAndLinked480pEISWithManualAE:
+*     This test will test session with one 1440p60 Enc track, one copy 480p Enc
+*     Track and one 480p linked with EIS.
+*
+* Api test sequence:
+*  - StartCamera
+*   loop Start {
+*   -----------------
+*   - CreateSession
+*   - CreateVideoTrack - YUV
+*   - StartSession
+*   - StopSession
+*   - DeleteVideoTrack - YUV
+*   - DeleteSession
+*   - CreateSession
+*   - CreateVideoTrack - Master
+*   - CreateVideoTrack - Copy
+*   - CreateVideoTrack - Linked
+*   - StartSession
+*   - StopSession
+*   - DeleteVideoTrack - Linked
+*   - DeleteVideoTrack - Copy
+*   - DeleteVideoTrack - Master
+*   - DeleteSession
+*   ------------------
+*   } loop End
+*  - StopCamera
+*/
+TEST_F(RecorderGtest,
+       SessionWith1440p60FPSEncCopy480pEncAndLinked480pEISWithManualAE) {
+  fprintf(stderr, "\n---------- Run Test %s.%s ------------\n",
+          test_info_->test_case_name(), test_info_->name());
+
+  auto ret = Init();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  std::mutex aec_lock;
+  std::condition_variable aec_updated;
+
+  bool exposure_converged, exposure_locked;
+  int32_t exposure_senstivity;
+  int64_t exposure_time;
+  int64_t frame_duration;
+
+  CameraResultCb result_cb;
+  result_cb = [&] (uint32_t camera_id, const CameraMetadata &result) {
+    if (!exposure_locked && result.exists(ANDROID_CONTROL_AE_STATE)) {
+      std::lock_guard<std::mutex> lk(aec_lock);
+      auto state = result.find(ANDROID_CONTROL_AE_STATE).data.u8[0];
+
+      exposure_converged = (state == ANDROID_CONTROL_AE_STATE_CONVERGED);
+      exposure_locked = (state == ANDROID_CONTROL_AE_STATE_LOCKED);
+
+      exposure_senstivity = result.find(ANDROID_SENSOR_SENSITIVITY).data.i32[0];
+      exposure_time = result.find(ANDROID_SENSOR_EXPOSURE_TIME).data.i64[0];
+      frame_duration = result.find(ANDROID_SENSOR_FRAME_DURATION).data.i64[0];
+      aec_updated.notify_one();
+    }
+  };
+
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_, result_cb);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  uint32_t video_track_id_1440p_avc = 1;
+  uint32_t video_track_id_480p_avc = 2;
+  uint32_t video_track_id_480p_yuv = 3;
+
+  CameraMetadata meta;
+
+  for (uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
+        test_info_->name(), i);
+
+    exposure_converged = false;
+    exposure_locked = false;
+
+    SessionCb session_status_cb;
+    session_status_cb.event_cb = [this](EventType event_type, void *event_data,
+                                        size_t event_data_size) -> void {
+      SessionCallbackHandler(event_type, event_data, event_data_size);
+    };
+
+    uint32_t session_id;
+    ret = recorder_.CreateSession(session_status_cb, &session_id);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&, session_id](
+        uint32_t track_id, std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+      VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
+    };
+
+    video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
+                                  void *event_data, size_t event_data_size) {
+      VideoTrackEventCb(track_id, event_type, event_data, event_data_size);
+    };
+
+    uint32_t width = 848;
+    uint32_t height = 480;
+
+    VideoTrackCreateParam video_track_param {
+      camera_id_, VideoFormat::kYUV, width, height, 30
+    };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p_yuv,
+                                     video_track_param, video_track_cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.GetCameraParam(camera_id_, meta);
+    if (NO_ERROR == ret) {
+      if (!default_eis_margins_) {
+        // Video stabilization horizontal margin.
+        float h_margin = 0.033;
+        meta.update(QCAMERA3_IS_H_MARGIN_CFG, &h_margin, 1);
+
+        // Video stabilization vertical margin.
+        float v_margin = 0.033;
+        meta.update(QCAMERA3_IS_V_MARGIN_CFG, &v_margin, 1);
+      }
+
+      // Enable EIS
+      uint8_t vstab_mode = ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_ON;
+      meta.update(ANDROID_CONTROL_VIDEO_STABILIZATION_MODE, &vstab_mode, 1);
+
+      // Get Active Pixel Array
+      auto pixel_array = meta.find(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE);
+      int32_t array_width = pixel_array.data.i32[2];
+      int32_t array_height = pixel_array.data.i32[3];
+
+      int32_t region_width = 320, region_height = 320, x_step = 0, y_step = 0;
+      if (iteration_count_ > 1) {
+        x_step = (array_width - region_width) / (iteration_count_ - 1);
+        y_step = (array_height - region_height) / (iteration_count_ - 1);
+      }
+
+      // Set exposure region witch size 320x320 and move it diagonally
+      // each iteration, begining at coordinates [0, 0]
+      int32_t exposure_region[5];
+      exposure_region[0] = (i - 1) * x_step;
+      exposure_region[1] = (i - 1) * y_step;
+      exposure_region[2] = exposure_region[0] + region_width;
+      exposure_region[3] = exposure_region[1] + region_height;
+      exposure_region[4] = 1000;
+      meta.update(ANDROID_CONTROL_AE_REGIONS, exposure_region, 5);
+
+      TEST_INFO("%s: AE Region: X[%d, %d], Y[%d, %d], WEIGHT(%d)", __func__,
+          exposure_region[0], exposure_region[2], exposure_region[1],
+          exposure_region[3], exposure_region[4]);
+
+      // Set auto exposure mode
+      uint8_t exposure_mode =  ANDROID_CONTROL_AE_MODE_ON;
+      meta.update(ANDROID_CONTROL_AE_MODE, &exposure_mode, 1);
+
+      // Unlock AE
+      uint8_t ae_lock = ANDROID_CONTROL_AE_LOCK_OFF;
+      ret = meta.update(ANDROID_CONTROL_AE_LOCK, &ae_lock, 1);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      ret = recorder_.SetCameraParam(camera_id_, meta);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
+    std::vector<uint32_t> track_ids;
+    track_ids.push_back(video_track_id_480p_yuv);
+    sessions_.insert(std::make_pair(session_id, track_ids));
+
+    if (use_display_) {
+      ret = StartDisplay(DisplayType::kPrimary, width, height, 848, 480);
+      if (ret != 0) {
+        TEST_ERROR("%s: StartDisplay Failed!!", __func__);
+      }
+    }
+
+    ret = recorder_.StartSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    {
+      // Wait for AE convergence
+      std::unique_lock<std::mutex> lk(aec_lock);
+      std::chrono::seconds wait_time(5);
+
+      auto status = aec_updated.wait_for(
+          lk, wait_time, [&]() -> bool { return exposure_converged; });
+      ASSERT_TRUE(status);
+      TEST_INFO("%s: AE Converged successfully", __func__);
+      TEST_INFO("%s: Exposure: Sensitivity(%d), Time(%lld)", __func__,
+          exposure_senstivity, exposure_time);
+    }
+
+    ret = recorder_.GetCameraParam(camera_id_, meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    // Lock AE
+    uint8_t ae_lock = ANDROID_CONTROL_AE_LOCK_ON;
+    ret = meta.update(ANDROID_CONTROL_AE_LOCK, &ae_lock, 1);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.SetCameraParam(camera_id_, meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    {
+      // Wait for AE lock to avoid flickering
+      std::unique_lock<std::mutex> lk(aec_lock);
+      std::chrono::seconds wait_time(5);
+
+      auto status = aec_updated.wait_for(
+          lk, wait_time, [&]() -> bool { return exposure_locked; });
+      ASSERT_TRUE(status);
+      TEST_INFO("%s: AE Locked successfully", __func__);
+      TEST_INFO("%s: Exposure: Sensitivity(%d), Time(%lld)", __func__,
+          exposure_senstivity, exposure_time);
+    }
+
+    sleep(record_duration_);
+
+    ret = recorder_.StopSession(session_id, false);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    if (use_display_) {
+      ret = StopDisplay(DisplayType::kPrimary);
+      if (ret != 0) {
+        TEST_ERROR("%s: StopDisplay Failed!!", __func__);
+      }
+    }
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_480p_yuv);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    track_ids.clear();
+    ClearSessions();
+
+    width = 1920;
+    height = 1440;
+
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo1 = {
+          VideoFormat::kAVC, video_track_id_1440p_avc, width, height
+      };
+      ret = dump_bitstream_.SetUp(dumpinfo1);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      StreamDumpInfo dumpinfo2 = {
+          VideoFormat::kAVC, video_track_id_480p_avc, 848, 480
+      };
+      ret = dump_bitstream_.SetUp(dumpinfo2);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
+    ret = recorder_.CreateSession(session_status_cb, &session_id);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    video_track_param.width = width;
+    video_track_param.height = height;
+    video_track_param.format_type = VideoFormat::kAVC;
+    video_track_param.frame_rate = 60;
+
+    video_track_param.setAVCDefaultVideoParam();
+
+    video_track_param.codec_param.avc.bitrate = kBitRate1440p60;
+    video_track_param.codec_param.avc.ratecontrol_type =
+        VideoRateControlType::kVariable;
+
+    video_track_cb.data_cb = [&, session_id](
+        uint32_t track_id, std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+      VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+    };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_1440p_avc,
+                                     video_track_param, video_track_cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    track_ids.push_back(video_track_id_1440p_avc);
+
+    VideoExtraParam extra_param;
+    SourceVideoTrack video_source;
+    video_source.source_track_id = video_track_id_1440p_avc;
+    extra_param.Update(QMMF_SOURCE_VIDEO_TRACK_ID, video_source);
+
+    width  = 848;
+    height = 480;
+
+    video_track_param.width = width;
+    video_track_param.height = height;
+    video_track_param.frame_rate = 30;
+    video_track_param.codec_param.avc.bitrate = kBitRate480p;
+
+    video_track_cb.data_cb = [&, session_id](
+        uint32_t track_id, std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+      VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+    };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p_avc,
+                                     video_track_param, extra_param,
+                                     video_track_cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    track_ids.push_back(video_track_id_480p_avc);
+
+    video_source.source_track_id = video_track_id_480p_avc;
+    extra_param.Update(QMMF_SOURCE_VIDEO_TRACK_ID, video_source);
+
+    video_track_param.width = width;
+    video_track_param.height = height;
+    video_track_param.format_type = VideoFormat::kYUV;
+    video_track_param.frame_rate = 30;
+
+    video_track_cb.data_cb = [&, session_id](
+        uint32_t track_id, std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+      VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
+    };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p_yuv,
+                                     video_track_param, extra_param,
+                                     video_track_cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    track_ids.push_back(video_track_id_480p_yuv);
+    sessions_.insert(std::make_pair(session_id, track_ids));
+
+    ret = recorder_.GetCameraParam(camera_id_, meta);
+    if (NO_ERROR == ret) {
+      if (!default_eis_margins_) {
+        // Video stabilization horizontal margin.
+        float h_margin = 0.033;
+        meta.update(QCAMERA3_IS_H_MARGIN_CFG, &h_margin, 1);
+
+        // Video stabilization vertical margin.
+        float v_margin = 0.033;
+        meta.update(QCAMERA3_IS_V_MARGIN_CFG, &v_margin, 1);
+      }
+
+      // Enable EIS
+      uint8_t vstab_mode = ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_ON;
+      meta.update(ANDROID_CONTROL_VIDEO_STABILIZATION_MODE, &vstab_mode, 1);
+
+      // Convert exposure time and sensitivity for 60fps
+      float fps = 60.0;
+      float frame_duration_ns = 1000000000.0 / fps;
+
+      int64_t video_ex_time = (int64_t)((float)exposure_time > frame_duration_ns) ? frame_duration_ns : exposure_time;
+      int32_t video_ex_senstivity = (uint32_t)(float)exposure_time * ((float)exposure_senstivity / (float)video_ex_time);
+      int64_t video_frame_duration = (int64_t)frame_duration_ns;
+
+      TEST_INFO("%s: Preview Exposure: Sensitivity(%d), Time(%lld), FrameDuration(%lld)", __func__,
+        exposure_senstivity, exposure_time, frame_duration);
+      TEST_INFO("%s: Set Video Exposure: Sensitivity(%d), Time(%lld), FrameDuration(%lld)", __func__,
+        video_ex_senstivity, video_ex_time, video_frame_duration);
+
+      // Update cached exposure settings
+      meta.update(ANDROID_SENSOR_SENSITIVITY, &video_ex_senstivity, 1);
+      meta.update(ANDROID_SENSOR_EXPOSURE_TIME, &video_ex_time, 1);
+      meta.update(ANDROID_SENSOR_FRAME_DURATION, &video_frame_duration, 1);
+
+      // Unlock AE
+      uint8_t ae_lock = ANDROID_CONTROL_AE_LOCK_OFF;
+      ret = meta.update(ANDROID_CONTROL_AE_LOCK, &ae_lock, 1);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      // Set manual exposure mode
+      uint8_t exposure_mode =  ANDROID_CONTROL_AE_MODE_OFF;
+      meta.update(ANDROID_CONTROL_AE_MODE, &exposure_mode, 1);
+
+      ret = recorder_.SetCameraParam(camera_id_, meta);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
+    if (use_display_) {
+      ret = StartDisplay(DisplayType::kPrimary, width, height, 848, 480);
+      if (ret != 0) {
+        TEST_ERROR("%s: StartDisplay Failed!!", __func__);
+      }
+    }
+
+    ret = recorder_.StartSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    sleep(record_duration_);
+
+    ret = recorder_.StopSession(session_id, false);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    if (use_display_) {
+      ret = StopDisplay(DisplayType::kPrimary);
+      if (ret != 0) {
+        TEST_ERROR("%s: StopDisplay Failed!!", __func__);
+      }
+    }
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_480p_yuv);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_480p_avc);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_1440p_avc);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    track_ids.clear();
+    ClearSessions();
+    dump_bitstream_.CloseAll();
+
+    width  = 848;
+    height = 480;
+
+    video_track_param.width = width;
+    video_track_param.height = height;
+    video_track_param.format_type = VideoFormat::kYUV;
+    video_track_param.frame_rate = 30;
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p_yuv,
+                                     video_track_param, video_track_cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    track_ids.push_back(video_track_id_480p_yuv);
+    sessions_.insert(std::make_pair(session_id, track_ids));
+
+    ret = recorder_.GetCameraParam(camera_id_, meta);
+    if (NO_ERROR == ret) {
+      if (!default_eis_margins_) {
+        // Video stabilization horizontal margin.
+        float h_margin = 0.033;
+        meta.update(QCAMERA3_IS_H_MARGIN_CFG, &h_margin, 1);
+
+        // Video stabilization vertical margin.
+        float v_margin = 0.033;
+        meta.update(QCAMERA3_IS_V_MARGIN_CFG, &v_margin, 1);
+      }
+
+      // Enable EIS
+      uint8_t vstab_mode = ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_ON;
+      meta.update(ANDROID_CONTROL_VIDEO_STABILIZATION_MODE, &vstab_mode, 1);
+
+      TEST_INFO("%s: Set Exposure: Sensitivity(%d), Time(%lld)", __func__,
+          exposure_senstivity, exposure_time);
+
+      // Update cached exposure settings
+      meta.update(ANDROID_SENSOR_SENSITIVITY, &exposure_senstivity, 1);
+      meta.update(ANDROID_SENSOR_EXPOSURE_TIME, &exposure_time, 1);
+
+      // Unlock AE
+      uint8_t ae_lock = ANDROID_CONTROL_AE_LOCK_OFF;
+      ret = meta.update(ANDROID_CONTROL_AE_LOCK, &ae_lock, 1);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      // Set manual exposure mode
+      uint8_t exposure_mode =  ANDROID_CONTROL_AE_MODE_OFF;
+      meta.update(ANDROID_CONTROL_AE_MODE, &exposure_mode, 1);
+
+      ret = recorder_.SetCameraParam(camera_id_, meta);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
+    if (use_display_) {
+      ret = StartDisplay(DisplayType::kPrimary, width, height, 848, 480);
+      if (ret != 0) {
+        TEST_ERROR("%s: StartDisplay Failed!!", __func__);
+      }
+    }
+
+    ret = recorder_.StartSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    sleep(record_duration_);
+
+    ret = recorder_.StopSession(session_id, false);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    if (use_display_) {
+      ret = StopDisplay(DisplayType::kPrimary);
+      if (ret != 0) {
+        TEST_ERROR("%s: StopDisplay Failed!!", __func__);
+      }
+    }
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_480p_yuv);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ClearSessions();
+  }
+
+  ret = recorder_.StopCamera(camera_id_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = DeInit();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+* SessionWith4kEncCopy480pEncAndLinked480pEISAELock:
+*     This test will test session with one 4k30 Enc track, one copy 480p Enc
+*     Track and one 480p linked with EIS.
+*
+* Api test sequence:
+*  - StartCamera
+*   loop Start {
+*   -----------------
+*   - CreateSession
+*   - CreateVideoTrack - YUV
+*   - StartSession
+*   - StopSession
+*   - DeleteVideoTrack - YUV
+*   - DeleteSession
+*   - CreateSession
+*   - CreateVideoTrack - Master
+*   - CreateVideoTrack - Copy
+*   - CreateVideoTrack - Linked
+*   - StartSession
+*   - StopSession
+*   - DeleteVideoTrack - Linked
+*   - DeleteVideoTrack - Copy
+*   - DeleteVideoTrack - Master
+*   - DeleteSession
+*   ------------------
+*   } loop End
+*  - StopCamera
+*/
+TEST_F(RecorderGtest, SessionWith4kEncCopy480pEncAndLinked480pEISAELock) {
+  fprintf(stderr, "\n---------- Run Test %s.%s ------------\n",
+          test_info_->test_case_name(), test_info_->name());
+
+  auto ret = Init();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  std::mutex aec_lock;
+  std::condition_variable aec_updated;
+
+  bool exposure_converged, exposure_locked;
+
+  CameraResultCb result_cb;
+  result_cb = [&] (uint32_t camera_id, const CameraMetadata &result) {
+    if (!exposure_locked && result.exists(ANDROID_CONTROL_AE_STATE)) {
+      std::lock_guard<std::mutex> lk(aec_lock);
+      auto state = result.find(ANDROID_CONTROL_AE_STATE).data.u8[0];
+
+      exposure_converged = (state == ANDROID_CONTROL_AE_STATE_CONVERGED);
+      exposure_locked = (state == ANDROID_CONTROL_AE_STATE_LOCKED);
+
+      aec_updated.notify_one();
+    }
+  };
+
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_, result_cb);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  uint32_t video_track_id_4kp_avc = 1;
+  uint32_t video_track_id_480p_avc = 2;
+  uint32_t video_track_id_480p_yuv = 3;
+
+  CameraMetadata meta;
+
+  for (uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
+        test_info_->name(), i);
+
+    exposure_converged = false;
+    exposure_locked = false;
+
+    SessionCb session_status_cb;
+    session_status_cb.event_cb = [this](EventType event_type, void *event_data,
+                                        size_t event_data_size) -> void {
+      SessionCallbackHandler(event_type, event_data, event_data_size);
+    };
+
+    uint32_t session_id;
+    ret = recorder_.CreateSession(session_status_cb, &session_id);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&, session_id](
+        uint32_t track_id, std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+      VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
+    };
+
+    video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
+                                  void *event_data, size_t event_data_size) {
+      VideoTrackEventCb(track_id, event_type, event_data, event_data_size);
+    };
+
+    uint32_t width = 848;
+    uint32_t height = 480;
+
+    VideoTrackCreateParam video_track_param {
+      camera_id_, VideoFormat::kYUV, width, height, 30
+    };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p_yuv,
+                                     video_track_param, video_track_cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    std::vector<uint32_t> track_ids;
+    track_ids.push_back(video_track_id_480p_yuv);
+    sessions_.insert(std::make_pair(session_id, track_ids));
+
+    ret = recorder_.GetCameraParam(camera_id_, meta);
+    if (NO_ERROR == ret) {
+      if (!default_eis_margins_) {
+        // Video stabilization horizontal margin.
+        float h_margin = 0.033;
+        meta.update(QCAMERA3_IS_H_MARGIN_CFG, &h_margin, 1);
+
+        // Video stabilization vertical margin.
+        float v_margin = 0.033;
+        meta.update(QCAMERA3_IS_V_MARGIN_CFG, &v_margin, 1);
+      }
+
+      // Enable EIS
+      uint8_t vstab_mode = ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_ON;
+      meta.update(ANDROID_CONTROL_VIDEO_STABILIZATION_MODE, &vstab_mode, 1);
+
+      // Get Active Pixel Array
+      auto pixel_array = meta.find(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE);
+      int32_t array_width = pixel_array.data.i32[2];
+      int32_t array_height = pixel_array.data.i32[3];
+
+      int32_t region_width = 320, region_height = 320, x_step = 0, y_step = 0;
+      if (iteration_count_ > 1) {
+        x_step = (array_width - region_width) / (iteration_count_ - 1);
+        y_step = (array_height - region_height) / (iteration_count_ - 1);
+      }
+
+      // Set exposure region witch size 320x320 and move it diagonally
+      // each iteration, begining at coordinates [0, 0]
+      int32_t exposure_region[5];
+      exposure_region[0] = (i - 1) * x_step;
+      exposure_region[1] = (i - 1) * y_step;
+      exposure_region[2] = exposure_region[0] + region_width;
+      exposure_region[3] = exposure_region[1] + region_height;
+      exposure_region[4] = 1000;
+      meta.update(ANDROID_CONTROL_AE_REGIONS, exposure_region, 5);
+
+      TEST_INFO("%s: AE Region: X[%d, %d], Y[%d, %d], WEIGHT(%d)", __func__,
+          exposure_region[0], exposure_region[2], exposure_region[1],
+          exposure_region[3], exposure_region[4]);
+
+      fprintf(stderr, "\n %s: AE Region: X[%d, %d], Y[%d, %d], WEIGHT(%d) \n", __func__,
+          exposure_region[0], exposure_region[2], exposure_region[1],
+          exposure_region[3], exposure_region[4]);
+
+      ret = recorder_.SetCameraParam(camera_id_, meta);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
+    if (use_display_) {
+      ret = StartDisplay(DisplayType::kPrimary, width, height, 848, 480);
+      if (ret != 0) {
+        TEST_ERROR("%s: StartDisplay Failed!!", __func__);
+      }
+    }
+
+    ret = recorder_.StartSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    {
+      // Wait for AE convergence
+      std::unique_lock<std::mutex> lk(aec_lock);
+      std::chrono::seconds wait_time(5);
+
+      auto status = aec_updated.wait_for(
+          lk, wait_time, [&]() -> bool { return exposure_converged; });
+      ASSERT_TRUE(status);
+      TEST_INFO("%s: AE Converged successfully", __func__);
+    }
+
+    ret = recorder_.GetCameraParam(camera_id_, meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    // Lock AE
+    uint8_t ae_lock = ANDROID_CONTROL_AE_LOCK_ON;
+    ret = meta.update(ANDROID_CONTROL_AE_LOCK, &ae_lock, 1);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.SetCameraParam(camera_id_, meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    {
+      // Wait for AE lock to avoid flickering
+      std::unique_lock<std::mutex> lk(aec_lock);
+      std::chrono::seconds wait_time(5);
+
+      auto status = aec_updated.wait_for(
+          lk, wait_time, [&]() -> bool { return exposure_locked; });
+      ASSERT_TRUE(status);
+      TEST_INFO("%s: AE Locked successfully", __func__);
+    }
+
+    sleep(record_duration_);
+
+    ret = recorder_.StopSession(session_id, false);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    if (use_display_) {
+      ret = StopDisplay(DisplayType::kPrimary);
+      if (ret != 0) {
+        TEST_ERROR("%s: StopDisplay Failed!!", __func__);
+      }
+    }
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_480p_yuv);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    track_ids.clear();
+    ClearSessions();
+    dump_bitstream_.CloseAll();
+
+    TEST_INFO("%s: Preview mode to Video mode!!", __func__);
+    width = 3840;
+    height = 2160;
+
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo1 = {
+          VideoFormat::kAVC, video_track_id_4kp_avc, width, height
+      };
+      ret = dump_bitstream_.SetUp(dumpinfo1);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      StreamDumpInfo dumpinfo2 = {
+          VideoFormat::kAVC, video_track_id_480p_avc, 848, 480
+      };
+      ret = dump_bitstream_.SetUp(dumpinfo2);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
+    ret = recorder_.CreateSession(session_status_cb, &session_id);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    video_track_param.width = width;
+    video_track_param.height = height;
+    video_track_param.format_type = VideoFormat::kAVC;
+    video_track_param.frame_rate = 30;
+
+    video_track_param.setAVCDefaultVideoParam();
+
+    video_track_param.codec_param.avc.bitrate = kBitRate4k30;
+    video_track_param.codec_param.avc.ratecontrol_type =
+        VideoRateControlType::kVariable;
+
+    video_track_cb.data_cb = [&, session_id](
+        uint32_t track_id, std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+      VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+    };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_4kp_avc,
+                                     video_track_param, video_track_cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    track_ids.push_back(video_track_id_4kp_avc);
+
+    VideoExtraParam extra_param;
+    SourceVideoTrack video_source;
+    video_source.source_track_id = video_track_id_4kp_avc;
+    extra_param.Update(QMMF_SOURCE_VIDEO_TRACK_ID, video_source);
+
+    width  = 848;
+    height = 480;
+
+    video_track_param.width = width;
+    video_track_param.height = height;
+    video_track_param.frame_rate = 30;
+    video_track_param.codec_param.avc.bitrate = kBitRate480p;
+
+    video_track_cb.data_cb = [&, session_id](
+        uint32_t track_id, std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+      VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+    };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p_avc,
+                                     video_track_param, extra_param,
+                                     video_track_cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    track_ids.push_back(video_track_id_480p_avc);
+
+    video_source.source_track_id = video_track_id_480p_avc;
+    extra_param.Update(QMMF_SOURCE_VIDEO_TRACK_ID, video_source);
+
+    video_track_param.width = width;
+    video_track_param.height = height;
+    video_track_param.format_type = VideoFormat::kYUV;
+    video_track_param.frame_rate = 30;
+
+    video_track_cb.data_cb = [&, session_id](
+        uint32_t track_id, std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+      VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
+    };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p_yuv,
+                                     video_track_param, extra_param,
+                                     video_track_cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    track_ids.push_back(video_track_id_480p_yuv);
+    sessions_.insert(std::make_pair(session_id, track_ids));
+
+    ret = recorder_.GetCameraParam(camera_id_, meta);
+    if (NO_ERROR == ret) {
+      if (!default_eis_margins_) {
+        // Video stabilization horizontal margin.
+        float h_margin = 0.033;
+        meta.update(QCAMERA3_IS_H_MARGIN_CFG, &h_margin, 1);
+
+        // Video stabilization vertical margin.
+        float v_margin = 0.033;
+        meta.update(QCAMERA3_IS_V_MARGIN_CFG, &v_margin, 1);
+      }
+
+      // Enable EIS
+      uint8_t vstab_mode = ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_ON;
+      meta.update(ANDROID_CONTROL_VIDEO_STABILIZATION_MODE, &vstab_mode, 1);
+
+      // Lock AE
+      ae_lock = ANDROID_CONTROL_AE_LOCK_ON;
+      ret = meta.update(ANDROID_CONTROL_AE_LOCK, &ae_lock, 1);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      ret = recorder_.SetCameraParam(camera_id_, meta);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
+    if (use_display_) {
+      ret = StartDisplay(DisplayType::kPrimary, width, height, 848, 480);
+      if (ret != 0) {
+        TEST_ERROR("%s: StartDisplay Failed!!", __func__);
+      }
+    }
+
+    ret = recorder_.StartSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    sleep(record_duration_);
+
+    ret = recorder_.StopSession(session_id, false);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    if (use_display_) {
+      ret = StopDisplay(DisplayType::kPrimary);
+      if (ret != 0) {
+        TEST_ERROR("%s: StopDisplay Failed!!", __func__);
+      }
+    }
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_480p_yuv);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_480p_avc);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_4kp_avc);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    track_ids.clear();
+    ClearSessions();
+    dump_bitstream_.CloseAll();
+
+    TEST_ERROR("%s: Coming back to preview mode!", __func__);
+    width  = 848;
+    height = 480;
+
+    video_track_param.width = width;
+    video_track_param.height = height;
+    video_track_param.format_type = VideoFormat::kYUV;
+    video_track_param.frame_rate = 30;
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p_yuv,
+                                     video_track_param, video_track_cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    track_ids.push_back(video_track_id_480p_yuv);
+    sessions_.insert(std::make_pair(session_id, track_ids));
+
+    ret = recorder_.GetCameraParam(camera_id_, meta);
+    if (NO_ERROR == ret) {
+      if (!default_eis_margins_) {
+        // Video stabilization horizontal margin.
+        float h_margin = 0.033;
+        meta.update(QCAMERA3_IS_H_MARGIN_CFG, &h_margin, 1);
+
+        // Video stabilization vertical margin.
+        float v_margin = 0.033;
+        meta.update(QCAMERA3_IS_V_MARGIN_CFG, &v_margin, 1);
+      }
+
+      // Enable EIS
+      uint8_t vstab_mode = ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_ON;
+      meta.update(ANDROID_CONTROL_VIDEO_STABILIZATION_MODE, &vstab_mode, 1);
+
+      uint8_t ae_lock = ANDROID_CONTROL_AE_LOCK_ON;
+      ret = meta.update(ANDROID_CONTROL_AE_LOCK, &ae_lock, 1);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      ret = recorder_.SetCameraParam(camera_id_, meta);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
+    if (use_display_) {
+      ret = StartDisplay(DisplayType::kPrimary, width, height, 848, 480);
+      if (ret != 0) {
+        TEST_ERROR("%s: StartDisplay Failed!!", __func__);
+      }
+    }
+
+    ret = recorder_.StartSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    sleep(record_duration_);
+
+    ret = recorder_.StopSession(session_id, false);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    if (use_display_) {
+      ret = StopDisplay(DisplayType::kPrimary);
+      if (ret != 0) {
+        TEST_ERROR("%s: StopDisplay Failed!!", __func__);
+      }
+    }
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_480p_yuv);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ClearSessions();
+  }
+
+  ret = recorder_.StopCamera(camera_id_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = DeInit();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+* SessionWith1440p60FPSEncCopy480pEncAndLinked480pEISAELock:
+*     This test will test session with one 1440p60 Enc track, one copy 480p Enc
+*     Track and one 480p linked with EIS.
+*
+* Api test sequence:
+*  - StartCamera
+*   loop Start {
+*   -----------------
+*   - CreateSession
+*   - CreateVideoTrack - YUV
+*   - StartSession
+*   - StopSession
+*   - DeleteVideoTrack - YUV
+*   - DeleteSession
+*   - CreateSession
+*   - CreateVideoTrack - Master
+*   - CreateVideoTrack - Copy
+*   - CreateVideoTrack - Linked
+*   - StartSession
+*   - StopSession
+*   - DeleteVideoTrack - Linked
+*   - DeleteVideoTrack - Copy
+*   - DeleteVideoTrack - Master
+*   - DeleteSession
+*   ------------------
+*   } loop End
+*  - StopCamera
+*/
+TEST_F(RecorderGtest,
+       SessionWith1440p60FPSEncCopy480pEncAndLinked480pEISAELock) {
+  fprintf(stderr, "\n---------- Run Test %s.%s ------------\n",
+          test_info_->test_case_name(), test_info_->name());
+
+  auto ret = Init();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  std::mutex aec_lock;
+  std::condition_variable aec_updated;
+
+  bool exposure_converged, exposure_locked;
+
+  CameraResultCb result_cb;
+  result_cb = [&] (uint32_t camera_id, const CameraMetadata &result) {
+    if (!exposure_locked && result.exists(ANDROID_CONTROL_AE_STATE)) {
+      std::lock_guard<std::mutex> lk(aec_lock);
+      auto state = result.find(ANDROID_CONTROL_AE_STATE).data.u8[0];
+
+      exposure_converged = (state == ANDROID_CONTROL_AE_STATE_CONVERGED);
+      exposure_locked = (state == ANDROID_CONTROL_AE_STATE_LOCKED);
+
+      aec_updated.notify_one();
+    }
+  };
+
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_, result_cb);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  uint32_t video_track_id_1440p_avc = 1;
+  uint32_t video_track_id_480p_avc = 2;
+  uint32_t video_track_id_480p_yuv = 3;
+
+  CameraMetadata meta;
+
+  for (uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
+        test_info_->name(), i);
+
+    exposure_converged = false;
+    exposure_locked = false;
+
+    SessionCb session_status_cb;
+    session_status_cb.event_cb = [this](EventType event_type, void *event_data,
+                                        size_t event_data_size) -> void {
+      SessionCallbackHandler(event_type, event_data, event_data_size);
+    };
+
+    uint32_t session_id;
+    ret = recorder_.CreateSession(session_status_cb, &session_id);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&, session_id](
+        uint32_t track_id, std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+      VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
+    };
+
+    video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
+                                  void *event_data, size_t event_data_size) {
+      VideoTrackEventCb(track_id, event_type, event_data, event_data_size);
+    };
+
+    uint32_t width = 848;
+    uint32_t height = 480;
+
+    VideoTrackCreateParam video_track_param {
+      camera_id_, VideoFormat::kYUV, width, height, 30
+    };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p_yuv,
+                                     video_track_param, video_track_cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    std::vector<uint32_t> track_ids;
+    track_ids.push_back(video_track_id_480p_yuv);
+    sessions_.insert(std::make_pair(session_id, track_ids));
+
+    ret = recorder_.GetCameraParam(camera_id_, meta);
+    if (NO_ERROR == ret) {
+      if (!default_eis_margins_) {
+        // Video stabilization horizontal margin.
+        float h_margin = 0.033;
+        meta.update(QCAMERA3_IS_H_MARGIN_CFG, &h_margin, 1);
+
+        // Video stabilization vertical margin.
+        float v_margin = 0.033;
+        meta.update(QCAMERA3_IS_V_MARGIN_CFG, &v_margin, 1);
+      }
+
+      // Enable EIS
+      uint8_t vstab_mode = ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_ON;
+      meta.update(ANDROID_CONTROL_VIDEO_STABILIZATION_MODE, &vstab_mode, 1);
+
+      // Get Active Pixel Array
+      auto pixel_array = meta.find(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE);
+      int32_t array_width = pixel_array.data.i32[2];
+      int32_t array_height = pixel_array.data.i32[3];
+
+      int32_t region_width = 320, region_height = 320, x_step = 0, y_step = 0;
+      if (iteration_count_ > 1) {
+        x_step = (array_width - region_width) / (iteration_count_ - 1);
+        y_step = (array_height - region_height) / (iteration_count_ - 1);
+      }
+
+      // Set exposure region witch size 320x320 and move it diagonally
+      // each iteration, begining at coordinates [0, 0]
+      int32_t exposure_region[5];
+      exposure_region[0] = (i - 1) * x_step;
+      exposure_region[1] = (i - 1) * y_step;
+      exposure_region[2] = exposure_region[0] + region_width;
+      exposure_region[3] = exposure_region[1] + region_height;
+      exposure_region[4] = 1000;
+      meta.update(ANDROID_CONTROL_AE_REGIONS, exposure_region, 5);
+
+      TEST_INFO("%s: AE Region: X[%d, %d], Y[%d, %d], WEIGHT(%d)", __func__,
+          exposure_region[0], exposure_region[2], exposure_region[1],
+          exposure_region[3], exposure_region[4]);
+
+      fprintf(stderr, "\n %s: AE Region: X[%d, %d], Y[%d, %d], WEIGHT(%d) \n", __func__,
+          exposure_region[0], exposure_region[2], exposure_region[1],
+          exposure_region[3], exposure_region[4]);
+
+      ret = recorder_.SetCameraParam(camera_id_, meta);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
+    if (use_display_) {
+      ret = StartDisplay(DisplayType::kPrimary, width, height, 848, 480);
+      if (ret != 0) {
+        TEST_ERROR("%s: StartDisplay Failed!!", __func__);
+      }
+    }
+
+    ret = recorder_.StartSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    {
+      // Wait for AE convergence
+      std::unique_lock<std::mutex> lk(aec_lock);
+      std::chrono::seconds wait_time(5);
+
+      auto status = aec_updated.wait_for(
+          lk, wait_time, [&]() -> bool { return exposure_converged; });
+      ASSERT_TRUE(status);
+      TEST_INFO("%s: AE Converged successfully", __func__);
+    }
+
+    ret = recorder_.GetCameraParam(camera_id_, meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    // Lock AE
+    uint8_t ae_lock = ANDROID_CONTROL_AE_LOCK_ON;
+    ret = meta.update(ANDROID_CONTROL_AE_LOCK, &ae_lock, 1);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.SetCameraParam(camera_id_, meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    {
+      // Wait for AE lock to avoid flickering
+      std::unique_lock<std::mutex> lk(aec_lock);
+      std::chrono::seconds wait_time(5);
+
+      auto status = aec_updated.wait_for(
+          lk, wait_time, [&]() -> bool { return exposure_locked; });
+      ASSERT_TRUE(status);
+      TEST_INFO("%s: AE Locked successfully", __func__);
+    }
+
+    sleep(record_duration_);
+
+    ret = recorder_.StopSession(session_id, false);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    if (use_display_) {
+      ret = StopDisplay(DisplayType::kPrimary);
+      if (ret != 0) {
+        TEST_ERROR("%s: StopDisplay Failed!!", __func__);
+      }
+    }
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_480p_yuv);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    track_ids.clear();
+    ClearSessions();
+    dump_bitstream_.CloseAll();
+
+    width = 1920;
+    height = 1440;
+
+    TEST_INFO("%s: Preview mode to Video mode!!", __func__);
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo1 = {
+          VideoFormat::kAVC, video_track_id_1440p_avc, width, height
+      };
+      ret = dump_bitstream_.SetUp(dumpinfo1);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      StreamDumpInfo dumpinfo2 = {
+          VideoFormat::kAVC, video_track_id_480p_avc, 848, 480
+      };
+      ret = dump_bitstream_.SetUp(dumpinfo2);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
+    ret = recorder_.CreateSession(session_status_cb, &session_id);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    video_track_param.width = width;
+    video_track_param.height = height;
+    video_track_param.format_type = VideoFormat::kAVC;
+    video_track_param.frame_rate = 60;
+
+    video_track_param.setAVCDefaultVideoParam();
+
+    video_track_param.codec_param.avc.bitrate = kBitRate1440p60;
+    video_track_param.codec_param.avc.ratecontrol_type =
+        VideoRateControlType::kVariable;
+
+    video_track_cb.data_cb = [&, session_id](
+        uint32_t track_id, std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+      VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+    };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_1440p_avc,
+                                     video_track_param, video_track_cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    track_ids.push_back(video_track_id_1440p_avc);
+
+    VideoExtraParam extra_param;
+    SourceVideoTrack video_source;
+    video_source.source_track_id = video_track_id_1440p_avc;
+    extra_param.Update(QMMF_SOURCE_VIDEO_TRACK_ID, video_source);
+
+    width  = 848;
+    height = 480;
+
+    video_track_param.width = width;
+    video_track_param.height = height;
+    video_track_param.frame_rate = 30;
+    video_track_param.codec_param.avc.bitrate = kBitRate480p;
+
+    video_track_cb.data_cb = [&, session_id](
+        uint32_t track_id, std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+      VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+    };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p_avc,
+                                     video_track_param, extra_param,
+                                     video_track_cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    track_ids.push_back(video_track_id_480p_avc);
+
+    video_source.source_track_id = video_track_id_480p_avc;
+    extra_param.Update(QMMF_SOURCE_VIDEO_TRACK_ID, video_source);
+
+    video_track_param.width = width;
+    video_track_param.height = height;
+    video_track_param.format_type = VideoFormat::kYUV;
+    video_track_param.frame_rate = 30;
+
+    video_track_cb.data_cb = [&, session_id](
+        uint32_t track_id, std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+      VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
+    };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p_yuv,
+                                     video_track_param, extra_param,
+                                     video_track_cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    track_ids.push_back(video_track_id_480p_yuv);
+    sessions_.insert(std::make_pair(session_id, track_ids));
+
+    ret = recorder_.GetCameraParam(camera_id_, meta);
+    if (NO_ERROR == ret) {
+      if (!default_eis_margins_) {
+        // Video stabilization horizontal margin.
+        float h_margin = 0.033;
+        meta.update(QCAMERA3_IS_H_MARGIN_CFG, &h_margin, 1);
+
+        // Video stabilization vertical margin.
+        float v_margin = 0.033;
+        meta.update(QCAMERA3_IS_V_MARGIN_CFG, &v_margin, 1);
+      }
+
+      // Enable EIS
+      uint8_t vstab_mode = ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_ON;
+      meta.update(ANDROID_CONTROL_VIDEO_STABILIZATION_MODE, &vstab_mode, 1);
+
+      // Lock AE
+      ae_lock = ANDROID_CONTROL_AE_LOCK_ON;
+      ret = meta.update(ANDROID_CONTROL_AE_LOCK, &ae_lock, 1);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      ret = recorder_.SetCameraParam(camera_id_, meta);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
+    if (use_display_) {
+      ret = StartDisplay(DisplayType::kPrimary, width, height, 848, 480);
+      if (ret != 0) {
+        TEST_ERROR("%s: StartDisplay Failed!!", __func__);
+      }
+    }
+
+    ret = recorder_.StartSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    sleep(record_duration_);
+
+    ret = recorder_.StopSession(session_id, false);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    if (use_display_) {
+      ret = StopDisplay(DisplayType::kPrimary);
+      if (ret != 0) {
+        TEST_ERROR("%s: StopDisplay Failed!!", __func__);
+      }
+    }
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_480p_yuv);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_480p_avc);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_1440p_avc);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    track_ids.clear();
+    ClearSessions();
+    dump_bitstream_.CloseAll();
+
+    TEST_INFO("%s: Coming back to preview mode!", __func__);
+    width  = 848;
+    height = 480;
+
+    video_track_param.width = width;
+    video_track_param.height = height;
+    video_track_param.format_type = VideoFormat::kYUV;
+    video_track_param.frame_rate = 30;
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p_yuv,
+                                     video_track_param, video_track_cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    track_ids.push_back(video_track_id_480p_yuv);
+    sessions_.insert(std::make_pair(session_id, track_ids));
+
+    ret = recorder_.GetCameraParam(camera_id_, meta);
+    if (NO_ERROR == ret) {
+      if (!default_eis_margins_) {
+        // Video stabilization horizontal margin.
+        float h_margin = 0.033;
+        meta.update(QCAMERA3_IS_H_MARGIN_CFG, &h_margin, 1);
+
+        // Video stabilization vertical margin.
+        float v_margin = 0.033;
+        meta.update(QCAMERA3_IS_V_MARGIN_CFG, &v_margin, 1);
+      }
+
+      // Enable EIS
+      uint8_t vstab_mode = ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_ON;
+      meta.update(ANDROID_CONTROL_VIDEO_STABILIZATION_MODE, &vstab_mode, 1);
+
+      uint8_t ae_lock = ANDROID_CONTROL_AE_LOCK_ON;
+      ret = meta.update(ANDROID_CONTROL_AE_LOCK, &ae_lock, 1);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      ret = recorder_.SetCameraParam(camera_id_, meta);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
+    if (use_display_) {
+      ret = StartDisplay(DisplayType::kPrimary, width, height, 848, 480);
+      if (ret != 0) {
+        TEST_ERROR("%s: StartDisplay Failed!!", __func__);
+      }
+    }
+
+    ret = recorder_.StartSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    sleep(record_duration_);
+
+    ret = recorder_.StopSession(session_id, false);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    if (use_display_) {
+      ret = StopDisplay(DisplayType::kPrimary);
+      if (ret != 0) {
+        TEST_ERROR("%s: StopDisplay Failed!!", __func__);
+      }
+    }
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_480p_yuv);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ClearSessions();
+  }
+
+  ret = recorder_.StopCamera(camera_id_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = DeInit();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
+}
+
 
 /*
 * SessionWith4kEncCopy480pEncAndLinked480p4FPS: This test will test session
@@ -20852,6 +22996,214 @@ TEST_F(RecorderGtest,
   float focal_length = 8.0; // 4 fps mode.
   ret = SetCameraFocalLength(focal_length);
   ASSERT_TRUE(ret == NO_ERROR);
+
+  for (uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
+              test_info_->name(), i);
+    ret = recorder_.StartSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    // Let session run for time record_duration_, during this time buffer with
+    // valid data would be received in track callback (VideoTrackYUVDataCb).
+    sleep(record_duration_);
+
+    ret = recorder_.StopSession(session_id, false);
+    ASSERT_TRUE(ret == NO_ERROR);
+  }
+
+  ret = recorder_.DeleteVideoTrack(session_id, video_track_id_480p_yuv);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.DeleteVideoTrack(session_id, video_track_id_480p_avc);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.DeleteVideoTrack(session_id, video_track_id_4kp_avc);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.DeleteSession(session_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ClearSessions();
+  dump_bitstream_.CloseAll();
+
+  ret = recorder_.StopCamera(camera_id_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = DeInit();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+* SessionWith4kEncCopy480pEncAndLinked480pEISWIthSAR: This test will test session
+*     with one 4k30 Enc track, one copy 480p Enc Track and one 480p linked with YUV
+* API test sequence:
+*  - StartCamera
+*  - CreateSession
+*  - CreateVideoTrack - Master
+*  - CreateVideoTrack - Copy
+*  - CreateVideoTrack - Linked
+*   loop Start {
+*   -----------------
+*   - StartSession
+*   - StopSession
+*   ------------------
+*   } loop End
+*  - DeleteVideoTrack - Linked
+*  - DeleteVideoTrack - Copy
+*  - DeleteVideoTrack - Master
+*  - DeleteSession
+*  - StopCamera
+*/
+TEST_F(RecorderGtest,
+       SessionWith4kEncCopy480pEncAndLinked480pEISWithSAR) {
+  fprintf(stderr, "\n---------- Run Test %s.%s ------------\n",
+          test_info_->test_case_name(), test_info_->name());
+
+  auto ret = Init();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  uint32_t video_track_id_4kp_avc = 1;
+  uint32_t video_track_id_480p_avc = 2;
+  uint32_t video_track_id_480p_yuv = 3;
+  CameraMetadata meta;
+  uint8_t vstab_mode;
+
+  uint32_t width = 3840;
+  uint32_t height = 2160;
+
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo1 = {VideoFormat::kAVC, video_track_id_4kp_avc,
+                                width, height};
+    ret = dump_bitstream_.SetUp(dumpinfo1);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    StreamDumpInfo dumpinfo2 = {VideoFormat::kAVC, video_track_id_480p_avc, 848,
+                                480};
+    ret = dump_bitstream_.SetUp(dumpinfo2);
+    ASSERT_TRUE(ret == NO_ERROR);
+  }
+
+  SessionCb session_status_cb;
+  session_status_cb.event_cb = [this](EventType event_type, void *event_data,
+                                      size_t event_data_size) -> void {
+    SessionCallbackHandler(event_type, event_data, event_data_size);
+  };
+
+  uint32_t session_id;
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  ASSERT_TRUE(session_id > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC, width,
+                                          height, 30};
+
+  video_track_param.codec_param.avc.bitrate = kBitRate4k30;
+  video_track_param.codec_param.avc.ratecontrol_type =
+      VideoRateControlType::kVariable;
+  video_track_param.codec_param.avc.sar_enabled = true;
+  video_track_param.codec_param.avc.sar_width = width;
+  video_track_param.codec_param.avc.sar_height = height;
+
+  TrackCb video_track_cb;
+  video_track_cb.data_cb = [&, session_id](
+      uint32_t track_id, std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+    VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
+  };
+
+  video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
+                                void *event_data, size_t event_data_size) {
+    VideoTrackEventCb(track_id, event_type, event_data, event_data_size);
+  };
+
+  ret = recorder_.CreateVideoTrack(session_id, video_track_id_4kp_avc,
+                                   video_track_param, video_track_cb);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  std::vector<uint32_t> track_ids;
+  track_ids.push_back(video_track_id_4kp_avc);
+
+  VideoExtraParam extra_param;
+  SourceVideoTrack surface_video_copy;
+  surface_video_copy.source_track_id = video_track_id_4kp_avc;
+  extra_param.Update(QMMF_SOURCE_VIDEO_TRACK_ID, surface_video_copy);
+
+  width  = 848;
+  height = 480;
+
+  video_track_param.width = width;
+  video_track_param.height = height;
+  video_track_param.frame_rate = 30;
+  video_track_param.codec_param.avc.bitrate = kBitRate480p;
+  video_track_param.codec_param.avc.sar_enabled = true;
+  video_track_param.codec_param.avc.sar_width = width;
+  video_track_param.codec_param.avc.sar_height = height;
+
+  video_track_cb.data_cb = [&, session_id](
+      uint32_t track_id, std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+    VideoTrackTwoEncDataCb(session_id, track_id, buffers, meta_buffers);
+  };
+
+  ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p_avc,
+                                   video_track_param, extra_param,
+                                   video_track_cb);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  track_ids.push_back(video_track_id_480p_avc);
+
+  VideoExtraParam extra_param2;
+  SourceVideoTrack surface_video_linked;
+  surface_video_linked.source_track_id = video_track_id_480p_avc;
+  extra_param2.Update(QMMF_SOURCE_VIDEO_TRACK_ID, surface_video_linked);
+
+  video_track_param.width = width;
+  video_track_param.height = height;
+  video_track_param.format_type = VideoFormat::kYUV;
+  video_track_param.frame_rate = 30;
+  video_track_param.codec_param.avc.sar_enabled = false;
+
+  video_track_cb.data_cb = [&, session_id](
+      uint32_t track_id, std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+    VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
+  };
+
+  ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p_yuv,
+                                   video_track_param, extra_param2,
+                                   video_track_cb);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  track_ids.push_back(video_track_id_480p_yuv);
+  sessions_.insert(std::make_pair(session_id, track_ids));
+
+  auto status = recorder_.GetCameraParam(camera_id_, meta);
+  if (NO_ERROR == status) {
+    if (!default_eis_margins_) {
+      // Video stabilization horizontal margin.
+      float h_margin = 0.033;
+      meta.update(QCAMERA3_IS_H_MARGIN_CFG, &h_margin, 1);
+
+      // Video stabilization vertical margin.
+      float v_margin = 0.033;
+      meta.update(QCAMERA3_IS_V_MARGIN_CFG, &v_margin, 1);
+    }
+
+    // Enable EIS
+    vstab_mode = 1;
+    vstab_mode = ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_ON;
+    meta.update(ANDROID_CONTROL_VIDEO_STABILIZATION_MODE, &vstab_mode, 1);
+
+    ret = recorder_.SetCameraParam(camera_id_, meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+  }
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
@@ -26007,139 +28359,6 @@ TEST_F(RecorderGtest, Jpeg422BurstSnapshotWithBayerLCAC15fps) {
 
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
-}
-
-/*
-* SessionWith1080pEncWithAWBColorinfo: This case will test a single cam session
-*                                      with 1080p h264 encoded track with AWB
-*                                      colorinfo.
-* API test sequence:
-*  - StartCamera
-*   loop Start {
-*   --------------------------
-*   - CreateSession
-*   - CreateVideoTrack
-*   - StartVideoTrack
-*   - StartSession
-*   - StopSession
-*   - DeleteVideoTrack
-*   - DeleteSession
-*   --------------------------
-*   } loop End
-*  - StopCamera
-*/
-TEST_F(RecorderGtest, SessionWith1080pEncWithAWBColorinfo) {
-  fprintf(stderr, "\n---------- Run Test %s.%s ------------\n",
-          test_info_->test_case_name(), test_info_->name());
-
-  auto ret = Init();
-  ASSERT_TRUE(ret == NO_ERROR);
-
-  CameraResultCb result_cb = [&](uint32_t camera_id,
-                                 const CameraMetadata &result) {
-    static uint32_t count = 1;
-    if (count % 15 == 0) {
-      if (result.exists(QCAMERA3_AWB_COLORTEMP)) {
-        auto entry = result.find(QCAMERA3_AWB_COLORTEMP);
-        TEST_INFO("%s: AWB Color Temp: %u", __func__, entry.data.i32[0]);
-      } else {
-        TEST_DBG("%s QCAMERA3_AWB_COLORTEMP does not exists", __func__);
-      }
-      if (result.exists(QCAMERA3_AWB_R_GAIN)) {
-        auto entry = result.find(QCAMERA3_AWB_R_GAIN);
-        TEST_INFO("%s: AWB-R-Gain: %f", __func__, entry.data.f[0]);
-      } else {
-        TEST_DBG("%s QCAMERA3_AWB_R_GAIN does not exists", __func__);
-      }
-      if (result.exists(QCAMERA3_AWB_G_GAIN)) {
-        auto entry = result.find(QCAMERA3_AWB_G_GAIN);
-        TEST_INFO("%s: AWB-G-Gain: %f", __func__, entry.data.f[0]);
-      } else {
-        TEST_DBG("%s QCAMERA3_AWB_G_GAIN does not exists", __func__);
-      }
-      if (result.exists(QCAMERA3_AWB_B_GAIN)) {
-        auto entry = result.find(QCAMERA3_AWB_B_GAIN);
-        TEST_INFO("%s: AWB-B-Gain: %f", __func__, entry.data.f[0]);
-      } else {
-        TEST_DBG("%s QCAMERA3_AWB_B_GAIN does not exists", __func__);
-      }
-    }
-    ++count;
-  };
-
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_, result_cb);
-  ASSERT_TRUE(ret == NO_ERROR);
-
-  VideoFormat format_type = VideoFormat::kAVC;
-  uint32_t stream_width = 1920;
-  uint32_t stream_height = 1080;
-
-  for (uint32_t i = 1; i <= iteration_count_; i++) {
-    fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
-
-    SessionCb session_status_cb;
-    session_status_cb.event_cb = [this](EventType event_type, void *event_data,
-                                        size_t event_data_size) -> void {
-      SessionCallbackHandler(event_type, event_data, event_data_size);
-    };
-
-    uint32_t session_id;
-    ret = recorder_.CreateSession(session_status_cb, &session_id);
-    ASSERT_TRUE(session_id > 0);
-    ASSERT_TRUE(ret == NO_ERROR);
-    VideoTrackCreateParam video_track_param{camera_id_, format_type,
-                                            stream_width, stream_height, 30};
-
-    uint32_t video_track_id = 1;
-
-    if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = {video_track_param.format_type, video_track_id,
-                                 stream_width, stream_height};
-      ret = dump_bitstream_.SetUp(dumpinfo);
-      ASSERT_TRUE(ret == NO_ERROR);
-    }
-
-    TrackCb video_track_cb;
-    video_track_cb.data_cb = [&, session_id](
-        uint32_t track_id, std::vector<BufferDescriptor> buffers,
-        std::vector<MetaData> meta_buffers) {
-      VideoTrackOneEncDataCb(session_id, track_id, buffers, meta_buffers);
-    };
-
-    video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
-                                  void *event_data, size_t event_data_size) {
-      VideoTrackEventCb(track_id, event_type, event_data, event_data_size);
-    };
-
-    ret = recorder_.CreateVideoTrack(session_id, video_track_id,
-                                     video_track_param, video_track_cb);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    ret = recorder_.StartSession(session_id);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    sleep(record_duration_);
-
-    ret = recorder_.StopSession(session_id, false);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    ret = recorder_.DeleteSession(session_id);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    dump_bitstream_.CloseAll();
-  }
-
-  ret = recorder_.StopCamera(camera_id_);
-  ASSERT_TRUE(ret == NO_ERROR);
-
-  ret = DeInit();
-  ASSERT_TRUE(ret == NO_ERROR);
-
-  fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
-          test_info_->test_case_name(), test_info_->name());
 }
 
 status_t RecorderGtest::QueueVideoFrame(VideoFormat format_type,

@@ -147,13 +147,13 @@ RESIZER_STATUS NEONResizer::FillProcessParams(const StreamBuffer& src_buffer,
   params.resn_tuning = nullptr;
 
   params.src_luma = reinterpret_cast<unsigned char *>(src_buffer.data) +
-    (y * src_buffer.info.plane_info[0].stride + x);
+      (y * src_buffer.info.plane_info[0].stride + x);
 
   auto luma_len = src_buffer.info.plane_info[0].stride *
                   src_buffer.info.plane_info[0].scanline;
   params.src_chroma =
-    reinterpret_cast<unsigned char *>((intptr_t)src_buffer.data + luma_len
-     + ((y/2) * src_buffer.info.plane_info[0].stride + x));
+      reinterpret_cast<unsigned char *>((intptr_t)src_buffer.data + luma_len +
+      ((y/2) * src_buffer.info.plane_info[0].stride + x));
 
   // Output data pointers
   auto chroma_len = dst_buffer.info.plane_info[0].stride *

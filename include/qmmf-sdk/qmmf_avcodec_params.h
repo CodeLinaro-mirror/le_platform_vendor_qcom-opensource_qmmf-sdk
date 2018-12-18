@@ -42,7 +42,7 @@
 #include "qmmf-sdk/qmmf_recorder_params.h"
 
 #define INPUT_MAX_COUNT         (11)
-#define OUTPUT_MAX_COUNT        (6)
+#define OUTPUT_MAX_COUNT        (10)
 #define CMD_BUF_MAX_COUNT       (10)
 
 namespace qmmf {
