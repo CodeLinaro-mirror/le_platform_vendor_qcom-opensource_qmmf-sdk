@@ -9433,7 +9433,7 @@ TEST_F(VideoGtest, SessionWithDualCam4KEncAllExposureValues) {
     ret = recorder_.GetDefaultCaptureParam(camera_id_, meta_img);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    bool res_supported = GtestCommon::ValidateResFromRawSizes(meta_img,
+    bool res_supported = GtestCommon::ValidateResFromStreamConfigs(meta_img,
       image_param.width, image_param.height);
     ASSERT_TRUE(res_supported != false);
 
@@ -9603,7 +9603,7 @@ TEST_F(VideoGtest, SessionWithDualCam4KEncAllExposureMeteringModes) {
     ret = recorder_.GetDefaultCaptureParam(camera_id_, meta_img);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    bool res_supported = GtestCommon::ValidateResFromRawSizes(meta_img,
+    bool res_supported = GtestCommon::ValidateResFromStreamConfigs(meta_img,
       image_param.width, image_param.height);
     ASSERT_TRUE(res_supported != false);
 
