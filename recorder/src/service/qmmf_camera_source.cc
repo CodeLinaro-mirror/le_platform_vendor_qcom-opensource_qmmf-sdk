@@ -1729,7 +1729,7 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
     std::lock_guard<std::mutex> lk(consumer_lock_);
     if (num_consumers_ > 0) {
       {
-        std::unique_lock<std::mutex> lock(lock_);
+        std::unique_lock<std::mutex> lock(frame_lock_);
         auto val = buffer_map_.at(buffer.handle);
         buffer_map_[buffer.handle] = ++val;
       }
