@@ -2605,6 +2605,10 @@ TEST_F(VideoGtest, SessionWith4KAnd1080pYUVTrack) {
     VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kYUV,
                                             3840, 2160, 30};
 
+    if (ubwc_stream_enable_) {
+      video_track_param.low_power_mode = true;
+    }
+
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
                                 std::vector<BufferDescriptor> buffers,
@@ -4270,6 +4274,10 @@ TEST_F(VideoGtest, SessionWith4KAnd1080pYUVTrackStartStop) {
   std::vector<uint32_t> track_ids;
   VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kYUV,
                                           3840, 2160, 30};
+
+  if (ubwc_stream_enable_) {
+    video_track_param.low_power_mode = true;
+  }
 
   TrackCb video_track_cb;
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
