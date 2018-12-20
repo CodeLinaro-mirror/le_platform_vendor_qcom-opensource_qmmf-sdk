@@ -52,7 +52,7 @@ class GBMBuffer : public IBufferInterface {
   GBMBuffer() : generic_handle_(nullptr),
                 gralloc_handle_(nullptr),
                 usage_() {};
-  ~GBMBuffer() {};
+  ~GBMBuffer() { if (nullptr != gralloc_handle_) {delete gralloc_handle_;} };
   struct gbm_bo *GetNativeHandle() const;
   int GetFD() override;
   int GetFormat() override;
