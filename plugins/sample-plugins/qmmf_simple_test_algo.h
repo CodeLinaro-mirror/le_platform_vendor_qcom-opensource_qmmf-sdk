@@ -1,31 +1,31 @@
 /*
-* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
-*
-* Redistribution and use in source and binary forms, with or without
-* modification, are permitted provided that the following conditions are
-* met:
-*     * Redistributions of source code must retain the above copyright
-*       notice, this list of conditions and the following disclaimer.
-*     * Redistributions in binary form must reproduce the above
-*       copyright notice, this list of conditions and the following
-*       disclaimer in the documentation and/or other materials provided
-*       with the distribution.
-*     * Neither the name of The Linux Foundation nor the names of its
-*       contributors may be used to endorse or promote products derived
-*       from this software without specific prior written permission.
-*
-* THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
-* WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
-* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT
-* ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
-* BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-* CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-* SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
-* BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
-* WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
-* OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
-* IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-*/
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are
+ * met:
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials provided
+ *       with the distribution.
+ *     * Neither the name of The Linux Foundation nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
+ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
 
 #pragma once
 
@@ -51,9 +51,10 @@ class QmmfSimpleTestAlgo : public IAlgPlugin {
  public:
   QmmfSimpleTestAlgo()
       : listener_(nullptr),
-        caps_("SimpleTest", BufferRequirements(160, 120, 3840, 2160, true, 1, 0,
-                                               0, {kNv12, kNv21}),
-              BufferRequirements(160, 120, 3840, 2160, true, 1, 0, 0,
+        caps_("SimpleTest",
+              BufferRequirements(160, 120, 3840, 2160, 0, 0, true, 1, 0, 0,
+                                 {kNv12, kNv21}),
+              BufferRequirements(160, 120, 3840, 2160, 0, 0, true, 1, 0, 0,
                                  {kNv12, kNv21}),
               false, 0, false, false, false, "1.0", "undefined") {}
 
@@ -114,30 +115,32 @@ class QmmfSimpleTestAlgo : public IAlgPlugin {
    *
    * return: Requirements
    **/
-  const Requirements GetInputRequirements(const Requirements &out) { return out; }
+  const Requirements GetInputRequirements(const Requirements &out) {
+    return out;
+  }
 
   /** RegisterInputBuffers
-  *    @buffers: vector of input buffers to register
-  *
-  * Register input buffers to qmmf algo library. All buffers should be
-  * registered before passed to the library for processing.
-  *
-  * return: void
-  **/
+   *    @buffers: vector of input buffers to register
+   *
+   * Register input buffers to qmmf algo library. All buffers should be
+   * registered before passed to the library for processing.
+   *
+   * return: void
+   **/
   void RegisterInputBuffers(const std::vector<AlgBuffer> &buffers) {
     for (AlgBuffer b : buffers) registered_input_buffers_.push_back(b);
   }
 
   /** UnregisterInputBuffers
-  *    @buffers: vector of input buffers to unregister
-  *
-  * Unregister input buffers from the library. After this call buffers
-  * can not be used for processing. Library responsibility is to
-  * free all references to this buffers. If buffers are in library
-  * processing queue unregister should return an error.
-  *
-  * return: void
-  **/
+   *    @buffers: vector of input buffers to unregister
+   *
+   * Unregister input buffers from the library. After this call buffers
+   * can not be used for processing. Library responsibility is to
+   * free all references to this buffers. If buffers are in library
+   * processing queue unregister should return an error.
+   *
+   * return: void
+   **/
   void UnregisterInputBuffers(const std::vector<AlgBuffer> &buffers) {
     registered_input_buffers_.remove_if([&buffers](const AlgBuffer rb) {
       for (AlgBuffer b : buffers) {
@@ -150,27 +153,27 @@ class QmmfSimpleTestAlgo : public IAlgPlugin {
   }
 
   /** RegisterOutputBuffers
-  *    @buffers: vector of output buffers to register
-  *
-  * Register output buffers to qmmf algo library. All buffers should be
-  * registered before passed to the library for processing.
-  *
-  * return: void
-  **/
+   *    @buffers: vector of output buffers to register
+   *
+   * Register output buffers to qmmf algo library. All buffers should be
+   * registered before passed to the library for processing.
+   *
+   * return: void
+   **/
   void RegisterOutputBuffers(const std::vector<AlgBuffer> &buffers) {
     for (AlgBuffer b : buffers) registered_output_buffers_.push_back(b);
   }
 
   /** UnregisterOutputBuffers
-  *    @buffers: vector of output buffers to unregister
-  *
-  * Unregister output buffers from the library. After this call buffers
-  * can not be used for processing. Library responsibility is to
-  * free all references to this buffers. If buffers are in library
-  * processing queue unregister should return an error.
-  *
-  * return: void
-  **/
+   *    @buffers: vector of output buffers to unregister
+   *
+   * Unregister output buffers from the library. After this call buffers
+   * can not be used for processing. Library responsibility is to
+   * free all references to this buffers. If buffers are in library
+   * processing queue unregister should return an error.
+   *
+   * return: void
+   **/
   void UnregisterOutputBuffers(const std::vector<AlgBuffer> &buffers) {
     registered_output_buffers_.remove_if([&buffers](const AlgBuffer rb) {
       for (AlgBuffer b : buffers) {
@@ -183,16 +186,16 @@ class QmmfSimpleTestAlgo : public IAlgPlugin {
   }
 
   /** Abort
-  *
-  * Aborts current processing in the earliest possible stage and
-  * flushes all buffers from library processing queue.
-  * All buffers should be returned with corresponding callbacks,
-  * error status should be set if output buffers are released
-  * and not yet processed.
-  * After this call library processing queue should be empty.
-  *
-  * return: void
-  **/
+   *
+   * Aborts current processing in the earliest possible stage and
+   * flushes all buffers from library processing queue.
+   * All buffers should be returned with corresponding callbacks,
+   * error status should be set if output buffers are released
+   * and not yet processed.
+   * After this call library processing queue should be empty.
+   *
+   * return: void
+   **/
   void Abort() {}
 
   /** Process
@@ -204,7 +207,7 @@ class QmmfSimpleTestAlgo : public IAlgPlugin {
    * return: void
    **/
   const std::string Process(const std::vector<AlgBuffer> &input_buffers,
-               const std::vector<AlgBuffer> &output_buffers) {
+                            const std::vector<AlgBuffer> &output_buffers) {
     std::string res = {};
 
     Validate(input_buffers, output_buffers);
