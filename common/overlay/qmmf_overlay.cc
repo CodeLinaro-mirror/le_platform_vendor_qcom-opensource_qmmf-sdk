@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, 2019, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -1045,7 +1045,7 @@ int32_t OverlayItemDateAndTime::Init(OverlayParam& param) {
   y_             = param.dst_rect.start_y;
   width_         = param.dst_rect.width;
   height_        = param.dst_rect.height;
-
+  prev_time_     = 0;
   date_time_type_.date_format = param.date_time.date_format;
   date_time_type_.time_format = param.date_time.time_format;
 
@@ -1077,6 +1077,14 @@ int32_t OverlayItemDateAndTime::UpdateAndDraw() {
 
   gettimeofday(&tv, nullptr);
   now_time = tv.tv_sec;
+  OVDBG_VERBOSE("%s: curr time %ld prev time %ld", __func__,
+      now_time, prev_time_);
+
+  if (prev_time_ == now_time) {
+     MarkDirty(true);
+     return ret;
+  }
+  prev_time_ = now_time;
   time = localtime(&now_time);
 
   switch(date_time_type_.date_format) {
@@ -1182,26 +1190,24 @@ int32_t OverlayItemDateAndTime::UpdateAndDraw() {
 #else
   canvas_->clear(SK_ColorDKGRAY);
 #endif
-  int32_t date_len = strlen(date_buf);
-  int32_t time_len = strlen(time_buf);
+
+  const char* delm = " : ";
+  std::string data_time_buf;
+  data_time_buf += date_buf;
+  data_time_buf += delm;
+  data_time_buf += time_buf;
 
   SkPaint paint;
   paint.setColor(text_color_);
   paint.setTextSize(SkIntToScalar(DATETIME_PIXEL_SIZE));
-  paint.setAntiAlias(true);
+  paint.setAntiAlias(false);
   paint.setTextScaleX(1);
 
-  SkString dateText(date_buf, date_len);
+  SkString dateText(data_time_buf.c_str(), data_time_buf.size());
+  y_date = DATETIME_TEXT_BUF_HEIGHT - DATETIME_PIXEL_SIZE;
   canvas_->drawText(dateText.c_str(), dateText.size(), x_date, y_date, paint);
-
-  SkString timeText(time_buf, time_len);
-  int32_t perCharSize = DATETIME_TEXT_BUF_WIDTH/dateText.size();
-  int32_t xTime = (DATETIME_TEXT_BUF_WIDTH - (timeText.size() * perCharSize));
-  xTime = xTime > 0 ? (xTime) : 0;
-  int32_t yTime = DATETIME_TEXT_BUF_HEIGHT - DATETIME_PIXEL_SIZE/2;
-  canvas_->drawText(timeText.c_str(), timeText.size(), xTime, yTime, paint);
   canvas_->flush();
-  usleep(1000);
+  usleep(10000);
 #endif
 
   MarkDirty(true);
