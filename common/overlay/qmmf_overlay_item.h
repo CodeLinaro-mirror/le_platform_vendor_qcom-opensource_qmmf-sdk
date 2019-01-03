@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -150,6 +150,7 @@ class OverlayItem {
   int32_t                x_;
   int32_t                y_;
   uint32_t               width_;
+  time_t                 prev_time_;
   uint32_t               height_;
   uint32_t               c2dsurface_id_;
   void *                 gpu_addr_;
@@ -211,7 +212,7 @@ class OverlayItemStaticImage : public OverlayItem {
 #define DATETIME_TEXT_BUF_HEIGHT        108
 #define DATETIME_TARGET_WIDTH_PERCENT   12
 #define DATETIME_TARGET_HEIGHT_PERCENT  12
-#define DATETIME_PIXEL_SIZE             30
+#define DATETIME_PIXEL_SIZE             20
 
 class OverlayItemDateAndTime: public OverlayItem {
  public:
