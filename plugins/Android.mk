@@ -148,6 +148,14 @@ LOCAL_MODULE_OWNER := qti
 include $(BUILD_PREBUILT)
 
 include $(CLEAR_VARS)
+LOCAL_MODULE := qmmf_algo_gtest_mesh_transform_tnr.json
+LOCAL_MODULE_CLASS := EXECUTABLES
+LOCAL_MODULE_PATH := $(TARGET_OUT_DATA)/misc/qmmf/
+LOCAL_SRC_FILES := test_cases/$(LOCAL_MODULE)
+LOCAL_MODULE_OWNER := qti
+include $(BUILD_PREBUILT)
+
+include $(CLEAR_VARS)
 LOCAL_MODULE := qmmf_algo_gtest_edge_smooth.json
 LOCAL_MODULE_CLASS := EXECUTABLES
 LOCAL_MODULE_PATH := $(TARGET_OUT_DATA)/misc/qmmf/
@@ -237,6 +245,22 @@ include $(BUILD_PREBUILT)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := bit_blit_configuration.json
+LOCAL_MODULE_CLASS := EXECUTABLES
+LOCAL_MODULE_PATH := $(TARGET_OUT_DATA)/misc/qmmf/
+LOCAL_SRC_FILES := test_cases/calibration/$(LOCAL_MODULE)
+LOCAL_MODULE_OWNER := qti
+include $(BUILD_PREBUILT)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := mesh_transform_tnr_calibration.raw
+LOCAL_MODULE_CLASS := EXECUTABLES
+LOCAL_MODULE_PATH := $(TARGET_OUT_DATA)/misc/qmmf/
+LOCAL_SRC_FILES := test_cases/calibration/$(LOCAL_MODULE)
+LOCAL_MODULE_OWNER := qti
+include $(BUILD_PREBUILT)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := mesh_transform_tnr_configuration.json
 LOCAL_MODULE_CLASS := EXECUTABLES
 LOCAL_MODULE_PATH := $(TARGET_OUT_DATA)/misc/qmmf/
 LOCAL_SRC_FILES := test_cases/calibration/$(LOCAL_MODULE)

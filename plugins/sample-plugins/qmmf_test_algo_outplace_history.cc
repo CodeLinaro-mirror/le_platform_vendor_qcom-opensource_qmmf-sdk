@@ -43,10 +43,10 @@ class QmmfOutplaceHistoryTestAlgo : public QmmfSimpleTestAlgo {
   QmmfOutplaceHistoryTestAlgo() {
     caps_ = Capabilities(
         "OutplaceHistoryTest",
-        BufferRequirements(160, 120, 3840, 2160, 0, 0, true, 1, 0, 0,
+        BufferRequirements(160, 120, 3840, 2160, 0, 0, true, 1, 1, 0, 0,
                            {kNv21, kNv12}),
-        BufferRequirements(160, 120, 3840, 2160, 0, 0, true, 1, 0, 0, {}),
-        false, 1, false, false, false, "1.0", "undefined");
+        BufferRequirements(160, 120, 3840, 2160, 0, 0, true, 1, 0, 0, 0, {}),
+        false, false, false, false, "1.0", "undefined");
   }
 };
 

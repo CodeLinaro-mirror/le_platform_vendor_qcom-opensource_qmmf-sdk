@@ -113,11 +113,13 @@ std::list<std::shared_ptr<BufferHandler>> BufferHandler::New(
         &buffer_configurations,
     uint32_t border_up, uint32_t border_left, uint32_t border_down,
     uint32_t min_border_right) {
-  if (buffer_configurations.size() != requirements.count_) {
+  if (buffer_configurations.size() !=
+      requirements.count_ + requirements.history_buffer_count_) {
     std::string err = std::string("Buffer configuration size ") +
                       std::to_string(buffer_configurations.size()) +
                       (" is different from algo requirements ") +
-                      std::to_string(requirements.count_);
+                      std::to_string(requirements.count_ +
+                                     requirements.history_buffer_count_);
     Utils::ThrowException(__func__, err);
   }
 
@@ -589,6 +591,9 @@ uint32_t BufferHandler::GetWidthInBytes(uint32_t width_in_pixels,
     case kRawRggb16:
       rc = width_in_pixels * 2;
       break;
+    case kMeshNormFloat:
+      rc = width_in_pixels * 2 * sizeof(float);
+      break;
     default:
       std::stringstream err;
       err << "Not supported pixel format " << std::hex << pix_fmt;
@@ -636,6 +641,7 @@ uint32_t BufferHandler::GetHeightInLines(uint32_t image_height,
     case kNv21UBWC:
     case kJpeg:
     case kGrey:
+    case kMeshNormFloat:
     case kRawBggrMipi10:
     case kRawGbrgMipi10:
     case kRawGrbgMipi10:
@@ -728,6 +734,7 @@ uint32_t BufferHandler::GetNumPlanes(PixelFormat pix_fmt) {
       break;
     case kJpeg:
     case kGrey:
+    case kMeshNormFloat:
       num_planes = 1;
       break;
     case kBgr24:

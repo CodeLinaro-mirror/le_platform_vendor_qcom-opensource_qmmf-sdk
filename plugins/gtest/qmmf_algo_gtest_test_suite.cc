@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -44,14 +44,15 @@ const std::string QmmfAlgoGtestTestSuite::kTestContentsTag = "test contents";
 const std::string QmmfAlgoGtestTestSuite::kDefaultTestSuite(
     "{ "
     "  \"test contents\": ["
-    "   \"qmmf_algo_gtest_yuv_cac.json\","
-    "   \"qmmf_algo_gtest_bayer_lcac.json\","
-    "   \"qmmf_algo_gtest_binning_correction.json\","
-    "   \"qmmf_algo_gtest_svhdr.json\","
-    "   \"qmmf_algo_gtest_edge_smooth.json\","
-    "   \"qmmf_algo_gtest_privacy_mask.json\","
-    "   \"qmmf_algo_gtest_res_conv_sub.json\","
-    "   \"qmmf_algo_gtest_bit_blit.json\""
+    "     \"qmmf_algo_gtest_bayer_lcac.json\","
+    "     \"qmmf_algo_gtest_binning_correction.json\","
+    "     \"qmmf_algo_gtest_bit_blit.json\","
+    "     \"qmmf_algo_gtest_mesh_transform_tnr.json\","
+    "     \"qmmf_algo_gtest_edge_smooth.json\","
+    "     \"qmmf_algo_gtest_privacy_mask.json\","
+    "     \"qmmf_algo_gtest_res_conv_sub.json\","
+    "     \"qmmf_algo_gtest_svhdr.json\","
+    "     \"qmmf_algo_gtest_yuv_cac.json\""
     "  ]"
     "}");
 

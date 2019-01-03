@@ -103,6 +103,7 @@ const std::map<std::string, PixelFormat>
         {"RgbFloat", kRgbFloat},
         {"Jpeg", kJpeg},
         {"Grey", kGrey},
+        {"MeshNormFloat", kMeshNormFloat},
     };
 
 /** QmmfAlgoConfigurationBuffer

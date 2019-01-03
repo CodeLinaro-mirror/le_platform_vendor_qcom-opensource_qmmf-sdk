@@ -45,10 +45,10 @@ class QmmfResizerTestAlgo : public QmmfSimpleTestAlgo {
   QmmfResizerTestAlgo() {
     caps_ = Capabilities(
         "ResizerTest",
-        BufferRequirements(160, 120, 3840, 2160, 0, 0, true, 1, 0, 0,
+        BufferRequirements(160, 120, 3840, 2160, 0, 0, true, 1, 0, 0, 0,
                            {kNv21, kNv12}),
-        BufferRequirements(160, 120, 3840, 2160, 0, 0, true, 1, 0, 0, {}),
-        false, 0, false, false, true, "1.0", "undefined");
+        BufferRequirements(160, 120, 3840, 2160, 0, 0, true, 1, 0, 0, 0, {}),
+        false, false, false, true, "1.0", "undefined");
   }
 
   /** Process
