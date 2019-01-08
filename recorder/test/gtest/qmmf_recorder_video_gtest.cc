@@ -10051,4 +10051,222 @@ TEST_F(VideoGtest, SessionWithDualCam5_7k30EncRescale1080p30EncAnd1080p30YUVWith
       test_info_->test_case_name(), test_info_->name());
 }
 
+/*
+* SessionWith4kEncAnd720pEncWithIRFilterModes: This case will test a session
+              with 4k and 720p encoded track(LPM) with IR Mode Toggled.
+              This test will take snapshot as well.
+* API test sequence:
+*   StartCamera
+*   loop Start {
+*   --------------------------
+*   - CreateSession
+*   - CreateVideoTrack (4k and 720p)
+*   - StartVideoTrack
+*   - StartSession
+*   - Toggle Cut Filter
+*   - Take Snapshot
+*   - Toggle IR Cut Filter
+*   - Take Snapshot
+*   - StopSession
+*   - DeleteVideoTrack
+*   - DeleteSession
+*   --------------------------
+*   } loop End
+*  StopCamera
+*/
+TEST_F(VideoGtest, SessionWith4kEncAnd720pEncWithIRFilterModes) {
+  fprintf(stderr, "\n---------- Run Test %s.%s ------------\n",
+          test_info_->test_case_name(), test_info_->name());
+
+  auto ret = Init();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  uint32_t video_track_id_4k = 1;
+  uint32_t video_track_id_720p_avc = 2;
+
+  for (uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
+              test_info_->name(), i);
+
+    SessionCb session_status_cb = CreateSessionStatusCb();
+    uint32_t session_id;
+
+    ret = recorder_.CreateSession(session_status_cb, &session_id);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo1 = {VideoFormat::kAVC, session_id,
+                                  video_track_id_4k, 3840, 2160};
+      ret = dump_bitstream_.SetUp(dumpinfo1);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      StreamDumpInfo dumpinfo2 = {VideoFormat::kAVC, session_id,
+                                  video_track_id_720p_avc, 1280, 720};
+      ret = dump_bitstream_.SetUp(dumpinfo2);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
+    VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC, 3840,
+                                            2160, 30};
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&, session_id](
+        uint32_t track_id, std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
+    };
+
+    video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
+                                  void *event_data, size_t event_data_size) {
+      VideoTrackEventCb(track_id, event_type, event_data, event_data_size);
+    };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_4k,
+                                     video_track_param, video_track_cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    std::vector<uint32_t> track_ids;
+    track_ids.push_back(video_track_id_4k);
+    video_track_param.width = 1280;
+    video_track_param.height = 720;
+    video_track_param.low_power_mode = true;
+    video_track_cb.data_cb = [&, session_id](
+        uint32_t track_id, std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
+    };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_720p_avc,
+                                     video_track_param, video_track_cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    track_ids.push_back(video_track_id_720p_avc);
+    sessions_.insert(std::make_pair(session_id, track_ids));
+
+    ImageParam image_param{};
+    image_param.width = 3840;
+    image_param.height = 2160;
+    image_param.image_format = ImageFormat::kJPEG;
+    image_param.image_quality = default_jpeg_quality_;
+    std::vector<CameraMetadata> meta_array;
+    CameraMetadata meta, meta_img;
+
+    ret = recorder_.GetDefaultCaptureParam(camera_id_, meta_img);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    bool res_supported = GtestCommon::ValidateResFromJpegSizes(
+        meta_img, image_param.width, image_param.height);
+    ASSERT_TRUE(res_supported != false);
+
+    ImageCaptureCb cb = [this](uint32_t camera_id, uint32_t image_count,
+                               BufferDescriptor buffer,
+                               MetaData meta_data) -> void {
+      SnapshotCb(camera_id, image_count, buffer, meta_data);
+    };
+
+    ret = recorder_.StartSession(session_id);
+
+    sleep(record_duration_ / 5);
+
+    int32_t modes[2];
+    std::map<int32_t, std::string> ir_modes_map;
+    ret = recorder_.GetCameraParam(camera_id_, meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+    uint32_t ir_modes_supported_vtag, mode_vtag;
+
+    if (VendorTagSupported(String8("ir_modes_supported"),
+                           String8("org.codeaurora.qcamera3.ir_led"),
+                           &ir_modes_supported_vtag)) {
+      auto entry = meta.find(ir_modes_supported_vtag);
+      modes[0] = entry.data.i32[0];
+      modes[1] = entry.data.i32[1];
+      ir_modes_map.insert(std::make_pair(modes[0], "Off"));
+      ir_modes_map.insert(std::make_pair(modes[1], "On"));
+      fprintf(stderr, "ir mode supported : %u , %u\n", modes[0], modes[1]);
+    } else {
+      TEST_ERROR("%s: ir_modes_supported is not supported", __func__);
+      ASSERT_TRUE(0);
+    }
+
+    if (!VendorTagSupported(String8("mode"),
+                           String8("org.codeaurora.qcamera3.ir_led"),
+                           &mode_vtag)) {
+      TEST_ERROR("%s: mode_vtag is not supported", __func__);
+      ASSERT_TRUE(0);
+    }
+
+    auto it = ir_modes_map.begin();
+    it++;
+    // Turn on IR Cut Filter
+    ret = meta.update(mode_vtag, &it->first, 1);
+    ASSERT_TRUE(ret == NO_ERROR);
+    ret = meta_img.update(mode_vtag, &it->first, 1);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.SetCameraParam(camera_id_, meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    meta_array.push_back(meta_img);
+    ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array, cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+    sleep(record_duration_ / 5);
+    ret = recorder_.CancelCaptureImage(camera_id_);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    sleep(record_duration_ / 5);
+    it--;
+
+    // Turn off cut filter
+    ret = meta.update(mode_vtag, &it->first, 1);
+    ASSERT_TRUE(ret == NO_ERROR);
+    ret = meta_img.update(mode_vtag, &it->first, 1);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.SetCameraParam(camera_id_, meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    meta_array.clear();
+    meta_array.push_back(meta_img);
+    ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array, cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    sleep(record_duration_ / 5);
+
+    ret = recorder_.CancelCaptureImage(camera_id_);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    meta_array.clear();
+
+    sleep(record_duration_ / 5);
+
+    ret = recorder_.StopSession(session_id, false);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_720p_avc);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_4k);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ClearSessions();
+    dump_bitstream_.CloseAll();
+  }
+
+  ret = recorder_.StopCamera(camera_id_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = DeInit();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
+}
+
 #endif
