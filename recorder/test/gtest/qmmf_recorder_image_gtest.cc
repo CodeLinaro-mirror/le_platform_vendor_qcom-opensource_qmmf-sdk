@@ -1040,11 +1040,17 @@ TEST_F(RecorderImageGTest, 10MPJPEG422Snapshot) {
   ImageThumbnail thumbnail;
   HighQualityCaptureSetup high_quality_setup;
 
+  // Secondary thumbnail(Screennail) parameters.
+  thumbnail.width = 320;
+  thumbnail.height = 240;
+  thumbnail.quality = 85;
+  image_config.Update(QMMF_IMAGE_THUMBNAIL, thumbnail, 0);
+
   // Primary thumbnail parameters.
   thumbnail.width = 960;
   thumbnail.height = 480;
   thumbnail.quality = 90;
-  image_config.Update(QMMF_IMAGE_THUMBNAIL, thumbnail, 0);
+  image_config.Update(QMMF_IMAGE_THUMBNAIL, thumbnail, 1);
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
