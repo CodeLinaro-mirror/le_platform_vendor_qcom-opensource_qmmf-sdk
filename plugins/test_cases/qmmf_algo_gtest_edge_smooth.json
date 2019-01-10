@@ -10,7 +10,8 @@
         "height": 3120,
         "stride": 4208,
         "scanline": 3120,
-        "pixel format": "Nv21"
+        "pixel format": "Nv21",
+        "heap buffer": false
       }
     ],
     "output buffers": [
@@ -19,7 +20,8 @@
         "height": 3120,
         "stride": 4208,
         "scanline": 3120,
-        "pixel format": "Nv21"
+        "pixel format": "Nv21",
+        "heap buffer": false
       }
     ]
   }

@@ -1,31 +1,31 @@
 /*
-* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
-*
-* Redistribution and use in source and binary forms, with or without
-* modification, are permitted provided that the following conditions are
-* met:
-*     * Redistributions of source code must retain the above copyright
-*       notice, this list of conditions and the following disclaimer.
-*     * Redistributions in binary form must reproduce the above
-*       copyright notice, this list of conditions and the following
-*       disclaimer in the documentation and/or other materials provided
-*       with the distribution.
-*     * Neither the name of The Linux Foundation nor the names of its
-*       contributors may be used to endorse or promote products derived
-*       from this software without specific prior written permission.
-*
-* THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
-* WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
-* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT
-* ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
-* BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-* CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-* SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
-* BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
-* WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
-* OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
-* IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-*/
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are
+ * met:
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials provided
+ *       with the distribution.
+ *     * Neither the name of The Linux Foundation nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
+ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
 
 #pragma once
 
@@ -46,6 +46,7 @@ namespace qmmf_alg_plugin {
  *    @scanline_: buffer scanline
  *    @pixel_format_: buffer pixel format
  *    @file_name_: file name on the storage
+ *    @heap_buffer_: flag indicating whether buffer is heap
  *    @kPixelFormatFromString: LUT for string to enum values for pixel format
  *
  *  This class handles algo configuration buffer
@@ -55,22 +56,22 @@ class QmmfAlgoConfigurationBuffer {
   QmmfAlgoConfigurationBuffer(Json::Value &v);
 
   /** FromJson
-    *    @r: parsed json value
-    *
-    * fills buffer configuration
-    *
-    * return: void
-    **/
+   *    @r: parsed json value
+   *
+   * fills buffer configuration
+   *
+   * return: void
+   **/
   void FromJson(Json::Value &v);
 
  public:
   /** New
-    *    @v: parsed json configuration
-    *
-    * returns new instance of QmmfAlgoConfigurationBuffer
-    *
-    * return: new instance of QmmfAlgoConfigurationBuffer
-    **/
+   *    @v: parsed json configuration
+   *
+   * returns new instance of QmmfAlgoConfigurationBuffer
+   *
+   * return: new instance of QmmfAlgoConfigurationBuffer
+   **/
   static std::shared_ptr<QmmfAlgoConfigurationBuffer> New(Json::Value &v);
 
  public:
@@ -81,6 +82,7 @@ class QmmfAlgoConfigurationBuffer {
   PixelFormat pixel_format_;
   std::string input_file_name_;
   std::string output_file_name_;
+  bool heap_buffer_;
   static const std::map<std::string, PixelFormat> kPixelFormatFromString;
 };
 

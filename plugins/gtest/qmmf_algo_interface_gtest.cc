@@ -1049,7 +1049,8 @@ TEST_F(QmmfAlgoInterfaceGtest, RegisterUnregisterInputBuffers) {
 
           auto buffer_handler = BufferHandler::New(
               caps->in_buffer_requirements_, pix_fmt, b->width_, b->height_,
-              b->stride_, b->scanline_, std::string(""), std::string(""));
+              b->stride_, b->scanline_, std::string(""), std::string(""),
+              b->heap_buffer_);
           AlgBuffer b = *buffer_handler;
           buffers.push_back(b);
 
@@ -1112,7 +1113,8 @@ TEST_F(QmmfAlgoInterfaceGtest, RegisterUnregisterOutputBuffers) {
 
             auto buffer_handler = BufferHandler::New(
                 caps->out_buffer_requirements_, pix_fmt, b->width_, b->height_,
-                b->stride_, b->scanline_, std::string(""), std::string(""));
+                b->stride_, b->scanline_, std::string(""), std::string(""),
+                b->heap_buffer_);
             AlgBuffer b = *buffer_handler;
             buffers.push_back(b);
 

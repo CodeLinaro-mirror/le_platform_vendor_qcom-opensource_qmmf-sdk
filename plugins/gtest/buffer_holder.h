@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -27,54 +27,37 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define LOG_TAG "HeapBuffer"
+#pragma once
 
-#include <cstdlib>
-
-#include "heap_buffer.h"
+#include <cstdint>
 
 namespace qmmf {
 namespace qmmf_alg_plugin {
 
-/** HeapBuffer
- *    @size: size of the requested buffer
+/** IBufferHolder:
  *
- * Constructs HeapBuffer
- *
- * return: void
+ *  This class implements interface to buffer holder
  **/
-HeapBuffer::HeapBuffer(uint32_t size)
-    : data_(size), fd_(-1 * std::abs(reinterpret_cast<int32_t>(this))) {}
+class IBufferHolder {
+ public:
+  virtual ~IBufferHolder() {}
 
-/** New
- *    @size: buffer size
- *
- * creates new instance of HeapBuffer
- *
- * return: shared pointer of HeapBuffer
- **/
-std::shared_ptr<HeapBuffer> HeapBuffer::New(uint32_t size) {
-  std::shared_ptr<HeapBuffer> new_handler(new HeapBuffer(size));
-  return new_handler;
-}
+  /** GetAddr
+   *
+   * returns addres
+   *
+   * return: address
+   **/
+  virtual uint8_t* GetAddr() const = 0;
 
-/** GetAddr
- *
- * returns addres
- *
- * return: address
- **/
-uint8_t* HeapBuffer::GetAddr() const {
-  return const_cast<uint8_t*>(data_.data());
-}
-
-/** GetFd
- *
- * returns fd
- *
- * return: fd
- **/
-int32_t HeapBuffer::GetFd() const { return fd_; }
+  /** GetFd
+   *
+   * returns fd
+   *
+   * return: fd
+   **/
+  virtual int32_t GetFd() const = 0;
+};
 
 };  // namespace qmmf_alg_plugin
 };  // namespace qmmf
