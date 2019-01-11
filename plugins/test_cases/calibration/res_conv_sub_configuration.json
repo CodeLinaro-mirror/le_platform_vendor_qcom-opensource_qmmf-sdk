@@ -1,17 +1,15 @@
 {
-  "res_conv_sub_tuning": {
-    "Cr2Red": 1.402,
-    "Cb2Green": -0.344,
-    "Cr2Green": -0.714,
-    "Cb2Blue": 1.772,
-    "BlueChannelMean": 128.0,
-    "GreenChannelMean": 128.0,
-    "RedChannelMean": 128.0,
-    "UseNorm": 1,
-    "InputWidth": 278,
-    "InputHeight": 278,
-    "KeepAspectRatio": 0,
-    "RatioWidth": 0.0,
-    "RatioHeight": 0.0
-  }
+  "Cr2Red": 1.402,
+  "Cb2Green": -0.344,
+  "Cr2Green": -0.714,
+  "Cb2Blue": 1.772,
+  "BlueChannelMean": 128.0,
+  "GreenChannelMean": 128.0,
+  "RedChannelMean": 128.0,
+  "UseNorm": 1,
+  "InputWidth": 278,
+  "InputHeight": 278,
+  "KeepAspectRatio": 0,
+  "RatioWidth": 0.0,
+  "RatioHeight": 0.0
 }
