@@ -59,7 +59,7 @@ namespace overlay {
 
 using namespace android;
 
-#define ROUND_TO(val, round_to) (val + round_to - 1) & ~(round_to - 1)
+#define ROUND_TO(val, round_to) ((val + round_to - 1) & ~(round_to - 1))
 
 Overlay::Overlay()
     : target_c2dsurface_id_(-1), ion_device_(-1),
@@ -372,12 +372,13 @@ int32_t Overlay::ApplyOverlay(const OverlayTargetBuffer& buffer) {
               surface_def.width);
 
       //UV plane hostptr.
-      planeYLen = (VENUS_Y_META_STRIDE(COLOR_FMT_NV12_UBWC, surface_def.width) *
-              VENUS_Y_META_SCANLINES(COLOR_FMT_NV12_UBWC,
-              (surface_def.height + 1) >> 1)) +
-              (surface_def.stride0 * VENUS_Y_SCANLINES(COLOR_FMT_NV12_UBWC,
-              (surface_def.height + 1) >> 1));
-      planeYLen = planeYLen * 2;
+      planeYLen = ROUND_TO(
+                  VENUS_Y_META_STRIDE(COLOR_FMT_NV12_UBWC, surface_def.width) *
+                  VENUS_Y_META_SCANLINES(COLOR_FMT_NV12_UBWC,
+                  surface_def.height), 4096) +
+                  ROUND_TO(surface_def.stride0 *
+                  VENUS_Y_SCANLINES(COLOR_FMT_NV12_UBWC,
+                  surface_def.height), 4096);
       break;
     default:
       OVDBG_ERROR("%s: Unknown format: %d", __func__, surface_def.format);
