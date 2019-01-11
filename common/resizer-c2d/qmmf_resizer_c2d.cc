@@ -321,7 +321,7 @@ RESIZER_STATUS C2DResizer::Draw(StreamBuffer& src_buffer,
   draw_obj[0].target_rect.x      = 0;
   draw_obj[0].target_rect.y      = 0;
 
-  //STEP7: Draw C2dObject on target surface.
+  //STEP8: Draw C2dObject on target surface.
   ret = c2dDraw(dst_surface_id_, 0, 0, 0, 0, draw_obj, 1);
   if(ret != C2D_STATUS_OK) {
     QMMF_ERROR("%s: c2dDraw failed! %d", __func__, ret);

@@ -490,10 +490,10 @@ int32_t PlayerTest::ParseFile(AudioTrackCreateParam& audio_track_param,
     video_track_param.frame_rate  = m_sTrackInfo_.sVideo.fFrameRate;
     video_track_param.height      = m_sTrackInfo_.sVideo.ulHeight;
     video_track_param.width       = m_sTrackInfo_.sVideo.ulWidth;
-    video_track_param.destRect.height     = 1080;
-    video_track_param.destRect.width      = 1920;
-    video_track_param.destRect.start_x    = 0.0;
-    video_track_param.destRect.start_y    = 0.0;
+    video_track_param.destRect.height     = 240;
+    video_track_param.destRect.width      = 320;
+    video_track_param.destRect.start_x    = 0;
+    video_track_param.destRect.start_y    = 120;
     video_track_param.rotation = 0;
     video_track_param.bitrate     = m_sTrackInfo_.sVideo.ulBitRate;
     video_track_param.num_buffers = 1;

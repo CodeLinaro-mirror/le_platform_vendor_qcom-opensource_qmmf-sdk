@@ -88,7 +88,8 @@ CameraContext::CameraContext()
       stream_param_{},
       restart_pipe_(true),
       reconfig_pipe_(false),
-      port_paused_(false) {
+      port_paused_(false),
+      snapshot_count_(0) {
   camera_start_params_ = {};
 }
 
@@ -638,6 +639,8 @@ bool CameraContext::IsNeedReconfigSapshotStream() {
 status_t CameraContext::SetUpCapture(const ImageParam &param,
                                      const uint32_t num_images) {
   QMMF_DEBUG("%s Enter ", __func__);
+  snapshot_count_ = num_images;
+  property_set("qmmf.power.hint.snapshot.on", "true");
   if (!camera_start_params_.zsl_mode) {
     bool reconfigure_needed = false;
     {
@@ -926,6 +929,9 @@ status_t CameraContext::ConfigImageCapture(const ImageConfigParam &config) {
 status_t CameraContext::CancelCaptureImage() {
 
   QMMF_INFO("%s: Enter", __func__);
+
+  if (snapshot_type_ == SnapshotMode::kContinuous)
+    property_set("qmmf.power.hint.snapshot.on", "false");
 
   if (!snapshot_request_.streamIds.empty()) {
     {
@@ -1316,6 +1322,10 @@ status_t CameraContext::ReturnImageCaptureBuffer(const uint32_t camera_id,
 
   snapshot_buffer_list_.erase(buffer_id);
   snapshot_buffer_stream_list_.erase(buffer_id);
+
+  snapshot_count_--;
+  if (snapshot_count_ == 0 && snapshot_type_!= SnapshotMode::kContinuous)
+    property_set("qmmf.power.hint.snapshot.on", "false");
 
   QMMF_DEBUG("%s: Exit", __func__);
   return ret;
