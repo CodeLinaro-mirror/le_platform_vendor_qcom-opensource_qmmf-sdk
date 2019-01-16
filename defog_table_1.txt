@@ -1,0 +1,5 @@
+enable : 1
+algo_type : 1
+algo_decision_mode : 1
+strength : 30
+convergence_speed : 3

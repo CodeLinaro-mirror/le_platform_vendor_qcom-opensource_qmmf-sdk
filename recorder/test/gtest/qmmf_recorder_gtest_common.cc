@@ -1442,111 +1442,168 @@ void GtestCommon::TokenizeString(std::string const &str,
 }
 
 /*
-* ParseExposureTable: This method parses the Exposure Table from a text file.
+* ListFilesFromDir: Method to list all the file names present in dir_path
+* starting with name_starts_with and ending with extension.
 */
-status_t GtestCommon::ParseExposureTable(std::string dir_path,
-                                         std::string fileName,
-                                         std::vector<ExposureTable> &exp_tables) {
-  FILE *fp;
-  if (dir_path.empty() || fileName.empty()) {
-    TEST_ERROR("%s: Empty path for directory or file", __func__);
+status_t GtestCommon::ListFilesFromDir(std::string dir_path,
+                                       std::string name_starts_with,
+                                       std::string extension,
+                                       std::vector<std::string> &files_list) {
+  DIR *dp;
+  struct dirent *dirent;
+  if (dir_path.empty()) {
+    TEST_ERROR("%s: Empty path for directory", __func__);
     return -EINVAL;
   }
-  std::string path = dir_path.append(fileName);
-  if (!(fp = fopen(path.c_str(), "r"))) {
-    TEST_ERROR("%s: failed to open exposure table file: %s", __func__,
-               path.c_str());
-    return -EINVAL;
-  } else {
-    TEST_INFO("%s: Opening exposure table file: %s", __func__, path.c_str());
+  dp = opendir(dir_path.c_str());
+  if (nullptr == dp) {
+    QMMF_ERROR("%s: Failed to open %s folder", __func__, dir_path.c_str());
+    return -EPERM;
   }
-  ExposureTable exp_table{};
-  std::string input_str;
-  const char delim_colon = ':', delim_space = ' ';
-  std::string key, value;
-  uint8_t knee_index = 0;
-  std::ifstream input_file(path.c_str());
-  std::vector<std::string> out, out_values;
-  while (getline(input_file, input_str)) {
-    out.clear();
-    TokenizeString(input_str, delim_colon, out);
-    key = out[0];
-    value = out[1];
-    RemoveSpaces(key);
-    if (key.compare("is_valid") == 0) {
-      exp_table.is_valid = std::atoi(value.c_str());
-    } else if (key.compare("sensitivity_correction_factor") == 0) {
-      exp_table.sensitivity_correction_factor = std::atof(value.c_str());
-    } else if (key.compare("knee_count") == 0) {
-      exp_table.knee_count = std::atof(value.c_str());
-    } else if (key.compare("gain_knee_entries") == 0) {
-      out_values.clear();
-      TokenizeString(value, delim_space, out_values);
-      for (knee_index = 0; knee_index < out_values.size(); knee_index++) {
-        exp_table.gain_knee_entries[knee_index] =
-          std::atof(out_values[knee_index].c_str());
-      }
-    } else if (key.compare("exp_time_knee_entries") == 0) {
-      out_values.clear();
-      TokenizeString(value, delim_space, out_values);
-      for (knee_index = 0; knee_index < out_values.size(); knee_index++) {
-        exp_table.exp_time_knee_entries[knee_index] =
-          std::atof(out_values[knee_index].c_str());
-      }
-    } else if (key.compare("increment_priority_knee_entries") == 0) {
-      out_values.clear();
-      TokenizeString(value, delim_space, out_values);
-      for (knee_index = 0; knee_index < out_values.size(); knee_index++) {
-        exp_table.increment_priority_knee_entries[knee_index] =
-          std::atof(out_values[knee_index].c_str());
-      }
-    } else if (key.compare("exp_index_knee_entries") == 0) {
-      out_values.clear();
-      TokenizeString(value, delim_space, out_values);
-      for (knee_index = 0; knee_index < out_values.size(); knee_index++) {
-        exp_table.exp_index_knee_entries[knee_index] =
-          std::atof(out_values[knee_index].c_str());
-      }
-    } else if (key.compare("thres_anti_banding_min_exp_time_pct") == 0) {
-      exp_table.thres_anti_banding_min_exp_time_pct = std::atof(value.c_str());
-    } else {
-      TEST_ERROR("%s: Invalid field %s\n", __func__, key.c_str());
-      return -EINVAL;
+  size_t file_init_len = strlen(name_starts_with.c_str());
+  size_t ext_len = strlen(extension.c_str());
+  while ((dirent = readdir(dp)) != nullptr) {
+    std::string fileName = std::string(dirent->d_name);
+    if ((fileName.length() > file_init_len) &&
+        (name_starts_with.compare(0, file_init_len,
+                                  fileName.substr(0, file_init_len)) == 0) &&
+        (extension.compare(0, ext_len,
+                           fileName.substr(fileName.size() - ext_len)) == 0)) {
+      TEST_INFO("%s: File found %s", __func__, fileName.c_str());
+      files_list.push_back(fileName);
     }
   }
-  exp_tables.push_back(exp_table);
+  return NO_ERROR;
+}
+
+/*
+* PopulateDeFogTable: This method populates the DeFog Tables from files.
+*/
+status_t GtestCommon::PopulateDeFogTables(
+    std::vector<DeFogTable> &defog_tables) {
+  std::string dir_path(kQmmfFolderPath);
+  std::vector<std::string> files_list;
+  ListFilesFromDir(dir_path, "defog_table", ".txt", files_list);
+
+  for (auto fileName:files_list) {
+    std::string path = dir_path + fileName;
+    FILE *fp;
+    if (!(fp = fopen(path.c_str(), "r"))) {
+      TEST_ERROR("%s: failed to open defog table file: %s", __func__,
+                 path.c_str());
+      return -EINVAL;
+    } else {
+      TEST_INFO("%s: Opening defog table file: %s", __func__, path.c_str());
+    }
+
+    DeFogTable defog_table{};
+    std::string input_str;
+    const char delim_colon = ':';
+    std::string key, value;
+    std::ifstream input_file(path.c_str());
+    std::vector<std::string> out, out_values;
+
+    while (getline(input_file, input_str)) {
+      out.clear();
+      TokenizeString(input_str, delim_colon, out);
+      key = out[0];
+      value = out[1];
+      RemoveSpaces(key);
+      if (key.compare("enable") == 0) {
+        defog_table.enable = std::atoi(value.c_str());
+      } else if (key.compare("algo_type") == 0) {
+        defog_table.algo_type = std::atoi(value.c_str());
+      } else if (key.compare("algo_decision_mode") == 0) {
+        defog_table.algo_decision_mode = std::atoi(value.c_str());
+      } else if (key.compare("strength") == 0) {
+        defog_table.strength = std::atoi(value.c_str());
+      } else if (key.compare("convergence_speed") == 0) {
+        defog_table.convergence_speed = std::atoi(value.c_str());
+      } else {
+        TEST_ERROR("%s: Invalid field %s\n", __func__, key.c_str());
+        return -EINVAL;
+      }
+    }
+    defog_tables.push_back(defog_table);
+  }
   return NO_ERROR;
 }
 
 /*
 * PopulateExpTable: This method populates the Exposure Tables from files.
 */
-status_t GtestCommon::PopulateExpTable(std::vector<ExposureTable> &exp_tables) {
+status_t GtestCommon::PopulateExpTables(
+    std::vector<ExposureTable> &exp_tables) {
   std::string dir_path(kQmmfFolderPath);
-  DIR *dp;
-  struct dirent *dirent;
-  dp = opendir(dir_path.c_str());
-  if (nullptr == dp) {
-    QMMF_ERROR("%s: Failed to open %s folder", __func__, dir_path.c_str());
-    return -EPERM;
-  }
-  size_t file_init_len = strlen("exposure_table");
-  size_t ext_len = strlen(".txt");
-  while ((dirent = readdir(dp)) != nullptr) {
-    std::string fileName = std::string(dirent->d_name);
-    if ((fileName.length() > file_init_len) &&
-        (!strncmp("exposure_table", fileName.substr(0, file_init_len).c_str(),
-                  strlen("exposure_table")) &&
-         (!strncmp(".txt", fileName.substr(fileName.size() - ext_len).c_str(),
-                   ext_len)))) {
-      TEST_INFO("%s: File found %s", __func__, fileName.c_str());
-      auto ret = ParseExposureTable(dir_path, fileName,
-                                    exp_tables);
-      if (ret != NO_ERROR) {
-        TEST_ERROR("%s: Exposure Table Parsing failed", __func__);
-        return -EFAULT;
+  std::vector<std::string> files_list;
+  ListFilesFromDir(dir_path, "exposure_table", ".txt", files_list);
+
+  for (auto fileName : files_list) {
+    std::string path = dir_path.append(fileName);
+    FILE *fp;
+    if (!(fp = fopen(path.c_str(), "r"))) {
+      TEST_ERROR("%s: failed to open exposure table file: %s", __func__,
+                 path.c_str());
+      return -EINVAL;
+    } else {
+      TEST_INFO("%s: Opening exposure table file: %s", __func__, path.c_str());
+    }
+
+    ExposureTable exp_table{};
+    std::string input_str;
+    const char delim_colon = ':', delim_space = ' ';
+    std::string key, value;
+    uint8_t knee_index = 0;
+    std::ifstream input_file(path.c_str());
+    std::vector<std::string> out, out_values;
+    while (getline(input_file, input_str)) {
+      out.clear();
+      TokenizeString(input_str, delim_colon, out);
+      key = out[0];
+      value = out[1];
+      RemoveSpaces(key);
+      if (key.compare("is_valid") == 0) {
+        exp_table.is_valid = std::atoi(value.c_str());
+      } else if (key.compare("sensitivity_correction_factor") == 0) {
+        exp_table.sensitivity_correction_factor = std::atof(value.c_str());
+      } else if (key.compare("knee_count") == 0) {
+        exp_table.knee_count = std::atof(value.c_str());
+      } else if (key.compare("gain_knee_entries") == 0) {
+        out_values.clear();
+        TokenizeString(value, delim_space, out_values);
+        for (knee_index = 0; knee_index < out_values.size(); knee_index++) {
+          exp_table.gain_knee_entries[knee_index] =
+            std::atof(out_values[knee_index].c_str());
+        }
+      } else if (key.compare("exp_time_knee_entries") == 0) {
+        out_values.clear();
+        TokenizeString(value, delim_space, out_values);
+        for (knee_index = 0; knee_index < out_values.size(); knee_index++) {
+          exp_table.exp_time_knee_entries[knee_index] =
+            std::atof(out_values[knee_index].c_str());
+        }
+      } else if (key.compare("increment_priority_knee_entries") == 0) {
+        out_values.clear();
+        TokenizeString(value, delim_space, out_values);
+        for (knee_index = 0; knee_index < out_values.size(); knee_index++) {
+          exp_table.increment_priority_knee_entries[knee_index] =
+            std::atof(out_values[knee_index].c_str());
+        }
+      } else if (key.compare("exp_index_knee_entries") == 0) {
+        out_values.clear();
+        TokenizeString(value, delim_space, out_values);
+        for (knee_index = 0; knee_index < out_values.size(); knee_index++) {
+          exp_table.exp_index_knee_entries[knee_index] =
+            std::atof(out_values[knee_index].c_str());
+        }
+      } else if (key.compare("thres_anti_banding_min_exp_time_pct") == 0) {
+        exp_table.thres_anti_banding_min_exp_time_pct = std::atof(value.c_str());
+      } else {
+        TEST_ERROR("%s: Invalid field %s\n", __func__, key.c_str());
+        return -EINVAL;
       }
     }
+    exp_tables.push_back(exp_table);
   }
   return NO_ERROR;
 }
