@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -32,8 +32,8 @@
 #include <fcntl.h>
 #include <linux/msm_ion.h>
 #include <sys/ioctl.h>
-#include <unistd.h>
 #include <sys/mman.h>
+#include <unistd.h>
 #include <cstring>
 
 #include <qmmf-alg/qmmf_alg_utils.h>
@@ -157,7 +157,7 @@ int32_t PlatformBuffer::GetFd() const { return fd_; }
  *
  * return: void
  **/
-void PlatformBuffer::CacheFlush() const { Cache(ION_IOC_CLEAN_CACHES); };
+void PlatformBuffer::CacheFlush() const { Cache(ION_IOC_CLEAN_INV_CACHES); };
 
 /** CacheInvalidate
  *

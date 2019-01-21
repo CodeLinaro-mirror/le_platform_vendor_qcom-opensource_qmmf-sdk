@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -29,6 +29,7 @@
 
 #define LOG_TAG "QmmfAlgoInterfaceGtest"
 
+#include <utils/Log.h>
 #include <algorithm>
 #include <chrono>
 #include <condition_variable>
@@ -37,7 +38,6 @@
 #include <mutex>
 #include <sstream>
 #include <thread>
-#include <utils/Log.h>
 
 #include <gtest/gtest.h>
 
@@ -458,7 +458,8 @@ class QmmfAlgoInterfaceGtest : public ::testing::Test, public QmmfAlgoTools {
       Utils::LoadLibHandler(lib_handle_, QMMF_ALG_LIB_LOAD_FUNC,
                             LoadPluginFunc);
 
-      Utils::LoadLibHandler(lib_handle_, QMMF_ALG_GET_CAPS_FUNC, get_caps_func_);
+      Utils::LoadLibHandler(lib_handle_, QMMF_ALG_GET_CAPS_FUNC,
+                            get_caps_func_);
 
       algo_ = LoadPluginFunc(configuration_->calibration_data_, *this);
     } catch (const std::exception &e) {
@@ -770,10 +771,8 @@ TEST_F(QmmfAlgoInterfaceGtest, GetInputRequirements) {
 
           std::string config =
               "{"
-              "\"res_conv_sub_tuning\" : {"
               "\"InputWidth\" : 278,"
               "\"InputHeight\" : 278"
-              "}"
               "}";
           algo_->Configure(config);
 
@@ -797,12 +796,10 @@ TEST_F(QmmfAlgoInterfaceGtest, GetInputRequirements) {
 
           config =
               "{"
-              "\"res_conv_sub_tuning\" : {"
               "\"InputWidth\" : 0,"
               "\"InputHeight\" : 0,"
               "\"RatioWidth\": 2.0,"
               "\"RatioHeight\": 2.0,"
-              "}"
               "}";
           algo_->Configure(config);
 
@@ -1648,21 +1645,16 @@ TEST_F(QmmfAlgoInterfaceGtest, Consistency) {
               << "Failed lib: " << tested_library;
 
           for (auto &tb : tested_buffer_handlers) {
-            auto it = std::find_if(
-                std::begin(ref_buffer_handlers), std::end(ref_buffer_handlers),
-                [&tb](std::shared_ptr<BufferHandler> &rb) {
-                  bool rc = false;
-                  try {
-                    rc = tb->Compare(rb);
-                  } catch (const std::exception &e) {
-                    ALOGE(">>>> %s", e.what());
-                    std::ofstream f1("/data/misc/qmmf/pesho.1");
-                    std::ofstream f2("/data/misc/qmmf/pesho.2");
-                    f1.write((const char *)tb->vaddr_, tb->size_);
-                    f2.write((const char *)rb->vaddr_, rb->size_);
-                  }
-                  return rc;
-                });
+            auto it = std::find_if(std::begin(ref_buffer_handlers),
+                                   std::end(ref_buffer_handlers),
+                                   [&tb](std::shared_ptr<BufferHandler> &rb) {
+                                     bool rc = false;
+                                     try {
+                                       rc = tb->Compare(rb);
+                                     } catch (const std::exception &e) {
+                                     }
+                                     return rc;
+                                   });
             if (it == std::end(ref_buffer_handlers)) {
               Utils::ThrowException(__func__,
                                     "Reference is different from algo output");
