@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016, 2018, 2019, The Linux Foundation. All rights reserved.
  * Not a Contribution.
  */
 
@@ -74,6 +74,8 @@ class Camera3Stream : public camera3_stream {
   }
   bool IsStreamActive();
 
+  void PrintBuffersInfo();
+
   int32_t TearDown();
 
  private:
@@ -87,6 +89,8 @@ class Camera3Stream : public camera3_stream {
   int32_t EndPrepareLocked();
   int32_t PopulateMetaInfo(CameraBufferMetaData &info,
                            IBufferHandle &handle);
+
+  void PrintBuffersInfoLocked();
 
   /**Not allowed */
   Camera3Stream(const Camera3Stream &);
@@ -113,6 +117,8 @@ class Camera3Stream : public camera3_stream {
   Status status_;
   uint32_t total_buffer_count_;
   uint32_t pending_buffer_count_;
+  uint32_t hal_buffer_cnt_;
+  uint32_t client_buffer_cnt_;
 
   StreamCallback callbacks_;
   MemAllocFlags old_usage_, client_usage_;

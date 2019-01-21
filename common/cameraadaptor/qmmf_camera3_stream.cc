@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019 The Linux Foundation. All rights reserved.
  * Not a Contribution.
  */
 
@@ -46,6 +46,8 @@ Camera3Stream::Camera3Stream(int id, size_t maxSize,
       status_(STATUS_INTIALIZED),
       total_buffer_count_(0),
       pending_buffer_count_(0),
+      hal_buffer_cnt_(0),
+      client_buffer_cnt_(0),
       callbacks_(outputConfiguration.cb),
       old_usage_(),
       client_usage_(outputConfiguration.allocFlags),
@@ -436,6 +438,7 @@ int32_t Camera3Stream::GetBuffer(camera3_stream_buffer *buffer) {
     if (res != 0) {
       if (-ETIMEDOUT == res) {
         QMMF_ERROR("%s: wait for output buffer return timed out\n", __func__);
+        PrintBuffersInfoLocked();
       }
       goto exit;
     }
@@ -607,6 +610,9 @@ void Camera3Stream::ReturnBufferToClient(const camera3_stream_buffer &buffer,
 
   pthread_mutex_lock(&lock_);
 
+  hal_buffer_cnt_--;
+  client_buffer_cnt_++;
+
   StreamBuffer b;
   memset(&b, 0, sizeof(b));
   b.timestamp = timestamp;
@@ -682,7 +688,7 @@ int32_t Camera3Stream::ReturnBufferLocked(const StreamBuffer &buffer) {
   }
 
   pending_buffer_count_--;
-
+  client_buffer_cnt_--;
   QMMF_DEBUG("%s: Stream(%d): pending_buffer_count_(%u)", __func__, id_,
       pending_buffer_count_);
 
@@ -781,6 +787,7 @@ int32_t Camera3Stream::GetBufferLocked(camera3_stream_buffer *streamBuffer) {
       monitor_.ChangeStateToActive(monitor_id_);
     }
 
+    hal_buffer_cnt_++;
     pending_buffer_count_++;
 
     QMMF_DEBUG("%s: Stream(%d): pending_buffer_count_(%u)", __func__, id_,
@@ -850,6 +857,7 @@ int32_t Camera3Stream::CloseLocked() {
       QMMF_ERROR("%s: buffer[%d] = %p status: %d\n", __func__, i,
                  mem_alloc_buffers_.keyAt(i), mem_alloc_buffers_.valueAt(i));
     }
+    PrintBuffersInfoLocked();
     return -ENOSYS;
   }
 
@@ -862,6 +870,19 @@ int32_t Camera3Stream::CloseLocked() {
   status_ = (status_ == STATUS_RECONFIG_ACTIVE) ? STATUS_CONFIG_ACTIVE
                                                 : STATUS_INTIALIZED;
   return 0;
+}
+
+void Camera3Stream::PrintBuffersInfo() {
+  pthread_mutex_lock(&lock_);
+  PrintBuffersInfoLocked();
+  pthread_mutex_unlock(&lock_);
+}
+
+void Camera3Stream::PrintBuffersInfoLocked() {
+  QMMF_ERROR("%s: Stream id: %d dim: %ux%u, fmt: %d "
+      "Buffers: HAL(%u) Client(%u) Pending(%d) Total(%d)", __func__, id_,
+      width, height, format, hal_buffer_cnt_, client_buffer_cnt_,
+      pending_buffer_count_, total_buffer_count_);
 }
 
 }  // namespace cameraadaptor ends here
