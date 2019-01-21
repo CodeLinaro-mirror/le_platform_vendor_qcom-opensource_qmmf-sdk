@@ -289,6 +289,7 @@ void Camera3RequestHandler::ReprocLoop(Camera3RequestHandler *ctx) {
       buffer_handle_t in_buf_handle = nullptr;
 
       nextRequest.input->get_input_buffer(in_buf);
+      nextRequest.input->input_buffer_cnt++;
 
       // TODO: To be removed when camera supports GBM
  #ifdef TARGET_USES_GBM
