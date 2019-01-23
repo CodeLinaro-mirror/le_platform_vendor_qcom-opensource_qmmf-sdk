@@ -33,14 +33,16 @@
 #include <string>
 
 #include <cutils/properties.h>
+#include <linux/msm_ion.h>
 #include <sys/ioctl.h>
+#include <sys/mman.h>
 #include <utils/Log.h>
 
 #if TARGET_ION_ABI_VERSION >= 2
+#include <ion/ion.h>
 #include <linux/dma-buf.h>
 #else
 #include <fcntl.h>
-#include <linux/msm_ion.h>
 #endif
 
 #include <qmmf-alg/qmmf_alg_plugin.h>
@@ -130,36 +132,108 @@ class Property {
 };
 
 #if TARGET_ION_ABI_VERSION >= 2
-/** CacheHandler
+/** BufferHolder
  *
- * Cache Handler
+ * Buffer Holder
  *
  **/
-class CacheHandler : public qmmf_alg_plugin::ICacheHandler {
+class BufferHolder : public qmmf_alg_plugin::IBufferHolder {
  private:
-  CacheHandler(const qmmf_alg_plugin::AlgBuffer &alg_buffer)
-      : alg_buffer_(alg_buffer),
-        active_(alg_buffer.cached_ && (alg_buffer.fd_ >= 0)) {}
+  BufferHolder(const uint8_t *vaddr, const int32_t fd, const uint32_t size,
+               const bool cached)
+      : vaddr_(const_cast<uint8_t *>(vaddr)),
+        fd_(fd),
+        size_(size),
+        cache_manipulations_(cached && (fd >= 0)),
+        imported_(true),
+        ion_device_(-1) {}
 
- public:
-  ~CacheHandler() {}
+  BufferHolder(const uint32_t size, const bool cached)
+      : vaddr_(nullptr),
+        fd_(-1),
+        size_(size),
+        cache_manipulations_(cached),
+        imported_(false),
 
-  static std::shared_ptr<CacheHandler> New(
-      const qmmf_alg_plugin::AlgBuffer &alg_buffer) {
-    std::shared_ptr<CacheHandler> new_handler(new CacheHandler(alg_buffer));
-    return new_handler;
+        ion_device_(-1) {
+    ion_device_ = ion_open();
+    if (ion_device_ < 0) {
+      qmmf_alg_plugin::Utils::ThrowException(__func__,
+                                             "Open ion device failed");
+    }
+
+    uint32_t flags = 0;
+    uint32_t heap_id_mask = ION_HEAP(ION_SYSTEM_HEAP_ID);
+    if (cached) {
+      flags = ION_FLAG_CACHED;
+    }
+
+    int32_t rc = ion_alloc_fd(ion_device_, size, 0, heap_id_mask, flags, &fd_);
+    if (rc) {
+      std::stringstream s;
+      s << "ION alloc failed rc " << rc;
+      qmmf_alg_plugin::Utils::ThrowException(__func__, s.str());
+    }
+
+    vaddr_ = static_cast<uint8_t *>(
+        mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd_, 0));
+    if (vaddr_ == MAP_FAILED) {
+      qmmf_alg_plugin::Utils::ThrowException(__func__, "mmap call failed");
+    }
   }
 
-  void CpuAccessStart() { DmaBufCommand(DMA_BUF_SYNC_END | DMA_BUF_SYNC_RW); }
+ public:
+  ~BufferHolder() {
+    if (!imported_) {
+      if (MAP_FAILED != vaddr_) {
+        munmap(vaddr_, size_);
+      }
 
-  void CpuAccessEnd() { DmaBufCommand(DMA_BUF_SYNC_START | DMA_BUF_SYNC_RW); }
+      if (-1 != fd_) {
+        close(fd_);
+      }
+
+      if (ion_device_ >= 0) {
+        ion_close(ion_device_);
+      }
+    }
+  }
+
+  static std::shared_ptr<BufferHolder> New(const uint8_t *vaddr,
+                                           const int32_t fd,
+                                           const uint32_t size,
+                                           const bool cached) {
+    std::shared_ptr<BufferHolder> new_holder(
+        new BufferHolder(vaddr, fd, size, cached));
+    return new_holder;
+  }
+
+  static std::shared_ptr<BufferHolder> New(const uint32_t size,
+                                           const bool cached) {
+    std::shared_ptr<BufferHolder> new_holder(new BufferHolder(size, cached));
+    return new_holder;
+  }
+
+  void CpuAccessStart() const {
+    DmaBufCommand(DMA_BUF_SYNC_END | DMA_BUF_SYNC_RW);
+  }
+
+  void CpuAccessEnd() const {
+    DmaBufCommand(DMA_BUF_SYNC_START | DMA_BUF_SYNC_RW);
+  }
+
+  const uint8_t *GetAddr() const { return const_cast<const uint8_t *>(vaddr_); }
+
+  int32_t GetFd() const { return fd_; }
+
+  uint32_t GetSize() const { return size_; }
 
  private:
   void DmaBufCommand(uint32_t cmd) const {
-    if (active_) {
+    if (cache_manipulations_) {
       struct dma_buf_sync buf_sync {};
       buf_sync.flags = cmd;
-      if (ioctl(alg_buffer_.fd_, DMA_BUF_IOCTL_SYNC, &buf_sync) < 0) {
+      if (ioctl(fd_, DMA_BUF_IOCTL_SYNC, &buf_sync) < 0) {
         qmmf_alg_plugin::Utils::ThrowException(
             __func__,
             std::string("CacheCommand cmd ") + std::to_string(cmd) + " failed");
@@ -168,21 +242,75 @@ class CacheHandler : public qmmf_alg_plugin::ICacheHandler {
   }
 
  private:
-  const qmmf_alg_plugin::AlgBuffer &alg_buffer_;
-  const bool active_;
+  uint8_t *vaddr_;
+  int32_t fd_;
+  const uint32_t size_;
+  const bool cache_manipulations_;
+  const bool imported_;
+  int32_t ion_device_;
 };
 #else
-/** CacheHandler
+/** BufferHolder
  *
- * Cache Handler
+ * Buffer Holder
  *
  **/
-class CacheHandler : public qmmf_alg_plugin::ICacheHandler {
+class BufferHolder : public qmmf_alg_plugin::IBufferHolder {
  private:
-  CacheHandler(const qmmf_alg_plugin::AlgBuffer &alg_buffer)
-      : alg_buffer_(alg_buffer),
-        active_(alg_buffer.cached_ && (alg_buffer.fd_ >= 0)) {
-    if (active_) {
+  BufferHolder(const uint32_t size, const bool cached)
+      : vaddr_(static_cast<uint8_t *>(MAP_FAILED)),
+        fd_(-1),
+        size_(size),
+        cache_manipulations_(cached),
+        imported_(false),
+        handle_(-1),
+        ion_device_(-1) {
+    ion_device_ = open("/dev/ion", O_RDONLY);
+    if (ion_device_ < 0) {
+      qmmf_alg_plugin::Utils::ThrowException(__func__,
+                                             "Open ion device failed");
+    }
+
+    struct ion_allocation_data alloc {};
+    alloc.len = size;
+    alloc.align = 0;
+    alloc.heap_id_mask = 0x1 << ION_IOMMU_HEAP_ID;
+    if (cached) {
+      alloc.flags = ION_FLAG_CACHED;
+    }
+
+    int32_t rc = ioctl(ion_device_, ION_IOC_ALLOC, &alloc);
+    if (rc < 0) {
+      qmmf_alg_plugin::Utils::ThrowException(__func__, "ION alloc failed");
+    }
+
+    struct ion_fd_data ion_info_fd {};
+    ion_info_fd.handle = alloc.handle;
+    handle_ = alloc.handle;
+
+    rc = ioctl(ion_device_, ION_IOC_SHARE, &ion_info_fd);
+    if (rc < 0) {
+      qmmf_alg_plugin::Utils::ThrowException(__func__, "ION map call failed");
+    }
+
+    fd_ = ion_info_fd.fd;
+    vaddr_ = static_cast<uint8_t *>(
+        mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd_, 0));
+    if (vaddr_ == MAP_FAILED) {
+      qmmf_alg_plugin::Utils::ThrowException(__func__, "mmap call failed");
+    }
+  }
+
+  BufferHolder(const uint8_t *vaddr, const int32_t fd, const uint32_t size,
+               const bool cached)
+      : vaddr_(const_cast<uint8_t *>(vaddr)),
+        fd_(fd),
+        size_(size),
+        cache_manipulations_(cached && (fd >= 0)),
+        imported_(true),
+        handle_(-1),
+        ion_device_(-1) {
+    if (cache_manipulations_) {
       ion_device_ = open("/dev/ion", O_RDONLY);
       if (ion_device_ < 0) {
         qmmf_alg_plugin::Utils::ThrowException(__func__,
@@ -191,7 +319,7 @@ class CacheHandler : public qmmf_alg_plugin::ICacheHandler {
 
       struct ion_fd_data share_data {};
       share_data.handle = 0;
-      share_data.fd = alg_buffer_.fd_;
+      share_data.fd = fd_;
 
       auto res = ioctl(ion_device_, ION_IOC_IMPORT, &share_data);
       if (res < 0) {
@@ -203,40 +331,63 @@ class CacheHandler : public qmmf_alg_plugin::ICacheHandler {
       handle_ = share_data.handle;
     }
   }
+
  public:
-  ~CacheHandler() {
-    if (active_) {
+  ~BufferHolder() {
+    if (!imported_ && (MAP_FAILED != vaddr_)) {
+      munmap(vaddr_, size_);
+    }
+
+    if (-1 != handle_) {
       struct ion_fd_data share_data {};
       share_data.handle = handle_;
-      share_data.fd = 0;
+      ioctl(ion_device_, ION_IOC_FREE, &share_data);
+    }
 
-      if (ion_device_ >= 0 && handle_) {
-        ioctl(ion_device_, ION_IOC_FREE, &share_data);
-        close(ion_device_);
-      }
+    if (!imported_ && (-1 != fd_)) {
+      close(fd_);
+    }
+
+    if (ion_device_ >= 0) {
+      close(ion_device_);
     }
   }
 
-  static std::shared_ptr<CacheHandler> New(
-      const qmmf_alg_plugin::AlgBuffer &alg_buffer) {
-    std::shared_ptr<CacheHandler> new_handler(new CacheHandler(alg_buffer));
-    return new_handler;
+  static std::shared_ptr<BufferHolder> New(const uint8_t *vaddr,
+                                           const int32_t fd,
+                                           const uint32_t size,
+                                           const bool cached) {
+    std::shared_ptr<BufferHolder> new_holder(
+        new BufferHolder(vaddr, fd, size, cached));
+    return new_holder;
   }
 
-  void CpuAccessStart() { CacheCommand(ION_IOC_INV_CACHES); }
+  static std::shared_ptr<BufferHolder> New(const uint32_t size,
+                                           const bool cached) {
+    std::shared_ptr<BufferHolder> new_holder(new BufferHolder(size, cached));
+    return new_holder;
+  }
 
-  void CpuAccessEnd() { CacheCommand(ION_IOC_CLEAN_INV_CACHES); }
+  void CpuAccessStart() const { CacheCommand(ION_IOC_INV_CACHES); }
+
+  void CpuAccessEnd() const { CacheCommand(ION_IOC_CLEAN_INV_CACHES); }
+
+  const uint8_t *GetAddr() const { return const_cast<const uint8_t *>(vaddr_); }
+
+  int32_t GetFd() const { return fd_; }
+
+  uint32_t GetSize() const { return size_; }
 
  private:
   void CacheCommand(uint32_t cmd) const {
-    if (active_) {
+    if (cache_manipulations_) {
       struct ion_flush_data cache_invalidate {};
       struct ion_custom_data cache_data {};
 
-      cache_invalidate.vaddr = alg_buffer_.vaddr_;
-      cache_invalidate.fd = alg_buffer_.fd_;
+      cache_invalidate.vaddr = const_cast<uint8_t *>(vaddr_);
+      cache_invalidate.fd = fd_;
       cache_invalidate.handle = handle_;
-      cache_invalidate.length = alg_buffer_.size_;
+      cache_invalidate.length = size_;
       cache_data.cmd = cmd;
       cache_data.arg = (unsigned long)&cache_invalidate;
 
@@ -249,8 +400,11 @@ class CacheHandler : public qmmf_alg_plugin::ICacheHandler {
   }
 
  private:
-  const qmmf_alg_plugin::AlgBuffer &alg_buffer_;
-  const bool active_;
+  uint8_t *vaddr_;
+  int32_t fd_;
+  const uint32_t size_;
+  const bool cache_manipulations_;
+  const bool imported_;
   int32_t handle_;
   int32_t ion_device_;
 };
@@ -292,9 +446,15 @@ class QmmfAlgoTools : public qmmf_alg_plugin::ITools {
 
   void LogVerbose(const std::string &s) { ALOGV("%s", s.c_str()); }
 
-  std::shared_ptr<qmmf_alg_plugin::ICacheHandler> NewCacheHandler(
-      const qmmf_alg_plugin::AlgBuffer &alg_buffer) {
-    return CacheHandler::New(alg_buffer);
+  std::shared_ptr<qmmf_alg_plugin::IBufferHolder> ImportBufferHolder(
+      const uint8_t *vaddr, const int32_t fd, const uint32_t size,
+      const bool cached) {
+    return BufferHolder::New(vaddr, fd, size, cached);
+  }
+
+  std::shared_ptr<qmmf_alg_plugin::IBufferHolder> NewBufferHolder(
+      const uint32_t size, const bool cached) {
+    return BufferHolder::New(size, cached);
   }
 };
 

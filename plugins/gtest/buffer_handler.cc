@@ -37,7 +37,6 @@
 
 #include "buffer_handler.h"
 #include "heap_buffer.h"
-#include "ion_buffer.h"
 
 namespace qmmf {
 namespace qmmf_alg_plugin {
@@ -88,8 +87,7 @@ BufferHandler::BufferHandler(
       border_right_(border_right),
       buffer_is_filled_(false),
       filled_value_(0),
-      buffer_holder_(buffer_holder),
-      cache_handler_(this->NewCacheHandler(*this)) {}
+      buffer_holder_(buffer_holder) {}
 
 /** New
  *    @requirements: buffer requirements
@@ -206,14 +204,15 @@ std::shared_ptr<BufferHandler> BufferHandler::New(
   // divisible by the plane_alignment
   buffer_size += plane_alignment;
 
+  QmmfAlgoTools tools;
   std::shared_ptr<IBufferHolder> buffer_holder = nullptr;
   if (heap_buffer) {
     buffer_holder = HeapBuffer::New(buffer_size);
   } else {
-    buffer_holder = IonBuffer::New(buffer_size, requirements.cached_);
+    buffer_holder = tools.NewBufferHolder(buffer_size, requirements.cached_);
   }
 
-  uint8_t *vaddr = buffer_holder->GetAddr();
+  uint8_t *vaddr = const_cast<uint8_t *>(buffer_holder->GetAddr());
   if (nullptr == vaddr) {
     Utils::ThrowException(__func__, "cannot allocate memory");
   }
@@ -386,7 +385,7 @@ void BufferHandler::ReadInputFile() {
       }
     }
   }
-  cache_handler_->CpuAccessEnd();
+  buffer_holder_->CpuAccessEnd();
 }
 
 /** WriteOutputFile
@@ -436,7 +435,7 @@ void BufferHandler::FillBufferWith(uint8_t value) {
 
   std::memset(vaddr_, value, size_);
 
-  cache_handler_->CpuAccessEnd();
+  buffer_holder_->CpuAccessEnd();
 }
 
 /** MemoryIsCorrupted

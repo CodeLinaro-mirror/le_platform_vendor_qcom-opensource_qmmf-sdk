@@ -37,7 +37,6 @@
 
 #include "qmmf_algo_gtest_configuration_buffer.h"
 
-#include "buffer_holder.h"
 #include "common/utils/qmmf_tools.h"
 
 namespace qmmf {
@@ -61,7 +60,6 @@ namespace qmmf_alg_plugin {
  *    @filled_value_: this value is assigned to each byte of the buffer after a
  *                    call to FillBufferWith()
  *    @buffer_holder_: buffer holder
- *    @cache_handler_: cache handler
  *
  *  This class handles qmmf algo buffer
  **/
@@ -242,7 +240,6 @@ class BufferHandler : public AlgBuffer, public QmmfAlgoTools {
   uint8_t filled_value_;
 
   std::shared_ptr<IBufferHolder> buffer_holder_;
-  std::shared_ptr<ICacheHandler> cache_handler_;
 };
 
 };  // namespace qmmf_alg_plugin

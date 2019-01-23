@@ -58,15 +58,29 @@ std::shared_ptr<HeapBuffer> HeapBuffer::New(uint32_t size) {
   return new_handler;
 }
 
+/** CpuAccessStart
+ *
+ * Start of CPU access
+ *
+ * return: nothing
+ **/
+void HeapBuffer::CpuAccessStart() const {}
+
+/** CpuAccessEnd
+ *
+ * End of CPU access
+ *
+ * return: nothing
+ **/
+void HeapBuffer::CpuAccessEnd() const {}
+
 /** GetAddr
  *
- * returns addres
+ * returns address
  *
  * return: address
  **/
-uint8_t* HeapBuffer::GetAddr() const {
-  return const_cast<uint8_t*>(data_.data());
-}
+const uint8_t* HeapBuffer::GetAddr() const { return data_.data(); }
 
 /** GetFd
  *
@@ -75,6 +89,14 @@ uint8_t* HeapBuffer::GetAddr() const {
  * return: fd
  **/
 int32_t HeapBuffer::GetFd() const { return fd_; }
+
+/** GetSize
+ *
+ * returns size
+ *
+ * return: size
+ **/
+uint32_t HeapBuffer::GetSize() const { return data_.size(); }
 
 };  // namespace qmmf_alg_plugin
 };  // namespace qmmf

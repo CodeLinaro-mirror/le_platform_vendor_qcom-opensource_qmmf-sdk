@@ -32,7 +32,7 @@
 #include <memory>
 #include <vector>
 
-#include "buffer_holder.h"
+#include <qmmf-alg/qmmf_alg_plugin.h>
 
 namespace qmmf {
 namespace qmmf_alg_plugin {
@@ -57,13 +57,29 @@ class HeapBuffer : public IBufferHolder {
    **/
   static std::shared_ptr<HeapBuffer> New(uint32_t size);
 
+  /** CpuAccessStart
+   *
+   * Start of CPU access
+   *
+   * return: nothing
+   **/
+  void CpuAccessStart() const;
+
+  /** CpuAccessEnd
+   *
+   * End of CPU access
+   *
+   * return: nothing
+   **/
+  void CpuAccessEnd() const;
+
   /** GetAddr
    *
-   * returns addres
+   * returns address
    *
    * return: address
    **/
-  uint8_t* GetAddr() const;
+  const uint8_t *GetAddr() const;
 
   /** GetFd
    *
@@ -72,6 +88,14 @@ class HeapBuffer : public IBufferHolder {
    * return: fd
    **/
   int32_t GetFd() const;
+
+  /** GetSize
+   *
+   * returns size
+   *
+   * return: size
+   **/
+  uint32_t GetSize() const;
 
  private:
   const std::vector<uint8_t> data_;

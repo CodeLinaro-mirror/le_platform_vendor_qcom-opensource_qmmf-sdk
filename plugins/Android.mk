@@ -109,7 +109,6 @@ LOCAL_SRC_FILES += gtest/qmmf_algo_gtest_configuration_buffer.cc
 LOCAL_SRC_FILES += gtest/qmmf_algo_gtest_test_content.cc
 LOCAL_SRC_FILES += gtest/qmmf_algo_gtest_test_suite.cc
 LOCAL_SRC_FILES += gtest/qmmf_algo_gtest_configuration.cc
-LOCAL_SRC_FILES += gtest/ion_buffer.cc
 LOCAL_SRC_FILES += gtest/heap_buffer.cc
 LOCAL_SRC_FILES += gtest/heap_tracker.cc
 
