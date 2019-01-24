@@ -5047,6 +5047,9 @@ TEST_F(RecorderPostprocessVideoGTest, SessionWithDualCam4kEncCopy1080EncAndLinke
 
     video_track_param.width  = 2160;
     video_track_param.height = 1080;
+    if (ubwc_stream_enable_) {
+      video_track_param.low_power_mode = true;
+    }
 
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
@@ -5208,6 +5211,9 @@ TEST_F(RecorderPostprocessVideoGTest, SessionWithDualCam4kEncCopy1080EncAndLinke
 
     video_track_param.width  = 2160;
     video_track_param.height = 1080;
+    if (ubwc_stream_enable_) {
+      video_track_param.low_power_mode = true;
+    }
 
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
@@ -5563,6 +5569,9 @@ TEST_F(RecorderPostprocessVideoGTest, SessionWithDualCam4kEncCopy1080EncAndCopy7
 
     video_track_param.width = track2_width;
     video_track_param.height = track2_height;
+    if (ubwc_stream_enable_) {
+      video_track_param.low_power_mode = true;
+    }
 
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
@@ -5729,6 +5738,9 @@ TEST_F(RecorderPostprocessVideoGTest, SessionWithDualCam4kEncCopy1080EncAndCopy7
 
     video_track_param.width = track2_width;
     video_track_param.height = track2_height;
+    if (ubwc_stream_enable_) {
+      video_track_param.low_power_mode = true;
+    }
 
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
@@ -6117,6 +6129,9 @@ TEST_F(RecorderPostprocessVideoGTest, SessionWithDualCam4k30Enc1080p30EncAndLink
     video_track_param.width  = 2160;
     video_track_param.height = 1080;
     video_track_param.codec_param.avc.bitrate = 4000000;
+    if (ubwc_stream_enable_) {
+      video_track_param.low_power_mode = true;
+    }
 
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
@@ -6304,6 +6319,9 @@ TEST_F(RecorderPostprocessVideoGTest,
     video_track_param.height = 1080;
     video_track_param.frame_rate = 30;
     video_track_param.codec_param.avc.bitrate = 4000000;
+    if (ubwc_stream_enable_) {
+      video_track_param.low_power_mode = true;
+    }
 
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
@@ -6489,6 +6507,9 @@ TEST_F(RecorderPostprocessVideoGTest,
     video_track_param.width  = 2160;
     video_track_param.height = 1080;
     video_track_param.codec_param.avc.bitrate = 4000000;
+    if (ubwc_stream_enable_) {
+      video_track_param.low_power_mode = true;
+    }
 
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
