@@ -3907,9 +3907,9 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithDualCam4KEncAllAWBModes) {
 }
 
 /*
-* SessionWithSingleCam4KEncDeFogTables: This case will test a single cam
-*                 session with 3840x2160 h264 encoded track, during which
-*                 in regular intervals DeFog Table is changes.
+* SessionWithSingleCam4KEncDeFogTablesWithSnapshot: This case will test a
+*                 single cam session with 3840x2160 h264 encoded track,
+*                 during which in regular intervals DeFog Table is changes.
 * API test sequence:
 *  - StartCamera
 *   loop Start {
@@ -3917,7 +3917,13 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithDualCam4KEncAllAWBModes) {
 *   - CreateSession
 *   - CreateVideoTrack
 *   - StartSession
-*   - Change defog table after every record_duration_/10 seconds
+*     loop2 Start {
+*   --------------------------
+*     - CaptureImage
+*     - record for record_duration_ seconds
+*     - CancelCaptureImage
+*   --------------------------
+*     } loop2 End
 *   - StopSession
 *   - DeleteVideoTrack
 *   - DeleteSession
@@ -3926,7 +3932,7 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithDualCam4KEncAllAWBModes) {
 *  - StopCamera
 */
 
-TEST_F(RecorderVideoSnapshotGTest, SessionWithSingleCam4KEncDeFogTables) {
+TEST_F(RecorderVideoSnapshotGTest, SessionWithSingleCam4KEncDeFogTablesWithSnapshot) {
   fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
       test_info_->test_case_name(),test_info_->name());
 
@@ -4002,13 +4008,13 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithSingleCam4KEncDeFogTables) {
                                      video_track_param, video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    ret = recorder_.StartSession(session_id);
-    ASSERT_TRUE(ret == NO_ERROR);
-
     if (defog_tables.size() > 0) {
       defog_tables.clear();
     }
     ret = PopulateDeFogTables(defog_tables);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.StartSession(session_id);
     ASSERT_TRUE(ret == NO_ERROR);
 
     camera_metadata_entry_t entry;
@@ -4047,8 +4053,8 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithSingleCam4KEncDeFogTables) {
       if (VendorTagSupported(String8("algo_decision_mode"),
                              String8("org.quic.camera.defog"),
                              &defog_tables_vtag)) {
-        ret =
-            meta.update(defog_tables_vtag, &defog_table.algo_decision_mode, 1);
+        ret = meta.update(defog_tables_vtag, &defog_table.algo_decision_mode,
+                          1);
         ASSERT_TRUE(ret == NO_ERROR);
         ret = meta_img.update(defog_tables_vtag,
                               &defog_table.algo_decision_mode, 1);
@@ -4065,7 +4071,7 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithSingleCam4KEncDeFogTables) {
             defog_table.strength > max_defog_strength) {
           defog_table.strength = (min_defog_strength + max_defog_strength) / 2;
 
-          TEST_WARN("%s: min_defog_strength = %d, max_defog_strength = %d.. "
+          TEST_INFO("%s: min_defog_strength = %d, max_defog_strength = %d.. "
                     "Resetting strength to %d", __func__, min_defog_strength,
                     max_defog_strength,defog_table.strength);
         }
@@ -4091,7 +4097,7 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithSingleCam4KEncDeFogTables) {
           defog_table.convergence_speed =
               (min_defog_speed + max_defog_speed) / 2;
 
-          TEST_WARN("%s: min_defog_speed = %d, max_defog_speed = %d.. "
+          TEST_INFO("%s: min_defog_speed = %d, max_defog_speed = %d.. "
                     "Resetting speed to %d", __func__, min_defog_speed,
                     max_defog_speed, defog_table.convergence_speed);
         }
@@ -4099,8 +4105,8 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithSingleCam4KEncDeFogTables) {
         if (VendorTagSupported(String8("convergence_speed"),
                                String8("org.quic.camera.defog"),
                                &defog_tables_vtag)) {
-          ret =
-              meta.update(defog_tables_vtag, &defog_table.convergence_speed, 1);
+          ret = meta.update(defog_tables_vtag, &defog_table.convergence_speed,
+                            1);
           ASSERT_TRUE(ret == NO_ERROR);
           ret = meta_img.update(defog_tables_vtag,
                                 &defog_table.convergence_speed, 1);
@@ -4115,7 +4121,7 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithSingleCam4KEncDeFogTables) {
       ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array, cb);
       ASSERT_TRUE(ret == NO_ERROR);
 
-      sleep(record_duration_ / 10);
+      sleep(record_duration_);
 
       ret = recorder_.CancelCaptureImage(camera_id_);
       ASSERT_TRUE(ret == NO_ERROR);
@@ -4156,7 +4162,7 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithSingleCam4KEncDeFogTables) {
 *   - CreateVideoTrack
 *   - StartVideoTrack
 *   - StartSession
-*   - Change exposure table after every record_duration_/10 seconds
+*   - Change exposure table after every record_duration_ seconds
 *   - StopSession
 *   - DeleteVideoTrack
 *   - DeleteSession
@@ -4244,13 +4250,13 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithSingleCam4KEncDynamicExposureTable
                                      video_track_param, video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    ret = recorder_.StartSession(session_id);
-    ASSERT_TRUE(ret == NO_ERROR);
-
     if (exp_tables.size() > 0) {
       exp_tables.clear();
     }
     ret = PopulateExpTables(exp_tables);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.StartSession(session_id);
     ASSERT_TRUE(ret == NO_ERROR);
 
     uint32_t exp_tables_vtag;
@@ -4351,7 +4357,7 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithSingleCam4KEncDynamicExposureTable
       meta_array.push_back(meta_img);
       ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array, cb);
       ASSERT_TRUE(ret == NO_ERROR);
-      sleep(record_duration_ / 10);
+      sleep(record_duration_);
       ret = recorder_.CancelCaptureImage(camera_id_);
       ASSERT_TRUE(ret == NO_ERROR);
       meta_array.clear();
