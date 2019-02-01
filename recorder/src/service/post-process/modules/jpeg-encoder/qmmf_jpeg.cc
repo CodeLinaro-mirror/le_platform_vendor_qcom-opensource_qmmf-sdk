@@ -331,11 +331,9 @@ status_t PostProcJpeg::Process(const std::vector<StreamBuffer> &in_buffers,
 
   out_buffer.info.format = BufferFormat::kBLOB;
   out_buffer.info.num_planes = 1;
-  out_buffer.info.plane_info[0].width = jpeg_size;
-  out_buffer.info.plane_info[0].height = 1;
   out_buffer.second_thumb = (jpeg_params_.thumbnail_data.size() == 2);
-  out_buffer.filled_length = jpeg_size;
   out_buffer.timestamp = in_buffer.timestamp;
+  out_buffer.info.plane_info[0].size = jpeg_size;
 
   std::lock_guard<std::mutex> lock(state_lock_);
   if (state_ == State::ABORTED) {
