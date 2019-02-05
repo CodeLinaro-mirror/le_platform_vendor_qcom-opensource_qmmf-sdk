@@ -56,17 +56,64 @@ AC_ARG_WITH([basemachine],
         AC_HELP_STRING([with-basemachine=@<:@machine name@:>@],
         [Specify the Machine name]),
         [case "${withval}" in
+                sdmsteppe) sdmsteppe_target=true ;;
                 qcs605) rd_target=true ;;
-                *) rd_target=false ;;
+                apq8053) jacala_target=true;;
+                *) sdmsteppe_target=false && rd_target=false && jacala_target=false;;
         esac],
-        [rd_target=false])
-AM_CONDITIONAL([TARGET_USES_GBM], [test x$rd_target = xtrue])
-AM_CONDITIONAL([DISABLE_VIDEO_TIMELAPSE], [test x$rd_target = xtrue])
-AM_CONDITIONAL([DISABLE_PP_JPEG], [test x$rd_target = xtrue])
-AM_CONDITIONAL([DISABLE_DISPLAY], [test x$rd_target = xtrue])
-AM_CONDITIONAL([DISABLE_MULTICAM], [test x$rd_target = xtrue])
-AM_CONDITIONAL([ENABLE_WESTON_CLIENT], [test x$rd_target = xtrue])
-if test "x$rd_target" == "xtrue" ; then
+        [sdmsteppe_target=false && rd_target=false && jacala_target=false])
+
+AM_CONDITIONAL([DISABLE_AUDIO_TEST], [test x$sdmsteppe_target = xtrue])
+AM_CONDITIONAL([DISABLE_QMMF_PLUGIN], [test x$sdmsteppe_target = xtrue])
+AM_CONDITIONAL([DISABLE_DISPLAY_CLIENT], [test x$sdmsteppe_target = xtrue])
+AM_CONDITIONAL([DISABLE_TIMELAPSE_APP], [test x$sdmsteppe_target = xtrue])
+AM_CONDITIONAL([DISABLE_SYSTEM_SERVICE], [test x$sdmsteppe_target = xtrue])
+AM_CONDITIONAL([DISABLE_SYSTEM_CLIENT], [test x$sdmsteppe_target = xtrue])
+AM_CONDITIONAL([DISABLE_SYSTEM_TEST], [test x$sdmsteppe_target = xtrue])
+AM_CONDITIONAL([DISABLE_TRANSCODE_APP], [test "x$sdmsteppe_target" = "xtrue" -o "x$rd_target" = "xtrue" -o "x$jacala_target" = "xtrue"])
+AM_CONDITIONAL([DISABLE_SCREENNAIL_APP], [test "x$sdmsteppe_target" = "xtrue" -o "x$rd_target" = "xtrue" -o "x$jacala_target" = "xtrue"])
+AM_CONDITIONAL([DISABLE_AVCODEC_GTEST], [test x$sdmsteppe_target = xtrue])
+AM_CONDITIONAL([DISABLE_AVCODEC_TEST], [test x$sdmsteppe_target = xtrue])
+AM_CONDITIONAL([DISABLE_AVCODEC_AUDIO_DECODE_TEST], [test x$sdmsteppe_target = xtrue])
+AM_CONDITIONAL([DISABLE_AVCODEC_AUDIO_ENCODE_TEST], [test x$sdmsteppe_target = xtrue])
+AM_CONDITIONAL([DISABLE_PLAYER_SERVICE], [test "x$sdmsteppe_target" = "xtrue" -o "x$rd_target" = "xtrue" -o "x$jacala_target" = "xtrue"])
+AM_CONDITIONAL([DISABLE_OVERLAY_TEST], [test x$sdmsteppe_target = xtrue])
+AM_CONDITIONAL([DISABLE_RECORDER_TEST_DISPLAY], [test x$sdmsteppe_target = xtrue])
+
+if test "x$jacala_target" == "xtrue";
+then
+[CPPFLAGS="$CPPFLAGS -DDISABLE_PLAYER_SERVICE"]
+fi
+
+if test "x$sdmsteppe_target" == "xtrue";
+then
+[CPPFLAGS="$CPPFLAGS -DDISABLE_AUDIO_TEST"]
+[CPPFLAGS="$CPPFLAGS -DDISABLE_QMMF_PLUGIN"]
+[CPPFLAGS="$CPPFLAGS -DDISABLE_DISPLAY_CLIENT"]
+[CPPFLAGS="$CPPFLAGS -DDISABLE_TIMELAPSE_APP"]
+[CPPFLAGS="$CPPFLAGS -DDISABLE_SYSTEM_SERVICE"]
+[CPPFLAGS="$CPPFLAGS -DDISABLE_SYSTEM_CLIENT"]
+[CPPFLAGS="$CPPFLAGS -DDISABLE_SYSTEM_TEST"]
+[CPPFLAGS="$CPPFLAGS -DDISABLE_TRANSCODE_APP"]
+[CPPFLAGS="$CPPFLAGS -DDISABLE_SCREENNAIL_APP"]
+[CPPFLAGS="$CPPFLAGS -DDISABLE_AVCODEC_GTEST"]
+[CPPFLAGS="$CPPFLAGS -DDISABLE_AVCODEC_TEST"]
+[CPPFLAGS="$CPPFLAGS -DDISABLE_AVCODEC_AUDIO_DECODE_TEST"]
+[CPPFLAGS="$CPPFLAGS -DDISABLE_AVCODEC_AUDIO_ENCODE_TEST"]
+[CPPFLAGS="$CPPFLAGS -DDISABLE_PLAYER_SERVICE"]
+[CPPFLAGS="$CPPFLAGS -DDISABLE_OVERLAY_TEST"]
+[CPPFLAGS="$CPPFLAGS -DDISABLE_RECORDER_TEST_DISPLAY"]
+fi
+
+AM_CONDITIONAL([TARGET_USES_GBM], [test "x$rd_target" = "xtrue" -o "x$sdmsteppe_target" = "xtrue"])
+AM_CONDITIONAL([DISABLE_VIDEO_TIMELAPSE], [test "x$rd_target" = "xtrue" -o "x$sdmsteppe_target" = "xtrue"])
+AM_CONDITIONAL([DISABLE_PP_JPEG], [test "x$rd_target" = "xtrue" -o "x$sdmsteppe_target" = "xtrue"])
+AM_CONDITIONAL([DISABLE_DISPLAY], [test "x$rd_target" = "xtrue" -o "x$sdmsteppe_target" = "xtrue"])
+AM_CONDITIONAL([DISABLE_MULTICAM], [test "x$rd_target" = "xtrue" -o "x$sdmsteppe_target" = "xtrue"])
+AM_CONDITIONAL([ENABLE_WESTON_CLIENT], [test "x$rd_target" = "xtrue" -o "x$sdmsteppe_target" = "xtrue"])
+
+if test "x$rd_target" == "xtrue" ||  test "x$sdmsteppe_target" == "xtrue";
+then
 [CPPFLAGS="$CPPFLAGS -DTARGET_USES_GBM"]
 [CPPFLAGS="$CPPFLAGS -DDISABLE_OP_MODES"]
 [CPPFLAGS="$CPPFLAGS -DDISABLE_PP_JPEG"]
@@ -80,6 +127,7 @@ if test "x$rd_target" == "xtrue" ; then
 [CPPFLAGS="$CPPFLAGS -DJPEG_BLOB_OFFSET=0"]
 [CPPFLAGS="$CPPFLAGS -DUSE_FPS_IDX"]
 [CPPFLAGS="$CPPFLAGS -DENABLE_WESTON_CLIENT"]
+[CPPFLAGS="$CPPFLAGS -DDISABLE_PLAYER_SERVICE"]
 fi
 
 AC_ARG_WITH([camerahal],
@@ -168,6 +216,11 @@ AC_ARG_WITH([displaysync],
          [Specify the location of Display Sync headers]),
       [displaysync_incdir=$withval])
 
+AC_ARG_WITH([ion],
+      AC_HELP_STRING([--with-ion],
+         [enable ion package, specify ion headers location]),
+      [CPPFLAGS="$CPPFLAGS -I$withval"])
+
 AC_SUBST([CAMERASTACKCOMMON_CFLAGS], "${camcommon_incdir}")
 AC_SUBST([CAMERAINTERFACE_CFLAGS], "${camiface_incdir}")
 AC_SUBST([EXIF_CFLAGS], "${exif_incdir}")
@@ -235,7 +288,8 @@ AC_CONFIG_FILES([ \
     player/test/screen-nail/Makefile  \
 ])
 
-if test "x$rd_target" == "xtrue" ; then
+if test "x$rd_target" == "xtrue" || test "x$sdmsteppe_target" == "xtrue";
+then
 AC_PATH_PROG([wayland_scanner], [wayland-scanner])
 if test x$wayland_scanner = x; then
     PKG_CHECK_MODULES(WAYLAND_SCANNER, [wayland-scanner])

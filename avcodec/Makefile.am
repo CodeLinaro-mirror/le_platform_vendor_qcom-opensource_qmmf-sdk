@@ -18,28 +18,35 @@ libav_codec_la_LDFLAGS  = -lutils -lcutils -lpthread -ldl -llog
 libav_codec_la_LIBADD   = ../common/codecadaptor/libcodec_adaptor.la
 libav_codec_la_LIBADD   += ../common/utils/libqmmf_utils.la
 
+bin_PROGRAMS =
 # AVCodec sample test app
-bin_PROGRAMS = av_codec_test
+if !DISABLE_AVCODEC_TEST
+bin_PROGRAMS += av_codec_test
 
 av_codec_test_SOURCES  = test/sample/qmmf_avcodec_test.cc
 av_codec_test_CPPFLAGS = $(libav_codec_la_CPPFLAGS)
 av_codec_test_LDADD    = libav_codec.la
 av_codec_test_LDFLAGS  = -lhardware
+endif
 
 # AVCodec gtest app
+if !DISABLE_AVCODEC_GTEST
 bin_PROGRAMS += av_codec_gtest
 
 av_codec_gtest_SOURCES  = test/gtest/qmmf_avcodec_gtest.cc
 av_codec_gtest_CPPFLAGS = $(libav_codec_la_CPPFLAGS)
 av_codec_gtest_LDFLAGS  = -lgtest -lgtest_main
 av_codec_gtest_LDADD    = libav_codec.la
+endif
 
 # Codec Adaptor sample audio decode test app
+if !DISABLE_AVCODEC_AUDIO_DECODE_TEST
 bin_PROGRAMS += av_codec_audio_decode_test
 
 av_codec_audio_decode_test_SOURCES  = test/sample/qmmf_audio_decode_test.cc
 av_codec_audio_decode_test_CPPFLAGS = $(libav_codec_la_CPPFLAGS)
 av_codec_audio_decode_test_LDADD    = libav_codec.la
+endif
 
 if ENABLE_JPEG_TURBO
 # Bin Program for Standalone Jpeg turbo decode test
@@ -50,11 +57,13 @@ jpeg_turbo_decode_test_LDFLAGS  = -llog -ljpeg -lturbojpeg
 endif
 
 # Codec Adaptor sample encode encode test app
+if !DISABLE_AVCODEC_AUDIO_ENCODE_TEST
 bin_PROGRAMS += av_codec_audio_encode_test
 
 av_codec_audio_encode_test_SOURCES  = test/sample/qmmf_audio_encode_test.cc
 av_codec_audio_encode_test_CPPFLAGS = $(libav_codec_la_CPPFLAGS)
 av_codec_audio_encode_test_LDADD    = libav_codec.la
+endif
 
 Export qmmf-sdk headers:
 sdkincdir=$(includedir)/qmmf-sdk

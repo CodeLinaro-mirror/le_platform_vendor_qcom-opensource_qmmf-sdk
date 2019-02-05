@@ -36,12 +36,13 @@ libqmmf_recorder_service_la_CPPFLAGS = -I$(top_srcdir)/include
 libqmmf_recorder_service_la_CPPFLAGS += -I$(top_srcdir)/
 libqmmf_recorder_service_la_CPPFLAGS += -I$(top_srcdir)/common/memory
 libqmmf_recorder_service_la_CPPFLAGS += -I$(CAMERAHAL_CFLAGS)
+libqmmf_recorder_service_la_CPPFLAGS += -I$(PKG_CONFIG_SYSROOT_DIR)/usr/include/ion_headers
 libqmmf_recorder_service_la_CPPFLAGS += -DHFR_THRESHOLD=30
 libqmmf_recorder_service_la_CPPFLAGS += -DAEC_WAIT_TIMEOUT=500000000
 
 libqmmf_recorder_service_la_LDFLAGS  = -llog -lbinder -lutils -lcutils
 libqmmf_recorder_service_la_LDFLAGS  += -lcamera_client -lcamera_metadata
-libqmmf_recorder_service_la_LDFLAGS  += -lhardware
+libqmmf_recorder_service_la_LDFLAGS  += -lhardware -lion
 
 libqmmf_recorder_service_la_LIBADD   = ../client/libqmmf_recorder_client.la
 libqmmf_recorder_service_la_LIBADD   += ../../../common/utils/libqmmf_utils.la
