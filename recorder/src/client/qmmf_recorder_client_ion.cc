@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016, 2019, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -41,10 +41,10 @@
 #include <cerrno>
 #include <cstring>
 #include <map>
-
 #include <linux/msm_ion.h>
 
 #include "common/utils/qmmf_log.h"
+#include "common/utils/qmmf_tools.h"
 #include "include/qmmf-sdk/qmmf_recorder_params.h"
 #include "recorder/src/client/qmmf_recorder_params_internal.h"
 #include "recorder/src/client/qmmf_recorder_service_intf.h"
@@ -54,13 +54,11 @@ namespace recorder {
 
 using ::std::map;
 
-static const char* ion_filename = "/dev/ion";
-
 RecorderClientIon::RecorderClientIon() : ion_device_(-1) {
   QMMF_DEBUG("%s() TRACE", __func__);
 
   // open ion device
-  ion_device_ = open(ion_filename, O_RDONLY);
+  ion_device_ = ion_open();
   if (ion_device_ < 0)
     QMMF_ERROR("%s() error opening ion device: %d[%s]", __func__,
                errno, strerror(errno));
@@ -82,7 +80,7 @@ RecorderClientIon::~RecorderClientIon() {
     }
   }
   // close ion device
-  result = close(ion_device_);
+  result = ion_close(ion_device_);
   if (result < 0) {
     QMMF_ERROR("%s() error closing ion device[%d]: %d[%s]", __func__,
         ion_device_, errno, strerror(errno));
@@ -118,6 +116,7 @@ int32_t RecorderClientIon::Associate(uint32_t track_id,
           QMMF_ERROR("%s() [CRITICAL] ion fd has leaked", __func__);
         }
 
+        buffer->fd = ion_buffer->second.map_fd;
         buffer->data = ion_buffer->second.data;
         buffer->size = bn_buffer.size;
         buffer->offset = 0;
@@ -125,7 +124,7 @@ int32_t RecorderClientIon::Associate(uint32_t track_id,
         buffer->flag = bn_buffer.flag;
         buffer->buf_id = bn_buffer.buffer_id;
         buffer->capacity = bn_buffer.capacity;
-        buffer->fd = ion_buffer->second.share_data.fd;
+
         QMMF_VERBOSE("%s() OUTPARAM: buffer[%s]", __func__,
                      buffer->ToString().c_str());
         return 0;
@@ -139,29 +138,27 @@ int32_t RecorderClientIon::Associate(uint32_t track_id,
 
 
   RecorderClientIonBuffer ion_buffer;
-
   ion_buffer.capacity = bn_buffer.capacity;
-  ion_buffer.share_data.handle = 0;
-  ion_buffer.share_data.fd = bn_buffer.ion_fd;
+  ion_buffer.map_fd = bn_buffer.ion_fd;
 
-  // import ion handle from shared fd
-  result = ioctl(ion_device_, ION_IOC_IMPORT, &ion_buffer.share_data);
-  if (result < 0) {
-    QMMF_ERROR("%s() ION_IOC_IMPORT ioctl command failed: %d[%s]",
-               __func__, errno, strerror(errno));
-    return errno;
-  }
-
-  ion_buffer.free_data.handle = ion_buffer.share_data.handle;
-
-  // map buffers into address space
   ion_buffer.data = mmap(NULL, ion_buffer.capacity, PROT_READ | PROT_WRITE,
-                         MAP_SHARED, ion_buffer.share_data.fd, 0);
+                         MAP_SHARED, ion_buffer.map_fd, 0);
   if (ion_buffer.data == MAP_FAILED) {
     QMMF_ERROR("%s() unable to map buffer[%d]: %d[%s]", __func__,
-               ion_buffer.share_data.fd, errno, strerror(errno));
+               ion_buffer.map_fd, errno, strerror(errno));
+
+    result = close(ion_buffer.map_fd);
+    if (result < 0) {
+      QMMF_ERROR("%s() error closing mapping fd[%d]: %d[%s]", __func__,
+                 ion_buffer.map_fd, errno, strerror(errno));
+      QMMF_ERROR("%s() [CRITICAL] ion fd has leaked", __func__);
+    }
+
     return errno;
   }
+
+  SyncStart(ion_buffer.map_fd);
+
   buffer->data = ion_buffer.data;
   buffer->size = bn_buffer.size;
   buffer->timestamp = bn_buffer.timestamp;
@@ -202,30 +199,26 @@ int32_t RecorderClientIon::Release(uint32_t track_id) {
 
     QMMF_VERBOSE("%s() releasing ion buffer[%s]", __func__,
                  buffer.second.ToString().c_str());
+    if (buffer.second.map_fd)
+      SyncEnd(buffer.second.map_fd);
 
-    // unmap buffer from address space
     result = munmap(buffer.second.data, buffer.second.capacity);
-    if (result < 0)
+    if (result < 0) {
       QMMF_ERROR("%s() unable to unmap buffer[%d]: %d[%s]", __func__,
-                 buffer.second.share_data.fd, errno, strerror(errno));
+                 buffer.second.map_fd, errno, strerror(errno));
+      close(buffer.second.map_fd);
+      return errno;
+    }
+
     buffer.second.data = nullptr;
 
-    // close fd
-    result = close(buffer.second.share_data.fd);
+    result = close(buffer.second.map_fd);
     if (result < 0) {
       QMMF_ERROR("%s() error closing shared fd[%d]: %d[%s]", __func__,
-                 buffer.second.share_data.fd, errno, strerror(errno));
+                 buffer.second.map_fd, errno, strerror(errno));
       return errno;
     }
-    buffer.second.share_data.fd = -1;
-
-    // free ion buffer
-    result = ioctl(ion_device_, ION_IOC_FREE, &buffer.second.free_data);
-    if (result < 0) {
-      QMMF_ERROR("%s() ION_IOC_FREE ioctl command failed: %d[%s]",
-                 __func__, errno, strerror(errno));
-      return errno;
-    }
+    buffer.second.map_fd = -1;
   }
 
   std::lock_guard<std::mutex> l(buffer_map_mutex_);

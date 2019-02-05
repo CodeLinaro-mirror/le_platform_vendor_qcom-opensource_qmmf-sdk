@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018, 2019, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -47,6 +47,42 @@
 #include <qmmf-alg/qmmf_alg_utils.h>
 
 namespace qmmf {
+
+/** SyncStart
+ *    @fd: ion fd
+ *
+ * Start CPU Access
+ *
+ **/
+inline void SyncStart(int32_t fd) {
+  ALOGV("%s: Enter", __func__);
+#if TARGET_ION_ABI_VERSION >= 2
+  struct dma_buf_sync buf_sync;
+  buf_sync.flags = DMA_BUF_SYNC_START | DMA_BUF_SYNC_RW;
+
+  auto result = ioctl(fd, DMA_BUF_IOCTL_SYNC, &buf_sync);
+  if (result) ALOGE("%s: Failed first DMA_BUF_IOCTL_SYNC start", __func__);
+#endif
+  ALOGV("%s: Exit", __func__);
+}
+
+/** SyncEnd
+ *    @fd: ion fd
+ *
+ * End CPU Access
+ *
+ **/
+inline void SyncEnd(int32_t fd) {
+  ALOGV("%s: Enter", __func__);
+#if TARGET_ION_ABI_VERSION >= 2
+  struct dma_buf_sync buf_sync;
+  buf_sync.flags = DMA_BUF_SYNC_END | DMA_BUF_SYNC_RW;
+
+  auto result = ioctl(fd, DMA_BUF_IOCTL_SYNC, &buf_sync);
+  if (result) ALOGE("%s: Failed first DMA_BUF_IOCTL_SYNC End", __func__);
+#endif
+  ALOGV("%s: Exit", __func__);
+}
 
 /** Property:
  *
@@ -167,7 +203,6 @@ class CacheHandler : public qmmf_alg_plugin::ICacheHandler {
       handle_ = share_data.handle;
     }
   }
-
  public:
   ~CacheHandler() {
     if (active_) {

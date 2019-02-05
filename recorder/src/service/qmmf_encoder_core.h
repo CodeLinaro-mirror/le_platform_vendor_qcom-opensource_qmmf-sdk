@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016, 2019, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -130,10 +130,11 @@ class TrackEncoder : public ICodecSource {
 
   // Value of flag can be ION_IOC_CLEAN_CACHES to clean cache or
   // ION_IOC_CLEAN_INV_CACHES to invalidate cache
-  status_t SynchronizeCache(const struct ion_handle_data& ion_handle,
+#ifndef TARGET_ION_ABI_VERSION
+  status_t SynchronizeCache(const ion_user_handle_t& ion_handle,
                             const BufferDescriptor& buffer,
                             const unsigned int flag);
-
+#endif
   // This methos Notifies bitstream buffer to remote client.
   void NotifyBufferToClient(BufferDescriptor& codec_buffer);
 
@@ -147,10 +148,9 @@ class TrackEncoder : public ICodecSource {
   IAVCodec*        avcodec_;
 
   ::std::vector<BufferDescriptor> output_buffer_list_;
-  ::std::vector<struct ion_handle_data> output_ion_list_;
-
   std::queue<BufferDescriptor>  output_free_buffer_queue_;
   std::vector<BufferDescriptor>  output_occupy_buffer_queue_;
+  ::std::map<int32_t, ion_user_handle_t> fd_ion_handle_map_;
 
   int32_t                    ion_device_;
   bool                       eos_atoutput_;
@@ -164,9 +164,6 @@ class TrackEncoder : public ICodecSource {
   uint32_t                   num_bytes_;
   struct timeval             prevtv_;
   uint32_t                   count_;
-
-  // FD and IonHandle map
-  ::std::map<int32_t, struct ion_handle_data> fd_ion_handle_map_;
 
   std::mutex                 queue_lock_;
   QCondition                 wait_for_frame_;
