@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -655,7 +655,7 @@ status_t CameraHalReproc::CreateDeviceStreams() {
   out_stream_params.format = Common::FromQmmfToHalFormat(output_param_.format);
   out_stream_params.width = output_param_.width;
   out_stream_params.height = output_param_.height;
-  out_stream_params.allocFlags = IMemAllocUsage::kSwReadOften;
+  out_stream_params.allocFlags.flags = IMemAllocUsage::kSwReadOften;
   out_stream_params.cb = [&](StreamBuffer buffer)
       { ReprocessCallback(buffer); };
   out_stream_params.is_pp_enabled = true;

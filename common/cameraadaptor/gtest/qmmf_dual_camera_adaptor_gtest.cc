@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, 2018, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -193,7 +193,7 @@ int32_t DualCamera3Gtest::StartStreaming(CameraContext &ctx, uint32_t width,
     streamParams.format = format;
     streamParams.width = width;
     streamParams.height = height;
-    streamParams.allocFlags = IMemAllocUsage::kHwFb;
+    streamParams.allocFlags.flags = IMemAllocUsage::kHwFb;
 
     streamParams.cb = [&](StreamBuffer buffer) {
       printf("%s: Received buffer from camera Id: %d\n", __func__,
