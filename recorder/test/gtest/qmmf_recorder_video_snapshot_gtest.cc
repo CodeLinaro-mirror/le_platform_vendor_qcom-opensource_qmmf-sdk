@@ -5746,6 +5746,9 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithSingleCam4KEncADRC) {
     ASSERT_TRUE(ret == NO_ERROR);
     meta_array.clear();
 
+    ret = recorder_.GetCameraParam(camera_id_, meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
     if (VendorTagSupported(String8("disable"),
         String8("org.codeaurora.qcamera3.adrc"),
         &is_adrc_vtag)) {
