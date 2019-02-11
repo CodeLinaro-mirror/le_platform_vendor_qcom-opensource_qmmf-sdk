@@ -10539,6 +10539,463 @@ TEST_F(RecorderPostprocessVideoGTest,
       test_info_->test_case_name(), test_info_->name());
 }
 
+/*
+* SessionWith1080pEncLinked480pEncAndLinked480pYUVTrackWithLDCAndZoom:
+*     One session with EIS - LDC(linear FOV), Zoom, 1080p 30fps master AVC
+*     track, 480p 30fps linked AVC track and 480p 30fps linked YUV track.
+*
+* Api test sequence:
+*  - StartCamera
+*   loop Start {
+*   ------------------
+*   - CreateSession
+*   - CreateVideoTrack - 1920x1080 @30 AVC - Master
+*   - CreateVideoTrack - 848x480   @30 AVC - Linked
+*   - CreateVideoTrack - 848x480   @30 YUV - Linked
+*   - StartDisplay
+*   - StartSession
+*   - StopSession
+*   - StopDisplay
+*   - DeleteVideoTrack - 848x480   @30 YUV - Linked
+*   - DeleteVideoTrack - 848x480   @30 AVC - Linked
+*   - DeleteVideoTrack - 1920x1080 @30 AVC - Master
+*   - DeleteSession
+*   ------------------
+*   } loop End
+*  - StopCamera
+*/
+TEST_F(RecorderPostprocessVideoGTest,
+    SessionWith1080pEncLinked480pEncAndLinked480pYUVTrackWithLDCAndZoom) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  uint32_t track_id_1080p_avc = 1;
+  uint32_t track_id_480p_avc  = 2;
+  uint32_t track_id_480p_yuv  = 3;
+
+  FrameTrace track_trace(is_frame_debug_enabled_);
+
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dump1080p = {
+      VideoFormat::kAVC, track_id_1080p_avc, 1920, 1080
+    };
+    ret = dump_bitstream_.SetUp(dump1080p);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    StreamDumpInfo dump480p = {
+      VideoFormat::kAVC, track_id_480p_avc, 848, 480
+    };
+    ret = dump_bitstream_.SetUp(dump480p);
+    ASSERT_TRUE(ret == NO_ERROR);
+  }
+
+  SessionCb session_status_cb = CreateSessionStatusCb();
+
+  TrackCb track_cb;
+  track_cb.event_cb =
+      [this] (uint32_t track_id, EventType type, void *data, size_t size)
+      { VideoTrackEventCb(track_id, type, data, size); };
+
+  for (uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
+        test_info_->name(), i);
+
+    uint32_t session_id;
+    ret = recorder_.CreateSession(session_status_cb, &session_id);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    VideoExtraParam extraparam;
+    SourceVideoTrack source_video;
+
+
+    /***************************** 1080p @30 AVC *****************************/
+
+    VideoTrackCreateParam videoparam = { camera_id_, VideoFormat::kAVC, 1920, 1080, 30.0 };
+    track_trace.SetUp(session_id, track_id_1080p_avc, 30.0);
+
+    track_cb.data_cb = [&, session_id] (uint32_t track_id,
+        std::vector<BufferDescriptor> buffers, std::vector<MetaData> meta) {
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta);
+      track_trace.BufferAvailableCb(buffers.at(0));
+    };
+
+    ret = recorder_.CreateVideoTrack(session_id, track_id_1080p_avc,
+                                     videoparam, track_cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    /*********************** Linked 480p @30 AVC *****************************/
+
+    videoparam = { camera_id_, VideoFormat::kAVC, 848, 480, 30.0 };
+
+    source_video.source_track_id = track_id_1080p_avc;
+    extraparam.Update(QMMF_SOURCE_VIDEO_TRACK_ID, source_video);
+
+    track_cb.data_cb = [&, session_id] (uint32_t track_id,
+        std::vector<BufferDescriptor> buffers, std::vector<MetaData> meta) {
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta);
+    };
+
+    ret = recorder_.CreateVideoTrack(session_id, track_id_480p_avc,
+                                     videoparam, extraparam, track_cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    extraparam.Clear();
+
+
+    /*********************** Linked 480p @30 YUV *****************************/
+
+    videoparam = { camera_id_, VideoFormat::kYUV, 848, 480, 30.0 };
+
+    source_video.source_track_id = track_id_480p_avc;
+    extraparam.Update(QMMF_SOURCE_VIDEO_TRACK_ID, source_video);
+
+    track_cb.data_cb = [&, session_id] (uint32_t track_id,
+        std::vector<BufferDescriptor> buffers, std::vector<MetaData> meta) {
+      VideoTrackYUVDataCb(session_id, track_id, buffers, meta);
+    };
+
+    ret = recorder_.CreateVideoTrack(session_id, track_id_480p_yuv,
+                                     videoparam, extraparam, track_cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    std::vector<uint32_t> track_ids;
+    track_ids.push_back(track_id_1080p_avc);
+    track_ids.push_back(track_id_480p_avc);
+    track_ids.push_back(track_id_480p_yuv);
+    sessions_.insert(std::make_pair(session_id, track_ids));
+    extraparam.Clear();
+
+
+    /*********************** Set Camera Parameters ***************************/
+    CameraMetadata meta;
+    ret = recorder_.GetCameraParam(camera_id_, meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    // EIS horizontal margin.
+    float hmargin = (eis_h_margin_ >= 0) ? eis_h_margin_ : 0.100;
+    meta.update(QCAMERA3_IS_H_MARGIN_CFG, &hmargin, 1);
+
+    // EIS vertical margin.
+    float vmargin = (eis_v_margin_ >= 0) ? eis_v_margin_ : 0.100;
+    meta.update(QCAMERA3_IS_V_MARGIN_CFG, &vmargin, 1);
+
+    uint8_t vstab_mode = ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_ON;
+    meta.update(ANDROID_CONTROL_VIDEO_STABILIZATION_MODE, &vstab_mode, 1);
+
+    int32_t dewarp_mode = QCAMERA3_DEWARP_LDC;
+    meta.update(QCAMERA3_DEWARP_MODE, &dewarp_mode, 1);
+
+    ret = recorder_.SetCameraParam(camera_id_, meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    /*********************** Start Recording  ********************************/
+
+#ifndef DISABLE_DISPLAY
+    if (use_display_) {
+      ret = StartDisplay(DisplayType::kPrimary, 848, 480, 480, 360);
+      if (ret != 0) {
+        TEST_ERROR("%s: StartDisplay Failed!!", __func__);
+      }
+    }
+#endif
+
+    ret = recorder_.StartSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    // Let session run for time record_duration_, during this time buffer with
+    // valid data would be received in track callback (VideoTrackYUVDataCb).
+    sleep(record_duration_ / 4);
+
+    SetCameraZoom(1.2);
+
+    sleep(record_duration_ / 4);
+
+    SetCameraZoom(1.5);
+
+    sleep(record_duration_ / 4);
+
+    SetCameraZoom(1.0);
+
+    sleep(record_duration_ / 4);
+
+
+    /*********************** Tear down  **************************************/
+
+    ret = recorder_.StopSession(session_id, false);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+#ifndef DISABLE_DISPLAY
+    if (use_display_) {
+      ret = StopDisplay(DisplayType::kPrimary);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+#endif
+
+    ret = recorder_.DeleteVideoTrack(session_id, track_id_480p_yuv);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, track_id_480p_avc);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, track_id_1080p_avc);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    track_trace.Reset();
+
+    ClearSessions();
+    dump_bitstream_.CloseAll();
+  }
+
+  ret = recorder_.StopCamera(camera_id_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = DeInit();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+* SessionWith1080pEncLinked480pEncAndLinked480pYUVTrackWithSuperViewAndZoom:
+*     One session with EIS - SuperView, Zoom, 1080p 30fps master AVC
+*     track, 480p 30fps linked AVC track and 480p 30fps linked YUV track.
+*
+* Api test sequence:
+*  - StartCamera
+*   loop Start {
+*   ------------------
+*   - CreateSession
+*   - CreateVideoTrack - 1920x1080 @30 AVC - Master
+*   - CreateVideoTrack - 848x480   @30 AVC - Linked
+*   - CreateVideoTrack - 848x480   @30 YUV - Linked
+*   - StartDisplay
+*   - StartSession
+*   - StopSession
+*   - StopDisplay
+*   - DeleteVideoTrack - 848x480   @30 YUV - Linked
+*   - DeleteVideoTrack - 848x480   @30 AVC - Linked
+*   - DeleteVideoTrack - 1920x1080 @30 AVC - Master
+*   - DeleteSession
+*   ------------------
+*   } loop End
+*  - StopCamera
+*/
+TEST_F(RecorderPostprocessVideoGTest,
+    SessionWith1080pEncLinked480pEncAndLinked480pYUVTrackWithSuperViewAndZoom) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  uint32_t track_id_1080p_avc = 1;
+  uint32_t track_id_480p_avc  = 2;
+  uint32_t track_id_480p_yuv  = 3;
+
+  FrameTrace track_trace(is_frame_debug_enabled_);
+
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dump1080p = {
+      VideoFormat::kAVC, track_id_1080p_avc, 1920, 1080
+    };
+    ret = dump_bitstream_.SetUp(dump1080p);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    StreamDumpInfo dump480p = {
+      VideoFormat::kAVC, track_id_480p_avc, 848, 480
+    };
+    ret = dump_bitstream_.SetUp(dump480p);
+    ASSERT_TRUE(ret == NO_ERROR);
+  }
+
+  SessionCb session_status_cb = CreateSessionStatusCb();
+
+  TrackCb track_cb;
+  track_cb.event_cb =
+      [this] (uint32_t track_id, EventType type, void *data, size_t size)
+      { VideoTrackEventCb(track_id, type, data, size); };
+
+  for (uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
+        test_info_->name(), i);
+
+    uint32_t session_id;
+    ret = recorder_.CreateSession(session_status_cb, &session_id);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    VideoExtraParam extraparam;
+    SourceVideoTrack source_video;
+
+
+    /***************************** 1080p @30 AVC *****************************/
+
+    VideoTrackCreateParam videoparam = { camera_id_, VideoFormat::kAVC, 1920, 1080, 30.0 };
+    track_trace.SetUp(session_id, track_id_1080p_avc, 30.0);
+
+    track_cb.data_cb = [&, session_id] (uint32_t track_id,
+        std::vector<BufferDescriptor> buffers, std::vector<MetaData> meta) {
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta);
+      track_trace.BufferAvailableCb(buffers.at(0));
+    };
+
+    ret = recorder_.CreateVideoTrack(session_id, track_id_1080p_avc,
+                                     videoparam, track_cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    /*********************** Linked 480p @30 AVC *****************************/
+
+    videoparam = { camera_id_, VideoFormat::kAVC, 848, 480, 30.0 };
+
+    source_video.source_track_id = track_id_1080p_avc;
+    extraparam.Update(QMMF_SOURCE_VIDEO_TRACK_ID, source_video);
+
+    track_cb.data_cb = [&, session_id] (uint32_t track_id,
+        std::vector<BufferDescriptor> buffers, std::vector<MetaData> meta) {
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta);
+    };
+
+    ret = recorder_.CreateVideoTrack(session_id, track_id_480p_avc,
+                                     videoparam, extraparam, track_cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    extraparam.Clear();
+
+
+    /*********************** Linked 480p @30 YUV *****************************/
+
+    videoparam = { camera_id_, VideoFormat::kYUV, 848, 480, 30.0 };
+
+    source_video.source_track_id = track_id_480p_avc;
+    extraparam.Update(QMMF_SOURCE_VIDEO_TRACK_ID, source_video);
+
+    track_cb.data_cb = [&, session_id] (uint32_t track_id,
+        std::vector<BufferDescriptor> buffers, std::vector<MetaData> meta) {
+      VideoTrackYUVDataCb(session_id, track_id, buffers, meta);
+    };
+
+    ret = recorder_.CreateVideoTrack(session_id, track_id_480p_yuv,
+                                     videoparam, extraparam, track_cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    std::vector<uint32_t> track_ids;
+    track_ids.push_back(track_id_1080p_avc);
+    track_ids.push_back(track_id_480p_avc);
+    track_ids.push_back(track_id_480p_yuv);
+    sessions_.insert(std::make_pair(session_id, track_ids));
+    extraparam.Clear();
+
+
+    /*********************** Set Camera Parameters ***************************/
+    CameraMetadata meta;
+    ret = recorder_.GetCameraParam(camera_id_, meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    // EIS horizontal margin.
+    float hmargin = (eis_h_margin_ >= 0) ? eis_h_margin_ : 0.100;
+    meta.update(QCAMERA3_IS_H_MARGIN_CFG, &hmargin, 1);
+
+    // EIS vertical margin.
+    float vmargin = (eis_v_margin_ >= 0) ? eis_v_margin_ : 0.100;
+    meta.update(QCAMERA3_IS_V_MARGIN_CFG, &vmargin, 1);
+
+    uint8_t vstab_mode = ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_ON;
+    meta.update(ANDROID_CONTROL_VIDEO_STABILIZATION_MODE, &vstab_mode, 1);
+
+    int32_t dewarp_mode = QCAMERA3_DEWARP_CUSTOM;
+    meta.update(QCAMERA3_DEWARP_MODE, &dewarp_mode, 1);
+
+    ret = recorder_.SetCameraParam(camera_id_, meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+
+    /*********************** Start Recording  ********************************/
+
+#ifndef DISABLE_DISPLAY
+    if (use_display_) {
+      ret = StartDisplay(DisplayType::kPrimary, 848, 480, 480, 360);
+      if (ret != 0) {
+        TEST_ERROR("%s: StartDisplay Failed!!", __func__);
+      }
+    }
+#endif
+
+    ret = recorder_.StartSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    // Let session run for time record_duration_, during this time buffer with
+    // valid data would be received in track callback (VideoTrackYUVDataCb).
+    sleep(record_duration_ / 4);
+
+    SetCameraZoom(1.2);
+
+    sleep(record_duration_ / 4);
+
+    SetCameraZoom(1.5);
+
+    sleep(record_duration_ / 4);
+
+    SetCameraZoom(1.0);
+
+    sleep(record_duration_ / 4);
+
+
+    /*********************** Tear down  **************************************/
+
+    ret = recorder_.StopSession(session_id, false);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+#ifndef DISABLE_DISPLAY
+    if (use_display_) {
+      ret = StopDisplay(DisplayType::kPrimary);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+#endif
+
+    ret = recorder_.DeleteVideoTrack(session_id, track_id_480p_yuv);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, track_id_480p_avc);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, track_id_1080p_avc);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    track_trace.Reset();
+
+    ClearSessions();
+    dump_bitstream_.CloseAll();
+  }
+
+  ret = recorder_.StopCamera(camera_id_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = DeInit();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
 #else // #ifndef CAM_ARCH_V2
 
 /*

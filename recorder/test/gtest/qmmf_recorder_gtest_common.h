@@ -596,6 +596,8 @@ class GtestCommon : public ::testing::Test {
 
   status_t SetCameraFocalLength(const float focal_length);
 
+  status_t SetCameraZoom(const float zoom);
+
   void RemoveSpaces(std::string &str);
 
   void TokenizeString(std::string const &str, const char delim,

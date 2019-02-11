@@ -1613,6 +1613,36 @@ status_t GtestCommon::SetCameraFocalLength(const float focal_length) {
   return NO_ERROR;
 }
 
+status_t GtestCommon::SetCameraZoom(const float zoom) {
+  CameraMetadata meta;
+  auto ret = recorder_.GetCameraParam(camera_id_, meta);
+  EXPECT_TRUE(ret == NO_ERROR);
+
+  if (meta.exists(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE)) {
+    auto active_array_size = meta.find(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE);
+    EXPECT_TRUE(active_array_size.count > 0);
+
+    int32_t width = active_array_size.data.i32[2];
+    int32_t height = active_array_size.data.i32[3];
+
+    int32_t crop[4];
+    crop[2] = static_cast<int32_t>(width / zoom);
+    crop[3] = (crop[2] * height / width);
+    crop[0] = (width - crop[2]) / 2;
+    crop[1] = (height - crop[3]) / 2;
+
+    TEST_INFO("%s: zoom: %.2f crop[0]=%d, crop[1]=%d, crop[2]=%d, crop[3]=%d",
+        __func__, zoom, crop[0], crop[1], crop[2], crop[3]);
+
+    auto ret = meta.update(ANDROID_SCALER_CROP_REGION, crop, 4);
+    EXPECT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.SetCameraParam(camera_id_, meta);
+    EXPECT_TRUE(ret == NO_ERROR);
+  }
+  return NO_ERROR;
+}
+
 /*
 * RemoveSpaces: Utility method to remove the spaces from a string
 */
