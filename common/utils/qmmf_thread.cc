@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -93,7 +93,9 @@ void ThreadHelper::RequestExitAndWait() {
   }
 
   ChangeState(ThreadHelperState::kToIdle);
-  thread_.join();
+
+  if (thread_.joinable())
+    thread_.join();
 }
 
 void ThreadHelper::ChangeState(const ThreadHelperState& state) {
