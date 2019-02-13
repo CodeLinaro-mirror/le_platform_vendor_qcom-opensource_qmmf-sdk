@@ -89,19 +89,25 @@ void ThreadHelper::RequestExitAndWait() {
 
   if (IsState(ThreadHelperState::kToIdle)) {
     QMMF_WARN("%s: %s thread is pending exit!", __func__, name_.c_str());
+    WaitState(ThreadHelperState::kIdle);
     return;
   }
 
   ChangeState(ThreadHelperState::kToIdle);
-
-  if (thread_.joinable())
-    thread_.join();
+  thread_.join();
 }
 
 void ThreadHelper::ChangeState(const ThreadHelperState& state) {
 
   std::lock_guard<std::mutex> l(state_lock_);
   state_ = state;
+  state_updated_.Signal();
+}
+
+void ThreadHelper::WaitState(const ThreadHelperState& state) {
+
+  std::unique_lock<std::mutex> l(state_lock_);
+  state_updated_.Wait(l, [&]() { return (state_ == state); });
 }
 
 bool ThreadHelper::IsState(const ThreadHelperState& state) {

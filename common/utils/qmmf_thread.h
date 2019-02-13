@@ -34,6 +34,8 @@
 #include <string>
 #include <mutex>
 
+#include <common/utils/qmmf_condition.h>
+
 namespace qmmf {
 
 class ThreadHelper {
@@ -61,6 +63,7 @@ class ThreadHelper {
 
  private:
   void ChangeState(const ThreadHelperState& state);
+  void WaitState(const ThreadHelperState& state);
   bool IsState(const ThreadHelperState& state);
 
   void MainLoop(bool active = true);
@@ -70,6 +73,7 @@ class ThreadHelper {
 
   ThreadHelperState        state_;
   std::mutex               state_lock_;
+  QCondition               state_updated_;
 
   std::mutex               lock_;
 };
