@@ -1247,7 +1247,7 @@ TEST_F(RecorderPostprocessVideoGTest,
     SourceVideoTrack source_video;
     VideoTimeLapse timelapse;
 
-    float fps = 1000.0 / timelapse_interval_;
+    float fps = 1.0 / timelapse_interval_;
 
 
     /*************************** 4K @30 AVC **********************************/

@@ -1222,7 +1222,7 @@ TrackSource::TrackSource(const VideoTrackParams& params,
 
   if (track_params_.extra_param.Exists(QMMF_VIDEO_TIMELAPSE_INTERVAL) ) {
      VideoTimeLapse timestamp;
-     track_params_.extra_param.Fetch(QMMF_SOURCE_VIDEO_TRACK_ID, timestamp);
+     track_params_.extra_param.Fetch(QMMF_VIDEO_TIMELAPSE_INTERVAL, timestamp);
      time_lapse_interval_ = timestamp.time_interval;
      time_lapse_mode_ = true;
      QMMF_INFO("%s: track_id(%x) TimeLapseMode enabled! interval(%u)",
