@@ -95,7 +95,8 @@ class Camera3RequestHandler : public ThreadHelper {
   Camera3RequestHandler(const Camera3RequestHandler &);
   Camera3RequestHandler &operator=(const Camera3RequestHandler &);
 
-  static const int64_t WAIT_TIMEOUT = 50e6;  // 50 ms
+  static const int64_t WAIT_TIMEOUT  = 50e6;  // 50 ms
+  static const int64_t CLEAR_TIMEOUT = 500e6; // 500 ms
 
   ErrorCallback error_cb_;
   MarkRequest mark_cb_;
@@ -104,6 +105,7 @@ class Camera3RequestHandler : public ThreadHelper {
 
   pthread_mutex_t lock_;
   pthread_cond_t requests_signal_;
+  pthread_cond_t current_request_signal_;
   RequestList requests_;
   RequestList streaming_requests_;
 
