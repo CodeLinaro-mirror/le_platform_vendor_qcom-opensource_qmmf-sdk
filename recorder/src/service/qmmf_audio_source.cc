@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -26,6 +26,8 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
+//! @file qmmf_audio_source.h
 
 #define LOG_TAG "RecorderAudioSource"
 
@@ -78,6 +80,11 @@ AudioSource::~AudioSource() {
   instance_ = nullptr;
 }
 
+/*!
+ *  Creates either a new AudioRawTrackSource instance (for PCM audio) or a new
+ *  AudioEncodedTrackSource instance (for encoded audio). The instance is then
+ *  initialized with the given parameters, and added to the map.
+ */
 status_t AudioSource::CreateTrackSource(const uint32_t track_id,
                                         AudioTrackParams& params) {
   QMMF_DEBUG("%s() TRACE", __func__);
@@ -134,6 +141,10 @@ status_t AudioSource::CreateTrackSource(const uint32_t track_id,
   return ::android::NO_ERROR;
 }
 
+/*!
+ *  Deinitializes the IAudioTrackSource-implemented instance indicated by the
+ *  track_id, removes it from the map and deletes it.
+ */
 status_t AudioSource::DeleteTrackSource(const uint32_t track_id) {
   QMMF_DEBUG("%s() TRACE", __func__);
   QMMF_VERBOSE("%s() INPARAM: track_id[%u]", __func__, track_id);
@@ -159,6 +170,10 @@ status_t AudioSource::DeleteTrackSource(const uint32_t track_id) {
   return ::android::NO_ERROR;
 }
 
+/*!
+ *  Invokes the start command on the IAudioTrackSource-implemented instance
+ *  indicated by the track_id.
+ */
 status_t AudioSource::StartTrackSource(const uint32_t track_id) {
   QMMF_DEBUG("%s(): TRACE", __func__);
   QMMF_KPI_BASE();
@@ -182,6 +197,10 @@ status_t AudioSource::StartTrackSource(const uint32_t track_id) {
   return ::android::NO_ERROR;
 }
 
+/*!
+ *  Invokes the stop command on the IAudioTrackSource-implemented instance
+ *  indicated by the track_id.
+ */
 status_t AudioSource::StopTrackSource(const uint32_t track_id) {
   QMMF_DEBUG("%s(): TRACE", __func__);
   QMMF_VERBOSE("%s() INPARAM: track_id[%u]", __func__, track_id);
@@ -205,6 +224,10 @@ status_t AudioSource::StopTrackSource(const uint32_t track_id) {
   return ::android::NO_ERROR;
 }
 
+/*!
+ *  Invokes the pause command on the IAudioTrackSource-implemented instance
+ *  indicated by the track_id.
+ */
 status_t AudioSource::PauseTrackSource(const uint32_t track_id) {
   QMMF_DEBUG("%s(): TRACE", __func__);
   QMMF_VERBOSE("%s() INPARAM: track_id[%u]", __func__, track_id);
@@ -228,6 +251,10 @@ status_t AudioSource::PauseTrackSource(const uint32_t track_id) {
   return ::android::NO_ERROR;
 }
 
+/*!
+ *  Invokes the resume command on the IAudioTrackSource-implemented instance
+ *  indicated by the track_id.
+ */
 status_t AudioSource::ResumeTrackSource(const uint32_t track_id) {
   QMMF_DEBUG("%s(): TRACE", __func__);
   QMMF_VERBOSE("%s() INPARAM: track_id[%u]", __func__, track_id);
@@ -251,6 +278,10 @@ status_t AudioSource::ResumeTrackSource(const uint32_t track_id) {
   return ::android::NO_ERROR;
 }
 
+/*!
+ *  Passes the given parameter arguments on to the IAudioTrackSource-implemented
+ *  instance indicated by the track_id.
+ */
 status_t AudioSource::SetParameter(const uint32_t track_id, const string& key,
                                    const string& value) {
   QMMF_DEBUG("%s(): TRACE", __func__);
@@ -277,6 +308,10 @@ status_t AudioSource::SetParameter(const uint32_t track_id, const string& key,
   return ::android::NO_ERROR;
 }
 
+/*!
+ *  Sends the given buffers to the IAudioTrackSource-implemented instance
+ *  indicated by the track_id.
+ */
 status_t AudioSource::ReturnTrackBuffer(const uint32_t track_id,
                                         const std::vector<BnBuffer>& buffers) {
   QMMF_DEBUG("%s() TRACE", __func__);

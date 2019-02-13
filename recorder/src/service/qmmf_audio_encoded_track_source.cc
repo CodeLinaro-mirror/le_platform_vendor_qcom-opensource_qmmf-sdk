@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -26,6 +26,8 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
+//! @file qmmf_audio_encoded_track_source.cc
 
 #define LOG_TAG "RecorderAudioEncodedTrackSource"
 
@@ -71,6 +73,7 @@ using ::std::thread;
 using ::std::unique_lock;
 using ::std::vector;
 
+//! Default number of audio buffers to allocate.
 static const int kNumberOfBuffers = INPUT_MAX_COUNT;
 
 AudioEncodedTrackSource::AudioEncodedTrackSource(const AudioTrackParams& params)
@@ -88,6 +91,14 @@ AudioEncodedTrackSource::~AudioEncodedTrackSource() {
   QMMF_DEBUG("%s() TRACE", __func__);
 }
 
+/*!
+ *  Sets up the data path between an instance of an AVCodec audio encoder and a
+ *  newly created instance of an AudioEndPoint.  Connects to the audio service
+ *  and configures the audio endpoint based on the given parameters.
+ *
+ *  Allocates a set number of audio buffers, the size of each being determined
+ *  by the audio endpoint.
+ */
 status_t AudioEncodedTrackSource::Init() {
   QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__,
              track_params_.track_id);
@@ -187,6 +198,10 @@ error_init_free:
   return ::android::FAILED_TRANSACTION;
 }
 
+/*!
+ *  Deallocates the audio buffers, disconnects from the audio service, and then
+ *  destroys the audio endpoint.
+ */
 status_t AudioEncodedTrackSource::DeInit() {
   QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__,
              track_params_.track_id);
@@ -208,6 +223,10 @@ status_t AudioEncodedTrackSource::DeInit() {
   return ::android::NO_ERROR;
 }
 
+/*!
+ *  Starts the data flow in the audio endpoint and pushes the list of audio
+ *  buffers to it. Initializes the state flags to indicate data is flowing.
+ */
 status_t AudioEncodedTrackSource::StartTrack() {
   QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__,
              track_params_.track_id);
@@ -221,7 +240,6 @@ status_t AudioEncodedTrackSource::StartTrack() {
     goto error_start_stop;
   }
 
-  // send the initial list of buffers
   result = ion_.GetList(&initial_buffers);
   if (result < 0) {
     QMMF_ERROR("%s() ion->GetList failed: %d[%s]", __func__, result,
@@ -247,6 +265,10 @@ error_start_stop:
   return ::android::FAILED_TRANSACTION;
 }
 
+/*!
+ *  Stops the data flow in the audio endpoint and sets the state flag to
+ *  indicate that stop has been called.
+ */
 status_t AudioEncodedTrackSource::StopTrack() {
   QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__,
              track_params_.track_id);
@@ -263,6 +285,9 @@ status_t AudioEncodedTrackSource::StopTrack() {
   return ::android::NO_ERROR;
 }
 
+/*!
+ *  Pauses the data flow in the audio endpoint.
+ */
 status_t AudioEncodedTrackSource::PauseTrack() {
   QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__,
              track_params_.track_id);
@@ -277,6 +302,9 @@ status_t AudioEncodedTrackSource::PauseTrack() {
   return ::android::NO_ERROR;
 }
 
+/*!
+ *  Resumes the data flow in the audio endpoint.
+ */
 status_t AudioEncodedTrackSource::ResumeTrack() {
   QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__,
              track_params_.track_id);
@@ -291,6 +319,9 @@ status_t AudioEncodedTrackSource::ResumeTrack() {
   return ::android::NO_ERROR;
 }
 
+/*!
+ *  Passes the given parameter arguments to the audio endpoint.
+ */
 status_t AudioEncodedTrackSource::SetParameter(const string& key,
                                                const string& value) {
   QMMF_VERBOSE("%s() INPARAM: key[%s]", __func__, key.c_str());
@@ -310,6 +341,10 @@ status_t AudioEncodedTrackSource::SetParameter(const string& key,
   return ::android::NO_ERROR;
 }
 
+/*!
+ *  This method is stubbed out.
+ *  @warning This should never be called.
+ */
 status_t AudioEncodedTrackSource::ReturnTrackBuffer(
     const std::vector<BnBuffer> &buffers) {
   QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__,
@@ -324,6 +359,14 @@ status_t AudioEncodedTrackSource::ReturnTrackBuffer(
   return ::android::INVALID_OPERATION;
 }
 
+/*!
+ *  Pops a buffer (filled with PCM audio) off of the buffer queue and send it to
+ *  the audio encoder.  If this is the last buffer, then the audio encoder is
+ *  notified by a return value of -1.
+ *
+ *  If the buffer queue is empty, waits for a buffer from the audio endpoint to
+ *  be pushed into the queue.
+ */
 status_t AudioEncodedTrackSource::GetBuffer(BufferDescriptor& buffer,
                                             void* client_data) {
   QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__,
@@ -353,6 +396,12 @@ status_t AudioEncodedTrackSource::GetBuffer(BufferDescriptor& buffer,
     return ::android::NO_ERROR;
 }
 
+/*!
+ *  Receives an empty buffer from the audio encoder, maps it to
+ *  the audio endpoint buffer and sends it to the audio endpoint.
+ *
+ *  If stop has been called, then the buffer is discarded.
+ */
 status_t AudioEncodedTrackSource::ReturnBuffer(BufferDescriptor& buffer,
                                                void* client_data) {
   QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__,
@@ -388,6 +437,13 @@ status_t AudioEncodedTrackSource::ReturnBuffer(BufferDescriptor& buffer,
   return ::android::NO_ERROR;
 }
 
+/*!
+ *  Receives any events from the input port of the audio encoder.  Used to
+ *  synchronize with the audio encoder to ensure the last buffer is sent.
+ *
+ *  * The kPortStop event is used to stop sending buffers to audio encoder.
+ *  * The kPortIdle event is used to safely flush the buffer queue.
+ */
 status_t AudioEncodedTrackSource::NotifyPortEvent(PortEventType event_type,
                                                   void* event_data) {
   QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__,
@@ -417,6 +473,9 @@ status_t AudioEncodedTrackSource::NotifyPortEvent(PortEventType event_type,
   return ::android::NO_ERROR;
 }
 
+/*!
+ *  @todo Currently not used.
+ */
 status_t AudioEncodedTrackSource::GetBufferSize(int32_t* buffer_size) {
   QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__,
              track_params_.track_id);
@@ -428,6 +487,9 @@ status_t AudioEncodedTrackSource::GetBufferSize(int32_t* buffer_size) {
   return ::android::NO_ERROR;
 }
 
+/*!
+ *  @todo Currently not used.
+ */
 status_t AudioEncodedTrackSource::SetBufferSize(const int32_t buffer_size) {
   QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__,
              track_params_.track_id);
@@ -438,6 +500,11 @@ status_t AudioEncodedTrackSource::SetBufferSize(const int32_t buffer_size) {
   return ::android::NO_ERROR;
 }
 
+/*!
+ *  Logs the error from the audio endpoint and asserts (crashing the service).
+ *
+ *  @todo Send notification to application instead of asserting.
+ */
 void AudioEncodedTrackSource::ErrorHandler(const int32_t error) {
   QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__,
              track_params_.track_id);
@@ -446,9 +513,12 @@ void AudioEncodedTrackSource::ErrorHandler(const int32_t error) {
   QMMF_ERROR("%s() received error from endpoint: %d[%s]", __func__,
                error, strerror(error));
   assert(false);
-  // TODO(kwestfie@codeaurora.org): send notification to application instead
 }
 
+/*!
+ *  Receives a buffer (filled with PCM audio) from the audio endpoint, maps it
+ *  to the buffer descriptor and pushes it into the buffer queue.
+ */
 void AudioEncodedTrackSource::BufferHandler(const AudioBuffer& buffer) {
   QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__,
              track_params_.track_id);

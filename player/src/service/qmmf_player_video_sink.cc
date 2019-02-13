@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -25,6 +25,9 @@
 * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
 * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*/
+
+/*! @file qmmf_player_video_sink.h
 */
 
 #define LOG_TAG "VideoSink"
@@ -65,7 +68,7 @@ using ::std::weak_ptr;
 
 VideoSink* VideoSink::instance_ = nullptr;
 
-// sleep time for Pause/Flush - 5000 usec
+/**< sleep time for Pause/Flush - 5000 usec */
 const uint32_t VideoTrackSink::kSleepWait = 5000;
 
 VideoSink* VideoSink::CreateVideoSink() {
@@ -295,7 +298,7 @@ VideoTrackSink::VideoTrackSink()
   }
 #endif
 
-  // open ion device
+  /// open ion device
   ion_device_ = open("/dev/ion", O_RDONLY);
   if (ion_device_ < 0) {
     QMMF_ERROR("%s() error opening ion device: %d[%s]", __func__,
@@ -418,7 +421,7 @@ status_t VideoTrackSink::StartSink() {
   audio_accumulated_frames_ = 0;
   audio_offset_ = -1;
 
-  // decoded buffer queue
+  /// decoded buffer queue
   for (auto& iter : output_buffer_list_) {
     QMMF_DEBUG("%s: track_id(%d) Adding buffer fd(%d) to output_free_buffer_queue_",
               __func__, TrackId(), iter.fd);
@@ -683,7 +686,7 @@ void VideoTrackSink::AddBufferList(Vector<CodecBuffer>& list) {
                  buf_info_map[j].buf_id, buf_info_map[j].vaddr);
   }
 
-  // decoded buffer queue
+  /// decoded buffer queue
   for (auto& iter : output_buffer_list_) {
     QMMF_DEBUG("%s: track_id(%d) Adding buffer fd(%d) to output_free_buffer_queue_",
               __func__, TrackId(), iter.fd);
@@ -701,14 +704,14 @@ void VideoTrackSink::PassTrackDecoder(
 status_t VideoTrackSink::GetBuffer(BufferDescriptor& codec_buffer,
                                    void* client_data) {
   QMMF_DEBUG("%s: Enter track_id(%d)", __func__, TrackId());
-  // Give available free buffer to decoder to use on output port.
+  /// Give available free buffer to decoder to use on output port.
   int32_t log_counter = 0;
   while (output_free_buffer_queue_.Size() <= 0 && !stop_notify_called_ &&
          !port_reconfigured_ && !flush_in_progress_) {
     std::unique_lock<std::mutex> lock(get_buffer_wait_lock_);
     if (get_buffer_wait_.WaitFor(lock, milliseconds(50)) != 0) {
       log_counter++;
-      if (log_counter % 20 == 0) // log the message every 1 sec
+      if (log_counter % 20 == 0) /// log the message every 1 sec
         QMMF_WARN("%s track_id(%d) timed out on wait", __func__, TrackId());
     }
   }
@@ -760,7 +763,7 @@ status_t VideoTrackSink::ReturnBuffer(BufferDescriptor& codec_buffer,
   QMMF_VERBOSE("%s: track_id(%d) Received buffer(0x%p) from FBD",
       __func__, TrackId(), codec_buffer.data);
 
-  // Handle Corrupt Frame.
+  /// Handle Corrupt Frame.
   if ((codec_buffer.flag &
        static_cast<uint32_t>(BufferFlags::kFlagDataCorrupt)) &&
       !(codec_buffer.flag & static_cast<uint32_t>(BufferFlags::kFlagEOS))) {
@@ -933,9 +936,9 @@ void VideoTrackSink::Renderer() {
 
   while (!stop_called_) {
     auto start_time = high_resolution_clock::now();
-    // for 90 fps video we need to enable to 2 filters.
-    // First filter will skip the frame from SkipFrame function.
-    // Second Filter will skip the frame from isFrameSkip function.
+    /// for 90 fps video we need to enable to 2 filters.
+    /// First filter will skip the frame from SkipFrame function.
+    /// Second Filter will skip the frame from isFrameSkip function.
     bool skip_frame  = false;
     if (decoded_buffer_queue_.Size() > 0) {
       if (paused_ || flush_in_progress_) {
@@ -990,7 +993,7 @@ void VideoTrackSink::Renderer() {
         }
 
       if (!skip_frame) {
-        // if audio is running, grab the timestamp
+        /// if audio is running, grab the timestamp
       uint32_t audio_frames = 0;
       uint32_t audio_rate = 0;
       int64_t audio_offset = -1;
@@ -1006,7 +1009,7 @@ void VideoTrackSink::Renderer() {
         }
       }
 
-      // if audio is running, synchronize video to audio
+      /// if audio is running, synchronize video to audio
       if (audio_frames > 0 && previous_audio_frames != audio_frames &&
           audio_offset >= 0) {
         lock_guard<mutex> lock(avsync_lock_);
@@ -1029,7 +1032,7 @@ void VideoTrackSink::Renderer() {
 
         previous_audio_frames = audio_frames;
 
-        // video frame is too late, drop it
+        /// video frame is too late, drop it
         if (difference > 20000) {
           QMMF_WARN("%s: track_id(%d) video behind audio (%lld), dropping frame",
                     __func__, TrackId(), difference);
@@ -1043,7 +1046,7 @@ void VideoTrackSink::Renderer() {
           continue;
         }
 
-        // video frame is too early, wait and then check again
+        /// video frame is too early, wait and then check again
         if (difference < -40000) {
           int64_t delay = (difference < -60000 ? 30000 : -difference - 20000);
           int64_t sleep = delay < 0 ? 10000 : delay;
@@ -1480,8 +1483,8 @@ status_t VideoTrackSink::PushFrameToDisplay(BufferDescriptor& codec_buffer) {
     last_rendered_frame_ = codec_buffer;
     last_queued_timestamp_ = codec_buffer.timestamp;
 
-    // Using temp buffer for dequeue since surface_buffer_ used by
-    // grab picture as well
+    /// Using temp buffer for dequeue since surface_buffer_ used by
+    /// grab picture as well
     SurfaceBuffer dequeue_surface_buffer;
     memset(&dequeue_surface_buffer, 0x0, sizeof(SurfaceBuffer));
     ret = display_->DequeueSurfaceBuffer(surface_id_, dequeue_surface_buffer);

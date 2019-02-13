@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -27,8 +27,7 @@
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-/*! @file qmmf_recorder.h
-*/
+//! @file qmmf_recorder.h
 
 #pragma once
 
@@ -43,38 +42,37 @@
 #include "qmmf-sdk/qmmf_recorder_extra_param.h"
 #include "qmmf-sdk/qmmf_overlay.h"
 
-
 namespace qmmf {
-
 namespace recorder {
 
 class RecorderClient;
 
-/// @brief Client interface for audio, video recording and image capture.
-///
-/// To start an audio or/and video recording
-/// clients first should create a session.
-/// A session can contain multiple audio and video tracks.
-/// All tracks in a session changes state change
-/// (say start, stop, pause etc) together.
-///
-/// Multiple sessions can be created and run at the same time.
-/// Recorder provides elementary stream callback to clients and clients
-/// manage the muxer. A/V muxer is not part of the
-/// Recorder class and hence clients
-/// need to use an external muxer to save the elementary streams
-///
-/// For image capture, Recorder API provides single, burst and
-/// timed image capture
-/// Image capture APIs are  not associated with session and can
-/// be triggered independent of session.
-///
-/// Some of the APIs in the class are sync and others async.
-/// The API documentation explicitly says whether the API is async.
-///
-/// Callbacks used for async communication from recorder class are expected
-/// to be lambda functions. The client is expected to capture the context
-/// while setting the callback.
+/*! @brief Client interface for audio, video recording and image capture.
+
+    To start an audio or/and video recording
+    clients first should create a session.
+    A session can contain multiple audio and video tracks.
+    All tracks in a session changes state change
+    (say start, stop, pause etc) together.
+   
+    Multiple sessions can be created and run at the same time.
+    Recorder provides elementary stream callback to clients and clients
+    manage the muxer. A/V muxer is not part of the
+    Recorder class and hence clients
+    need to use an external muxer to save the elementary streams
+   
+    For image capture, Recorder API provides single, burst and
+    timed image capture
+    Image capture APIs are  not associated with session and can
+    be triggered independent of session.
+   
+    Some of the APIs in the class are sync and others async.
+    The API documentation explicitly says whether the API is async.
+   
+    Callbacks used for async communication from recorder class are expected
+    to be lambda functions. The client is expected to capture the context
+    while setting the callback.
+*/
 class Recorder {
  public:
   Recorder();

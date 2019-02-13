@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017, 2019, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -27,6 +27,9 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/*! @file qmmf_postproc.h
+*/
+
 #pragma once
 
 #include <functional>
@@ -39,30 +42,40 @@ using namespace cameraadaptor;
 
 namespace recorder {
 
+/// Interface to Camera Device for re-process
 class IPostProc {
 public:
+
+  /// Return buffer to Camera
   virtual status_t ReturnStreamBuffer(StreamBuffer buffer) = 0;
 
+  /// Create Camera stream
   virtual status_t CreateDeviceStream(CameraStreamParameters& params,
                                       uint32_t frame_rate,
                                       int32_t* stream_id,
                                       bool cache) = 0;
 
+  /// Create input Camera stream for re-process
   virtual status_t CreateDeviceInputStream(CameraInputStreamParameters& params,
                                            int32_t* stream_id,
                                            bool cache) = 0;
 
+  /// Submit Capture request to Camera
   virtual status_t SubmitRequest(Camera3Request request,
                                  bool is_streaming,
                                  int64_t *lastFrameNumber) = 0;
 
+  /// Delete Camera stream
   virtual status_t DeleteDeviceStream(int32_t stream_id, bool cache) = 0;
 
+  /// Get default camera parameters for given use case
   virtual status_t CreateCaptureRequest(Camera3Request& request,
                                   camera3_request_template_t template_type) = 0;
 
+  /// Return supported camera parameters
   virtual CameraMetadata GetCameraStaticMeta() = 0;
 
+  /// IPostProc Destructor
   virtual ~IPostProc() {};
 };
 
