@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -568,7 +568,7 @@ int32_t TimeLapse::CreateLPMTrack() {
   } else {
     VideoTrackCreateParam video_track_param2 {cam_id_, VideoFormat::kYUV,
                                              kLPMTrackWidth, kLPMTrackHeight, 30};
-   video_track_param = video_track_param2;
+    video_track_param = video_track_param2;
   }
 
   video_track_param.low_power_mode = true;
@@ -598,7 +598,7 @@ int32_t TimeLapse::TakeYUVSnapshotandEnqueuetoEncoder() {
   ALOGD_IF(TIMELAPSE_DEBUG, "%s: Enter", __func__);
   int32_t ret = 0;
 
-  ImageParam image_param {params_.width, params_.height, 0, ImageFormat::kNV12};
+  ImageParam image_param {params_.width, params_.height, 0, ImageFormat::kNV12Encodable};
 
   std::vector<android::CameraMetadata> meta_array;
   CameraMetadata meta;
@@ -1143,6 +1143,7 @@ int32_t EncoderSource::FromQmmfToHalFormat(BufferFormat& buffer_format) {
       buffer_format);
   switch (buffer_format) {
     case BufferFormat::kNV12:
+    case BufferFormat::kNV12Encodable:
       format = HAL_PIXEL_FORMAT_NV12_ENCODEABLE;
       break;
     case BufferFormat::kNV12UBWC:

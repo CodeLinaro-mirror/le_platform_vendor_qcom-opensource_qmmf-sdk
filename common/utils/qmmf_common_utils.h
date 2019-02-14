@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -110,6 +110,7 @@ class Common {
         break;
       case BufferFormat::kNV12UBWC:
       case BufferFormat::kNV12:
+      case BufferFormat::kNV12Encodable:
         return HAL_PIXEL_FORMAT_YCbCr_420_888;
         break;
       case BufferFormat::kNV21:
@@ -203,6 +204,9 @@ class Common {
         break;
       case ImageFormat::kBayerRDI12BIT:
         return BufferFormat::kRAW12;
+        break;
+      case ImageFormat::kNV12Encodable:
+        return BufferFormat::kNV12Encodable;
         break;
       default:
         /* Format not supported */
