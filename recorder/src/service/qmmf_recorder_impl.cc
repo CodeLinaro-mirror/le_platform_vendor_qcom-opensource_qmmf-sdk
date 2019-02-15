@@ -1405,6 +1405,23 @@ status_t RecorderImpl::CreateVideoTrack(const uint32_t client_id,
         " failed!", __func__, track_id, service_track_id);
       return BAD_VALUE;
     }
+    if (extra_param.Exists(QMMF_VIDEO_TIMELAPSE_INTERVAL)) {
+      timelapse_mode_.emplace(track_id, true);
+
+      VideoTimeLapse timelapse;
+      extra_param.Fetch(QMMF_VIDEO_TIMELAPSE_INTERVAL, timelapse);
+
+      float fps = 1000.0 / timelapse.time_interval;
+      CodecParamType type = CodecParamType::kFrameRateType;
+
+      ret = encoder_core_->SetTrackEncoderParams(service_track_id, type,
+                                                 &fps, sizeof(fps));
+      if (ret != NO_ERROR) {
+        QMMF_ERROR("%s: track_id(%d):service_track_id(%x) Set encoder frame "
+          "rate failed!",  __func__, track_id, service_track_id);
+        return ret;
+      }
+    }
   }
 
   {
@@ -1517,6 +1534,7 @@ status_t RecorderImpl::DeleteVideoTrack(const uint32_t client_id,
   // This method doesn't go up to client as a callback, it is just to update
   // Internal data structure used for buffer mapping.
   remote_cb_handle_(client_id)->NotifyDeleteVideoTrack(track_id);
+  timelapse_mode_.erase(track_id);
 
   QMMF_DEBUG("%s: Enter client_id(%d):session_id(%d)", __func__,
       client_id, session_id);
@@ -1646,13 +1664,17 @@ status_t RecorderImpl::SetVideoTrackParam(const uint32_t client_id,
 
   auto track_info = GetServiceTrackInfo(client_id, session_id, track_id);
 
-  assert(encoder_core_ != nullptr);
-  auto ret = encoder_core_->SetTrackEncoderParams(track_info.track_id, type,
-                                                  param, param_size);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: client_id(%d) Failed to set video encode params!",
-        __func__, client_id);
-    return ret;
+  status_t ret = 0;
+  if (!(timelapse_mode_[track_id] && type == CodecParamType::kFrameRateType)) {
+    // Do not override encoder track frame rate in timelapse mode.
+    assert(encoder_core_ != nullptr);
+    ret = encoder_core_->SetTrackEncoderParams(track_info.track_id, type,
+                                               param, param_size);
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s: client_id(%d) Failed to set video encode params!",
+          __func__, client_id);
+      return ret;
+    }
   }
   if (type == CodecParamType::kFrameRateType) {
     float fps = *(static_cast<float*>(param));

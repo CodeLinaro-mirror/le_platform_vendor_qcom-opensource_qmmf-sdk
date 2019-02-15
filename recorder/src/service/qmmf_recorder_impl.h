@@ -366,6 +366,8 @@ class RecorderImpl {
 
   RemoteCallbackHandle          remote_cb_handle_;
 
+  std::map<uint32_t, bool>      timelapse_mode_;
+
   ClientSessionMap              client_session_map_;
   std::mutex                    client_session_lock_;
 

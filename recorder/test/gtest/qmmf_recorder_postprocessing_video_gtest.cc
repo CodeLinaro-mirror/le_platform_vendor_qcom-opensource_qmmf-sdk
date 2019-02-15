@@ -845,11 +845,9 @@ TEST_F(RecorderPostprocessVideoGTest,
     SourceVideoTrack source_video;
     VideoTimeLapse timelapse;
 
-    float fps = 1.0 / timelapse_interval_;
-
     /************************ 1080p @4 AVC ***********************************/
 
-    VideoTrackCreateParam videoparam = { camera_id_, VideoFormat::kAVC, 1920, 1080, fps };
+    VideoTrackCreateParam videoparam = { camera_id_, VideoFormat::kAVC, 1920, 1080, 4 };
 
     timelapse.time_interval = 33; //ms
     extraparam.Update(QMMF_VIDEO_TIMELAPSE_INTERVAL, timelapse);
@@ -868,7 +866,7 @@ TEST_F(RecorderPostprocessVideoGTest,
 
     /************************ Linked 480p @4 AVC *****************************/
 
-    videoparam = { camera_id_, VideoFormat::kAVC, 848, 480, fps };
+    videoparam = { camera_id_, VideoFormat::kAVC, 848, 480, 4 };
 
     source_video.source_track_id = track_id_1080p_avc;
     extraparam.Update(QMMF_SOURCE_VIDEO_TRACK_ID, source_video);
@@ -889,7 +887,7 @@ TEST_F(RecorderPostprocessVideoGTest,
 
     /************************ Linked 480p @4 YUV *****************************/
 
-    videoparam = { camera_id_, VideoFormat::kYUV, 848, 480, fps };
+    videoparam = { camera_id_, VideoFormat::kYUV, 848, 480, 4 };
 
     source_video.source_track_id = track_id_480p_avc;
     extraparam.Update(QMMF_SOURCE_VIDEO_TRACK_ID, source_video);
@@ -909,6 +907,15 @@ TEST_F(RecorderPostprocessVideoGTest,
     track_ids.push_back(track_id_480p_yuv);
     sessions_.insert(std::make_pair(session_id, track_ids));
     extraparam.Clear();
+
+    /************************ Set Video Parameters ***************************/
+
+    CodecParamType type;
+    type = CodecParamType::kFrameRateType;
+    float fps = 1.0 / timelapse_interval_;
+
+    ret = recorder_.SetVideoTrackParam(session_id, 1, type, &fps , sizeof(fps));
+    ASSERT_TRUE(ret == NO_ERROR);
 
     /*********************** Start Recording  ********************************/
 
@@ -1045,11 +1052,9 @@ TEST_F(RecorderPostprocessVideoGTest,
     SourceVideoTrack source_video;
     VideoTimeLapse timelapse;
 
-    float fps = 1.0 / timelapse_interval_;
-
     /************************ 1440p @4 AVC ***********************************/
 
-    VideoTrackCreateParam videoparam = { camera_id_, VideoFormat::kAVC, 1920, 1440, fps };
+    VideoTrackCreateParam videoparam = { camera_id_, VideoFormat::kAVC, 1920, 1440, 4 };
 
     timelapse.time_interval = 33; //ms
     extraparam.Update(QMMF_VIDEO_TIMELAPSE_INTERVAL, timelapse);
@@ -1069,7 +1074,7 @@ TEST_F(RecorderPostprocessVideoGTest,
 
     /************************ Linked 480p @4 AVC *****************************/
 
-    videoparam = { camera_id_, VideoFormat::kAVC, 848, 480, fps };
+    videoparam = { camera_id_, VideoFormat::kAVC, 848, 480, 4 };
 
     source_video.source_track_id = track_id_1440p_avc;
     extraparam.Update(QMMF_SOURCE_VIDEO_TRACK_ID, source_video);
@@ -1091,7 +1096,7 @@ TEST_F(RecorderPostprocessVideoGTest,
 
     /************************ Linked 480p @4 YUV *****************************/
 
-    videoparam = { camera_id_, VideoFormat::kYUV, 848, 480, fps };
+    videoparam = { camera_id_, VideoFormat::kYUV, 848, 480, 4 };
 
     source_video.source_track_id = track_id_480p_avc;
     extraparam.Update(QMMF_SOURCE_VIDEO_TRACK_ID, source_video);
@@ -1111,6 +1116,13 @@ TEST_F(RecorderPostprocessVideoGTest,
     track_ids.push_back(track_id_480p_yuv);
     sessions_.insert(std::make_pair(session_id, track_ids));
     extraparam.Clear();
+
+    /************************ Set Video Parameters ***************************/
+    CodecParamType type;
+    type = CodecParamType::kFrameRateType;
+    float fps = 1.0 / timelapse_interval_;
+    ret = recorder_.SetVideoTrackParam(session_id, 1, type, &fps , sizeof(fps));
+    ASSERT_TRUE(ret == NO_ERROR);
 
     /*********************** Start Recording  ********************************/
 
@@ -1247,13 +1259,10 @@ TEST_F(RecorderPostprocessVideoGTest,
     SourceVideoTrack source_video;
     VideoTimeLapse timelapse;
 
-    float fps = 1.0 / timelapse_interval_;
+    /*************************** 4K @4 AVC **********************************/
 
-
-    /*************************** 4K @30 AVC **********************************/
-
-    VideoTrackCreateParam videoparam = { camera_id_, VideoFormat::kAVC, 3840, 2160, fps };
-    track_trace.SetUp(session_id, track_id_4k_avc, fps);
+    VideoTrackCreateParam videoparam = { camera_id_, VideoFormat::kAVC, 3840, 2160, 4 };
+    track_trace.SetUp(session_id, track_id_4k_avc, 4);
 
     timelapse.time_interval = 33; //ms
     extraparam.Update(QMMF_VIDEO_TIMELAPSE_INTERVAL, timelapse);
@@ -1271,9 +1280,9 @@ TEST_F(RecorderPostprocessVideoGTest,
     extraparam.Clear();
 
 
-    /*********************** Linked 480p @30 AVC *****************************/
+    /*********************** Linked 480p @4 AVC *****************************/
 
-    videoparam = { camera_id_, VideoFormat::kAVC, 848, 480, fps };
+    videoparam = { camera_id_, VideoFormat::kAVC, 848, 480, 4 };
 
     source_video.source_track_id = track_id_4k_avc;
     extraparam.Update(QMMF_SOURCE_VIDEO_TRACK_ID, source_video);
@@ -1293,9 +1302,9 @@ TEST_F(RecorderPostprocessVideoGTest,
     extraparam.Clear();
 
 
-    /*********************** Linked 480p @30 YUV *****************************/
+    /*********************** Linked 480p @4 YUV *****************************/
 
-    videoparam = { camera_id_, VideoFormat::kYUV, 848, 480, fps };
+    videoparam = { camera_id_, VideoFormat::kYUV, 848, 480, 4 };
 
     source_video.source_track_id = track_id_480p_avc;
     extraparam.Update(QMMF_SOURCE_VIDEO_TRACK_ID, source_video);
@@ -1316,6 +1325,12 @@ TEST_F(RecorderPostprocessVideoGTest,
     sessions_.insert(std::make_pair(session_id, track_ids));
     extraparam.Clear();
 
+    /************************ Set Video Parameters ***************************/
+    CodecParamType type;
+    type = CodecParamType::kFrameRateType;
+    float fps = 1.0 / timelapse_interval_;
+    ret = recorder_.SetVideoTrackParam(session_id, 1, type, &fps , sizeof(fps));
+    ASSERT_TRUE(ret == NO_ERROR);
 
     /*********************** Start Recording  ********************************/
 
