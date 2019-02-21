@@ -1343,6 +1343,13 @@ status_t TrackSource::Init() {
     param.wait_aec_mode = false;
   }
 
+  if ((track_params_.params.codec_param.hevc.profile ==
+       HEVCProfileType::kMain10) &&
+      (VideoFormat::kHEVC == track_params_.params.format_type))
+    (const_cast<StreamParam&>(param).is_10bit_type) = true;
+   else
+    (const_cast<StreamParam&>(param).is_10bit_type) = false;
+
   param.rotation = rotation_;
 
   assert(camera_interface_.get() != nullptr);

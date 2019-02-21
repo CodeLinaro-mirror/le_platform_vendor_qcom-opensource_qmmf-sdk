@@ -2071,6 +2071,9 @@ status_t AVCodec::QmmftoOmxProfile(CodecParam& param) {
         case HEVCProfileType::kMain:
           profile = OMX_VIDEO_HEVCProfileMain;
           break;
+        case HEVCProfileType::kMain10:
+          profile = OMX_VIDEO_HEVCProfileMain10HDR10;
+          break;
       }
       break;
 

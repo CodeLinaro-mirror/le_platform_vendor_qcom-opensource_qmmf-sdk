@@ -2462,9 +2462,8 @@ CameraPort::~CameraPort() {
 }
 
 status_t CameraPort::Init() {
-
   cam_stream_params_ = {};
-  cam_stream_params_.width  = params_.width;
+  cam_stream_params_.width = params_.width;
   cam_stream_params_.height = params_.height;
   cam_stream_params_.format = Common::FromQmmfToHalFormat(params_.format);
 
@@ -2472,13 +2471,53 @@ status_t CameraPort::Init() {
   memset(prop, 0, sizeof(prop));
   property_get("persist.qmmf.ubwcstream.enable", prop, "0");
   bool is_ubwc_stream_enabled = atoi(prop);
-  if (!is_ubwc_stream_enabled) {
-    cam_stream_params_.allocFlags.flags =
-        IMemAllocUsage::kSwReadOften | IMemAllocUsage::kSwWriteOften;
-  } else if (!params_.low_power_mode) {
-    cam_stream_params_.allocFlags.flags = IMemAllocUsage::kPrivateAllocUbwc;
+  enum class BuffFormat { kNV12 = 0, kUBWCNV12, kP010, kUBWCTP10 };
+  BuffFormat buffer_format;
+
+  if (!params_.is_10bit_type) {
+    if (is_ubwc_stream_enabled && !params_.low_power_mode)
+      buffer_format = BuffFormat::kUBWCNV12;
+    else
+      buffer_format = BuffFormat::kNV12;
+  } else {
+    if (is_ubwc_stream_enabled && !params_.low_power_mode)
+      buffer_format = BuffFormat::kUBWCTP10;
+    else
+      buffer_format = BuffFormat::kP010;
+  }
+  switch (buffer_format) {
+    case BuffFormat::kNV12:
+      QMMF_DEBUG("%s: Non UBWC buffer format selected %d", __func__,
+                 buffer_format);
+      cam_stream_params_.allocFlags.flags =
+          IMemAllocUsage::kSwReadOften | IMemAllocUsage::kSwWriteOften;
+      break;
+    case BuffFormat::kUBWCNV12:
+      QMMF_DEBUG("%s: UBWC buffer format selected %d", __func__, buffer_format);
+      if (!params_.low_power_mode) {
+        cam_stream_params_.allocFlags.flags = IMemAllocUsage::kPrivateAllocUbwc;
+      }
+      break;
+    case BuffFormat::kP010:
+      QMMF_DEBUG("%s: P010 buffer format selected %d", __func__, buffer_format);
+      cam_stream_params_.allocFlags.flags = IMemAllocUsage::kSwReadOften |
+                                            IMemAllocUsage::kSwWriteOften |
+                                            IMemAllocUsage::kP010;
+      break;
+    case BuffFormat::kUBWCTP10:
+      QMMF_DEBUG("%s: TP10 buffer format selected %d", __func__, buffer_format);
+      cam_stream_params_.allocFlags.flags =
+          IMemAllocUsage::kPrivateAllocUbwc | IMemAllocUsage::kTP10;
+      break;
+    default:
+      QMMF_ERROR("%s: Unsupported buffer format %d", __func__, buffer_format);
+      return BAD_VALUE;
   }
 
+  if (!is_ubwc_stream_enabled) {
+    cam_stream_params_.allocFlags.flags |=
+        IMemAllocUsage::kSwReadOften | IMemAllocUsage::kSwWriteOften;
+  }
   cam_stream_params_.rotation =
       static_cast<camera3_stream_rotation_t> (params_.rotation);
   bool is_lpm_use_preview = false;

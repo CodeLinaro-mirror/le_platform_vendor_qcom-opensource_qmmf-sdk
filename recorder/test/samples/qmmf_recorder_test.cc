@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -5056,7 +5056,9 @@ int32_t RecorderTest::ParseConfig(char *fileName, TestInitParams *initParams,
           goto READ_FAILED;
         }
       } else if (track_info.track_type == TrackType::kVideoHEVC) {
-        if (!strncmp("kMain", value, strlen("kMain"))) {
+        if (!strncmp("kMain10", value, strlen("kMain10"))) {
+          track_info.hevcparams.profile = HEVCProfileType::kMain10;
+        } else if (!strncmp("kMain", value, strlen("kMain"))) {
           track_info.hevcparams.profile = HEVCProfileType::kMain;
         } else {
           ALOGE("%s: Unknown HEVC Profile(%s)", __func__, value);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -42,8 +42,9 @@ const std::unordered_map<int32_t, int32_t> GrallocUsage::usage_flag_map_ = {
     {IMemAllocUsage::kSwReadOften, GRALLOC_USAGE_SW_READ_OFTEN},
     {IMemAllocUsage::kSwWriteOften, GRALLOC_USAGE_SW_WRITE_OFTEN},
     {IMemAllocUsage::kHwFb, GRALLOC_USAGE_HW_FB},
-    {IMemAllocUsage::kVideoEncoder,
-     private_handle_t::PRIV_FLAGS_VIDEO_ENCODER}};
+    {IMemAllocUsage::kVideoEncoder, private_handle_t::PRIV_FLAGS_VIDEO_ENCODER},
+    {IMemAllocUsage::kP010, 0},
+    {IMemAllocUsage::kTP10, 0}};
 
 int32_t GrallocUsage::ToLocal(int32_t common) const {
   int32_t local_usage = 0;

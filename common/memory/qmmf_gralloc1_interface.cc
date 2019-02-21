@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -41,8 +41,9 @@ const std::unordered_map<int32_t, int32_t> Gralloc1Usage::usage_flag_map_ = {
     {IMemAllocUsage::kSwReadOften, GRALLOC_USAGE_SW_READ_OFTEN},
     {IMemAllocUsage::kSwWriteOften, GRALLOC_USAGE_SW_WRITE_OFTEN},
     {IMemAllocUsage::kHwFb, GRALLOC_USAGE_HW_FB},
-    {IMemAllocUsage::kVideoEncoder,
-     private_handle_t::PRIV_FLAGS_VIDEO_ENCODER}};
+    {IMemAllocUsage::kVideoEncoder, private_handle_t::PRIV_FLAGS_VIDEO_ENCODER},
+    {IMemAllocUsage::kP010, GRALLOC1_PRODUCER_USAGE_PRIVATE_10BIT},
+    {IMemAllocUsage::kTP10, GRALLOC1_PRODUCER_USAGE_PRIVATE_10BIT_TP}};
 
 int32_t Gralloc1Usage::ToLocal(int32_t common) const {
   int32_t local_usage = 0;
@@ -119,6 +120,16 @@ MemAllocError Gralloc1Device::AllocBuffer(IBufferHandle& handle,
     QMMF_INFO("%s: Setting UBWC producer_flags", __func__);
     //UBWC being custom format, needs to be handled seperately
     producer_flags |= GRALLOC1_PRODUCER_USAGE_PRIVATE_ALLOC_UBWC;
+  }
+
+  if (local_usage & GRALLOC1_PRODUCER_USAGE_PRIVATE_10BIT_TP) {
+    QMMF_INFO("%s: Setting UBWCTP10 producer_flags", __func__);
+    producer_flags |= GRALLOC1_PRODUCER_USAGE_PRIVATE_10BIT_TP;
+  }
+
+  if (local_usage & GRALLOC1_PRODUCER_USAGE_PRIVATE_10BIT) {
+    QMMF_INFO("%s: Setting P010 producer_flags", __func__);
+    producer_flags |= GRALLOC1_PRODUCER_USAGE_PRIVATE_10BIT;
   }
 
   res = CreateDescriptor(gralloc1_device_, &buf_desc);
