@@ -245,6 +245,8 @@ class Camera3DeviceClient : public camera3_callback_ops,
   Camera3InputStream input_stream_;
   uint32_t batch_size_;
   static std::mutex vendor_tag_mutex_;
+  static sp<VendorTagDescriptor> vendor_tag_desc_;
+  static uint32_t client_count_;
 };
 
 }  // namespace cameraadaptor ends here

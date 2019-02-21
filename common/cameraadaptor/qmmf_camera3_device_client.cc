@@ -60,6 +60,8 @@ namespace qmmf {
 namespace cameraadaptor {
 
 std::mutex Camera3DeviceClient::vendor_tag_mutex_;
+sp<VendorTagDescriptor> Camera3DeviceClient::vendor_tag_desc_ = nullptr;
+uint32_t Camera3DeviceClient::client_count_ = 0;
 
 Camera3DeviceClient::Camera3DeviceClient(CameraClientCallbacks clientCb)
     : client_cb_(clientCb),
@@ -136,7 +138,12 @@ Camera3DeviceClient::~Camera3DeviceClient() {
     alloc_device_interface_ = nullptr;
   }
 
-  VendorTagDescriptor::clearGlobalVendorTagDescriptor();
+  {
+    std::lock_guard<std::mutex> lk(vendor_tag_mutex_);
+    if (--client_count_ == 0) {
+      VendorTagDescriptor::clearGlobalVendorTagDescriptor();
+    }
+  }
 
   pthread_mutex_destroy(&lock_);
   pthread_mutex_destroy(&pending_requests_lock_);
@@ -179,30 +186,32 @@ int32_t Camera3DeviceClient::Initialize() {
 
   if (camera_module_->get_vendor_tag_ops) {
     std::lock_guard<std::mutex> lk(vendor_tag_mutex_);
-    vendor_tag_ops_ = vendor_tag_ops_t();
-    camera_module_->get_vendor_tag_ops(&vendor_tag_ops_);
+    if (client_count_ == 0) {
+      vendor_tag_ops_ = vendor_tag_ops_t();
+      camera_module_->get_vendor_tag_ops(&vendor_tag_ops_);
 
-    sp<VendorTagDescriptor> vendor_tag_desc;
-    res = VendorTagDescriptor::createDescriptorFromOps(&vendor_tag_ops_,
-                                                       vendor_tag_desc);
+      res = VendorTagDescriptor::createDescriptorFromOps(&vendor_tag_ops_,
+                                                         vendor_tag_desc_);
 
-    if (0 != res) {
-      QMMF_ERROR("%s: Could not generate descriptor from vendor tag operations,"
-          "received error %s (%d). Camera clients will not be able to use"
-          "vendor tags", __FUNCTION__, strerror(res), res);
-      goto exit;
+      if (0 != res) {
+        QMMF_ERROR("%s: Could not generate descriptor from vendor tag operations,"
+            "received error %s (%d). Camera clients will not be able to use"
+            "vendor tags", __FUNCTION__, strerror(res), res);
+        goto exit;
+      }
+
+      // Set the global descriptor to use with camera metadata
+      res = VendorTagDescriptor::setAsGlobalVendorTagDescriptor(vendor_tag_desc_);
+
+      if (0 != res) {
+        QMMF_ERROR(
+            "%s: Could not set vendor tag descriptor, "
+            "received error %s (%d). \n",
+            __func__, strerror(-res), res);
+        goto exit;
+      }
     }
-
-    // Set the global descriptor to use with camera metadata
-    res = VendorTagDescriptor::setAsGlobalVendorTagDescriptor(vendor_tag_desc);
-
-    if (0 != res) {
-      QMMF_ERROR(
-          "%s: Could not set vendor tag descriptor, "
-          "received error %s (%d). \n",
-          __func__, strerror(-res), res);
-      goto exit;
-    }
+    ++client_count_;
   }
 
   camera_module_->set_callbacks(this);
@@ -223,7 +232,12 @@ exit:
     alloc_device_interface_ = nullptr;
   }
 
-  VendorTagDescriptor::clearGlobalVendorTagDescriptor();
+  {
+    std::lock_guard<std::mutex> lk(vendor_tag_mutex_);
+    if (client_count_ == 0) {
+      VendorTagDescriptor::clearGlobalVendorTagDescriptor();
+    }
+  }
 
   if (NULL != camera_module_) {
     dlclose(camera_module_->common.dso);
