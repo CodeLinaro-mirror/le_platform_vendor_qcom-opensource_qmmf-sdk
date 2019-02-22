@@ -167,6 +167,11 @@ status_t CameraContext::CreateSnapshotStream(const SnapshotParam& param) {
                                     IMemAllocUsage::kSwReadOften;
   stream_param.cb           = GetStreamCb(param);
 
+  // For kNV12Encodable buffer format, set the encoder usage flag.
+  if (param.format == BufferFormat::kNV12Encodable) {
+    stream_param.allocFlags.flags |= IMemAllocUsage::kVideoEncoder;
+  }
+
   // Reserve buffers for continuous capture in order to avoid camera and pipe
   // restart if snapshot mode is switched. Buffer are just reserved, not
   // allocated because buffer are allocated on demand in camera adapter.
@@ -1956,6 +1961,7 @@ status_t CameraContext::ValidateResolution(const BufferFormat& format,
                                                    height);
       break;
     case BufferFormat::kNV12:
+    case BufferFormat::kNV12Encodable:
       supported = Common::ValidateResFromProcessedSizes(static_meta_,
                                                         width,
                                                         height);
