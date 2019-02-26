@@ -256,6 +256,10 @@ enum AWbModes : uint8_t {
   kAWBModeShade,
   kAWBModeEnd
 };
+
+static const int32_t MWBColorTemperatures[] = {0, 2300, 2800, 3200, 4000,
+                                               4500, 5500, 6000, 6500};
+
 #endif
 
 typedef struct StreamDumpInfo {

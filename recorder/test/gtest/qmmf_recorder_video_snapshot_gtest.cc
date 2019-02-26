@@ -3395,7 +3395,6 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWith1080pEncTrackCaptureChangeFocalLen
 } //SessionWith1080pYUVCaptureTrackFocalLength
 
 #ifdef CAM_ARCH_V2
-
 /*
 * SessionWithDualCam4KEncAllISOModes: This case will test a dual cam session with
 *                 4096x2048 h264 encoded track, during which in regular intervals
@@ -4907,6 +4906,376 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithDualCam4KEncAllExposureMeteringMod
       test_info_->test_case_name(), test_info_->name());
 }
 
+/*
+* SessionWithSingleCam4KEncCameraISOModes: This case will test a single cam
+*                 session with 3840x2160 h264 encoded track, during which in
+*                 regular intervals ISO modes will change. ISO modes are taken
+*                 directly from camera.
+* Api test sequence:
+*  - StartCamera
+*   loop Start {
+*   --------------------------
+*   - CreateSession
+*   - CreateVideoTrack
+*   - StartVideoTrack
+*   - StartSession
+*   - Set ISO mode
+*   - StopSession
+*   - DeleteVideoTrack
+*   - DeleteSession
+*   --------------------------
+*   } loop End
+*  - StopCamera
+*/
+TEST_F(RecorderVideoSnapshotGTest, SessionWithSingleCam4KEncCameraISOModes) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  VideoFormat format_type = VideoFormat::kAVC;
+  uint32_t stream_width  = 3840;
+  uint32_t stream_height = 2160;
+
+  ImageParam image_param{};
+  image_param.width         = 3840;
+  image_param.height        = 2160;
+  image_param.image_format  = ImageFormat::kJPEG;
+  image_param.image_quality = default_jpeg_quality_;
+
+  std::vector<CameraMetadata> meta_array;
+  CameraMetadata meta_img;
+
+  ret = recorder_.GetDefaultCaptureParam(camera_id_, meta_img);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  bool res_supported = GtestCommon::ValidateResFromJpegSizes(meta_img,
+      image_param.width, image_param.height);
+  ASSERT_TRUE (res_supported != false);
+
+  ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
+                              BufferDescriptor buffer,
+                              MetaData meta_data) -> void
+      { SnapshotCb(camera_id, image_count, buffer, meta_data); };
+
+  for (uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
+        test_info_->name(), i);
+
+    SessionCb session_status_cb = CreateSessionStatusCb();
+    uint32_t session_id;
+    ret = recorder_.CreateSession(session_status_cb, &session_id);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
+    VideoTrackCreateParam video_track_param{camera_id_, format_type,
+                                            stream_width, stream_height, 30};
+
+    uint32_t video_track_id = 1;
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo = { video_track_param.format_type, session_id,
+                                  video_track_id, stream_width, stream_height };
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+                              std::vector<BufferDescriptor> buffers,
+                              std::vector<MetaData> meta_buffers) {
+    VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers); };
+
+    video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
+        void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
+        event_type, event_data, event_data_size); };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                      video_track_param, video_track_cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.StartSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    CameraMetadata meta;
+    ret = recorder_.GetCameraParam(camera_id_, meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    camera_metadata_entry_t entry;
+    uint32_t select_iso_priority_vtag;
+    uint32_t use_iso_priority_vtag;
+    uint32_t iso_available_modes_vtag;
+    uint32_t count = 0;
+
+    if (!VendorTagSupported(String8("select_priority"),
+        String8("org.codeaurora.qcamera3.iso_exp_priority"),
+        &select_iso_priority_vtag)) {
+      TEST_WARN("%s: select_priority is not supported", __func__);
+      ASSERT_TRUE(0);
+    }
+    if (!VendorTagSupported(String8("use_iso_exp_priority"),
+        String8("org.codeaurora.qcamera3.iso_exp_priority"),
+        &use_iso_priority_vtag)) {
+      TEST_WARN("%s: use_iso_exp_priority is not supported", __func__);
+      ASSERT_TRUE(0);
+    }
+    if (VendorTagExistsInMeta(meta, String8("iso_available_modes"),
+        String8("org.codeaurora.qcamera3.iso_exp_priority"),
+        &iso_available_modes_vtag)) {
+      entry = meta.find(iso_available_modes_vtag);
+      count = entry.count;
+    }
+
+    uint32_t record_dur = MAX(record_duration_, count * 10);
+
+    // Setting tag to iso
+    int32_t select_iso_priority = 0;
+    ret = meta.update(select_iso_priority_vtag, &select_iso_priority, 1);
+    ASSERT_TRUE(ret == NO_ERROR);
+    ret = meta_img.update(select_iso_priority_vtag, &select_iso_priority, 1);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    for (uint32_t i = 0; i < count; i++) {
+      int64_t iso_mode = entry.data.i32[i];
+
+      if (i > 0) {
+        ret = recorder_.GetCameraParam(camera_id_, meta);
+        ASSERT_TRUE(ret == NO_ERROR);
+      }
+
+      ret = meta.update(use_iso_priority_vtag, &iso_mode, 1);
+      ASSERT_TRUE(ret == NO_ERROR);
+      ret = meta_img.update(use_iso_priority_vtag, &iso_mode, 1);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      ret = recorder_.SetCameraParam(camera_id_, meta);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      fprintf(stderr, "ISO switched to mode[%d]\n", i);
+
+      meta_array.push_back(meta_img);
+      ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array,
+                                 cb);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      sleep(record_dur/count);
+
+      ret = recorder_.CancelCaptureImage(camera_id_);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      meta_array.clear();
+    }
+
+    ret = recorder_.StopSession(session_id, false);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    dump_bitstream_.CloseAll();
+  }
+
+  ret = recorder_.StopCamera(camera_id_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = DeInit();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+* SessionWithSingleCam4KEncCameraMWBModes: This case will test a single cam
+*                 session with 3840x2160 h264 encoded track, during which in
+*                 regular intervals manual WB modes will change. MWB modes
+*                 are taken directly from camera
+* Api test sequence:
+*  - StartCamera
+*   loop Start {
+*   --------------------------
+*   - CreateSession
+*   - CreateVideoTrack
+*   - StartVideoTrack
+*   - StartSession
+*   - Set manual WB mode
+*   - StopSession
+*   - DeleteVideoTrack
+*   - DeleteSession
+*   --------------------------
+*   } loop End
+*  - StopCamera
+*/
+TEST_F(RecorderVideoSnapshotGTest, SessionWithSingleCam4KEncCameraMWBModes) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  VideoFormat format_type = VideoFormat::kAVC;
+  uint32_t stream_width  = 3840;
+  uint32_t stream_height = 2160;
+
+  ImageParam image_param{};
+  image_param.width         = 3840;
+  image_param.height        = 2160;
+  image_param.image_format  = ImageFormat::kJPEG;
+  image_param.image_quality = default_jpeg_quality_;
+
+  std::vector<CameraMetadata> meta_array;
+  CameraMetadata meta_img;
+
+  ret = recorder_.GetDefaultCaptureParam(camera_id_, meta_img);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  bool res_supported = GtestCommon::ValidateResFromJpegSizes(meta_img,
+      image_param.width, image_param.height);
+  ASSERT_TRUE (res_supported != false);
+
+  ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
+                              BufferDescriptor buffer,
+                              MetaData meta_data) -> void
+      { SnapshotCb(camera_id, image_count, buffer, meta_data); };
+
+  for (uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
+        test_info_->name(), i);
+
+    SessionCb session_status_cb = CreateSessionStatusCb();
+    uint32_t session_id;
+    ret = recorder_.CreateSession(session_status_cb, &session_id);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
+    VideoTrackCreateParam video_track_param{camera_id_, format_type,
+                                            stream_width, stream_height, 30};
+
+    uint32_t video_track_id = 1;
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo = { video_track_param.format_type, session_id,
+                                  video_track_id, stream_width, stream_height };
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+                              std::vector<BufferDescriptor> buffers,
+                              std::vector<MetaData> meta_buffers) {
+    VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers); };
+
+    video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
+        void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
+        event_type, event_data, event_data_size); };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                      video_track_param, video_track_cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.StartSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    CameraMetadata meta;
+    ret = recorder_.GetCameraParam(camera_id_, meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    camera_metadata_entry_t entry;
+    uint32_t color_temperature_vtag;
+    uint32_t color_temperature_range_vtag;
+    uint32_t partial_mwb_mode_vtag;
+    int32_t mwb_mode = 1;
+    int32_t min_color_temp, max_color_temp;
+    uint32_t count = sizeof(MWBColorTemperatures) / sizeof(MWBColorTemperatures[0]);
+
+    if (!VendorTagSupported(String8("color_temperature"),
+        String8("org.codeaurora.qcamera3.manualWB"),
+        &color_temperature_vtag)) {
+      TEST_WARN("%s: color_temperature is not supported", __func__);
+      ASSERT_TRUE(0);
+    }
+    if (VendorTagExistsInMeta(meta, String8("color_temperature_range"),
+        String8("org.codeaurora.qcamera3.manualWB"),
+        &color_temperature_range_vtag)) {
+      entry = meta.find(color_temperature_range_vtag);
+      min_color_temp = entry.data.i32[0];
+      max_color_temp = entry.data.i32[1];
+    }
+    if (!VendorTagSupported(String8("partial_mwb_mode"),
+        String8("org.codeaurora.qcamera3.manualWB"),
+        &partial_mwb_mode_vtag)) {
+      TEST_WARN("%s: partial mwb mode is not supported", __func__);
+      ASSERT_TRUE(0);
+    }
+
+    uint32_t record_dur = MAX(record_duration_, count * 10);
+
+    for (uint32_t index = 0; index < count; index++) {
+      int32_t temp = MWBColorTemperatures[index];
+      if (temp < min_color_temp || temp > max_color_temp) {
+        QMMF_WARN("%s Temperature %d is not in the range", __func__, temp);
+        break;
+      }
+
+      if (index > 0) {
+        ret = recorder_.GetCameraParam(camera_id_, meta);
+        ASSERT_TRUE(ret == NO_ERROR);
+      }
+
+      ret = meta.update(partial_mwb_mode_vtag, &mwb_mode, 1);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      ret = meta.update(color_temperature_vtag, &temp, 1);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      ret = recorder_.SetCameraParam(camera_id_, meta);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      fprintf(stderr, "MWB mode switched to mode[%d]\n", temp);
+
+      meta_array.push_back(meta_img);
+      ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array,
+                                 cb);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      sleep(record_dur/count);
+
+      ret = recorder_.CancelCaptureImage(camera_id_);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      meta_array.clear();
+    }
+
+    ret = recorder_.StopSession(session_id, false);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    dump_bitstream_.CloseAll();
+  }
+
+  ret = recorder_.StopCamera(camera_id_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = DeInit();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
 
 /*
 * SessionWithSingleCam4KEncAllISOModes: This case will test a single cam session with
