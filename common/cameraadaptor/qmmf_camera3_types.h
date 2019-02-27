@@ -50,6 +50,7 @@ typedef struct {
   StreamCallback cb;
   bool is_pp_enabled = true;
   bool is_zzhdr_enabled = false;
+  int32_t force_sensor_mode;
 } CameraStreamParameters;
 
 struct StreamConfiguration {

@@ -1031,6 +1031,24 @@ status_t CameraContext::CreateStream(const StreamParam& param,
     }
   }
 
+  if (extra_param.Exists(QMMF_FORCE_SENSOR_MODE)) {
+    size_t entry_count = extra_param.EntryCount(QMMF_FORCE_SENSOR_MODE);
+    for (size_t i = 0; i < entry_count; ++i) {
+      ForceSensorMode force_sensor_mode;
+      extra_param.Fetch(QMMF_FORCE_SENSOR_MODE, force_sensor_mode, i);
+      if (force_sensor_mode.mode >= 0) {
+        (const_cast<StreamParam&>(param).force_sensor_mode) =
+            force_sensor_mode.mode;
+        QMMF_INFO("%s: Force sensor mode(%d) received",
+                  __func__, force_sensor_mode.mode);
+      } else {
+        QMMF_WARN("%s: Invalid sensor mode(%i) received, "
+                  "falling back to auto mode selection",
+                  __func__, force_sensor_mode.mode);
+      }
+    }
+  }
+
   std::shared_ptr<CameraPort> port =
       std::make_shared<CameraPort>(param, batch, CameraPortType::kVideo, this);
   assert(port.get() != nullptr);
@@ -1381,15 +1399,13 @@ status_t CameraContext::CreateDeviceStream(CameraStreamParameters& params,
         max_frame_rate = port_frm_rate;
       }
     }
-
     QMMF_DEBUG("%s: Max fps (%u)!!", __func__, max_frame_rate);
 
-    if (30 < max_frame_rate && max_frame_rate <= 90) {
+    if ((max_frame_rate > 30) && (max_frame_rate <= 90)) {
       fps_sensormode_index = GetSensorModeIndex(max_frame_rate);
       QMMF_DEBUG("%s: Sensor mode index (%u) for fps=%u!!", __func__,
           fps_sensormode_index, max_frame_rate);
     }
-
 #endif
 
     auto is_raw_only = IsRawOnly(params.format);
@@ -2499,6 +2515,7 @@ status_t CameraPort::Init() {
     cam_stream_params_.height = in_param.height;
   }
   cam_stream_params_.is_zzhdr_enabled = params_.is_zzhdr_enabled;
+  cam_stream_params_.force_sensor_mode = params_.force_sensor_mode;
 
   int32_t stream_id;
   auto ret = context_->CreateDeviceStream(cam_stream_params_,

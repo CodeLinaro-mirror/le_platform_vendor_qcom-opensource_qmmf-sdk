@@ -55,6 +55,7 @@ enum ParamTag {
   QMMF_EXIF,
   QMMF_VIDEO_HDR_MODE,
   QMMF_TRACK_CROP,
+  QMMF_FORCE_SENSOR_MODE,
 };
 
 enum class RotationFlags {
@@ -276,6 +277,19 @@ struct TrackCrop : DataTagBase {
   TrackCrop()
     : DataTagBase(QMMF_TRACK_CROP),
        x(0), y(0), width(0), height(0) {}
+};
+
+struct ForceSensorMode : DataTagBase {
+  int32_t  mode;    // Default: -1 to disable ForceSensorMode
+  ForceSensorMode()
+    : DataTagBase(QMMF_FORCE_SENSOR_MODE),
+      /**< Index of sensor mode to be passed by the application. */
+      /**< Application needs to set the mode only once, attach this tag */
+      /**< to only one of the tracks. Once all tracks are deleted, */
+      /**< framework will return to auto mode selection. */
+      /**< Force Sensor Mode index starts with 0. To disable this feature, */
+      /**< set it to -1 in any one track, to allow auto mode selection. */
+      mode(-1) {}
 };
 
 }; //namespace recorder.

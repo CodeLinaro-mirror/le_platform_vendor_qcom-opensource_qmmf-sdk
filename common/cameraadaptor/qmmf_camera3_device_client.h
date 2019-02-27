@@ -239,6 +239,7 @@ class Camera3DeviceClient : public camera3_callback_ops,
   bool is_raw_only_;
   bool hfr_mode_enabled_;
   bool is_zzhdr_enabled_;
+  int32_t force_sensor_mode_;
   uint32_t fps_sensormode_index_;
   Camera3PrepareHandler prepare_handler_;
   Camera3InputStream input_stream_;
