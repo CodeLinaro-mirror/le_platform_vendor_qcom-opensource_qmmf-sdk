@@ -9795,6 +9795,301 @@ TEST_F(VideoGtest, SessionWithSingleCam4KEncDeFogTables) {
 }
 
 /*
+* SessionWithSingleCam4KEncDynamicAecConvSpeed: This will test session with one 4K h264
+*                                               track with dynamic AEC convergence speed.
+* Api test sequence:
+*  - StartCamera
+*   loop Start {
+*   ------------------
+*   - CreateSession
+*   - CreateVideoTrack
+*   - StartVideoTrack
+*   - StartSession
+*   - Set invalid conv speed
+*   - Set valid conv speed 1
+*   - Set valid conv speed 2
+*   - StopSession
+*   - DeleteVideoTrack
+*   - DeleteSession
+*   ------------------
+*   } loop End
+*  - StopCamera
+*/
+
+TEST_F(VideoGtest, SessionWithSingleCam4KEncDynamicAecConvSpeed) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  VideoFormat format_type = VideoFormat::kAVC;
+  uint32_t stream_width  = 3840;
+  uint32_t stream_height = 2160;
+
+  for (uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
+        test_info_->name(), i);
+
+    SessionCb session_status_cb = CreateSessionStatusCb();
+
+    uint32_t session_id;
+    ret = recorder_.CreateSession(session_status_cb, &session_id);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
+    VideoTrackCreateParam video_track_param{camera_id_, format_type,
+                                            stream_width, stream_height, 30};
+
+    uint32_t video_track_id = 1;
+
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo = {
+        video_track_param.format_type,
+        session_id,
+        video_track_id,
+        stream_width,
+        stream_height };
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+                              std::vector<BufferDescriptor> buffers,
+                              std::vector<MetaData> meta_buffers) {
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers); };
+
+    video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
+                               void *event_data, size_t event_data_size) {
+      VideoTrackEventCb(track_id, event_type, event_data, event_data_size); };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                     video_track_param, video_track_cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.StartSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    uint32_t aec_speed_vtag;
+    float aec_speed;
+
+    CameraMetadata meta;
+    ret = recorder_.GetCameraParam(camera_id_, meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    if (VendorTagSupported(String8("aec_speed"),
+        String8("org.codeaurora.qcamera3.aec_convergence_speed"),
+        &aec_speed_vtag)) {
+
+      // Setting an invalid value to AEC convergence speed
+      // so that default value will be picked from chromatix.
+      aec_speed = 0.0f;
+      fprintf(stderr,"aec_speed = %f\n", aec_speed);
+      ret = meta.update(aec_speed_vtag, &aec_speed, 1);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      ret = recorder_.SetCameraParam(camera_id_, meta);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      // Setting an valid value to AEC convergence speed
+      aec_speed = 0.5f;
+      fprintf(stderr, "aec_speed = %f\n", aec_speed);
+      ret = meta.update(aec_speed_vtag, &aec_speed, 1);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      ret = recorder_.SetCameraParam(camera_id_, meta);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      sleep(record_duration_ / 2);
+
+      // Setting an valid value to AEC convergence speed
+      aec_speed = 0.9f;
+      fprintf(stderr, "aec_speed = %f\n", aec_speed);
+      ret = meta.update(aec_speed_vtag, &aec_speed, 1);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      ret = recorder_.SetCameraParam(camera_id_, meta);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      sleep(record_duration_ / 2);
+
+    }
+
+    ret = recorder_.StopSession(session_id, false);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    dump_bitstream_.CloseAll();
+  }
+
+  ret = recorder_.StopCamera(camera_id_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = DeInit();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+* SessionWithSingleCam4KEncDynamicAwbConvSpeed: This will test session with one 4K h264
+*                                               track with dynamic AWB convergence speed.
+* Api test sequence:
+*  - StartCamera
+*   loop Start {
+*   ------------------
+*   - CreateSession
+*   - CreateVideoTrack
+*   - StartVideoTrack
+*   - StartSession
+*   - Set invalid conv speed
+*   - Set valid conv speed 1
+*   - Set valid conv speed 2
+*   - StopSession
+*   - DeleteVideoTrack
+*   - DeleteSession
+*   ------------------
+*   } loop End
+*  - StopCamera
+*/
+
+TEST_F(VideoGtest, SessionWithSingleCam4KEncDynamicAwbConvSpeed) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  VideoFormat format_type = VideoFormat::kAVC;
+  uint32_t stream_width  = 3840;
+  uint32_t stream_height = 2160;
+
+  for (uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
+        test_info_->name(), i);
+
+    SessionCb session_status_cb = CreateSessionStatusCb();
+
+    uint32_t session_id;
+    ret = recorder_.CreateSession(session_status_cb, &session_id);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
+    VideoTrackCreateParam video_track_param{camera_id_, format_type,
+                                            stream_width, stream_height, 30};
+
+    uint32_t video_track_id = 1;
+
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo = {
+        video_track_param.format_type,
+        session_id,
+        video_track_id,
+        stream_width,
+        stream_height };
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+                              std::vector<BufferDescriptor> buffers,
+                              std::vector<MetaData> meta_buffers) {
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers); };
+
+    video_track_cb.event_cb = [&] (uint32_t track_id, EventType event_type,
+                               void *event_data, size_t event_data_size) {
+      VideoTrackEventCb(track_id, event_type, event_data, event_data_size); };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                     video_track_param, video_track_cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.StartSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    uint32_t awb_speed_vtag;
+    float awb_speed;
+
+    CameraMetadata meta;
+    ret = recorder_.GetCameraParam(camera_id_, meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    if (VendorTagSupported(String8("awb_speed"),
+        String8("org.codeaurora.qcamera3.awb_convergence_speed"),
+        &awb_speed_vtag)) {
+
+      // Setting an invalid value to AWB convergence speed,
+      // so that default value will be picked from chromatix.
+      awb_speed = 0.0f;
+      fprintf(stderr,"awb_speed = %f\n", awb_speed);
+      ret = meta.update(awb_speed_vtag, &awb_speed, 1);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      ret = recorder_.SetCameraParam(camera_id_, meta);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      sleep(record_duration_ / 2);
+
+      // Setting an valid value to AWB convergence speed
+      awb_speed = 0.5f;
+      fprintf(stderr, "awb_speed = %f\n", awb_speed);
+      ret = meta.update(awb_speed_vtag, &awb_speed, 1);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      ret = recorder_.SetCameraParam(camera_id_, meta);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      sleep(record_duration_ / 2);
+
+      // Setting an valid value to AWB convergence speed
+      awb_speed = 0.9f;
+      fprintf(stderr, "awb_speed = %f\n", awb_speed);
+      ret = meta.update(awb_speed_vtag, &awb_speed, 1);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      ret = recorder_.SetCameraParam(camera_id_, meta);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      sleep(record_duration_ / 2);
+    }
+
+    ret = recorder_.StopSession(session_id, false);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    dump_bitstream_.CloseAll();
+  }
+
+  ret = recorder_.StopCamera(camera_id_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = DeInit();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
+/*
 * SessionWithDualCam4k30EncRescale1080p30EncAnd1080p30YUVWithTNRAndZZHDR: This
 *                           test will test Dual cam session with one 4k Enc
 *                           track, one 1080p Enc Track Rescale and one 1080p LPM.
