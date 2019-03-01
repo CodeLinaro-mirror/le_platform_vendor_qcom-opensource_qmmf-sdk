@@ -187,12 +187,14 @@ class DisplayWestonClient : public IDisplayClient {
   std::thread *buffer_handler_thread_;
   int32_t num_buffers_;
   bool stop_;
+  bool is_ubwc_enabled_;
 
   int32_t GetFreeBufferIndex();
   int32_t GetQueuedBufferIndex();
   bool IsBufferAvailable();
   static void BufferHandlerEntry(DisplayWestonClient *instance);
   void BufferHandler();
+  bool IsUbwcSupported(uint32_t width, uint32_t height);
 };
 
 const struct wl_registry_listener register_listener = {
