@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+* Copyright (c) 2018, 2019, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -31,8 +31,11 @@
 
 #include "display/src/client/qmmf_display_weston_client.h"
 
-#define GBM_DEVICE       "/dev/dri/card0"
-#define PROP_NUM_BUFFERS "persist.qmmf.display.num.buf"
+#define GBM_DEVICE              "/dev/dri/card0"
+#define PROP_NUM_BUFFERS        "persist.qmmf.display.num.buf"
+#define PROP_UBWC_STREAM_ENABLE "persist.qmmf.ubwcstream.enable"
+#define MIN_UBWC_WIDTH          1280
+#define MIN_UBWC_HEIGHT         720
 
 uint32_t qmmf_log_level;
 
@@ -55,12 +58,16 @@ DisplayWestonClient::DisplayWestonClient()
       gbm_buf_backend_(nullptr),
       buffer_handler_thread_(nullptr),
       num_buffers_(11),
-      stop_(false) {
+      stop_(false),
+      is_ubwc_enabled_(false) {
   QMMF_DEBUG("%s Enter ", __func__);
   QMMF_GET_LOG_LEVEL();
   char prop_val[PROPERTY_VALUE_MAX];
   property_get(PROP_NUM_BUFFERS, prop_val, "11");
   num_buffers_ = atoi(prop_val);
+  property_get(PROP_UBWC_STREAM_ENABLE, prop_val, "0");
+  is_ubwc_enabled_ = (atoi(prop_val) == 0) ? false : true;
+
   QMMF_DEBUG("%s Exit (0x%p)", __func__, this);
 }
 
@@ -194,6 +201,14 @@ status_t DisplayWestonClient::DestroyDisplay(DisplayType type) {
 status_t DisplayWestonClient::CreateSurface(SurfaceConfig &surface_config,
                                             uint32_t *surface_id) {
   QMMF_DEBUG("%s Enter ", __func__);
+  uint32_t flag = 0;
+  uint32_t width = surface_config.width;
+  uint32_t height = surface_config.height;
+
+  if(!width || !height) {
+    return -EINVAL;
+  }
+
   surface_ = wl_compositor_create_surface(compositor_);
   if (!surface_) {
     return -ENODEV;
@@ -207,11 +222,16 @@ status_t DisplayWestonClient::CreateSurface(SurfaceConfig &surface_config,
   wl_shell_surface_set_fullscreen(
       shell_surface_, WL_SHELL_SURFACE_FULLSCREEN_METHOD_SCALE, 0, NULL);
 
+  if(IsUbwcSupported(width, height)) {
+    QMMF_DEBUG("%s UBWC is supported ", __func__);
+    flag = GBM_BO_USAGE_UBWC_ALIGNED_QTI;
+  }
+
   for (auto i = 0; i < num_buffers_; i++) {
     BoBuffer buffer;
     struct gbm_bo *bo;
-    bo = gbm_bo_create(gbm_device_, surface_config.width, surface_config.height,
-                       GBM_FORMAT_NV12, 0);
+    bo = gbm_bo_create(gbm_device_, width, height,
+                       GBM_FORMAT_NV12, flag);
     if (nullptr == bo) {
       QMMF_ERROR("%s: Unable to allocate Gbm buffer object\n", __func__);
       goto FAIL;
@@ -454,6 +474,20 @@ bool DisplayWestonClient::IsBufferAvailable() {
      return false;
    }
    return true;
+}
+
+bool DisplayWestonClient::IsUbwcSupported(uint32_t width, uint32_t height) {
+  bool is_supported = false;
+
+  if (is_ubwc_enabled_) {                                               // If UBWC is enabled
+    if ((width / height == 2) && (width >= (2 * MIN_UBWC_WIDTH))) {     // If dual camera case and supported resolution
+      is_supported = true;
+    } else if (width >= MIN_UBWC_WIDTH && height >= MIN_UBWC_HEIGHT) {  // If single camera case and supported resolution
+      is_supported = true;
+    }
+  }
+
+  return is_supported;
 }
 
 void DisplayWestonClient::OnRegistryAddHandler(void *data,
