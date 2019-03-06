@@ -15,6 +15,7 @@ include $(QMMF_SDK_TOP_SRCDIR)/common.mk
 
 LOCAL_C_INCLUDES += $(CAMERA_HAL_PATH)/QCamera2/HAL3
 LOCAL_C_INCLUDES += $(TOP)/external/jsoncpp/include
+LOCAL_C_INCLUDES += $(QMMF_SDK_TOP_SRCDIR)/recorder/src/service/post-process
 
 LOCAL_SRC_FILES := qmmf_postproc_algo.cc
 

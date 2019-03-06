@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -36,7 +36,7 @@
 
 #include "common/utils/qmmf_condition.h"
 #include "common/cameraadaptor/qmmf_camera3_device_client.h"
-#include "../../interface/qmmf_postproc_module.h"
+#include "interface/qmmf_postproc_module.h"
 
 namespace qmmf {
 

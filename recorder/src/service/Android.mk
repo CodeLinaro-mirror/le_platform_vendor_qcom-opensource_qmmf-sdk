@@ -2,6 +2,8 @@ LOCAL_PATH := $(call my-dir)
 
 QMMF_SDK_TOP_SRCDIR := $(LOCAL_PATH)/../../..
 
+INTERFACE_INCLUDES := $(LOCAL_PATH)/post-process
+
 include $(QMMF_SDK_TOP_SRCDIR)/build.mk
 
 ifneq (,$(BUILD_QMMMF))
@@ -23,6 +25,7 @@ endif
 LOCAL_C_INCLUDES += $(CAMERA_HAL_PATH)/QCamera2/stack/common
 LOCAL_C_INCLUDES += $(CAMERA_HAL_PATH)/mm-image-codec/qomx_core
 LOCAL_C_INCLUDES += $(CAMERA_HAL_PATH)/mm-image-codec/qexif
+LOCAL_C_INCLUDES += $(QMMF_SDK_TOP_SRCDIR)/recorder/src/service/post-process
 
 LOCAL_SRC_FILES := qmmf_recorder_service.cc
 LOCAL_SRC_FILES += qmmf_recorder_impl.cc
