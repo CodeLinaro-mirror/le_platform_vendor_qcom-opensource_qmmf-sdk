@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -134,6 +134,56 @@ void DumpBitStream::CloseAll() {
   }
   file_fds_.clear();
   TEST_DBG("%s: Exit", __func__);
+}
+
+void FrameTrace::SetUp(uint32_t session_id, uint32_t track_id, float fps) {
+  std::lock_guard<std::mutex> lk(lock_);
+  session_id_ = session_id;
+  track_id_   = track_id;
+  track_fps_  = fps;
+}
+
+void FrameTrace::Reset() {
+  std::lock_guard<std::mutex> lk(lock_);
+  previous_timestamp_   = 0;
+  total_frames_         = 0;
+  total_dropped_frames_ = 0;
+}
+
+void FrameTrace::BufferAvailableCb(BufferDescriptor buffer) {
+
+  if (!enabled_) {
+    // Not enabled.
+    return;
+  }
+
+  std::lock_guard<std::mutex> lk(lock_);
+  total_frames_++;
+
+  // Timestamp Δ in us = current frame timestamp - previous frame timestamp.
+  uint64_t current_delta = (buffer.timestamp - previous_timestamp_);
+
+  // Calculate the expected timestamp Δ in us.
+  uint64_t expected_delta = 1000000L / track_fps_;
+
+  // Adjust timestamp Δ with variance.
+  uint64_t delta = current_delta + (expected_delta * kTimestampVariance);
+
+  // Calculate if there are any frames dropped and how many.
+  int32_t dropped_frames = (delta / expected_delta) - 1;
+
+  if ((dropped_frames > 0) && (previous_timestamp_ != 0)) {
+    total_frames_ += dropped_frames;
+    total_dropped_frames_ += dropped_frames;
+
+    TEST_WARN("%s: Session %u | Track %u | Expected timestamp Δ = %llu us | "
+        "Current timestamp Δ = %llu us | DROPPED FRAMES = %d | TOTAL DROPPED "
+        "FRAMES = %u / %u", __func__, session_id_, track_id_, expected_delta,
+        current_delta, dropped_frames, total_dropped_frames_, total_frames_);
+  }
+
+  // Save current timestamp for use in next call.
+  previous_timestamp_ = buffer.timestamp;
 }
 
 #ifdef USE_SURFACEFLINGER
@@ -328,6 +378,8 @@ void GtestCommon::SetUp() {
   is_apply_overlay_ = (atoi(prop_val) == 0) ? false : true;
   property_get(PROP_UBWC_STREAM_ENABLE, prop_val, "1");
   ubwc_stream_enable_ = (atoi(prop_val) == 0) ? false : true;
+  property_get(PROP_FRAME_DEBUG, prop_val, "0");
+  is_frame_debug_enabled_ = atoi(prop_val);
 
   camera_start_params_ = {};
   camera_start_params_.zsl_mode         = false;

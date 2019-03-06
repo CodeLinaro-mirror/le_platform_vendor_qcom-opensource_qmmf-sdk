@@ -967,6 +967,9 @@ TEST_F(VideoGtest, SessionWith4kp30fpsEncTrack) {
   ASSERT_TRUE(ret == NO_ERROR);
   VideoTrackCreateParam video_track_param{camera_id_, format_type,
                                           width, height, fps};
+
+  FrameTrace track_trace(is_frame_debug_enabled_);
+
   uint32_t video_track_id = 1;
   if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = { format_type, session_id, video_track_id,
@@ -975,11 +978,14 @@ TEST_F(VideoGtest, SessionWith4kp30fpsEncTrack) {
     ASSERT_TRUE(ret == NO_ERROR);
   }
 
+  track_trace.SetUp(session_id, video_track_id, 30.0);
+
   TrackCb video_track_cb;
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
         VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
+        track_trace.BufferAvailableCb(buffers.at(0));
       };
 
   video_track_cb.event_cb =
@@ -1011,8 +1017,8 @@ TEST_F(VideoGtest, SessionWith4kp30fpsEncTrack) {
 
   ret = recorder_.DeleteSession(session_id);
   ASSERT_TRUE(ret == NO_ERROR);
-
-   ClearSessions();
+  track_trace.Reset();
+  ClearSessions();
 
   ret = recorder_.StopCamera(camera_id_);
   ASSERT_TRUE(ret == NO_ERROR);

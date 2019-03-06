@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -216,10 +216,19 @@ struct FaceInfo {
 #define PROP_TOGGLE_OVERLAY_USAGE   "persist.qmmf.rec.gtest.overlay"
 // Prop to enable/disable ubwc support in qmmf
 #define PROP_UBWC_STREAM_ENABLE     "persist.qmmf.ubwcstream.enable"
+// Prop to enable debugging frames
+#define PROP_FRAME_DEBUG            "persist.qmmf.rec.gtest.frm.dbg"
 
 #ifndef MAX
 #define MAX(a,b) ((a) > (b) ? (a) : (b))
 #endif
+
+/*
+* frame timestamps are not always accurate to 1/fps sec
+* due to interrupt latencies
+* variance of 5% is considered
+*/
+#define FRAME_TIMESTAMP_VARIANCE (0.05f)
 
 #ifdef QCAMERA3_TAG_LOCAL_COPY
 enum ISOModes : int64_t {
@@ -356,6 +365,36 @@ class DumpBitStream {
  private:
   bool is_enabled_;
   std::map<uint8_t, int32_t> file_fds_;
+};
+
+class FrameTrace {
+ public:
+  FrameTrace(bool enable)
+     : enabled_(enable), session_id_(0), track_id_(0),  track_fps_(0),
+       previous_timestamp_(0), total_frames_(0), total_dropped_frames_(0) {};
+  ~FrameTrace() {}
+
+  void SetUp(uint32_t session_id, uint32_t track_id, float fps);
+
+  void Reset();
+
+  void BufferAvailableCb(BufferDescriptor buffer);
+
+ private:
+  bool       enabled_;
+
+  uint32_t   session_id_;
+  uint32_t   track_id_;
+  float      track_fps_;
+
+  uint64_t   previous_timestamp_;
+
+  uint32_t   total_frames_;
+  uint32_t   total_dropped_frames_;
+
+  std::mutex lock_;
+
+  static constexpr float kTimestampVariance = 0.05f; // 5% frame rate variance.
 };
 
 class GtestCommon : public ::testing::Test {
@@ -580,6 +619,7 @@ class GtestCommon : public ::testing::Test {
   bool                  camera_error_;
   bool                  default_eis_margins_;
   bool                  is_apply_overlay_;
+  bool                  is_frame_debug_enabled_;
 
 #ifndef DISABLE_DISPLAY
   bool                  use_display_;
