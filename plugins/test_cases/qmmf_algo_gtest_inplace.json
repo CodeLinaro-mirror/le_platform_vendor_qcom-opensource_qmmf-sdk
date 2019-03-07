@@ -10,7 +10,8 @@
         "height": 1440,
         "stride": 1920,
         "scanline": 1472,
-        "pixel format": "Nv12"
+        "pixel format": "Nv12",
+        "heap buffer": false
       }
     ]
   }

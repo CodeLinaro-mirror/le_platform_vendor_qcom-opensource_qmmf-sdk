@@ -10,7 +10,8 @@
         "height": 1560,
         "stride": 4416,
         "scanline": 1560,
-        "pixel format": "RawRggb10"
+        "pixel format": "RawRggb10",
+        "heap buffer": false
       }
     ],
     "output buffers": [
@@ -19,7 +20,8 @@
         "height": 1560,
         "stride": 4416,
         "scanline": 1560,
-        "pixel format": "RawRggb10"
+        "pixel format": "RawRggb10",
+        "heap buffer": false
       }
     ]
   }

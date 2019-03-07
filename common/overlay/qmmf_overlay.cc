@@ -50,6 +50,7 @@
 #include <SkBlurMaskFilter.h>
 #endif
 
+#include "common/utils/qmmf_tools.h"
 #include "qmmf-sdk/qmmf_overlay.h"
 #include "qmmf_overlay_item.h"
 
@@ -81,8 +82,8 @@ Overlay::~Overlay() {
     OVDBG_INFO("%s: Destroyed c2d Target Surface", __func__);
   }
 
-  if(ion_device_)
-    close(ion_device_);
+  if (ion_device_)
+    ion_close(ion_device_);
 
   OVDBG_INFO("%s: Exit ",__func__);
 }
@@ -118,7 +119,7 @@ int32_t Overlay::Init(const TargetBufferFormat& format) {
     return ret;
   }
 
-  ion_device_ = open("/dev/ion", O_RDONLY);
+  ion_device_ = ion_open();
   if (ion_device_ < 0) {
     OVDBG_ERROR("%s: Ion dev open failed %s\n", __func__,strerror(errno));
     c2dDestroySurface(target_c2dsurface_id_);
@@ -318,6 +319,7 @@ int32_t Overlay::ApplyOverlay(const OverlayTargetBuffer& buffer) {
     return UNKNOWN_ERROR;
   }
 
+  SyncStart(buffer.ion_fd);
   // Map input YUV buffer to GPU.
   void *gpuAddr = nullptr;
   ret = c2dMapAddr(buffer.ion_fd, bufVaddr, buffer.frame_len, 0,
@@ -479,7 +481,11 @@ int32_t Overlay::ApplyOverlay(const OverlayTargetBuffer& buffer) {
 
 EXIT:
   if (bufVaddr) {
+    if (buffer.ion_fd)
+      SyncEnd(buffer.ion_fd);
+
     munmap(bufVaddr, buffer.frame_len);
+    bufVaddr = nullptr;
   }
 #ifdef DEBUG_BLIT_TIME
   auto end_time = ::std::chrono::high_resolution_clock::now();
@@ -534,7 +540,6 @@ OverlayItem::OverlayItem(int32_t ion_device)
      dirty_(false), ion_device_(ion_device),
      is_active_(false) {
   OVDBG_VERBOSE("%s:Enter ", __func__);
-  memset(&handle_data_, 0x0, sizeof handle_data_);
   location_type_ = OverlayLocationType::kBottomLeft;
 #if USE_CAIRO
   cr_surface_ = nullptr;
@@ -552,6 +557,8 @@ OverlayItem::~OverlayItem() {
     OVDBG_INFO("%s: Unmapped GPU address type(%d)", __func__, type_);
   }
   if(vaddr_) {
+    if(ion_fd_)
+      SyncEnd(ion_fd_);
     munmap(vaddr_, size_);
     vaddr_ = nullptr;
   }
@@ -563,7 +570,6 @@ OverlayItem::~OverlayItem() {
   }
   //Free overlay ION memory.
   if(ion_fd_) {
-    ioctl(ion_device_, ION_IOC_FREE, &handle_data_);
     close(ion_fd_);
     ion_fd_ = -1;
     OVDBG_INFO("%s: Destroyed ION buffer type(%d)",__func__, type_);
@@ -589,58 +595,45 @@ void OverlayItem::Activate(bool value) {
 }
 
 int32_t OverlayItem::AllocateIonMemory(IonMemInfo& mem_info, uint32_t size) {
-
-  OVDBG_VERBOSE("%s:Enter",__func__);
-  struct ion_allocation_data alloc;
-  struct ion_fd_data ionFdData;
-  void *data = nullptr;
-  int ionType = 0x1 << ION_IOMMU_HEAP_ID;
+  OVDBG_VERBOSE("%s:Enter", __func__);
   int32_t ret = 0;
+  void* data = nullptr;
+  uint32_t flags = ION_FLAG_CACHED;
+  int32_t map_fd = -1;
+  uint32_t heap_id_mask = ION_HEAP(ION_SYSTEM_HEAP_ID);
+  size = ROUND_TO(size, 4096);
 
-  memset(&alloc, 0, sizeof(ion_allocation_data));
-  alloc.len = size;
-  alloc.len = (alloc.len + 4095) & (~4095);
-  alloc.align = 4096;
-  alloc.flags = ION_FLAG_CACHED;
-  alloc.heap_id_mask = ionType;
-  ret = ioctl(ion_device_, ION_IOC_ALLOC, &alloc);
-  if (ret < 0) {
-    OVDBG_ERROR("%s:ION allocation failed\n",__func__);
+  ret = ion_alloc_fd(ion_device_, size, 0, heap_id_mask, flags, &map_fd);
+  if (ret) {
+    OVDBG_ERROR("%s:ION allocation failed\n", __func__);
     goto ION_ALLOC_FAILED;
   }
 
-  memset(&ionFdData, 0, sizeof(ion_fd_data));
-  ionFdData.handle = alloc.handle;
-  ret = ioctl(ion_device_, ION_IOC_SHARE, &ionFdData);
-  if (ret < 0) {
-    OVDBG_ERROR("%s:ION map failed %s\n",__func__,strerror(errno));
-    goto ION_MAP_FAILED;
-  }
-
-  data = mmap(nullptr, alloc.len, PROT_READ | PROT_WRITE, MAP_SHARED,
-              ionFdData.fd, 0);
-
+  data = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, map_fd, 0);
   if (data == MAP_FAILED) {
-    OVDBG_ERROR("%s:ION mmap failed: %s (%d)\n",__func__, strerror(errno),
-        errno);
+    OVDBG_ERROR("%s:ION mmap failed: %s (%d)\n", __func__, strerror(errno),
+                errno);
     goto ION_MAP_FAILED;
   }
-
-  memset(&mem_info.handle_data, 0, sizeof(mem_info.handle_data));
-  mem_info.handle_data.handle = ionFdData.handle;
-  mem_info.fd                 = ionFdData.fd;
-  mem_info.size               = alloc.len;
-  mem_info.vaddr              = data;
-
-  OVDBG_VERBOSE("%s:Exit ",__func__);
+  SyncStart(map_fd);
+  mem_info.fd = map_fd;
+  mem_info.size = size;
+  mem_info.vaddr = data;
+  OVDBG_VERBOSE("%s:Exit ", __func__);
   return ret;
 
 ION_MAP_FAILED:
-  memset(&mem_info.handle_data, 0, sizeof(mem_info.handle_data));
-  mem_info.handle_data.handle = ionFdData.handle;
-  ioctl(ion_device_, ION_IOC_FREE, &mem_info.handle_data);
+  if (data) {
+    if(map_fd)
+      SyncEnd(map_fd);
+    munmap(data, size);
+    data = nullptr;
+  }
+  close(map_fd);
+
 ION_ALLOC_FAILED:
-  close(ion_device_);
+  ion_close(ion_device_);
+
   return -1;
 }
 
@@ -700,6 +693,8 @@ void OverlayItemStaticImage::DestroySurface() {
     OVDBG_INFO("%s: Unmapped GPU address type(%d)", __func__, type_);
   }
   if(vaddr_) {
+    if(ion_fd_)
+      SyncEnd(ion_fd_);
     munmap(vaddr_, size_);
     vaddr_ = nullptr;
   }
@@ -711,7 +706,6 @@ void OverlayItemStaticImage::DestroySurface() {
   }
   //Free overlay ION memory.
   if(ion_fd_) {
-    ioctl(ion_device_, ION_IOC_FREE, &handle_data_);
     close(ion_fd_);
     ion_fd_ = -1;
     OVDBG_INFO("%s: Destroyed ION buffer type(%d)",__func__, type_);
@@ -1019,12 +1013,9 @@ int32_t OverlayItemStaticImage::CreateSurface() {
   ion_fd_      = mem_info.fd;
   vaddr_       = mem_info.vaddr;
   size_        = mem_info.size;
-  handle_data_ = mem_info.handle_data;
-
   OVDBG_VERBOSE("%s: Exit ",__func__);
   return ret;
 ERROR:
-  ioctl(ion_device_, ION_IOC_FREE, &handle_data_);
   close(ion_fd_);
   ion_fd_ = -1;
   return ret;
@@ -1382,12 +1373,9 @@ int32_t OverlayItemDateAndTime::CreateSurface() {
   ion_fd_      = mem_info.fd;
   vaddr_       = mem_info.vaddr;
   size_        = mem_info.size;
-  handle_data_ = mem_info.handle_data;
-
   OVDBG_VERBOSE("%s: Exit", __func__);
   return ret;
 ERROR:
-  ioctl(ion_device_, ION_IOC_FREE, &handle_data_);
   close(ion_fd_);
   ion_fd_ = -1;
   return ret;
@@ -1720,12 +1708,9 @@ int32_t OverlayItemBoundingBox::CreateSurface() {
   ion_fd_      = mem_info.fd;
   vaddr_       = mem_info.vaddr;
   size_        = mem_info.size;
-  handle_data_ = mem_info.handle_data;
-
   OVDBG_VERBOSE("%s: Exit", __func__);
   return ret;
 ERROR:
-  ioctl(ion_device_, ION_IOC_FREE, &handle_data_);
   close(ion_fd_);
   ion_fd_ = -1;
   return ret;
@@ -2008,13 +1993,11 @@ int32_t OverlayItemText::CreateSurface() {
   ion_fd_       = mem_info.fd;
   vaddr_        = mem_info.vaddr;
   size_         = mem_info.size;
-  handle_data_  = mem_info.handle_data;
 
   OVDBG_INFO("%s: Exit", __func__);
   return ret;
 
 ERROR:
-  ioctl(ion_device_, ION_IOC_FREE, &handle_data_);
   close(ion_fd_);
   ion_fd_ = -1;
   return ret;
@@ -2225,13 +2208,11 @@ int32_t OverlayItemPrivacyMask::CreateSurface() {
   ion_fd_      = mem_info.fd;
   vaddr_       = mem_info.vaddr;
   size_        = mem_info.size;
-  handle_data_ = mem_info.handle_data;
 
   OVDBG_VERBOSE("%s: Exit", __func__);
   return ret;
 
 ERROR:
-  ioctl(ion_device_, ION_IOC_FREE, &handle_data_);
   close(ion_fd_);
   ion_fd_ = -1;
   return ret;

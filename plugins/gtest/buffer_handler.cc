@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -29,12 +29,14 @@
 
 #define LOG_TAG "BufferHandler"
 
+#include <utils/Log.h>
 #include <chrono>
 #include <cmath>
-#include <utils/Log.h>
 
 #include <qmmf-alg/qmmf_alg_utils.h>
+
 #include "buffer_handler.h"
+#include "heap_buffer.h"
 
 namespace qmmf {
 namespace qmmf_alg_plugin {
@@ -48,7 +50,6 @@ namespace qmmf_alg_plugin {
  *    @timestamp: buffer timestamp
  *    @frame_number: buffer frame number
  *    @plane: vector of buffer planes
- *    @platform_buffer: platform buffer
  *    @input_file_name: input file name
  *    @file_stride_: input and/or output file stride
  *    @file_scanline_: input and/or output file scanline
@@ -61,6 +62,7 @@ namespace qmmf_alg_plugin {
  *                   plane[i]'s border_down = border_down / (i+1)
  *    @border_right: (last column in the row) -
  *                   (last column in the row, containing actual data)
+ *    @buffer_holder: buffer holder
  *
  * creates new instance of BufferHandler
  *
@@ -69,13 +71,12 @@ namespace qmmf_alg_plugin {
 BufferHandler::BufferHandler(
     uint8_t *vaddr, int32_t fd, uint32_t size, bool cached, PixelFormat pix_fmt,
     int64_t timestamp, uint32_t frame_number, std::vector<BufferPlane> &plane,
-    std::shared_ptr<PlatformBuffer> &platform_buffer,
     const std::string &input_file_name, const std::string &output_file_name,
     uint32_t file_stride, uint32_t file_scanline, uint32_t border_up,
-    uint32_t border_left, uint32_t border_down, uint32_t border_right)
+    uint32_t border_left, uint32_t border_down, uint32_t border_right,
+    std::shared_ptr<IBufferHolder> &buffer_holder)
     : AlgBuffer(vaddr, fd, size, cached, pix_fmt, timestamp, frame_number,
                 plane),
-      platform_buffer_(platform_buffer),
       input_file_name_(input_file_name),
       output_file_name_(output_file_name),
       file_stride_(file_stride),
@@ -85,7 +86,8 @@ BufferHandler::BufferHandler(
       border_down_(border_down),
       border_right_(border_right),
       buffer_is_filled_(false),
-      filled_value_(0) {}
+      filled_value_(0),
+      buffer_holder_(buffer_holder) {}
 
 /** New
  *    @requirements: buffer requirements
@@ -109,20 +111,22 @@ std::list<std::shared_ptr<BufferHandler>> BufferHandler::New(
         &buffer_configurations,
     uint32_t border_up, uint32_t border_left, uint32_t border_down,
     uint32_t min_border_right) {
-  if (buffer_configurations.size() != requirements.count_) {
+  if (buffer_configurations.size() !=
+      requirements.count_ + requirements.history_buffer_count_) {
     std::string err = std::string("Buffer configuration size ") +
                       std::to_string(buffer_configurations.size()) +
                       (" is different from algo requirements ") +
-                      std::to_string(requirements.count_);
+                      std::to_string(requirements.count_ +
+                                     requirements.history_buffer_count_);
     Utils::ThrowException(__func__, err);
   }
 
   std::list<std::shared_ptr<BufferHandler>> allocated_buffers;
   for (auto &c : buffer_configurations) {
-    auto b =
-        New(requirements, c->pixel_format_, c->width_, c->height_, c->stride_,
-            c->scanline_, c->input_file_name_, c->output_file_name_, border_up,
-            border_left, border_down, min_border_right);
+    auto b = New(requirements, c->pixel_format_, c->width_, c->height_,
+                 c->stride_, c->scanline_, c->input_file_name_,
+                 c->output_file_name_, c->heap_buffer_, border_up, border_left,
+                 border_down, min_border_right);
     allocated_buffers.push_back(b);
   }
   return allocated_buffers;
@@ -137,6 +141,7 @@ std::list<std::shared_ptr<BufferHandler>> BufferHandler::New(
  *    @file_scanline: input and/or output file scanline
  *    @input_file_name: input file name
  *    @output_file_name: output file name
+ *    @heap_buffer: flag indicating whether buffer is heap
  *    @border_up: plane[0]'s first row containing actual data
  *                plane[i]'s border_up = border_up / (i+1)
  *    @border_left: the first column in each plane's row, containing actual
@@ -154,8 +159,8 @@ std::shared_ptr<BufferHandler> BufferHandler::New(
     const BufferRequirements &requirements, PixelFormat pix_fmt, uint32_t width,
     uint32_t height, uint32_t file_stride, uint32_t file_scanline,
     const std::string &input_file_name, const std::string &output_file_name,
-    uint32_t border_up, uint32_t border_left, uint32_t border_down,
-    uint32_t min_border_right) {
+    bool heap_buffer, uint32_t border_up, uint32_t border_left,
+    uint32_t border_down, uint32_t min_border_right) {
   uint32_t num_planes = 0;
 
   // Get number of planes
@@ -199,9 +204,15 @@ std::shared_ptr<BufferHandler> BufferHandler::New(
   // divisible by the plane_alignment
   buffer_size += plane_alignment;
 
-  std::shared_ptr<PlatformBuffer> pb =
-      PlatformBuffer::New(buffer_size, requirements.cached_);
-  uint8_t *vaddr = pb->GetAddr();
+  QmmfAlgoTools tools;
+  std::shared_ptr<IBufferHolder> buffer_holder = nullptr;
+  if (heap_buffer) {
+    buffer_holder = HeapBuffer::New(buffer_size);
+  } else {
+    buffer_holder = tools.NewBufferHolder(buffer_size, requirements.cached_);
+  }
+
+  uint8_t *vaddr = const_cast<uint8_t *>(buffer_holder->GetAddr());
   if (nullptr == vaddr) {
     Utils::ThrowException(__func__, "cannot allocate memory");
   }
@@ -231,9 +242,10 @@ std::shared_ptr<BufferHandler> BufferHandler::New(
   frame_number++;
 
   std::shared_ptr<BufferHandler> new_handler(new BufferHandler(
-      vaddr, pb->GetFd(), buffer_size, true, pix_fmt, timestamp, frame_number,
-      planes, pb, input_file_name, output_file_name, file_stride, file_scanline,
-      border_up, border_left, border_down, border_right));
+      vaddr, buffer_holder->GetFd(), buffer_size, true, pix_fmt, timestamp,
+      frame_number, planes, input_file_name, output_file_name, file_stride,
+      file_scanline, border_up, border_left, border_down, border_right,
+      buffer_holder));
 
   return new_handler;
 }
@@ -373,7 +385,7 @@ void BufferHandler::ReadInputFile() {
       }
     }
   }
-  platform_buffer_->CacheFlush();
+  buffer_holder_->CpuAccessEnd();
 }
 
 /** WriteOutputFile
@@ -423,7 +435,7 @@ void BufferHandler::FillBufferWith(uint8_t value) {
 
   std::memset(vaddr_, value, size_);
 
-  platform_buffer_->CacheFlush();
+  buffer_holder_->CpuAccessEnd();
 }
 
 /** MemoryIsCorrupted
@@ -578,6 +590,9 @@ uint32_t BufferHandler::GetWidthInBytes(uint32_t width_in_pixels,
     case kRawRggb16:
       rc = width_in_pixels * 2;
       break;
+    case kMeshNormFloat:
+      rc = width_in_pixels * 2 * sizeof(float);
+      break;
     default:
       std::stringstream err;
       err << "Not supported pixel format " << std::hex << pix_fmt;
@@ -625,6 +640,7 @@ uint32_t BufferHandler::GetHeightInLines(uint32_t image_height,
     case kNv21UBWC:
     case kJpeg:
     case kGrey:
+    case kMeshNormFloat:
     case kRawBggrMipi10:
     case kRawGbrgMipi10:
     case kRawGrbgMipi10:
@@ -717,6 +733,7 @@ uint32_t BufferHandler::GetNumPlanes(PixelFormat pix_fmt) {
       break;
     case kJpeg:
     case kGrey:
+    case kMeshNormFloat:
       num_planes = 1;
       break;
     case kBgr24:

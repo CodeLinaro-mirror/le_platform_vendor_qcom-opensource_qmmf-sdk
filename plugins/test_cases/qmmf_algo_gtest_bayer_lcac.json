@@ -10,7 +10,8 @@
         "height": 1560,
         "stride": 2760,
         "scanline": 1560,
-        "pixel format": "RawRggbMipi10"
+        "pixel format": "RawRggbMipi10",
+        "heap buffer": false
       }
     ],
     "output buffers": [
@@ -19,7 +20,8 @@
         "height": 1560,
         "stride": 2760,
         "scanline": 1560,
-        "pixel format": "RawRggbMipi10"
+        "pixel format": "RawRggbMipi10",
+        "heap buffer": false
       }
     ]
   }

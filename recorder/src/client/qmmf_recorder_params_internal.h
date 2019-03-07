@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -27,6 +27,8 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+//! @file qmmf_recorder_params_internal.h
+
 #pragma once
 
 #include <sys/types.h>
@@ -43,13 +45,30 @@
 namespace qmmf {
 namespace recorder {
 
+/*! @brief Struct enhanced with marshalling methods.
+ *
+ *  Enhances the base struct with methods suitable for marshalling over the
+ *  Binder RPC framework.
+ */
 struct AudioTrackCreateParamInternal : public AudioTrackCreateParam {
+
+  //! Default constructor
   AudioTrackCreateParamInternal() {}
+
+  //! Copy constructor
   AudioTrackCreateParamInternal(AudioTrackCreateParam& base)
       : AudioTrackCreateParam(base) {}
+
+  //! Copy constructor (const)
   AudioTrackCreateParamInternal(const AudioTrackCreateParam& base)
       : AudioTrackCreateParam(const_cast<AudioTrackCreateParam&>(base)) {}
 
+  /*! @brief Marshals the struct to the given Parcel.
+   *
+   *  Marshals the individual fields of the struct into the given Parcel.
+   *
+   *  @param [in,out] parcel Receives the marshalled fields.
+   */
   void ToParcel(::android::Parcel* parcel) const {
     parcel->writeUint32(in_devices_num);
     for (uint32_t i = 0; i < in_devices_num; i++)
@@ -83,6 +102,14 @@ struct AudioTrackCreateParamInternal : public AudioTrackCreateParam {
     parcel->writeUint32(flags);
   }
 
+  /*! @brief Unmarshals the given Parcel into the struct.
+   *
+   *  Unmarshals the flattened contents of the given Parcel into the individual
+   *  fields of the struct.
+   *
+   *  @param [in] parcel Provides the flattened contents.
+   *  @returns Reference to the struct.
+   */
   AudioTrackCreateParamInternal& FromParcel(const ::android::Parcel& parcel) {
     in_devices_num = static_cast<uint32_t>(parcel.readUint32());
     if (in_devices_num > QMMF_ARRAY_SIZE(in_devices))
@@ -120,13 +147,30 @@ struct AudioTrackCreateParamInternal : public AudioTrackCreateParam {
   }
 };
 
+/*! @brief Struct enhanced with marshalling methods.
+ *
+ *  Enhances the base struct with methods suitable for marshalling over the
+ *  Binder RPC framework.
+ */
 struct VideoTrackCreateParamInternal : public VideoTrackCreateParam {
+
+  //! Default constructor
   VideoTrackCreateParamInternal() {}
+
+  //! Copy constructor
   VideoTrackCreateParamInternal(VideoTrackCreateParam& base)
       : VideoTrackCreateParam(base) {}
+
+  //! Copy constructor (const)
   VideoTrackCreateParamInternal(const VideoTrackCreateParam& base)
       : VideoTrackCreateParam(const_cast<VideoTrackCreateParam&>(base)) {}
 
+  /*! @brief Marshals the struct to the given Parcel.
+   *
+   *  Marshals the individual fields of the struct into the given Parcel.
+   *
+   *  @param [in,out] parcel Receives the marshalled fields.
+   */
   void ToParcel(::android::Parcel* parcel) const {
     parcel->writeUint32(camera_id);
     parcel->writeUint32(width);
@@ -153,6 +197,14 @@ struct VideoTrackCreateParamInternal : public VideoTrackCreateParam {
     }
   }
 
+  /*! @brief Unmarshals the given Parcel into the struct.
+   *
+   *  Unmarshals the flattened contents of the given Parcel into the individual
+   *  fields of the struct.
+   *
+   *  @param [in] parcel Provides the flattened contents.
+   *  @returns Reference to the struct.
+   */
   VideoTrackCreateParamInternal& FromParcel(const ::android::Parcel& parcel) {
     camera_id = parcel.readUint32();
     width = parcel.readUint32();
@@ -181,12 +233,29 @@ struct VideoTrackCreateParamInternal : public VideoTrackCreateParam {
   }
 };
 
+/*! @brief Struct enhanced with marshalling methods.
+ *
+ *  Enhances the base struct with methods suitable for marshalling over the
+ *  Binder RPC framework.
+ */
 struct CameraStartParamInternal : public CameraStartParam {
+
+  //! Default constructor
   CameraStartParamInternal() {}
+
+  //! Copy constructor
   CameraStartParamInternal(CameraStartParam& base) : CameraStartParam(base) {}
+
+  //! Copy constructor (const)
   CameraStartParamInternal(const CameraStartParam& base)
       : CameraStartParam(const_cast<CameraStartParam&>(base)) {}
 
+  /*! @brief Marshals the struct to the given Parcel.
+   *
+   *  Marshals the individual fields of the struct into the given Parcel.
+   *
+   *  @param [in,out] parcel Receives the marshalled fields.
+   */
   void ToParcel(::android::Parcel* parcel) const {
     parcel->writeInt32(static_cast<int32_t>(zsl_mode));
     parcel->writeUint32(zsl_queue_depth);
@@ -196,6 +265,14 @@ struct CameraStartParamInternal : public CameraStartParam {
     parcel->writeUint32(flags);
   }
 
+  /*! @brief Unmarshals the given Parcel into the struct.
+   *
+   *  Unmarshals the flattened contents of the given Parcel into the individual
+   *  fields of the struct.
+   *
+   *  @param [in] parcel Provides the flattened contents.
+   *  @returns Reference to the struct.
+   */
   CameraStartParamInternal& FromParcel(const ::android::Parcel& parcel) {
     zsl_mode = static_cast<bool>(parcel.readInt32());
     zsl_queue_depth = parcel.readUint32();
@@ -207,12 +284,29 @@ struct CameraStartParamInternal : public CameraStartParam {
   }
 };
 
+/*! @brief Struct enhanced with marshalling methods.
+ *
+ *  Enhances the base struct with methods suitable for marshalling over the
+ *  Binder RPC framework.
+ */
 struct ImageParamInternal : public ImageParam {
+
+  //! Default constructor
   ImageParamInternal() {}
+
+  //! Copy constructor
   ImageParamInternal(ImageParam& base) : ImageParam(base) {}
+
+  //! Copy constructor (const)
   ImageParamInternal(const ImageParam& base)
       : ImageParam(const_cast<ImageParam&>(base)) {}
 
+  /*! @brief Marshals the struct to the given Parcel.
+   *
+   *  Marshals the individual fields of the struct into the given Parcel.
+   *
+   *  @param [in,out] parcel Receives the marshalled fields.
+   */
   void ToParcel(::android::Parcel* parcel) const {
     parcel->writeUint32(width);
     parcel->writeUint32(height);
@@ -220,6 +314,14 @@ struct ImageParamInternal : public ImageParam {
     parcel->writeInt32(static_cast<int32_t>(image_format));
   }
 
+  /*! @brief Unmarshals the given Parcel into the struct.
+   *
+   *  Unmarshals the flattened contents of the given Parcel into the individual
+   *  fields of the struct.
+   *
+   *  @param [in] parcel Provides the flattened contents.
+   *  @returns Reference to the struct.
+   */
   ImageParamInternal& FromParcel(const ::android::Parcel& parcel) {
     width = parcel.readUint32();
     height = parcel.readUint32();
@@ -229,13 +331,28 @@ struct ImageParamInternal : public ImageParam {
   }
 };
 
+/*! @brief Struct enhanced with marshalling methods.
+ *
+ *  Enhances the base struct with methods suitable for marshalling over the
+ *  Binder RPC framework.
+ */
 struct ImageCaptureConfigInternal : public ImageCaptureConfig {
+
+  //! Default constructor
   ImageCaptureConfigInternal() {}
+
+  //! Copy constructor
   ImageCaptureConfigInternal(ImageCaptureConfig& base)
       : ImageCaptureConfig(base) {}
   ImageCaptureConfigInternal(const ImageCaptureConfig& base)
       : ImageCaptureConfig(const_cast<ImageCaptureConfig&>(base)) {}
 
+  /*! @brief Marshals the struct to the given Parcel.
+   *
+   *  Marshals the individual fields of the struct into the given Parcel.
+   *
+   *  @param [in,out] parcel Receives the marshalled fields.
+   */
   void ToParcel(::android::Parcel* parcel) const {
     parcel->writeUint32(sensor_frame_skip_interval);
     parcel->writeInt32(static_cast<int32_t>(with_exif));
@@ -247,6 +364,14 @@ struct ImageCaptureConfigInternal : public ImageCaptureConfig {
       ImageParamInternal(thumbnail_image_param[i]).ToParcel(parcel);
   }
 
+  /*! @brief Unmarshals the given Parcel into the struct.
+   *
+   *  Unmarshals the flattened contents of the given Parcel into the individual
+   *  fields of the struct.
+   *
+   *  @param [in] parcel Provides the flattened contents.
+   *  @returns Reference to the struct.
+   */
   ImageCaptureConfigInternal& FromParcel(const ::android::Parcel& parcel) {
     sensor_frame_skip_interval = parcel.readUint32();
     with_exif = static_cast<bool>(parcel.readInt32());

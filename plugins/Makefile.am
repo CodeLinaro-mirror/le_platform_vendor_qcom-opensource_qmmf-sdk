@@ -42,7 +42,7 @@ qmmf_algo_interface_gtest_SOURCES += gtest/qmmf_algo_gtest_configuration_buffer.
 qmmf_algo_interface_gtest_SOURCES += gtest/qmmf_algo_gtest_test_content.cc
 qmmf_algo_interface_gtest_SOURCES += gtest/qmmf_algo_gtest_test_suite.cc
 qmmf_algo_interface_gtest_SOURCES += gtest/qmmf_algo_gtest_configuration.cc
-qmmf_algo_interface_gtest_SOURCES += gtest/ion_buffer.cc
+qmmf_algo_interface_gtest_SOURCES += gtest/heap_buffer.cc
 qmmf_algo_interface_gtest_SOURCES += gtest/heap_tracker.cc
 
 qmmf_algo_interface_gtest_CPPFLAGS = -I$(top_srcdir)

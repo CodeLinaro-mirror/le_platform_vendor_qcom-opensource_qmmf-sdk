@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -25,6 +25,9 @@
 * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
 * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*/
+
+/*! @file qmmf_player_video_decoder_core.h
 */
 
 #pragma once
@@ -102,7 +105,7 @@ class VideoDecoderCore {
 
   VideoDecoderCore& operator=(const VideoDecoderCore&);
 
-  //Map of track id and video decoder
+  /**< Map of track id and video decoder */
   DefaultKeyedVector<uint32_t, ::std::shared_ptr<VideoTrackDecoder>>video_track_decoders_;
 
   static VideoDecoderCore* instance_;
@@ -167,21 +170,21 @@ class VideoTrackDecoder : public ::qmmf::avcodec::ICodecSource {
   uint32_t TrackId() { return video_track_params_.track_id; }
 
   typedef struct BufInfo {
-    // FD at service
+    /**< FD at service */
     uint32_t buf_id;
 
-    // Memory mapped buffer.
+    /**< Memory mapped buffer */
     void*    vaddr;
   } BufInfo;
 
-  //map<fd , buf_info>
+  /**< map<fd , buf_info> */
   DefaultKeyedVector<uint32_t, BufInfo> buf_info_map;
 
   ::std::shared_ptr<VideoTrackSink> video_track_sink_;
   VideoTrackParams                  video_track_params_;
   ::qmmf::avcodec::AVCodec*         avcodec_;
 
-  // For input port
+  /**< For input port */
   Vector<StreamBuffer>    input_buffer_list_;
   TSQueue<StreamBuffer>   unfilled_frame_queue_;
   TSQueue<StreamBuffer>   filled_frame_queue_;

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, 2018, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016, 2018, 2019, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -25,6 +25,9 @@
 * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
 * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*/
+
+/*! @file qmmf_display_sdm_buffer_allocator.h
 */
 
 #pragma once
@@ -54,6 +57,10 @@ namespace display {
 using namespace sdm;
 
 #ifndef TARGET_USES_GRALLOC1
+/**
+ * @brief Buffer Allocator Class used to allocate buffers for Allocate
+ * Buffer Mode of Buffer Allocation for 8053 target
+ */
 class DisplayBufferAllocatorGralloc : public BufferAllocator {
  public:
   DisplayBufferAllocatorGralloc();
@@ -69,14 +76,20 @@ class DisplayBufferAllocatorGralloc : public BufferAllocator {
 
  private:
   struct MetaBufferInfo {
-    int alloc_type;  // Specifies allocation type set by the buffer allocator.
-    void *base_addr;  // Specifies base address of the allocated output buffer.
+    int alloc_type;
+    /**< Specifies allocation type set by the buffer allocator. */
+    void *base_addr;
+    /**< Specifies base address of the allocated output buffer. */
   };
   int SetBufferInfo(LayerBufferFormat format, int *target, int *flags);
   gralloc::IAllocController *alloc_controller_;
 };
 
 #else
+/**
+ * @brief Buffer Allocator Class used to allocate buffers for Allocate
+ * Buffer Mode of Buffer Allocation for RD LA target
+ */
 class DisplayBufferAllocatorGralloc1 : public BufferAllocator {
  public:
   DisplayBufferAllocatorGralloc1();

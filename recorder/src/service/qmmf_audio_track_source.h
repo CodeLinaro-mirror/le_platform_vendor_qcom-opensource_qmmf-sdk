@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -27,6 +27,8 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+//! @file qmmf_audio_track_source.h
+
 #pragma once
 
 #include <atomic>
@@ -45,71 +47,191 @@
 namespace qmmf {
 namespace recorder {
 
+/*! @brief Interface of the audio track source.
+ *
+ *  Methods are implemented by the audio track source and RecorderImpl calls
+ *  these methods.
+ */
 class IAudioTrackSource {
  public:
+
+  //! Destructor
   virtual ~IAudioTrackSource() {}
 
+  /*! @brief Initializes the internal state.
+   *
+   *  @returns Status indicating success or failure.
+   */
   virtual status_t Init() = 0;
+
+  /*! @brief De-initializes the internal state so that the instance may be
+   *         destroyed.
+   *
+   *  @returns Status indicating success or failure.
+   */
   virtual status_t DeInit() = 0;
 
+  /*! @brief Starts the data flow.
+   *
+   *  @returns Status indicating success or failure.
+   */
   virtual status_t StartTrack() = 0;
+
+  /*! @brief Stops the data flow.
+   *
+   *  @returns Status indicating success or failure.
+   */
   virtual status_t StopTrack() = 0;
+
+  /*! @brief Pauses the data flow.
+   *
+   *  @returns Status indicating success or failure.
+   */
   virtual status_t PauseTrack() = 0;
+
+  /*! @brief Resumes the data flow.
+   *
+   *  @returns Status indicating success or failure.
+   */
   virtual status_t ResumeTrack() = 0;
 
+  /*! @brief Sets a parameter to a new value.
+   *
+   *  @param [in] key Indicates which parameter to set.
+   *  @param [in] value New parameter value.
+   *  @returns Status indicating success or failure.
+   */
   virtual status_t SetParameter(const ::std::string& key,
                                 const ::std::string& value) = 0;
 
+  /*! @brief Handles returned buffers from RecorderImpl.
+   *
+   *  @param [in] buffers Vector of returned buffers.
+   *  @returns Status indicating success or failure.
+   */
   virtual status_t ReturnTrackBuffer(const ::std::vector<BnBuffer>& buffers) = 0;
 };
 
+/*! @brief Manages the audio data flow between RecorderImpl and AudioEndPoint.
+ *
+ *  Sets up the data path between the RecorderImpl and a newly created
+ *  instance of an AudioEndPoint.  Configures the audio endpoint based
+ *  on the parameters of AudioTrackParam.  Also allocates a number
+ *  of audio ION buffers and pushes them to the thread's buffer queue.
+ *
+ *  Once setup, manages the data flow of audio buffers between the RecorderImpl
+ *  and the audio endpoint.
+ *
+ *  After streaming has completed, destroys the instance of the AudioEndPoint
+ *  and the data path.
+ *
+ *  @startuml
+ *  
+ *  skinparam ArrowColor blue
+ *  hide footbox
+ *  autonumber
+ *  
+ *  title Data Flow
+ *  
+ *  participant RecorderImpl as ri
+ *  participant AudioRawTrackSource as arts
+ *  participant AudioEndPoint as aep
+ *  
+ *  arts -> aep : AudioEndPoint::SendBuffers()
+ *  aep -> arts : AudioRawTrackSource::BufferHandler()
+ *  arts -> ri  : RecorderImpl::AudioTrackBufferCb()
+ *  ri -> arts  : AudioRawTrackSource::ReturnTrackBuffer()
+ *  
+ *  @enduml
+ */
 class AudioRawTrackSource : public IAudioTrackSource {
  public:
+
+  /*! @brief Constructor
+   *
+   *  @param [in] params Given parameters for audio path configuration.
+   *  @returns Status indicating success or failure.
+   */
   AudioRawTrackSource(const AudioTrackParams& params);
+
+  //! Default constructor
   virtual ~AudioRawTrackSource();
 
-  // methods of IAudioTrackSource
+  //! @copydoc IAudioTrackSource::Init()
   status_t Init() override;
+
+  //! @copydoc IAudioTrackSource::Deinit()
   status_t DeInit() override;
+
+  //! @copydoc IAudioTrackSource::StartTrack()
   status_t StartTrack() override;
+
+  //! @copydoc IAudioTrackSource::StopTrack()
   status_t StopTrack() override;
+
+  //! @copydoc IAudioTrackSource::PauseTrack()
   status_t PauseTrack() override;
+
+  //! @copydoc IAudioTrackSource::ResumeTrack()
   status_t ResumeTrack() override;
+
+  //! @copydoc IAudioTrackSource::SetParameter()
   status_t SetParameter(const ::std::string& key,
                         const ::std::string& value) override;
+
+  //! @copydoc IAudioTrackSource::ReturnTrackBuffer()
   status_t ReturnTrackBuffer(const std::vector<BnBuffer>& buffers) override;
 
  private:
+
+  //! The different types of messages that can be sent to the running thread.
   enum class AudioMessageType {
-    kMessageStop,
-    kMessagePause,
-    kMessageResume,
-    kMessageBuffer,
-    kMessageBnBuffer,
+    kMessageStop, //!< Directs the thread to stop data flow.
+    kMessagePause, //!< Directs the thread to pause data flow.
+    kMessageResume, //!< Directs the thread to resume data flow.
+    kMessageBuffer, //!< Message contains a buffer from the AudioEndPoint.
+    kMessageBnBuffer, //!< Message contains a buffer from the RecorderImpl.
   };
 
+  //! A message to be sent to the running thread.
   struct AudioMessage {
-    AudioMessageType type;
+    AudioMessageType type; //!< The type of message.
     union {
-      ::qmmf::common::audio::AudioBuffer buffer;
-      BnBuffer bn_buffer;
+      ::qmmf::common::audio::AudioBuffer buffer; //!< Buffer from AudioEndPoint.
+      BnBuffer bn_buffer; //!< Buffer from RecorderImpl.
     };
   };
 
+  /*! @brief Entry point for the AudioRawTrackSource thread.
+   *
+   *  @param [in] souorce Pointer to the AudioRawTrackSource instance.
+   */
   static void ThreadEntry(AudioRawTrackSource* source);
+
+  //! The AudioRawTrackSource thread that manages data flow.
   void Thread();
 
+  /*! @brief Handles error-related callbacks from the AudioEndPoint.
+   *
+   *  @param [in] error Indicates which error occurred.
+   */
   void ErrorHandler(const int32_t error);
+
+  /*! @brief Callback handler used to receive a filled buffer from the
+   *         AudioEndPoint.
+   *
+   *  @param [in] buffer Audio data from the AudioEndPoint.
+   */
   void BufferHandler(const ::qmmf::common::audio::AudioBuffer& buffer);
 
-  AudioTrackParams track_params_;
-  ::qmmf::common::audio::AudioEndPoint* end_point_;
-  RecorderIon ion_;
+  AudioTrackParams track_params_; //!< Saved set of given parameters.
+  ::qmmf::common::audio::AudioEndPoint* end_point_; //!< Audio endpoint pointer.
+  RecorderIon ion_; //!< Instance of the RecorderIon.
 
-  ::std::thread* thread_;
-  ::std::mutex message_lock_;
-  ::std::queue<AudioMessage> messages_;
-  QCondition signal_;
+  ::std::thread* thread_; //!< Pointer to the running thread.
+  ::std::mutex message_lock_; //!< Protects the message queue.
+  ::std::queue<AudioMessage> messages_; //!< Yet to be processed by the thread.
+  QCondition signal_; //!< Sync mechanism for message queue access.
 
   // disable copy, assignment, and move
   AudioRawTrackSource(const AudioRawTrackSource&) = delete;
@@ -118,49 +240,126 @@ class AudioRawTrackSource : public IAudioTrackSource {
   AudioRawTrackSource& operator=(const AudioRawTrackSource&&) = delete;
 };
 
-// This class is behaves as both producer and consumer. At one end, it takes
-// PCM buffers from the audio endpoint; and on the other end, it provides those
-// PCM buffers to Encoder. It also manages buffer circulation, skip, etc.
+/*! @brief Manages the audio data flow between AVCodec and AudioEndPoint.
+ *
+ *  Sets up the data path between an AVCodec audio encoder and a newly created
+ *  instance of an AudioEndPoint.  Configures the audio endpoint based
+ *  on the parameters of AudioTrackParam.  Also allocates a number
+ *  of audio ION buffers and pushes them to the buffer queue.
+ *
+ *  Once setup, manages the data flow of audio buffers between the AVCodec
+ *  audio encoder and the audio endpoint.
+ *
+ *  After streaming has completed, destroys the instance of the AudioEndPoint
+ *  and the data path.
+ *
+ *  @startuml
+ *  
+ *  skinparam ArrowColor blue
+ *  hide footbox
+ *  autonumber
+ *  
+ *  title Data Flow
+ *  
+ *  participant AVCodec as avc
+ *  participant AudioEncodedTrackSource as aets
+ *  participant AudioEndPoint as aep
+ *  
+ *  aets -> aep : AudioEndPoint::SendBuffers()
+ *  aep -> aets : AudioEncodedTrackSource::BufferHandler()
+ *  aets -> avc : AudioTrackEncoder::GetBuffer()
+ *  avc -> aets : AudioTrackEncoder::ReturnBuffer()
+ *  
+ *  @enduml
+ */
 class AudioEncodedTrackSource : public ::qmmf::avcodec::ICodecSource,
                                 public IAudioTrackSource {
  public:
+
+  /*! @brief Constructor
+   *
+   *  @param [in] params Given parameters for audio path configuration.
+   *  @returns Status indicating success or failure.
+   */
   AudioEncodedTrackSource(const AudioTrackParams& params);
+
+  //! Default constructor
   virtual ~AudioEncodedTrackSource();
 
-  // methods of IAudioTrackSource
+  //! @copydoc IAudioTrackSource::Init()
   status_t Init() override;
+
+  //! @copydoc IAudioTrackSource::Deinit()
   status_t DeInit() override;
+
+  //! @copydoc IAudioTrackSource::StartTrack()
   status_t StartTrack() override;
+
+  //! @copydoc IAudioTrackSource::StopTrack()
   status_t StopTrack() override;
+
+  //! @copydoc IAudioTrackSource::PauseTrack()
   status_t PauseTrack() override;
+
+  //! @copydoc IAudioTrackSource::ResumeTrack()
   status_t ResumeTrack() override;
+
+  //! @copydoc IAudioTrackSource::SetParameter()
   status_t SetParameter(const ::std::string& key,
                         const ::std::string& value) override;
+
+  //! @copydoc IAudioTrackSource::ReturnTrackBuffer()
   status_t ReturnTrackBuffer(const std::vector<BnBuffer>& buffers) override;
 
-  // methods of IInputCodecSource
+  //! @copydoc ICodecSource::GetBuffer()
   status_t GetBuffer(BufferDescriptor& buffer, void* client_data) override;
+
+  //! @copydoc ICodecSource::ReturnBuffer()
   status_t ReturnBuffer(BufferDescriptor& buffer, void* client_data) override;
+
+  //! @copydoc ICodecSource::NotifyPortEvent()
   status_t NotifyPortEvent(::qmmf::avcodec::PortEventType event_type,
                            void* event_data) override;
 
+  /*! @brief Gets the current buffer size.
+   *
+   *  @param [out] buffer_size Current value of the buffer size.
+   *  @returns Status indicating success or failure.
+   */
   status_t GetBufferSize(int32_t* buffer_size);
+
+  /*! @brief Sets the buffer size to the given value.
+   *
+   *  @param [in] buffer_size New value of the buffer size.
+   *  @returns Status indicating success or failure.
+   */
   status_t SetBufferSize(const int32_t buffer_size);
 
  private:
+
+  /*! @brief Handles error-related callbacks from the AudioEndPoint.
+   *
+   *  @param [in] error Indicates which error occurred.
+   */
   void ErrorHandler(const int32_t error);
+
+  /*! @brief Callback handler used to receive a filled buffer from the
+   *         AudioEndPoint.
+   *
+   *  @param [in] buffer Audio data from the AudioEndPoint.
+   */
   void BufferHandler(const ::qmmf::common::audio::AudioBuffer& buffer);
 
-  AudioTrackParams track_params_;
-  ::qmmf::common::audio::AudioEndPoint* end_point_;
-  RecorderIon ion_;
-  ::std::queue<BufferDescriptor> buffers_;
-  int32_t buffer_size_;
-  bool stop_called_;
-  bool stop_notify_received_;
+  AudioTrackParams track_params_; //!< Saved set of given parameters.
+  ::qmmf::common::audio::AudioEndPoint* end_point_; //!< Audio endpoint pointer.
+  RecorderIon ion_; //!< Instance of the RecorderIon.
+  ::std::queue<BufferDescriptor> buffers_; //!< Queue of allocated buffers.
+  int32_t buffer_size_; //!< Size of audio buffers to allocate (bytes).
+  bool stop_called_; //!< Flag indicating RecorderImpl called stop.
+  bool stop_notify_received_; //!< Flag indicating AVCodec received stop.
 
-  std::mutex mutex_;
-  QCondition signal_;
+  std::mutex mutex_; //!< Protects the buffer queue.
+  QCondition signal_; //!< Sync mechanism for buffer queue access.
 
   // disable copy, assignment, and move
   AudioEncodedTrackSource(const AudioEncodedTrackSource&) = delete;

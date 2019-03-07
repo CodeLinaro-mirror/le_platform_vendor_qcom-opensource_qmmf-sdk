@@ -58,12 +58,16 @@ static const auto kOneFrameProcessTimeout = std::chrono::seconds(10);
 /** QmmfAlgoEventListener
  *    @lock_: mutex protection for thread safe
  *    @signal_: notification for end of processing
- *    @inplace_processing_: inplace processing
- *    @pending_input_buffers_: list of pending input buffers
- *    @pending_output_buffers_: list of pending input buffers
- *    @idle_input_buffers_: list of idle input buffers
- *    @idle_output_buffers_: list of idle input buffers
  *    @algo_: algorithm instance
+ *    @inplace_processing_: inplace processing
+ *    @measure_timing_performance_: measure timing performance
+ *    @num_input_: number of input buffers
+ *    @num_output_: number of output buffers
+ *    @pending_input_buffers_: list of pending input buffers
+ *    @pending_output_buffers_: list of pending output buffers
+ *    @idle_input_buffers_: list of idle input buffers
+ *    @idle_output_buffers_: list of idle output buffers
+ *    @wait_till_mark_time_stamp_: buffers to wait till push to time stamp
  *    @time_stamps_: vector of frame ready time stamps
  *
  * Qmmf algorithm event listener
@@ -72,14 +76,24 @@ static const auto kOneFrameProcessTimeout = std::chrono::seconds(10);
 class QmmfAlgoEventListener : public IEventListener {
  public:
   QmmfAlgoEventListener(
-      bool inplace_processing,
+      bool inplace_processing, bool measure_timing_performance,
+      uint32_t num_input, uint32_t num_output,
       std::list<std::shared_ptr<BufferHandler>> idle_input_buffers,
       std::list<std::shared_ptr<BufferHandler>> idle_output_buffers,
       IAlgPlugin *algo)
-      : inplace_processing_(inplace_processing),
+      : algo_(algo),
+        inplace_processing_(inplace_processing),
+        measure_timing_performance_(measure_timing_performance),
+        num_input_(num_input),
+        num_output_(num_output),
         idle_input_buffers_(idle_input_buffers),
         idle_output_buffers_(idle_output_buffers),
-        algo_(algo) {}
+        wait_till_mark_time_stamp_(inplace_processing ? num_input_
+                                                      : num_output_) {
+    if (nullptr == algo_) {
+      Utils::ThrowException(__func__, "Algo handler is nullptr");
+    }
+  }
   ~QmmfAlgoEventListener() {}
 
   /** RemoveBuffers
@@ -128,9 +142,7 @@ class QmmfAlgoEventListener : public IEventListener {
   }
 
   /** GetIdleBuffers
-   *    @num_input: number of input buffers to be returned
    *    @input_buffers: list of input buffers to be returned
-   *    @num_output: number of output buffers to be returned
    *    @output_buffers: list of output buffers to be returned
    *    @configuration: requested configuration
    *    @duration: duration timeout
@@ -143,8 +155,8 @@ class QmmfAlgoEventListener : public IEventListener {
    **/
   template <class Rep, class Period = std::ratio<1>>
   void GetIdleBuffers(
-      const uint32_t num_input, std::vector<AlgBuffer> &input_buffers,
-      const uint32_t num_output, std::vector<AlgBuffer> &output_buffers,
+      std::vector<AlgBuffer> &input_buffers,
+      std::vector<AlgBuffer> &output_buffers,
       const std::shared_ptr<QmmfAlgoGtestConfiguration> &configuration,
       const std::chrono::duration<Rep, Period> &duration,
       std::vector<std::shared_ptr<BufferHandler>> *input_buffer_handlers =
@@ -154,8 +166,8 @@ class QmmfAlgoEventListener : public IEventListener {
     std::unique_lock<std::mutex> l(lock_);
 
     auto rc = signal_.wait_for(l, duration, [&] {
-      return ((num_input <= idle_input_buffers_.size()) &&
-              (num_output <= idle_output_buffers_.size()));
+      return ((num_input_ <= idle_input_buffers_.size()) &&
+              (num_output_ <= idle_output_buffers_.size()));
     });
     if (!rc) {
       Utils::ThrowException(__func__, "algorithm process timed out !!!");
@@ -167,6 +179,7 @@ class QmmfAlgoEventListener : public IEventListener {
     input_buffers.clear();
 
     for (auto &b : configuration->input_buffers_) {
+      int32_t fd = 0;
       for (auto &idle_buf : idle_input_buffers_) {
         if (idle_buf->Compare(b)) {
           pending_input_buffers_.push_back(idle_buf);
@@ -174,14 +187,12 @@ class QmmfAlgoEventListener : public IEventListener {
             input_buffer_handlers->push_back(idle_buf);
           }
           input_buffers.push_back(*idle_buf);
+          fd = idle_buf->fd_;
           break;
         }
       }
-    }
-
-    for (auto &b : input_buffers) {
       idle_input_buffers_.remove_if(
-          [&b](auto &idle_buf) { return idle_buf->Compare(b.fd_); });
+          [&fd](auto &idle_buf) { return idle_buf->Compare(fd); });
     }
 
     if (nullptr != output_buffer_handlers) {
@@ -190,6 +201,7 @@ class QmmfAlgoEventListener : public IEventListener {
     output_buffers.clear();
 
     for (auto &b : configuration->output_buffers_) {
+      int32_t fd = 0;
       for (auto &idle_buf : idle_output_buffers_) {
         if (idle_buf->Compare(b)) {
           pending_output_buffers_.push_back(idle_buf);
@@ -197,14 +209,12 @@ class QmmfAlgoEventListener : public IEventListener {
             output_buffer_handlers->push_back(idle_buf);
           }
           output_buffers.push_back(*idle_buf);
+          fd = idle_buf->fd_;
           break;
         }
       }
-    }
-
-    for (auto &b : output_buffers) {
       idle_output_buffers_.remove_if(
-          [&b](auto &idle_buf) { return idle_buf->Compare(b.fd_); });
+          [&fd](auto &idle_buf) { return idle_buf->Compare(fd); });
     }
   }
 
@@ -284,7 +294,9 @@ class QmmfAlgoEventListener : public IEventListener {
 
     std::vector<AlgBuffer> bufs;
     bufs.push_back(*rb);
-    algo_->UnregisterInputBuffers(bufs);
+    if (!measure_timing_performance_) {
+      algo_->UnregisterInputBuffers(bufs);
+    }
 
     signal_.notify_one();
   }
@@ -298,7 +310,15 @@ class QmmfAlgoEventListener : public IEventListener {
    **/
   void OnFrameReady(const AlgBuffer &output_buffer) override {
     std::unique_lock<std::mutex> l(lock_);
-    time_stamps_.push_back(std::chrono::system_clock::now());
+
+    if (measure_timing_performance_) {
+      if (0 == wait_till_mark_time_stamp_) {
+        time_stamps_.push_back(std::chrono::system_clock::now());
+        wait_till_mark_time_stamp_ =
+            inplace_processing_ ? num_input_ : num_output_;
+      }
+      wait_till_mark_time_stamp_--;
+    }
 
     std::list<std::shared_ptr<BufferHandler>> *pending_buffers_;
     if (inplace_processing_) {
@@ -326,10 +346,14 @@ class QmmfAlgoEventListener : public IEventListener {
     bufs.push_back(*rb);
     if (inplace_processing_) {
       idle_buffers_ = &idle_input_buffers_;
-      algo_->UnregisterInputBuffers(bufs);
+      if (!measure_timing_performance_) {
+        algo_->UnregisterInputBuffers(bufs);
+      }
     } else {
       idle_buffers_ = &idle_output_buffers_;
-      algo_->UnregisterOutputBuffers(bufs);
+      if (!measure_timing_performance_) {
+        algo_->UnregisterOutputBuffers(bufs);
+      }
     }
 
     idle_buffers_->push_back(rb);
@@ -354,12 +378,16 @@ class QmmfAlgoEventListener : public IEventListener {
  private:
   std::condition_variable signal_;
   std::mutex lock_;
+  IAlgPlugin *algo_;
   bool inplace_processing_;
+  bool measure_timing_performance_;
+  uint32_t num_input_;
+  uint32_t num_output_;
   std::list<std::shared_ptr<BufferHandler>> pending_input_buffers_;
   std::list<std::shared_ptr<BufferHandler>> pending_output_buffers_;
   std::list<std::shared_ptr<BufferHandler>> idle_input_buffers_;
   std::list<std::shared_ptr<BufferHandler>> idle_output_buffers_;
-  IAlgPlugin *algo_;
+  uint32_t wait_till_mark_time_stamp_;
   std::vector<std::chrono::system_clock::time_point> time_stamps_;
 };
 
@@ -562,16 +590,18 @@ class QmmfAlgoInterfaceGtest : public ::testing::Test, public QmmfAlgoTools {
         b->ReadInputFile();
       }
 
-      QmmfAlgoEventListener l(caps->inplace_processing_, input_buffer_handlers,
-                              output_buffer_handlers, algo_);
+      QmmfAlgoEventListener l(caps->inplace_processing_, false,
+                              configuration_->input_buffers_.size(),
+                              configuration_->output_buffers_.size(),
+                              input_buffer_handlers, output_buffer_handlers,
+                              algo_);
       algo_->SetCallbacks(&l);
 
       // Open cl driver creates callback on first invocation. So wait one
       //    process iteration to avoid false positive test failures
       if (check_for_leaks) {
-        l.GetIdleBuffers(caps->in_buffer_requirements_.count_, input_buffers,
-                         caps->out_buffer_requirements_.count_, output_buffers,
-                         configuration_, kOneFrameProcessTimeout);
+        l.GetIdleBuffers(input_buffers, output_buffers, configuration_,
+                         kOneFrameProcessTimeout);
 
         algo_->RegisterInputBuffers(input_buffers);
         algo_->RegisterOutputBuffers(output_buffers);
@@ -581,9 +611,8 @@ class QmmfAlgoInterfaceGtest : public ::testing::Test, public QmmfAlgoTools {
         l.Wait(kOneFrameProcessTimeout);
       }
 
-      l.GetIdleBuffers(caps->in_buffer_requirements_.count_, input_buffers,
-                       caps->out_buffer_requirements_.count_, output_buffers,
-                       configuration_, kOneFrameProcessTimeout);
+      l.GetIdleBuffers(input_buffers, output_buffers, configuration_,
+                       kOneFrameProcessTimeout);
 
       auto ProcessThreadStart = GetNumThreads();
       auto ProcessIONStart = GetIonBuffers();
@@ -789,8 +818,9 @@ TEST_F(QmmfAlgoInterfaceGtest, GetInputRequirements) {
               << "Failed lib: " << tested_library;
 
           for (const auto &s : result_input_requirements.formats_) {
-            const bool is_in = buffer_requirements.pixel_formats_.find(s) !=
-                               buffer_requirements.pixel_formats_.end();
+            const bool is_in =
+                caps->in_buffer_requirements_.pixel_formats_.find(s) !=
+                caps->in_buffer_requirements_.pixel_formats_.end();
             EXPECT_TRUE(is_in) << "Failed lib: " << tested_library;
           }
 
@@ -799,7 +829,7 @@ TEST_F(QmmfAlgoInterfaceGtest, GetInputRequirements) {
               "\"InputWidth\" : 0,"
               "\"InputHeight\" : 0,"
               "\"RatioWidth\": 2.0,"
-              "\"RatioHeight\": 2.0,"
+              "\"RatioHeight\": 2.0"
               "}";
           algo_->Configure(config);
 
@@ -826,8 +856,9 @@ TEST_F(QmmfAlgoInterfaceGtest, GetInputRequirements) {
               << "Failed lib: " << tested_library;
 
           for (const auto &s : result_input_requirements.formats_) {
-            const bool is_in = buffer_requirements.pixel_formats_.find(s) !=
-                               buffer_requirements.pixel_formats_.end();
+            const bool is_in =
+                caps->in_buffer_requirements_.pixel_formats_.find(s) !=
+                caps->in_buffer_requirements_.pixel_formats_.end();
             EXPECT_TRUE(is_in) << "Failed lib: " << tested_library;
           }
 
@@ -868,8 +899,9 @@ TEST_F(QmmfAlgoInterfaceGtest, GetInputRequirements) {
               << "Failed lib: " << tested_library;
 
           for (const auto &s : result_input_requirements.formats_) {
-            const bool is_in = buffer_requirements.pixel_formats_.find(s) !=
-                               buffer_requirements.pixel_formats_.end();
+            const bool is_in =
+                caps->in_buffer_requirements_.pixel_formats_.find(s) !=
+                caps->in_buffer_requirements_.pixel_formats_.end();
             EXPECT_TRUE(is_in) << "Failed lib: " << tested_library;
           }
 
@@ -904,8 +936,9 @@ TEST_F(QmmfAlgoInterfaceGtest, GetInputRequirements) {
               << "Failed lib: " << tested_library;
 
           for (const auto &s : result_input_requirements.formats_) {
-            const bool is_in = buffer_requirements.pixel_formats_.find(s) !=
-                               buffer_requirements.pixel_formats_.end();
+            const bool is_in =
+                caps->in_buffer_requirements_.pixel_formats_.find(s) !=
+                caps->in_buffer_requirements_.pixel_formats_.end();
             EXPECT_TRUE(is_in) << "Failed lib: " << tested_library;
           }
 
@@ -944,8 +977,9 @@ TEST_F(QmmfAlgoInterfaceGtest, GetInputRequirements) {
               << "Failed lib: " << tested_library;
 
           for (const auto &s : result_input_requirements.formats_) {
-            const bool is_in = buffer_requirements.pixel_formats_.find(s) !=
-                               buffer_requirements.pixel_formats_.end();
+            const bool is_in =
+                caps->in_buffer_requirements_.pixel_formats_.find(s) !=
+                caps->in_buffer_requirements_.pixel_formats_.end();
             EXPECT_TRUE(is_in) << "Failed lib: " << tested_library;
           }
         }
@@ -1049,7 +1083,8 @@ TEST_F(QmmfAlgoInterfaceGtest, RegisterUnregisterInputBuffers) {
 
           auto buffer_handler = BufferHandler::New(
               caps->in_buffer_requirements_, pix_fmt, b->width_, b->height_,
-              b->stride_, b->scanline_, std::string(""), std::string(""));
+              b->stride_, b->scanline_, std::string(""), std::string(""),
+              b->heap_buffer_);
           AlgBuffer b = *buffer_handler;
           buffers.push_back(b);
 
@@ -1112,7 +1147,8 @@ TEST_F(QmmfAlgoInterfaceGtest, RegisterUnregisterOutputBuffers) {
 
             auto buffer_handler = BufferHandler::New(
                 caps->out_buffer_requirements_, pix_fmt, b->width_, b->height_,
-                b->stride_, b->scanline_, std::string(""), std::string(""));
+                b->stride_, b->scanline_, std::string(""), std::string(""),
+                b->heap_buffer_);
             AlgBuffer b = *buffer_handler;
             buffers.push_back(b);
 
@@ -1244,8 +1280,11 @@ TEST_F(QmmfAlgoInterfaceGtest, Abort) {
         b->ReadInputFile();
       }
 
-      QmmfAlgoEventListener l(caps->inplace_processing_, input_buffer_handlers,
-                              output_buffer_handlers, algo_);
+      QmmfAlgoEventListener l(caps->inplace_processing_, false,
+                              configuration_->input_buffers_.size(),
+                              configuration_->output_buffers_.size(),
+                              input_buffer_handlers, output_buffer_handlers,
+                              algo_);
 
       algo_->SetCallbacks(&l);
 
@@ -1257,9 +1296,8 @@ TEST_F(QmmfAlgoInterfaceGtest, Abort) {
         ALOGD("%s: Running Test(%s) iteration = %d\n", __func__,
               test_info_->name(), i);
 
-        l.GetIdleBuffers(caps->in_buffer_requirements_.count_, input_buffers,
-                         caps->out_buffer_requirements_.count_, output_buffers,
-                         configuration_, kOneFrameProcessTimeout);
+        l.GetIdleBuffers(input_buffers, output_buffers, configuration_,
+                         kOneFrameProcessTimeout);
 
         algo_->RegisterInputBuffers(input_buffers);
         algo_->RegisterOutputBuffers(output_buffers);
@@ -1403,10 +1441,22 @@ TEST_F(QmmfAlgoInterfaceGtest, SimulateCamera) {
         b->ReadInputFile();
       }
 
-      QmmfAlgoEventListener l(caps->inplace_processing_, input_buffer_handlers,
-                              output_buffer_handlers, algo_);
+      QmmfAlgoEventListener l(caps->inplace_processing_, true,
+                              configuration_->input_buffers_.size(),
+                              configuration_->output_buffers_.size(),
+                              input_buffer_handlers, output_buffer_handlers,
+                              algo_);
 
       algo_->SetCallbacks(&l);
+
+      for (auto &b : input_buffer_handlers) {
+        input_buffers.push_back(*b);
+      }
+      for (auto &b : output_buffer_handlers) {
+        output_buffers.push_back(*b);
+      }
+      algo_->RegisterInputBuffers(input_buffers);
+      algo_->RegisterOutputBuffers(output_buffers);
 
       std::chrono::system_clock::time_point timePoint;
       for (uint32_t i = 1; i <= configuration_->iteration_count_; i++) {
@@ -1415,11 +1465,8 @@ TEST_F(QmmfAlgoInterfaceGtest, SimulateCamera) {
         ALOGD("%s: Running Test(%s) iteration = %d\n", __func__,
               test_info_->name(), i);
 
-        l.GetIdleBuffers(caps->in_buffer_requirements_.count_, input_buffers,
-                         caps->out_buffer_requirements_.count_, output_buffers,
-                         configuration_, kOneFrameProcessTimeout);
-        algo_->RegisterInputBuffers(input_buffers);
-        algo_->RegisterOutputBuffers(output_buffers);
+        l.GetIdleBuffers(input_buffers, output_buffers, configuration_,
+                         kOneFrameProcessTimeout);
 
         if (i > 1) {
           std::this_thread::sleep_until(timePoint);
@@ -1429,9 +1476,20 @@ TEST_F(QmmfAlgoInterfaceGtest, SimulateCamera) {
         algo_->Process(input_buffers, output_buffers);
       }
 
+      l.Wait(kOneFrameProcessTimeout);
+
       fprintf(stderr, "%s\n", l.GetTimingPerformance().c_str());
 
-      l.Wait(kOneFrameProcessTimeout);
+      input_buffers.clear();
+      output_buffers.clear();
+      for (auto &b : input_buffer_handlers) {
+        input_buffers.push_back(*b);
+      }
+      for (auto &b : output_buffer_handlers) {
+        output_buffers.push_back(*b);
+      }
+      algo_->UnregisterInputBuffers(input_buffers);
+      algo_->UnregisterOutputBuffers(output_buffers);
 
       Deinit();
     } catch (const std::exception &e) {
@@ -1484,7 +1542,7 @@ TEST_F(QmmfAlgoInterfaceGtest, TimingPerformance) {
       std::list<std::shared_ptr<BufferHandler>> input_buffer_handlers;
       std::list<std::shared_ptr<BufferHandler>> output_buffer_handlers;
 
-      for (uint32_t i = 0; i < 3; i++) {
+      for (uint32_t i = 0; i < 6; i++) {
         auto input_handlers = BufferHandler::New(
             caps->in_buffer_requirements_, configuration_->input_buffers_);
         input_buffer_handlers.insert(input_buffer_handlers.end(),
@@ -1501,10 +1559,22 @@ TEST_F(QmmfAlgoInterfaceGtest, TimingPerformance) {
         b->ReadInputFile();
       }
 
-      QmmfAlgoEventListener l(caps->inplace_processing_, input_buffer_handlers,
-                              output_buffer_handlers, algo_);
+      QmmfAlgoEventListener l(caps->inplace_processing_, true,
+                              configuration_->input_buffers_.size(),
+                              configuration_->output_buffers_.size(),
+                              input_buffer_handlers, output_buffer_handlers,
+                              algo_);
 
       algo_->SetCallbacks(&l);
+
+      for (auto &b : input_buffer_handlers) {
+        input_buffers.push_back(*b);
+      }
+      for (auto &b : output_buffer_handlers) {
+        output_buffers.push_back(*b);
+      }
+      algo_->RegisterInputBuffers(input_buffers);
+      algo_->RegisterOutputBuffers(output_buffers);
 
       for (uint32_t i = 1; i <= configuration_->iteration_count_; i++) {
         fprintf(stderr, "test iteration = %d/%d\n", i,
@@ -1512,18 +1582,26 @@ TEST_F(QmmfAlgoInterfaceGtest, TimingPerformance) {
         ALOGD("%s: Running Test(%s) iteration = %d\n", __func__,
               test_info_->name(), i);
 
-        l.GetIdleBuffers(caps->in_buffer_requirements_.count_, input_buffers,
-                         caps->out_buffer_requirements_.count_, output_buffers,
-                         configuration_, kOneFrameProcessTimeout);
-        algo_->RegisterInputBuffers(input_buffers);
-        algo_->RegisterOutputBuffers(output_buffers);
+        l.GetIdleBuffers(input_buffers, output_buffers, configuration_,
+                         kOneFrameProcessTimeout);
 
         algo_->Process(input_buffers, output_buffers);
       }
 
+      l.Wait(kOneFrameProcessTimeout);
+
       fprintf(stderr, "%s\n", l.GetTimingPerformance().c_str());
 
-      l.Wait(kOneFrameProcessTimeout);
+      input_buffers.clear();
+      output_buffers.clear();
+      for (auto &b : input_buffer_handlers) {
+        input_buffers.push_back(*b);
+      }
+      for (auto &b : output_buffer_handlers) {
+        output_buffers.push_back(*b);
+      }
+      algo_->UnregisterInputBuffers(input_buffers);
+      algo_->UnregisterOutputBuffers(output_buffers);
 
       Deinit();
     } catch (const std::exception &e) {
@@ -1593,10 +1671,17 @@ TEST_F(QmmfAlgoInterfaceGtest, Consistency) {
         b->ReadInputFile();
       }
 
-      QmmfAlgoEventListener l(caps->inplace_processing_, input_buffer_handlers,
-                              output_buffer_handlers, algo_);
+      QmmfAlgoEventListener l(caps->inplace_processing_, false,
+                              configuration_->input_buffers_.size(),
+                              configuration_->output_buffers_.size(),
+                              input_buffer_handlers, output_buffer_handlers,
+                              algo_);
 
       algo_->SetCallbacks(&l);
+
+      uint32_t ref_iteration =
+          1 + std::max(caps->out_buffer_requirements_.history_buffer_count_,
+                       caps->in_buffer_requirements_.history_buffer_count_);
 
       std::vector<std::shared_ptr<BufferHandler>> ref_input_buffer_handlers;
       std::vector<std::shared_ptr<BufferHandler>> ref_output_buffer_handlers;
@@ -1607,18 +1692,15 @@ TEST_F(QmmfAlgoInterfaceGtest, Consistency) {
                 configuration_->iteration_count_);
         ALOGD("%s: Running Test(%s) iteration = %d\n", __func__,
               test_info_->name(), i);
-        if (1 == i) {
-          l.GetIdleBuffers(caps->in_buffer_requirements_.count_, input_buffers,
-                           caps->out_buffer_requirements_.count_,
-                           output_buffers, configuration_,
+        if (ref_iteration == i) {
+          l.GetIdleBuffers(input_buffers, output_buffers, configuration_,
                            kOneFrameProcessTimeout, &ref_input_buffer_handlers,
                            &ref_output_buffer_handlers);
         } else {
-          l.GetIdleBuffers(
-              caps->in_buffer_requirements_.count_, input_buffers,
-              caps->out_buffer_requirements_.count_, output_buffers,
-              configuration_, kOneFrameProcessTimeout,
-              &tested_input_buffer_handlers, &tested_output_buffer_handlers);
+          l.GetIdleBuffers(input_buffers, output_buffers, configuration_,
+                           kOneFrameProcessTimeout,
+                           &tested_input_buffer_handlers,
+                           &tested_output_buffer_handlers);
         }
 
         algo_->RegisterInputBuffers(input_buffers);
@@ -1627,18 +1709,36 @@ TEST_F(QmmfAlgoInterfaceGtest, Consistency) {
         algo_->Process(input_buffers, output_buffers);
         l.Wait(kOneFrameProcessTimeout);
 
-        if (1 == i) {
+        if (ref_iteration == i) {
           l.RemoveBuffers(input_buffers, output_buffers);
-        } else {
+        }
+
+        if (ref_iteration < i) {
           std::vector<std::shared_ptr<BufferHandler>> ref_buffer_handlers;
           std::vector<std::shared_ptr<BufferHandler>> tested_buffer_handlers;
 
           if (caps->inplace_processing_ == true) {
             ref_buffer_handlers = ref_input_buffer_handlers;
             tested_buffer_handlers = tested_input_buffer_handlers;
+
+            tested_buffer_handlers.erase(
+                tested_buffer_handlers.begin() +
+                    caps->in_buffer_requirements_.count_,
+                tested_buffer_handlers.end());
+            ref_buffer_handlers.erase(ref_buffer_handlers.begin() +
+                                          caps->in_buffer_requirements_.count_,
+                                      ref_buffer_handlers.end());
           } else {
             ref_buffer_handlers = ref_output_buffer_handlers;
             tested_buffer_handlers = tested_output_buffer_handlers;
+
+            tested_buffer_handlers.erase(
+                tested_buffer_handlers.begin() +
+                    caps->out_buffer_requirements_.count_,
+                tested_buffer_handlers.end());
+            ref_buffer_handlers.erase(ref_buffer_handlers.begin() +
+                                          caps->out_buffer_requirements_.count_,
+                                      ref_buffer_handlers.end());
           }
 
           EXPECT_EQ(tested_buffer_handlers.size(), ref_buffer_handlers.size())
@@ -1742,10 +1842,17 @@ TEST_F(QmmfAlgoInterfaceGtest, Stride) {
         b->ReadInputFile();
       }
 
-      QmmfAlgoEventListener l(caps->inplace_processing_, input_buffer_handlers,
-                              output_buffer_handlers, algo_);
+      QmmfAlgoEventListener l(caps->inplace_processing_, false,
+                              configuration_->input_buffers_.size(),
+                              configuration_->output_buffers_.size(),
+                              input_buffer_handlers, output_buffer_handlers,
+                              algo_);
 
       algo_->SetCallbacks(&l);
+
+      uint32_t ref_iteration =
+          1 + std::max(caps->out_buffer_requirements_.history_buffer_count_,
+                       caps->in_buffer_requirements_.history_buffer_count_);
 
       std::vector<std::shared_ptr<BufferHandler>> ref_input_buffer_handlers;
       std::vector<std::shared_ptr<BufferHandler>> ref_output_buffer_handlers;
@@ -1756,18 +1863,15 @@ TEST_F(QmmfAlgoInterfaceGtest, Stride) {
                 configuration_->iteration_count_);
         ALOGD("%s: Running Test(%s) iteration = %d\n", __func__,
               test_info_->name(), i);
-        if (1 == i) {
-          l.GetIdleBuffers(caps->in_buffer_requirements_.count_, input_buffers,
-                           caps->out_buffer_requirements_.count_,
-                           output_buffers, configuration_,
+        if (ref_iteration == i) {
+          l.GetIdleBuffers(input_buffers, output_buffers, configuration_,
                            kOneFrameProcessTimeout, &ref_input_buffer_handlers,
                            &ref_output_buffer_handlers);
         } else {
-          l.GetIdleBuffers(
-              caps->in_buffer_requirements_.count_, input_buffers,
-              caps->out_buffer_requirements_.count_, output_buffers,
-              configuration_, kOneFrameProcessTimeout,
-              &tested_input_buffer_handlers, &tested_output_buffer_handlers);
+          l.GetIdleBuffers(input_buffers, output_buffers, configuration_,
+                           kOneFrameProcessTimeout,
+                           &tested_input_buffer_handlers,
+                           &tested_output_buffer_handlers);
         }
 
         algo_->RegisterInputBuffers(input_buffers);
@@ -1776,18 +1880,36 @@ TEST_F(QmmfAlgoInterfaceGtest, Stride) {
         algo_->Process(input_buffers, output_buffers);
         l.Wait(kOneFrameProcessTimeout);
 
-        if (1 == i) {
+        if (ref_iteration == i) {
           l.RemoveBuffers(input_buffers, output_buffers);
-        } else {
+        }
+
+        if (ref_iteration < i) {
           std::vector<std::shared_ptr<BufferHandler>> ref_buffer_handlers;
           std::vector<std::shared_ptr<BufferHandler>> tested_buffer_handlers;
 
           if (caps->inplace_processing_ == true) {
             ref_buffer_handlers = ref_input_buffer_handlers;
             tested_buffer_handlers = tested_input_buffer_handlers;
+
+            tested_buffer_handlers.erase(
+                tested_buffer_handlers.begin() +
+                    caps->in_buffer_requirements_.count_,
+                tested_buffer_handlers.end());
+            ref_buffer_handlers.erase(ref_buffer_handlers.begin() +
+                                          caps->in_buffer_requirements_.count_,
+                                      ref_buffer_handlers.end());
           } else {
             ref_buffer_handlers = ref_output_buffer_handlers;
             tested_buffer_handlers = tested_output_buffer_handlers;
+
+            tested_buffer_handlers.erase(
+                tested_buffer_handlers.begin() +
+                    caps->out_buffer_requirements_.count_,
+                tested_buffer_handlers.end());
+            ref_buffer_handlers.erase(ref_buffer_handlers.begin() +
+                                          caps->out_buffer_requirements_.count_,
+                                      ref_buffer_handlers.end());
           }
 
           EXPECT_EQ(tested_buffer_handlers.size(), ref_buffer_handlers.size())
@@ -1927,6 +2049,10 @@ TEST_F(QmmfAlgoInterfaceGtest, MemoryCorruption) {
       std::vector<AlgBuffer> output_buffers;
       std::list<std::shared_ptr<BufferHandler>> input_buffer_handlers;
       std::list<std::shared_ptr<BufferHandler>> output_buffer_handlers;
+      std::list<std::shared_ptr<BufferHandler>>
+          input_buffer_handlers_to_be_filled;
+      std::list<std::shared_ptr<BufferHandler>>
+          output_buffer_handlers_to_be_filled;
 
       for (uint32_t i = 0; i < 4; i++) {
         uint32_t border =
@@ -1938,24 +2064,39 @@ TEST_F(QmmfAlgoInterfaceGtest, MemoryCorruption) {
         input_buffer_handlers.insert(input_buffer_handlers.end(),
                                      input_handlers.begin(),
                                      input_handlers.end());
+        auto input_end = input_handlers.begin();
+        for (uint32_t i = 0; i < caps->in_buffer_requirements_.count_; i++) {
+          input_end++;
+        }
+        input_buffer_handlers_to_be_filled.insert(
+            input_buffer_handlers_to_be_filled.end(), input_handlers.begin(),
+            input_end);
+
         auto output_handlers = BufferHandler::New(
             caps->out_buffer_requirements_, configuration_->output_buffers_,
             border, border, border, border);
         output_buffer_handlers.insert(output_buffer_handlers.end(),
                                       output_handlers.begin(),
                                       output_handlers.end());
+        auto output_end = output_handlers.begin();
+        for (uint32_t i = 0; i < caps->out_buffer_requirements_.count_; i++) {
+          output_end++;
+        }
+        output_buffer_handlers_to_be_filled.insert(
+            output_buffer_handlers_to_be_filled.end(), output_handlers.begin(),
+            output_end);
       }
 
       // This can be an arbitrary value;
       uint8_t padded_value = 0;
 
       if (caps->inplace_processing_ == true) {
-        for (auto &b : input_buffer_handlers) {
+        for (auto &b : input_buffer_handlers_to_be_filled) {
           b->FillBufferWith(padded_value);
           padded_value += 127;
         }
       } else {
-        for (auto &b : output_buffer_handlers) {
+        for (auto &b : output_buffer_handlers_to_be_filled) {
           b->FillBufferWith(padded_value);
           padded_value += 127;
         }
@@ -1965,10 +2106,17 @@ TEST_F(QmmfAlgoInterfaceGtest, MemoryCorruption) {
         b->ReadInputFile();
       }
 
-      QmmfAlgoEventListener l(caps->inplace_processing_, input_buffer_handlers,
-                              output_buffer_handlers, algo_);
+      QmmfAlgoEventListener l(caps->inplace_processing_, false,
+                              configuration_->input_buffers_.size(),
+                              configuration_->output_buffers_.size(),
+                              input_buffer_handlers, output_buffer_handlers,
+                              algo_);
 
       algo_->SetCallbacks(&l);
+
+      uint32_t ref_iteration =
+          1 + std::max(caps->out_buffer_requirements_.history_buffer_count_,
+                       caps->in_buffer_requirements_.history_buffer_count_);
 
       std::vector<std::shared_ptr<BufferHandler>> ref_input_buffer_handlers;
       std::vector<std::shared_ptr<BufferHandler>> ref_output_buffer_handlers;
@@ -1979,18 +2127,15 @@ TEST_F(QmmfAlgoInterfaceGtest, MemoryCorruption) {
                 configuration_->iteration_count_);
         ALOGD("%s: Running Test(%s) iteration = %d\n", __func__,
               test_info_->name(), i);
-        if (1 == i) {
-          l.GetIdleBuffers(caps->in_buffer_requirements_.count_, input_buffers,
-                           caps->out_buffer_requirements_.count_,
-                           output_buffers, configuration_,
+        if (ref_iteration == i) {
+          l.GetIdleBuffers(input_buffers, output_buffers, configuration_,
                            kOneFrameProcessTimeout, &ref_input_buffer_handlers,
                            &ref_output_buffer_handlers);
         } else {
-          l.GetIdleBuffers(
-              caps->in_buffer_requirements_.count_, input_buffers,
-              caps->out_buffer_requirements_.count_, output_buffers,
-              configuration_, kOneFrameProcessTimeout,
-              &tested_input_buffer_handlers, &tested_output_buffer_handlers);
+          l.GetIdleBuffers(input_buffers, output_buffers, configuration_,
+                           kOneFrameProcessTimeout,
+                           &tested_input_buffer_handlers,
+                           &tested_output_buffer_handlers);
         }
 
         algo_->RegisterInputBuffers(input_buffers);
@@ -1999,18 +2144,36 @@ TEST_F(QmmfAlgoInterfaceGtest, MemoryCorruption) {
         algo_->Process(input_buffers, output_buffers);
         l.Wait(kOneFrameProcessTimeout);
 
-        if (1 == i) {
+        if (ref_iteration == i) {
           l.RemoveBuffers(input_buffers, output_buffers);
-        } else {
+        }
+
+        if (ref_iteration < i) {
           std::vector<std::shared_ptr<BufferHandler>> ref_buffer_handlers;
           std::vector<std::shared_ptr<BufferHandler>> tested_buffer_handlers;
 
           if (caps->inplace_processing_ == true) {
             ref_buffer_handlers = ref_input_buffer_handlers;
             tested_buffer_handlers = tested_input_buffer_handlers;
+
+            tested_buffer_handlers.erase(
+                tested_buffer_handlers.begin() +
+                    caps->in_buffer_requirements_.count_,
+                tested_buffer_handlers.end());
+            ref_buffer_handlers.erase(ref_buffer_handlers.begin() +
+                                          caps->in_buffer_requirements_.count_,
+                                      ref_buffer_handlers.end());
           } else {
             ref_buffer_handlers = ref_output_buffer_handlers;
             tested_buffer_handlers = tested_output_buffer_handlers;
+
+            tested_buffer_handlers.erase(
+                tested_buffer_handlers.begin() +
+                    caps->out_buffer_requirements_.count_,
+                tested_buffer_handlers.end());
+            ref_buffer_handlers.erase(ref_buffer_handlers.begin() +
+                                          caps->out_buffer_requirements_.count_,
+                                      ref_buffer_handlers.end());
           }
 
           EXPECT_EQ(tested_buffer_handlers.size(), ref_buffer_handlers.size())

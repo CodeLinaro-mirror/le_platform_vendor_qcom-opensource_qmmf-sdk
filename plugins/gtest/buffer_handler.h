@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -37,17 +37,12 @@
 
 #include "qmmf_algo_gtest_configuration_buffer.h"
 
-#ifdef ANDROID
-#include "ion_buffer.h"
-#else
-#include "heap_buffer.h"
-#endif
+#include "common/utils/qmmf_tools.h"
 
 namespace qmmf {
 namespace qmmf_alg_plugin {
 
 /** BufferHandler:
- *    @platform_buffer_: platform buffer
  *    @input_file_name_: input file name
  *    @output_file_name_: output file name
  *    @file_stride_: input and/or output file stride
@@ -64,20 +59,21 @@ namespace qmmf_alg_plugin {
  *    @buffer_is_filled_: true if a call to FillBufferWith() has been made
  *    @filled_value_: this value is assigned to each byte of the buffer after a
  *                    call to FillBufferWith()
+ *    @buffer_holder_: buffer holder
  *
  *  This class handles qmmf algo buffer
  **/
-class BufferHandler : public AlgBuffer {
+class BufferHandler : public AlgBuffer, public QmmfAlgoTools {
  private:
   BufferHandler(uint8_t *vaddr, int32_t fd, uint32_t size, bool cached,
                 PixelFormat pix_fmt, int64_t timestamp, uint32_t frame_number,
                 std::vector<BufferPlane> &plane,
-                std::shared_ptr<PlatformBuffer> &platform_buffer,
                 const std::string &input_file_name,
                 const std::string &output_file_name, uint32_t file_stride,
                 uint32_t file_scanline, uint32_t border_up,
                 uint32_t border_left, uint32_t border_down,
-                uint32_t border_right);
+                uint32_t border_right,
+                std::shared_ptr<IBufferHolder> &buffer_holder);
 
  public:
   /** New
@@ -112,6 +108,7 @@ class BufferHandler : public AlgBuffer {
    *    @file_scanline: input and/or output file scanline
    *    @input_file_name: input file name
    *    @output_file_name: output file name
+   *    @heap_buffer: flag indicating whether buffer is heap
    *    @border_up: plane[0]'s first row containing actual data
    *                plane[i]'s border_up = border_up / (i+1)
    *    @border_left: the first column in each plane's row, containing actual
@@ -129,9 +126,9 @@ class BufferHandler : public AlgBuffer {
       const BufferRequirements &requirements, PixelFormat pix_fmt,
       uint32_t width, uint32_t height, uint32_t file_stride,
       uint32_t file_scanline, const std::string &input_file_name,
-      const std::string &output_file_name, uint32_t border_up = 0,
-      uint32_t border_left = 0, uint32_t border_down = 0,
-      uint32_t min_border_right = 0);
+      const std::string &output_file_name, bool heap_buffer,
+      uint32_t border_up = 0, uint32_t border_left = 0,
+      uint32_t border_down = 0, uint32_t min_border_right = 0);
 
   /** GetWidthInBytes
    *    @width_in_pixels: width in pixels
@@ -228,22 +225,21 @@ class BufferHandler : public AlgBuffer {
   bool MemoryIsCorrupted() const;
 
  private:
-  const std::shared_ptr<PlatformBuffer> platform_buffer_;
   const std::string input_file_name_;
   const std::string output_file_name_;
 
   const uint32_t file_stride_;
   const uint32_t file_scanline_;
 
- private:
   uint32_t border_up_;
   uint32_t border_left_;
   uint32_t border_down_;
   uint32_t border_right_;
 
- private:
   bool buffer_is_filled_;
   uint8_t filled_value_;
+
+  std::shared_ptr<IBufferHolder> buffer_holder_;
 };
 
 };  // namespace qmmf_alg_plugin

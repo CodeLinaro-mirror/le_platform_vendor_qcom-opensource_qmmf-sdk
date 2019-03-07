@@ -1,31 +1,33 @@
 /*
-* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
-*
-* Redistribution and use in source and binary forms, with or without
-* modification, are permitted provided that the following conditions are
-* met:
-*     * Redistributions of source code must retain the above copyright
-*       notice, this list of conditions and the following disclaimer.
-*     * Redistributions in binary form must reproduce the above
-*       copyright notice, this list of conditions and the following
-*       disclaimer in the documentation and/or other materials provided
-*       with the distribution.
-*     * Neither the name of The Linux Foundation nor the names of its
-*       contributors may be used to endorse or promote products derived
-*       from this software without specific prior written permission.
-*
-* THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
-* WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
-* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT
-* ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
-* BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-* CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-* SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
-* BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
-* WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
-* OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
-* IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-*/
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are
+ * met:
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials provided
+ *       with the distribution.
+ *     * Neither the name of The Linux Foundation nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
+ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+//! @file qmmf_audio_encoder_core.cc
 
 #define LOG_TAG "RecorderAudioEncoderCore"
 
@@ -94,6 +96,10 @@ AudioEncoderCore::~AudioEncoderCore() {
   instance_ = nullptr;
 }
 
+/*!
+ *  Creates a new AudioTrackEncoder instance, initializes it with the given
+ *  parameters, and adds it to the map.
+ */
 status_t AudioEncoderCore::AddSource(const AudioTrackParams& params) {
   QMMF_DEBUG("%s() TRACE", __func__);
   QMMF_VERBOSE("%s() INPARAM: params[%s]", __func__,
@@ -118,6 +124,10 @@ status_t AudioEncoderCore::AddSource(const AudioTrackParams& params) {
   return ::android::NO_ERROR;
 }
 
+/*!
+ *  Removes the AudioTrackEncoder instance indicated by the track_id from the
+ *  map and deletes it.
+ */
 status_t AudioEncoderCore::DeleteTrackEncoder(const uint32_t track_id) {
   QMMF_DEBUG("%s() TRACE", __func__);
   QMMF_VERBOSE("%s() INPARAM: track_id[%u]", __func__, track_id);
@@ -136,6 +146,11 @@ status_t AudioEncoderCore::DeleteTrackEncoder(const uint32_t track_id) {
   return ::android::NO_ERROR;
 }
 
+/*!
+ *  Invokes the start command on the AudioTrackEncoder instance indicated by the
+ *  track_id.  The given AudioTrackSource is passed down to the
+ *  AudioTrackEncoder.
+ */
 status_t AudioEncoderCore::StartTrackEncoder(const uint32_t track_id,
                                              const shared_ptr<IAudioTrackSource>&
                                              track_source) {
@@ -168,6 +183,10 @@ status_t AudioEncoderCore::StartTrackEncoder(const uint32_t track_id,
   return ::android::NO_ERROR;
 }
 
+/*!
+ *  Invokes the stop command on the AudioTrackEncoder instance indicated by the
+ *  track_id.
+ */
 status_t AudioEncoderCore::StopTrackEncoder(const uint32_t track_id) {
   QMMF_DEBUG("%s() TRACE", __func__);
   QMMF_VERBOSE("%s() INPARAM: track_id[%u]", __func__, track_id);
@@ -196,6 +215,10 @@ status_t AudioEncoderCore::StopTrackEncoder(const uint32_t track_id) {
   return ::android::NO_ERROR;
 }
 
+/*!
+ *  Invokes the pause command on the AudioTrackEncoder instance indicated by the
+ *  track_id.
+ */
 status_t AudioEncoderCore::PauseTrackEncoder(const uint32_t track_id) {
   QMMF_DEBUG("%s() TRACE", __func__);
   QMMF_VERBOSE("%s() INPARAM: track_id[%u]", __func__, track_id);
@@ -224,6 +247,10 @@ status_t AudioEncoderCore::PauseTrackEncoder(const uint32_t track_id) {
   return ::android::NO_ERROR;
 }
 
+/*!
+ *  Invokes the resume command on the AudioTrackEncoder instance indicated by
+ *  the track_id.
+ */
 status_t AudioEncoderCore::ResumeTrackEncoder(const uint32_t track_id) {
   QMMF_DEBUG("%s() TRACE", __func__);
   QMMF_VERBOSE("%s() INPARAM: track_id[%u]", __func__, track_id);
@@ -252,6 +279,10 @@ status_t AudioEncoderCore::ResumeTrackEncoder(const uint32_t track_id) {
   return ::android::NO_ERROR;
 }
 
+/*!
+ *  Passes the given parameter arguments on to the AudioTrackEncoder instance
+ *  indicated by the track_id.
+ */
 status_t AudioEncoderCore::SetTrackEncoderParam(const uint32_t track_id,
     const CodecParamType param_type, void* param, const uint32_t param_size) {
   QMMF_DEBUG("%s() TRACE", __func__);
@@ -285,6 +316,10 @@ status_t AudioEncoderCore::SetTrackEncoderParam(const uint32_t track_id,
   return ::android::NO_ERROR;
 }
 
+/*!
+ *  Sends the given buffers to the AudioTrackEncoder instance indicated by the
+ *  track_id.
+ */
 status_t AudioEncoderCore::ReturnTrackBuffer(const uint32_t track_id,
     const std::vector<BnBuffer>& buffers) {
   QMMF_DEBUG("%s() TRACE", __func__);
@@ -332,6 +367,9 @@ AudioTrackEncoder::~AudioTrackEncoder() {
                iresult, strerror(iresult));
 }
 
+/*!
+ *  Saves the given parameters.
+ */
 status_t AudioTrackEncoder::Init(const AudioTrackParams& track_params) {
   QMMF_DEBUG("%s() TRACE", __func__);
   QMMF_VERBOSE("%s() INPARAM: track_params[%s]", __func__,
@@ -342,6 +380,13 @@ status_t AudioTrackEncoder::Init(const AudioTrackParams& track_params) {
   return ::android::NO_ERROR;
 }
 
+/*!
+ *  Sets up the data path between the RecorderImpl and a newly created
+ *  instance of an AVCodec audio encoder.  Configures the audio encoder based
+ *  on the given parameters.
+ *
+ *  Allocates a set number of audio buffers and starts the data flow.
+ */
 status_t AudioTrackEncoder::Start(const shared_ptr<ICodecSource> &track_source,
                                   const shared_ptr<ICodecSource> &track_encoder) {
   QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__,
@@ -450,6 +495,13 @@ error_start_avcodec:
   return result;
 }
 
+/*!
+ *  Stops the data flow and destroys the AVCodec audio encoder (after it has
+ *  sent the last buffer).
+ *
+ *  Waits for the last buffer to be returned back from the RecorderImpl
+ *  before exiting.
+ */
 status_t AudioTrackEncoder::Stop() {
   QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__,
              track_params_.track_id);
@@ -489,6 +541,9 @@ status_t AudioTrackEncoder::Stop() {
   return return_value;
 }
 
+/*!
+ *  Pauses the AVCodec audio encoder, and by extension, the data flow.
+ */
 status_t AudioTrackEncoder::Pause() {
   QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__,
              track_params_.track_id);
@@ -509,6 +564,9 @@ status_t AudioTrackEncoder::Pause() {
   return ::android::NO_ERROR;
 }
 
+/*!
+ *  Resumes the AVCodec audio encoder, and by extension, the data flow.
+ */
 status_t AudioTrackEncoder::Resume() {
   QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__,
              track_params_.track_id);
@@ -529,6 +587,9 @@ status_t AudioTrackEncoder::Resume() {
   return ::android::NO_ERROR;
 }
 
+/*!
+ *  @todo Currently stubbed out.
+ */
 status_t AudioTrackEncoder::SetParam(CodecParamType param_type, void* param,
                                      uint32_t param_size) {
   QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__,
@@ -541,7 +602,13 @@ status_t AudioTrackEncoder::SetParam(CodecParamType param_type, void* param,
   return ::android::NO_ERROR;
 }
 
-
+/*!
+ *  Pops an empty buffer off of the buffer queue and send it to the audio
+ *  encoder.
+ *
+ *  If the buffer queue is empty, waits for a buffer from the RecorderImpl to be
+ *  pushed into the queue.
+ */
 status_t AudioTrackEncoder::GetBuffer(BufferDescriptor& codec_buffer,
                                       void* client_data) {
   QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__,
@@ -563,6 +630,10 @@ status_t AudioTrackEncoder::GetBuffer(BufferDescriptor& codec_buffer,
   return ::android::NO_ERROR;
 }
 
+/*!
+ *  Receives a buffer (filled with encoded audio) from the audio encoder, maps
+ *  it to the export buffer and sends it to the RecorderImpl.
+ */
 status_t AudioTrackEncoder::ReturnBuffer(BufferDescriptor& codec_buffer,
                                          void* client_data) {
   QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__,
@@ -593,6 +664,11 @@ status_t AudioTrackEncoder::ReturnBuffer(BufferDescriptor& codec_buffer,
   return ::android::NO_ERROR;
 }
 
+/*!
+ *  Receives events from the output port of the audio encoder.
+ *
+ *  No action is taken.
+ */
 status_t AudioTrackEncoder::NotifyPortEvent(PortEventType event_type,
                                             void* event_data)
 {
@@ -601,6 +677,11 @@ status_t AudioTrackEncoder::NotifyPortEvent(PortEventType event_type,
   return ::android::NO_ERROR;
 }
 
+/*!
+ *  Maps the list of received buffers into the address space and pushes them
+ *  into the buffer queue.  If the last buffer is seen, then sets the EOS flag
+ *  and signals any blocked threads.
+ */
 status_t AudioTrackEncoder::OnBufferReturnFromClient(
     const std::vector<BnBuffer>& bn_buffers) {
   QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__,

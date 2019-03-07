@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -26,6 +26,9 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
+/*! @file qmmf_player_audio_raw_sink.cc
+*/
 
 #define LOG_TAG "AudioRawSink"
 
@@ -1007,7 +1010,7 @@ void AudioRawTrackSink::Thread() {
   queue<AudioBuffer> buffers;
   queue<AVCodecBuffer> av_buffers;
 
-  // get the initial list of buffers
+  /// get the initial list of buffers
   ion_.GetList(&av_buffers_);
 
   av_buffers_lock_.lock();
@@ -1026,14 +1029,14 @@ void AudioRawTrackSink::Thread() {
   bool paused = false;
   bool keep_running = true;
   while (keep_running) {
-    // wait until there is something to do
+    /// wait until there is something to do
     if (av_buffers.empty() && buffers.empty()) {
       unique_lock<mutex> lk(message_lock_);
       if (!signal_.wait_for(lk, seconds(1), [this]{return !messages_.empty();}))
         QMMF_WARN("%s() timed out on wait", __func__);
     }
 
-    // process the next pending message
+    /// process the next pending message
     message_lock_.lock();
     if (!messages_.empty()) {
       AudioMessage message = messages_.front();
@@ -1106,7 +1109,7 @@ void AudioRawTrackSink::Thread() {
     }
     message_lock_.unlock();
 
-    // process buffers from endpoint
+    /// process buffers from endpoint
     if (!buffers.empty() && !paused && !stop_received && keep_running) {
       AudioBuffer buffer = buffers.front();
       QMMF_VERBOSE("%s() track[%u] processing next buffer[%s] from queue[%u]",
@@ -1142,7 +1145,7 @@ void AudioRawTrackSink::Thread() {
                    __func__, buffers.size());
     }
 
-    // process buffers from client
+    /// process buffers from client
     if (!av_buffers.empty() && !paused && !stop_received && keep_running) {
       AVCodecBuffer av_buffer = av_buffers.front();
       QMMF_VERBOSE("%s() track[%u] processing next av_buffer[%s] from queue[%u]",
@@ -1173,7 +1176,7 @@ void AudioRawTrackSink::Thread() {
                    __func__, av_buffers.size());
     }
 
-    // stop conditions
+    /// stop conditions
     if (stop_received || eof_received) {
       keep_running = false;
     }
@@ -1204,7 +1207,7 @@ void AudioRawTrackSink::PtsThread() {
     else
       sleep_count = 0;
 
-    // check for messages
+    /// check for messages
     {
       unique_lock<mutex> lk(pts_message_lock_);
       while (!pts_messages_.empty()) {

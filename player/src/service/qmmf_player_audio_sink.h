@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -25,6 +25,9 @@
 * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
 * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*/
+
+/*! @file qmmf_player_audio_sink.h
 */
 
 #pragma once
@@ -86,7 +89,7 @@ class AudioSink {
 
   static AudioSink* instance_;
 
-  // Map of track id and TrackSink.
+  /**< Map of track id and TrackSink */
   ::android::DefaultKeyedVector<uint32_t, ::std::shared_ptr<AudioTrackSink>>
       audio_track_sinks;
 };
@@ -150,7 +153,7 @@ class AudioTrackSink : public ::qmmf::avcodec::ICodecSource {
   PlayerCb               player_callback_;
   AudioEndPoint*         end_point_;
 
-  // For decoded frame
+  /**< For decoded frame */
   ::android::Vector<::qmmf::avcodec::CodecBuffer>  output_buffer_list_;
   TSQueue<::qmmf::avcodec::CodecBuffer>            output_free_buffer_queue_;
   TSQueue<::qmmf::avcodec::CodecBuffer>            output_occupy_buffer_queue_;
@@ -160,7 +163,7 @@ class AudioTrackSink : public ::qmmf::avcodec::ICodecSource {
   int32_t                           ion_device_;
   std::mutex                        queue_lock_;
 
-  // For Sink
+  /**< For Sink */
   int32_t sink_buffer_size_;
   int32_t number_of_sink_buffer = NUMBER_OF_SINK_BUFFERS;
 

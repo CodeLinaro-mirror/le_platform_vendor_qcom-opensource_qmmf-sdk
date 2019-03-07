@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016, 2019, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -36,6 +36,8 @@
 #include <string>
 #include <vector>
 
+#include <ion/ion.h>
+#include <linux/dma-buf.h>
 #include <linux/msm_ion.h>
 
 #include "common/audio/inc/qmmf_audio_definitions.h"
@@ -72,26 +74,11 @@ class RecorderIon
  private:
   struct RecorderIonBuffer {
     void* data;
-    struct ion_allocation_data allocate_data;
-    struct ion_fd_data share_data;
-    struct ion_handle_data free_data;
-
+    int32_t map_fd;
     ::std::string ToString() const {
       ::std::stringstream stream;
       stream << "data[" << data << "] ";
-      stream << "allocate_data[";
-      stream << "len[" << allocate_data.len << "] ";
-      stream << "align[" << allocate_data.align << "] ";
-      stream << ::std::setbase(16);
-      stream << "heap_id_mask[" << allocate_data.heap_id_mask << "] ";
-      stream << "flags[" << allocate_data.flags << "] ";
-      stream << ::std::setbase(10);
-      stream << "handle[" << allocate_data.handle << "]] ";
-      stream << "share_data[";
-      stream << "handle[" << share_data.handle << "] ";
-      stream << "fd[" << share_data.fd << "]] ";
-      stream << "free_data[";
-      stream << "handle[" << free_data.handle << "]]";
+      stream << "map_fd[" << map_fd << "]] ";
       return stream.str();
     }
   };

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -27,6 +27,8 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+//! @file qmmf_audio_source.h
+
 #pragma once
 
 #include <atomic>
@@ -40,37 +42,123 @@
 namespace qmmf {
 namespace recorder {
 
+/*! @brief Routes commands and data between the RecorderImpl and multiple
+ *                IAudioTrackSource implementations.
+ *
+ *  A singleton that manages the life-cycle of per-track instances of
+ *  IAudioTrackSource implementations.  In addition, routes commands and data
+ *  between the RecorderImpl and each IAudioTrackSource-implemented instance.
+ */
 class AudioSource {
  public:
+
+  /*! @brief Factory method for the singleton.
+   *
+   *  @returns Pointer to the singleton.
+   */
   static AudioSource* CreateAudioSource();
 
+  //! Destructor
   ~AudioSource();
 
+  /*! @brief Creates a new IAudioTrackSource-implemented instance.
+   *
+   *  @param [in] track_id Used to identify this particular
+   *                       IAudioTrackSource-implemented instance.
+   *  @param [in] params Given parameters for audio path configuration.
+   *  @returns Status indicating success or failure.
+   */
   status_t CreateTrackSource(const uint32_t track_id, AudioTrackParams& params);
+
+  /*! @brief Deletes an IAudioTrackSource-implemented instance.
+   *
+   *  @param [in] track_id Identifies a particular IAudioTrackSource-implemented
+   *                       instance.
+   *  @returns Status indicating success or failure.
+   */
   status_t DeleteTrackSource(const uint32_t track_id);
 
+  /*! @brief Invokes the start command on the specified
+   *         IAudioTrackSource-implemented instance.
+   *
+   *  @param [in] track_id Identifies a particular IAudioTrackSource-implemented
+   *                       instance.
+   *  @returns Status indicating success or failure.
+   */
   status_t StartTrackSource(const uint32_t track_id);
+
+  /*! @brief Invokes the stop command on the specified
+   *         IAudioTrackSource-implemented instance.
+   *
+   *  @param [in] track_id Identifies a particular IAudioTrackSource-implemented
+   *                       instance.
+   *  @returns Status indicating success or failure.
+   */
   status_t StopTrackSource(const uint32_t track_id);
+
+  /*! @brief Invokes the pause command on the specified
+   *         IAudioTrackSource-implemented instance.
+   *
+   *  @param [in] track_id Identifies a particular IAudioTrackSource-implemented
+   *                       instance.
+   *  @returns Status indicating success or failure.
+   */
   status_t PauseTrackSource(const uint32_t track_id);
+
+  /*! @brief Invokes the resume command on the specified
+   *         IAudioTrackSource-implemented instance.
+   *
+   *  @param [in] track_id Identifies a particular IAudioTrackSource-implemented
+   *                       instance.
+   *  @returns Status indicating success or failure.
+   */
   status_t ResumeTrackSource(const uint32_t track_id);
 
+  /*! @brief Sets a parameter for the specified IAudioTrackSource-implemented
+   *         instance to a new value.
+   *
+   *  @param [in] track_id Identifies a particular IAudioTrackSource-implemented
+   *                       instance.
+   *  @param [in] key Indicates which parameter to set.
+   *  @param [in] value New parameter value.
+   *  @returns Status indicating success or failure.
+   */
   status_t SetParameter(const uint32_t track_id,
                         const ::std::string& key,
                         const ::std::string& value);
 
+  /*! @brief Sends returned buffers from RecorderImpl to the specified
+   *         AudioRawTrackSource.
+   *
+   *  @param [in] track_id Identifies a particular AudioRawTrackSource.
+   *  @param [in] buffers Vector of returned buffers.
+   *  @returns Status indicating success or failure.
+   */
   status_t ReturnTrackBuffer(const uint32_t track_id,
                              const ::std::vector<BnBuffer>& buffers);
 
+  /*! @brief Returns a handle to the specified IAudioTrackSource-implemented
+   *         instance.
+   *
+   *  @param [in] track_id Identifies a particular IAudioTrackSource-implemented
+   *                       instance.
+   *  @param [out] track_source Handle to the specified
+   *                            IAudioTrackSource-implemented instance.
+   *  @returns Status indicating success or failure.
+   */
   status_t getTrackSource(const uint32_t track_id,
                           ::std::shared_ptr<IAudioTrackSource>* track_source);
 
  private:
+  //! Associates a track id with an IAudioTrackSource implementation.
   typedef ::std::map<uint32_t, ::std::shared_ptr<IAudioTrackSource>>
           AudioTrackSourceMap;
 
+  //! Default constructor
   AudioSource();
-  static AudioSource* instance_;
+  static AudioSource* instance_; //!< Pointer to the singleton.
 
+  //! Map of IAudioTrackSource implmentations.
   AudioTrackSourceMap track_source_map_;
 
   // disable copy, assignment, and move

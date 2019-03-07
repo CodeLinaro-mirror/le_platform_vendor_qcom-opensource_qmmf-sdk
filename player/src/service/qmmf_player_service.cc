@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -27,6 +27,9 @@
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+/*! @file qmmf_player_service.cc
+*/
+
 #define LOG_TAG "PlayerService"
 
 #include "player/src/service/qmmf_player_service.h"
@@ -35,8 +38,8 @@
 namespace qmmf {
 namespace player {
 
- // Method of BnInterface<IPlayerService>.
- // This method would get call to handle incoming messages from clients.
+ /// Method of BnInterface<IPlayerService>.
+ /// This method would get call to handle incoming messages from clients.
  status_t PlayerService::onTransact(uint32_t code, const Parcel& data,
                                     Parcel* reply, uint32_t flags) {
   QMMF_DEBUG("%s: Enter:(BnPlayerService::onTransact)", __func__);

@@ -39,4 +39,6 @@ LOCAL_MODULE = qmmf_overlay_test
 
 include $(BUILD_EXECUTABLE)
 
+include $(LOCAL_PATH)/test/raw_image/Android.mk
+
 endif # BUILD_QMMMF

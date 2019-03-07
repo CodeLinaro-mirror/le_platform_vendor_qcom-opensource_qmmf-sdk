@@ -7,8 +7,8 @@
   "GreenChannelMean": 128.0,
   "RedChannelMean": 128.0,
   "UseNorm": 1,
-  "InputWidth": 278,
-  "InputHeight": 278,
+  "InputWidth": 1920,
+  "InputHeight": 1080,
   "KeepAspectRatio": 0,
   "RatioWidth": 0.0,
   "RatioHeight": 0.0

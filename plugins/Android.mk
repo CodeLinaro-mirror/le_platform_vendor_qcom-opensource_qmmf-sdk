@@ -109,7 +109,7 @@ LOCAL_SRC_FILES += gtest/qmmf_algo_gtest_configuration_buffer.cc
 LOCAL_SRC_FILES += gtest/qmmf_algo_gtest_test_content.cc
 LOCAL_SRC_FILES += gtest/qmmf_algo_gtest_test_suite.cc
 LOCAL_SRC_FILES += gtest/qmmf_algo_gtest_configuration.cc
-LOCAL_SRC_FILES += gtest/ion_buffer.cc
+LOCAL_SRC_FILES += gtest/heap_buffer.cc
 LOCAL_SRC_FILES += gtest/heap_tracker.cc
 
 LOCAL_SHARED_LIBRARIES += $(LIB_JSONCPP)
@@ -140,6 +140,14 @@ include $(BUILD_PREBUILT)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := qmmf_algo_gtest_bit_blit.json
+LOCAL_MODULE_CLASS := EXECUTABLES
+LOCAL_MODULE_PATH := $(TARGET_OUT_DATA)/misc/qmmf/
+LOCAL_SRC_FILES := test_cases/$(LOCAL_MODULE)
+LOCAL_MODULE_OWNER := qti
+include $(BUILD_PREBUILT)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := qmmf_algo_gtest_mesh_transform_tnr.json
 LOCAL_MODULE_CLASS := EXECUTABLES
 LOCAL_MODULE_PATH := $(TARGET_OUT_DATA)/misc/qmmf/
 LOCAL_SRC_FILES := test_cases/$(LOCAL_MODULE)
@@ -236,6 +244,22 @@ include $(BUILD_PREBUILT)
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := bit_blit_configuration.json
+LOCAL_MODULE_CLASS := EXECUTABLES
+LOCAL_MODULE_PATH := $(TARGET_OUT_DATA)/misc/qmmf/
+LOCAL_SRC_FILES := test_cases/calibration/$(LOCAL_MODULE)
+LOCAL_MODULE_OWNER := qti
+include $(BUILD_PREBUILT)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := mesh_transform_tnr_calibration.raw
+LOCAL_MODULE_CLASS := EXECUTABLES
+LOCAL_MODULE_PATH := $(TARGET_OUT_DATA)/misc/qmmf/
+LOCAL_SRC_FILES := test_cases/calibration/$(LOCAL_MODULE)
+LOCAL_MODULE_OWNER := qti
+include $(BUILD_PREBUILT)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := mesh_transform_tnr_configuration.json
 LOCAL_MODULE_CLASS := EXECUTABLES
 LOCAL_MODULE_PATH := $(TARGET_OUT_DATA)/misc/qmmf/
 LOCAL_SRC_FILES := test_cases/calibration/$(LOCAL_MODULE)

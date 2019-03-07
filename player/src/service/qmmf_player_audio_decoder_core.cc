@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -25,6 +25,9 @@
 * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
 * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*/
+
+/*! @file qmmf_player_audio_decoder_core.cc
 */
 
 #define LOG_TAG "AudioDecoderCore"
@@ -554,7 +557,7 @@ status_t AudioTrackDecoder::PreparePipeline(
 
   audio_track_sink_ = audio_track_sink;
 
-  // This function will get the port buffer requirment and will allocate buffer
+  /// This function will get the port buffer requirment and will allocate buffer
   ret = AllocInputPortBufs();
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s track_id(%d) AllocInputPortBufs Failed", __func__,
@@ -572,7 +575,7 @@ status_t AudioTrackDecoder::PreparePipeline(
     goto RELEASE_INPUT_BUFFERS;
   }
 
-  // This function will get the port buffer requirment and will allocate buffer
+  /// This function will get the port buffer requirment and will allocate buffer
   ret = AllocOutputPortBufs();
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s track_id(%d) AllocOutputPortBufs Failed",
@@ -609,7 +612,7 @@ RELEASE_INPUT_BUFFERS:
   return ret;
 }
 
-//service will send unfilled buffer fd/pointer to the application to fill it
+/// service will send unfilled buffer fd/pointer to the application to fill it
 status_t AudioTrackDecoder::DequeueInputBuffer(
     std::vector<AVCodecBuffer>& buffers) {
   QMMF_DEBUG("%s: Enter", __func__);
@@ -649,7 +652,7 @@ status_t AudioTrackDecoder::DequeueInputBuffer(
   return NO_ERROR;
 }
 
-//application will fill the data in the buffer and will send to service
+/// application will fill the data in the buffer and will send to service
 status_t AudioTrackDecoder::QueueInputBuffer(
     std::vector<AVCodecBuffer>& buffers) {
   QMMF_DEBUG("%s: Enter", __func__);
@@ -720,7 +723,7 @@ status_t AudioTrackDecoder::StartDecoder() {
     pause_ = false;
   }
 
-  // Bitstream buffer queue
+  /**< Bitstream buffer queue */
   for(auto& iter : input_buffer_list_) {
      QMMF_INFO("%s: track_id(%d) Adding buffer fd(%d) to unfilled_frame_queue_",
                __func__,TrackId() , iter.fd);
@@ -933,7 +936,7 @@ status_t AudioTrackDecoder::SetPosition(int64_t seek_time) {
   return ret;
 }
 
-// This method provides an input buffer to the AVCodec
+/// This method provides an input buffer to the AVCodec
 status_t AudioTrackDecoder::GetBuffer(BufferDescriptor& stream_buffer,
                                       void* client_data) {
   QMMF_DEBUG("%s: Enter track_id(%d) frames_to_decode_.Size(%d) ",
@@ -976,13 +979,13 @@ status_t AudioTrackDecoder::GetBuffer(BufferDescriptor& stream_buffer,
              (iter).filled_length, (iter).flags);
 
   QMMF_DEBUG("%s: Exit track_id(%d)", __func__, TrackId());
-  // For EOS and stop case
+  /**< For EOS and stop case */
   if ((iter).flags & static_cast<uint32_t>(BufferFlags::kFlagEOS))
     return -1;
   return NO_ERROR;
 }
 
-// This method is used by AVCodec to return buffer after decoding
+/// This method is used by AVCodec to return buffer after decoding
 status_t AudioTrackDecoder::ReturnBuffer(BufferDescriptor& stream_buffer,
                                          void* client_data) {
   QMMF_DEBUG("%s: Enter track_id(%d)", __func__, TrackId());
@@ -1024,7 +1027,7 @@ status_t AudioTrackDecoder::ReturnBuffer(BufferDescriptor& stream_buffer,
   return NO_ERROR;
 }
 
-// This method is used by AVCodec to notify stop
+/// This method is used by AVCodec to notify stop
 status_t AudioTrackDecoder::NotifyPortEvent(PortEventType event_type,
                                             void* event_data) {
   QMMF_DEBUG("%s Enter track_id(%d)", __func__, TrackId());
@@ -1033,7 +1036,7 @@ status_t AudioTrackDecoder::NotifyPortEvent(PortEventType event_type,
 }
 
 
-//**************************** Buffer Allocation ***************************//
+/// Buffer Allocation
 
 status_t AudioTrackDecoder::AllocInputPortBufs() {
   QMMF_DEBUG("%s: Enter track_id(%d)", __func__, TrackId());

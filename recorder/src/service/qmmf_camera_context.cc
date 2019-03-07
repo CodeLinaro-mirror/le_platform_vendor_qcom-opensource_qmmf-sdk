@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -163,9 +163,14 @@ status_t CameraContext::CreateSnapshotStream(const SnapshotParam& param) {
   stream_param.format       = Common::FromQmmfToHalFormat(param.format);
   stream_param.width        = param.width;
   stream_param.height       = param.height;
-  stream_param.allocFlags   = IMemAllocUsage::kSwWriteOften |
-                                IMemAllocUsage::kSwReadOften;
+  stream_param.allocFlags.flags = IMemAllocUsage::kSwWriteOften |
+                                    IMemAllocUsage::kSwReadOften;
   stream_param.cb           = GetStreamCb(param);
+
+  // For kNV12Encodable buffer format, set the encoder usage flag.
+  if (param.format == BufferFormat::kNV12Encodable) {
+    stream_param.allocFlags.flags |= IMemAllocUsage::kVideoEncoder;
+  }
 
   // Reserve buffers for continuous capture in order to avoid camera and pipe
   // restart if snapshot mode is switched. Buffer are just reserved, not
@@ -227,8 +232,8 @@ status_t CameraContext::CreateSnapshotStream(const SnapshotParam& param) {
                                      stream_param.width,
                                      stream_param.height,
                                      stream_param.format);
-    stream_param.allocFlags   = IMemAllocUsage::kSwWriteOften |
-                                  IMemAllocUsage::kSwReadOften;
+    stream_param.allocFlags.flags  = IMemAllocUsage::kSwWriteOften |
+                                       IMemAllocUsage::kSwReadOften;
     stream_param.cb           = GetStreamCb(param);
     stream_param.bufferCount  = sequence_cnt_;
 
@@ -1956,6 +1961,7 @@ status_t CameraContext::ValidateResolution(const BufferFormat& format,
                                                    height);
       break;
     case BufferFormat::kNV12:
+    case BufferFormat::kNV12Encodable:
       supported = Common::ValidateResFromProcessedSizes(static_meta_,
                                                         width,
                                                         height);
@@ -2982,8 +2988,8 @@ status_t ZslPort::SetUpZSL() {
   zsl_stream_params.format = HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
   zsl_stream_params.width  = cam_start_param.zsl_width;
   zsl_stream_params.height = cam_start_param.zsl_height;
-  zsl_stream_params.allocFlags = IMemAllocUsage::kHwFb |
-                                   IMemAllocUsage::kHwCameraZsl;
+  zsl_stream_params.allocFlags.flags = IMemAllocUsage::kHwFb |
+                                         IMemAllocUsage::kHwCameraZsl;
   zsl_stream_params.cb = [&](StreamBuffer buffer)
       { ZSLCaptureCallback(buffer); };
 

@@ -262,6 +262,26 @@ struct RGBAValues {
   double alpha;
 };
 
+typedef struct DeFogTable {
+  uint8_t enable;
+  int32_t algo_type;
+  int32_t algo_decision_mode;
+  int32_t strength;
+  int32_t strength_range[2];
+  int32_t convergence_speed;
+  int32_t convergence_speed_range[2];
+
+  DeFogTable() {
+    enable = 0;
+    algo_type = 0;
+    algo_decision_mode = 0;
+    strength = 0;
+    memset(strength_range, 0, sizeof(strength_range));
+    convergence_speed = 0;
+    memset(convergence_speed_range, 0, sizeof(convergence_speed_range));
+  }
+} DeFogTable;
+
 typedef struct ExposureTable {
   uint8_t is_valid;
   float sensitivity_correction_factor;
@@ -416,10 +436,13 @@ class GtestCommon : public ::testing::Test {
   void TokenizeString(std::string const &str, const char delim,
                       std::vector<std::string> &out);
 
-  status_t ParseExposureTable(std::string dir_path, std::string fileName,
-                              std::vector<ExposureTable> &exp_tables);
+  status_t ListFilesFromDir(std::string dir_path,
+                            std::string name_starts_with,
+                            std::string extension,
+                            std::vector<std::string> &files_list);
 
-  status_t PopulateExpTable(std::vector<ExposureTable> &exp_tables);
+  status_t PopulateDeFogTables(std::vector<DeFogTable> &defog_tables);
+  status_t PopulateExpTables(std::vector<ExposureTable> &exp_tables);
 
 #ifdef CAM_ARCH_V2
   bool VendorTagSupported(const String8& name, const String8& section,

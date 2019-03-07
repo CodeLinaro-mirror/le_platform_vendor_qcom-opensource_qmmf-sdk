@@ -1,19 +1,47 @@
+/*
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are
+ * met:
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials provided
+ *       with the distribution.
+ *     * Neither the name of The Linux Foundation nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
+ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
 /*!
 
-@page Recorder
-
+@page Recorder_Overview Overview
 
 __Recorder__ :
 
 Following are the major features supported by QMMF-SDK Recorder:
-- Video and audio recording
+- Video and audio recording, both raw and encoded formats
 - Supports linked video tracks
 - JPEG, RAW and YUV snapshots
 - Support for custom client plugins
 - Post processing pipe for both video and snapshot utilizing plugins
 - Capturing multiple images in succession (Burst capture)
 - Capturing images with zero shutter lag
-- Continuously capturing images until canceled
+- Continuously capturing images until cancelled
 
 __Basic concepts__ :
 
@@ -53,34 +81,5 @@ for (auto const& plugin_info : supported_plugins) {
 
 See @ref example_rec_10MPSnapshotWithLCAC and @ref example_rec_ContinuousSnapshotWithBayer for reference.
 
-__Workflows__ :
-
- @tableofcontents
-______
-
-@section workflow_diagrams Workflow diagrams
-
-
-Single Camera Image Capture
-@image html /Images/Image_Capture.png width=900px
-
-Multicamera Image Capture
-@image html /Images/Multicamera_Image_Capture.png width=900px
-
-Single Camera Video Recording
-@image html /Images/Video_Recording.png width=900px
-
-Multicamera Video Recording
-@image html /Images/Multicamera_Video.png width=900px
-
-Audio Recording
-@image html /Images/Recorder_audio_workflow.png
-
-______
-
-@section class_diagram Class Diagram
-@image html /Images/Class_Diagram.png width=900px
-
-______
-
+____
 */

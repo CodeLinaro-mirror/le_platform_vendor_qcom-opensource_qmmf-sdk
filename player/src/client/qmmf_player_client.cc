@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -27,6 +27,16 @@
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+/*! @file qmmf_player_client.cc
+This file has implementation of following classes:
+
+- PlayerClient    : Delegation to binder proxy <IPlayerService>
+                    and implementation of binder CB.
+- BpPlayerService : Binder proxy implementation.
+- BpPlayerServiceCallback : Binder CB proxy implementation.
+- BnPlayerServiceCallback : Binder CB stub implementation.
+*/
+
 #define LOG_TAG "PlayerClient"
 
 #include <binder/Parcel.h>
@@ -48,16 +58,6 @@ uint32_t qmmf_log_level;
 
 namespace qmmf {
 namespace player {
-
-/**
-This file has implementation of following classes:
-
-- PlayerClient    : Delegation to binder proxy <IPlayerService>
-                    and implementation of binder CB.
-- BpPlayerService : Binder proxy implementation.
-- BpPlayerServiceCallback : Binder CB proxy implementation.
-- BnPlayerServiceCallback : Binder CB stub implementation.
-*/
 
 using namespace android;
 
