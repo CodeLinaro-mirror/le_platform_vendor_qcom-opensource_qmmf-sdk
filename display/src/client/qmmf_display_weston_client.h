@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+* Copyright (c) 2018, 2019, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -27,6 +27,9 @@
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+/*! @file qmmf_display_weston_client.h
+*/
+
 #pragma once
 
 #include <cutils/properties.h>
@@ -46,6 +49,7 @@
 
 namespace qmmf {
 
+/// @namespace qmmf::display
 namespace display {
 
 enum class BoStates {
@@ -61,48 +65,102 @@ typedef struct {
   BoStates bo_state;
 } BoBuffer;
 
+/**
+ * @brief Delegation to binder proxy <IDisplayService>
+ * and implementation of binder CB.
+ */
 class DisplayWestonClient : public IDisplayClient {
  public:
   DisplayWestonClient();
 
   ~DisplayWestonClient();
 
+  /**
+   * @brief Connect to display service.
+   */
   status_t Connect() override;
 
+  /**
+   * @brief Disconnect from display service.
+   *
+   * All the surfaces should be deleted before calling
+   * Disconnet Api.
+   */
   status_t Disconnect() override;
 
+  /**
+   * @brief Create a Display based on Display type
+   */
   status_t CreateDisplay(DisplayType type, DisplayCb &cb) override;
 
+  /**
+   * @brief Destroy a Display based on Display type
+   */
   status_t DestroyDisplay(DisplayType type) override;
 
+  /**
+   * @brief This API internally calls prepare() which checks surface properties
+   * and check whether one of the available pipe's can be assigned to this surface.
+   *
+   * If surface properties meet the requirement of available pipe capabilities,
+   * one of the available pipe is assigned to this layer
+   * Surface represents the layer (YUV or RGB) associated with a display.
+   */
   status_t CreateSurface(SurfaceConfig &surface_config,
                          uint32_t *surface_id) override;
 
+  /**
+   * @brief Destroy the Surface based on Surface id
+   */
   status_t DestroySurface(const uint32_t surface_id) override;
 
+  /**
+   * @brief This API gets the empty buffer to be used by the client for rendering.
+   */
   status_t DequeueSurfaceBuffer(const uint32_t surface_id,
                                 SurfaceBuffer &surface_buffer) override;
 
+  /**
+   * @brief The client renders the data into the empty buffer and calls this API to
+   * push this data for composition and display.
+   */
   status_t QueueSurfaceBuffer(const uint32_t surface_id,
                               SurfaceBuffer &surface_buffer,
                               SurfaceParam &surface_param) override;
 
+  /**
+   * @brief Gets display params values
+   */
   status_t GetDisplayParam(DisplayParamType param_type, void *param,
                            size_t param_size) override;
 
+  /**
+   * @brief Sets Dynamic display params
+   */
   status_t SetDisplayParam(DisplayParamType param_type, void *param,
                            size_t param_size) override;
 
+  /**
+   * @brief This API gets the composed layers data for WFD usecase
+   */
   status_t DequeueWBSurfaceBuffer(const uint32_t surface_id,
                                   SurfaceBuffer &surface_buffer) override;
 
+  /**
+   * @brief The client provides the empty writeback buffers to display.
+   */
   status_t QueueWBSurfaceBuffer(const uint32_t surface_id,
                                 const SurfaceBuffer &surface_buffer) override;
 
-  // Weston event callbacks
+  /**
+   * @brief Weston Add Handler event Callback
+   */
   static void OnRegistryAddHandler(void *data, struct wl_registry *registry,
                                    uint32_t id, const char *interface,
                                    uint32_t version);
+  /**
+   * @brief Weston Remove Handler event Callback
+   */
   static void OnRegistryRemoveHandler(void *data, struct wl_registry *registry,
                                       uint32_t id);
 

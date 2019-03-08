@@ -5133,7 +5133,6 @@ TEST_F(RecorderImageGTest, PreviewAndRaw10BitBayerSnapshot) {
   // Record for sometime
   sleep(5);
 
-  camera_metadata_entry_t entry;
   CameraMetadata meta;
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
 

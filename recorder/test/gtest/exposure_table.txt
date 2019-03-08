@@ -1,0 +1,8 @@
+is_valid                            : 1
+sensitivity_correction_factor       : 1
+knee_count                          : 3
+gain_knee_entries                   : 1 1 32
+exp_time_knee_entries               : 10040 33333333 60000000
+increment_priority_knee_entries     : 1 1 1
+exp_index_knee_entries              : 0 274.2918 434.8758
+thres_anti_banding_min_exp_time_pct : 0.97

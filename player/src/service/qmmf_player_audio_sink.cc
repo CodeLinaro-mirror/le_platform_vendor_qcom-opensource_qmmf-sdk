@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -25,6 +25,9 @@
 * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
 * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*/
+
+/*! @file qmmf_player_audio_sink.cc
 */
 
 #define LOG_TAG "AudioSink"
@@ -294,7 +297,7 @@ status_t AudioTrackSink::Init(AudioTrackParams& track_param,
   return NO_ERROR;
 }
 
-//Audio Sink Connect and Initilization
+/// udio Sink Connect and Initilization
 status_t AudioTrackSink::ConfigureSink(AudioTrackParams& track_param) {
   QMMF_DEBUG("%s: Enter track_id(%d)", __func__, TrackId());
 
@@ -518,7 +521,7 @@ void AudioTrackSink::AddBufferList(Vector<CodecBuffer>& list) {
   output_free_buffer_queue_.Clear();
   output_occupy_buffer_queue_.Clear();
 
-  //decoded buffer queue
+  /// decoded buffer queue
   for(auto& iter : output_buffer_list_) {
           QMMF_DEBUG("%s: track_id(%d) Adding buffer fd(%d) to "
               "output_free_buffer_queue_",  __func__,TrackId() ,
@@ -529,12 +532,10 @@ void AudioTrackSink::AddBufferList(Vector<CodecBuffer>& list) {
   QMMF_DEBUG("%s: Exit track_id(%d)", __func__, TrackId());
 }
 
-//********************************************************************//
-
 status_t AudioTrackSink::GetBuffer(BufferDescriptor& codec_buffer,
                                    void* client_data) {
   QMMF_DEBUG("%s: Enter track_id(%d)", __func__, TrackId());
-  // Give available free buffer to decoder to use on output port.
+  /// Give available free buffer to decoder to use on output port.
 
   if(output_free_buffer_queue_.Size() <= 0) {
     QMMF_DEBUG("%s track_id(%d) No buffer available to notify,"
@@ -629,7 +630,7 @@ int32_t AudioTrackSink::FillSinkBuffer(BufferDescriptor& codec_buffer) {
 
   std::vector<AudioBuffer> sinkbuffers;
 
-  // For Audio Sink
+  /// For Audio Sink
   AudioBuffer buffer;
   memset(&buffer, 0x0, sizeof (AudioBuffer));
   sinkbuffers.push_back(buffer);
@@ -744,7 +745,7 @@ int32_t AudioTrackSink::AllocateSinkBuffer(const int32_t number,
   if (size <= 0) return -EINVAL;
   int32_t ret = 0;
 
-  // open ion device
+  /// open ion device
   ion_device_ = open("/dev/ion", O_RDONLY);
   if (ion_device_ < 0) {
     QMMF_ERROR("%s() error opening ion device: %d[%s]", __func__,
@@ -803,7 +804,7 @@ int32_t AudioTrackSink::AllocateSinkBuffer(const int32_t number,
     audio_sink_buffer_list_.push_back(buffer);
   }
 
-  //sink buffer queue
+  /// sink buffer queue
   for(auto& iter : audio_sink_buffer_list_) {
     QMMF_DEBUG("%s: track_id(%d) Adding buffer fd(%d) for "
             "audio_sink",  __func__,TrackId() ,

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016, 2019, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -37,11 +37,11 @@
 #include <sys/mman.h>
 #include <sys/ioctl.h>
 #include <linux/msm_ion.h>
-
 #include <binder/Parcel.h>
 #include <binder/ProcessState.h>
 #include <binder/IPCThreadState.h>
 
+#include "common/utils/qmmf_tools.h"
 #include "recorder/src/client/qmmf_recorder_client.h"
 #include "recorder/src/client/qmmf_recorder_client_ion.h"
 #include "recorder/src/client/qmmf_recorder_params_internal.h"
@@ -112,7 +112,7 @@ status_t RecorderClient::Connect(const RecorderCb& cb) {
     return NO_ERROR;
   }
 
-  ion_device_ = open("/dev/ion", O_RDONLY);
+  ion_device_ = ion_open();
   if (ion_device_ < 0) {
     QMMF_ERROR("%s: Can't open Ion device!", __func__);
     return NO_INIT;
@@ -188,7 +188,7 @@ status_t RecorderClient::Disconnect() {
   track_cb_list_.clear();
 
   if (ion_device_ > 0) {
-    close(ion_device_);
+    ion_close(ion_device_);
     ion_device_ = -1;
   }
   client_id_ = 0;
@@ -826,9 +826,9 @@ status_t RecorderClient::DeleteVideoTrack(const uint32_t session_id,
       for (auto& pair : track_buffers_map_[track_id]) {
         auto& buffer_info = pair.second;
 
-        QMMF_INFO("%s track_id(%d): BufInfo: ion_fd(%d), ion_handle(%d), "
-            "vaddr(%p), size(%u)", __func__, track_id, buffer_info.ion_fd,
-            buffer_info.ion_handle, buffer_info.vaddr, buffer_info.size);
+        QMMF_INFO("%s track_id(%d): BufInfo: ion_fd(%d), vaddr(%p), size(%u)",
+                  __func__, track_id, buffer_info.ion_fd, buffer_info.vaddr,
+                  buffer_info.size);
 
         ret = UnmapBuffer(buffer_info);
         if (NO_ERROR != ret) {
@@ -930,9 +930,8 @@ status_t RecorderClient::ReturnImageCaptureBuffer(const uint32_t camera_id,
     }
     auto buffer_info = snapshot_buffers_[buffer.fd];
 
-    QMMF_INFO("%s Snapshot BufInfo: ion_fd(%d), ion_handle(%d), vaddr(%p),"
-        " size(%u)", __func__, buffer_info.ion_fd, buffer_info.ion_handle,
-        buffer_info.vaddr, buffer_info.size);
+    QMMF_INFO("%s Snapshot BufInfo: ion_fd(%d), vaddr(%p), size(%u)", __func__,
+              buffer_info.ion_fd, buffer_info.vaddr, buffer_info.size);
 
     auto ret = UnmapBuffer(buffer_info);
     if (NO_ERROR != ret) {
@@ -1181,30 +1180,18 @@ status_t RecorderClient::GetVendorTagDescriptor(sp<VendorTagDescriptor> &desc) {
 status_t RecorderClient::MapBuffer(BufferInfo& info) {
 
   QMMF_DEBUG("%s Enter ", __func__);
+  void* vaddr = nullptr;
   assert(ion_device_ > 0);
 
-  // Map Ion Fd to client address space.
-  struct ion_fd_data ion_info {};
-  ion_info.fd = info.ion_fd;
-
-  auto ret = ioctl(ion_device_, ION_IOC_IMPORT, &ion_info);
-  if (NO_ERROR != ret) {
-    QMMF_ERROR("%s ION_IOC_IMPORT failed for ion_fd %d : %d[%s]!",
-        __func__, info.ion_fd, -errno, strerror(errno));
-    return FAILED_TRANSACTION;
-  }
-
-  void* vaddr = mmap(nullptr, info.size, PROT_READ | PROT_WRITE,
-                     MAP_SHARED, info.ion_fd, 0);
+  vaddr = mmap(NULL, info.size, PROT_READ | PROT_WRITE, MAP_SHARED,
+               info.ion_fd, 0);
   if (nullptr == vaddr) {
-    QMMF_ERROR("%s Failed to map ion_fd %d : %d[%s]!", __func__,
-        info.ion_fd, -errno, strerror(errno));
+    QMMF_ERROR("%s Failed to map ion_fd %d : %d[%s]!", __func__, info.ion_fd,
+               -errno, strerror(errno));
     return NO_MEMORY;
   }
-
-  info.ion_handle = ion_info.handle;
+  SyncStart(info.ion_fd);
   info.vaddr      = vaddr;
-
   QMMF_DEBUG("%s Exit ", __func__);
   return NO_ERROR;
 }
@@ -1213,32 +1200,23 @@ status_t RecorderClient::UnmapBuffer(BufferInfo& info) {
 
   QMMF_DEBUG("%s Enter ", __func__);
   assert(ion_device_ > 0);
+  int32_t result = 0;
 
   if (info.vaddr != nullptr) {
-    auto ret = munmap(info.vaddr, info.size);
-    if (NO_ERROR != ret) {
-      QMMF_ERROR("%s Failed to unmap vaddr %p : %d[%s]", __func__,
-          info.vaddr, -errno, strerror(errno));
-      return ret;
+    SyncEnd(info.ion_fd);
+    result = munmap(info.vaddr, info.size);
+    if (result < 0) {
+      QMMF_ERROR("%s() unable to unmap buffer[%d]: %d[%s]", __func__,
+                 info.ion_fd, errno, strerror(errno));
+      return errno;
     }
     info.vaddr = nullptr;
 
-    struct ion_handle_data ion_handle {};
-    ion_handle.handle = info.ion_handle;
-
-    ret = ioctl(ion_device_, ION_IOC_FREE, &ion_handle);
-    if (NO_ERROR != ret) {
-      QMMF_ERROR("%s ION_IOC_FREE failed for handle %d : %d[%s]",
-          __func__, info.ion_handle, -errno, strerror(errno));
-      return FAILED_TRANSACTION;
-    }
-    info.ion_handle = -1;
-
-    ret = close(info.ion_fd);
-    if (NO_ERROR != ret) {
-      QMMF_ERROR("%s Failed to close ION fd %d : %d[%s]", __func__,
-          info.ion_fd, -errno, strerror(errno));
-      return FAILED_TRANSACTION;
+    result = close(info.ion_fd);
+    if (result < 0) {
+      QMMF_ERROR("%s() error closing shared fd[%d]: %d[%s]", __func__,
+                 info.ion_fd, errno, strerror(errno));
+      return errno;
     }
     info.ion_fd = -1;
   }
@@ -1288,9 +1266,9 @@ void RecorderClient::ServiceDeathHandler() {
       for (auto& it : info_map) {
         BufferInfo& buffer_info = it.second;
 
-        QMMF_INFO("%s track_id(%d): BufInfo: ion_fd(%d), ion_handle(%d), "
-            "vaddr(%p), size(%u)", __func__, track_id, buffer_info.ion_fd,
-            buffer_info.ion_handle, buffer_info.vaddr, buffer_info.size);
+        QMMF_INFO("%s track_id(%d): BufInfo: ion_fd(%d), vaddr(%p), size(%u)",
+                  __func__, track_id, buffer_info.ion_fd,
+                  buffer_info.vaddr, buffer_info.size);
 
         ret = UnmapBuffer(buffer_info);
         if (NO_ERROR != ret) {
@@ -1307,9 +1285,9 @@ void RecorderClient::ServiceDeathHandler() {
     for (auto& it : snapshot_buffers_) {
       auto& buffer_info = it.second;
 
-      QMMF_INFO("%s Snapshot BufInfo: ion_fd(%d), ion_handle(%d), vaddr(%p),"
-          " size(%u)", __func__, buffer_info.ion_fd, buffer_info.ion_handle,
-          buffer_info.vaddr, buffer_info.size);
+      QMMF_INFO("%s Snapshot BufInfo: ion_fd(%d), vaddr(%p), size(%u)",
+                __func__, buffer_info.ion_fd,
+                buffer_info.vaddr, buffer_info.size);
 
       ret = UnmapBuffer(buffer_info);
       if (NO_ERROR != ret) {
@@ -1337,7 +1315,7 @@ void RecorderClient::ServiceDeathHandler() {
   metadata_cb_ = nullptr;
 
   if (ion_device_ > 0) {
-    close(ion_device_);
+    ion_close(ion_device_);
     ion_device_ = -1;
   }
   client_id_ = 0;
@@ -1434,8 +1412,8 @@ void RecorderClient::NotifyVideoTrackData(uint32_t track_id,
           is_mapped = true;
 
           QMMF_VERBOSE("%s Buffer is already mapped! buffer_id(%d):ion_fd(%d):"
-              "vaddr(%p):ion_handle(%d)",  __func__, bn_buffer.buffer_id,
-              buffer_info.ion_fd, buffer_info.vaddr, buffer_info.ion_handle);
+              "vaddr(%p)",  __func__, bn_buffer.buffer_id,
+              buffer_info.ion_fd, buffer_info.vaddr);
         }
       } else {
         QMMF_KPI_ASYNC_END("FirstVidFrame", track_id);
@@ -1451,9 +1429,9 @@ void RecorderClient::NotifyVideoTrackData(uint32_t track_id,
         return;
       }
 
-      QMMF_INFO("%s track_id(%d): BufInfo: ion_fd(%d), ion_handle(%d), "
+      QMMF_INFO("%s track_id(%d): BufInfo: ion_fd(%d), "
           "vaddr(%p), size(%u)", __func__, track_id, buffer_info.ion_fd,
-          buffer_info.ion_handle, buffer_info.vaddr, buffer_info.size);
+           buffer_info.vaddr, buffer_info.size);
 
       // Update existing entry or add new one.
       std::lock_guard<std::mutex> l(track_buffers_lock_);

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, 2018, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016, 2018, 2019, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -27,6 +27,9 @@
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+/*! @file qmmf_display_sdm_debugger.h
+*/
+
 #pragma once
 
 #include <bitset>
@@ -46,7 +49,9 @@ using namespace sdm;
 #ifdef QMMF_DISPLAY_INTF_v1
 using namespace display;
 #endif
-//Prop to enable Display logging
+/**
+ * Prop to enable Display logging
+ */
 #define DISPLAY_LOG_LEVEL  "persist.qmmf.display.log"
 
 namespace qmmf {

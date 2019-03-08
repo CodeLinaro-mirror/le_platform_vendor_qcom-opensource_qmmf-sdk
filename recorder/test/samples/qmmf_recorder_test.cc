@@ -3406,7 +3406,7 @@ status_t RecorderTest::Session1080pYUVTrackWithDisplay() {
   TEST_INFO("%s: Exit", __func__);
   return ret;
 }
-
+#ifndef DISABLE_RECORDER_TEST_DISPLAY
 status_t RecorderTest::ToggleDisplayState() {
   TEST_INFO("%s: Enter", __func__);
 
@@ -3433,7 +3433,7 @@ status_t RecorderTest::ToggleDisplayState() {
   TEST_INFO("%s: Exit", __func__);
   return ret;
 }
-
+#endif
 // 1080P YUV video track with Display Enabled in recorder service.
 status_t RecorderTest::Session1080pYUVTrackWithPreview() {
 
@@ -3482,12 +3482,14 @@ status_t RecorderTest::StartSession() {
         || (type == TrackType::kVideoHEVC)
         || (type == TrackType::kVideoPreview) ) {
       session_enabled_ = true;
+#ifndef DISABLE_RECORDER_TEST_DISPLAY
       if (use_display == 1) {
         auto ret = track->StartDisplay(DisplayType::kPrimary);
         if(ret != 0) {
           ALOGE("%s StartDisplay Failed!!", __func__);
         }
       }
+#endif
     }
   }
   uint32_t session_id = it->first;
@@ -3508,12 +3510,14 @@ status_t RecorderTest::StopSession() {
   assert(result == NO_ERROR);
 
   for (auto track : it->second) {
+#ifndef DISABLE_RECORDER_TEST_DISPLAY
     if (use_display == 1) {
       auto ret = track->StopDisplay(DisplayType::kPrimary);
       if(ret != 0) {
         ALOGE("%s StopDisplay Failed!!", __func__);
       }
     }
+#endif
     track->CleanUp();
     TrackType type = track->GetTrackType();
     if ( (type == TrackType::kVideoYUV)
@@ -5889,8 +5893,10 @@ void CheckKPITime::ParseCameraMetaData(const CameraMetadata& metadata) {
 TestTrack::TestTrack(RecorderTest* recorder_test)
     : recorder_test_(recorder_test),
       num_yuv_frames_(0) {
+#ifndef DISABLE_RECORDER_TEST_DISPLAY
   display_started_ = false;
   display_param_ = 0;
+#endif
   TEST_DBG("%s: Enter", __func__);
   track_info_ = {};
   TEST_DBG("%s: Exit", __func__);
@@ -6283,7 +6289,7 @@ status_t TestTrack::EnableOverlay() {
   object_params.image_info.buffer_updated = false;
 
   FILE *image;
-  image = fopen("/etc/overlay_test.rgba", "r");
+  image = fopen(OVERLAY_TEST_FILE, "r");
   if (!image) {
    TEST_ERROR("%s: Unable to open file", __func__);
    return -1;
@@ -6361,7 +6367,7 @@ status_t TestTrack::EnableOverlay() {
   object_params.dst_rect.width   = 451;
   object_params.dst_rect.height  = 109;
 
-  std::string str("/etc/overlay_test.rgba");
+  std::string str(OVERLAY_TEST_FILE);
   str.copy(object_params.image_info.image_location, str.length());
 
   uint32_t object_id;
@@ -6678,7 +6684,9 @@ void TestTrack::TrackDataCB(uint32_t track_id, std::vector<BufferDescriptor>
               num_yuv_frames_ = 0;
             }
           }
+#ifndef DISABLE_RECORDER_TEST_DISPLAY
           PushFrameToDisplay(buffers[i], cam_buf_meta);
+#endif
         }
       }
     break;
@@ -6706,7 +6714,7 @@ void TestTrack::TrackDataCB(uint32_t track_id, std::vector<BufferDescriptor>
   assert(ret == 0);
   TEST_DBG("%s: Exit", __func__);
 }
-
+#ifndef DISABLE_RECORDER_TEST_DISPLAY
 void TestTrack::DisplayCallbackHandler(DisplayEventType event_type,
     void *event_data, size_t event_data_size) {
   TEST_DBG("%s Enter ", __func__);
@@ -6876,7 +6884,7 @@ status_t TestTrack::ToggleDisplayState() {
   TEST_INFO("%s: Exit", __func__);
   return ret;
 }
-
+#endif
 status_t DumpBitStream::SetUp(const StreamDumpInfo& dumpinfo) {
 
   TEST_DBG("%s: Enter", __func__);
@@ -7248,10 +7256,12 @@ int main(int argc,char *argv[]) {
         test_context.Session1080pYUVTrackWithDisplay();
       }
       break;
+#ifndef DISABLE_RECORDER_TEST_DISPLAY
       case CmdMenu::TOGGLE_DISPLAY_STATE: {
         test_context.ToggleDisplayState();
       }
       break;
+#endif
       case CmdMenu::CREATE_YUV_SESSION_PREVIEW_CMD: {
         test_context.Session1080pYUVTrackWithPreview();
       }

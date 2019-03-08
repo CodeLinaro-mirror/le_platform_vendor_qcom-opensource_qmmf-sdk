@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016, 2019, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -37,6 +37,9 @@
 #include <camera/CameraMetadata.h>
 #include <qmmf-sdk/qmmf_recorder_params.h>
 #include <qmmf-sdk/qmmf_recorder_extra_param.h>
+
+#include <ion/ion.h>
+#include <linux/dma-buf.h>
 
 #include "common/utils/qmmf_log.h"
 #include "recorder/src/client/qmmf_recorder_client_ion.h"
@@ -215,7 +218,6 @@ class RecorderClient {
   };
 
   struct BufferInfo {
-    ion_user_handle_t ion_handle; // ION handle
     uint32_t          ion_fd;     // Transferred ION Id.
     size_t            size;       // Buffer length/size.
     void*             vaddr;      // Memory mapped buffer.

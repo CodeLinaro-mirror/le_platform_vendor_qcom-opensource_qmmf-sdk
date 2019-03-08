@@ -1,0 +1,113 @@
+/*
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are
+ * met:
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials provided
+ *       with the distribution.
+ *     * Neither the name of The Linux Foundation nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
+ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+/*!
+
+@page Snapshot_modes Snapshot Modes
+
+
+QMMF Server supports Image capture. Capturing image is independent of sessions.
+The only pre-condition is Camera to be started. Multiple capture modes are
+supported. Image capture could work without additional configuration. Optionally
+multiple parameters could be configured, additional post-processing plugins
+could be added and one or two thumbnails could be added.
+
+### Image capture APIs ###
+
+1.  __CaptureImage__ - Image capture API. Takes image dimension and format,
+number of required snapshots and camera settings. Snapshot stream is created
+during first image capture. This leads to camera reconfiguration which produces
+gap in ongoing video tracks.
+
+2.  __CancelCaptureImage__ - Aborts ongoing capture and shuts down snapshot
+streams. This also leads to camera configuration.
+
+3.  __ConfigImageCapture__ - This API is optional and following settings
+could be set:
+    +   QMMF_SNAPSHOT_TYPE - QMMF supports multiple snapshot types(modes):
+
+        +   Still capture is the basic snapshot mode. This is the default
+        snapshot type. If this mode is selected video tracks are interrupted for
+        as many frames as the number of snapshots.
+
+        +  StillPlusRAW capture is same as Still snapshot, but with addition of
+        RAW dump.
+
+        +  VideoSnapshot capture is same as Still snapshot, but video tracks are
+        not interrupted. Limitation is that video frames which are capture
+        together with snapshot have same settings as snapshot.
+
+        +  Continuous mode is streaming capture that generates snapshots until
+        CancelCaptureImage API is called. This mode always involves
+        post-processing. If the user does not provide any post-processing
+        plugins only RAW to YUV and JPEG processing are involved. Frame rate is
+        limited to 1 second divided to the slowest post-processing plugin.
+
+        +  ZSL capture mode is enabled whenever this mode is set. At this point
+        of time ZSL stream, ZSL queue and reprocess stream are created. Whenever
+        capture image happens, one of the frames from ZSL queue is taken and
+        reprocessed. ZSL queue could store RAW or YUV frame configuration.
+
+    +   QMMF_POSTPROCESS_PLUGIN - QMMF supports post-process plugins. QMMF
+    provides few post-processing plugins, but the client could develop custom
+    plugins. This API takes list of plugins. The processing sequence will be
+    same as the sequence in the list. First plugin in the list will be executed
+    first. This configuration could be combined with all snapshot modes.
+
+    +   QMMF_POSTPROCESS_FRAME_SKIP - This configuration sets frame skip rate
+    and could be combined with any snapshot type. Setting of this configuration
+    involves post-processing.
+
+    +   QMMF_JPEG_CAPTURE_SETUP - This configuration setups JPEG encoder.
+    Setting of this configuration involves post-processing.
+
+    +   QMMF_IMAGE_THUMBNAIL - This configuration could enable and configure
+    thumbnail and screennail. Setting of this configuration involves
+    post-processing.
+
+    +   QMMF_EXIF - Enables generating of EXIF. Setting of this configuration
+    involves post-processing.
+
+
+### Burst capture ###
+
+Burst capture is sequence of snapshots which are generated of sequential
+frames from the sensor. This means that the time between burst frames is
+consistent. Burst capture is enabled when number on capture images is higher than
+one. Burst capture could be combined with Still, StillPlusRAW and VideoSnapshot.
+Continuous capture and ZSL are mutually exclusive with burst capture. Burst
+always involves post-processing because usually processing time is longer than
+frame rate and multiple buffers are needed to queue pending frames for
+post-processing. The maximum supported number of burst capture depends on
+available memory and frame rate.
+
+
+
+___
+*/

@@ -41,6 +41,7 @@
 #include <condition_variable>
 #include <cutils/properties.h>
 #include <random>
+#include <fstream>
 //#include <system/graphics.h>
 
 #include <qmmf-sdk/qmmf_queue.h>
@@ -53,6 +54,7 @@
 #include "qmmf_memory_interface.h"
 
 #define DUMP_META_PATH "/data/misc/qmmf/param.dump"
+#define OVERLAY_TEST_FILE "/data/misc/qmmf/overlay_test.rgba"
 
 #ifdef USE_SURFACEFLINGER
 #include <sys/mman.h>
@@ -138,6 +140,7 @@ static const uint32_t kColorLightBlue  = 0x189BF2FF;
 #define DATETIME_TEXT_BUF_HEIGHT  108
 #define FHD_1080p_STREAM_WIDTH    1920
 #define FHD_1080p_STREAM_HEIGHT   1080
+#define MAX_EXP_TABLE_KNEES       50
 
 static const uint32_t kBitRate4k30    = 45000000;
 static const uint32_t kBitRate1440p30 = 25000000;
@@ -259,6 +262,48 @@ struct RGBAValues {
   double blue;
   double alpha;
 };
+
+typedef struct DeFogTable {
+  uint8_t enable;
+  int32_t algo_type;
+  int32_t algo_decision_mode;
+  int32_t strength;
+  int32_t strength_range[2];
+  int32_t convergence_speed;
+  int32_t convergence_speed_range[2];
+
+  DeFogTable() {
+    enable = 0;
+    algo_type = 0;
+    algo_decision_mode = 0;
+    strength = 0;
+    memset(strength_range, 0, sizeof(strength_range));
+    convergence_speed = 0;
+    memset(convergence_speed_range, 0, sizeof(convergence_speed_range));
+  }
+} DeFogTable;
+
+typedef struct ExposureTable {
+  uint8_t is_valid;
+  float sensitivity_correction_factor;
+  int32_t knee_count;
+  float gain_knee_entries[MAX_EXP_TABLE_KNEES];
+  int64_t exp_time_knee_entries[MAX_EXP_TABLE_KNEES];
+  int32_t increment_priority_knee_entries[MAX_EXP_TABLE_KNEES];
+  float exp_index_knee_entries[MAX_EXP_TABLE_KNEES];
+  float thres_anti_banding_min_exp_time_pct;
+
+  ExposureTable() {
+    is_valid = 0;
+    sensitivity_correction_factor = 0.0;
+    knee_count = 0;
+    memset(gain_knee_entries, 0.0, sizeof(gain_knee_entries));
+    memset(exp_time_knee_entries, 0, sizeof(exp_time_knee_entries));
+    memset(increment_priority_knee_entries, 0, sizeof(increment_priority_knee_entries));
+    memset(exp_index_knee_entries, 0.0, sizeof(exp_index_knee_entries));
+    thres_anti_banding_min_exp_time_pct = 0.0;
+  }
+} ExposureTable;
 
 #ifdef USE_SURFACEFLINGER
 class SFDisplaySink
@@ -387,6 +432,19 @@ class GtestCommon : public ::testing::Test {
 
   status_t SetCameraFocalLength(const float focal_length);
 
+  void RemoveSpaces(std::string &str);
+
+  void TokenizeString(std::string const &str, const char delim,
+                      std::vector<std::string> &out);
+
+  status_t ListFilesFromDir(std::string dir_path,
+                            std::string name_starts_with,
+                            std::string extension,
+                            std::vector<std::string> &files_list);
+
+  status_t PopulateDeFogTables(std::vector<DeFogTable> &defog_tables);
+  status_t PopulateExpTables(std::vector<ExposureTable> &exp_tables);
+
 #ifdef CAM_ARCH_V2
   bool VendorTagSupported(const String8& name, const String8& section,
                           uint32_t* tag_id);
@@ -410,6 +468,7 @@ class GtestCommon : public ::testing::Test {
   RecorderCb            recorder_status_cb_;
   std::map <uint32_t , std::vector<uint32_t> > sessions_;
   std::map<uint32_t,uint32_t> track_frame_count_map_;
+  static const std::string    kQmmfFolderPath;
 
   void ParseFaceInfo(const android::CameraMetadata &res,
                      struct FaceInfo &info);

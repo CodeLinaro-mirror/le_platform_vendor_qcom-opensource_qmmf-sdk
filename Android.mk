@@ -6,4 +6,8 @@ DISABLE_AUDIO_SERVICE := 1
 DISABLE_SYSTEM_SERVICE := 1
 endif
 
+ifeq ($(TARGET_BOARD_PLATFORM),qcs605)
+DISABLE_PLAYER_SERVICE := 1
+endif
+
 include $(call all-subdir-makefiles)

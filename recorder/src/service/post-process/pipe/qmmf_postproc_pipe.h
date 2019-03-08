@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -26,6 +26,9 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
+/*! @file qmmf_postproc_pipe.h
+*/
 
 #pragma once
 
@@ -67,37 +70,55 @@ enum class PostProcPipeState {
   READYTOSTOP,
 };
 
+/// @brief This class implements post-processing by managing plugins.
+/// Plugins may be user provided or internal.
+/// There is plugin factory which exposes the supported plugins.
 class PostProcPipe {
 
  public:
 
+   /// PostProcPipe Constructor
    PostProcPipe(IPostProc* context);
 
+   /// PostProcPipe Destructor
    ~PostProcPipe();
 
+   /// Create pipeline, validate it and add all required plugins.
    status_t CreatePipe(const PipeIOParam &pipe_out_param,
        const std::vector<uint32_t> &plugins, PipeIOParam &pipe_in_param);
 
+   /// Delete pipeline
    status_t DeletePipe();
 
+   /// Configure all nodes of a pipeline
    status_t Configure(const std::string &config_json_data);
 
+   /// Add consumer to pipeline
    status_t AddConsumer(sp<IBufferConsumer>& consumer);
 
+   /// Remove consumer from pipeline
    status_t RemoveConsumer(sp<IBufferConsumer>& consumer);
 
+   /// Propagate camera result to all plugins
    void AddResult(const void* result);
 
+   /// Start all plugins
    status_t Start(const int32_t stream_id);
 
+   /// Stop all plugins. After this API buffers are returned.
    status_t Stop();
 
+   /// Abort current processing. This is the blocking API and returns when
+   /// all processing is done and buffers are returned
    status_t Abort();
 
+   /// Return pipe consumer interface
    sp<IBufferConsumer>& GetConsumerIntf();
 
+   /// Return buffer to the pipe
    void PipeNotifyBufferReturn(StreamBuffer& buffer);
 
+   /// @cond PRIVATE
  private:
 
    void LinkPipe(sp<IBufferConsumer>& consumer);
@@ -140,6 +161,7 @@ class PostProcPipe {
    QCondition                    abort_signal_;
    std::mutex                    abort_lock_;
 
+   /// @endcond
 };
 
 }; //namespace recorder

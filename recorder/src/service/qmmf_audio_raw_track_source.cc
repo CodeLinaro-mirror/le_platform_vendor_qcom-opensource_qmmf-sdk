@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -26,6 +26,8 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
+//! @file qmmf_audio_raw_track_source.cc
 
 #define LOG_TAG "RecorderAudioRawTrackSource"
 
@@ -67,6 +69,7 @@ using ::std::thread;
 using ::std::unique_lock;
 using ::std::vector;
 
+//! Default number of audio buffers to allocate.
 static const int kNumberOfBuffers = 4;
 
 AudioRawTrackSource::AudioRawTrackSource(const AudioTrackParams& params)
@@ -82,6 +85,14 @@ AudioRawTrackSource::~AudioRawTrackSource() {
   QMMF_DEBUG("%s() TRACE", __func__);
 }
 
+/*!
+ *  Sets up the data path between the RecorderImpl and a newly created instance
+ *  of an AudioEndPoint.  Connects to the audio service and configures the audio
+ *  endpoint based on the given parameters.
+ *
+ *  Allocates a set number of audio buffers, the size of each being determined
+ *  by the audio endpoint.
+ */
 status_t AudioRawTrackSource::Init() {
   QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__,
              track_params_.track_id);
@@ -110,7 +121,7 @@ status_t AudioRawTrackSource::Init() {
           BufferHandler(event_data.buffer);
           break;
         case AudioEventType::kStopped:
-          // TODO
+          // ignore
           break;
       }
     };
@@ -180,6 +191,10 @@ error_free:
   return ::android::FAILED_TRANSACTION;
 }
 
+/*!
+ *  Deallocates the audio buffers, disconnects from the audio service, and then
+ *  destroys the audio endpoint.
+ */
 status_t AudioRawTrackSource::DeInit() {
   QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__,
              track_params_.track_id);
@@ -201,6 +216,10 @@ status_t AudioRawTrackSource::DeInit() {
   return ::android::NO_ERROR;
 }
 
+/*!
+ *  Starts the data flow in the audio endpoint and creates a thread to
+ *  facilitate data flow.
+ */
 status_t AudioRawTrackSource::StartTrack() {
   QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__,
              track_params_.track_id);
@@ -230,6 +249,11 @@ status_t AudioRawTrackSource::StartTrack() {
   return ::android::NO_ERROR;
 }
 
+/*!
+ *  Sends a stop message to the thread and stops the data flow in the audio
+ *  endpoint.  Waits for the thread to finish and then flushes the message
+ *  queue.
+ */
 status_t AudioRawTrackSource::StopTrack() {
   QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__,
              track_params_.track_id);
@@ -261,6 +285,10 @@ status_t AudioRawTrackSource::StopTrack() {
   return ::android::NO_ERROR;
 }
 
+/*!
+ *  Sends a pause message to the thread and pauses the data flow in the audio
+ *  endpoint.
+ */
 status_t AudioRawTrackSource::PauseTrack() {
   QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__,
              track_params_.track_id);
@@ -283,6 +311,10 @@ status_t AudioRawTrackSource::PauseTrack() {
   return ::android::NO_ERROR;
 }
 
+/*!
+ *  Resumes the data flow in the audio endpoint and sends a resume message to
+ *  the thread.
+ */
 status_t AudioRawTrackSource::ResumeTrack() {
   QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__,
              track_params_.track_id);
@@ -305,6 +337,9 @@ status_t AudioRawTrackSource::ResumeTrack() {
   return ::android::NO_ERROR;
 }
 
+/*!
+ *  Passes the given parameter arguments on to the audio endpoint.
+ */
 status_t AudioRawTrackSource::SetParameter(const string& key,
                                            const string& value) {
   QMMF_VERBOSE("%s() INPARAM: key[%s]", __func__, key.c_str());
@@ -324,6 +359,9 @@ status_t AudioRawTrackSource::SetParameter(const string& key,
   return ::android::NO_ERROR;
 }
 
+/*!
+ *  Passes the empty buffers from the RecorderImpl to the thread.
+ */
 status_t AudioRawTrackSource::ReturnTrackBuffer(
     const std::vector<BnBuffer> &buffers) {
   QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__,
@@ -346,6 +384,11 @@ status_t AudioRawTrackSource::ReturnTrackBuffer(
   return ::android::NO_ERROR;
 }
 
+/*!
+ *  Logs the error from the audio endpoint and asserts (crashing the service).
+ *
+ *  @todo Send notification to application instead of asserting.
+ */
 void AudioRawTrackSource::ErrorHandler(const int32_t error) {
   QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__,
              track_params_.track_id);
@@ -354,9 +397,12 @@ void AudioRawTrackSource::ErrorHandler(const int32_t error) {
   QMMF_ERROR("%s() received error from endpoint: %d[%s]", __func__,
                error, strerror(error));
   assert(false);
-  // TODO(kwestfie@codeaurora.org): send notification to application instead
 }
 
+/*!
+ *  Passes the buffer (filled with PCM audio) from the audio endpoint to the
+ *  thread.
+ */
 void AudioRawTrackSource::BufferHandler(const AudioBuffer& buffer) {
   QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__,
              track_params_.track_id);
@@ -379,6 +425,55 @@ void AudioRawTrackSource::ThreadEntry(AudioRawTrackSource* source) {
   source->Thread();
 }
 
+/*!
+ *  Facilitates the data flow between the RecorderImpl and an instance of the
+ *  audio endpoint.  It does this by way of two buffer queues:
+ *  * buffers - empty buffers to be sent to the audio endpoint
+ *  * bn_buffers - buffers filled with PCM audio to be sent to the RecorderImpl
+ *
+ *  @startuml
+ *
+ *  title Control Flow Activity Diagram
+ *
+ *  start
+ *  :Send initial list of buffers to audio endpoint;
+ *  while (running?) is (true)
+ *    :Pop next message from message queue;
+ *    if (pause) then (yes)
+ *      :paused is true;
+ *    elseif (resume) then (yes)
+ *      :paused is false;
+ *    elseif (stop) then (yes)
+ *      :paused is false;
+ *      :stop_received is true;
+ *    elseif (buffer) then (yes)
+ *      :Push buffer into buffer queue;
+ *    elseif (bn_buffer) then (yes)
+ *      :Push bn_buffer into bn_buffer queue;
+ *    endif
+ *    if (buffer queue not empty && not paused && running) then (yes)
+ *      :Pop next buffer from buffer queue;
+ *      :Map buffer to bn_buffer;
+ *      :Send bn_buffer to RecorderImpl;
+ *    endif
+ *    if (bn_buffer queue not empty && not paused && running) then (yes)
+ *      :Pop next bn_buffer from bn_buffer queue;
+ *      if (stop_received && last buffer) then (yes)
+ *        :running is false;
+ *      else (no)
+ *        :Map bn_buffer to buffer;
+ *        :Send buffer to audio endpoint;
+ *      :map buffer to bn_buffer;
+ *      :send bn_buffer to RecorderImpl;
+ *      endif
+ *    endif
+ *  endwhile (false)
+ *  stop
+ *
+ *  @enduml
+ *
+ *  @todo send notification to application instead of asserting
+ */
 void AudioRawTrackSource::Thread() {
   QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__,
              track_params_.track_id);
@@ -394,7 +489,6 @@ void AudioRawTrackSource::Thread() {
     QMMF_ERROR("%s() endpoint->SendBuffers failed: %d[%s]", __func__,
                result, strerror(result));
     assert(false);
-    // TODO(kwestfie@codeaurora.org): send notification to application instead
   }
   initial_buffers.clear();
 
@@ -477,7 +571,7 @@ void AudioRawTrackSource::Thread() {
                    __func__, buffers.size());
     }
 
-    // process buffers from client
+    // process buffers from RecorderImpl
     if (!bn_buffers.empty() && !paused && keep_running) {
       BnBuffer bn_buffer = bn_buffers.front();
       QMMF_VERBOSE("%s() track[%u] processing next bn_buffer[%s] from queue[%u]",
@@ -500,7 +594,6 @@ void AudioRawTrackSource::Thread() {
           QMMF_ERROR("%s() endpoint->SendBuffers failed: %d[%s]",
                      __func__, result, strerror(result));
           assert(false);
-          // TODO(kwestfie@codeaurora.org): send notification to application
         }
       }
 

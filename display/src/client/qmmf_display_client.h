@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, 2018, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016, 2018, 2019, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -27,6 +27,9 @@
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+/*! @file qmmf_display_client.h
+*/
+
 #pragma once
 
 #include <utils/Errors.h>
@@ -42,8 +45,13 @@
 
 namespace qmmf {
 
+/// @namespace qmmf::display
 namespace display {
 
+/**
+ * @brief Delegation to binder proxy <IDisplayService>
+ * and implementation of binder CB.
+ */
 class DisplayClient: public IDisplayClient
 {
 public:
@@ -51,45 +59,97 @@ public:
 
   ~DisplayClient();
 
+  /**
+   * @brief Connect to display service.
+   */
   status_t Connect() override;
 
+  /**
+   * @brief Disconnect from display service.
+   *
+   * All the surfaces should be deleted before calling
+   * Disconnet Api.
+   */
   status_t Disconnect() override;
 
+  /**
+   * @brief Create a Display based on Display type
+   */
   status_t CreateDisplay(DisplayType type, DisplayCb& cb) override;
 
+  /**
+   * @brief Destroy a Display based on Display type
+   */
   status_t DestroyDisplay(DisplayType type) override;
 
+  /**
+   * @brief This API internally calls prepare() which checks surface properties
+   * and check whether one of the available pipe's can be assigned to this surface.
+   *
+   * If surface properties meet the requirement of available pipe capabilities,
+   * one of the available pipe is assigned to this layer
+   * Surface represents the layer (YUV or RGB) associated with a display.
+   */
   status_t CreateSurface(SurfaceConfig &surface_config,
       uint32_t* surface_id) override;
 
+  /**
+   * @brief Destroy the Surface based on Surface id
+   */
   status_t DestroySurface(const uint32_t surface_id) override;
 
+  /**
+   * @brief This API gets the empty buffer to be used by the client for rendering.
+   */
   status_t DequeueSurfaceBuffer(const uint32_t surface_id,
       SurfaceBuffer &surface_buffer) override;
 
+  /**
+   * @brief The client renders the data into the empty buffer and calls this API to
+   * push this data for composition and display.
+   */
   status_t QueueSurfaceBuffer(const uint32_t surface_id,
       SurfaceBuffer &surface_buffer, SurfaceParam &surface_param) override;
 
+  /**
+   * @brief Gets display params values
+   */
   status_t GetDisplayParam(DisplayParamType param_type, void *param,
       size_t param_size) override;
 
+  /**
+   * @brief Sets Dynamic display params
+   */
   status_t SetDisplayParam(DisplayParamType param_type, void *param,
       size_t param_size) override;
 
+  /**
+   * @brief This API gets the composed layers data for WFD usecase
+   */
   status_t DequeueWBSurfaceBuffer(const uint32_t surface_id,
       SurfaceBuffer &surface_buffer) override;
 
+  /**
+   * @brief The client provides the empty writeback buffers to display.
+   */
   status_t QueueWBSurfaceBuffer(const uint32_t surface_id,
       const SurfaceBuffer &surface_buffer) override;
 
-  //Callbacks from service.
+  /**
+   * @brief Display Callback from service.
+   */
   void notifyDisplayEvent(DisplayEventType event_type, void *event_data,
       size_t event_data_size);
 
+  /**
+   * @brief Session Callback from service.
+   */
   void notifySessionEvent(DisplayEventType event_type, void *event_data,
       size_t event_data_size);
 
-  //VSync Callback from service.
+  /**
+   * @brief VSync Callback from service.
+   */
   void notifyVSyncEvent(int64_t time_stamp);
 
  private:
@@ -112,7 +172,7 @@ public:
   };
   friend class DeathNotifier;
 
-  std::mutex            lock_;
+  std::mutex           lock_;
   sp<IDisplayService>  display_service_;
   sp<DeathNotifier>    death_notifier_;
   DisplayCb            display_cb_;
@@ -121,20 +181,14 @@ public:
   DisplayType          display_type_;
 
   typedef struct BufInfo {
-    // Transferred ION Id.
-    int32_t ion_fd;
-    // Memory mapped buffer.
-    void    *pointer;
-    // Size
-    size_t  frame_len;
-    // ION handle
-    ion_user_handle_t ion_handle;
-    // surface id
-    uint32_t surface_id;
+    int32_t ion_fd; /**< Transferred ION Id */
+    void    *pointer; /**< Memory mapped buffer */
+    size_t  frame_len; /**< Size */
+    ion_user_handle_t ion_handle; /**< ION handle */
+    uint32_t surface_id; /**< surface id */
   } BufInfo;
 
-  // map <buffer index, buffer_info>
-  typedef std::map<int32_t, BufInfo*> buf_info_map;
+  typedef std::map<int32_t, BufInfo*> buf_info_map; /**< map <buffer index, buffer_info> */
   buf_info_map buf_info_map_;
 
   use_buffer_map surface_id_buffer_allocation_mode_map_;
@@ -148,13 +202,21 @@ class ServiceCallbackHandler : public BnDisplayServiceCallback {
   ~ServiceCallbackHandler();
 
  private:
-  //Methods of BnDisplayServiceCallback.
+  /**
+   * @brief BnDisplayServiceCallback Display callback
+   */
   void notifyDisplayEvent(DisplayEventType event_type, void *event_data,
       size_t event_data_size) override;
 
+  /**
+   * @brief BnDisplayServiceCallback Session callback
+   */
   void notifySessionEvent(DisplayEventType event_type, void *event_data,
       size_t event_data_size) override;
 
+  /**
+   * @brief BnDisplayServiceCallback VSync callback
+   */
   void notifyVSyncEvent(int64_t time_stamp) override;
 
   DisplayClient *client_;

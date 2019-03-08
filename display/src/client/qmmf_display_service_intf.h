@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016, 2019, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -27,6 +27,9 @@
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+/*! @file qmmf_display_service_intf.h
+*/
+
 #pragma once
 
 #include <binder/IBinder.h>
@@ -39,6 +42,7 @@
 
 namespace qmmf {
 
+/// @namespace qmmf::display
 namespace display {
 
 using namespace android;
@@ -60,14 +64,14 @@ enum QMMF_DISPLAY_SERVICE_CMDS {
   DISPLAY_QUEUE_WBSURFACE_BUFFER,
 };
 
-//mapping of service ion_fd and client ion_fd
 typedef std::map<int32_t, int32_t> ion_fd_map;
+/**< mapping of service ion_fd and client ion_fd */
 
-//mapping of surface id and use_buffer
 typedef std::map<uint32_t, bool> use_buffer_map;
+/**< mapping of surface id and use_buffer */
 
-// mapping of ion fd and surface id
 typedef std::map<int32_t, uint32_t> ion_surface_map;
+/**< mapping of ion fd and surface id */
 
 
 class IDisplayServiceCallback;
@@ -115,7 +119,7 @@ enum DISPLAY_SERVICE_CB_CMDS{
     DISPLAY_NOTIFY_VSYNC_EVENT,
 };
 
-//Binder interface for callbacks from DisplayService to DisplayClient.
+/// @brief Binder interface for callbacks from DisplayService to DisplayClient.
 class IDisplayServiceCallback : public IInterface {
 public:
   DECLARE_META_INTERFACE(DisplayServiceCallback);
@@ -130,7 +134,7 @@ public:
 
 };
 
-//This class is responsible to provide callbacks from display service.
+/// @brief This class is responsible to provide callbacks from display service.
 class BnDisplayServiceCallback : public BnInterface<IDisplayServiceCallback>
 {
 public:

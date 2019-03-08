@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -26,6 +26,9 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
+/*! @file qmmf_player_audio_raw_sink.h
+*/
 
 #pragma once
 
@@ -84,7 +87,7 @@ class AudioRawSink {
                                  ::std::vector<AVCodecBuffer>& buffers);
 
  private:
-  // map of track_id and TrackSink
+  /**< map of track_id and TrackSink */
   typedef ::std::map<uint32_t, ::std::shared_ptr<AudioRawTrackSink>>
           AudioTrackSinkMap;
 
@@ -92,7 +95,7 @@ class AudioRawSink {
 
   AudioTrackSinkMap track_sink_map_;
 
-  // disable default, copy, assignment, and move
+  /// disable default, copy, assignment, and move
   AudioRawSink();
   AudioRawSink(const AudioRawSink&) = delete;
   AudioRawSink(AudioRawSink&&) = delete;
@@ -195,7 +198,7 @@ class AudioRawTrackSink {
 
   InputBufferNotifyParams input_buffer_notify_params_;
 
-  // disable copy, assignment, and move
+  /// disable copy, assignment, and move
   AudioRawTrackSink(const AudioRawTrackSink&) = delete;
   AudioRawTrackSink(AudioRawTrackSink&&) = delete;
   AudioRawTrackSink& operator=(const AudioRawTrackSink&) = delete;

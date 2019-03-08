@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, 2018, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016, 2018, 2019, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -27,6 +27,16 @@
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+/*! @file qmmf_display_client.cc
+This file has implementation of following classes:
+
+- DisplayClient    : Delegation to binder proxy <IDisplayService>
+                     and implementation of binder CB.
+- BpDisplayService : Binder proxy implementation.
+- BpDisplayServiceCallback : Binder CB proxy implementation.
+- BnDisplayServiceCallback : Binder CB stub implementation.
+*/
+
 #define LOG_TAG "DisplayClient"
 
 #include <binder/Parcel.h>
@@ -50,16 +60,6 @@ namespace qmmf {
 namespace display {
 
 using std::vector;
-
-/**
-This file has implementation of following classes:
-
-- DisplayClient    : Delegation to binder proxy <IDisplayService>
-                    and implementation of binder CB.
-- BpDisplayService : Binder proxy implementation.
-- BpDisplayServiceCallback : Binder CB proxy implementation.
-- BnDisplayServiceCallback : Binder CB stub implementation.
-*/
 
 using namespace android;
 
@@ -539,7 +539,9 @@ void DisplayClient::notifyVSyncEvent(int64_t time_stamp) {
 }
 
 
-//Binder Proxy implementation of IDisplayService.
+/**
+ * Binder Proxy implementation of IDisplayService
+ */
 class BpDisplayService: public BpInterface<IDisplayService>
 {
 public:

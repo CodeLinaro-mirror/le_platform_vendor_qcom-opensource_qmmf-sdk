@@ -7,14 +7,15 @@ liboverlay_la_CPPFLAGS = -I$(top_srcdir)/include
 liboverlay_la_CPPFLAGS += -I$(top_srcdir)/
 liboverlay_la_CPPFLAGS += -DUSE_SKIA=0
 liboverlay_la_CPPFLAGS += -DUSE_CAIRO=1
-liboverlay_la_LDFLAGS  = -lutils -lcutils -lpthread -ldl -llog -lC2D2 -lcairo
+liboverlay_la_CPPFLAGS += -I$(PKG_CONFIG_SYSROOT_DIR)/usr/include/ion_headers
+liboverlay_la_LDFLAGS  = -lutils -lcutils -lpthread -ldl -llog -lC2D2 -lcairo -lion
 
-# Codec Adaptor sample test app
+if !DISABLE_OVERLAY_TEST
+# Overlay sample test app
 bin_PROGRAMS = overlay_test
 
 overlay_test_SOURCES  = test/qmmf_overlay_test.cc
 overlay_test_CPPFLAGS = $(liboverlay_la_CPPFLAGS) -I$(top_srcdir)
 overlay_test_LDADD    = liboverlay.la
 
-root_etcdir   = "/etc"
-root_etc_DATA = test/raw_image/overlay_test.rgba
+endif

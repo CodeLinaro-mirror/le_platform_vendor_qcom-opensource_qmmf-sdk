@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -25,6 +25,9 @@
 * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
 * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*/
+
+/*! @file qmmf_player_impl.cc
 */
 
 #define LOG_TAG "PlayerImpl"
@@ -905,7 +908,7 @@ status_t PlayerImpl::SetTrickMode(TrickModeSpeed speed, TrickModeDirection dir) 
     }
   }
 
-  // normal playback
+  /// normal playback
   if (current_state_ & (PlayerState::QPLAYER_STATE_STARTED |
                         PlayerState::QPLAYER_STATE_PAUSED)) {
     if ((speed == TrickModeSpeed::kSpeed_1x) &&
@@ -931,7 +934,7 @@ status_t PlayerImpl::SetTrickMode(TrickModeSpeed speed, TrickModeDirection dir) 
             setAudioStartState(true);
         }
       }
-    } else {  // other than normal playback audio will always be stopped
+    } else {  /// other than normal playback audio will always be stopped
       for (size_t i = 0; i < num_tracks; i++) {
         if ((tracks_[i].type == TrackType::kAudio) &&
             (!track_map_.editValueFor(tracks_[i].track_id).eos_rendered)) {
@@ -958,7 +961,7 @@ status_t PlayerImpl::SetTrickMode(TrickModeSpeed speed, TrickModeDirection dir) 
   return ret;
 }
 
-//Audio post processing
+/// Audio post processing
 status_t PlayerImpl::SetAudioTrackParam(uint32_t track_id,
                                         CodecParamType type,
                                         void *param,
@@ -996,7 +999,7 @@ status_t PlayerImpl::SetAudioTrackParam(uint32_t track_id,
   return ret;
 }
 
-//Video Post processing
+/// Video Post processing
 status_t PlayerImpl::SetVideoTrackParam(uint32_t track_id,
                                         CodecParamType type,
                                         void *param,

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -25,6 +25,9 @@
 * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
 * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*/
+
+/*! @file qmmf_camera_source.h
 */
 
 #pragma once
@@ -57,104 +60,141 @@ namespace recorder {
 
 class TrackSource;
 
+
+/// @brief CameraSource class
+/// Operates the Camera
 class CameraSource {
  public:
 
+  /// Create CameraSource Instance
   static CameraSource* CreateCameraSource();
 
+  /// CameraSource Destructor
   ~CameraSource();
 
+  /// Open Camera.
   status_t StartCamera(const uint32_t camera_id, const CameraStartParam &param,
                        const ResultCb &cb = nullptr,
                        const ErrorCb &errcb = nullptr);
 
+  /// Close Camera.
   status_t StopCamera(const uint32_t camera_id);
 
+  /// Add multiple Cameras
   status_t CreateMultiCamera(const std::vector<uint32_t> camera_ids,
                              uint32_t *virtual_camera_id);
 
+  /// Configure multiple Cameras
   status_t ConfigureMultiCamera(const uint32_t virtual_camera_id,
                                 const MultiCameraConfigType type,
                                 const void *param,
                                 const uint32_t param_size);
 
+  /// Get number of supported Cameras.
   status_t GetNumberOfCameras(SupportedCameras &cameras);
 
+  /// Get all supported plugins.
   status_t GetSupportedPlugins(SupportedPlugins *plugins);
 
+  /// Create plugin
   status_t CreatePlugin(uint32_t *uid, const PluginInfo &plugin);
 
+  /// Delete plugin
   status_t DeletePlugin(const uint32_t &uid);
 
+  /// Configure plugin
   status_t ConfigPlugin(const uint32_t &uid, const std::string &json_config);
 
+  /// Image Capture
   status_t CaptureImage(const uint32_t camera_id,
                         const ImageParam &param,
                         const uint32_t num_images,
                         const std::vector<CameraMetadata> &meta,
                         const SnapshotCb &cb);
 
+  /// Configure Image Capture
   status_t ConfigImageCapture(const uint32_t camera_id,
                               const ImageConfigParam &config);
 
+  /// Cancel Image Capture
   status_t CancelCaptureImage(const uint32_t camera_id);
 
+  /// Return Image Capture buffer
   status_t ReturnImageCaptureBuffer(const uint32_t camera_id,
                            const int32_t buffer_id);
 
+  /// Create Track Source
   status_t CreateTrackSource(const uint32_t track_id,
                              const VideoTrackParams& param);
-
+  /// Delete Track Source
   status_t DeleteTrackSource(const uint32_t track_id);
 
+  /// Start Track Source
   status_t StartTrackSource(const uint32_t track_id);
 
+  /// Stop Track Source
   status_t StopTrackSource(const uint32_t track_id,
                            bool is_force_cleanup = false);
 
+  /// Pause Track Source
   status_t PauseTrackSource(const uint32_t track_id);
 
+  /// Resume Track Source
   status_t ResumeTrackSource(const uint32_t track_id);
 
+  /// Return Track buffer
   status_t ReturnTrackBuffer(const uint32_t track_id,
                              std::vector<BnBuffer> &buffers);
 
+  /// Set Camera configuration to Camera Interface
   status_t SetCameraParam(const uint32_t camera_id, const CameraMetadata &meta);
 
+  /// Get Camera configuration to Camera Interface
   status_t GetCameraParam(const uint32_t camera_id, CameraMetadata &meta);
 
+  /// Return default settings for Image Capture
   status_t GetDefaultCaptureParam(const uint32_t camera_id,
                                   CameraMetadata &meta);
 
+  /// UpdateTrackFrameRate
   status_t UpdateTrackFrameRate(const uint32_t track_id,
                                 const float frame_rate);
 
+  /// Enable repeating of frames to ensure target frame rate
   status_t EnableFrameRepeat(const uint32_t track_id,
                              const bool enable_frame_repeat);
 
+  /// Create Overlay object
   status_t CreateOverlayObject(const uint32_t track_id,
                                OverlayParam *param,
                                uint32_t *overlay_id);
 
+  /// Delete Overlay object parameters
   status_t DeleteOverlayObject(const uint32_t track_id,
                                const uint32_t overlay_id);
 
+  /// Get Overlay object parameters
   status_t GetOverlayObjectParams(const uint32_t track_id,
                                   const uint32_t overlay_id,
                                   OverlayParam &param);
 
+  /// Update Overlay object parameters
   status_t UpdateOverlayObjectParams(const uint32_t track_id,
                                      const uint32_t overlay_id,
                                      OverlayParam *param);
 
+  /// Set Overlay object parameters
   status_t SetOverlayObject(const uint32_t track_id,
                             const uint32_t overlay_id);
 
+  /// Remove Overlay object
   status_t RemoveOverlayObject(const uint32_t track_id,
                                const uint32_t overlay_id);
 
+  /// Return instance for track source for given ID
   const ::std::shared_ptr<TrackSource>& GetTrackSource(uint32_t track_id);
 
+  /// @cond PRIVATE
  private:
   bool IsTrackIdValid(const uint32_t track_id);
   void SnapshotCallback(uint32_t count, StreamBuffer& buffer);
@@ -192,93 +232,128 @@ class CameraSource {
   CameraSource& operator=(const CameraSource&);
   static CameraSource* instance_;
   std::map<int32_t, std::shared_ptr<CameraRescaler> > rescalers_;
+  /// @endcond
 
 };
 
-// This class is behaves as producer and consumer both, at one end it takes
-// YUV buffers from camera stream and another end it provides buffers to
-// Encoder, and manages buffer circulation, skip etc.
+/// @brief This class behaves as producer and consumer both, at one end
+/// it takes YUV buffers from camera stream and another end it provides buffers
+/// to Encoder, and manages buffer circulation, frame skip etc.
 class TrackSource : public ICodecSource {
  public:
+
+  /// TrackSource Constructor
   TrackSource(const VideoTrackParams& params,
               const std::shared_ptr<CameraInterface>& camera_intf);
 
+  /// TrackSource Destructor
   ~TrackSource();
 
+  /// Create stream and initialize additional processing
   status_t Init();
 
+  /// Destroy stream and de-initialize additional processing
   status_t DeInit();
 
+  /// Link track source with consumer and start additional processing
   status_t StartTrack();
 
+  /// Unlink track source with consumer and stops additional processing
   status_t StopTrack(bool is_force_cleanup = false);
 
   // Methods of IInputCodecSource
   // This method to provide input buffer to Encoder.
+  /// Provide input buffer to Encoder
   status_t GetBuffer(BufferDescriptor& buffer, void* client_data) override;
 
   // This method is used by Encoder to provide buffer back after encoding.
+  /// Return buffer from Encoder
   status_t ReturnBuffer(BufferDescriptor& buffer, void* client_data) override;
 
   // This method is used by Encoder to notify stop.
+  /// Used by Encoder to notify stop.
   status_t NotifyPortEvent(PortEventType event_type,
                            void* event_data) override;
 
   // Global track specific params can be query from TrackSource during its life
   // cycle.
+  /// Get Track parameters
   VideoTrackParams& getParams() { return track_params_; }
 
   // This method to handle incoming buffers from producer, producer can be
   // anyone, Camera context's port or rescaler.
+  /// Handle incoming buffers from producer
   void OnFrameAvailable(StreamBuffer& buffer);
 
+  /// Return track buffers to producer
   status_t ReturnTrackBuffer(std::vector<BnBuffer>& buffers);
 
+  /// Return true if current state is different then running
   bool IsStop();
 
+  /// Return buffers to producer
   void ClearInputQueue();
 
   // Overlay Apis. TrackSource has instance of Overlay to deal with static
   // and dynamic types of overlay.
+
+  /// Create Overlay object
   status_t CreateOverlayObject(OverlayParam *param, uint32_t *overlay_id);
 
+  /// Delete Overlay object
   status_t DeleteOverlayObject(const uint32_t overlay_id);
 
+  /// Get Overlay object parameters
   status_t GetOverlayObjectParams(const uint32_t overlay_id,
                                   OverlayParam &param);
 
+
+  /// Update Overlay object parameters
   status_t UpdateOverlayObjectParams(const uint32_t overlay_id,
                                      OverlayParam *param);
 
+  /// Set Overlay object parameters
   status_t SetOverlayObject(const uint32_t overlay_id);
 
+  /// Remove Overlay objects
   status_t RemoveOverlayObject(const uint32_t overlay_id);
 
+  /// Change frame rate
   void UpdateFrameRate(const float frame_rate);
 
+  /// Enable frame repeat
   void EnableFrameRepeat(const bool enable_frame_repeat);
 
+  /// Callback to handle returned buffers
   void NotifyBufferReturned(StreamBuffer& buffer);
 
   //status_t GetStreamParam(CameraStreamParam& stream_param);
 
+  /// Sets source track and enable track duplication
   status_t InitCopy(std::shared_ptr<TrackSource> track_source,
                     const std::shared_ptr<CameraRescaler>& rescaler,
                     int32_t port_track_id,
                     int32_t track_id_master);
 
+  /// Return connected Camera port
   bool IsConnectedToCameraPort() { return connected_tocamera_port_;};
 
+  /// Return if the source of this track is another track
   bool IsSlaveTrack() {return slave_track_source_; };
 
+  /// Return master Track ID
   int32_t GetMasterTrackId();
 
+  /// Return port Track ID
   int32_t GetCameraPortId();
 
+  /// Add track source Consumer
   status_t AddConsumer(const sp<IBufferConsumer>& consumer);
 
+  /// Remove track source Consumer
   status_t RemoveConsumer(sp<IBufferConsumer>& consumer);
 
+  /// @cond PRIVATE
  private:
 
   // Method to provide consumer interface, it would be used by producer to
@@ -379,6 +454,8 @@ class TrackSource : public ICodecSource {
   uint32_t num_consumers_;
 
   int32_t rotation_;
+  /// @endcond
+
 };
 
 }; //namespace recorder

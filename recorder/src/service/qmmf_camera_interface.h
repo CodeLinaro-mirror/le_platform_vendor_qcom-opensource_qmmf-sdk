@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -25,6 +25,9 @@
 * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
 * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*/
+
+/*! @file qmmf_camera_interface.h
 */
 
 #pragma once
@@ -58,53 +61,74 @@ struct SnapshotParam {
 class CameraInterface {
  public:
 
+  /// CameraInterface Destructor
   virtual ~CameraInterface() {};
 
+  /// Open the camera
   virtual status_t OpenCamera(const uint32_t camera_id,
                               const CameraStartParam &param,
                               const ResultCb &cb = nullptr,
                               const ErrorCb &errcb = nullptr) = 0;
 
+  /// Close the camera
   virtual status_t CloseCamera(const uint32_t camera_id) = 0;
 
+  /// Wait AEC to converge
   virtual status_t WaitAecToConverge(const uint32_t timeout) = 0;
 
+  /// Apply image configuration
   virtual status_t SetUpCapture(const SnapshotParam& param,
                                 const uint32_t num_images) = 0;
 
+  /// Image Capture
   virtual status_t CaptureImage(const std::vector<CameraMetadata> &meta,
                                 const StreamSnapshotCb& cb) = 0;
 
+  /// Configure Image Capture. Configuration is applied by SetUpCapture.
   virtual status_t ConfigImageCapture(const ImageConfigParam &config) = 0;
 
+  /// Abort ongoing Image Capture. This blocking API and returns when
+  /// image capture is stopped and all buffers are returned
   virtual status_t CancelCaptureImage() = 0;
 
+  /// Create stream
   virtual status_t CreateStream(const StreamParam& param,
                                 const VideoExtraParam& extra_param) = 0;
 
+  /// Delete stream
   virtual status_t DeleteStream(const uint32_t track_id) = 0;
 
+  /// Add consumer
   virtual status_t AddConsumer(const uint32_t& track_id,
                                sp<IBufferConsumer>& consumer) = 0;
 
+  /// Remove consumer
   virtual status_t RemoveConsumer(const uint32_t& track_id,
                                   sp<IBufferConsumer>& consumer) = 0;
 
+  /// Start stream
   virtual status_t StartStream(const uint32_t track_id) = 0;
 
+  /// Stop stream
   virtual status_t StopStream(const uint32_t track_id) = 0;
 
+  /// Set camera parameters
   virtual status_t SetCameraParam(const CameraMetadata &meta) = 0;
 
+  /// Return camera parameters
   virtual status_t GetCameraParam(CameraMetadata &meta) = 0;
 
+  /// Return default capture parameters
   virtual status_t GetDefaultCaptureParam(CameraMetadata &meta) = 0;
 
+  /// Return Image Capture buffer
   virtual status_t ReturnImageCaptureBuffer(const uint32_t camera_id,
                                             const int32_t buffer_id) = 0;
 
+  /// Return camera input parameters
   virtual CameraStartParam& GetCameraStartParam() = 0;
 
+  /// Return supported fps
   virtual std::vector<int32_t>& GetSupportedFps() = 0;
 
 };

@@ -120,19 +120,19 @@ struct PluginInfo {
   /// plugin name
   std::string name;
   /// version of the underlying library
-  float       version;
+  std::string version;
   /// indicating whether runtime enable/disable is supported
   bool        togglable;
 
   PluginInfo()
-    : name(), version(0.0), togglable(false) {}
+    : name(), version("0.0"), togglable(false) {}
 
   PluginInfo(const std::string name,
-             const float version,
+             const std::string version,
              const bool togglable)
-    : name(name),
-      version(version),
-      togglable(togglable) {}
+      : name(name),
+        version(version),
+        togglable(togglable) {}
 
   PluginInfo(const void *blob, const size_t size) { FromBlob(blob, size); }
 
@@ -152,35 +152,64 @@ struct PluginInfo {
   }
 
   std::shared_ptr<void> ToBlob() const {
-    std::shared_ptr<void> blob(new uint8_t[Size()]);
+    std::shared_ptr<void> blob(new uint8_t[Size()],
+                               std::default_delete<uint8_t[]>() );
+
+    uint16_t name_size, version_size;
+
+    name_size = (uint16_t)name.size();
+    version_size = (uint16_t)version.size();
 
     uintptr_t dest = reinterpret_cast<uintptr_t>(blob.get());
+    memcpy(reinterpret_cast<void *>(dest), reinterpret_cast<void *>(&name_size),
+           sizeof(uint16_t));
+
+    dest += sizeof(uint16_t);
+    memcpy(reinterpret_cast<void *>(dest),
+           reinterpret_cast<void *>(&version_size), sizeof(uint16_t));
+
+    dest += sizeof(uint16_t);
     memcpy(reinterpret_cast<void *>(dest), name.data(), name.size());
 
     dest += name.size();
-    memcpy(reinterpret_cast<void *>(dest), &version, sizeof(version));
+    memcpy(reinterpret_cast<void *>(dest), version.data(), version.size());
 
-    dest += sizeof(version);
+    dest += version.size();
     memcpy(reinterpret_cast<void *>(dest), &togglable, sizeof(togglable));
 
     return blob;
   }
 
   void FromBlob(const void *blob, const size_t size) {
-    size_t name_size = size - sizeof(version) - sizeof(togglable);
-
     uintptr_t src = reinterpret_cast<uintptr_t>(blob);
-    name.assign(reinterpret_cast<const char *>(src), name_size);
+    uint16_t name_size, version_size;
+    size_t remaining_size = size;
+    name = "Invalid blob";
+    version = "Invalid blob";
 
-    src += name_size;
-    memcpy(&version, reinterpret_cast<void *>(src), sizeof(version));
+    if (remaining_size > sizeof(uint16_t) * 2) {
+      remaining_size -= sizeof(uint16_t) * 2;
+      memcpy(&name_size, reinterpret_cast<void *>(src), sizeof(uint16_t));
 
-    src += sizeof(version);
-    memcpy(&togglable, reinterpret_cast<void *>(src), sizeof(togglable));
+      src += sizeof(uint16_t);
+      memcpy(&version_size, reinterpret_cast<void *>(src), sizeof(uint16_t));
+
+      if (remaining_size >= version_size + name_size) {
+        src += sizeof(uint16_t);
+        name.assign(reinterpret_cast<const char *>(src), name_size);
+
+        src += name_size;
+        version.assign(reinterpret_cast<const char *>(src), version_size);
+
+        src += version_size;
+        memcpy(&togglable, reinterpret_cast<void *>(src), sizeof(togglable));
+      }
+    }
   }
 
   size_t Size() const {
-    return (name.size() + sizeof(version) + sizeof(togglable));
+    return (sizeof(uint32_t) + name.size() + version.size() +
+            sizeof(togglable));
   }
 };
 

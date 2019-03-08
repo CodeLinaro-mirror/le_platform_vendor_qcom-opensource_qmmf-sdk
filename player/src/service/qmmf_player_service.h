@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -25,6 +25,9 @@
 * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
 * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*/
+
+/*! @file qmmf_player_service.h
 */
 
 #pragma once
@@ -65,8 +68,8 @@ class PlayerService: public BnInterface<IPlayerService> {
 
   friend class DeathNotifier;
 
-  // Method of BnInterface<IPlayerService>.
-  // This method would get call to handle incoming messages from clients.
+  /// Method of BnInterface<IPlayerService>.
+  /// This method would get call to handle incoming messages from clients.
   status_t onTransact(uint32_t code, const Parcel& data,
                                Parcel* reply, uint32_t flags = 0) override;
 
@@ -115,10 +118,10 @@ class PlayerService: public BnInterface<IPlayerService> {
   Mutex                 lock_;
 
 
-  // mapping of service ion_fd and mapped status
+  /**< mapping of service ion_fd and mapped status */
   typedef DefaultKeyedVector<uint32_t, uint32_t> ion_fd_map_;
 
-  // mapping of <track_id, map <service_fd , mapped_status>>
+  /**< mapping of <track_id, map <service_fd , mapped_status>> */
   DefaultKeyedVector<int32_t, ion_fd_map_> track_fd_map_;
 
 };

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016, 2019, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -35,6 +35,8 @@
 #include <sstream>
 #include <string>
 
+#include <ion/ion.h>
+#include <linux/dma-buf.h>
 #include <linux/msm_ion.h>
 
 #include "include/qmmf-sdk/qmmf_recorder_params.h"
@@ -57,18 +59,12 @@ class RecorderClientIon
   struct RecorderClientIonBuffer {
     void* data;
     int32_t capacity;
-    struct ion_fd_data share_data;
-    struct ion_handle_data free_data;
-
+    int32_t map_fd;
     ::std::string ToString() const {
       ::std::stringstream stream;
       stream << "data[" << data << "] ";
       stream << "capacity[" << capacity << "] ";
-      stream << "share_data[";
-      stream << "handle[" << share_data.handle << "] ";
-      stream << "fd[" << share_data.fd << "] ";
-      stream << "free_data[";
-      stream << "handle[" << free_data.handle << "]]";
+      stream << "map_fd[" << map_fd << "]";
       return stream.str();
     }
   };
