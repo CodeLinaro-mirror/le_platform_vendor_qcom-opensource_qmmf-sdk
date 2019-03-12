@@ -65,6 +65,8 @@
 // Enable this define to dump YUV data from YUV track
 #define DUMP_YUV_FRAMES
 
+#define OVERLAY_TEST_FILE "/data/misc/qmmf/overlay_test.rgba"
+
 //#define DEBUG
 //Logging related defines
 #define TEST_INFO(fmt, args...)  ALOGD(fmt, ##args)

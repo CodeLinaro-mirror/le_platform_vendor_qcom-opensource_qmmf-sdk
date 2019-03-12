@@ -6289,7 +6289,7 @@ status_t TestTrack::EnableOverlay() {
   object_params.image_info.buffer_updated = false;
 
   FILE *image;
-  image = fopen("/etc/overlay_test.rgba", "r");
+  image = fopen(OVERLAY_TEST_FILE, "r");
   if (!image) {
    TEST_ERROR("%s: Unable to open file", __func__);
    return -1;
@@ -6367,7 +6367,7 @@ status_t TestTrack::EnableOverlay() {
   object_params.dst_rect.width   = 451;
   object_params.dst_rect.height  = 109;
 
-  std::string str("/etc/overlay_test.rgba");
+  std::string str(OVERLAY_TEST_FILE);
   str.copy(object_params.image_info.image_location, str.length());
 
   uint32_t object_id;

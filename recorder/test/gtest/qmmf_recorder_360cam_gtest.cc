@@ -3233,7 +3233,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayMix) {
     object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kBottomRight;
-    std::string str("/etc/overlay_test.rgba");
+    std::string str(OVERLAY_TEST_FILE);
     str.copy(object_params.image_info.image_location, str.length());
     object_params.dst_rect.width = 451;
     object_params.dst_rect.height = 109;
@@ -3959,7 +3959,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAndOverlayMix) {
     object_params = {};
     object_params.type = OverlayType::kStaticImage;
     object_params.location = OverlayLocationType::kBottomRight;
-    std::string str("/etc/overlay_test.rgba");
+    std::string str(OVERLAY_TEST_FILE);
     str.copy(object_params.image_info.image_location, str.length());
     object_params.dst_rect.width = 451;
     object_params.dst_rect.height = 109;

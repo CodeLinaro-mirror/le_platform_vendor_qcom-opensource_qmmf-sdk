@@ -54,6 +54,7 @@
 #include "qmmf_memory_interface.h"
 
 #define DUMP_META_PATH "/data/misc/qmmf/param.dump"
+#define OVERLAY_TEST_FILE "/data/misc/qmmf/overlay_test.rgba"
 
 #ifdef USE_SURFACEFLINGER
 #include <sys/mman.h>

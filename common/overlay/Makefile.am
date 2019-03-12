@@ -18,6 +18,4 @@ overlay_test_SOURCES  = test/qmmf_overlay_test.cc
 overlay_test_CPPFLAGS = $(liboverlay_la_CPPFLAGS) -I$(top_srcdir)
 overlay_test_LDADD    = liboverlay.la
 
-root_etcdir   = "/etc"
-root_etc_DATA = test/raw_image/overlay_test.rgba
 endif

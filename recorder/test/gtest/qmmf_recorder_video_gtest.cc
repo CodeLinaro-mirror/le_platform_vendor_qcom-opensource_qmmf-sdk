@@ -2870,7 +2870,7 @@ TEST_F(VideoGtest, 1080pEncWithStaticImageOverlay) {
   uint32_t static_img_id;
   object_params.type = OverlayType::kStaticImage;
   object_params.location = OverlayLocationType::kBottomRight;
-  std::string str("/etc/overlay_test.rgba");
+  std::string str(OVERLAY_TEST_FILE);
   str.copy(object_params.image_info.image_location, str.length());
   object_params.dst_rect.width  = 451;
   object_params.dst_rect.height = 109;
@@ -3836,7 +3836,7 @@ TEST_F(VideoGtest, 1080pEncWithStaticImageBlobOverlay) {
   image_height = object_params.image_info.source_rect.height;
 
   FILE *image = nullptr;
-  image = fopen("/etc/overlay_test.rgba", "r");
+  image = fopen(OVERLAY_TEST_FILE, "r");
   if (!image) {
    TEST_ERROR("%s: Unable to open file", __func__);
    ASSERT_TRUE(image == nullptr);
