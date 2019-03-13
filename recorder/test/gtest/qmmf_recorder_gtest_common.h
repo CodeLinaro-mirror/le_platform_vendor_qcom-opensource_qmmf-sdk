@@ -148,6 +148,8 @@ static const uint32_t kBitRate1440p30 = 25000000;
 static const uint32_t kBitRate1440p60 = 45000000;
 static const uint32_t kBitRate960p90  = 45000000;
 static const uint32_t kBitRate480p    = 4000000;
+static const uint32_t kBitRate100Mbps = 100000000;
+static const uint32_t kBitRate10Mbps  = 10000000;
 
 template<class T>
 struct Rect {
@@ -219,6 +221,8 @@ struct FaceInfo {
 #define PROP_UBWC_STREAM_ENABLE     "persist.qmmf.ubwcstream.enable"
 // Prop to enable debugging frames
 #define PROP_FRAME_DEBUG            "persist.qmmf.rec.gtest.frm.dbg"
+// Prop to set force sensor mode config file
+#define PROP_SENSOR_CONFIG_FILE     "persist.qmmf.sensor.mode.file"
 
 #ifndef MAX
 #define MAX(a,b) ((a) > (b) ? (a) : (b))
@@ -514,7 +518,11 @@ class GtestCommon : public ::testing::Test {
                             std::vector<std::string> &files_list);
 
   status_t PopulateDeFogTables(std::vector<DeFogTable> &defog_tables);
+
   status_t PopulateExpTables(std::vector<ExposureTable> &exp_tables);
+
+  int32_t FindSensorModeIndex(const std::string& name_of_file,
+                              const std:: string& mode_index);
 
 #ifdef CAM_ARCH_V2
   bool VendorTagSupported(const String8& name, const String8& section,
@@ -652,6 +660,7 @@ class GtestCommon : public ::testing::Test {
   bool                  default_eis_margins_;
   bool                  is_apply_overlay_;
   bool                  is_frame_debug_enabled_;
+  std::string           sensor_mode_file_name_;
 
 #ifndef DISABLE_DISPLAY
   bool                  use_display_;

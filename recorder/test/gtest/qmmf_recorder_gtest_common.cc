@@ -455,7 +455,9 @@ void GtestCommon::SetUp() {
   property_get(PROP_UBWC_STREAM_ENABLE, prop_val, "1");
   ubwc_stream_enable_ = (atoi(prop_val) == 0) ? false : true;
   property_get(PROP_FRAME_DEBUG, prop_val, "0");
-  is_frame_debug_enabled_ = atoi(prop_val);
+  is_frame_debug_enabled_ = (atoi(prop_val) == 0) ? false : true;
+  property_get(PROP_SENSOR_CONFIG_FILE, prop_val, "");
+  sensor_mode_file_name_ = std::string(prop_val);
 
   camera_start_params_ = {};
   camera_start_params_.zsl_mode         = false;
@@ -1780,6 +1782,54 @@ status_t GtestCommon::PopulateExpTables(
     exp_tables.push_back(exp_table);
   }
   return NO_ERROR;
+}
+
+/*
+ * FindSensorModeIndex: This method parses a given sensor mode specified
+ * as a string, and returns the mode index.
+ */
+int32_t GtestCommon::FindSensorModeIndex(const std::string& name_of_file,
+                                         const std::string& mode) {
+
+  if (name_of_file.empty() || mode.empty()) {
+    TEST_ERROR("%s: Please provide correct params:", __func__);
+    return -1;
+  }
+
+  std::string dir_path(kQmmfFolderPath);
+  std::string path = dir_path.append(name_of_file);
+  TEST_INFO("%s: Config File Path: %s", __func__, path.c_str());
+  int32_t index_value = -1;
+  std::string input_str;
+  const char delim_colon = ':';
+  std::string key, value;
+  std::vector < std::string > out;
+
+  std::ifstream input_file(path.c_str());
+  try {
+    input_file.exceptions(input_file.failbit);
+  } catch (const std::ios_base::failure& e) {
+    TEST_ERROR("%s: File open failed:  %s\n", __func__, e.what());
+  }
+
+  while (getline(input_file, input_str)) {
+    out.clear();
+    TokenizeString(input_str, delim_colon, out);
+    key = out[0];
+    value = out[1];
+    RemoveSpaces(key);
+    RemoveSpaces(value);
+    if (key.compare(mode) == 0) {
+      index_value = std::atoi(value.c_str());
+      break;
+    }
+  }
+  if (input_file.is_open()) {
+    input_file.close();
+  }
+  TEST_INFO("%s: Sensor Mode : %s Sensor Mode Value: %u\n", __func__,
+            mode.c_str(), index_value);
+  return index_value;
 }
 
 #ifdef CAM_ARCH_V2

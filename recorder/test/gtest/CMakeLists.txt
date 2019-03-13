@@ -35,6 +35,9 @@ target_include_directories(qmmf_recorder_gtest
  PRIVATE ${TOP_DIRECTORY}/common/memory)
 
 install(TARGETS qmmf_recorder_gtest DESTINATION bin OPTIONAL)
+
+install(FILES imx577_sensor_mode_config.txt DESTINATION ${QMMF_DATA})
+
 target_link_libraries(qmmf_recorder_gtest log cutils utils cairo gtest gtest_main camera_client camera_metadata qmmf_recorder_client qmmf_av_queue)
 if (NOT DISABLE_DISPLAY_CLIENT)
 target_link_libraries(qmmf_recorder_gtest qmmf_display_client)
