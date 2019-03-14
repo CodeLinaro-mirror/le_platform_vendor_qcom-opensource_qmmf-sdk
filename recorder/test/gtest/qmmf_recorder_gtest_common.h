@@ -167,7 +167,7 @@ struct FaceInfo {
 
 #define DEFAULT_YUV_DUMP_FREQ       "200"
 #define DEFAULT_ITERATIONS          "50"
-#define DEFAULT_BURST_COUNT         "30"
+#define DEFAULT_BURST_COUNT         "15"
 #define IMAGE_QUALITY               "95"
 
 // Default recording duration is 2 minutes i.e. 2 * 60 seconds

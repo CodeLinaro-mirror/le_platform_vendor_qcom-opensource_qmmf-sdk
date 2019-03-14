@@ -2031,7 +2031,8 @@ TEST_F(RecorderImageGTest, 10MPSnapshotWithLCACandEdgeSmooth) {
 *  - CancelCaptureImage
 *  - StopCamera
 */
-TEST_F(RecorderImageGTest, LowResVideo10MPSnapshotWithLCACandEdgeSmoothContinuousCapture) {
+TEST_F(RecorderImageGTest,
+    LowResVideo10MPSnapshotWithLCACandEdgeSmoothContinuousCapture) {
   fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
       test_info_->test_case_name(),test_info_->name());
 
@@ -2080,7 +2081,7 @@ TEST_F(RecorderImageGTest, LowResVideo10MPSnapshotWithLCACandEdgeSmoothContinuou
   ASSERT_TRUE(ret == NO_ERROR);
 
   // Record for sometime
-  sleep(5);
+  sleep(3);
 
   ImageParam image_param{};
   image_param.width         = 3872;
@@ -2097,14 +2098,11 @@ TEST_F(RecorderImageGTest, LowResVideo10MPSnapshotWithLCACandEdgeSmoothContinuou
       image_param.width, image_param.height);
   ASSERT_TRUE (res_supported != false);
 
-  // number of frames 1. Timeout 5s (4fps snapshot).
-  test_wait_.Reset(1, 5);
-
   ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
                               BufferDescriptor buffer,
                               MetaData meta_data) -> void
-      { SnapshotCb(camera_id, image_count, buffer, meta_data);
-        test_wait_.Done();
+      {
+	    SnapshotCb(camera_id, image_count, buffer, meta_data);
       };
 
   ImageConfigParam image_config;
@@ -2143,27 +2141,12 @@ TEST_F(RecorderImageGTest, LowResVideo10MPSnapshotWithLCACandEdgeSmoothContinuou
   ret = SetCameraFocalLength(focal_length);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.ConfigImageCapture(camera_id_, image_config);
-  ASSERT_TRUE(ret == NO_ERROR);
-
   meta_array.push_back(meta);
-  ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array, cb);
-  ASSERT_TRUE(ret == NO_ERROR);
-
-  ret = test_wait_.Wait();
-  ASSERT_TRUE(ret == NO_ERROR);
-
-  //Continius capture
-  std::string config = "{\"EdgeSmooth\" : false }";
-  ret = recorder_.ConfigPlugin(edge_smooth_plugin.uid, config);
-  ASSERT_TRUE(ret == NO_ERROR);
-
-  ImageConfigParam image_config_continius;
   SnapshotType snapshot_type;
   snapshot_type.type = SnapshotMode::kContinuous;
-  image_config_continius.Update(QMMF_SNAPSHOT_TYPE, snapshot_type, 0);
+  image_config.Update(QMMF_SNAPSHOT_TYPE, snapshot_type, 0);
 
-  ret = recorder_.ConfigImageCapture(camera_id_, image_config_continius);
+  ret = recorder_.ConfigImageCapture(camera_id_, image_config);
   ASSERT_TRUE(ret == NO_ERROR);
 
   // Lock AE for snapshot
@@ -2196,10 +2179,13 @@ TEST_F(RecorderImageGTest, LowResVideo10MPSnapshotWithLCACandEdgeSmoothContinuou
   ret = recorder_.SetCameraParam(camera_id_, meta);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  //preview
+  // Switch back to preview.
   sleep(5);
 
   ret = recorder_.DeletePlugin(bayer_lcac_plugin.uid);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.DeletePlugin(edge_smooth_plugin.uid);
   ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StopSession(session_id, false);
@@ -4676,8 +4662,8 @@ TEST_F(RecorderImageGTest, SingleSnapshotFocalLength) {
 }
 
 /*
-* LowResVideo10MPContinuousSnapshotWithLCACAndCdsOff: This gtest will test Continuous
-*    10MP JPEG snapshot with Bayer LCAC.
+* LowResVideo10MPContinuousSnapshotWithLCACAndCdsOff: This gtest will test
+*    Continuous 10MP JPEG snapshot with Bayer LCAC.
 * Api test sequence:
 *  - StartCamera
 *  - Low resolution video 640x480@30fps
@@ -4789,7 +4775,6 @@ TEST_F(RecorderImageGTest, LowResVideo10MPContinuousSnapshotWithLCACAndCdsOff) {
   float focal_length = 8.0; // 4 fps mode.
   ret = SetCameraFocalLength(focal_length);
   ASSERT_TRUE(ret == NO_ERROR);
-
 
   SnapshotType snapshot_type;
   snapshot_type.type = SnapshotMode::kContinuous;
@@ -4937,14 +4922,11 @@ TEST_F(RecorderImageGTest,
       image_param.width, image_param.height);
   ASSERT_TRUE(res_supported != false);
 
-  // number of frames 1. Timeout 5s (4fps snapshot).
-  test_wait_.Reset(1, 5);
-
   ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
                               BufferDescriptor buffer,
                               MetaData meta_data) -> void
-      { SnapshotCb(camera_id, image_count, buffer, meta_data);
-        test_wait_.Done();
+      {
+	    SnapshotCb(camera_id, image_count, buffer, meta_data);
       };
 
   ImageConfigParam image_config;
@@ -4982,32 +4964,16 @@ TEST_F(RecorderImageGTest,
   high_quality_setup.jpeg_input_format = BufferFormat::kNV16;
   image_config.Update(QMMF_JPEG_CAPTURE_SETUP, high_quality_setup);
 
+  SnapshotType snapshot_type;
+  snapshot_type.type = SnapshotMode::kContinuous;
+  image_config.Update(QMMF_SNAPSHOT_TYPE, snapshot_type, 0);
+
   // Update same focal length to streaming meta.
   focal_length = 8.0;
   ret = SetCameraFocalLength(focal_length);
   ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.ConfigImageCapture(camera_id_, image_config);
-  ASSERT_TRUE(ret == NO_ERROR);
-
-  meta_array.push_back(meta);
-  ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array, cb);
-  ASSERT_TRUE(ret == NO_ERROR);
-
-  ret = test_wait_.Wait();
-  ASSERT_TRUE(ret == NO_ERROR);
-
-  //Continius capture
-  std::string config = "{\"EdgeSmooth\" : false }";
-  ret = recorder_.ConfigPlugin(edge_smooth_plugin.uid, config);
-  ASSERT_TRUE(ret == NO_ERROR);
-
-  ImageConfigParam image_config_continius;
-  SnapshotType snapshot_type;
-  snapshot_type.type = SnapshotMode::kContinuous;
-  image_config_continius.Update(QMMF_SNAPSHOT_TYPE, snapshot_type, 0);
-
-  ret = recorder_.ConfigImageCapture(camera_id_, image_config_continius);
   ASSERT_TRUE(ret == NO_ERROR);
 
   // Lock AE for snapshot
@@ -5044,6 +5010,9 @@ TEST_F(RecorderImageGTest,
   sleep(5);
 
   ret = recorder_.DeletePlugin(bayer_lcac_plugin.uid);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.DeletePlugin(edge_smooth_plugin.uid);
   ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StopSession(session_id, false);
