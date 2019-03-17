@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  * Not a Contribution.
  */
 
@@ -417,9 +417,6 @@ int32_t Camera3DeviceClient::ConfigureStreamsLocked(bool is_pp_enabled) {
 #ifndef DISABLE_OP_MODES
   if (is_raw_only_) {
     config.operation_mode = QCAMERA3_VENDOR_STREAM_CONFIGURATION_RAW_ONLY_MODE;
-  } else if (hfr_mode_enabled_) {
-    config.operation_mode =
-        CAMERA3_STREAM_CONFIGURATION_CONSTRAINED_HIGH_SPEED_MODE;
   } else if (!is_pp_enabled) {
     config.operation_mode =
         QCAMERA3_VENDOR_STREAM_CONFIGURATION_PP_DISABLED_MODE;
@@ -429,8 +426,14 @@ int32_t Camera3DeviceClient::ConfigureStreamsLocked(bool is_pp_enabled) {
 #else
   config.operation_mode = CAMERA3_STREAM_CONFIGURATION_NORMAL_MODE;
 
+  // Handle ZZHDR Mode
   if (is_zzhdr_enabled_ == true) {
-    config.operation_mode = QCAMERA3_SENSORMODE_ZZHDR_OPMODE;
+    config.operation_mode |= QCAMERA3_SENSORMODE_ZZHDR_OPMODE;
+  }
+  // Handle HFR Mode
+  if (hfr_mode_enabled_) {
+    config.operation_mode |=
+    CAMERA3_STREAM_CONFIGURATION_CONSTRAINED_HIGH_SPEED_MODE;
   }
 
   /*
