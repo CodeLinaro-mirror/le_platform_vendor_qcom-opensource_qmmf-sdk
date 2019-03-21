@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -118,6 +118,8 @@ MultiCameraManager::CreateMultiCamera(const std::vector<uint32_t> camera_ids,
   QMMF_INFO("%s: Exit", __func__);
   return NO_ERROR;
 }
+
+void MultiCameraManager::SetFlushCb(FlushCb &cb) {}
 
 status_t MultiCameraManager::ConfigureMultiCamera(
     const uint32_t virtual_camera_id, const MultiCameraConfigType type,

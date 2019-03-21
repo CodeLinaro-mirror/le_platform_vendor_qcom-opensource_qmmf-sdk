@@ -76,6 +76,7 @@ CameraContext::CameraContext()
       postproc_enable_(false),
       result_cb_(nullptr),
       error_cb_(nullptr),
+      flush_cb_(nullptr),
       hfr_supported_(false),
       batch_size_(1),
       batch_stream_id_(-1),
@@ -104,6 +105,10 @@ CameraContext::~CameraContext() {
   }
   //TODO: check all active ports
   QMMF_INFO("%s: Exit", __func__);
+}
+
+void CameraContext::SetFlushCb(FlushCb &cb){
+  flush_cb_ = cb;
 }
 
 void CameraContext::InitSupportedFPS() {
@@ -196,7 +201,7 @@ status_t CameraContext::CreateSnapshotStream(const SnapshotParam& param) {
             stream_param.height, stream_param.format);
 
   if (IsStreamParamsChanged(stream_param)) {
-
+    PauseActiveStreams();
     if (!snapshot_request_.streamIds.isEmpty()) {
       if (1 < snapshot_request_.streamIds.size()) {
         QMMF_ERROR("%s: Several non-zsl snapshot streams present!\n",
@@ -1819,6 +1824,8 @@ status_t CameraContext::PauseActiveStreams(bool immedialtely) {
     int64_t last_frame_mumber;
     ret = camera_device_->Flush(&last_frame_mumber);
     assert(ret == NO_ERROR);
+
+    flush_cb_(camera_id_);
 
     ret = camera_device_->WaitUntilIdle();
     assert(ret == NO_ERROR);

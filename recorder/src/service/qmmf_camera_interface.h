@@ -138,6 +138,8 @@ class CameraInterface {
   /// Return supported fps
   virtual std::vector<int32_t>& GetSupportedFps() = 0;
 
+  /// Register Flush Callback
+  virtual void SetFlushCb(FlushCb &cb) = 0;
 };
 
 }; //namespace recorder.

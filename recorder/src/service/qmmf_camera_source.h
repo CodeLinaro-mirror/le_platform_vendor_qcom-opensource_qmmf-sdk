@@ -191,6 +191,12 @@ class CameraSource {
   status_t RemoveOverlayObject(const uint32_t track_id,
                                const uint32_t overlay_id);
 
+  /// Register Flush Callback
+  status_t SetFlushCb(const uint32_t camera_id, FlushCb &cb);
+
+  /// Clear Track input queue
+  status_t FlushTrack(const uint32_t track_id);
+
   /// Return instance for track source for given ID
   const ::std::shared_ptr<TrackSource>& GetTrackSource(uint32_t track_id);
 
