@@ -227,10 +227,15 @@ struct ImageThumbnail : DataTagBase {
 struct SnapshotType : DataTagBase {
   /**< This is to change the Snapshot type */
   /**< Supported Modes are: kStill, kStillPlusRaw, kVideo, kContinuous. */
-  SnapshotMode type;  // Default: kVideo
+  /**< Default snapshot mode is kVideo. */
+  SnapshotMode type;
+  /**< RAW format takes place only if snapshot type is kStillPlusRaw. */
+  /**< Default RAW format is kBayerRDI10BIT. */
+  ImageFormat raw_format;
   SnapshotType()
     : DataTagBase(QMMF_SNAPSHOT_TYPE),
-      type(SnapshotMode::kVideo) {}
+      type(SnapshotMode::kVideo),
+      raw_format(ImageFormat::kBayerRDI10BIT) {}
 };
 
 struct VideoWaitAECMode : DataTagBase {

@@ -87,6 +87,7 @@ CameraContext::CameraContext()
       snapshot_param_{0, 0, 0, BufferFormat::kBLOB},
       snapshot_type_(SnapshotMode::kVideo),
       new_snapshot_type_(SnapshotMode::kVideo),
+      raw_snapshot_format_(BufferFormat::kRAW10),
       jpeg_input_format_(BufferFormat::kUnsupported),
       new_jpeg_input_format_(BufferFormat::kUnsupported),
       postproc_frame_skip_{},
@@ -179,8 +180,7 @@ status_t CameraContext::CreateSnapshotStream(
     ret = CreateDeviceStream(stream_param, camera_start_params_.frame_rate,
                              &stream_id);
     if (ret != NO_ERROR) {
-      QMMF_ERROR("%s: Failed creating snapshot stream: %d!",
-                 __func__, ret);
+      QMMF_ERROR("%s: Failed creating snapshot stream: %d!", __func__, ret);
       return ret;
     }
 
@@ -190,11 +190,11 @@ status_t CameraContext::CreateSnapshotStream(
 
   if (snapshot_type_ == SnapshotMode::kStillPlusRaw) {
     CameraStreamParameters raw_stream_param = stream_param;
-    raw_stream_param.format = Common::FromQmmfToHalFormat(BufferFormat::kRAW10);
+    raw_stream_param.format = Common::FromQmmfToHalFormat(raw_snapshot_format_);
     Common::GetMaxSupportedCameraRes(static_meta_,
                                      raw_stream_param.width,
                                      raw_stream_param.height,
-                                     raw_stream_param.format);
+                                     raw_snapshot_format_);
     raw_stream_param.allocFlags.flags  = IMemAllocUsage::kSwWriteOften |
                                            IMemAllocUsage::kSwReadOften;
     raw_stream_param.bufferCount  = sequence_cnt_;
@@ -821,6 +821,22 @@ status_t CameraContext::ConfigImageCapture(const ImageConfigParam &config) {
     config.Fetch(QMMF_SNAPSHOT_TYPE, type);
 
     std::unique_lock<std::mutex> lock(capture_lock_);
+    if (type.type == SnapshotMode::kStillPlusRaw) {
+      BufferFormat format = Common::FromImageToQmmfFormat(type.raw_format);
+      if (format != BufferFormat::kRAW8 && format != BufferFormat::kRAW10 &&
+          format != BufferFormat::kRAW12 && format != BufferFormat::kRAW16) {
+        QMMF_ERROR("%s: Image format %d is not RAW format", __func__,
+            type.raw_format);
+        return BAD_VALUE;
+      }
+
+      bool supported = Common::ValidateStreamFormat(static_meta_, format);
+      if (supported == false) {
+        QMMF_ERROR("%s: Format %d is not supported!", __func__, format);
+        return BAD_VALUE;
+      }
+      raw_snapshot_format_ = format;
+    }
     new_snapshot_type_ = type.type;
   }
 

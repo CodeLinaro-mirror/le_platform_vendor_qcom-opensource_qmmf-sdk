@@ -35,6 +35,7 @@
 #include <iomanip>
 #include <list>
 #include <map>
+#include <set>
 #include <mutex>
 #include <queue>
 #include <sstream>
@@ -262,13 +263,17 @@ class Common {
    * return: true if available
    **/
   static bool ValidateStreamFormat(const CameraMetadata& meta,
-                                   const int32_t &format) {
+                                   const BufferFormat format,
+                                   bool input = false) {
     bool is_supported = false;
+    int32_t hal_format = FromQmmfToHalFormat(format);
 #ifdef CAM_ARCH_V2
     if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
       auto entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
       for (uint32_t i = 0 ; i < entry.count; i += 4) {
-        if (format == entry.data.i32[i]) {
+        if (hal_format == entry.data.i32[i] &&
+            input == (entry.data.i32[i + 3] ==
+              ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_INPUT)) {
           is_supported = true;
           break;
         }
@@ -279,10 +284,11 @@ class Common {
       return false;
     }
 #else
+    assert(input == false);
     if (meta.exists(ANDROID_SCALER_AVAILABLE_FORMATS)) {
       auto entry = meta.find(ANDROID_SCALER_AVAILABLE_FORMATS);
       for (uint32_t i = 0; i < entry.count; i++) {
-        if (entry.data.i32[i] == format) {
+        if (entry.data.i32[i] == hal_format) {
           is_supported = true;
           break;
         }
@@ -291,6 +297,52 @@ class Common {
       QMMF_ERROR("%s: Metadata ANDROID_SCALER_AVAILABLE_FORMATS"
                  " not available", __func__);
       return false;
+    }
+#endif
+    return is_supported;
+  }
+
+  /** ValidateInputFormat
+   *
+   * Validates whether buffer format is available
+   *
+   * return: true if available
+   **/
+  static bool ValidateInputFormat(const CameraMetadata& meta,
+                                  const BufferFormat in_format,
+                                  const BufferFormat out_format) {
+    bool is_supported = false;
+#ifdef CAM_ARCH_V2
+    is_supported = ValidateStreamFormat(meta, in_format, true) &&
+                   ValidateStreamFormat(meta, out_format, false);
+#else
+    if (meta.exists(ANDROID_SCALER_AVAILABLE_INPUT_OUTPUT_FORMATS_MAP)) {
+      int32_t in_hal_format = FromQmmfToHalFormat(in_format);
+      int32_t out_hal_format = FromQmmfToHalFormat(out_format);
+      auto entry = meta.find(ANDROID_SCALER_AVAILABLE_INPUT_OUTPUT_FORMATS_MAP);
+      if (entry.count != 0) {
+        size_t idx = 0;
+        int32_t input_format = 0, num_output_formats = 0;
+
+        while (idx < entry.count) {
+          // Increment the idx with the number of output formats from previous entry.
+          idx += num_output_formats;
+          input_format       = entry.data.i32[idx++];
+          num_output_formats = entry.data.i32[idx++];
+          if (input_format != in_hal_format) {
+            // Different input formats, skip map entry.
+            continue;
+          }
+          for (auto i = idx; i < (idx + num_output_formats); ++i) {
+            if (out_hal_format == entry.data.i32[i]) {
+              is_supported = true;
+              break;
+            }
+          }
+          // Didn't find supported format mapping, no point to continue.
+          break;
+        }
+      }
     }
 #endif
     return is_supported;
@@ -523,6 +575,46 @@ class Common {
     return is_supported;
   }
 
+  /** ValidateResolution
+   *
+   * Validates whether input resolution is available.
+   *
+   * return: true if available
+   **/
+  static bool ValidateResolution(const CameraMetadata& meta,
+                                  const BufferFormat format,
+                                  const uint32_t width,
+                                  const uint32_t height) {
+
+    bool is_supported = false;
+    switch (format) {
+      case BufferFormat::kRAW8:
+      case BufferFormat::kRAW10:
+      case BufferFormat::kRAW12:
+      case BufferFormat::kRAW16:
+        is_supported = ValidateResFromRawSizes(meta, width, height);
+        break;
+
+      case BufferFormat::kNV12:
+      case BufferFormat::kNV12Encodable:
+      case BufferFormat::kNV12UBWC:
+      case BufferFormat::kNV21:
+      case BufferFormat::kNV16:
+      case BufferFormat::kRGB:
+        is_supported = ValidateResFromProcessedSizes(meta, width, height);
+        break;
+
+      case BufferFormat::kBLOB:
+        is_supported = ValidateResFromJpegSizes(meta, width, height);
+        break;
+
+      default:
+        QMMF_ERROR("%s: Format(%d) not supported!", __func__, format);
+        return BAD_TYPE;
+    }
+    return is_supported;
+  }
+
   /** GetMaxSupportedCameraRes
    *
    * Searches for maximum supported camera resolution.
@@ -531,7 +623,7 @@ class Common {
    **/
   static bool GetMaxSupportedCameraRes(const CameraMetadata& meta,
       uint32_t &width, uint32_t &height,
-      const int32_t format = HAL_PIXEL_FORMAT_RAW10) {
+      const BufferFormat format = BufferFormat::kRAW10) {
     bool found = false;
     width = 0;
     height = 0;
@@ -558,8 +650,11 @@ class Common {
       return false;
     }
 #else
-    if (HAL_PIXEL_FORMAT_RAW8  == format || HAL_PIXEL_FORMAT_RAW10 == format ||
-        HAL_PIXEL_FORMAT_RAW12 == format || HAL_PIXEL_FORMAT_RAW16 == format) {
+    int32_t hal_format = Common::FromQmmfToHalFormat(format);
+    if (HAL_PIXEL_FORMAT_RAW8  == hal_format ||
+        HAL_PIXEL_FORMAT_RAW10 == hal_format ||
+        HAL_PIXEL_FORMAT_RAW12 == hal_format ||
+        HAL_PIXEL_FORMAT_RAW16 == hal_format) {
       if (!meta.exists(ANDROID_SCALER_AVAILABLE_RAW_SIZES)) {
         QMMF_ERROR("%s: Metadata ANDROID_SCALER_AVAILABLE_RAW_SIZES"
                    " not available", __func__);
@@ -615,6 +710,44 @@ class Common {
           height > static_cast<uint32_t>(entry.data.i32[i + 1])) {
         width = static_cast<uint32_t>(entry.data.i32[i + 0]);
         height = static_cast<uint32_t>(entry.data.i32[i + 1]);
+        found = true;
+      }
+    }
+#endif
+    return found;
+  }
+
+  /** GetSupportedCameraFormats
+   *
+   * Return supported camera formats.
+   *
+   * return: true if available
+   **/
+  static bool GetSupportedCameraFormats(const CameraMetadata& meta,
+                                        std::set<BufferFormat> &formats,
+                                        bool input = false) {
+
+    bool found = false;
+#ifdef CAM_ARCH_V2
+    assert(meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS));
+    auto entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
+    for (uint32_t i = 0 ; i < entry.count; i += 4) {
+      if (input == (entry.data.i32[i + 3] ==
+                    ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_INPUT)) {
+        auto format = FromHalToQmmfFormat(entry.data.i32[i]);
+        if (format != BufferFormat::kUnsupported && !formats.count(format)) {
+          formats.insert(format);
+          found = true;
+        }
+      }
+    }
+#else
+    assert(meta.exists(ANDROID_SCALER_AVAILABLE_FORMATS));
+    auto entry = meta.find(ANDROID_SCALER_AVAILABLE_FORMATS);
+    for (uint32_t i = 0; i < entry.count; i++) {
+      auto format = FromHalToQmmfFormat(entry.data.i32[i]);
+      if (format != BufferFormat::kUnsupported && !formats.count(format)) {
+        formats.insert(format);
         found = true;
       }
     }
