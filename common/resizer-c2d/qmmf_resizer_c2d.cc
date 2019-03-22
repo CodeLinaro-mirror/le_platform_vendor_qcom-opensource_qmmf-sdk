@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -234,12 +234,14 @@ RESIZER_STATUS C2DResizer::Draw(StreamBuffer& src_buffer,
 
   if (src_buffer.info.format == BufferFormat::kNV12UBWC) {
     plane_y_len =
-        (VENUS_Y_META_STRIDE(COLOR_FMT_NV12_UBWC, src_surface.width) *
-         VENUS_Y_META_SCANLINES(COLOR_FMT_NV12_UBWC,
-                                (src_surface.height + 1) >> 1)) +
-        (VENUS_Y_STRIDE(COLOR_FMT_NV12_UBWC, src_surface.width) *
-         VENUS_Y_SCANLINES(COLOR_FMT_NV12_UBWC, (src_surface.height + 1) >> 1));
-    plane_y_len = plane_y_len * 2;
+        MSM_MEDIA_ALIGN(VENUS_Y_META_STRIDE(COLOR_FMT_NV12_UBWC,
+                                            src_surface.width) *
+                        VENUS_Y_META_SCANLINES(COLOR_FMT_NV12_UBWC,
+                                               src_surface.height), 4096) +
+        MSM_MEDIA_ALIGN(VENUS_Y_STRIDE(COLOR_FMT_NV12_UBWC,
+                                       src_surface.width) *
+                        VENUS_Y_SCANLINES(COLOR_FMT_NV12_UBWC,
+                                          src_surface.height), 4096);
   } else if (src_buffer.info.format == BufferFormat::kNV12 ||
              src_buffer.info.format == BufferFormat::kNV21) {
     plane_y_len =
@@ -485,14 +487,16 @@ RESIZER_STATUS C2DResizer::UpdateYUVSurface(StreamBuffer& src_buffer,
   int32_t plane_y_len =
       dst_surface.stride0 * dst_buffer.info.plane_info[0].scanline;
 
-  if (src_buffer.info.format == BufferFormat::kNV12UBWC) {
+  if (dst_surface.format & C2D_FORMAT_UBWC_COMPRESSED) {
     plane_y_len =
-        (VENUS_Y_META_STRIDE(COLOR_FMT_NV12_UBWC, dst_surface.width) *
-         VENUS_Y_META_SCANLINES(COLOR_FMT_NV12_UBWC,
-                                (dst_surface.height + 1) >> 1)) +
-        (VENUS_Y_STRIDE(COLOR_FMT_NV12_UBWC, dst_surface.width) *
-         VENUS_Y_SCANLINES(COLOR_FMT_NV12_UBWC, (dst_surface.height + 1) >> 1));
-    plane_y_len = plane_y_len * 2;
+        MSM_MEDIA_ALIGN(VENUS_Y_META_STRIDE(COLOR_FMT_NV12_UBWC,
+                                            dst_surface.width) *
+                        VENUS_Y_META_SCANLINES(COLOR_FMT_NV12_UBWC,
+                                               dst_surface.height), 4096) +
+        MSM_MEDIA_ALIGN(VENUS_Y_STRIDE(COLOR_FMT_NV12_UBWC,
+                                       dst_surface.width) *
+                        VENUS_Y_SCANLINES(COLOR_FMT_NV12_UBWC,
+                                          dst_surface.height), 4096);
   }
 
   //UV plane hostptr.
