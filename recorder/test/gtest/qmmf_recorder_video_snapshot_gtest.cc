@@ -5575,16 +5575,21 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithSingleCam4KEncAllExposureMeteringM
 
     // Setting tag to exposure metering
     int32_t exposure_metering_mode = 0;
-    ret = meta.update(exposure_metering_mode_vtag, &exposure_metering_mode, 1);
-    ret = meta_img.update(exposure_metering_mode_vtag, &exposure_metering_mode, 1);
 
     for (uint32_t count = 0; count < available_meter_mode; count++) {
 
+      exposure_metering_mode = exposure_metering_available_modes.data.i32[count];
+
+      if (count > 0) {
+        ret = recorder_.GetCameraParam(camera_id_, meta);
+        ASSERT_TRUE(ret == NO_ERROR);
+      }
+
       ret = meta.update(exposure_metering_mode_vtag,
-                        &exposure_metering_available_modes.data.i32[count], 1);
+                        &exposure_metering_mode, 1);
       ASSERT_TRUE(ret == NO_ERROR);
       ret = meta_img.update(exposure_metering_mode_vtag,
-                        &exposure_metering_available_modes.data.i32[count], 1);
+                            &exposure_metering_mode, 1);
       ASSERT_TRUE(ret == NO_ERROR);
 
       TEST_INFO("%s: Exposure Metering switched to mode[%d]\n", __func__, count);
