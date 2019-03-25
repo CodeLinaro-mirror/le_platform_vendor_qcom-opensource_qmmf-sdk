@@ -435,6 +435,36 @@ bool CameraSource::ValidateSlaveTrackParam(
   return true;
 }
 
+VideoFormat CameraSource::GetYUVFormatType(VideoFormat format_type) {
+
+  switch (format_type) {
+    case VideoFormat::kHEVC:
+    case VideoFormat::kAVC:
+    case VideoFormat::kYUV:
+      format_type = VideoFormat::kYUV;
+      break;
+    case VideoFormat::kRGB:
+    case VideoFormat::kJPEG:
+    case VideoFormat::kBayerRDI8BIT:
+    case VideoFormat::kBayerRDI10BIT:
+    case VideoFormat::kBayerRDI12BIT:
+    case VideoFormat::kBayerIdeal:
+      break;
+  }
+  return format_type;
+}
+
+bool CameraSource::IsFormatChanged(VideoFormat src_format_type,
+                     VideoFormat dst_format_type) {
+
+  if (GetYUVFormatType(src_format_type) ==
+      GetYUVFormatType(dst_format_type)) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
 bool CameraSource::CheckLinkedStream(
     const VideoTrackParams& slave_track,
     const VideoTrackParams& master_track) {
@@ -459,9 +489,11 @@ bool CameraSource::CheckLinkedStream(
     return false;
   }
 
-  if((slave_track.params.width ==  master_track.params.width) ||
-      (slave_track.params.height == master_track.params.height)) {
-    QMMF_ERROR("%s Same size:", __func__);
+  if((slave_track.params.width ==  master_track.params.width) &&
+      (slave_track.params.height == master_track.params.height) &&
+       IsFormatChanged(master_track.params.format_type,
+                       slave_track.params.format_type)) {
+    QMMF_ERROR("%s Same size and format.", __func__);
     return true;
   }
   return false;

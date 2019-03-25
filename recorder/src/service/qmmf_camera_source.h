@@ -214,6 +214,11 @@ class CameraSource {
 
   status_t DetectCameras();
 
+  VideoFormat GetYUVFormatType(VideoFormat format_tpye);
+
+  bool IsFormatChanged(VideoFormat src_format_type,
+                       VideoFormat dst_format_type);
+
   // Map of camera id and CameraContext.
   std::map<uint32_t, std::shared_ptr<CameraInterface>> camera_map_;
 
