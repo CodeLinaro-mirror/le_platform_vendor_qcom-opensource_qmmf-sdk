@@ -765,6 +765,52 @@ void GtestCommon::SnapshotCb(uint32_t camera_id,
   TEST_INFO("%s Exit", __func__);
 }
 
+void GtestCommon::VideoTrackRGBDataCb(uint32_t session_id, uint32_t track_id,
+                                      std::vector<BufferDescriptor> buffers,
+                                      std::vector<MetaData> meta_buffers) {
+  TEST_DBG("%s: Enter track_id: %d", __func__, track_id);
+  if (is_dump_raw_enabled_) {
+    static uint32_t fcounter = 0;
+    ++fcounter;
+
+    if (fcounter == dump_yuv_freq_) {
+      std::string file_path("/data/misc/qmmf/gtest_track_");
+      size_t written_len;
+      file_path += std::to_string(track_id) + "_";
+      file_path += std::to_string(buffers[0].timestamp);
+      file_path += ".rgb";
+      FILE *file = fopen(file_path.c_str(), "w+");
+      if (!file) {
+        ALOGE("%s: Unable to open file(%s)", __func__,
+            file_path.c_str());
+        goto FAIL;
+      }
+
+      written_len = fwrite(buffers[0].data, sizeof(uint8_t),
+                           buffers[0].size, file);
+      TEST_INFO("%s: written_len =%d", __func__, written_len);
+      if (buffers[0].size != written_len) {
+        TEST_ERROR("%s: Bad Write error (%d):(%s)\n", __func__, errno,
+            strerror(errno));
+        goto FAIL;
+      }
+      TEST_INFO("%s: Buffer(0x%p) Size(%u) Stored@(%s)\n", __func__,
+        buffers[0].data, written_len, file_path.c_str());
+
+  FAIL:
+      if (file != NULL) {
+        fclose(file);
+      }
+      fcounter = 0;
+    }
+  }
+
+  auto ret = recorder_.ReturnTrackBuffer(session_id, track_id, buffers);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  TEST_DBG("%s: Exit", __func__);
+}
+
 status_t GtestCommon::QueueVideoFrame(VideoFormat format_type,
                                         const uint8_t *buffer, size_t size,
                                         int64_t timestamp, AVQueue *que) {

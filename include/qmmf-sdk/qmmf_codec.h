@@ -72,6 +72,7 @@ enum class CodecMimeType {
 };
 
 enum class VideoFormat {
+  kRGB,
   kHEVC,
   kAVC,
   kYUV,

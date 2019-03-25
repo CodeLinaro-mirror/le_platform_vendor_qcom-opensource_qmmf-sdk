@@ -232,6 +232,9 @@ class Common {
       case VideoFormat::kYUV:
         return BufferFormat::kNV21;
         break;
+      case VideoFormat::kRGB:
+        return BufferFormat::kRGB;
+        break;
       case VideoFormat::kBayerRDI8BIT:
         return BufferFormat::kRAW8;
         break;
