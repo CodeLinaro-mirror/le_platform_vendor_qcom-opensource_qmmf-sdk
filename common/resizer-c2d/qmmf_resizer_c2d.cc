@@ -33,10 +33,13 @@
 #include <adreno/c2d2.h>
 #include <linux/msm_kgsl.h>
 #include <media/msm_media_info.h>
+#include <json/json.h>
 
 #include "common/utils/qmmf_log.h"
 
 #include "qmmf_resizer_c2d.h"
+
+#define TOQ16(x) (x << 16)
 
 uint32_t qmmf_log_level;
 
@@ -46,7 +49,8 @@ C2DResizer::C2DResizer()
     : src_surface_id_(0),
       dst_surface_id_(0),
       dst_surface_rgb_id_(0),
-      mapped_buffs_({}){
+      mapped_buffs_({}),
+      crop_() {
   QMMF_VERBOSE("%s: Enter", __func__);
   QMMF_VERBOSE("%s: Exit (0x%p)", __func__, this);
 }
@@ -130,6 +134,31 @@ void C2DResizer::DeInit() {
     c2dDestroySurface(dst_surface_rgb_id_);
     dst_surface_rgb_id_ = 0;
   }
+}
+
+RESIZER_STATUS C2DResizer::Configure(const std::string& json_config_data) {
+  Json::Reader r;
+  Json::Value root;
+
+ auto ret = r.parse(json_config_data, root);
+  if (ret == 0) {
+    QMMF_INFO("%s: no json data", __func__);
+    return RESIZER_STATUS_ERROR;
+  }
+
+  if (!root.isMember("crop")) {
+    QMMF_INFO("%s:no crop configuration", __func__);
+  } else if (root["crop"].empty()) {
+    crop_.valid = false;
+    QMMF_INFO("%s: Clear crop configuration", __func__);
+  } else {
+    crop_.width = root["crop"]["width"].asUInt();
+    crop_.height = root["crop"]["height"].asUInt();
+    crop_.x = root["crop"]["x"].asUInt();
+    crop_.y = root["crop"]["y"].asUInt();
+    crop_.valid = true;
+  }
+  return RESIZER_STATUS_OK;
 }
 
 RESIZER_STATUS C2DResizer::Draw(StreamBuffer& src_buffer,
@@ -262,7 +291,12 @@ RESIZER_STATUS C2DResizer::Draw(StreamBuffer& src_buffer,
   }
 
   //STEP6: save aspect ratio
-  if (aspect_ratio_preserve_) {
+  if (crop_.ValidateCropData(src_buffer)) {
+    x = crop_.x;
+    y = crop_.y;
+    w = crop_.width;
+    h = crop_.height;
+  } else if (aspect_ratio_preserve_) {
     in_ar = static_cast<double>(w) / h;
     out_ar = static_cast<double>(dst_buffer.info.plane_info[0].width) /
                                  dst_buffer.info.plane_info[0].height;
@@ -287,10 +321,10 @@ RESIZER_STATUS C2DResizer::Draw(StreamBuffer& src_buffer,
     {
       std::lock_guard<std::mutex> l(crop_lock_);
       draw_obj[0].config_mask |= C2D_SOURCE_RECT_BIT;
-      draw_obj[0].source_rect.x = x << 16;
-      draw_obj[0].source_rect.y = y << 16;
-      draw_obj[0].source_rect.width = w << 16;
-      draw_obj[0].source_rect.height = h << 16;
+      draw_obj[0].source_rect.x = TOQ16(x);
+      draw_obj[0].source_rect.y = TOQ16(y);
+      draw_obj[0].source_rect.width = TOQ16(w);
+      draw_obj[0].source_rect.height = TOQ16(h);
     }
   }
 

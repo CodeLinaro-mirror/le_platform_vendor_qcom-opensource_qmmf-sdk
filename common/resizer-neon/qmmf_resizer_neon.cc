@@ -43,7 +43,8 @@ namespace qmmf {
 
 NEONResizer::NEONResizer()
   : handle_(),
-    method_(neonresizer::ResMethod::kRES_BILINEAR_V_SKIP) {
+    method_(neonresizer::ResMethod::kRES_BILINEAR_V_SKIP),
+    crop_() {
   QMMF_VERBOSE("%s: Enter", __func__);
   QMMF_VERBOSE("%s: Exit (0x%p)", __func__, this);
 }
@@ -51,6 +52,31 @@ NEONResizer::NEONResizer()
 NEONResizer::~NEONResizer() {
   QMMF_VERBOSE("%s: Enter", __func__);
   QMMF_VERBOSE("%s: Exit (0x%p)", __func__, this);
+}
+
+RESIZER_STATUS NEONResizer::Configure(const std::string& json_config_data) {
+  Json::Reader r;
+  Json::Value root;
+
+ auto ret = r.parse(json_config_data, root);
+  if (ret == 0) {
+    QMMF_INFO("%s: no json data", __func__);
+    return RESIZER_STATUS_ERROR;
+  }
+
+  if (!root.isMember("crop")) {
+    QMMF_INFO("%s:no crop configuration", __func__);
+  } else if (root["crop"].empty()) {
+    crop_.valid = false;
+    QMMF_INFO("%s: Clear crop configuration", __func__);
+  } else {
+    crop_.width = root["crop"]["width"].asUInt();
+    crop_.height = root["crop"]["height"].asUInt();
+    crop_.x = root["crop"]["x"].asUInt();
+    crop_.y = root["crop"]["y"].asUInt();
+    crop_.valid = true;
+  }
+  return RESIZER_STATUS_OK;
 }
 
 RESIZER_STATUS NEONResizer::Init() {
@@ -82,8 +108,6 @@ void NEONResizer::DeInit() {
 
 RESIZER_STATUS NEONResizer::Draw(StreamBuffer& src_buffer,
                                  StreamBuffer& dst_buffer) {
-  RESIZER_STATUS status = RESIZER_STATUS_OK;
-
   if (ValidateInParams(src_buffer, dst_buffer) != RESIZER_STATUS_OK) {
     QMMF_ERROR("%s Input validation error!!!", __func__);
     return RESIZER_STATUS_ERROR;
@@ -91,14 +115,15 @@ RESIZER_STATUS NEONResizer::Draw(StreamBuffer& src_buffer,
 
   std::lock_guard<std::mutex> lock(lock_);
   neonresizer::Resn params;
-  FillProcessParams(src_buffer, dst_buffer, params);
+  auto status = FillProcessParams(src_buffer, dst_buffer, params);
+  assert(status == NO_ERROR);
   auto ret = handle_.resn_process(&params);
   if (neonresizer::ResnStatus::kRESN_SUCCESS != ret) {
     QMMF_ERROR("%s: Neon process error: %d", __func__, ret);
     return RESIZER_STATUS_ERROR;
   }
 
-  return status;
+  return RESIZER_STATUS_OK;
 }
 
 RESIZER_STATUS NEONResizer::FillProcessParams(const StreamBuffer& src_buffer,
@@ -109,7 +134,12 @@ RESIZER_STATUS NEONResizer::FillProcessParams(const StreamBuffer& src_buffer,
   uint32_t width = src_buffer.info.plane_info[0].width;
   uint32_t height = src_buffer.info.plane_info[0].height;
 
-  if (aspect_ratio_preserve_) {
+  if (crop_.ValidateCropData(src_buffer)) {
+    x = crop_.x;
+    y = crop_.y ;
+    width = crop_.width;
+    height = crop_.height;
+  } else if (aspect_ratio_preserve_) {
 
     double in_ar = static_cast<double>(width) / height;
     double out_ar = static_cast<double>(dst_buffer.info.plane_info[0].width) /

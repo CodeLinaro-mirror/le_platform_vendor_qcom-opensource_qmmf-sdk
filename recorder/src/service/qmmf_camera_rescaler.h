@@ -150,6 +150,8 @@ class CameraRescalerBase : public CameraRescalerThread,
 
   void UnMapBufs();
 
+  status_t Configure(const std::string& json_config_data);
+
  protected:
   // Thread for preparing synced and output buffers for processing by the
   // stitch library and passing them to the same library for stitching.

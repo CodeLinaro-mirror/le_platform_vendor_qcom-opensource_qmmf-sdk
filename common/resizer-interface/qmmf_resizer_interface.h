@@ -40,6 +40,25 @@ typedef enum {
   RESIZER_STATUS_OK = 0
 } RESIZER_STATUS;
 
+struct ResizerCrop {
+  uint32_t x;
+  uint32_t y;
+  uint32_t width;
+  uint32_t height;
+  bool valid;
+  ResizerCrop() : x(0), y(0), width(0), height(0), valid(false) {};
+  bool ValidateCropData(const StreamBuffer& buffer) {
+    if (valid && (width > 0) && (height > 0) &&
+       (width <= buffer.info.plane_info[0].width) &&
+       (height <= buffer.info.plane_info[0].height) &&
+       (x < buffer.info.plane_info[0].width) &&
+       (y < buffer.info.plane_info[0].height)) {
+      return true;
+    }
+    return false;
+  };
+};
+
 class ResizerInterface {
 
  public:
@@ -49,6 +68,8 @@ class ResizerInterface {
   virtual RESIZER_STATUS Init() = 0;
 
   virtual void DeInit() = 0;
+
+  virtual RESIZER_STATUS Configure(const std::string& json_config_data) = 0;
 
   virtual RESIZER_STATUS Draw(StreamBuffer& src_buffer,
                               StreamBuffer& dst_buffer) = 0;

@@ -48,6 +48,8 @@ class C2DResizer : public ResizerInterface {
 
   void DeInit() override;
 
+  RESIZER_STATUS Configure(const std::string& json_config_data) override;
+
   RESIZER_STATUS Draw(StreamBuffer& src_buffer,
                       StreamBuffer& dst_buffer) override;
 
@@ -79,6 +81,8 @@ class C2DResizer : public ResizerInterface {
   std::map<uint32_t, void*> mapped_buffs_;
 
   std::mutex crop_lock_;
+  ResizerCrop crop_;
+
 };
 
 }; //namespace qmmf ends here

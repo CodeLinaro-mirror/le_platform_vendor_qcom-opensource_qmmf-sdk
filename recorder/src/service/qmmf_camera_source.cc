@@ -34,6 +34,7 @@
 #include <dirent.h>
 #include <sys/mman.h>
 #include <sys/time.h>
+#include <json/json.h>
 
 
 #ifndef DISABLE_MULTICAM
@@ -499,6 +500,25 @@ bool CameraSource::CheckLinkedStream(
   return false;
 }
 
+std::string CameraSource::GetRescalerConfig(const VideoTrackParams& track_params) {
+  Json::Value root(Json::objectValue);
+  if (track_params.extra_param.Exists(QMMF_TRACK_CROP)) {
+    TrackCrop crop;
+    track_params.extra_param.Fetch(QMMF_TRACK_CROP, crop);
+    root["crop"]["width"] = crop.width;
+    root["crop"]["height"] = crop.height;
+    root["crop"]["x"] = crop.x;
+    root["crop"]["y"] = crop.y;
+    QMMF_INFO("%s Crop applied successfully!", __func__);
+  } else {
+    QMMF_INFO("%s Crop param doesn't exist so it's not applied!", __func__);
+  }
+
+  Json::FastWriter fastWriter;
+  auto config = fastWriter.write(root);
+  return config;
+}
+
 status_t CameraSource::CreateTrackSource(const uint32_t track_id,
                                          const VideoTrackParams& track_params) {
 
@@ -584,6 +604,7 @@ status_t CameraSource::CreateTrackSource(const uint32_t track_id,
           QMMF_ERROR("%s: Rescaler Init Failed", __func__);
           return BAD_VALUE;
         }
+        rescaler->Configure(GetRescalerConfig(track_params));
         rescalers_.emplace(track_id, rescaler);
       } else {
         QMMF_ERROR("%s: GET Copy TrackSource Instance trackId: %x",

@@ -194,6 +194,9 @@ class CameraSource {
   /// Return instance for track source for given ID
   const ::std::shared_ptr<TrackSource>& GetTrackSource(uint32_t track_id);
 
+  /// Get Rescaller configuration parameters
+  std::string GetRescalerConfig(const VideoTrackParams& track_params);
+
   /// @cond PRIVATE
  private:
   bool IsTrackIdValid(const uint32_t track_id);

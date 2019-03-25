@@ -55,6 +55,8 @@ class NEONResizer : public ResizerInterface {
                                 const uint32_t height,
                                 const BufferFormat format) override;
 
+  RESIZER_STATUS Configure(const std::string& json_config_data) override;
+
  private:
 
   RESIZER_STATUS ValidateInParams(const StreamBuffer& src_buffer,
@@ -68,7 +70,7 @@ class NEONResizer : public ResizerInterface {
   neonresizer::NeonCore  handle_;
   neonresizer::ResMethod method_;
   std::mutex    lock_;
-
+  ResizerCrop crop_;
 };
 
 }; //namespace qmmf ends here

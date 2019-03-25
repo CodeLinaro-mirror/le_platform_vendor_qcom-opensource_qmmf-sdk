@@ -54,6 +54,7 @@ enum ParamTag {
   QMMF_VIDEO_ROTATE,
   QMMF_EXIF,
   QMMF_VIDEO_HDR_MODE,
+  QMMF_TRACK_CROP,
 };
 
 enum class RotationFlags {
@@ -258,6 +259,23 @@ struct VideoHDRMode : DataTagBase {
   VideoHDRMode()
     : DataTagBase(QMMF_VIDEO_HDR_MODE),
       enable(false) {}
+};
+
+struct TrackCrop : DataTagBase {
+  // Y-axis coordinate of the crop rectangle top left starting point.
+  // The coordinate system begins from the top left corner of the source.
+  uint32_t x;         // Default: 0
+  // X-axis coordinate of the crop rectangle top left starting point.
+  // The coordinate system begins from the top left corner of the source.
+  uint32_t y;         // Default: 0
+  // Width in pixels of the crop rectangle.
+  uint32_t width;     // Default: 0
+  // Height in pixels of the crop rectangle.
+  uint32_t height;    // Default: 0
+
+  TrackCrop()
+    : DataTagBase(QMMF_TRACK_CROP),
+       x(0), y(0), width(0), height(0) {}
 };
 
 }; //namespace recorder.
