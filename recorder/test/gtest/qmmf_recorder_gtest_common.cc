@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -44,9 +44,69 @@ status_t DumpBitStream::SetUp(const StreamDumpInfo& dumpinfo) {
   TEST_DBG("%s: Enter", __func__);
   EXPECT_TRUE(dumpinfo.width > 0);
   EXPECT_TRUE(dumpinfo.height > 0);
+  struct timeval tv;
+  gettimeofday(&tv, NULL);
+  SplitFileInfo file_info = {dumpinfo, tv.tv_sec, 0, nullptr, 0};
 
+  std::string bitstream_filepath = GetFileName(file_info);
+  int32_t file_fd = open(bitstream_filepath.c_str(),
+                         O_CREAT | O_WRONLY | O_TRUNC, 0655);
+  if (file_fd < 0) {
+    TEST_ERROR("%s File open failed!", __func__);
+    return BAD_VALUE;
+  }
+  file_info.file_fd = file_fd;
+  uint8_t key_by_session_track_id = GenerateKey(dumpinfo.session_id,
+    dumpinfo.track_id);
+  split_file_info_.insert(std::make_pair(key_by_session_track_id, file_info));
+
+  TEST_DBG("%s: Exit", __func__);
+  return NO_ERROR;
+}
+
+status_t DumpBitStream::SplitFile(const uint8_t file_index) {
+  TEST_DBG("%s: Enter", __func__);
+
+  SplitFileInfo& file_info = split_file_info_[file_index];
+  file_info.part_number += 1;
+  EXPECT_TRUE(file_info.streaminfo.width > 0);
+  EXPECT_TRUE(file_info.streaminfo.height > 0);
+
+  std::string bitstream_filepath = GetFileName(file_info);
+
+  int32_t file_fd = file_info.file_fd;
+  close(file_fd);
+  // Get New FileFd
+  file_fd = open(bitstream_filepath.c_str(),
+                 O_CREAT | O_WRONLY | O_TRUNC, 0655);
+  if (file_fd < 0) {
+    TEST_ERROR("%s File open failed for part number: %d", __func__,
+               file_info.part_number);
+    return BAD_VALUE;
+  }
+  file_info.file_fd = file_fd;
+
+  if (file_info.streaminfo.format == VideoFormat::kAVC ||
+      file_info.streaminfo.format == VideoFormat::kHEVC) {
+    // header or first buffer dump required at start of each file dump in case
+    // of AVC and HEVC format
+    BufferDescriptor *buf = file_info.header;
+    uint32_t exp_size = buf->size;
+    uint32_t written_length = write(file_fd, buf->data, buf->size);
+    if (written_length != exp_size) {
+      TEST_ERROR("%s: Bad Write error (%d) %s", __func__, errno,
+                 strerror(errno));
+      return BAD_VALUE;
+    }
+  }
+
+  TEST_DBG("%s: Exit", __func__);
+  return NO_ERROR;
+}
+
+std::string DumpBitStream::GetFileName(const SplitFileInfo& file_info) {
   const char* type_string;
-  switch (dumpinfo.format) {
+  switch (file_info.streaminfo.format) {
     case VideoFormat::kAVC:
       type_string = "h264";
       break;
@@ -62,37 +122,45 @@ status_t DumpBitStream::SetUp(const StreamDumpInfo& dumpinfo) {
   }
   std::string extn(type_string);
   std::string bitstream_filepath("/data/misc/qmmf/gtest_track_");
-  bitstream_filepath += std::to_string(dumpinfo.track_id) + "_";
-  bitstream_filepath += std::to_string(dumpinfo.width) + "x";
-  bitstream_filepath += std::to_string(dumpinfo.height) + ".";
+  bitstream_filepath += std::to_string(file_info.streaminfo.track_id) + "_";
+  bitstream_filepath += std::to_string(file_info.streaminfo.width) + "x";
+  bitstream_filepath += std::to_string(file_info.streaminfo.height) + "_";
+  bitstream_filepath += std::to_string(file_info.timestamp) + "_";
+  bitstream_filepath += std::to_string(file_info.part_number) + ".";
   bitstream_filepath += extn;
-  int32_t file_fd = open(bitstream_filepath.c_str(),
-                          O_CREAT | O_WRONLY | O_TRUNC, 0655);
-  if (file_fd <= 0) {
-    TEST_ERROR("%s File open failed!", __func__);
-    return BAD_VALUE;
-  }
-  uint8_t key_by_session_track_id = dumpinfo.session_id << 4
-    | dumpinfo.track_id;
-  file_fds_.insert(std::make_pair(key_by_session_track_id, file_fd));
-
-  TEST_DBG("%s: Exit", __func__);
-  return NO_ERROR;
+  return bitstream_filepath;
 }
 
 status_t DumpBitStream::Dump(const std::vector<BufferDescriptor>& buffers,
    const uint32_t &session_id, const uint32_t &track_id) {
 
   TEST_DBG("%s: Enter", __func__);
+  uint8_t key_by_session_track_id = GenerateKey(session_id, track_id);
   int32_t file_fd = GetFileFd(session_id, track_id);
-  EXPECT_TRUE(file_fd > 0);
+  EXPECT_TRUE(file_fd >= 0);
 
+  if (!split_file_info_[key_by_session_track_id].header && buffers.size()) {
+    TEST_DBG("%s: First video frame", __func__);
+    BufferDescriptor *buf = new BufferDescriptor();
+    BufferDescriptor *head = const_cast<BufferDescriptor*>(&buffers[0]);
+    buf->size = head->size;
+    buf->data = malloc(head->size);
+    memcpy(buf->data, head->data, head->size);
+    split_file_info_[key_by_session_track_id].header = buf;
+  }
+
+  uint64_t file_size = GetFileSize(file_fd);
   for (auto& iter : buffers) {
     uint32_t exp_size = iter.size;
     TEST_DBG("%s:%s BitStream buffer data(0x%x):size(%d):ts(%lld):flag(0x%x)"
       ":buf_id(%d):capacity(%d)",  __func__, iter.data, iter.size,
        iter.timestamp, iter.flag, iter.buf_id, iter.capacity);
 
+    if (file_size + iter.size > MAX_DUMP_SIZE) {
+      auto ret = SplitFile(key_by_session_track_id);
+      EXPECT_TRUE(ret == NO_ERROR);
+      file_size += iter.size;
+    }
     uint32_t written_length = write(file_fd, iter.data, iter.size);
     TEST_DBG("%s: written_length(%d)", __func__, written_length);
     if (written_length != exp_size) {
@@ -111,29 +179,87 @@ status_t DumpBitStream::Dump(const std::vector<BufferDescriptor>& buffers,
   return NO_ERROR;
 }
 
-void DumpBitStream::Close(int32_t file_fd) {
+void DumpBitStream::Close(const uint32_t &session_id,
+                          const uint32_t &track_id) {
   TEST_DBG("%s: Enter", __func__);
-  if (file_fd > 0) {
-    auto iter = file_fds_.find(file_fd);
-    if(iter != file_fds_.end()) {
-      close(file_fd);
-      file_fds_.erase(iter);
-    } else {
-      TEST_WARN("%s: file_fd does not exist!", __func__);
-    }
+  uint8_t key_by_session_track_id = GenerateKey(session_id, track_id);
+  int32_t file_fd = split_file_info_[key_by_session_track_id].file_fd;
+  if (file_fd >= 0) {
+    close(file_fd);
+    BufferDescriptor *buf = split_file_info_[key_by_session_track_id].header;
+    free(buf->data);
+    delete(buf);
+    split_file_info_.erase(key_by_session_track_id);
+  } else {
+    TEST_WARN("%s: file_fd does not exist!", __func__);
   }
   TEST_DBG("%s: Exit", __func__);
 }
 
 void DumpBitStream::CloseAll() {
   TEST_DBG("%s: Enter", __func__);
-  for (auto& iter : file_fds_) {
-    if (iter.second > 0) {
-      close(iter.second);
+  for(auto& iter : split_file_info_) {
+    if (iter.second.file_fd >= 0) {
+      close(iter.second.file_fd);
+    }
+    if(iter.second.header) {
+      BufferDescriptor *buf = iter.second.header;
+      free(buf->data);
+      delete(buf);
     }
   }
-  file_fds_.clear();
+  split_file_info_.clear();
   TEST_DBG("%s: Exit", __func__);
+}
+
+void FrameTrace::SetUp(uint32_t session_id, uint32_t track_id, float fps) {
+  std::lock_guard<std::mutex> lk(lock_);
+  session_id_ = session_id;
+  track_id_   = track_id;
+  track_fps_  = fps;
+}
+
+void FrameTrace::Reset() {
+  std::lock_guard<std::mutex> lk(lock_);
+  previous_timestamp_   = 0;
+  total_frames_         = 0;
+  total_dropped_frames_ = 0;
+}
+
+void FrameTrace::BufferAvailableCb(BufferDescriptor buffer) {
+
+  if (!enabled_) {
+    // Not enabled.
+    return;
+  }
+
+  std::lock_guard<std::mutex> lk(lock_);
+  total_frames_++;
+
+  // Timestamp Δ in us = current frame timestamp - previous frame timestamp.
+  uint64_t current_delta = (buffer.timestamp - previous_timestamp_);
+
+  // Calculate the expected timestamp Δ in us.
+  uint64_t expected_delta = 1000000L / track_fps_;
+
+  // Adjust timestamp Δ with variance.
+  uint64_t delta = current_delta + (expected_delta * kTimestampVariance);
+
+  // Calculate if there are any frames dropped and how many.
+  int32_t dropped_frames = (delta / expected_delta) - 1;
+
+  if ((dropped_frames > 0) && (previous_timestamp_ != 0)) {
+    total_frames_ += dropped_frames;
+    total_dropped_frames_ += dropped_frames;
+
+    TEST_WARN("%s: Session %u | Track %u | Expected timestamp Δ = %llu us | "
+        "Current timestamp Δ = %llu us | DROPPED FRAMES = %d | TOTAL DROPPED "
+        "FRAMES = %u / %u", __func__, session_id_, track_id_, expected_delta,
+        current_delta, dropped_frames, total_dropped_frames_, total_frames_);
+  }
+
+  // Save current timestamp for use in next call.
+  previous_timestamp_ = buffer.timestamp;
 }
 
 #ifdef USE_SURFACEFLINGER
@@ -328,6 +454,8 @@ void GtestCommon::SetUp() {
   is_apply_overlay_ = (atoi(prop_val) == 0) ? false : true;
   property_get(PROP_UBWC_STREAM_ENABLE, prop_val, "1");
   ubwc_stream_enable_ = (atoi(prop_val) == 0) ? false : true;
+  property_get(PROP_FRAME_DEBUG, prop_val, "0");
+  is_frame_debug_enabled_ = atoi(prop_val);
 
   camera_start_params_ = {};
   camera_start_params_.zsl_mode         = false;

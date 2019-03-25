@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -141,6 +141,7 @@ static const uint32_t kColorLightBlue  = 0x189BF2FF;
 #define FHD_1080p_STREAM_WIDTH    1920
 #define FHD_1080p_STREAM_HEIGHT   1080
 #define MAX_EXP_TABLE_KNEES       50
+#define MAX_DUMP_SIZE             4294967295 //4GB
 
 static const uint32_t kBitRate4k30    = 45000000;
 static const uint32_t kBitRate1440p30 = 25000000;
@@ -216,10 +217,19 @@ struct FaceInfo {
 #define PROP_TOGGLE_OVERLAY_USAGE   "persist.qmmf.rec.gtest.overlay"
 // Prop to enable/disable ubwc support in qmmf
 #define PROP_UBWC_STREAM_ENABLE     "persist.qmmf.ubwcstream.enable"
+// Prop to enable debugging frames
+#define PROP_FRAME_DEBUG            "persist.qmmf.rec.gtest.frm.dbg"
 
 #ifndef MAX
 #define MAX(a,b) ((a) > (b) ? (a) : (b))
 #endif
+
+/*
+* frame timestamps are not always accurate to 1/fps sec
+* due to interrupt latencies
+* variance of 5% is considered
+*/
+#define FRAME_TIMESTAMP_VARIANCE (0.05f)
 
 #ifdef QCAMERA3_TAG_LOCAL_COPY
 enum ISOModes : int64_t {
@@ -246,6 +256,10 @@ enum AWbModes : uint8_t {
   kAWBModeShade,
   kAWBModeEnd
 };
+
+static const int32_t MWBColorTemperatures[] = {0, 2300, 2800, 3200, 4000,
+                                               4500, 5500, 6000, 6500};
+
 #endif
 
 typedef struct StreamDumpInfo {
@@ -255,6 +269,14 @@ typedef struct StreamDumpInfo {
   uint32_t      width;
   uint32_t      height;
 } StreamDumpInfo;
+
+typedef struct SplitFileInfo {
+  struct StreamDumpInfo streaminfo;
+  time_t                timestamp;
+  uint32_t              part_number;
+  BufferDescriptor*     header;
+  int32_t               file_fd;
+} SplitFileInfo;
 
 struct RGBAValues {
   double red;
@@ -331,17 +353,11 @@ class DumpBitStream {
  public:
   DumpBitStream() : is_enabled_(false) {};
 
-  ~DumpBitStream() {file_fds_.clear();}
+  ~DumpBitStream() {split_file_info_.clear();}
 
   bool IsEnabled() {return is_enabled_;}
 
-  bool IsUsed() {return (is_enabled_ && file_fds_.size());}
-
-  int32_t GetFileFd(const uint32_t &session_id, const uint32_t &track_id) {
-    uint8_t key_by_session_track_id = session_id << 4 | track_id;
-    EXPECT_TRUE(file_fds_.count(key_by_session_track_id));
-    return file_fds_[key_by_session_track_id];
-  }
+  bool IsUsed() {return (is_enabled_ && split_file_info_.size());}
 
   void Enable(const bool enable) {is_enabled_ = enable;}
 
@@ -350,12 +366,63 @@ class DumpBitStream {
   status_t Dump(const std::vector<BufferDescriptor>& buffers,
     const uint32_t &session_id, const uint32_t &track_id);
 
-  void Close(int32_t file_fd);
+  int32_t GetFileFd(const uint32_t &session_id, const uint32_t &track_id) {
+    uint8_t key_by_session_track_id = GenerateKey(session_id, track_id);
+    EXPECT_TRUE(split_file_info_.count(key_by_session_track_id));
+    return split_file_info_[key_by_session_track_id].file_fd;
+  }
+
+  void Close(const uint32_t &session_id, const uint32_t &track_id);
 
   void CloseAll();
  private:
   bool is_enabled_;
-  std::map<uint8_t, int32_t> file_fds_;
+
+  std::map<uint8_t, SplitFileInfo> split_file_info_;
+
+  status_t SplitFile(const uint8_t file_index);
+
+  uint8_t GenerateKey(const uint32_t &session_id, const uint32_t &track_id) {
+    return static_cast<uint8_t>(session_id << 4 | track_id);
+  }
+
+  std::string GetFileName(const SplitFileInfo& file_info);
+
+  uint64_t GetFileSize(const int32_t file_fd) {
+    off_t fsize = lseek(file_fd, 0, SEEK_END);
+    EXPECT_TRUE(fsize >= 0);
+    return static_cast<uint64_t>(fsize);
+  }
+};
+
+class FrameTrace {
+ public:
+  FrameTrace(bool enable)
+     : enabled_(enable), session_id_(0), track_id_(0),  track_fps_(0),
+       previous_timestamp_(0), total_frames_(0), total_dropped_frames_(0) {};
+  ~FrameTrace() {}
+
+  void SetUp(uint32_t session_id, uint32_t track_id, float fps);
+
+  void Reset();
+
+  void BufferAvailableCb(BufferDescriptor buffer);
+
+ private:
+  bool       enabled_;
+
+  uint32_t   session_id_;
+  uint32_t   track_id_;
+  float      track_fps_;
+
+  uint64_t   previous_timestamp_;
+
+  uint32_t   total_frames_;
+  uint32_t   total_dropped_frames_;
+
+  std::mutex lock_;
+
+  static constexpr float kTimestampVariance = 0.05f; // 5% frame rate variance.
 };
 
 class GtestCommon : public ::testing::Test {
@@ -580,6 +647,7 @@ class GtestCommon : public ::testing::Test {
   bool                  camera_error_;
   bool                  default_eis_margins_;
   bool                  is_apply_overlay_;
+  bool                  is_frame_debug_enabled_;
 
 #ifndef DISABLE_DISPLAY
   bool                  use_display_;
