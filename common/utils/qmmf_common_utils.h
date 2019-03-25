@@ -105,6 +105,9 @@ class Common {
    **/
   static int32_t FromQmmfToHalFormat(const BufferFormat &format) {
     switch (format) {
+      case BufferFormat::kRGB:
+        return HAL_PIXEL_FORMAT_RGB_888;
+        break;
       case BufferFormat::kBLOB:
         return HAL_PIXEL_FORMAT_BLOB;
         break;

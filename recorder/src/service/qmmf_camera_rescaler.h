@@ -166,6 +166,9 @@ class CameraRescalerBase : public CameraRescalerThread,
   // Method for returning an output buffer back to the memory pool.
   status_t ReturnBufferToBufferPool(const StreamBuffer &buffer);
 
+  status_t Validate(const uint32_t& width, const uint32_t& height,
+                    const BufferFormat& fmt);
+
  private:
 
   struct map_data_t {

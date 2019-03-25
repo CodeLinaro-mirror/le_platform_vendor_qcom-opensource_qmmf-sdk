@@ -45,6 +45,7 @@ namespace qmmf {
 C2DResizer::C2DResizer()
     : src_surface_id_(0),
       dst_surface_id_(0),
+      dst_surface_rgb_id_(0),
       mapped_buffs_({}){
   QMMF_VERBOSE("%s: Enter", __func__);
   QMMF_VERBOSE("%s: Exit (0x%p)", __func__, this);
@@ -97,6 +98,21 @@ RESIZER_STATUS C2DResizer::Init() {
     QMMF_ERROR("%s: c2dCreateSurface failed! %d", __func__, ret);
     return RESIZER_STATUS_ERROR;
   }
+
+  C2D_RGB_SURFACE_DEF surface_def_rgb {};
+
+  C2D_SURFACE_TYPE surface_type_rgb = static_cast<C2D_SURFACE_TYPE>(
+                                  C2D_SURFACE_RGB_HOST  |
+                                  C2D_SURFACE_WITH_PHYS |
+                                  C2D_SURFACE_WITH_PHYS_DUMMY);
+
+  ret = c2dCreateSurface(&dst_surface_rgb_id_, C2D_TARGET,
+                         surface_type_rgb, &surface_def_rgb);
+  if(ret != C2D_STATUS_OK) {
+    QMMF_ERROR("%s: c2dCreateSurface failed! %d", __func__, ret);
+    return RESIZER_STATUS_ERROR;
+  }
+
   return RESIZER_STATUS_OK;
 }
 
@@ -109,6 +125,10 @@ void C2DResizer::DeInit() {
   if(src_surface_id_) {
     c2dDestroySurface(src_surface_id_);
     src_surface_id_ = 0;
+  }
+  if(dst_surface_rgb_id_) {
+    c2dDestroySurface(dst_surface_rgb_id_);
+    dst_surface_rgb_id_ = 0;
   }
 }
 
@@ -155,23 +175,9 @@ RESIZER_STATUS C2DResizer::Draw(StreamBuffer& src_buffer,
     goto EXIT;
   }
 
-  switch (src_buffer.info.format) {
-    case BufferFormat::kNV21:
-      c2d_color_format = C2D_COLOR_FORMAT_420_NV21;
-      break;
-    case BufferFormat::kNV12:
-      c2d_color_format = C2D_COLOR_FORMAT_420_NV12;
-      break;
-    case BufferFormat::kNV12UBWC:
-      c2d_color_format = C2D_COLOR_FORMAT_420_NV12 | C2D_FORMAT_UBWC_COMPRESSED;
-      break;
-    case BufferFormat::kNV16:
-      c2d_color_format = C2D_COLOR_FORMAT_422_IUYV;
-      break;
-    default:
-      QMMF_ERROR("%s: Unsupported format:%d", __func__, src_buffer.info.format);
-      status = RESIZER_STATUS_ERROR;
-      goto EXIT;
+  if (!BufferFormatToC2D(src_buffer, c2d_color_format)) {
+    status = RESIZER_STATUS_ERROR;
+    goto EXIT;
   }
 
   C2D_YUV_SURFACE_DEF src_surface;
@@ -200,6 +206,11 @@ RESIZER_STATUS C2DResizer::Draw(StreamBuffer& src_buffer,
         (VENUS_Y_STRIDE(COLOR_FMT_NV12_UBWC, src_surface.width) *
          VENUS_Y_SCANLINES(COLOR_FMT_NV12_UBWC, (src_surface.height + 1) >> 1));
     plane_y_len = plane_y_len * 2;
+  } else if (src_buffer.info.format == BufferFormat::kNV12 ||
+             src_buffer.info.format == BufferFormat::kNV21) {
+    plane_y_len =
+         VENUS_Y_STRIDE(COLOR_FMT_NV12, src_surface.width) *
+         VENUS_Y_SCANLINES(COLOR_FMT_NV12, src_surface.height);
   }
 
   //UV plane hostptr.
@@ -224,52 +235,24 @@ RESIZER_STATUS C2DResizer::Draw(StreamBuffer& src_buffer,
   }
   QMMF_DEBUG("%s: src_surface_id_ = %d", __func__, src_surface_id_);
 
-  //STEP5: Update target C2dSurface.
-  C2D_YUV_SURFACE_DEF dst_surface;
-  //destination format.
-  dst_surface.format  = c2d_color_format;
-  //destination width.
-  dst_surface.width   = dst_buffer.info.plane_info[0].width;
-  //destination height.
-  dst_surface.height  = dst_buffer.info.plane_info[0].height;
-  //Y plane stride.
-  dst_surface.stride0 = dst_buffer.info.plane_info[0].stride;
-  //Y plane hostptr.
-  dst_surface.plane0  = dst_buffer.data;
-  //Y plane Gpu address.
-  dst_surface.phys0   = dst_buf_gpu_addr;
-  //UV plane stride.
-  dst_surface.stride1 = dst_buffer.info.plane_info[0].stride;
-  //UV plane hostptr.
-  plane_y_len = dst_surface.stride0 * dst_buffer.info.plane_info[0].scanline;
-
-  if (src_buffer.info.format == BufferFormat::kNV12UBWC) {
-    plane_y_len =
-        (VENUS_Y_META_STRIDE(COLOR_FMT_NV12_UBWC, dst_surface.width) *
-         VENUS_Y_META_SCANLINES(COLOR_FMT_NV12_UBWC,
-                                (dst_surface.height + 1) >> 1)) +
-        (VENUS_Y_STRIDE(COLOR_FMT_NV12_UBWC, dst_surface.width) *
-         VENUS_Y_SCANLINES(COLOR_FMT_NV12_UBWC, (dst_surface.height + 1) >> 1));
-    plane_y_len = plane_y_len * 2;
+  if (!BufferFormatToC2D(dst_buffer, c2d_color_format)) {
+    status = RESIZER_STATUS_ERROR;
+    goto EXIT;
   }
 
-  //UV plane hostptr.
-  dst_surface.plane1  = (void*)((intptr_t)dst_buffer.data + plane_y_len);
-  //UV plane Gpu address.
-  dst_surface.phys1 = (void*)((intptr_t)dst_buf_gpu_addr + plane_y_len);
+  //STEP5: Update target C2dSurface.
+  uint32_t dst_surface_id;
+  if (c2d_color_format == C2D_COLOR_FORMAT_888_RGB) {
+    status = UpdateRGBSurface(dst_buffer, c2d_color_format,
+                              dst_buf_gpu_addr);
+    dst_surface_id = dst_surface_rgb_id_;
+  } else {
+    status = UpdateYUVSurface(src_buffer, dst_buffer,
+                              c2d_color_format, dst_buf_gpu_addr);
+    dst_surface_id = dst_surface_id_;
+  }
 
-  QMMF_DEBUG("%s: dst_surface.width = %d ", __func__, dst_surface.width);
-  QMMF_DEBUG("%s: dst_surface.height = %d ", __func__, dst_surface.height);
-  QMMF_DEBUG("%s: dst_surface.stride0 = %d ", __func__, dst_surface.stride0);
-  QMMF_DEBUG("%s: dst_surface.stride1 = %d ", __func__, dst_surface.stride1);
-  QMMF_DEBUG("%s: plane_y_len = %d", __func__, plane_y_len);
-
-  type = static_cast<C2D_SURFACE_TYPE>
-      (C2D_SURFACE_YUV_HOST | C2D_SURFACE_WITH_PHYS);
-  ret = c2dUpdateSurface(dst_surface_id_, C2D_SOURCE, type, &dst_surface);
-  if(ret != C2D_STATUS_OK) {
-    QMMF_ERROR("%s: c2dUpdateSurface failed! %d", __func__, ret);
-    status = RESIZER_STATUS_ERROR;
+  if(status != RESIZER_STATUS_OK) {
     goto EXIT;
   }
 
@@ -297,14 +280,14 @@ RESIZER_STATUS C2DResizer::Draw(StreamBuffer& src_buffer,
   draw_obj[0].target_rect.y      = 0;
 
   //STEP7: Draw C2dObject on target surface.
-  ret = c2dDraw(dst_surface_id_, 0, 0, 0, 0, draw_obj, 1);
+  ret = c2dDraw(dst_surface_id, 0, 0, 0, 0, draw_obj, 1);
   if(ret != C2D_STATUS_OK) {
     QMMF_ERROR("%s: c2dDraw failed! %d", __func__, ret);
     status = RESIZER_STATUS_ERROR;
     goto EXIT;
   }
 
-  ret = c2dFinish(dst_surface_id_);
+  ret = c2dFinish(dst_surface_id);
   if(ret != C2D_STATUS_OK) {
     QMMF_ERROR("%s: c2dFinish failed! %d", __func__, ret);
     status = RESIZER_STATUS_ERROR;
@@ -321,7 +304,8 @@ RESIZER_STATUS C2DResizer::ValidateOutput(const uint32_t width,
                                           const BufferFormat format) {
   if (format != BufferFormat::kNV12 &&
       format != BufferFormat::kNV21 &&
-      format != BufferFormat::kNV16) {
+      format != BufferFormat::kNV16 &&
+      format != BufferFormat::kRGB) {
     QMMF_ERROR("%s: Unsupported format: %d", __func__, format);
     return RESIZER_STATUS_ERROR;
   }
@@ -364,6 +348,118 @@ void C2DResizer::UnMapBufs() {
     }
   }
   mapped_buffs_.clear();
+}
+
+bool C2DResizer::BufferFormatToC2D(StreamBuffer &buffer,
+                                   uint32_t &c2d_color_format) {
+  switch (buffer.info.format) {
+    case BufferFormat::kNV21:
+      c2d_color_format = C2D_COLOR_FORMAT_420_NV21;
+      break;
+    case BufferFormat::kNV12:
+      c2d_color_format = C2D_COLOR_FORMAT_420_NV12;
+      break;
+    case BufferFormat::kNV12UBWC:
+      c2d_color_format =
+          C2D_COLOR_FORMAT_420_NV12 | C2D_FORMAT_UBWC_COMPRESSED;
+      break;
+    case BufferFormat::kNV16:
+      c2d_color_format = C2D_COLOR_FORMAT_422_IUYV;
+      break;
+    case BufferFormat::kRGB:
+      c2d_color_format = C2D_COLOR_FORMAT_888_RGB;
+      break;
+    default:
+      QMMF_ERROR("%s: Unsupported format:%d", __func__, buffer.info.format);
+      return false;
+  }
+  return true;
+}
+
+RESIZER_STATUS C2DResizer::UpdateRGBSurface(StreamBuffer& dst_buffer,
+                                            uint32_t &c2d_color_format,
+                                            void *dst_buf_gpu_addr) {
+  //Bytes per pixel
+  uint8_t bpp = 3;
+  C2D_RGB_SURFACE_DEF dst_surface;
+  //destination format.
+  dst_surface.format  = c2d_color_format;
+  //destination width.
+  dst_surface.width   = dst_buffer.info.plane_info[0].width;
+  //destination height.
+  dst_surface.height  = dst_buffer.info.plane_info[0].height;
+  dst_surface.stride = dst_buffer.info.plane_info[0].stride * bpp;
+  dst_surface.buffer  = dst_buffer.data;
+  dst_surface.phys  = dst_buf_gpu_addr;
+
+  QMMF_DEBUG("%s: dst_surface.format = %d ", __func__, dst_surface.format);
+  QMMF_DEBUG("%s: dst_surface.width = %d ", __func__, dst_surface.width);
+  QMMF_DEBUG("%s: dst_surface.height = %d ", __func__, dst_surface.height);
+  QMMF_DEBUG("%s: dst_surface.stride0 = %d ", __func__, dst_surface.stride);
+
+  C2D_SURFACE_TYPE type = static_cast<C2D_SURFACE_TYPE>
+      (C2D_SURFACE_RGB_HOST | C2D_SURFACE_WITH_PHYS);
+  auto ret = c2dUpdateSurface(dst_surface_rgb_id_, C2D_SOURCE,
+                              type, &dst_surface);
+  if(ret != C2D_STATUS_OK) {
+    QMMF_ERROR("%s: c2dUpdateSurface failed! %d", __func__, ret);
+    return RESIZER_STATUS_ERROR;
+  }
+  return RESIZER_STATUS_OK;
+}
+
+RESIZER_STATUS C2DResizer::UpdateYUVSurface(StreamBuffer& src_buffer,
+                                            StreamBuffer& dst_buffer,
+                                            uint32_t &c2d_color_format,
+                                            void *dst_buf_gpu_addr) {
+  C2D_YUV_SURFACE_DEF dst_surface;
+  //destination format.
+  dst_surface.format  = c2d_color_format;
+  //destination width.
+  dst_surface.width   = dst_buffer.info.plane_info[0].width;
+  //destination height.
+  dst_surface.height  = dst_buffer.info.plane_info[0].height;
+  //Y plane stride.
+  dst_surface.stride0 = dst_buffer.info.plane_info[0].stride;
+  //Y plane hostptr.
+  dst_surface.plane0  = dst_buffer.data;
+  //Y plane Gpu address.
+  dst_surface.phys0   = dst_buf_gpu_addr;
+  //UV plane stride.
+  dst_surface.stride1 = dst_buffer.info.plane_info[0].stride;
+  //UV plane hostptr.
+  int32_t plane_y_len =
+      dst_surface.stride0 * dst_buffer.info.plane_info[0].scanline;
+
+  if (src_buffer.info.format == BufferFormat::kNV12UBWC) {
+    plane_y_len =
+        (VENUS_Y_META_STRIDE(COLOR_FMT_NV12_UBWC, dst_surface.width) *
+         VENUS_Y_META_SCANLINES(COLOR_FMT_NV12_UBWC,
+                                (dst_surface.height + 1) >> 1)) +
+        (VENUS_Y_STRIDE(COLOR_FMT_NV12_UBWC, dst_surface.width) *
+         VENUS_Y_SCANLINES(COLOR_FMT_NV12_UBWC, (dst_surface.height + 1) >> 1));
+    plane_y_len = plane_y_len * 2;
+  }
+
+  //UV plane hostptr.
+  dst_surface.plane1  = (void*)((intptr_t)dst_buffer.data + plane_y_len);
+  //UV plane Gpu address.
+  dst_surface.phys1 = (void*)((intptr_t)dst_buf_gpu_addr + plane_y_len);
+
+  QMMF_DEBUG("%s: dst_surface.width = %d ", __func__, dst_surface.width);
+  QMMF_DEBUG("%s: dst_surface.height = %d ", __func__, dst_surface.height);
+  QMMF_DEBUG("%s: dst_surface.stride0 = %d ", __func__, dst_surface.stride0);
+  QMMF_DEBUG("%s: dst_surface.stride1 = %d ", __func__, dst_surface.stride1);
+  QMMF_DEBUG("%s: plane_y_len = %d", __func__, plane_y_len);
+
+  C2D_SURFACE_TYPE type = static_cast<C2D_SURFACE_TYPE>
+      (C2D_SURFACE_YUV_HOST | C2D_SURFACE_WITH_PHYS);
+  auto ret = c2dUpdateSurface(dst_surface_id_, C2D_SOURCE, type, &dst_surface);
+  if(ret != C2D_STATUS_OK) {
+    QMMF_ERROR("%s: c2dUpdateSurface failed! %d", __func__, ret);
+    return RESIZER_STATUS_ERROR;
+  }
+  return RESIZER_STATUS_OK;
 }
 
 } //namespace qmmf ends here

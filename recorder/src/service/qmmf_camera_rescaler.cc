@@ -82,6 +82,22 @@ CameraRescalerBase::~CameraRescalerBase() {
   QMMF_INFO("%s: Exit (%p)", __func__, this);
 }
 
+status_t CameraRescalerBase::Validate(const uint32_t& width,
+                                      const uint32_t& height,
+                                      const BufferFormat& fmt) {
+  if (rescaler_ == nullptr) {
+    QMMF_ERROR("%s: Missing Rescaler engine!!!", __func__);
+    return BAD_VALUE;
+  }
+
+  if (rescaler_->ValidateOutput(width, height, fmt) != RESIZER_STATUS_OK) {
+    QMMF_ERROR("%s: Validation Error!!!", __func__);
+    return BAD_VALUE;
+  }
+
+  return NO_ERROR;
+}
+
 status_t CameraRescalerBase::ReturnBufferToBufferPool(
     const StreamBuffer &buffer) {
   status_t ret = ReturnBufferLocked(buffer);
@@ -535,6 +551,14 @@ status_t CameraRescalerMemPool::PopulateMetaInfo(CameraBufferMetaData &info,
       info.plane_info[1].stride = alignedW;
       info.plane_info[1].scanline = alignedH/2;
       break;
+    case HAL_PIXEL_FORMAT_RGB_888:
+      info.format = BufferFormat::kRGB;
+      info.num_planes = 1;
+      info.plane_info[0].width = init_params_.width;
+      info.plane_info[0].height = init_params_.height;
+      info.plane_info[0].stride = alignedW;
+      info.plane_info[0].scanline = alignedH;
+      break;
     case HAL_PIXEL_FORMAT_NV21_ZSL:
       info.format = BufferFormat::kNV21;
       info.num_planes = 2;
@@ -737,15 +761,9 @@ status_t CameraRescaler::Init(const uint32_t& width, const uint32_t& height,
     return BAD_VALUE;
   }
 
-  switch (fmt) {
-    case BufferFormat::kNV12:
-    case BufferFormat::kNV12UBWC:
-    case BufferFormat::kNV21:
-    case BufferFormat::kNV16:
-      break;
-    default:
-      QMMF_ERROR("%s: Format(%d) not supported!", __func__, fmt);
-      return BAD_VALUE;
+  if (Validate(width, height, fmt) != NO_ERROR) {
+    QMMF_ERROR("%s: Error: Unsupported in params.!!!", __func__);
+    return BAD_VALUE;
   }
 
   char prop[PROPERTY_VALUE_MAX];
