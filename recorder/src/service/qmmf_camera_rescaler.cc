@@ -526,6 +526,8 @@ status_t CameraRescalerMemPool::PopulateMetaInfo(CameraBufferMetaData &info,
   }
 
   switch (handle->GetFormat()) {
+    case HAL_PIXEL_FORMAT_YCbCr_420_888:
+    case HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED:
     case HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS:
     case HAL_PIXEL_FORMAT_NV12_ENCODEABLE:
       info.format = BufferFormat::kNV12;
