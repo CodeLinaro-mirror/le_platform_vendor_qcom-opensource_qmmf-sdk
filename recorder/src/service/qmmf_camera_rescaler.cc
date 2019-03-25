@@ -616,6 +616,14 @@ status_t CameraRescalerMemPool::AllocHWMemBuffer(IBufferHandle &buf) {
   usage.flags |= IMemAllocUsage::kSwWriteOften | IMemAllocUsage::kSwReadOften;
   usage.flags |= IMemAllocUsage::kHwFb | IMemAllocUsage::kVideoEncoder;
 
+  char prop[PROPERTY_VALUE_MAX];
+  memset(prop, 0, sizeof(prop));
+  property_get("persist.qmmf.ubwcstream.enable", prop, "0");
+  if (atoi(prop) == 1) {
+    // Handle UBWC aligned Buffer
+    usage.flags |= IMemAllocUsage::kPrivateAllocUbwc;
+  }
+
   if (!width || !height) {
     width = height = 1;
   }
