@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016, 2018, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -34,14 +34,14 @@
 ** ========================================================================== */
 #include <stdio.h>
 #include <AEEStdDef.h>
-#include "DataSourcePort.h"
-#include "MMTimer.h"
-#include "MMSignal.h"
-#include "MMThread.h"
-#include "MMDebugMsg.h"
-#include "MMMalloc.h"
-#include "MMMemory.h"
-#include "MMFile.h"
+#include "mm-parser/include/DataSourcePort.h"
+#include "mm-osal/include/MMTimer.h"
+#include "mm-osal/include/MMSignal.h"
+#include "mm-osal/include/MMThread.h"
+#include "mm-osal/include/MMDebugMsg.h"
+#include "mm-osal/include/MMMalloc.h"
+#include "mm-osal/include/MMMemory.h"
+#include "mm-osal/include/MMFile.h"
 #include <wchar.h>
 #include <stdlib.h>
 
