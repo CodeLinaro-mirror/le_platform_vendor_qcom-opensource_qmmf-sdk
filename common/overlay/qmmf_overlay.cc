@@ -1795,7 +1795,7 @@ int32_t OverlayItemText::UpdateAndDraw() {
 
   //(0,0) is at topleft corner of draw buffer.
   double x_text = 0.0;
-  double y_text = text_extents.height - (font_extent.descent/2.0);
+  double y_text = text_extents.height + (font_extent.descent/2.0);
   OVDBG_VERBOSE("%s: x_text=%f, y_text=%f", __func__, x_text, y_text);
   cairo_move_to (cr_context_, x_text, y_text);
 
