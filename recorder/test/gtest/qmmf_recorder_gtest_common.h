@@ -291,23 +291,106 @@ struct RGBAValues {
   double alpha;
 };
 
+typedef struct TriggerParams {
+  float start;
+  float end;
+  int32_t fog_p;
+} TriggerParams;
+
+typedef struct FogSceneDetectionParams {
+  TriggerParams dnr_trigger[3];  // [0]: flat_scene, [1]: fog_scene, [2]:
+                                 // normal_scene, range: 0.0 - 8.0 EV
+  TriggerParams lux_trigger[3];  // [0]: daylight, [1]: normal light, [2]: low
+                                 // light, range: 0.0 - 1000.0 lux index
+  TriggerParams cct_trigger[4];  // [0]: low CCT, [1]: indoor/outdoor CCT, [2]:
+                                 // outdoor/fog CCT, [3]: high CCT
+} FOG_SCENE_DETECTION_PARAMS;
+
 typedef struct DeFogTable {
   uint8_t enable;
   int32_t algo_type;
   int32_t algo_decision_mode;
-  int32_t strength;
-  int32_t strength_range[2];
+  float strength;
+  float strength_range[2];
   int32_t convergence_speed;
   int32_t convergence_speed_range[2];
+  float lp_color_comp_gain;
+  float lp_color_comp_gain_range[2];
+  uint8_t abc_en;
+  uint8_t acc_en;
+  uint8_t afsd_en;
+  uint8_t afsd_2a_en;
+  int32_t defog_dark_thres;
+  int32_t defog_dark_thres_range[2];
+  int32_t defog_bright_thres;
+  int32_t defog_bright_thres_range[2];
+  float abc_gain;
+  float abc_gain_range[2];
+  float acc_max_dark_str;
+  float acc_max_dark_str_range[2];
+  float acc_max_bright_str;
+  float acc_max_bright_str_range[2];
+  int32_t dark_limit;
+  int32_t dark_limit_range[2];
+  int32_t bright_limit;
+  int32_t bright_limit_range[2];
+  int32_t dark_preserve;
+  int32_t dark_preserve_range[2];
+  int32_t bright_preserve;
+  int32_t bright_preserve_range[2];
+  float dnr_trigparam_start_range[2];
+  float dnr_trigparam_end_range[2];
+  int dnr_trigparam_fog_range[2];
+  float lux_trigparam_start_range[2];
+  float lux_trigparam_end_range[2];
+  int lux_trigparam_fog_range[2];
+  float cct_trigparam_start_range[2];
+  float cct_trigparam_end_range[2];
+  int cct_trigparam_fog_range[2];
+  FOG_SCENE_DETECTION_PARAMS trig_params;
 
   DeFogTable() {
-    enable = 0;
+    enable = 1;
     algo_type = 0;
     algo_decision_mode = 0;
-    strength = 0;
+    strength = 1;
     memset(strength_range, 0, sizeof(strength_range));
-    convergence_speed = 0;
+    convergence_speed = 10;
     memset(convergence_speed_range, 0, sizeof(convergence_speed_range));
+    lp_color_comp_gain = 1.0;
+    memset(lp_color_comp_gain_range, 0.0, sizeof(lp_color_comp_gain_range));
+    abc_en = 1;
+    acc_en = 1;
+    afsd_en = 1;
+    afsd_2a_en = 1;
+    defog_dark_thres = 10;
+    memset(defog_dark_thres_range, 0, sizeof(defog_dark_thres_range));
+    defog_bright_thres = 40;
+    memset(defog_bright_thres_range, 0, sizeof(defog_bright_thres_range));
+    abc_gain = 2.0;
+    memset(abc_gain_range, 0.0, sizeof(abc_gain_range));
+    acc_max_dark_str = 2.0;
+    memset(acc_max_dark_str_range, 0.0, sizeof(acc_max_dark_str_range));
+    acc_max_bright_str = 0.5;
+    memset(acc_max_bright_str_range, 0.0, sizeof(acc_max_bright_str_range));
+    dark_limit = 255;
+    memset(dark_limit_range, 0, sizeof(dark_limit_range));
+    bright_limit = 0;
+    memset(bright_limit_range, 0, sizeof(bright_limit_range));
+    dark_preserve = 10;
+    memset(dark_preserve_range, 0, sizeof(dark_preserve_range));
+    bright_preserve = 50;
+    memset(bright_preserve_range, 0, sizeof(bright_preserve_range));
+
+    memset(dnr_trigparam_start_range, 0.0, sizeof(dnr_trigparam_start_range));
+    memset(dnr_trigparam_end_range, 0.0, sizeof(dnr_trigparam_end_range));
+    memset(dnr_trigparam_fog_range, 0, sizeof(dnr_trigparam_fog_range));
+    memset(lux_trigparam_start_range, 0.0, sizeof(lux_trigparam_start_range));
+    memset(lux_trigparam_end_range, 0.0, sizeof(lux_trigparam_end_range));
+    memset(lux_trigparam_fog_range, 0, sizeof(lux_trigparam_fog_range));
+    memset(cct_trigparam_start_range, 0.0, sizeof(cct_trigparam_start_range));
+    memset(cct_trigparam_end_range, 0.0, sizeof(cct_trigparam_end_range));
+    memset(cct_trigparam_fog_range, 0, sizeof(cct_trigparam_fog_range));
   }
 } DeFogTable;
 
