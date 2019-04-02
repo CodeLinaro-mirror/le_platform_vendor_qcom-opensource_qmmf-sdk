@@ -534,6 +534,27 @@ status_t RecorderClient::ConfigPlugin(const uint32_t &uid,
   return ret;
 }
 
+status_t RecorderClient::GetPluginConfig(const uint32_t &uid,
+                                            std::string &json_config)
+{
+  QMMF_DEBUG("%s Enter ", __func__);
+  QMMF_KPI_DETAIL();
+  std::lock_guard<std::mutex> lock(lock_);
+
+  if (!CheckServiceStatus()) {
+    return NO_INIT;
+  }
+
+  assert(client_id_ > 0);
+  auto ret = recorder_service_->GetPluginConfig(client_id_, uid, json_config);
+  if (NO_ERROR != ret) {
+    QMMF_ERROR("%s GetPluginConfig failed!", __func__);
+  }
+
+  QMMF_DEBUG("%s Exit ", __func__);
+  return ret;
+}
+
 status_t RecorderClient::CreateAudioTrack(const uint32_t session_id,
                                           const uint32_t track_id,
                                           const AudioTrackCreateParam& param,
@@ -1812,6 +1833,25 @@ class BpRecorderService: public BpInterface<IRecorderService> {
                        RECORDER_CONFIGURE_PLUGIN), data, &reply);
     blob.release();
     return reply.readInt32();
+  }
+
+  status_t GetPluginConfig(const uint32_t client_id, const uint32_t &uid,
+                           std::string &json_config) {
+    status_t ret;
+    Parcel data, reply;
+    data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
+    data.writeUint32(client_id);
+    data.writeUint32(uid);
+    remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
+                       RECORDER_GET_PLUGIN_CONFIG), data, &reply);
+    uint32_t blob_size;
+    ret = reply.readInt32();
+    reply.readUint32(&blob_size);
+    android::Parcel::ReadableBlob blob;
+    reply.readBlob(blob_size, &blob);
+    const char *string = reinterpret_cast<const char *>(blob.data());
+    json_config.assign(string);
+    return ret;
   }
 
   status_t CreateAudioTrack(const uint32_t client_id, const uint32_t session_id,

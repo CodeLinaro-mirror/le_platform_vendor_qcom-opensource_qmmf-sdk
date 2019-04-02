@@ -316,6 +316,21 @@ status_t CameraSource::ConfigPlugin(const uint32_t &uid,
   return NO_ERROR;
 }
 
+status_t CameraSource::GetPluginConfig(const uint32_t &uid,
+                                       std::string &json_config) {
+
+  QMMF_DEBUG("%s: Enter", __func__);
+
+  auto ret = factory_->GetPluginConfig(uid, json_config);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s: ConfigPlugin Failed!", __func__);
+    return ret;
+  }
+
+  QMMF_DEBUG("%s: Exit", __func__);
+  return NO_ERROR;
+}
+
 status_t CameraSource::CaptureImage(const uint32_t camera_id,
                                     const ImageParam &param,
                                     const uint32_t num_images,

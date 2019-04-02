@@ -1129,6 +1129,29 @@ status_t RecorderImpl::ConfigPlugin(const uint32_t client_id,
   return NO_ERROR;
 }
 
+status_t RecorderImpl::GetPluginConfig(const uint32_t client_id,
+                                    const uint32_t &uid,
+                                    std::string &json_config) {
+
+  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
+
+  if (!IsClientValid(client_id)) {
+    QMMF_ERROR("%s: Client(%u) is not connected!", __func__, client_id);
+    return BAD_VALUE;
+  }
+
+  assert(camera_source_ != nullptr);
+  auto ret = camera_source_->GetPluginConfig(uid, json_config);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s: client_id(%d): ConfigPlugin uid(%d) failed!",
+        __func__, client_id, uid);
+    return ret;
+  }
+
+  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
+  return NO_ERROR;
+}
+
 bool RecorderImpl::IsAudioTrackCreateParamValid(const AudioTrackCreateParam& param) {
   bool valid = true;
 

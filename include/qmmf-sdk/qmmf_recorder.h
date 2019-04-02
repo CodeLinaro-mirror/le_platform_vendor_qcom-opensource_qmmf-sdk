@@ -181,8 +181,17 @@ class Recorder {
 
   /// @brief Set plugin specific configuration data.
   ///
+  /// @param uid: The UID of the specific plugin
+  /// @param config: A configuration string for the plugin
   /// This is an async API.
   status_t ConfigPlugin(const uint32_t &uid, const std::string &config);
+
+  /// @brief Get plugin specific configuration data.
+  ///
+  /// @param uid: The UID of the specific plugin
+  /// @param config: A configuration string returned by the plugin
+  /// This is an async API.
+  status_t GetPluginConfig(const uint32_t &uid, std::string &config);
 
   /// @brief Creates an audio track and
   /// associates it to the session id provided.

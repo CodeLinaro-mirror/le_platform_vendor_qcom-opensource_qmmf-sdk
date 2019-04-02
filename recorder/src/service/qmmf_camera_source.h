@@ -108,6 +108,9 @@ class CameraSource {
   /// Configure plugin
   status_t ConfigPlugin(const uint32_t &uid, const std::string &json_config);
 
+  /// Get plugin config
+  status_t GetPluginConfig(const uint32_t &uid, std::string &json_config);
+
   /// Image Capture
   status_t CaptureImage(const uint32_t camera_id,
                         const ImageParam &param,

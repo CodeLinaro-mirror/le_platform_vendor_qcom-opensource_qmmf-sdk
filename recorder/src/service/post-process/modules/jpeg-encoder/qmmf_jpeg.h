@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -57,6 +57,8 @@ class PostProcJpeg : public IPostProcModule {
   void SetCallbacks(IPostProcEventListener *cb) override {listener_ = cb;};
 
   status_t Configure(const std::string config_json_data) override;
+
+  status_t GetConfig(std::string &config_json_data) override;
 
   status_t Process(const std::vector<StreamBuffer> &in_buffers,
                    const std::vector<StreamBuffer> &out_buffers) override;

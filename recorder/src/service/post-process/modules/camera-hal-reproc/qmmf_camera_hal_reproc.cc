@@ -394,6 +394,10 @@ status_t CameraHalReproc::Configure(const std::string config_json_data) {
   return NO_ERROR;
 }
 
+status_t CameraHalReproc::GetConfig(std::string &config_json_data) {
+  return NO_ERROR;
+}
+
 status_t CameraHalReproc::Process(
     const std::vector<StreamBuffer> &in_buffers,
     const std::vector<StreamBuffer> &out_buffers) {

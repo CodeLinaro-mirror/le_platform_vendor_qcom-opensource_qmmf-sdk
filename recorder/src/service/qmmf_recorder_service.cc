@@ -242,6 +242,23 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
         return NO_ERROR;
       }
       break;
+      case RECORDER_GET_PLUGIN_CONFIG: {
+        uint32_t client_id, uid;
+        data.readUint32(&client_id);
+        data.readUint32(&uid);
+        std::string json_config = {};
+        ret = GetPluginConfig(client_id, uid, json_config);
+        reply->writeInt32(ret);
+        size_t blob_size = json_config.size();
+        reply->writeUint32(blob_size);
+        android::Parcel::WritableBlob blob;
+        reply->writeBlob(blob_size, false, &blob);
+        memset(blob.data(), 0x0, blob_size);
+        memcpy(blob.data(), json_config.data(), blob_size);
+        blob.release();
+        return NO_ERROR;
+      }
+      break;
       case RECORDER_CREATE_AUDIOTRACK: {
         uint32_t client_id, session_id, track_id;
         data.readUint32(&client_id);
@@ -1092,6 +1109,26 @@ status_t RecorderService::ConfigPlugin(const uint32_t client_id,
   }
 
   auto ret = recorder_->ConfigPlugin(client_id, uid, json_config);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s: ConfigPlugin uid(%d) failed: %d", __func__, uid, ret);
+    return ret;
+  }
+  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
+  return NO_ERROR;
+}
+
+status_t RecorderService::GetPluginConfig(const uint32_t client_id,
+                                       const uint32_t &uid,
+                                       std::string &json_config) {
+
+  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
+
+  if (!IsRecorderInitialized()) {
+    QMMF_ERROR("%s: Recorder not initialized!", __func__);
+    return NO_INIT;
+  }
+
+  auto ret = recorder_->GetPluginConfig(client_id, uid, json_config);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: ConfigPlugin uid(%d) failed: %d", __func__, uid, ret);
     return ret;
