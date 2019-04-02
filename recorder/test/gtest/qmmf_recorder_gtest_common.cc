@@ -557,6 +557,27 @@ void GtestCommon::RecorderCallbackHandler(EventType event_type,
     test_wait_.Done();
     std::lock_guard<std::mutex> lock(error_lock_);
     camera_error_ = true;
+  } else if (event_type == EventType::kCameraOpened &&
+             event_data_size && event_data != nullptr) {
+    ASSERT_TRUE(event_data_size == sizeof(uint32_t));
+    auto camera_id = *(static_cast<uint32_t*>(event_data));
+    std::lock_guard<std::mutex> lk(camera_state_lock_);
+    camera_state_[camera_id] = GtestCameraState::kOpened;
+    camera_state_updated_.notify_all();
+  } else if (event_type == EventType::kCameraClosing &&
+             event_data_size && event_data != nullptr) {
+    ASSERT_TRUE(event_data_size == sizeof(uint32_t));
+    auto camera_id = *(static_cast<uint32_t*>(event_data));
+    std::lock_guard<std::mutex> lk(camera_state_lock_);
+    camera_state_[camera_id] = GtestCameraState::kClosing;
+    camera_state_updated_.notify_all();
+  } else if (event_type == EventType::kCameraClosed &&
+             event_data_size && event_data != nullptr) {
+    ASSERT_TRUE(event_data_size == sizeof(uint32_t));
+    auto camera_id = *(static_cast<uint32_t*>(event_data));
+    std::lock_guard<std::mutex> lk(camera_state_lock_);
+    camera_state_[camera_id] = GtestCameraState::kClosed;
+    camera_state_updated_.notify_all();
   }
   TEST_INFO("%s Exit ", __func__);
 }
