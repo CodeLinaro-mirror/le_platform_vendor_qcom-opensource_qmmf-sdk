@@ -83,8 +83,8 @@ CameraContext::CameraContext()
       partial_metadata_required_(false),
       partial_result_count_(0),
       snapshot_param_{0, 0, 0, BufferFormat::kBLOB},
-      snapshot_type_(SnapshotMode::kStill),
-      new_snapshot_type_(SnapshotMode::kStill),
+      snapshot_type_(SnapshotMode::kVideo),
+      new_snapshot_type_(SnapshotMode::kVideo),
       jpeg_input_format_(BufferFormat::kUnsupported),
       new_jpeg_input_format_(BufferFormat::kUnsupported),
       postproc_frame_skip_{},
@@ -597,7 +597,7 @@ status_t CameraContext::ValidateCaptureParams(const SnapshotParam& param) {
   return NO_ERROR;
 }
 
-bool CameraContext::IsNeedReconfigSapshotStream() {
+bool CameraContext::IsNeedReconfigSnapshotStream() {
   bool reconfiguration = true;
 
   if (snapshot_type_ == new_snapshot_type_) {
@@ -630,7 +630,7 @@ status_t CameraContext::SetUpCapture(const SnapshotParam& param,
                            (snapshot_param_.height != param.height) ||
                            (sequence_cnt_ != num_images) ||
                            (postproc_enable_ != new_postproc_enable) ||
-                           IsNeedReconfigSapshotStream() ||
+                           IsNeedReconfigSnapshotStream() ||
                            (new_postproc_enable && restart_pipe_) ||
                            (jpeg_input_format_ != new_jpeg_input_format_);
       QMMF_DEBUG("%s: reconfigure_needed=%d", __func__, reconfigure_needed);
