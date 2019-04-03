@@ -458,6 +458,8 @@ void GtestCommon::SetUp() {
   is_frame_debug_enabled_ = (atoi(prop_val) == 0) ? false : true;
   property_get(PROP_SENSOR_CONFIG_FILE, prop_val, "");
   sensor_mode_file_name_ = std::string(prop_val);
+  property_get(PROP_MEASURE_SOF_LATENCY, prop_val, "0");
+  enable_sof_latency_ = (atoi(prop_val) == 0) ? false : true;
 
   camera_start_params_ = {};
   camera_start_params_.zsl_mode         = false;
@@ -585,6 +587,17 @@ void GtestCommon::VideoTrackYUVDataCb(uint32_t session_id, uint32_t track_id,
                                       std::vector<BufferDescriptor> buffers,
                                       std::vector<MetaData> meta_buffers) {
   TEST_DBG("%s: Enter track_id: %d", __func__, track_id);
+
+  if (enable_sof_latency_) {
+    struct timespec time;
+    clock_gettime(CLOCK_BOOTTIME, &time);
+    auto current_time_ms = time.tv_sec * 1000 + (time.tv_nsec / 1000000);
+    auto buf_time_ms = buffers[0].timestamp / 1000000;
+    auto latency = current_time_ms - buf_time_ms;
+    TEST_INFO("%s: SOF Latency: %llu ms\n", __func__,
+        latency);
+  }
+
   if (is_dump_yuv_enabled_) {
     track_frame_count_map_[track_id]++;
     if (!(track_frame_count_map_[track_id] % dump_yuv_freq_)) {

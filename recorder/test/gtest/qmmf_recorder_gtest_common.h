@@ -223,6 +223,8 @@ struct FaceInfo {
 #define PROP_FRAME_DEBUG            "persist.qmmf.rec.gtest.frm.dbg"
 // Prop to set force sensor mode config file
 #define PROP_SENSOR_CONFIG_FILE     "persist.qmmf.sensor.mode.file"
+// Prop to measure SOF latency
+#define PROP_MEASURE_SOF_LATENCY    "persist.qmmf.rec.gtest.sof.ts"
 
 #ifndef MAX
 #define MAX(a,b) ((a) > (b) ? (a) : (b))
@@ -680,6 +682,7 @@ class GtestCommon : public ::testing::Test {
 #endif
 
   bool                  ubwc_stream_enable_;
+  bool                  enable_sof_latency_;
 
 #ifdef QCAMERA3_TAG_LOCAL_COPY
   sp<VendorTagDescriptor> vendor_tag_desc_;
