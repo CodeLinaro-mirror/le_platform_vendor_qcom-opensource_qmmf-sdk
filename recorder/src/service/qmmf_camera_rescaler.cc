@@ -71,6 +71,10 @@ CameraRescalerBase::CameraRescalerBase()
   uint32_t value = (uint32_t) atoi(prop);
   print_process_time_ = (value == 1) ? true : false;
 
+  property_get(PRESERVE_ASPECT_RATIO, prop, "1");
+  value = (uint32_t) atoi(prop);
+  rescaler_->aspect_ratio_preserve_ = (value == 1) ? true : false;
+
   rescaler_->Init();
   QMMF_INFO("%s: Exit (%p)", __func__, this);
 }

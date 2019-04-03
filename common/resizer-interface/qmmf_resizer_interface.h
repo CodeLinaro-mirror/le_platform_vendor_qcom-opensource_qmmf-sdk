@@ -33,6 +33,8 @@
 
 namespace qmmf {
 
+#define PRESERVE_ASPECT_RATIO "persist.qmmf.rescaler.ar_pre"
+
 typedef enum {
   RESIZER_STATUS_ERROR = -1,
   RESIZER_STATUS_OK = 0
@@ -54,6 +56,8 @@ class ResizerInterface {
   virtual RESIZER_STATUS ValidateOutput(const uint32_t width,
                                         const uint32_t height,
                                         const BufferFormat format) = 0;
+
+  bool aspect_ratio_preserve_;
 };
 
 }; //namespace qmmf.
