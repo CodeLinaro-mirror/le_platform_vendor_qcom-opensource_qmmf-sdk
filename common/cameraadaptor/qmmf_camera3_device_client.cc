@@ -44,6 +44,7 @@
 #define QCAMERA3_SENSORMODE_FPS_DEFAULT_INDEX (0x0)
 #define FORCE_SENSORMODE_ENABLE               (1 << 24)
 #define FORCE_SENSORMODE_INDEX(idx)           ((idx + 1) << 16)
+#define EIS_ENABLE                            (0xF040)
 #endif
 
 // Convenience macros for transitioning to the error state
@@ -90,6 +91,7 @@ Camera3DeviceClient::Camera3DeviceClient(CameraClientCallbacks clientCb)
       is_raw_only_(false),
       hfr_mode_enabled_(false),
       is_zzhdr_enabled_(false),
+      is_eis_enabled_(false),
       force_sensor_mode_(-1),
       fps_sensormode_index_(0),
       prepare_handler_(),
@@ -401,6 +403,9 @@ int32_t Camera3DeviceClient::ConfigureStreams(const StreamConfiguration& stream_
     if (stream_config.params->force_sensor_mode >= 0) {
       force_sensor_mode_ = stream_config.params->force_sensor_mode;
     }
+    if (stream_config.params->is_eis_enabled) {
+      is_eis_enabled_ = stream_config.params->is_eis_enabled;
+    }
   }
 
 #ifdef USE_FPS_IDX
@@ -428,47 +433,10 @@ int32_t Camera3DeviceClient::ConfigureStreamsLocked(bool is_pp_enabled) {
 
   camera3_stream_configuration config;
   memset(&config, 0, sizeof(config));
-#ifndef DISABLE_OP_MODES
-  if (is_raw_only_) {
-    config.operation_mode = QCAMERA3_VENDOR_STREAM_CONFIGURATION_RAW_ONLY_MODE;
-  } else if (!is_pp_enabled) {
-    config.operation_mode =
-        QCAMERA3_VENDOR_STREAM_CONFIGURATION_PP_DISABLED_MODE;
-  } else {
-    config.operation_mode = CAMERA3_STREAM_CONFIGURATION_NORMAL_MODE;
-  }
-#else
-  config.operation_mode = CAMERA3_STREAM_CONFIGURATION_NORMAL_MODE;
 
-  // Handle ZZHDR Mode
-  if (is_zzhdr_enabled_ == true) {
-    config.operation_mode |= QCAMERA3_SENSORMODE_ZZHDR_OPMODE;
-  }
-  // Handle HFR Mode
-  if (hfr_mode_enabled_) {
-    config.operation_mode |=
-    CAMERA3_STREAM_CONFIGURATION_CONSTRAINED_HIGH_SPEED_MODE;
-  }
+  config.operation_mode = GetOpMode(is_pp_enabled);
 
-  /*
-   * Below two features are mutually exclusive:
-   * 1. Using force sensor mode
-   * 2. Default 60 fps usecase, in which OpMode is index of 60fps
-   *    in sensor mode table
-   */
-  if (force_sensor_mode_ >= 0) {
-    config.operation_mode |= (FORCE_SENSORMODE_INDEX(force_sensor_mode_) |
-        FORCE_SENSORMODE_ENABLE);
-    QMMF_INFO("%s: Force_sensor_mode OpMode is set to 0x%x \n",
-        __func__, config.operation_mode);
-
-  } else if (fps_sensormode_index_ > QCAMERA3_SENSORMODE_FPS_DEFAULT_INDEX) {
-    config.operation_mode |= (fps_sensormode_index_ << 16);
-    QMMF_INFO("%s: 60+ FPS OpMode is Set 0x%x \n",
-        __func__, config.operation_mode);
-  }
-#endif
-  QMMF_DEBUG("%s: operation_mode:0x%x \n", __func__, config.operation_mode);
+  QMMF_INFO("%s: operation_mode: 0x%x \n", __func__, config.operation_mode);
 
   Vector<camera3_stream_t *> streams;
   for (size_t i = 0; i < streams_.size(); i++) {
@@ -619,6 +587,10 @@ int32_t Camera3DeviceClient::DeleteStream(int streamId, bool cache) {
       force_sensor_mode_ = -1;
     }
 
+    if (streams_.isEmpty() && is_eis_enabled_) {
+      QMMF_INFO("%s: Disable EIS\n", __func__);
+      is_eis_enabled_ = false;
+    }
     res = stream->Close();
     if (0 != res) {
       QMMF_ERROR("%s: Can't close deleted stream %d\n", __func__, streamId);
@@ -2090,6 +2062,57 @@ void Camera3DeviceClient::torchModeStatusChange(
     const struct camera_module_callbacks *, const char *camera_id,
     int new_status) {
   // TODO: No implementation yet
+}
+
+uint32_t Camera3DeviceClient::GetOpMode(bool is_pp_enabled) {
+  QMMF_DEBUG("%s: Enter: \n", __func__);
+
+  uint32_t operation_mode = 0;
+
+#ifndef DISABLE_OP_MODES
+  if (is_raw_only_) {
+    operation_mode = QCAMERA3_VENDOR_STREAM_CONFIGURATION_RAW_ONLY_MODE;
+  } else if (!is_pp_enabled) {
+    operation_mode = QCAMERA3_VENDOR_STREAM_CONFIGURATION_PP_DISABLED_MODE;
+  } else {
+    operation_mode = CAMERA3_STREAM_CONFIGURATION_NORMAL_MODE;
+  }
+#else
+  operation_mode = CAMERA3_STREAM_CONFIGURATION_NORMAL_MODE;
+
+  // Handle ZZHDR Mode
+  if (is_zzhdr_enabled_ == true) {
+    operation_mode |= QCAMERA3_SENSORMODE_ZZHDR_OPMODE;
+  }
+  // Handle HFR Mode
+  if (hfr_mode_enabled_) {
+    operation_mode |= CAMERA3_STREAM_CONFIGURATION_CONSTRAINED_HIGH_SPEED_MODE;
+  }
+  // Handle EIS mode
+  if (is_eis_enabled_) {
+    operation_mode |= EIS_ENABLE;
+  }
+  /*
+   * Below two features are mutually exclusive:
+   * 1. Using force sensor mode
+   * 2. Default 60 fps usecase, in which OpMode is index of 60fps
+   *    in sensor mode table
+   */
+  if (force_sensor_mode_ >= 0) {
+    operation_mode |=
+        (FORCE_SENSORMODE_INDEX(force_sensor_mode_) | FORCE_SENSORMODE_ENABLE);
+    QMMF_INFO("%s: Force_sensor_mode OpMode is set to 0x%x \n", __func__,
+              operation_mode);
+
+  } else if (fps_sensormode_index_ > QCAMERA3_SENSORMODE_FPS_DEFAULT_INDEX) {
+    operation_mode |= (fps_sensormode_index_ << 16);
+    QMMF_INFO("%s: 60+ FPS OpMode is Set 0x%x \n", __func__, operation_mode);
+  }
+#endif
+
+  QMMF_DEBUG("%s: Exit: \n", __func__);
+
+  return operation_mode;
 }
 
 }  // namespace cameraadaptor ends here

@@ -1054,6 +1054,13 @@ status_t CameraContext::CreateStream(const StreamParam& param,
     }
   }
 
+  if (extra_param.Exists(QMMF_EIS)) {
+    EISSetup eis_mode;
+    extra_param.Fetch(QMMF_EIS, eis_mode, 0);
+    QMMF_INFO("%s: EIS Value is: %d", __func__, eis_mode.enable);
+    (const_cast<StreamParam&>(param).is_eis_enabled) = eis_mode.enable;
+  }
+
   std::shared_ptr<CameraPort> port =
       std::make_shared<CameraPort>(param, batch, CameraPortType::kVideo, this);
   assert(port.get() != nullptr);
@@ -2531,6 +2538,8 @@ status_t CameraPort::Init() {
   }
   cam_stream_params_.is_zzhdr_enabled = params_.is_zzhdr_enabled;
   cam_stream_params_.force_sensor_mode = params_.force_sensor_mode;
+  cam_stream_params_.is_eis_enabled = params_.is_eis_enabled;
+
 
   int32_t stream_id;
   auto ret = context_->CreateDeviceStream(cam_stream_params_,

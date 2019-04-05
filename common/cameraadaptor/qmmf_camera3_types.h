@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  * Not a Contribution.
  */
 
@@ -50,12 +50,13 @@ struct CameraStreamParameters {
   StreamCallback cb;
   bool is_pp_enabled;
   bool is_zzhdr_enabled;
+  bool is_eis_enabled;
   int32_t force_sensor_mode;
   CameraStreamParameters() :
         width(0), height(0), format(-1), data_space(HAL_DATASPACE_UNKNOWN),
         rotation(CAMERA3_STREAM_ROTATION_0), allocFlags(), bufferCount(0),
         cb(nullptr), is_pp_enabled(true), is_zzhdr_enabled(false),
-        force_sensor_mode(-1) {}
+        is_eis_enabled(false), force_sensor_mode(-1) {}
 };
 
 struct StreamConfiguration {

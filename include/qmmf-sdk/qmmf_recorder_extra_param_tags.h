@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -56,6 +56,7 @@ enum ParamTag {
   QMMF_VIDEO_HDR_MODE,
   QMMF_TRACK_CROP,
   QMMF_FORCE_SENSOR_MODE,
+  QMMF_EIS,
 };
 
 enum class RotationFlags {
@@ -290,6 +291,14 @@ struct ForceSensorMode : DataTagBase {
       /**< Force Sensor Mode index starts with 0. To disable this feature, */
       /**< set it to -1 in any one track, to allow auto mode selection. */
       mode(-1) {}
+};
+
+struct EISSetup : DataTagBase {
+  bool enable; // Default: false to disable EIS
+  EISSetup() :
+    DataTagBase(QMMF_EIS),
+    enable(false) {
+  }
 };
 
 }; //namespace recorder.
