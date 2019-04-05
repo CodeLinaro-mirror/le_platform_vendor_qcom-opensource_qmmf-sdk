@@ -49,13 +49,15 @@ struct StreamParam {
   bool         low_power_mode;
   bool         wait_aec_mode;
   bool         is_zzhdr_enabled;
+  bool         is_eis_enabled;
   int32_t      force_sensor_mode;
 
   StreamParam()
       :  id(0), width(0), height(0), rotation(0),
          format(BufferFormat::kUnsupported), framerate(0.0),
          low_power_mode(false), wait_aec_mode(false),
-         is_zzhdr_enabled(false), force_sensor_mode(-1) {}
+         is_zzhdr_enabled(false), is_eis_enabled(false),
+         force_sensor_mode(-1) {}
 };
 
 struct SnapshotParam {
