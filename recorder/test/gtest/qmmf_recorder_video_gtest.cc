@@ -12615,4 +12615,367 @@ TEST_F(VideoGtest,
           test_info_->test_case_name(), test_info_->name());
 }
 
+/*
+* SessionWithTwoConcurrentCam1080pEnc: This test will test two single
+*                                     Cameras, each giving one 1080p
+*                                     (Enc) stream.
+*
+* Api test sequence summary:
+*  - StartCamera-Cam0
+*  - StartCamera-Cam1
+*  - CreateSession-Cam0
+*  - CreateSession-Cam1
+*  - Create1080pEncTrack-Cam0
+*  - Create1080pEncTrack-Cam1
+*  - StartSession-Cam0
+*  - StartSession-Cam1
+*  - StopSession-Cam0
+*  - StopSession-Cam1
+*  - DeleteVideoTracks-Cam0
+*  - DeleteVideoTracks-Cam1
+*  - DeleteSession-Cam0
+*  - DeleteSession-Cam1
+*  - StopCamera-Cam0
+*  - StopCamera-Cam1
+*/
+TEST_F(VideoGtest, SessionWithTwoConcurrentCam1080pEnc) {
+  fprintf(stderr, "\n---------- Run Test %s.%s ------------\n",
+          test_info_->test_case_name(), test_info_->name());
+  auto ret = Init();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  uint32_t cam0_id = 0;
+  uint32_t cam1_id = 1;
+
+  uint32_t track_enc_width  = 1920;
+  uint32_t track_enc_height = 1080;
+
+  uint32_t cam0_video_track_id_1080p_hevc = 1;
+  uint32_t cam1_video_track_id_1080p_hevc = 2;
+
+  ret = recorder_.StartCamera(cam0_id, camera_start_params_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.StartCamera(cam1_id, camera_start_params_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  SessionCb cam0_session_status_cb;
+  cam0_session_status_cb.event_cb = [this](EventType event_type, void *event_data,
+                                      size_t event_data_size) -> void {
+    SessionCallbackHandler(event_type, event_data, event_data_size);
+  };
+
+  uint32_t cam0_session_id;
+  ret = recorder_.CreateSession(cam0_session_status_cb, &cam0_session_id);
+  ASSERT_TRUE(cam0_session_id > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  SessionCb cam1_session_status_cb;
+  cam1_session_status_cb.event_cb = [this](EventType event_type, void *event_data,
+                                      size_t event_data_size) -> void {
+    SessionCallbackHandler(event_type, event_data, event_data_size);
+  };
+
+  uint32_t cam1_session_id;
+  ret = recorder_.CreateSession(cam1_session_status_cb, &cam1_session_id);
+  ASSERT_TRUE(cam1_session_id > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  TrackCb video_track_cb;
+  video_track_cb.data_cb = [&, cam0_session_id](
+      uint32_t track_id, std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+    VideoTrackEncDataCb(cam0_session_id, track_id, buffers, meta_buffers);
+  };
+
+  video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
+                                void *event_data, size_t event_data_size) {
+    VideoTrackEventCb(track_id, event_type, event_data, event_data_size);
+  };
+
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo1 = {VideoFormat::kHEVC, cam0_session_id,
+                                cam0_video_track_id_1080p_hevc, track_enc_width,
+                                track_enc_height};
+    ret = dump_bitstream_.SetUp(dumpinfo1);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    StreamDumpInfo dumpinfo2 = {VideoFormat::kHEVC, cam1_session_id,
+                                cam1_video_track_id_1080p_hevc, track_enc_width,
+                                track_enc_height};
+    ret = dump_bitstream_.SetUp(dumpinfo2);
+    ASSERT_TRUE(ret == NO_ERROR);
+  }
+
+  VideoTrackCreateParam video_track_param{cam0_id, VideoFormat::kHEVC,
+                                          track_enc_width, track_enc_height, 30};
+  ret = recorder_.CreateVideoTrack(cam0_session_id, cam0_video_track_id_1080p_hevc,
+                                   video_track_param, video_track_cb);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  std::vector<uint32_t> cam0_track_ids;
+  cam0_track_ids.push_back(cam0_video_track_id_1080p_hevc);
+  sessions_.insert(std::make_pair(cam0_session_id, cam0_track_ids));
+
+  video_track_cb.data_cb = [&, cam1_session_id](
+      uint32_t track_id, std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+    VideoTrackEncDataCb(cam1_session_id, track_id, buffers, meta_buffers);
+  };
+
+  video_track_param.camera_id = cam1_id;
+  ret = recorder_.CreateVideoTrack(cam1_session_id, cam1_video_track_id_1080p_hevc,
+                                   video_track_param, video_track_cb);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  std::vector<uint32_t> cam1_track_ids;
+  cam1_track_ids.push_back(cam1_video_track_id_1080p_hevc);
+  sessions_.insert(std::make_pair(cam1_session_id, cam1_track_ids));
+
+  ret = recorder_.StartSession(cam0_session_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.StartSession(cam1_session_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  // Let session run for time record_duration_, during this time buffer with
+  // valid data would be received in track callback (VideoTrackYUVDataCb).
+  sleep(record_duration_);
+
+  ret = recorder_.StopSession(cam0_session_id, false);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.StopSession(cam1_session_id, false);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.DeleteVideoTrack(cam0_session_id, cam0_video_track_id_1080p_hevc);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.DeleteVideoTrack(cam1_session_id, cam1_video_track_id_1080p_hevc);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.DeleteSession(cam0_session_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.DeleteSession(cam1_session_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ClearSessions();
+
+  ret = recorder_.StopCamera(cam0_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.StopCamera(cam1_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = DeInit();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  dump_bitstream_.CloseAll();
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+* SessionWithTwoConcurrentCam1080pEncAnd720pYUV: This test will test two single
+*                                              Cameras, each giving one 1080p
+*                                              (Enc) and one 720p (YUV) streams.
+*
+* Api test sequence summary:
+*  - StartCamera-Cam0
+*  - StartCamera-Cam1
+*  - CreateSession-Cam0
+*  - CreateSession-Cam1
+*  - Create1080pEncTrack-Cam0
+*  - Create1080pEncTrack-Cam1
+*  - Create720pVAMTrack-Cam0
+*  - Create720pVAMTrack-Cam1
+*  - StartSession-Cam0
+*  - StartSession-Cam1
+*  - StopSession-Cam0
+*  - StopSession-Cam1
+*  - DeleteVideoTracks-Cam0
+*  - DeleteVideoTracks-Cam1
+*  - DeleteSession-Cam0
+*  - DeleteSession-Cam1
+*  - StopCamera-Cam0
+*  - StopCamera-Cam1
+*/
+TEST_F(VideoGtest, SessionWithTwoConcurrentCam1080pEncAnd720pYUV) {
+  fprintf(stderr, "\n---------- Run Test %s.%s ------------\n",
+          test_info_->test_case_name(), test_info_->name());
+  auto ret = Init();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  uint32_t cam0_id = 0;
+  uint32_t cam1_id = 1;
+
+  uint32_t track_enc_width  = 1920;
+  uint32_t track_enc_height = 1080;
+  uint32_t track_vam_width  = 1280;
+  uint32_t track_vam_height = 720;
+
+  uint32_t cam0_video_track_id_1080p_hevc = 1;
+  uint32_t cam0_video_track_id_720p_yuv = 2;
+  uint32_t cam1_video_track_id_1080p_hevc = 3;
+  uint32_t cam1_video_track_id_720p_yuv = 4;
+
+  ret = recorder_.StartCamera(cam0_id, camera_start_params_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.StartCamera(cam1_id, camera_start_params_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  SessionCb cam0_session_status_cb;
+  cam0_session_status_cb.event_cb = [this](EventType event_type, void *event_data,
+                                      size_t event_data_size) -> void {
+    SessionCallbackHandler(event_type, event_data, event_data_size);
+  };
+
+  uint32_t cam0_session_id;
+  ret = recorder_.CreateSession(cam0_session_status_cb, &cam0_session_id);
+  ASSERT_TRUE(cam0_session_id > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  SessionCb cam1_session_status_cb;
+  cam1_session_status_cb.event_cb = [this](EventType event_type, void *event_data,
+                                      size_t event_data_size) -> void {
+    SessionCallbackHandler(event_type, event_data, event_data_size);
+  };
+
+  uint32_t cam1_session_id;
+  ret = recorder_.CreateSession(cam1_session_status_cb, &cam1_session_id);
+  ASSERT_TRUE(cam1_session_id > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  TrackCb video_track_cb;
+  video_track_cb.data_cb = [&, cam0_session_id](
+      uint32_t track_id, std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+    VideoTrackEncDataCb(cam0_session_id, track_id, buffers, meta_buffers);
+  };
+
+  video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
+                                void *event_data, size_t event_data_size) {
+    VideoTrackEventCb(track_id, event_type, event_data, event_data_size);
+  };
+
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo1 = {VideoFormat::kHEVC, cam0_session_id,
+                                cam0_video_track_id_1080p_hevc,
+                                track_enc_width, track_enc_height};
+    ret = dump_bitstream_.SetUp(dumpinfo1);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    StreamDumpInfo dumpinfo2 = {VideoFormat::kHEVC, cam1_session_id,
+                                cam1_video_track_id_1080p_hevc,
+                                track_enc_width, track_enc_height};
+    ret = dump_bitstream_.SetUp(dumpinfo2);
+    ASSERT_TRUE(ret == NO_ERROR);
+  }
+
+  VideoTrackCreateParam video_track_param{cam0_id, VideoFormat::kHEVC,
+                                          track_enc_width, track_enc_height, 30};
+  ret = recorder_.CreateVideoTrack(cam0_session_id, cam0_video_track_id_1080p_hevc,
+                                   video_track_param, video_track_cb);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  std::vector<uint32_t> cam0_track_ids;
+  cam0_track_ids.push_back(cam0_video_track_id_1080p_hevc);
+
+  video_track_cb.data_cb = [&, cam1_session_id](
+      uint32_t track_id, std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+    VideoTrackEncDataCb(cam1_session_id, track_id, buffers, meta_buffers);
+  };
+
+  video_track_param.camera_id = cam1_id;
+  ret = recorder_.CreateVideoTrack(cam1_session_id, cam1_video_track_id_1080p_hevc,
+                                   video_track_param, video_track_cb);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  std::vector<uint32_t> cam1_track_ids;
+  cam1_track_ids.push_back(cam1_video_track_id_1080p_hevc);
+
+  video_track_cb.data_cb = [&, cam0_session_id](
+      uint32_t track_id, std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+    VideoTrackYUVDataCb(cam0_session_id, track_id, buffers, meta_buffers);
+  };
+
+  video_track_param.camera_id = cam0_id;
+  video_track_param.width = track_vam_width;
+  video_track_param.height = track_vam_height;
+  video_track_param.format_type = VideoFormat::kYUV;
+  ret = recorder_.CreateVideoTrack(cam0_session_id, cam0_video_track_id_720p_yuv,
+                                   video_track_param, video_track_cb);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  cam0_track_ids.push_back(cam0_video_track_id_720p_yuv);
+  sessions_.insert(std::make_pair(cam0_session_id, cam0_track_ids));
+
+  video_track_cb.data_cb = [&, cam1_session_id](
+      uint32_t track_id, std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+    VideoTrackYUVDataCb(cam1_session_id, track_id, buffers, meta_buffers);
+  };
+
+  video_track_param.camera_id = cam1_id;
+  ret = recorder_.CreateVideoTrack(cam1_session_id, cam1_video_track_id_720p_yuv,
+                                   video_track_param, video_track_cb);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  cam1_track_ids.push_back(cam1_video_track_id_720p_yuv);
+  sessions_.insert(std::make_pair(cam1_session_id, cam1_track_ids));
+
+  ret = recorder_.StartSession(cam0_session_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.StartSession(cam1_session_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  // Let session run for time record_duration_, during this time buffer with
+  // valid data would be received in track callback (VideoTrackYUVDataCb).
+  sleep(record_duration_);
+
+  ret = recorder_.StopSession(cam0_session_id, false);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.StopSession(cam1_session_id, false);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.DeleteVideoTrack(cam0_session_id, cam0_video_track_id_720p_yuv);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.DeleteVideoTrack(cam0_session_id, cam0_video_track_id_1080p_hevc);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.DeleteVideoTrack(cam1_session_id, cam1_video_track_id_720p_yuv);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.DeleteVideoTrack(cam1_session_id, cam1_video_track_id_1080p_hevc);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.DeleteSession(cam0_session_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.DeleteSession(cam1_session_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ClearSessions();
+
+  ret = recorder_.StopCamera(cam0_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.StopCamera(cam1_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = DeInit();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  dump_bitstream_.CloseAll();
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
 #endif
