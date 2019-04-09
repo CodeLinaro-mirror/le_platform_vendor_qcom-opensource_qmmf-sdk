@@ -12978,4 +12978,202 @@ TEST_F(VideoGtest, SessionWithTwoConcurrentCam1080pEncAnd720pYUV) {
       test_info_->test_case_name(), test_info_->name());
 }
 
+/*
+* SessionWith4kp30fpsEncAnd720p30fpsEncSwitchForceToAutoSensorMode:
+*     This test will start session with one 4k 30fps hevc track and another one
+*     with 720p 30fps h264 track, setting force sensor mode, then delete both
+*     tracks, re-create 4k 30fps hevc track, add it to session, which will
+*     re-start session in auto mode.
+*
+* API test sequence:
+*  - StartCamera
+*  loop Start {
+*  ------------------
+*  - CreateSession
+*  - CreateVideoTrack1 - 4k@30 hevc - force sensor mode 7
+*  - CreateVideoTrack2 - 720p@30 h264
+*  - StartSession
+*  - StopSession
+*  - DeleteVideoTrack2 - 720p@30 h264
+*  - DeleteVideoTrack1 - 4k@30 hevc
+*  - CreateVideoTrack1 - 4k@30 hevc - auto mode
+*  - StartSession
+*  - StopSession
+*  - DeleteVideoTrack1 - 4k@30 hevc
+*  - DeleteSession
+*  ------------------
+*  } loop End
+*  - StopCamera
+*/
+TEST_F(
+    VideoGtest,
+    SessionWith4kp30fpsEncAnd720p30fpsEncSwitchForceToAutoSensorMode) {
+  fprintf(stderr, "\n---------- Run Test %s.%s ------------\n",
+          test_info_->test_case_name(), test_info_->name());
+
+  auto ret = Init();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  uint32_t video_track_id_4k_hevc = 1;
+  uint32_t video_track_id_720p_avc = 2;
+
+  for (uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
+              test_info_->name(), i);
+
+    SessionCb session_status_cb = CreateSessionStatusCb();
+    uint32_t session_id;
+    ret = recorder_.CreateSession(session_status_cb, &session_id);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo1 = {VideoFormat::kHEVC, session_id,
+                                  video_track_id_4k_hevc, 3840, 2160};
+      ret = dump_bitstream_.SetUp(dumpinfo1);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      StreamDumpInfo dumpinfo2 = {VideoFormat::kAVC, session_id,
+                                  video_track_id_720p_avc, 1280, 720};
+      ret = dump_bitstream_.SetUp(dumpinfo2);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
+    // Track1: 4K @30 HEVC
+    VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kHEVC,
+                                            3840, 2160, 30};
+
+    video_track_param.codec_param.hevc.ratecontrol_type =
+        VideoRateControlType::kConstant;
+    video_track_param.codec_param.hevc.bitrate = kBitRate100Mbps;
+
+    // Enable Force Sensor Mode
+    VideoExtraParam extra_param_force_mode;
+    ForceSensorMode force_sensor_mode;
+    if (!sensor_mode_file_name_.empty()) {
+      std::string mode = "4056x3040@30FPS_RAW12";
+      force_sensor_mode.mode = FindSensorModeIndex(sensor_mode_file_name_,
+                                                   mode);
+    }
+
+    fprintf(stderr, "Setting force sensor mode %d \n", force_sensor_mode.mode);
+    extra_param_force_mode.Update(QMMF_FORCE_SENSOR_MODE, force_sensor_mode);
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&, session_id](
+        uint32_t track_id, std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
+    };
+
+    video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
+                                  void *event_data, size_t event_data_size) {
+      VideoTrackEventCb(track_id, event_type, event_data, event_data_size);
+    };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_4k_hevc,
+                                     video_track_param, extra_param_force_mode,
+                                     video_track_cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    std::vector<uint32_t> track_ids;
+    track_ids.push_back(video_track_id_4k_hevc);
+
+    // Track2: 1280x720 @30 H264
+    VideoTrackCreateParam video_track_param_1{camera_id_, VideoFormat::kAVC,
+                                              1280, 720, 30};
+
+    video_track_param_1.codec_param.avc.ratecontrol_type =
+        VideoRateControlType::kConstant;
+    video_track_param_1.codec_param.avc.bitrate = kBitRate10Mbps;
+    video_track_param_1.low_power_mode = true;
+
+    video_track_cb.data_cb = [&, session_id](
+        uint32_t track_id, std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
+    };
+
+    video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
+                                  void *event_data, size_t event_data_size) {
+      VideoTrackEventCb(track_id, event_type, event_data, event_data_size);
+    };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_720p_avc,
+                                     video_track_param_1, video_track_cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    track_ids.push_back(video_track_id_720p_avc);
+    sessions_.insert(std::make_pair(session_id, track_ids));
+
+    // Start Session
+    ret = recorder_.StartSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    sleep(record_duration_/2);
+
+    ret = recorder_.StopSession(session_id, false);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_720p_avc);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_4k_hevc);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ClearSessions();
+    track_ids.clear();
+    dump_bitstream_.CloseAll();
+
+    fprintf(stderr, "Switched to Auto mode \n");
+
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo3 = {VideoFormat::kHEVC, session_id,
+                                  video_track_id_4k_hevc, 3840, 2160};
+      ret = dump_bitstream_.SetUp(dumpinfo3);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
+    // Re-create 4k hevc track without force mode extra param
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_4k_hevc,
+                                     video_track_param, video_track_cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    track_ids.push_back(video_track_id_4k_hevc);
+    sessions_.insert(std::make_pair(session_id, track_ids));
+
+    // Restart previous session with new track
+    ret = recorder_.StartSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    sleep(record_duration_/2);
+
+    ret = recorder_.StopSession(session_id, false);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_4k_hevc);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ClearSessions();
+    track_ids.clear();
+    dump_bitstream_.CloseAll();
+  }
+
+  ret = recorder_.StopCamera(camera_id_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = DeInit();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
+}
+
 #endif
