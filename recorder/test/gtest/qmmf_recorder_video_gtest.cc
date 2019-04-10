@@ -6849,11 +6849,19 @@ TEST_F(VideoGtest,
     sessions_.insert(std::make_pair(session_id, track_ids));
 
     auto status = recorder_.GetCameraParam(camera_id_, meta);
-
     if (NO_ERROR == status) {
+      // EIS horizontal margin.
+      float hmargin = (eis_h_margin_ >= 0) ? eis_h_margin_ : 0.100;
+      meta.update(QCAMERA3_IS_H_MARGIN_CFG, &hmargin, 1);
+
+      // EIS vertical margin.
+      float vmargin = (eis_v_margin_ >= 0) ? eis_v_margin_ : 0.100;
+      meta.update(QCAMERA3_IS_V_MARGIN_CFG, &vmargin, 1);
+
       // Enable EIS
       vstab_mode = ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_ON;
       meta.update(ANDROID_CONTROL_VIDEO_STABILIZATION_MODE, &vstab_mode, 1);
+
       ret = recorder_.SetCameraParam(camera_id_, meta);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -7037,17 +7045,23 @@ TEST_F(VideoGtest,
     sessions_.insert(std::make_pair(session_id, track_ids));
 
     auto status = recorder_.GetCameraParam(camera_id_, meta);
-
     if (NO_ERROR == status) {
+      // EIS horizontal margin.
+      float hmargin = (eis_h_margin_ >= 0) ? eis_h_margin_ : 0.100;
+      meta.update(QCAMERA3_IS_H_MARGIN_CFG, &hmargin, 1);
+
+      // EIS vertical margin.
+      float vmargin = (eis_v_margin_ >= 0) ? eis_v_margin_ : 0.100;
+      meta.update(QCAMERA3_IS_V_MARGIN_CFG, &vmargin, 1);
+
       // Enable EIS
       vstab_mode = ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_ON;
       meta.update(ANDROID_CONTROL_VIDEO_STABILIZATION_MODE, &vstab_mode, 1);
-      ret = recorder_.SetCameraParam(camera_id_, meta);
-      ASSERT_TRUE(ret == NO_ERROR);
+
       // Enable TNR
       tnr_mode = ANDROID_NOISE_REDUCTION_MODE_HIGH_QUALITY;
-      TEST_INFO("%s: Enable TNR mode(%d)", __func__, tnr_mode);
       meta.update(ANDROID_NOISE_REDUCTION_MODE, &tnr_mode, 1);
+
       ret = recorder_.SetCameraParam(camera_id_, meta);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -7892,15 +7906,13 @@ TEST_F(VideoGtest,
       float focal_length = 6.0;
       meta.update(ANDROID_LENS_FOCAL_LENGTH, &focal_length, 1);
 
-      if (!default_eis_margins_) {
-        // Video stabilization horizontal margin.
-        float h_margin = 0.11;
-        meta.update( QCAMERA3_IS_H_MARGIN_CFG, &h_margin, 1);
+      // EIS horizontal margin.
+      float hmargin = (eis_h_margin_ >= 0) ? eis_h_margin_ : 0.100;
+      meta.update(QCAMERA3_IS_H_MARGIN_CFG, &hmargin, 1);
 
-        // Video stabilization vertical margin.
-        float v_margin = 0.11;
-        meta.update( QCAMERA3_IS_V_MARGIN_CFG, &v_margin, 1);
-      }
+      // EIS vertical margin.
+      float vmargin = (eis_v_margin_ >= 0) ? eis_v_margin_ : 0.100;
+      meta.update(QCAMERA3_IS_V_MARGIN_CFG, &vmargin, 1);
 
       // Enable EIS
       vstab_mode = ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_ON;
@@ -8069,19 +8081,18 @@ TEST_F(VideoGtest,
       float focal_length = 7.0;
       meta.update(ANDROID_LENS_FOCAL_LENGTH, &focal_length, 1);
 
-      if (!default_eis_margins_) {
-        // Video stabilization horizontal margin.
-        float h_margin = 0.11;
-        meta.update( QCAMERA3_IS_H_MARGIN_CFG, &h_margin, 1);
+      // EIS horizontal margin.
+      float hmargin = (eis_h_margin_ >= 0) ? eis_h_margin_ : 0.100;
+      meta.update(QCAMERA3_IS_H_MARGIN_CFG, &hmargin, 1);
 
-        // Video stabilization vertical margin.
-        float v_margin = 0.11;
-        meta.update( QCAMERA3_IS_V_MARGIN_CFG, &v_margin, 1);
-      }
+      // EIS vertical margin.
+      float vmargin = (eis_v_margin_ >= 0) ? eis_v_margin_ : 0.100;
+      meta.update(QCAMERA3_IS_V_MARGIN_CFG, &vmargin, 1);
 
       // Enable EIS
       vstab_mode = ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_ON;
       meta.update(ANDROID_CONTROL_VIDEO_STABILIZATION_MODE, &vstab_mode, 1);
+
       ret = recorder_.SetCameraParam(camera_id_, meta);
       ASSERT_TRUE(ret == NO_ERROR);
     }
@@ -8210,14 +8221,20 @@ TEST_F(VideoGtest,
     ret = meta.update( QCAMERA3_LCAC_PROCESSING_ENABLE, &enable_lcac, 1);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    // EIS horizontal margin.
+    float hmargin = (eis_h_margin_ >= 0) ? eis_h_margin_ : 0.100;
+    meta.update(QCAMERA3_IS_H_MARGIN_CFG, &hmargin, 1);
+
+    // EIS vertical margin.
+    float vmargin = (eis_v_margin_ >= 0) ? eis_v_margin_ : 0.100;
+    meta.update(QCAMERA3_IS_V_MARGIN_CFG, &vmargin, 1);
+
     uint8_t vstab_mode = ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_ON;
     meta.update(ANDROID_CONTROL_VIDEO_STABILIZATION_MODE, &vstab_mode, 1);
-    ASSERT_TRUE(ret == NO_ERROR);
 
     // Set sensor mode via focal lenth
     float focal_length = 6.0;
     meta.update(ANDROID_LENS_FOCAL_LENGTH, &focal_length, 1);
-    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.SetCameraParam(camera_id_, meta);
     ASSERT_TRUE(ret == NO_ERROR);

@@ -211,8 +211,10 @@ struct FaceInfo {
 #define PROP_JPEG_QUALITY           "persist.qmmf.rec.gtest.jpegq"
 // Prop to set CDS sensitivity threshold
 #define PROP_CDS_THRESHOLD          "persist.qmmf.rec.gtest.cdsth"
-// Prop to enable default EIS margins
-#define PROP_DEFAULT_EIS_MARGINS    "persist.qmmf.rec.gtest.eis.dflt"
+// Prop to override default EIS horizontal margin
+#define PROP_EIS_H_MARGIN           "persist.qmmf.rec.gtest.eis.h.mrg"
+// Prop to override default EIS vertical margin
+#define PROP_EIS_V_MARGIN           "persist.qmmf.rec.gtest.eis.v.mrg"
 // Prop to enable/disable display usage
 #define PROP_TOGGLE_DISPLAY_USAGE   "persist.qmmf.rec.gtest.display"
 // Prop to set video timelapse interval
@@ -744,7 +746,8 @@ class GtestCommon : public ::testing::Test {
   int32_t               default_cds_threshold_;
   std::mutex            error_lock_;
   bool                  camera_error_;
-  bool                  default_eis_margins_;
+  float                 eis_h_margin_;
+  float                 eis_v_margin_;
   bool                  is_apply_overlay_;
   float                 timelapse_interval_;
   bool                  is_frame_debug_enabled_;

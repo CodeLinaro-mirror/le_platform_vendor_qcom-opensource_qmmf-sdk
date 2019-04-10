@@ -444,8 +444,10 @@ void GtestCommon::SetUp() {
   default_jpeg_quality_ = atoi(prop_val);
   property_get(PROP_CDS_THRESHOLD, prop_val, "600");
   default_cds_threshold_ = atoi(prop_val);
-  property_get(PROP_DEFAULT_EIS_MARGINS, prop_val, "1");
-  default_eis_margins_ = atoi(prop_val);
+  property_get(PROP_EIS_H_MARGIN, prop_val, "-1.0");
+  eis_h_margin_ = atof(prop_val);
+  property_get(PROP_EIS_V_MARGIN, prop_val, "-1.0");
+  eis_v_margin_ = atof(prop_val);
   property_get(PROP_TIMELAPSE_INTERVAL, prop_val, "2.0");
   timelapse_interval_ = atof(prop_val);
 #ifndef DISABLE_DISPLAY
