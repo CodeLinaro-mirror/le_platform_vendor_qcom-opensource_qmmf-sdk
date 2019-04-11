@@ -63,7 +63,7 @@ target_include_directories(qmmf_algo_interface_gtest
 target_include_directories(qmmf_algo_interface_gtest
  PRIVATE $<BUILD_INTERFACE:${KERNEL_INCDIR}/usr/include>)
 
-install(TARGETS qmmf_algo_interface_gtest DESTINATION lib OPTIONAL)
+install(TARGETS qmmf_algo_interface_gtest DESTINATION bin OPTIONAL)
 target_link_libraries(qmmf_algo_interface_gtest log utils cutils gtest gtest_main dl jsoncpp pthread)
 
 # Build qmmf algorithm interface gtest application binary
@@ -77,7 +77,7 @@ target_include_directories(qmmf_utils_gtest
  target_include_directories(qmmf_utils_gtest
  PRIVATE $<BUILD_INTERFACE:${KERNEL_INCDIR}/usr/include>)
 
-install(TARGETS qmmf_utils_gtest DESTINATION lib OPTIONAL)
+install(TARGETS qmmf_utils_gtest DESTINATION bin OPTIONAL)
 target_link_libraries(qmmf_utils_gtest log utils cutils gtest gtest_main dl)
 
 if (PLUGINS_ENABLED)
