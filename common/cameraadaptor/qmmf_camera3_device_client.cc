@@ -133,7 +133,7 @@ Camera3DeviceClient::~Camera3DeviceClient() {
   }
   deleted_streams_.clear();
 
-  monitor_.RequestExit();
+  monitor_.RequestExitAndWait();
 
   if (nullptr != alloc_device_interface_) {
     AllocDeviceFactory::DestroyAllocDevice(alloc_device_interface_);
