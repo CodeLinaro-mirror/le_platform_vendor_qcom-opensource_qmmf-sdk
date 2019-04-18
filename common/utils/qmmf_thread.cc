@@ -39,14 +39,23 @@ namespace qmmf {
 int32_t ThreadHelper::Run(const std::string& name) {
 
   std::lock_guard<std::mutex> l(lock_);
-  if (IsState(ThreadHelperState::kActive)) {
-    QMMF_WARN("%s: %s thread already started!", __func__, name_.c_str());
-    return -EALREADY;
-  }
-
-  if (IsState(ThreadHelperState::kToIdle)) {
-    QMMF_WARN("%s: %s thread is pending exit!", __func__, name_.c_str());
-    return -EBUSY;
+  switch (GetState()) {
+    case ThreadHelperState::kActive:
+      QMMF_WARN("%s: %s thread already started!", __func__, name_.c_str());
+      return -EALREADY;
+    case ThreadHelperState::kToIdle:
+      QMMF_WARN("%s: %s thread is pending exit!", __func__, name_.c_str());
+      WaitState(ThreadHelperState::kIdle);
+      thread_.join();
+      ChangeState(ThreadHelperState::kInactive);
+      break;
+    case ThreadHelperState::kIdle:
+      thread_.join();
+      ChangeState(ThreadHelperState::kInactive);
+      break;
+    case ThreadHelperState::kInactive:
+      // Thread is inactive and ready to be started.
+      break;
   }
 
   try {
@@ -59,42 +68,53 @@ int32_t ThreadHelper::Run(const std::string& name) {
 
   name_ = name;
   ChangeState(ThreadHelperState::kActive);
+  QMMF_INFO("%s: %s thread is active!", __func__, name_.c_str());
   return 0;
 }
 
 void ThreadHelper::RequestExit() {
 
   std::lock_guard<std::mutex> l(lock_);
-  if (IsState(ThreadHelperState::kIdle)) {
-    QMMF_WARN("%s: %s thread hasn't been started!", __func__, name_.c_str());
-    return;
+  switch (GetState()) {
+    case ThreadHelperState::kActive:
+      QMMF_DEBUG("%s: %s thread request exit!", __func__, name_.c_str());
+      ChangeState(ThreadHelperState::kToIdle);
+      break;
+    case ThreadHelperState::kToIdle:
+      QMMF_WARN("%s: %s thread is pending exit!", __func__, name_.c_str());
+      break;
+    case ThreadHelperState::kIdle:
+      QMMF_DEBUG("%s: %s thread has exited!", __func__, name_.c_str());
+      break;
+    case ThreadHelperState::kInactive:
+      QMMF_WARN("%s: %s thread hasn't been started!", __func__, name_.c_str());
+      break;
   }
-
-  if (IsState(ThreadHelperState::kToIdle)) {
-    QMMF_WARN("%s: %s thread is pending exit!", __func__, name_.c_str());
-    return;
-  }
-
-  ChangeState(ThreadHelperState::kToIdle);
-  thread_.detach();
 }
 
 void ThreadHelper::RequestExitAndWait() {
 
   std::lock_guard<std::mutex> l(lock_);
-  if (IsState(ThreadHelperState::kIdle)) {
-    QMMF_WARN("%s: %s thread hasn't been started!", __func__, name_.c_str());
-    return;
+  switch (GetState()) {
+    case ThreadHelperState::kActive:
+      QMMF_DEBUG("%s: %s thread request exit & wait!", __func__, name_.c_str());
+      ChangeState(ThreadHelperState::kToIdle);
+      break;
+    case ThreadHelperState::kToIdle:
+      QMMF_WARN("%s: %s thread is pending exit!", __func__, name_.c_str());
+      WaitState(ThreadHelperState::kIdle);
+      break;
+    case ThreadHelperState::kIdle:
+      QMMF_DEBUG("%s: %s thread has exited!", __func__, name_.c_str());
+      break;
+    case ThreadHelperState::kInactive:
+      QMMF_WARN("%s: %s thread hasn't been started!", __func__, name_.c_str());
+      return;
   }
 
-  if (IsState(ThreadHelperState::kToIdle)) {
-    QMMF_WARN("%s: %s thread is pending exit!", __func__, name_.c_str());
-    WaitState(ThreadHelperState::kIdle);
-    return;
-  }
-
-  ChangeState(ThreadHelperState::kToIdle);
   thread_.join();
+  ChangeState(ThreadHelperState::kInactive);
+  QMMF_INFO("%s: %s thread is inactive!", __func__, name_.c_str());
 }
 
 void ThreadHelper::ChangeState(const ThreadHelperState& state) {
@@ -110,19 +130,18 @@ void ThreadHelper::WaitState(const ThreadHelperState& state) {
   state_updated_.Wait(l, [&]() { return (state_ == state); });
 }
 
-bool ThreadHelper::IsState(const ThreadHelperState& state) {
+ThreadHelper::ThreadHelperState ThreadHelper::GetState() {
 
   std::lock_guard<std::mutex> l(state_lock_);
-  return (state_ == state) ? true : false;
+  return state_;
 }
 
-void ThreadHelper::MainLoop(bool active) {
+void ThreadHelper::MainLoop() {
 
+  bool active = true;
   while (active) {
     active = ThreadLoop();
-    active |= !IsState(ThreadHelperState::kToIdle);
   }
-
   ChangeState(ThreadHelperState::kIdle);
   return;
 }
