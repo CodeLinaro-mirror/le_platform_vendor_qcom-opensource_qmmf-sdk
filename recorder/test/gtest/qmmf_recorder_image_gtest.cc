@@ -5579,7 +5579,9 @@ TEST_F(RecorderImageGTest,
     video_track_param_1.codec_param.avc.ratecontrol_type =
         VideoRateControlType::kConstant;
     video_track_param_1.codec_param.avc.bitrate = kBitRate10Mbps;
-    video_track_param_1.low_power_mode = true;
+	if (ubwc_stream_enable_) {
+      video_track_param_1.low_power_mode = true;
+	}
     track_trace_2.SetUp(session_id, video_track_id_720p_avc, 30.0);
 
     video_track_cb.data_cb = [&, session_id](
@@ -5809,8 +5811,9 @@ TEST_F(RecorderImageGTest,
     video_track_param_1.codec_param.avc.ratecontrol_type =
         VideoRateControlType::kConstant;
     video_track_param_1.codec_param.avc.bitrate = kBitRate10Mbps;
-    video_track_param_1.low_power_mode = true;
-
+	if (ubwc_stream_enable_) {
+      video_track_param_1.low_power_mode = true;
+	}
     track_trace_2.SetUp(session_id, video_track_id_720p_avc, 30.0);
 
     video_track_cb.data_cb = [&, session_id](
