@@ -3681,7 +3681,9 @@ TEST_F(VideoGtest, 1080pEncWithPrivacyMaskOverlay) {
   ASSERT_TRUE(ret == 0);
   ret = recorder_.SetOverlay(video_track_id, mask_id);
   ASSERT_TRUE(ret == 0);
-
+  uint32_t sleep_duration = record_duration_ * 1000000 / 20;
+  if (sleep_duration < 250000)
+    sleep_duration = 250000;
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
@@ -3707,7 +3709,7 @@ TEST_F(VideoGtest, 1080pEncWithPrivacyMaskOverlay) {
       ret = recorder_.UpdateOverlayObjectParams(video_track_id, mask_id,
                                                 object_params);
       ASSERT_TRUE(ret == 0);
-      usleep(250000);
+      usleep(sleep_duration);
     }
 
   }
