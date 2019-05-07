@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -78,12 +78,14 @@ status_t Recorder::Disconnect() {
 }
 
 status_t Recorder::StartCamera(const uint32_t camera_id,
-                               const CameraStartParam &params,
+                               const float frame_rate,
+                               const CameraExtraParam& extra_param,
                                const CameraResultCb &cb) {
 
   assert(recorder_client_ != NULL);
 
-  auto ret = recorder_client_->StartCamera(camera_id, params, cb);
+  auto ret = recorder_client_->StartCamera(camera_id, frame_rate,
+                                           extra_param, cb);
   if (NO_ERROR != ret) {
     QMMF_ERROR("%s: StartCamera failed!", __func__);
   }

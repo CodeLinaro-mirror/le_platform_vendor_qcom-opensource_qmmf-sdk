@@ -644,7 +644,6 @@ class GtestCommon : public ::testing::Test {
   uint32_t              camera_id_;
   uint32_t              iteration_count_;
   std::vector<uint32_t> camera_ids_;
-  CameraStartParam      camera_start_params_;
   RecorderCb            recorder_status_cb_;
   std::map <uint32_t , std::vector<uint32_t> > sessions_;
   std::map<uint32_t,uint32_t> track_frame_count_map_;

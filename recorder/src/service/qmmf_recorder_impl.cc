@@ -306,7 +306,8 @@ status_t RecorderImpl::DeRegisterClient(const uint32_t client_id,
 
 status_t RecorderImpl::StartCamera(const uint32_t client_id,
                                    const uint32_t camera_id,
-                                   const CameraStartParam &param,
+                                   const float frame_rate,
+                                   const CameraExtraParam& extra_param,
                                    bool enable_result_cb) {
 
   QMMF_DEBUG("%s: Enter", __func__);
@@ -319,11 +320,19 @@ status_t RecorderImpl::StartCamera(const uint32_t client_id,
 
   bool owned = IsCameraOwned(client_id, camera_id);
 
- if ((param.flags & kCameraSlaveMode) && !owned) {
+  CameraSlaveMode camera_slave_mode = {};
+  if (extra_param.Exists(QMMF_CAMERA_SLAVE_MODE)) {
+    size_t entry_count = extra_param.EntryCount(QMMF_CAMERA_SLAVE_MODE);
+    if (entry_count == 1) {
+      extra_param.Fetch(QMMF_CAMERA_SLAVE_MODE, camera_slave_mode, 0);
+    }
+  }
+
+  if ((camera_slave_mode.mode == SlaveMode::kSlave) && !owned) {
     QMMF_WARN("%s Client(%u): Camera(%u) hasn't been opened yet,"
         " operation not allowed!", __func__, client_id, camera_id);
     return NAME_NOT_FOUND;
-  } else if ((param.flags & kCameraSlaveMode) && owned) {
+  } else if ((camera_slave_mode.mode == SlaveMode::kSlave) && owned) {
     QMMF_INFO("%s Client(%u): Camera(%u) is already owned by another client,"
         " using camera in slave mode!", __func__, client_id, camera_id);
     std::lock_guard<std::mutex> lock(camera_map_lock_);
@@ -348,7 +357,7 @@ status_t RecorderImpl::StartCamera(const uint32_t client_id,
 
   ErrorCb errcb = [&] (RecorderErrorData &error) { CameraErrorCb(error); };
 
-  auto ret = camera_source_->StartCamera(camera_id, param,
+  auto ret = camera_source_->StartCamera(camera_id, frame_rate, extra_param,
                                          enable_result_cb ? cb : nullptr,
                                          errcb);
   if (ret != NO_ERROR) {

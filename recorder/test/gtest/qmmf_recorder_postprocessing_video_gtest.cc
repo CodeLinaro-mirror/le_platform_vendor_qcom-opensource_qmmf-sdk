@@ -76,7 +76,6 @@ TEST_F(RecorderPostprocessVideoGTest, HFRModeSwitch) {
   uint32_t width  = 1920;
   uint32_t height = 1080;
   VideoFormat format_type = VideoFormat::kYUV;
-  camera_start_params_.frame_rate = fps;
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
@@ -86,7 +85,7 @@ TEST_F(RecorderPostprocessVideoGTest, HFRModeSwitch) {
     auto ret = Init();
     ASSERT_TRUE(ret == NO_ERROR);
 
-    ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+    ret = recorder_.StartCamera(camera_id_, fps);
     ASSERT_TRUE(ret == NO_ERROR);
 
     SessionCb session_status_cb = CreateSessionStatusCb();
@@ -241,7 +240,7 @@ TEST_F(RecorderPostprocessVideoGTest, SessionWith4KEncWithLCACYUV) {
   uint32_t width = 3840;
   uint32_t height = 2160;
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
@@ -356,7 +355,7 @@ TEST_F(RecorderPostprocessVideoGTest, SessionWith4KEnc1080pYUVSwTnrTrack) {
   uint32_t width = 3840;
   uint32_t height = 2160;
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   assert(ret == NO_ERROR);
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
@@ -514,7 +513,7 @@ TEST_F(RecorderPostprocessVideoGTest, SessionWith4KHazeBusterEncTrack) {
   uint32_t width  = 3840;
   uint32_t height = 2160;
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
@@ -639,7 +638,7 @@ TEST_F(RecorderPostprocessVideoGTest, SessionWith4KEnc1080pYUVHazeBusterTrack) {
   uint32_t width  = 3840;
   uint32_t height = 2160;
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
@@ -806,7 +805,7 @@ TEST_F(RecorderPostprocessVideoGTest,
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 4);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t track_id_1080p_avc = 1;
@@ -1013,7 +1012,7 @@ TEST_F(RecorderPostprocessVideoGTest,
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 4);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t track_id_1440p_avc = 1;
@@ -1220,7 +1219,7 @@ TEST_F(RecorderPostprocessVideoGTest,
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 4);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t track_id_4k_avc   = 1;
@@ -1424,7 +1423,7 @@ TEST_F(RecorderPostprocessVideoGTest, SessionWith4kEncCopy480pEncAndLinked480pEI
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t video_track_id_4kp_avc = 1;
@@ -1620,8 +1619,7 @@ TEST_F(RecorderPostprocessVideoGTest, SessionWith1440p60FPSSmoothZoom) {
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  camera_start_params_.frame_rate = 60;
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 60);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t video_track_id_1440p_avc = 1;
@@ -1790,7 +1788,7 @@ TEST_F(RecorderPostprocessVideoGTest, SessionWith4k_VHDR_PM_TNR_1080pLinked720p)
   ASSERT_TRUE(ret == NO_ERROR);
 
   // Start
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, fps);
   ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.GetDefaultCaptureParam(camera_id_, static_info_);
@@ -2044,8 +2042,7 @@ TEST_F(RecorderPostprocessVideoGTest,
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  camera_start_params_.frame_rate = 60;
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 60);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t video_track_id_1440p_avc = 1;
@@ -2254,8 +2251,7 @@ TEST_F(RecorderPostprocessVideoGTest,
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  camera_start_params_.frame_rate = 90;
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 90);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t video_track_id_960p_avc = 1;
@@ -2466,7 +2462,7 @@ TEST_F(RecorderPostprocessVideoGTest,
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t video_track_id_4kp_avc = 1;
@@ -2672,7 +2668,7 @@ TEST_F(RecorderPostprocessVideoGTest,
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 120);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t track_id_960p_avc = 1;
@@ -2876,7 +2872,7 @@ TEST_F(RecorderPostprocessVideoGTest,
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 120);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t track_id_960p_avc = 1;
@@ -3083,7 +3079,7 @@ TEST_F(RecorderPostprocessVideoGTest,
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 120);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t track_id_960p_avc = 1;
@@ -3290,7 +3286,7 @@ TEST_F(RecorderPostprocessVideoGTest,
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 120);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t track_id_960p_avc = 1;
@@ -3501,7 +3497,7 @@ TEST_F(RecorderPostprocessVideoGTest,
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 120);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t track_id_960p_avc = 1;
@@ -3714,7 +3710,7 @@ TEST_F(RecorderPostprocessVideoGTest,
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t track_id_1080p_avc = 1;
@@ -3922,7 +3918,7 @@ TEST_F(RecorderPostprocessVideoGTest,
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t track_id_1080p_avc = 1;
@@ -4130,7 +4126,7 @@ TEST_F(RecorderPostprocessVideoGTest,
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t track_id_1080p_avc = 1;
@@ -4341,7 +4337,7 @@ TEST_F(RecorderPostprocessVideoGTest,
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t track_id_1080p_avc = 1;
@@ -4555,7 +4551,7 @@ TEST_F(RecorderPostprocessVideoGTest,
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t track_id_1080p_avc = 1;
@@ -4769,7 +4765,7 @@ TEST_F(RecorderPostprocessVideoGTest,
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 60);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t track_id_1080p_avc = 1;
@@ -4974,7 +4970,7 @@ TEST_F(RecorderPostprocessVideoGTest,
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 60);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t track_id_1080p_avc = 1;
@@ -5182,7 +5178,7 @@ TEST_F(RecorderPostprocessVideoGTest,
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 60);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t track_id_1080p_avc = 1;
@@ -5390,7 +5386,7 @@ TEST_F(RecorderPostprocessVideoGTest,
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 60);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t track_id_1080p_avc = 1;
@@ -5602,7 +5598,7 @@ TEST_F(RecorderPostprocessVideoGTest,
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 60);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t track_id_1080p_avc = 1;
@@ -5816,7 +5812,7 @@ TEST_F(RecorderPostprocessVideoGTest,
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 60);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t track_id_1080p_avc = 1;
@@ -6029,7 +6025,7 @@ TEST_F(RecorderPostprocessVideoGTest,
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 120);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t track_id_1080p_avc = 1;
@@ -6213,7 +6209,7 @@ TEST_F(RecorderPostprocessVideoGTest,
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 120);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t track_id_1080p_avc = 1;
@@ -6417,7 +6413,7 @@ TEST_F(RecorderPostprocessVideoGTest,
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 120);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t track_id_1080p_avc = 1;
@@ -6624,7 +6620,7 @@ TEST_F(RecorderPostprocessVideoGTest,
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 120);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t track_id_1080p_avc = 1;
@@ -6831,7 +6827,7 @@ TEST_F(RecorderPostprocessVideoGTest,
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 120);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t track_id_1080p_avc = 1;
@@ -7042,7 +7038,7 @@ TEST_F(RecorderPostprocessVideoGTest,
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 120);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t track_id_1080p_avc = 1;
@@ -7255,7 +7251,7 @@ TEST_F(RecorderPostprocessVideoGTest,
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 120);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t track_id_1080p_avc = 1;
@@ -7468,7 +7464,7 @@ TEST_F(RecorderPostprocessVideoGTest,
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t track_id_1440p_avc = 1;
@@ -7674,7 +7670,7 @@ TEST_F(RecorderPostprocessVideoGTest,
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t track_id_1440p_avc = 1;
@@ -7880,7 +7876,7 @@ TEST_F(RecorderPostprocessVideoGTest,
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t track_id_1440p_avc = 1;
@@ -8088,7 +8084,7 @@ TEST_F(RecorderPostprocessVideoGTest,
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t track_id_1440p_avc = 1;
@@ -8300,7 +8296,7 @@ TEST_F(RecorderPostprocessVideoGTest,
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 60);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t track_id_1440p_avc = 1;
@@ -8503,7 +8499,7 @@ TEST_F(RecorderPostprocessVideoGTest,
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 60);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t track_id_1440p_avc = 1;
@@ -8709,7 +8705,7 @@ TEST_F(RecorderPostprocessVideoGTest,
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 60);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t track_id_1440p_avc = 1;
@@ -8914,7 +8910,7 @@ TEST_F(RecorderPostprocessVideoGTest,
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 60);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t track_id_1440p_avc = 1;
@@ -9124,7 +9120,7 @@ TEST_F(RecorderPostprocessVideoGTest,
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 60);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t track_id_1440p_avc = 1;
@@ -9336,7 +9332,7 @@ TEST_F(RecorderPostprocessVideoGTest,
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 60);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t track_id_4k_avc   = 1;
@@ -9539,7 +9535,7 @@ TEST_F(RecorderPostprocessVideoGTest,
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 60);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t track_id_4k_avc   = 1;
@@ -9745,7 +9741,7 @@ TEST_F(RecorderPostprocessVideoGTest,
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 60);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t track_id_4k_avc   = 1;
@@ -9950,7 +9946,7 @@ TEST_F(RecorderPostprocessVideoGTest,
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 60);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t track_id_4k_avc   = 1;
@@ -10159,7 +10155,7 @@ TEST_F(RecorderPostprocessVideoGTest,
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t track_id_4k_avc   = 1;
@@ -10371,7 +10367,7 @@ TEST_F(RecorderPostprocessVideoGTest,
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 60);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t track_id_4k_avc   = 1;
@@ -10583,7 +10579,7 @@ TEST_F(RecorderPostprocessVideoGTest,
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 90);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t track_id_1080p_avc = 1;
@@ -10811,7 +10807,7 @@ TEST_F(RecorderPostprocessVideoGTest,
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t track_id_1080p_avc = 1;
@@ -11040,7 +11036,7 @@ TEST_F(RecorderPostprocessVideoGTest,
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 100);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t track_id_1080p_avc = 1;
@@ -11256,7 +11252,7 @@ TEST_F(RecorderPostprocessVideoGTest,
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 100);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t track_id_960p_avc = 1;
@@ -11472,7 +11468,7 @@ TEST_F(RecorderPostprocessVideoGTest, SessionWithDualCam4kEncCopy1080EncAndLinke
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t video_track_id_4k_avc     = 1;
@@ -11636,7 +11632,7 @@ TEST_F(RecorderPostprocessVideoGTest, SessionWithDualCam4kEncCopy1080EncAndLinke
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t video_track_id_4k_avc     = 1;
@@ -11832,7 +11828,7 @@ TEST_F(RecorderPostprocessVideoGTest, SessionWithSingleCam4kEncCopy1080EncAndCop
   uint32_t track3_width  = 1280;
   uint32_t track3_height = 720;
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t video_track_id_4k_avc = 1;
@@ -11996,7 +11992,7 @@ TEST_F(RecorderPostprocessVideoGTest, SessionWithDualCam4kEncCopy1080EncAndCopy7
   uint32_t track3_width  = 1440;
   uint32_t track3_height = 720;
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t video_track_id_4k_avc = 1;
@@ -12165,7 +12161,7 @@ TEST_F(RecorderPostprocessVideoGTest, SessionWithDualCam4kEncCopy1080EncAndCopy7
   uint32_t track3_width  = 1440;
   uint32_t track3_height = 720;
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t video_track_id_4k_avc = 1;
@@ -12350,7 +12346,12 @@ TEST_F(RecorderPostprocessVideoGTest, SessionWith4KEncWithSHDR) {
   VideoFormat format_type = VideoFormat::kAVC;
   uint32_t width  = 3840;
   uint32_t height = 2160;
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  // Setting Enable HDR Extra Param
+  CameraExtraParam extra_param;
+  VideoHDRMode vid_hdr_mode;
+  vid_hdr_mode.enable = true;
+  extra_param.Update(QMMF_VIDEO_HDR_MODE, vid_hdr_mode);
+  ret = recorder_.StartCamera(camera_id_, 30, extra_param);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -12361,12 +12362,6 @@ TEST_F(RecorderPostprocessVideoGTest, SessionWith4KEncWithSHDR) {
   VideoTrackCreateParam video_track_param{camera_id_, format_type, width,
                                           height, 30};
   uint32_t video_track_id = 1;
-
-  // Setting Enable HDR Extra Param
-  VideoExtraParam extra_param;
-  VideoHDRMode vid_hdr_mode;
-  vid_hdr_mode.enable = true;
-  extra_param.Update(QMMF_VIDEO_HDR_MODE, vid_hdr_mode);
 
   if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = { format_type, session_id, video_track_id,
@@ -12387,7 +12382,7 @@ TEST_F(RecorderPostprocessVideoGTest, SessionWith4KEncWithSHDR) {
       event_type, event_data, event_data_size); };
 
   ret = recorder_.CreateVideoTrack(session_id, video_track_id,
-                                   video_track_param, extra_param,
+                                   video_track_param,
                                    video_track_cb);
   ASSERT_TRUE(ret == NO_ERROR);
 
@@ -12446,7 +12441,12 @@ TEST_F(RecorderPostprocessVideoGTest, SessionWith4KEncWithSHDRInAecWait) {
   VideoFormat format_type = VideoFormat::kHEVC;
   uint32_t width  = 3840;
   uint32_t height = 2160;
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  // Set HDR Extra Param
+  CameraExtraParam extra_param;
+  VideoHDRMode vid_hdr_mode;
+  vid_hdr_mode.enable = true;
+  extra_param.Update(QMMF_VIDEO_HDR_MODE, vid_hdr_mode);
+  ret = recorder_.StartCamera(camera_id_, 30, extra_param);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -12457,12 +12457,6 @@ TEST_F(RecorderPostprocessVideoGTest, SessionWith4KEncWithSHDRInAecWait) {
   VideoTrackCreateParam video_track_param{camera_id_, format_type, width,
                                           height, 30};
   uint32_t video_track_id = 1;
-
-  // Set HDR Extra Param
-  VideoExtraParam extra_param;
-  VideoHDRMode vid_hdr_mode;
-  vid_hdr_mode.enable = true;
-  extra_param.Update(QMMF_VIDEO_HDR_MODE, vid_hdr_mode);
 
   // Set AEC Extra Param
   VideoWaitAECMode wait_aec;
@@ -12488,7 +12482,7 @@ TEST_F(RecorderPostprocessVideoGTest, SessionWith4KEncWithSHDRInAecWait) {
       event_type, event_data, event_data_size); };
 
   ret = recorder_.CreateVideoTrack(session_id, video_track_id,
-                                   video_track_param, extra_param,
+                                   video_track_param,
                                    video_track_cb);
   ASSERT_TRUE(ret == NO_ERROR);
 
@@ -12547,7 +12541,12 @@ TEST_F(RecorderPostprocessVideoGTest, SessionsWith4KEncTrackZZHDR) {
   VideoFormat format_type = VideoFormat::kAVC;
   uint32_t width  = 4096;
   uint32_t height = 2048;
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  // Setting Enable HDR Extra Param
+  CameraExtraParam extra_param;
+  VideoHDRMode vid_hdr_mode;
+  vid_hdr_mode.enable = true;
+  extra_param.Update(QMMF_VIDEO_HDR_MODE, vid_hdr_mode);
+  ret = recorder_.StartCamera(camera_id_, 30, extra_param);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -12558,12 +12557,6 @@ TEST_F(RecorderPostprocessVideoGTest, SessionsWith4KEncTrackZZHDR) {
   VideoTrackCreateParam video_track_param{camera_id_, format_type, width,
                                           height, 30};
   uint32_t video_track_id = 1;
-
-  // Setting Enable HDR Extra Param
-  VideoExtraParam extra_param;
-  VideoHDRMode vid_hdr_mode;
-  vid_hdr_mode.enable = true;
-  extra_param.Update(QMMF_VIDEO_HDR_MODE, vid_hdr_mode);
 
   if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = { format_type, session_id, video_track_id,
@@ -12584,7 +12577,7 @@ TEST_F(RecorderPostprocessVideoGTest, SessionsWith4KEncTrackZZHDR) {
       event_type, event_data, event_data_size); };
 
   ret = recorder_.CreateVideoTrack(session_id, video_track_id,
-                                   video_track_param, extra_param,
+                                   video_track_param,
                                    video_track_cb);
   ASSERT_TRUE(ret == NO_ERROR);
 
@@ -12655,7 +12648,12 @@ TEST_F(RecorderPostprocessVideoGTest, SessionWithDualCam4k30Enc1080p30EncAndLink
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  // Setting Enable HDR Extra Param
+  CameraExtraParam extra_param_hdr;
+  VideoHDRMode vid_hdr_mode;
+  vid_hdr_mode.enable = true;
+  extra_param_hdr.Update(QMMF_VIDEO_HDR_MODE, vid_hdr_mode);
+  ret = recorder_.StartCamera(camera_id_, 30, extra_param_hdr);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t video_track_id_4k_avc     = 1;
@@ -12700,14 +12698,8 @@ TEST_F(RecorderPostprocessVideoGTest, SessionWithDualCam4k30Enc1080p30EncAndLink
         void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
         event_type, event_data, event_data_size); };
 
-    // Setting Enable HDR Extra Param
-    VideoExtraParam extra_param_hdr;
-    VideoHDRMode vid_hdr_mode;
-    vid_hdr_mode.enable = true;
-    extra_param_hdr.Update(QMMF_VIDEO_HDR_MODE, vid_hdr_mode);
-
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_4k_avc,
-                                     video_track_param, extra_param_hdr,
+                                     video_track_param,
                                      video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
@@ -12728,7 +12720,7 @@ TEST_F(RecorderPostprocessVideoGTest, SessionWithDualCam4k30Enc1080p30EncAndLink
     };
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_1080p_avc,
-                                     video_track_param, extra_param_hdr,
+                                     video_track_param,
                                      video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
@@ -12846,7 +12838,12 @@ TEST_F(RecorderPostprocessVideoGTest,
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  // Setting Enable HDR Extra Param
+  CameraExtraParam extra_param_hdr;
+  VideoHDRMode vid_hdr_mode;
+  vid_hdr_mode.enable = true;
+  extra_param_hdr.Update(QMMF_VIDEO_HDR_MODE, vid_hdr_mode);
+  ret = recorder_.StartCamera(camera_id_, 60, extra_param_hdr);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t video_track_id_4k_avc     = 1;
@@ -12892,14 +12889,8 @@ TEST_F(RecorderPostprocessVideoGTest,
         void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
         event_type, event_data, event_data_size); };
 
-    // Setting Enable HDR Extra Param
-    VideoExtraParam extra_param_hdr;
-    VideoHDRMode vid_hdr_mode;
-    vid_hdr_mode.enable = true;
-    extra_param_hdr.Update(QMMF_VIDEO_HDR_MODE, vid_hdr_mode);
-
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_4k_avc,
-                                     video_track_param, extra_param_hdr,
+                                     video_track_param,
                                      video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
@@ -12921,7 +12912,7 @@ TEST_F(RecorderPostprocessVideoGTest,
     };
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_1080p_avc,
-                                     video_track_param, extra_param_hdr,
+                                     video_track_param,
                                      video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
@@ -13039,7 +13030,12 @@ TEST_F(RecorderPostprocessVideoGTest,
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  // Setting Enable HDR Extra Param
+  CameraExtraParam extra_param_hdr;
+  VideoHDRMode vid_hdr_mode;
+  vid_hdr_mode.enable = true;
+  extra_param_hdr.Update(QMMF_VIDEO_HDR_MODE, vid_hdr_mode);
+  ret = recorder_.StartCamera(camera_id_, 30, extra_param_hdr);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t video_track_id_5_7k_avc     = 1;
@@ -13084,14 +13080,8 @@ TEST_F(RecorderPostprocessVideoGTest,
         void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
         event_type, event_data, event_data_size); };
 
-    // Setting Enable HDR Extra Param
-    VideoExtraParam extra_param_hdr;
-    VideoHDRMode vid_hdr_mode;
-    vid_hdr_mode.enable = true;
-    extra_param_hdr.Update(QMMF_VIDEO_HDR_MODE, vid_hdr_mode);
-
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_5_7k_avc,
-                                     video_track_param, extra_param_hdr,
+                                     video_track_param,
                                      video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
@@ -13112,7 +13102,7 @@ TEST_F(RecorderPostprocessVideoGTest,
     };
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_1080p_avc,
-                                     video_track_param, extra_param_hdr,
+                                     video_track_param,
                                      video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 

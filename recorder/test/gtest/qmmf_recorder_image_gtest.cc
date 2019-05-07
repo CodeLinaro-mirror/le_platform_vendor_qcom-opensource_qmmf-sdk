@@ -65,7 +65,7 @@ TEST_F(RecorderImageGTest, ZSLCapture) {
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, frame_rate);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -232,7 +232,7 @@ TEST_F(RecorderImageGTest, RawZSLCapture) {
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, frame_rate);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -400,7 +400,7 @@ TEST_F(RecorderImageGTest, RawZSLCaptureWithLCACandDisplay) {
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, frame_rate);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -589,7 +589,7 @@ TEST_F(RecorderImageGTest, 4KSnapshotDisableEXIF) {
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -733,7 +733,7 @@ TEST_F(RecorderImageGTest, 10MPSnapshotDisableEXIF) {
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -882,7 +882,7 @@ TEST_F(RecorderImageGTest, 10MPSnapshotDisableEXIFUpdateFocalLength) {
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -1041,7 +1041,7 @@ TEST_F(RecorderImageGTest, 4KSnapshot) {
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -1177,7 +1177,7 @@ TEST_F(RecorderImageGTest, 4KSnapshotStillPlusRaw) {
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -1320,7 +1320,7 @@ TEST_F(RecorderImageGTest, 10MPSnapshot) {
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -1456,7 +1456,7 @@ TEST_F(RecorderImageGTest, 10MPJPEG422Snapshot) {
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -1654,8 +1654,9 @@ TEST_F(RecorderImageGTest, Jpeg422BurstSnapshotWithBayerLCAC15fps) {
       };
 
   const uint32_t frame_rate = 15;
-  camera_start_params_.frame_rate = frame_rate;
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_, result_cb);
+  CameraExtraParam empty_extra_params;
+  ret = recorder_.StartCamera(camera_id_, frame_rate,
+                              empty_extra_params, result_cb);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -1895,7 +1896,7 @@ TEST_F(RecorderImageGTest, 10MPSnapshotMultiThumbnails) {
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -2051,7 +2052,7 @@ TEST_F(RecorderImageGTest, 10MPSnapshotWithEdgeSmooth) {
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -2214,7 +2215,7 @@ TEST_F(RecorderImageGTest, 10MPSnapshotWithLCAC) {
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -2379,7 +2380,7 @@ TEST_F(RecorderImageGTest, 10MPSnapshotWithLCACandEdgeSmooth) {
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -2554,7 +2555,7 @@ TEST_F(RecorderImageGTest,
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -2746,7 +2747,7 @@ TEST_F(RecorderImageGTest, LowResVideo10MPContinuousSnapshotWithLCAC) {
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -2907,7 +2908,7 @@ TEST_F(RecorderImageGTest, LowResVideo10MPContinuousSnapshotWithLCACandEdgeSmoot
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -3085,8 +3086,7 @@ TEST_F(RecorderImageGTest, BurstSnapshotWithThumbnails) {
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  camera_start_params_.frame_rate = 30;
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   ImageParam image_param{};
@@ -3204,8 +3204,7 @@ TEST_F(RecorderImageGTest, BurstSnapshot) {
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  camera_start_params_.frame_rate = 30;
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   ImageParam image_param{};
@@ -3462,7 +3461,7 @@ TEST_F(RecorderImageGTest, BurstSnapshotWithYuvCAC) {
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -3655,7 +3654,7 @@ TEST_F(RecorderImageGTest, BurstSnapshotWithBayerLCAC) {
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -3869,8 +3868,9 @@ TEST_F(RecorderImageGTest, BurstSnapshotWithBayerLCAC15fps) {
       };
 
   const uint32_t frame_rate = 15;
-  camera_start_params_.frame_rate = frame_rate;
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_, result_cb);
+  CameraExtraParam empty_extra_params;
+  ret = recorder_.StartCamera(camera_id_, frame_rate,
+                              empty_extra_params, result_cb);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -4129,8 +4129,9 @@ TEST_F(RecorderImageGTest, BurstSnapshotWithBayerLCAC15fpsWithCdsOff) {
       };
 
   const uint32_t frame_rate = 15;
-  camera_start_params_.frame_rate = frame_rate;
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_, result_cb);
+  CameraExtraParam empty_extra_params;
+  ret = recorder_.StartCamera(camera_id_, frame_rate,
+                              empty_extra_params, result_cb);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -4383,8 +4384,8 @@ TEST_F(RecorderImageGTest, AutoBurstCaptureWithBayerLCAC) {
           }
         };
 
-    camera_start_params_.frame_rate = rate;
-    ret = recorder_.StartCamera(camera_id_, camera_start_params_, result_cb);
+    CameraExtraParam empty_extra_params;
+    ret = recorder_.StartCamera(camera_id_, rate, empty_extra_params, result_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
     SessionCb session_status_cb = CreateSessionStatusCb();
@@ -4649,8 +4650,9 @@ TEST_F(RecorderImageGTest, ContinuousSnapshotWithBayerLCAC) {
         }
       };
 
-  camera_start_params_.frame_rate = preview_frame_rate;
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_, result_cb);
+  CameraExtraParam empty_extra_params;
+  ret = recorder_.StartCamera(camera_id_, preview_frame_rate,
+                              empty_extra_params, result_cb);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -4886,7 +4888,7 @@ TEST_F(RecorderImageGTest, MaxSnapshotThumb) {
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   int32_t thumb_size[2] = {0,0};
@@ -4994,7 +4996,7 @@ TEST_F(RecorderImageGTest, 1080pRawYUVSnapshot) {
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   ImageParam image_param{};
@@ -5079,7 +5081,7 @@ TEST_F(RecorderImageGTest, RawBayerRDI10Snapshot) {
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   camera_metadata_entry_t entry;
@@ -5153,7 +5155,7 @@ TEST_F(RecorderImageGTest, RawBayerRDI12Snapshot) {
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   camera_metadata_entry_t entry;
@@ -5226,7 +5228,7 @@ TEST_F(RecorderImageGTest, RawBayerRDI8Snapshot) {
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   camera_metadata_entry_t entry;
@@ -5297,8 +5299,7 @@ TEST_F(RecorderImageGTest, SingleSnapshotFocalLength) {
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  camera_start_params_.frame_rate = 30;
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   ImageParam image_param{};
@@ -5401,7 +5402,7 @@ TEST_F(RecorderImageGTest, LowResVideo10MPContinuousSnapshotWithLCACAndCdsOff) {
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -5579,7 +5580,7 @@ TEST_F(RecorderImageGTest,
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -5795,7 +5796,7 @@ TEST_F(RecorderImageGTest, PreviewAndRaw10BitBayerSnapshot) {
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -5916,7 +5917,7 @@ TEST_F(RecorderImageGTest, 4kSnapshotWithGPSInfo) {
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -6071,7 +6072,7 @@ TEST_F(RecorderImageGTest, DualCam4KSnapshotWithRaw) {
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -6207,7 +6208,18 @@ TEST_F(RecorderImageGTest,
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  // Enable Force Sensor Mode
+  CameraExtraParam extra_param_force_mode;
+  ForceSensorMode force_sensor_mode;
+  // 4056x3040 30 FPS RAW12 Sensor Mode
+  if (!sensor_mode_file_name_.empty()) {
+    std::string mode = "4056x3040@30FPS_RAW12";
+    force_sensor_mode.mode = FindSensorModeIndex(sensor_mode_file_name_,
+                                                 mode);
+  }
+
+  extra_param_force_mode.Update(QMMF_FORCE_SENSOR_MODE, force_sensor_mode);
+  ret = recorder_.StartCamera(camera_id_, 30, extra_param_force_mode);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t video_track_id_4k_hevc = 1;
@@ -6250,18 +6262,6 @@ TEST_F(RecorderImageGTest,
 
     track_trace_1.SetUp(session_id, video_track_id_4k_hevc, 30.0);
 
-    // Enable Force Sensor Mode
-    VideoExtraParam extra_param_force_mode;
-    ForceSensorMode force_sensor_mode;
-    // 4056x3040 30 FPS RAW12 Sensor Mode
-    if (!sensor_mode_file_name_.empty()) {
-      std::string mode = "4056x3040@30FPS_RAW12";
-      force_sensor_mode.mode = FindSensorModeIndex(sensor_mode_file_name_,
-                                                   mode);
-    }
-
-    extra_param_force_mode.Update(QMMF_FORCE_SENSOR_MODE, force_sensor_mode);
-
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
@@ -6276,7 +6276,7 @@ TEST_F(RecorderImageGTest,
     };
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_4k_hevc,
-                                     video_track_param, extra_param_force_mode,
+                                     video_track_param,
                                      video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
@@ -6441,7 +6441,18 @@ TEST_F(RecorderImageGTest,
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  // Enable Force Sensor Mode
+  CameraExtraParam extra_param_force_mode;
+  ForceSensorMode force_sensor_mode;
+  // 4056x2288 60 FPS RAW10
+  if (!sensor_mode_file_name_.empty()) {
+    std::string mode = "4056x2288@60FPS_RAW10";
+    force_sensor_mode.mode = FindSensorModeIndex(sensor_mode_file_name_,
+                                                 mode);
+  }
+
+  extra_param_force_mode.Update(QMMF_FORCE_SENSOR_MODE, force_sensor_mode);
+  ret = recorder_.StartCamera(camera_id_, 60, extra_param_force_mode);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t video_track_id_4k_hevc = 1;
@@ -6484,18 +6495,6 @@ TEST_F(RecorderImageGTest,
 
     track_trace_1.SetUp(session_id, video_track_id_4k_hevc, 60.0);
 
-    // Enable Force Sensor Mode
-    VideoExtraParam extra_param_force_mode;
-    ForceSensorMode force_sensor_mode;
-    // 4056x2288 60 FPS RAW10
-    if (!sensor_mode_file_name_.empty()) {
-      std::string mode = "4056x2288@60FPS_RAW10";
-      force_sensor_mode.mode = FindSensorModeIndex(sensor_mode_file_name_,
-                                                   mode);
-    }
-
-    extra_param_force_mode.Update(QMMF_FORCE_SENSOR_MODE, force_sensor_mode);
-
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
@@ -6510,7 +6509,7 @@ TEST_F(RecorderImageGTest,
     };
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_4k_hevc,
-                                     video_track_param, extra_param_force_mode,
+                                     video_track_param,
                                      video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 

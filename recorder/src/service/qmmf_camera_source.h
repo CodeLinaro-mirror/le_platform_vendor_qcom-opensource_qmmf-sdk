@@ -74,7 +74,9 @@ class CameraSource {
   ~CameraSource();
 
   /// Open Camera.
-  status_t StartCamera(const uint32_t camera_id, const CameraStartParam &param,
+  status_t StartCamera(const uint32_t camera_id,
+                       const float frame_rate,
+                       const CameraExtraParam& extra_param,
                        const ResultCb &cb = nullptr,
                        const ErrorCb &errcb = nullptr);
 

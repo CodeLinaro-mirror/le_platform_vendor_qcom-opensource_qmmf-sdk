@@ -87,7 +87,8 @@ class RecorderImpl {
 
   /// Start(open) the Camera
   status_t StartCamera(const uint32_t client_id, const uint32_t camera_id,
-                       const CameraStartParam& param,
+                       const float frame_rate,
+                       const CameraExtraParam& extra_param,
                        bool enable_result_cb = false);
 
   /// Stop(close) the Camera

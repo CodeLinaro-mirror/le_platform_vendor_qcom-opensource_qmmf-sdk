@@ -123,8 +123,10 @@ status_t CameraSource::FlushTrack(const uint32_t track_id) {
   QMMF_DEBUG("%s: Exit", __func__);
   return NO_ERROR;
 }
+
 status_t CameraSource::StartCamera(const uint32_t camera_id,
-                                   const CameraStartParam &param,
+                                   const float frame_rate,
+                                   const CameraExtraParam& extra_param,
                                    const ResultCb &cb,
                                    const ErrorCb &errcb) {
 
@@ -158,7 +160,7 @@ status_t CameraSource::StartCamera(const uint32_t camera_id,
     camera_map_.emplace(camera_id, camera);
   }
 
-  auto ret = camera->OpenCamera(camera_id, param, cb, errcb);
+  auto ret = camera->OpenCamera(camera_id, frame_rate, extra_param, cb, errcb);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: OpenCamera(%d) Failed!", __func__, camera_id);
     if (!is_virtual_camera_id) {

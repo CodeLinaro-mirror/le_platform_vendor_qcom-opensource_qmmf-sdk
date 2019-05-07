@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -326,6 +326,19 @@ class ImageConfigParam : public ExtraParam {
 
   ImageConfigParam(const ImageConfigParam &other)
   : ExtraParam(static_cast<ExtraParam>(other)) {};
+
+};
+
+class CameraExtraParam : public ExtraParam {
+ public:
+  CameraExtraParam()
+      : ExtraParam() {};
+
+  CameraExtraParam(const void *data, const size_t &size)
+      : ExtraParam(data, size) {};
+
+  CameraExtraParam(const CameraExtraParam &other)
+      : ExtraParam(static_cast<ExtraParam>(other)) {};
 
 };
 

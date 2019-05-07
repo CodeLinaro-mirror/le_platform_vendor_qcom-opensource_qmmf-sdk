@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -70,7 +70,7 @@ TEST_F(Recorder360Gtest, CreateDeleteSession) {
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
@@ -128,7 +128,7 @@ TEST_F(Recorder360Gtest, StartStopMultiCamera) {
                                          0);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+    ret = recorder_.StartCamera(multicam_id_, 30);
     ASSERT_TRUE(ret == NO_ERROR);
     sleep(2);
 
@@ -169,7 +169,7 @@ TEST_F(Recorder360Gtest, Stitched6KSnapshot) {
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   ImageParam image_param{};
@@ -242,7 +242,7 @@ TEST_F(Recorder360Gtest, Stitched6KSnapshotWithThumbnails) {
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   ImageConfigParam image_config;
@@ -332,7 +332,7 @@ TEST_F(Recorder360Gtest, Stitched4KSnapshot) {
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   ImageParam image_param{};
@@ -403,7 +403,7 @@ TEST_F(Recorder360Gtest, StitchedHDSnapshot) {
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   ImageParam image_param{};
@@ -474,7 +474,7 @@ TEST_F(Recorder360Gtest, Stitched720pSnapshot) {
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   ImageParam image_param{};
@@ -551,7 +551,7 @@ TEST_F(Recorder360Gtest, Stitched4KYUVTrack) {
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
@@ -649,7 +649,7 @@ TEST_F(Recorder360Gtest, Stitched4KMJpegTrack) {
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
@@ -746,7 +746,7 @@ TEST_F(Recorder360Gtest, StitchedHDYUVTrack) {
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
@@ -840,7 +840,7 @@ TEST_F(Recorder360Gtest, Stitched720pYUVTrack) {
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
@@ -935,7 +935,7 @@ TEST_F(Recorder360Gtest, Stitched4KAndFullHDYUVTrack) {
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -1042,7 +1042,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrack) {
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
@@ -1149,7 +1149,7 @@ TEST_F(Recorder360Gtest, StitchedHDEncTrack) {
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
@@ -1258,7 +1258,7 @@ TEST_F(Recorder360Gtest, Stitched720pEncTrack) {
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
@@ -1367,8 +1367,7 @@ TEST_F(Recorder360Gtest, Stitched720p120fpsEncTrack) {
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  camera_start_params_.frame_rate = fps;
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, fps);
   ASSERT_TRUE(ret == NO_ERROR);
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
@@ -1481,8 +1480,7 @@ TEST_F(Recorder360Gtest, Stitched4KAnd720pEncTrack) {
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  camera_start_params_.frame_rate = stream_fps;
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, stream_fps);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -1632,8 +1630,7 @@ TEST_F(Recorder360Gtest, Stitched4KAnd480pEncTrack) {
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  camera_start_params_.frame_rate = fps;
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, fps);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -1784,8 +1781,7 @@ TEST_F(Recorder360Gtest, StitchedHDAnd480pEncTrack) {
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  camera_start_params_.frame_rate = fps;
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, fps);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -1936,8 +1932,7 @@ TEST_F(Recorder360Gtest, StitchedHDWaitAECModeAnd480pEncTrack) {
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  camera_start_params_.frame_rate = fps;
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, fps);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -2092,8 +2087,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNR) {
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  camera_start_params_.frame_rate = stream_fps;
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, stream_fps);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -2239,8 +2233,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRAnd1080pYUVTrack) {
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  camera_start_params_.frame_rate = stream_fps;
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, stream_fps);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -2419,8 +2412,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRAnd480pYUVTrack) {
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  camera_start_params_.frame_rate = stream_fps;
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, stream_fps);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -2603,8 +2595,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAnd480pYUVTrack) 
       recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  camera_start_params_.frame_rate = stream_fps;
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, stream_fps);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -2802,8 +2793,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAnd960pYUVTrack) 
       recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  camera_start_params_.frame_rate = stream_fps;
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, stream_fps);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -3004,8 +2994,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayMix) {
       recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  camera_start_params_.frame_rate = stream_fps;
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, stream_fps);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -3366,8 +3355,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayBlob) {
       recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  camera_start_params_.frame_rate = stream_fps;
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, stream_fps);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -3734,8 +3722,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAndOverlayMix) {
       recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  camera_start_params_.frame_rate = stream_fps;
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, stream_fps);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -4050,8 +4037,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAndOverlayBlob) {
       recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  camera_start_params_.frame_rate = stream_fps;
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, stream_fps);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -4433,8 +4419,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayBlobAnd480pYUVTrack
       recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  camera_start_params_.frame_rate = stream_fps;
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, stream_fps);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -4833,8 +4818,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlobAn
       recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  camera_start_params_.frame_rate = stream_fps;
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, stream_fps);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -5243,8 +5227,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlobAn
       recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  camera_start_params_.frame_rate = stream_fps;
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, stream_fps);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -5646,8 +5629,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNR480pPreviewTrack9
       recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  camera_start_params_.frame_rate = stream_fps;
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, stream_fps);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -5873,8 +5855,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNR480pPreviewEncTra
       recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  camera_start_params_.frame_rate = stream_fps;
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, stream_fps);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -6139,8 +6120,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
       recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  camera_start_params_.frame_rate = stream_fps;
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, stream_fps);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -6609,8 +6589,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
       recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  camera_start_params_.frame_rate = stream_fps;
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, stream_fps);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -7068,8 +7047,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNR960pEncTrack960pY
       recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  camera_start_params_.frame_rate = 30;
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -7319,8 +7297,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
       recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  camera_start_params_.frame_rate = 30;
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -7776,8 +7753,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
       recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  camera_start_params_.frame_rate = 24;
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, 24);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -8229,8 +8205,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
       recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  camera_start_params_.frame_rate = 30;
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -8684,8 +8659,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
       recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  camera_start_params_.frame_rate = 24;
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, 24);
   ASSERT_TRUE(ret == NO_ERROR);
 
     SessionCb session_status_cb = CreateSessionStatusCb();
@@ -9138,8 +9112,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
       recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  camera_start_params_.frame_rate = 30;
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
     SessionCb session_status_cb = CreateSessionStatusCb();
@@ -9589,8 +9562,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
       recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  camera_start_params_.frame_rate = 30;
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
     SessionCb session_status_cb = CreateSessionStatusCb();
@@ -10042,8 +10014,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
       recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  camera_start_params_.frame_rate = 30;
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
     SessionCb session_status_cb = CreateSessionStatusCb();
@@ -10472,8 +10443,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
       recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  camera_start_params_.frame_rate = 24;
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, 24);
   ASSERT_TRUE(ret == NO_ERROR);
 
     SessionCb session_status_cb = CreateSessionStatusCb();
@@ -10924,8 +10894,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
       recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  camera_start_params_.frame_rate = 24;
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
     SessionCb session_status_cb = CreateSessionStatusCb();
@@ -11385,8 +11354,7 @@ TEST_F(Recorder360Gtest, Stitched720pYUVSessionAnd4KEncSession) {
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  camera_start_params_.frame_rate = stream_fps;
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, stream_fps);
   ASSERT_TRUE(ret == NO_ERROR);
 
     SessionCb session_status_cb = CreateSessionStatusCb();
@@ -11552,8 +11520,7 @@ TEST_F(Recorder360Gtest, Stitched720pYUVSessionAnd4KEncSessionAtRunTime) {
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  camera_start_params_.frame_rate = stream_fps;
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, stream_fps);
   ASSERT_TRUE(ret == NO_ERROR);
 
     SessionCb session_status_cb = CreateSessionStatusCb();
@@ -11698,7 +11665,7 @@ TEST_F(Recorder360Gtest, SideBySide6KSnapshot) {
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   ImageParam image_param{};
@@ -11771,7 +11738,7 @@ TEST_F(Recorder360Gtest, SideBySide4KSnapshot) {
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   ImageParam image_param{};
@@ -11844,7 +11811,7 @@ TEST_F(Recorder360Gtest, SideBySideHDSnapshot) {
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   ImageParam image_param{};
@@ -11917,7 +11884,7 @@ TEST_F(Recorder360Gtest, SideBySide720pSnapshot) {
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   ImageParam image_param{};
@@ -11996,7 +11963,7 @@ TEST_F(Recorder360Gtest, SideBySide4KYUVTrack) {
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
@@ -12091,7 +12058,7 @@ TEST_F(Recorder360Gtest, SideBySideHDYUVTrack) {
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
@@ -12184,7 +12151,7 @@ TEST_F(Recorder360Gtest, SideBySide720pYUVTrack) {
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
@@ -12280,7 +12247,7 @@ TEST_F(Recorder360Gtest, SideBySide4KAndFullHDYUVTrack) {
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
     SessionCb session_status_cb = CreateSessionStatusCb();
@@ -12391,7 +12358,7 @@ TEST_F(Recorder360Gtest, SideBySide4KEncTrack) {
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
@@ -12499,7 +12466,7 @@ TEST_F(Recorder360Gtest, SideBySideHDEncTrack) {
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
@@ -12608,7 +12575,7 @@ TEST_F(Recorder360Gtest, SideBySide720pEncTrack) {
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
@@ -12714,8 +12681,7 @@ TEST_F(Recorder360Gtest, SideBySide720p120fpsEncTrack) {
   ASSERT_TRUE(ret == NO_ERROR);
 
   float fps = 120;
-  camera_start_params_.frame_rate = fps;
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, fps);
   ASSERT_TRUE(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
@@ -12831,8 +12797,7 @@ TEST_F(Recorder360Gtest, SideBySide4KAnd720pEncTrack) {
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  camera_start_params_.frame_rate = stream_fps;
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, stream_fps);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -12980,7 +12945,7 @@ TEST_F(Recorder360Gtest, SideBySide4KUHDEncTrackWithMaxFOV) {
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
@@ -13097,7 +13062,7 @@ TEST_F(Recorder360Gtest, SideBySide4KUHDYUVTrackWithMaxPPD) {
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
@@ -13222,7 +13187,7 @@ TEST_F(Recorder360Gtest, SideBySide4KUHDEncTrackWithMaxPPD) {
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
@@ -13362,7 +13327,7 @@ TEST_F(Recorder360Gtest, SideBySide4KUHDEncMaxFOVAndSingleWXGAYUVTrack) {
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
@@ -13524,7 +13489,7 @@ TEST_F(Recorder360Gtest, SideBySide4KUHDEncMaxPPDAndSingleWXGAYUVTrack) {
   ret = recorder_.ConfigureMultiCamera(multicam_id_, multicam_type_, nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   VideoTrackCreateParam video_track_param{multicam_id_, VideoFormat::kAVC,
@@ -13705,7 +13670,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAllAWBModes) {
                                        nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
@@ -13882,7 +13847,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeAuto) {
                                        nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
@@ -14005,7 +13970,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeIncandescent) {
                                        nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
@@ -14126,7 +14091,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeFluorescent) {
                                        nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
@@ -14247,7 +14212,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeWarmFluorescent) {
                                        nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
@@ -14369,7 +14334,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeDaylight) {
                                        nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
@@ -14491,7 +14456,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeCloudyDaylight) {
                                        nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
@@ -14612,7 +14577,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeTwilight) {
                                        nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
@@ -14733,7 +14698,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAWBModeShade) {
                                        nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
@@ -14862,7 +14827,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAllAEAntiBandingModes) {
                                        nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
@@ -15010,7 +14975,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingModeOff) {
                                        nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
@@ -15131,7 +15096,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingMode50Hz) {
                                        nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
@@ -15252,7 +15217,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingMode60Hz) {
                                        nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
@@ -15373,7 +15338,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAEAntiBandingModeAuto) {
                                        nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
@@ -15504,7 +15469,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncAllISOModes) {
                                        nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
@@ -15669,7 +15634,7 @@ TEST_F(Recorder360Gtest, TestISOModeAuto) {
                                        nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
@@ -15791,7 +15756,7 @@ TEST_F(Recorder360Gtest, TestISOMode100) {
                                        nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
@@ -15913,7 +15878,7 @@ TEST_F(Recorder360Gtest, TestISOMode200) {
                                        nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
@@ -16035,7 +16000,7 @@ TEST_F(Recorder360Gtest, TestISOMode400) {
                                        nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
@@ -16157,7 +16122,7 @@ TEST_F(Recorder360Gtest, TestISOMode800) {
                                        nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
@@ -16279,7 +16244,7 @@ TEST_F(Recorder360Gtest, TestISOMode1600) {
                                        nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
@@ -16402,7 +16367,7 @@ TEST_F(Recorder360Gtest, TestISOMode3200) {
                                        nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
@@ -16525,7 +16490,7 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackAnd6KSnapshot) {
                                        nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -16654,7 +16619,7 @@ TEST_F(Recorder360Gtest, StitchedHDEncTrackAnd6KSnapshot) {
                                        nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -16783,7 +16748,7 @@ TEST_F(Recorder360Gtest, Stitched720pEncTrackAnd6KSnapshot) {
                                        nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -16913,7 +16878,7 @@ TEST_F(Recorder360Gtest, Stitched480pEncTrackAnd6KSnapshot) {
                                        nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -17045,7 +17010,7 @@ TEST_F(Recorder360Gtest, Stitched480pYUVTrackAnd6KSnapshotWithCancelCapture) {
                                        nullptr, 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_);
+  ret = recorder_.StartCamera(multicam_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -17174,7 +17139,8 @@ TEST_F(Recorder360Gtest, Stitched480pEncTrackAndPrintLumaValues) {
                                  const CameraMetadata &result) {
     CameraResultCallbackHandler(camera_id, result);
   };
-  ret = recorder_.StartCamera(multicam_id_, camera_start_params_, result_cb);
+  CameraExtraParam empty_extra_params;
+  ret = recorder_.StartCamera(multicam_id_, 30, empty_extra_params, result_cb);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();

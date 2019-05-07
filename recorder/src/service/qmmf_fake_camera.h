@@ -50,7 +50,8 @@ class FakeCamera : public CameraInterface {
 
   ~FakeCamera();
 
-  status_t OpenCamera(const uint32_t camera_id, const CameraStartParam &param,
+  status_t OpenCamera(const uint32_t camera_id, const float frame_rate,
+                      const CameraExtraParam& extra_param,
                       const ResultCb &cb = nullptr,
                       const ErrorCb &errcb = nullptr) override;
 
@@ -120,7 +121,6 @@ private:
   uint32_t                 camera_id_;
   int32_t                  stream_id_;
   int32_t                  stream_id_count_;
-  CameraStartParam         camera_start_params_;
   StreamParam              stream_param_;
   ResultCb                 result_cb_;
   ErrorCb                  error_cb_;

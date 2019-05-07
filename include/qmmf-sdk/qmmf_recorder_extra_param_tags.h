@@ -57,6 +57,8 @@ enum ParamTag {
   QMMF_TRACK_CROP,
   QMMF_FORCE_SENSOR_MODE,
   QMMF_EIS,
+  QMMF_PARTIAL_METADATA,
+  QMMF_CAMERA_SLAVE_MODE,
 };
 
 enum class RotationFlags {
@@ -125,6 +127,15 @@ enum class SnapshotMode {
   /**< ZSL queue will be used when user call CaptureImage API. ZSL stream    */
   /**< will be stopped when mode is changed or CancelCaptureImage is called. */
   kZsl
+};
+
+enum class SlaveMode {
+  /**< this is not valid mode */
+  kNone,
+  /**< Camera Master mode */
+  kMaster,
+  /**< Camera Slave mode */
+  kSlave,
 };
 
 struct SourceSurfaceDesc : DataTagBase {
@@ -314,6 +325,33 @@ struct EISSetup : DataTagBase {
   EISSetup() :
     DataTagBase(QMMF_EIS),
     enable(false) {
+  }
+};
+
+struct PartialMetadata : DataTagBase {
+  /**< Client can configure whether it requires partial Metadata or not. */
+  /**< Camera Adaptor will send the partial data to camera context */
+  /**< irrespective of clients needs it or not.Its responsibility  */
+  /**< of context to check whether to propagate the partial data to */
+  /**< client or not. Default: false to disable PartialMetadata*/
+  bool enable;
+  PartialMetadata() :
+    DataTagBase(QMMF_PARTIAL_METADATA),
+    enable(false) {
+  }
+};
+
+struct CameraSlaveMode : DataTagBase {
+  /**< Add support for multi client support for same camera. */
+  /**< Client can open a given camera in slave mode. */
+  /**< The camera being opened as slave needs to be already opened by */
+  /**< another client which uses it as master. If this requirement is */
+  /**< not fulfilled then the slave client needs to wait until signaled */
+  /**< on event from the service. Default: SlaveMode::kNone*/
+  SlaveMode mode;
+  CameraSlaveMode() :
+    DataTagBase(QMMF_CAMERA_SLAVE_MODE),
+    mode(SlaveMode::kNone) {
   }
 };
 

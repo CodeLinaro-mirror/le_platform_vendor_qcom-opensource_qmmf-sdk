@@ -463,10 +463,6 @@ void GtestCommon::SetUp() {
   property_get(PROP_MEASURE_SOF_LATENCY, prop_val, "0");
   enable_sof_latency_ = (atoi(prop_val) == 0) ? false : true;
 
-  camera_start_params_ = {};
-  camera_start_params_.frame_rate       = 30;
-  camera_start_params_.flags            = 0x0;
-
   display_started_ = false;
 #ifndef DISABLE_DISPLAY
   enable_gfx_ = false;

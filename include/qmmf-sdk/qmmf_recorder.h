@@ -92,7 +92,9 @@ class Recorder {
   /// calling CaptureImage API. The result callback is optional. In case
   /// it is set by client, notifications will get triggered on each
   /// incoming streaming request along with the camera results.
-  status_t StartCamera(const uint32_t camera_id, const CameraStartParam &param,
+  status_t StartCamera(const uint32_t camera_id,
+                       const float frame_rate,
+                       const CameraExtraParam& extra_param = {},
                        const CameraResultCb &cb = nullptr);
 
   /// @brief Stops camera. This API should be called to free up all resources

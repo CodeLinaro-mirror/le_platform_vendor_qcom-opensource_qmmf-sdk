@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -80,7 +80,7 @@ TEST_F(RecorderBaseGTest, StartStopCamera) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+    ret = recorder_.StartCamera(camera_id_, 30);
     ASSERT_TRUE(ret == NO_ERROR);
     sleep(3);
 
@@ -117,7 +117,7 @@ TEST_F(RecorderBaseGTest, CreateDeleteSession) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+    ret = recorder_.StartCamera(camera_id_, 30);
     ASSERT_TRUE(ret == NO_ERROR);
 
     SessionCb session_status_cb = CreateSessionStatusCb();
@@ -175,7 +175,7 @@ TEST_F(RecorderBaseGTest, SessionWith480pYUVTrack) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+    ret = recorder_.StartCamera(camera_id_, 30);
     ASSERT_TRUE(ret == NO_ERROR);
 
 
@@ -277,7 +277,8 @@ TEST_F(RecorderBaseGTest, StartStopCameraZSLMode) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
-    ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+    CameraExtraParam empty_extra_params;
+    ret = recorder_.StartCamera(camera_id_, 30);
     ASSERT_TRUE(ret == NO_ERROR);
 
     SessionCb session_status_cb = CreateSessionStatusCb();
@@ -423,9 +424,8 @@ TEST_F(RecorderBaseGTest, CancelCaptureImage) {
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  camera_start_params_.frame_rate = 30;
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   ImageParam image_param{};
@@ -570,7 +570,8 @@ TEST_F(RecorderBaseGTest, SingleSessionCameraParamTest) {
   CameraResultCb result_cb = [&] (uint32_t camera_id,
       const CameraMetadata &result) {
     CameraResultCallbackHandler(camera_id, result); };
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_, result_cb);
+  CameraExtraParam empty_extra_params;
+  ret = recorder_.StartCamera(camera_id_, 30, empty_extra_params, result_cb);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -682,7 +683,7 @@ TEST_F(RecorderBaseGTest, MultiSessionCameraParamTest) {
   VideoFormat format_type = VideoFormat::kAVC;
   uint32_t width  = 1920;
   uint32_t height = 1080;
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();

@@ -65,7 +65,8 @@ TEST_F(VideoGtest, FaceDetectionFor1080pYUVPreview) {
            ParseFaceInfo(result, face_info_);
            ApplyFaceOveralyOnStream(face_info_);};
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_, result_cb);
+  CameraExtraParam empty_extra_params;
+  ret = recorder_.StartCamera(camera_id_, 30, empty_extra_params, result_cb);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -185,7 +186,8 @@ TEST_F(VideoGtest, FaceDetectionFor1080pAVCVideo) {
            ParseFaceInfo(result, face_info_);
            ApplyFaceOveralyOnStream(face_info_);};
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_, result_cb);
+  CameraExtraParam empty_extra_params;
+  ret = recorder_.StartCamera(camera_id_, 30, empty_extra_params, result_cb);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -299,7 +301,7 @@ TEST_F(VideoGtest, SessionWith1080pYUVTrack) {
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
@@ -399,7 +401,7 @@ TEST_F(VideoGtest, MultiSessionsWith1080pEncTrack) {
   VideoFormat format_type = VideoFormat::kAVC;
   uint32_t width  = 1920;
   uint32_t height = 1080;
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -534,7 +536,7 @@ TEST_F(VideoGtest, SessionWith1080pEncTrack) {
   uint32_t width  = 1920;
   uint32_t height = 1080;
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
@@ -634,8 +636,12 @@ TEST_F(VideoGtest, SlavemodeSessionWith480pYuvTrack) {
   uint32_t width  = 640;
   uint32_t height = 480;
 
-  camera_start_params_.flags |= kCameraSlaveMode;
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  CameraExtraParam extra_param;
+  CameraSlaveMode camera_slave_mode;
+  camera_slave_mode.mode = SlaveMode::kSlave;
+  extra_param.Update(QMMF_CAMERA_SLAVE_MODE, camera_slave_mode);
+
+  ret = recorder_.StartCamera(camera_id_, 30, extra_param);
   if (ret == -ENOENT) {
     // Wait for a master client to open the camera.
     std::unique_lock<std::mutex> lk(camera_state_lock_);
@@ -644,7 +650,7 @@ TEST_F(VideoGtest, SlavemodeSessionWith480pYuvTrack) {
     camera_state_updated_.wait_for(lk, timeout, [&]() {
       return (camera_state_[camera_id_] == GtestCameraState::kOpened);
     });
-    ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+    ret = recorder_.StartCamera(camera_id_, 30, extra_param);
     ASSERT_TRUE(ret == NO_ERROR);
   }
 
@@ -747,7 +753,7 @@ TEST_F(VideoGtest, SessionWith1080Enc30fps1080pMJpeg10fps) {
   uint32_t width = 1920;
   uint32_t height = 1080;
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
@@ -869,7 +875,7 @@ TEST_F(VideoGtest, SessionWith4kMJpeg) {
   uint32_t width = 3840;
   uint32_t height = 2160;
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
@@ -974,8 +980,11 @@ TEST_F(VideoGtest, SessionWith1080pEncTrackPartialMeta) {
         }
       };
 
-  camera_start_params_.enable_partial_metadata = true;
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_, result_cb);
+  CameraExtraParam extra_params;
+  PartialMetadata partial_metadata;
+  partial_metadata.enable = true;
+  extra_params.Update(QMMF_PARTIAL_METADATA, partial_metadata);
+  ret = recorder_.StartCamera(camera_id_, 30, extra_params, result_cb);
   ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.GetDefaultCaptureParam(camera_id_, static_info_);
@@ -1078,8 +1087,7 @@ TEST_F(VideoGtest, SessionWith4kp30fpsEncTrack) {
   uint32_t height = 2160;
   float fps = 30;
 
-  camera_start_params_.frame_rate = fps;
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, fps);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -1178,8 +1186,7 @@ TEST_F(VideoGtest, SessionWith27Kp60fpsEncTrack) {
   uint32_t height = 1520;
   float fps = 60;
 
-  camera_start_params_.frame_rate = fps;
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, fps);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -1273,8 +1280,7 @@ TEST_F(VideoGtest, SessionWith1080p120fps480p30fpsEncTrack) {
   uint32_t height = 1080;
   float fps = 120;
 
-  camera_start_params_.frame_rate = fps;
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, fps);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -1404,8 +1410,7 @@ TEST_F(VideoGtest, SessionWith1080p120fpsEncTrack) {
   uint32_t height = 1080;
   float fps = 120;
 
-  camera_start_params_.frame_rate = fps;
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, fps);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -1496,8 +1501,7 @@ TEST_F(VideoGtest, SessionWith1080p60fpsEncTrack) {
   uint32_t height = 1080;
   float fps = 60;
 
-  camera_start_params_.frame_rate = fps;
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, fps);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -1588,8 +1592,7 @@ TEST_F(VideoGtest, SessionWith4kp30fps480p30fpsEncTrack) {
   uint32_t height = 2160;
   float fps = 30;
 
-  camera_start_params_.frame_rate = fps;
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, fps);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -1718,8 +1721,7 @@ TEST_F(VideoGtest, SessionWith27Kp60fps480p30fpsEncTrack) {
   uint32_t height = 1520;
   float fps = 60;
 
-  camera_start_params_.frame_rate = fps;
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, fps);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -1849,8 +1851,7 @@ TEST_F(VideoGtest, SessionWith27Kp30fps480p30fpsEncTrack) {
   uint32_t height = 1520;
   float fps = 30;
 
-  camera_start_params_.frame_rate = fps;
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, fps);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -1977,8 +1978,7 @@ TEST_F(VideoGtest, SessionWith1080p90fps480p30fpsEncTrack) {
   uint32_t height = 1080;
   float fps = 90;
 
-  camera_start_params_.frame_rate = fps;
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, fps);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -2107,8 +2107,7 @@ TEST_F(VideoGtest, SessionWith480pEncTrack) {
   uint32_t height = 480;
   float fps = 30;
 
-  camera_start_params_.frame_rate = fps;
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, fps);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -2206,7 +2205,7 @@ TEST_F(VideoGtest, SessionWith4KEncTrack) {
   uint32_t width  = 3840;
   uint32_t height = 2160;
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
@@ -2310,7 +2309,7 @@ TEST_F(VideoGtest, SessionWith4KEncTrackWithAecWaitMode) {
   uint32_t width  = 3840;
   uint32_t height = 2160;
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
@@ -2423,7 +2422,7 @@ TEST_F(VideoGtest, SessionWith4kPrivacyMaskEncTrack) {
   uint32_t width  = 3840;
   uint32_t height = 2160;
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
@@ -2585,7 +2584,7 @@ TEST_F(VideoGtest, SessionWith4KSwTnrEncTrack) {
   uint32_t width = 3840;
   uint32_t height = 2160;
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   assert(ret == NO_ERROR);
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
@@ -2715,7 +2714,7 @@ TEST_F(VideoGtest, SessionWithTwo1080pEncTracks) {
   uint32_t video_track_id1 = 1;
   uint32_t video_track_id2 = 2;
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -2836,7 +2835,7 @@ TEST_F(VideoGtest, SessionWith4KAnd1080pYUVTrack) {
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -2951,7 +2950,7 @@ TEST_F(VideoGtest, 1080pEncWithStaticImageOverlay) {
   uint32_t width  = 1920;
   uint32_t height = 1080;
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -3102,7 +3101,7 @@ TEST_F(VideoGtest, 1080pEncWithDateAndTimeOverlay) {
   uint32_t width  = 1920;
   uint32_t height = 1080;
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -3270,7 +3269,7 @@ TEST_F(VideoGtest, 1080pEncWithBoundingBoxOverlay) {
   uint32_t width  = 1920;
   uint32_t height = 1080;
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -3422,7 +3421,7 @@ TEST_F(VideoGtest, 4KEncWithBoundingBoxOverlay) {
   VideoFormat format_type = VideoFormat::kAVC;
   uint32_t width  = 3840;
   uint32_t height = 2160;
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -3575,7 +3574,7 @@ TEST_F(VideoGtest, 1080pEncWithUserTextOverlay) {
   uint32_t width  = 1920;
   uint32_t height = 1080;
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -3744,7 +3743,7 @@ TEST_F(VideoGtest, 1080pEncWithPrivacyMaskOverlay) {
   uint32_t width  = 1920;
   uint32_t height = 1080;
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -3898,7 +3897,7 @@ TEST_F(VideoGtest, 1080pEncWithStaticImageBlobOverlay) {
   VideoFormat format_type = VideoFormat::kAVC;
   uint32_t width  = 1920;
   uint32_t height = 1080;
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -4109,7 +4108,7 @@ TEST_F(VideoGtest, 1080pEncWithStaticImageBlobUpdateBufferOverlay) {
   VideoFormat format_type = VideoFormat::kAVC;
   uint32_t width  = 1920;
   uint32_t height = 1080;
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -4312,7 +4311,7 @@ TEST_F(VideoGtest, SessionWith1080pEncTrackStartStop) {
   uint32_t width  = 1920;
   uint32_t height = 1080;
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -4413,7 +4412,7 @@ TEST_F(VideoGtest, SessionWith4KEncTrackStartStop) {
   uint32_t width  = 3840;
   uint32_t height = 2160;
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -4512,7 +4511,7 @@ TEST_F(VideoGtest, SessionWith4KAnd1080pYUVTrackStartStop) {
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -4625,7 +4624,7 @@ TEST_F(VideoGtest, SessionWithTwo1080pEncTracksStartStop) {
   uint32_t video_track_id1 = 1;
   uint32_t video_track_id2 = 2;
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -4751,7 +4750,7 @@ TEST_F(VideoGtest, DynamicFloatingFrameRate) {
   CodecParamType param_type = CodecParamType::kFrameRateType;
   float fps = 30.0;
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
@@ -4883,7 +4882,8 @@ TEST_F(VideoGtest, 1080pYUVTrackMatchCameraMetaData) {
         ResultCallbackHandlerMatchCameraMeta(camera_id, result);
       };
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_, result_cb);
+  CameraExtraParam empty_extra_params;
+  ret = recorder_.StartCamera(camera_id_, 30, empty_extra_params, result_cb);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -4981,7 +4981,7 @@ TEST_F(VideoGtest, 1080pWithFrameRepeat) {
   CodecParamType fr_repeat = CodecParamType::kEnableFrameRepeat;
   float fps;
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
@@ -5113,7 +5113,7 @@ TEST_F(VideoGtest, SessionWith4kEnc960EncAndCopy768YUVTrackWithCrop)
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t video_track_id_4k_avc = 1;
@@ -5286,7 +5286,7 @@ TEST_F(VideoGtest, SessionWith4kEncCopy1080EncAndCopy720YUV) {
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t video_track_id_4k_avc     = 1;
@@ -5444,7 +5444,7 @@ TEST_F(VideoGtest, SessionWith4kEncCopy1080EncAndLinked1080YUV) {
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t video_track_id_4k_avc     = 1;
@@ -5602,7 +5602,7 @@ TEST_F(VideoGtest, SessionWith1440pEncCopy480EncAndLinked480YUV) {
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t video_track_id_1440p_avc = 1;
@@ -5770,7 +5770,7 @@ TEST_F(VideoGtest, SessionWith4kEnc960EncAndLinked960YUVTrack) {
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t video_track_id_4k_avc   = 1;
@@ -5927,8 +5927,7 @@ TEST_F(VideoGtest, SessionWith720EncAndLinked720Enc) {
   ASSERT_TRUE(ret == NO_ERROR);
   float fps = 120;
 
-  camera_start_params_.frame_rate = fps;
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, fps);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t video_track_id_720p_HFR_avc = 1;
@@ -6064,7 +6063,7 @@ TEST_F(VideoGtest, SessionWith4kEncAndCopy1080RGB) {
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t video_track_id_4k_avc     = 1;
@@ -6201,7 +6200,7 @@ TEST_F(VideoGtest, TimeLapse1080pEncTrack) {
   uint32_t width  = 1920;
   uint32_t height = 1080;
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
@@ -6313,7 +6312,7 @@ TEST_F(VideoGtest, SessionWith1440EncAndLinked1440pEncAndLinked1440pYUVTrack) {
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t video_track_id_1440p_avc1  = 1;
@@ -6474,7 +6473,7 @@ TEST_F(VideoGtest, Session4kYUVTrackWithDisplay) {
   uint32_t stream_width  = FHD_1080p_STREAM_WIDTH*2;
   uint32_t stream_height = FHD_1080p_STREAM_HEIGHT*2;
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
@@ -6581,7 +6580,7 @@ TEST_F(VideoGtest, Session1080pYUVTrackWithDisplay) {
   uint32_t stream_width = FHD_1080p_STREAM_WIDTH;
   uint32_t stream_height = FHD_1080p_STREAM_HEIGHT;
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
@@ -6682,8 +6681,7 @@ TEST_F(VideoGtest, SessionWith960p90FPSEncCopy480pEncAndLinked480pYUVTrack) {
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  camera_start_params_.frame_rate = 90;
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 90);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t video_track_id_960p_avc = 1;
@@ -6859,8 +6857,7 @@ TEST_F(VideoGtest,
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  camera_start_params_.frame_rate = 90;
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 90);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t video_track_id_960p_avc = 1;
@@ -7055,8 +7052,7 @@ TEST_F(VideoGtest,
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  camera_start_params_.frame_rate = 90;
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 90);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t video_track_id_960p_avc = 1;
@@ -7257,7 +7253,7 @@ TEST_F(VideoGtest, LandscapeToPortraitRotation) {
   uint32_t video_track_id_2 = 2;
 
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, stream_fps);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -7398,7 +7394,7 @@ TEST_F(VideoGtest, SessionWith4kEncWithSliceModeAUDAndSPSPPSEnabled) {
   uint32_t width = 3840;
   uint32_t height = 2160;
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
@@ -7501,7 +7497,7 @@ TEST_F(VideoGtest, SmoothZoomWith1080pEncTrack) {
   uint32_t width  = 1920;
   uint32_t height = 1080;
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
@@ -7646,7 +7642,7 @@ TEST_F(VideoGtest,
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t video_track_id_480p_avc = 1;
@@ -7796,7 +7792,7 @@ TEST_F(VideoGtest,
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t video_track_id_480p_avc = 1;
@@ -7945,7 +7941,7 @@ TEST_F(VideoGtest,
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t video_track_id_480p_avc = 1;
@@ -8119,7 +8115,7 @@ TEST_F(VideoGtest,
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t video_track_id_480p_avc = 1;
@@ -8300,7 +8296,7 @@ TEST_F(VideoGtest,
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 60);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb session_status_cb = CreateSessionStatusCb();
@@ -8584,7 +8580,7 @@ TEST_F(VideoGtest, Session1080pYUVTrackWithDisplayAlongWithGfxPlane) {
   uint32_t stream_width = FHD_1080p_STREAM_WIDTH;
   uint32_t stream_height = FHD_1080p_STREAM_HEIGHT;
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
@@ -8679,7 +8675,7 @@ TEST_F(VideoGtest, SessionWith1080pYUVTrackFocalLength) {
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
@@ -8771,7 +8767,7 @@ TEST_F(VideoGtest, SessionWith1080pEncTrackChangeFocalLength) {
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 15);
   ASSERT_TRUE(ret == NO_ERROR);
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
@@ -8905,7 +8901,7 @@ TEST_F(VideoGtest, SessionWith720pEnc1080EncTracksChangeFocalLength) {
   uint32_t width;
   uint32_t height;
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
@@ -9087,8 +9083,7 @@ TEST_F(VideoGtest, SessionWith1440p30FPSSmoothZoom) {
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  camera_start_params_.frame_rate = 30;
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t video_track_id_1440p_avc = 1;
@@ -9246,8 +9241,7 @@ TEST_F(VideoGtest, SessionWith960p90FPSSmoothZoom) {
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  camera_start_params_.frame_rate = 90;
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 90);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t video_track_id_1440p_avc = 1;
@@ -9410,8 +9404,7 @@ TEST_F(VideoGtest, SessionWithSingleCam4kEncLinked4kEncAndVGA) {
 
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
-  camera_start_params_.frame_rate = 30;
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t video_track_id_4k_avc_main = 1;
@@ -9566,7 +9559,7 @@ TEST_F(VideoGtest, SessionWith4kEnc1080pEncAnd720pYUVTrack) {
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t video_track_id_4k_avc1 = 1;
@@ -9717,7 +9710,7 @@ TEST_F(VideoGtest, SessionWithSingleCam4KEncDeFogTables) {
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
@@ -10396,7 +10389,7 @@ TEST_F(VideoGtest, SessionWithSingleCam4KEncDynamicAecConvSpeed) {
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
@@ -10543,7 +10536,7 @@ TEST_F(VideoGtest, SessionWithSingleCam4KEncDynamicAwbConvSpeed) {
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
@@ -10697,7 +10690,12 @@ TEST_F(VideoGtest, SessionWithDualCam4k30EncRescale1080p30EncAnd1080p30YUVWithTN
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  // Setting Enable HDR Extra Param
+  CameraExtraParam extra_param_hdr;
+  VideoHDRMode vid_hdr_mode;
+  vid_hdr_mode.enable = true;
+  extra_param_hdr.Update(QMMF_VIDEO_HDR_MODE, vid_hdr_mode);
+  ret = recorder_.StartCamera(camera_id_, 30, extra_param_hdr);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t video_track_id_4k_avc     = 1;
@@ -10750,14 +10748,8 @@ TEST_F(VideoGtest, SessionWithDualCam4k30EncRescale1080p30EncAnd1080p30YUVWithTN
         void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
         event_type, event_data, event_data_size); };
 
-    // Setting Enable HDR Extra Param
-    VideoExtraParam extra_param_hdr;
-    VideoHDRMode vid_hdr_mode;
-    vid_hdr_mode.enable = true;
-    extra_param_hdr.Update(QMMF_VIDEO_HDR_MODE, vid_hdr_mode);
-
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_4k_avc,
-                                     video_track_param, extra_param_hdr,
+                                     video_track_param,
                                      video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
@@ -10795,7 +10787,7 @@ TEST_F(VideoGtest, SessionWithDualCam4k30EncRescale1080p30EncAnd1080p30YUVWithTN
           VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers); };
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_1080p_yuv,
-                                     video_track_param, extra_param_hdr,
+                                     video_track_param,
                                      video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
@@ -10895,7 +10887,12 @@ TEST_F(VideoGtest, SessionWithDualCam4k60EncRescale1080p30EncAnd1080p30YUVWithTN
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  // Setting Enable HDR Extra Param
+  CameraExtraParam extra_param_hdr;
+  VideoHDRMode vid_hdr_mode;
+  vid_hdr_mode.enable = true;
+  extra_param_hdr.Update(QMMF_VIDEO_HDR_MODE, vid_hdr_mode);
+  ret = recorder_.StartCamera(camera_id_, 60, extra_param_hdr);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t video_track_id_4k_avc     = 1;
@@ -10948,14 +10945,8 @@ TEST_F(VideoGtest, SessionWithDualCam4k60EncRescale1080p30EncAnd1080p30YUVWithTN
         void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
         event_type, event_data, event_data_size); };
 
-    // Setting Enable HDR Extra Param
-    VideoExtraParam extra_param_hdr;
-    VideoHDRMode vid_hdr_mode;
-    vid_hdr_mode.enable = true;
-    extra_param_hdr.Update(QMMF_VIDEO_HDR_MODE, vid_hdr_mode);
-
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_4k_avc,
-                                     video_track_param, extra_param_hdr,
+                                     video_track_param,
                                      video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
@@ -10994,7 +10985,7 @@ TEST_F(VideoGtest, SessionWithDualCam4k60EncRescale1080p30EncAnd1080p30YUVWithTN
           VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers); };
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_1080p_yuv,
-                                     video_track_param, extra_param_hdr,
+                                     video_track_param,
                                      video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
@@ -11094,7 +11085,12 @@ TEST_F(VideoGtest, SessionWithDualCam5_7k30EncRescale1080p30EncAnd1080p30YUVWith
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  // Setting Enable HDR Extra Param
+  CameraExtraParam extra_param_hdr;
+  VideoHDRMode vid_hdr_mode;
+  vid_hdr_mode.enable = true;
+  extra_param_hdr.Update(QMMF_VIDEO_HDR_MODE, vid_hdr_mode);
+  ret = recorder_.StartCamera(camera_id_, 30, extra_param_hdr);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t video_track_id_5_7k_avc   = 1;
@@ -11148,14 +11144,8 @@ TEST_F(VideoGtest, SessionWithDualCam5_7k30EncRescale1080p30EncAnd1080p30YUVWith
         void *event_data, size_t event_data_size) { VideoTrackEventCb(track_id,
         event_type, event_data, event_data_size); };
 
-    // Setting Enable HDR Extra Param
-    VideoExtraParam extra_param_hdr;
-    VideoHDRMode vid_hdr_mode;
-    vid_hdr_mode.enable = true;
-    extra_param_hdr.Update(QMMF_VIDEO_HDR_MODE, vid_hdr_mode);
-
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_5_7k_avc,
-                                     video_track_param, extra_param_hdr,
+                                     video_track_param,
                                      video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
@@ -11193,7 +11183,7 @@ TEST_F(VideoGtest, SessionWithDualCam5_7k30EncRescale1080p30EncAnd1080p30YUVWith
           VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers); };
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_1080p_yuv,
-                                     video_track_param, extra_param_hdr,
+                                     video_track_param,
                                      video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
@@ -11288,7 +11278,7 @@ TEST_F(VideoGtest, SessionWith4kEncAnd720pEncWithIRFilterModes) {
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t video_track_id_4k = 1;
@@ -11508,7 +11498,7 @@ TEST_F(VideoGtest, SessionWith4kEncWithIRFilterModes) {
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t video_track_id_4k = 1;
@@ -11657,7 +11647,18 @@ TEST_F(VideoGtest,
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  // Enable Force Sensor Mode
+  CameraExtraParam extra_param_force_mode;
+  ForceSensorMode force_sensor_mode;
+  // 4056x2288 60 FPS RAW10
+  if (!sensor_mode_file_name_.empty()) {
+    std::string mode = "4056x2288@60FPS_RAW10";
+    force_sensor_mode.mode = FindSensorModeIndex(sensor_mode_file_name_,
+                                                 mode);
+  }
+
+  extra_param_force_mode.Update(QMMF_FORCE_SENSOR_MODE, force_sensor_mode);
+  ret = recorder_.StartCamera(camera_id_, 60, extra_param_force_mode);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t video_track_id_4k_hevc = 1;
@@ -11699,18 +11700,6 @@ TEST_F(VideoGtest,
 
     track_trace_1.SetUp(session_id, video_track_id_4k_hevc, 60.0);
 
-    // Enable Force Sensor Mode
-    VideoExtraParam extra_param_force_mode;
-    ForceSensorMode force_sensor_mode;
-    // 4056x2288 60 FPS RAW10
-    if (!sensor_mode_file_name_.empty()) {
-      std::string mode = "4056x2288@60FPS_RAW10";
-      force_sensor_mode.mode = FindSensorModeIndex(sensor_mode_file_name_,
-                                                   mode);
-    }
-
-    extra_param_force_mode.Update(QMMF_FORCE_SENSOR_MODE, force_sensor_mode);
-
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
@@ -11725,7 +11714,7 @@ TEST_F(VideoGtest,
     };
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_4k_hevc,
-                                     video_track_param, extra_param_force_mode,
+                                     video_track_param,
                                      video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
@@ -11856,7 +11845,24 @@ TEST_F(VideoGtest,
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  // Setting Enable HDR Extra Param
+  CameraExtraParam extra_params;
+  VideoHDRMode vid_hdr_mode;
+  vid_hdr_mode.enable = true;
+  extra_params.Update(QMMF_VIDEO_HDR_MODE, vid_hdr_mode);
+
+  // Setting Force Sensor Mode
+  ForceSensorMode force_sensor_mode;
+  // 4056x2288 60 FPS RAW10 zzHDR Sensor Mode
+  if (!sensor_mode_file_name_.empty()) {
+    std::string mode = "4056x2288@60FPS_RAW10_ZZHDR";
+    force_sensor_mode.mode = FindSensorModeIndex(sensor_mode_file_name_,
+                                                 mode);
+  }
+
+  extra_params.Update(QMMF_FORCE_SENSOR_MODE, force_sensor_mode);
+
+  ret = recorder_.StartCamera(camera_id_, 60, extra_params);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t video_track_id_4k_hevc = 1;
@@ -11899,23 +11905,6 @@ TEST_F(VideoGtest,
 
     track_trace_1.SetUp(session_id, video_track_id_4k_hevc, 60.0);
 
-    // Setting Enable HDR Extra Param
-    VideoExtraParam extra_params;
-    VideoHDRMode vid_hdr_mode;
-    vid_hdr_mode.enable = true;
-    extra_params.Update(QMMF_VIDEO_HDR_MODE, vid_hdr_mode);
-
-    // Setting Force Sensor Mode
-    ForceSensorMode force_sensor_mode;
-    // 4056x2288 60 FPS RAW10 zzHDR Sensor Mode
-    if (!sensor_mode_file_name_.empty()) {
-      std::string mode = "4056x2288@60FPS_RAW10_ZZHDR";
-      force_sensor_mode.mode = FindSensorModeIndex(sensor_mode_file_name_,
-                                                   mode);
-    }
-
-    extra_params.Update(QMMF_FORCE_SENSOR_MODE, force_sensor_mode);
-
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
@@ -11930,7 +11919,7 @@ TEST_F(VideoGtest,
     };
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_4k_hevc,
-                                     video_track_param, extra_params,
+                                     video_track_param,
                                      video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
@@ -11950,11 +11939,6 @@ TEST_F(VideoGtest,
     }
     track_trace_2.SetUp(session_id, video_track_id_720p_avc, 30.0);
 
-    // Setting Enable HDR Extra Param
-    VideoExtraParam extra_param_hdr;
-    vid_hdr_mode.enable = true;
-    extra_param_hdr.Update(QMMF_VIDEO_HDR_MODE, vid_hdr_mode);
-
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
@@ -11968,7 +11952,7 @@ TEST_F(VideoGtest,
     };
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_720p_avc,
-                                     video_track_param_1, extra_param_hdr,
+                                     video_track_param_1,
                                      video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
@@ -11993,7 +11977,7 @@ TEST_F(VideoGtest,
 
     ret = recorder_.CreateVideoTrack(session_id,
                                      video_track_id_720p_yuv_linked,
-                                     video_track_param_1, extra_param,
+                                     video_track_param_1,
                                      video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
@@ -12067,7 +12051,18 @@ TEST_F(VideoGtest,
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  // Enable Force Sensor Mode
+  CameraExtraParam extra_param_force_mode;
+  ForceSensorMode force_sensor_mode;
+  // 4056x2288 60 FPS RAW10 Sensor Mode
+  if (!sensor_mode_file_name_.empty()) {
+    std::string mode = "4056x2288@60FPS_RAW10";
+    force_sensor_mode.mode = FindSensorModeIndex(sensor_mode_file_name_,
+                                                 mode);
+  }
+
+  extra_param_force_mode.Update(QMMF_FORCE_SENSOR_MODE, force_sensor_mode);
+  ret = recorder_.StartCamera(camera_id_, 60, extra_param_force_mode);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t video_track_id_4kfull_avc = 1;
@@ -12110,18 +12105,6 @@ TEST_F(VideoGtest,
 
     track_trace_1.SetUp(session_id, video_track_id_4kfull_avc, 60.0);
 
-    // Enable Force Sensor Mode
-    VideoExtraParam extra_param_force_mode;
-    ForceSensorMode force_sensor_mode;
-    // 4056x2288 60 FPS RAW10 Sensor Mode
-    if (!sensor_mode_file_name_.empty()) {
-      std::string mode = "4056x2288@60FPS_RAW10";
-      force_sensor_mode.mode = FindSensorModeIndex(sensor_mode_file_name_,
-                                                   mode);
-    }
-
-    extra_param_force_mode.Update(QMMF_FORCE_SENSOR_MODE, force_sensor_mode);
-
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
@@ -12136,7 +12119,7 @@ TEST_F(VideoGtest,
     };
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_4kfull_avc,
-                                     video_track_param, extra_param_force_mode,
+                                     video_track_param,
                                      video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
@@ -12267,7 +12250,18 @@ TEST_F(VideoGtest,
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  // Enable Force Sensor Mode
+  CameraExtraParam extra_param_force_mode;
+  ForceSensorMode force_sensor_mode;
+  // 2028x1112 120 FPS RAW10 Sensor Mode
+  if (!sensor_mode_file_name_.empty()) {
+    std::string mode = "2028x1112@120FPS_RAW10";
+    force_sensor_mode.mode = FindSensorModeIndex(sensor_mode_file_name_,
+                                                 mode);
+  }
+
+  extra_param_force_mode.Update(QMMF_FORCE_SENSOR_MODE, force_sensor_mode);
+  ret = recorder_.StartCamera(camera_id_, 120, extra_param_force_mode);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t video_track_id_2k1k_hevc = 1;
@@ -12310,18 +12304,6 @@ TEST_F(VideoGtest,
 
     track_trace_1.SetUp(session_id, video_track_id_2k1k_hevc, 120.0);
 
-    // Enable Force Sensor Mode
-    VideoExtraParam extra_param_force_mode;
-    ForceSensorMode force_sensor_mode;
-    // 2028x1112 120 FPS RAW10 Sensor Mode
-    if (!sensor_mode_file_name_.empty()) {
-      std::string mode = "2028x1112@120FPS_RAW10";
-      force_sensor_mode.mode = FindSensorModeIndex(sensor_mode_file_name_,
-                                                   mode);
-    }
-
-    extra_param_force_mode.Update(QMMF_FORCE_SENSOR_MODE, force_sensor_mode);
-
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
@@ -12336,7 +12318,7 @@ TEST_F(VideoGtest,
     };
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_2k1k_hevc,
-                                     video_track_param, extra_param_force_mode,
+                                     video_track_param,
                                      video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
@@ -12467,7 +12449,18 @@ TEST_F(VideoGtest, SessionWith2k1k120fpsEnc) {
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  // Enable Force Sensor Mode
+  CameraExtraParam extra_param_force_mode;
+  ForceSensorMode force_sensor_mode;
+  // 2028x1112 120 FPS RAW10 Sensor Mode
+  if (!sensor_mode_file_name_.empty()) {
+    std::string mode = "2028x1112@120FPS_RAW10";
+    force_sensor_mode.mode = FindSensorModeIndex(sensor_mode_file_name_,
+                                                 mode);
+  }
+
+  extra_param_force_mode.Update(QMMF_FORCE_SENSOR_MODE, force_sensor_mode);
+  ret = recorder_.StartCamera(camera_id_, 120, extra_param_force_mode);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t video_track_id_2k1k_hevc = 1;
@@ -12502,18 +12495,6 @@ TEST_F(VideoGtest, SessionWith2k1k120fpsEnc) {
 
     track_trace_1.SetUp(session_id, video_track_id_2k1k_hevc, 120.0);
 
-    // Enable Force Sensor Mode
-    VideoExtraParam extra_param_force_mode;
-    ForceSensorMode force_sensor_mode;
-    // 2028x1112 120 FPS RAW10 Sensor Mode
-    if (!sensor_mode_file_name_.empty()) {
-      std::string mode = "2028x1112@120FPS_RAW10";
-      force_sensor_mode.mode = FindSensorModeIndex(sensor_mode_file_name_,
-                                                   mode);
-    }
-
-    extra_param_force_mode.Update(QMMF_FORCE_SENSOR_MODE, force_sensor_mode);
-
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
@@ -12528,7 +12509,7 @@ TEST_F(VideoGtest, SessionWith2k1k120fpsEnc) {
     };
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_2k1k_hevc,
-                                     video_track_param, extra_param_force_mode,
+                                     video_track_param,
                                      video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
@@ -12591,7 +12572,18 @@ TEST_F(VideoGtest,
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  // Enable Force Sensor Mode
+  CameraExtraParam extra_param_force_mode;
+  ForceSensorMode force_sensor_mode;
+  // 2028x1112 120 FPS RAW10 Sensor Mode
+  if (!sensor_mode_file_name_.empty()) {
+    std::string mode = "2028x1112@120FPS_RAW10";
+    force_sensor_mode.mode = FindSensorModeIndex(sensor_mode_file_name_,
+                                                 mode);
+  }
+
+  extra_param_force_mode.Update(QMMF_FORCE_SENSOR_MODE, force_sensor_mode);
+  ret = recorder_.StartCamera(camera_id_, 120, extra_param_force_mode);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t video_track_id_2k1k_hevc = 1;
@@ -12633,18 +12625,6 @@ TEST_F(VideoGtest,
 
     track_trace_1.SetUp(session_id, video_track_id_2k1k_hevc, 120.0);
 
-    // Enable Force Sensor Mode
-    VideoExtraParam extra_param_force_mode;
-    ForceSensorMode force_sensor_mode;
-    // 2028x1112 120 FPS RAW10 Sensor Mode
-    if (!sensor_mode_file_name_.empty()) {
-      std::string mode = "2028x1112@120FPS_RAW10";
-      force_sensor_mode.mode = FindSensorModeIndex(sensor_mode_file_name_,
-                                                   mode);
-    }
-
-    extra_param_force_mode.Update(QMMF_FORCE_SENSOR_MODE, force_sensor_mode);
-
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
@@ -12659,7 +12639,7 @@ TEST_F(VideoGtest,
     };
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_2k1k_hevc,
-                                     video_track_param, extra_param_force_mode,
+                                     video_track_param,
                                      video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
@@ -12778,10 +12758,10 @@ TEST_F(VideoGtest, SessionWithTwoConcurrentCam1080pEnc) {
   uint32_t cam0_video_track_id_1080p_hevc = 1;
   uint32_t cam1_video_track_id_1080p_hevc = 2;
 
-  ret = recorder_.StartCamera(cam0_id, camera_start_params_);
+  ret = recorder_.StartCamera(cam0_id, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(cam1_id, camera_start_params_);
+  ret = recorder_.StartCamera(cam1_id, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb cam0_session_status_cb;
@@ -12945,10 +12925,10 @@ TEST_F(VideoGtest, SessionWithTwoConcurrentCam1080pEncAnd720pYUV) {
   uint32_t cam1_video_track_id_1080p_hevc = 3;
   uint32_t cam1_video_track_id_720p_yuv = 4;
 
-  ret = recorder_.StartCamera(cam0_id, camera_start_params_);
+  ret = recorder_.StartCamera(cam0_id, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(cam1_id, camera_start_params_);
+  ret = recorder_.StartCamera(cam1_id, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
   SessionCb cam0_session_status_cb;
@@ -13139,7 +13119,18 @@ TEST_F(
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  // Enable Force Sensor Mode
+  CameraExtraParam extra_param_force_mode;
+  ForceSensorMode force_sensor_mode;
+  if (!sensor_mode_file_name_.empty()) {
+    std::string mode = "4056x3040@30FPS_RAW12";
+    force_sensor_mode.mode = FindSensorModeIndex(sensor_mode_file_name_,
+                                                 mode);
+  }
+
+  fprintf(stderr, "Setting force sensor mode %d \n", force_sensor_mode.mode);
+  extra_param_force_mode.Update(QMMF_FORCE_SENSOR_MODE, force_sensor_mode);
+  ret = recorder_.StartCamera(camera_id_, 30, extra_param_force_mode);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t video_track_id_4k_hevc = 1;
@@ -13176,18 +13167,6 @@ TEST_F(
         VideoRateControlType::kConstant;
     video_track_param.codec_param.hevc.bitrate = kBitRate100Mbps;
 
-    // Enable Force Sensor Mode
-    VideoExtraParam extra_param_force_mode;
-    ForceSensorMode force_sensor_mode;
-    if (!sensor_mode_file_name_.empty()) {
-      std::string mode = "4056x3040@30FPS_RAW12";
-      force_sensor_mode.mode = FindSensorModeIndex(sensor_mode_file_name_,
-                                                   mode);
-    }
-
-    fprintf(stderr, "Setting force sensor mode %d \n", force_sensor_mode.mode);
-    extra_param_force_mode.Update(QMMF_FORCE_SENSOR_MODE, force_sensor_mode);
-
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
@@ -13201,7 +13180,7 @@ TEST_F(
     };
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_4k_hevc,
-                                     video_track_param, extra_param_force_mode,
+                                     video_track_param,
                                      video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
@@ -13329,7 +13308,23 @@ TEST_F(VideoGtest,
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  // Enable Force Sensor Mode
+  CameraExtraParam extra_param_force_mode;
+  ForceSensorMode force_sensor_mode;
+  // 4056x2288 60 FPS RAW10
+  if (!sensor_mode_file_name_.empty()) {
+    std::string mode = "4056x2288@60FPS_RAW10";
+    force_sensor_mode.mode =
+        FindSensorModeIndex(sensor_mode_file_name_, mode);
+  }
+
+  extra_param_force_mode.Update(QMMF_FORCE_SENSOR_MODE, force_sensor_mode);
+
+  // Enable EIS
+  EISSetup eis_mode;
+  eis_mode.enable = true;
+  extra_param_force_mode.Update(QMMF_EIS, eis_mode);
+  ret = recorder_.StartCamera(camera_id_, 60, extra_param_force_mode);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t video_track_id_4k_hevc = 1;
@@ -13371,23 +13366,6 @@ TEST_F(VideoGtest,
 
     track_trace_1.SetUp(session_id, video_track_id_4k_hevc, 60.0);
 
-    // Enable Force Sensor Mode
-    VideoExtraParam extra_param_force_mode;
-    ForceSensorMode force_sensor_mode;
-    // 4056x2288 60 FPS RAW10
-    if (!sensor_mode_file_name_.empty()) {
-      std::string mode = "4056x2288@60FPS_RAW10";
-      force_sensor_mode.mode =
-          FindSensorModeIndex(sensor_mode_file_name_, mode);
-    }
-
-    extra_param_force_mode.Update(QMMF_FORCE_SENSOR_MODE, force_sensor_mode);
-
-    // Enable EIS
-    EISSetup eis_mode;
-    eis_mode.enable = true;
-    extra_param_force_mode.Update(QMMF_EIS, eis_mode);
-
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
@@ -13402,7 +13380,7 @@ TEST_F(VideoGtest,
     };
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_4k_hevc,
-                                     video_track_param, extra_param_force_mode,
+                                     video_track_param,
                                      video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
@@ -13534,7 +13512,28 @@ TEST_F(
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  // Setting Enable HDR Extra Param
+  CameraExtraParam extra_params;
+  VideoHDRMode vid_hdr_mode;
+  vid_hdr_mode.enable = true;
+  extra_params.Update(QMMF_VIDEO_HDR_MODE, vid_hdr_mode);
+
+  // Setting Force Sensor Mode
+  ForceSensorMode force_sensor_mode;
+  // 4056x2288 60 FPS RAW10 zzHDR Sensor Mode
+  if (!sensor_mode_file_name_.empty()) {
+    std::string mode = "4056x2288@60FPS_RAW10_ZZHDR";
+    force_sensor_mode.mode =
+        FindSensorModeIndex(sensor_mode_file_name_, mode);
+  }
+
+  extra_params.Update(QMMF_FORCE_SENSOR_MODE, force_sensor_mode);
+
+  // Enable EIS
+  EISSetup eis_mode;
+  eis_mode.enable = true;
+  extra_params.Update(QMMF_EIS, eis_mode);
+  ret = recorder_.StartCamera(camera_id_, 60, extra_params);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t video_track_id_4k_hevc = 1;
@@ -13577,28 +13576,6 @@ TEST_F(
 
     track_trace_1.SetUp(session_id, video_track_id_4k_hevc, 60.0);
 
-    // Setting Enable HDR Extra Param
-    VideoExtraParam extra_params;
-    VideoHDRMode vid_hdr_mode;
-    vid_hdr_mode.enable = true;
-    extra_params.Update(QMMF_VIDEO_HDR_MODE, vid_hdr_mode);
-
-    // Setting Force Sensor Mode
-    ForceSensorMode force_sensor_mode;
-    // 4056x2288 60 FPS RAW10 zzHDR Sensor Mode
-    if (!sensor_mode_file_name_.empty()) {
-      std::string mode = "4056x2288@60FPS_RAW10_ZZHDR";
-      force_sensor_mode.mode =
-          FindSensorModeIndex(sensor_mode_file_name_, mode);
-    }
-
-    extra_params.Update(QMMF_FORCE_SENSOR_MODE, force_sensor_mode);
-
-    // Enable EIS
-    EISSetup eis_mode;
-    eis_mode.enable = true;
-    extra_params.Update(QMMF_EIS, eis_mode);
-
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
@@ -13613,7 +13590,7 @@ TEST_F(
     };
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_4k_hevc,
-                                     video_track_param, extra_params,
+                                     video_track_param,
                                      video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
@@ -13633,11 +13610,6 @@ TEST_F(
     }
     track_trace_2.SetUp(session_id, video_track_id_720p_avc, 30.0);
 
-    // Setting Enable HDR Extra Param
-    VideoExtraParam extra_param_hdr;
-    vid_hdr_mode.enable = true;
-    extra_param_hdr.Update(QMMF_VIDEO_HDR_MODE, vid_hdr_mode);
-
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
@@ -13651,7 +13623,7 @@ TEST_F(
     };
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_720p_avc,
-                                     video_track_param_1, extra_param_hdr,
+                                     video_track_param_1,
                                      video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
@@ -13676,7 +13648,7 @@ TEST_F(
 
     ret = recorder_.CreateVideoTrack(session_id,
                                      video_track_id_720p_yuv_linked,
-                                     video_track_param_1, extra_param,
+                                     video_track_param_1,
                                      video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
@@ -13751,7 +13723,23 @@ TEST_F(
   auto ret = Init();
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  // Enable Force Sensor Mode
+  CameraExtraParam extra_param_force_mode;
+  ForceSensorMode force_sensor_mode;
+  // 4056x2288 60 FPS RAW10 Sensor Mode
+  if (!sensor_mode_file_name_.empty()) {
+    std::string mode = "4056x2288@60FPS_RAW10";
+    force_sensor_mode.mode =
+        FindSensorModeIndex(sensor_mode_file_name_, mode);
+  }
+
+  extra_param_force_mode.Update(QMMF_FORCE_SENSOR_MODE, force_sensor_mode);
+
+  // Enable EIS
+  EISSetup eis_mode;
+  eis_mode.enable = true;
+  extra_param_force_mode.Update(QMMF_EIS, eis_mode);
+  ret = recorder_.StartCamera(camera_id_, 60, extra_param_force_mode);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t video_track_id_4kfull_avc = 1;
@@ -13794,23 +13782,6 @@ TEST_F(
 
     track_trace_1.SetUp(session_id, video_track_id_4kfull_avc, 60.0);
 
-    // Enable Force Sensor Mode
-    VideoExtraParam extra_param_force_mode;
-    ForceSensorMode force_sensor_mode;
-    // 4056x2288 60 FPS RAW10 Sensor Mode
-    if (!sensor_mode_file_name_.empty()) {
-      std::string mode = "4056x2288@60FPS_RAW10";
-      force_sensor_mode.mode =
-          FindSensorModeIndex(sensor_mode_file_name_, mode);
-    }
-
-    extra_param_force_mode.Update(QMMF_FORCE_SENSOR_MODE, force_sensor_mode);
-
-    // Enable EIS
-    EISSetup eis_mode;
-    eis_mode.enable = true;
-    extra_param_force_mode.Update(QMMF_EIS, eis_mode);
-
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
@@ -13825,7 +13796,7 @@ TEST_F(
     };
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_4kfull_avc,
-                                     video_track_param, extra_param_force_mode,
+                                     video_track_param,
                                      video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
