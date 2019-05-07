@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018, 2019, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -56,9 +56,17 @@ IAllocDevice *AllocDeviceFactory::CreateAllocDevice() {
 #elif TARGET_USES_GRALLOC2
   return new Gralloc2Device;
 #elif TARGET_USES_GBM
-  return new GBMDevice;
+  return GBMDevice::CreateGBMDevice();
 #else
   return new GrallocDevice;
+#endif
+}
+
+void AllocDeviceFactory::DestroyAllocDevice(IAllocDevice* alloc_device_interface) {
+#if TARGET_USES_GBM
+  GBMDevice::DestroyGBMDevice();
+#else
+  delete alloc_device_interface;
 #endif
 }
 

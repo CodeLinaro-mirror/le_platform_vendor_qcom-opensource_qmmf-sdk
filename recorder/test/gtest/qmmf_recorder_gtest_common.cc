@@ -1687,8 +1687,9 @@ status_t GtestCommon::PopulateDeFogTables(
 
     DeFogTable defog_table{};
     std::string input_str;
-    const char delim_colon = ':';
+    const char delim_colon = ':', delim_space = ' ';
     std::string key, value;
+    uint8_t index = 0;
     std::ifstream input_file(path.c_str());
     std::vector<std::string> out, out_values;
 
@@ -1708,6 +1709,77 @@ status_t GtestCommon::PopulateDeFogTables(
         defog_table.strength = std::atoi(value.c_str());
       } else if (key.compare("convergence_speed") == 0) {
         defog_table.convergence_speed = std::atoi(value.c_str());
+      } else if (key.compare("lp_color_comp_gain") == 0) {
+        defog_table.lp_color_comp_gain = std::atof(value.c_str());
+      } else if (key.compare("abc_en") == 0) {
+        defog_table.abc_en = std::atoi(value.c_str());
+      } else if (key.compare("acc_en") == 0) {
+        defog_table.acc_en = std::atoi(value.c_str());
+      } else if (key.compare("afsd_en") == 0) {
+        defog_table.afsd_en = std::atoi(value.c_str());
+      } else if (key.compare("afsd_2a_en") == 0) {
+        defog_table.afsd_2a_en = std::atoi(value.c_str());
+      } else if (key.compare("defog_dark_thres") == 0) {
+        defog_table.defog_dark_thres = std::atoi(value.c_str());
+      } else if (key.compare("defog_bright_thres") == 0) {
+        defog_table.defog_bright_thres = std::atoi(value.c_str());
+      } else if (key.compare("abc_gain") == 0) {
+        defog_table.abc_gain = std::atof(value.c_str());
+      } else if (key.compare("acc_max_dark_str") == 0) {
+        defog_table.acc_max_dark_str = std::atof(value.c_str());
+      } else if (key.compare("acc_max_bright_str") == 0) {
+        defog_table.acc_max_bright_str = std::atof(value.c_str());
+      } else if (key.compare("dark_limit") == 0) {
+        defog_table.dark_limit = std::atoi(value.c_str());
+      } else if (key.compare("bright_limit") == 0) {
+        defog_table.bright_limit = std::atoi(value.c_str());
+      } else if (key.compare("dark_preserve") == 0) {
+        defog_table.dark_preserve = std::atoi(value.c_str());
+      } else if (key.compare("bright_preserve") == 0) {
+        defog_table.bright_preserve = std::atoi(value.c_str());
+      } else if (key.compare("dnr_trigger") == 0) {
+        out_values.clear();
+        TokenizeString(value, delim_space, out_values);
+        for (index = 0; out_values.size() <= 9 &&
+             index + 2 < out_values.size(); index++) {
+          defog_table.trig_params.dnr_trigger[index/3].start =
+            std::atof(out_values[index].c_str());
+          ++index;
+          defog_table.trig_params.dnr_trigger[index/3].end =
+            std::atof(out_values[index].c_str());
+          ++index;
+          defog_table.trig_params.dnr_trigger[index/3].fog_p =
+            std::atoi(out_values[index].c_str());
+        }
+      } else if (key.compare("lux_trigger") == 0) {
+        out_values.clear();
+        TokenizeString(value, delim_space, out_values);
+        for (index = 0; out_values.size() <= 9 &&
+             index + 2 < out_values.size(); index++) {
+          defog_table.trig_params.lux_trigger[index/3].start =
+            std::atof(out_values[index].c_str());
+          ++index;
+          defog_table.trig_params.lux_trigger[index/3].end =
+            std::atof(out_values[index].c_str());
+          ++index;
+          defog_table.trig_params.lux_trigger[index/3].fog_p =
+            std::atoi(out_values[index].c_str());
+
+        }
+      } else if (key.compare("cct_trigger") == 0) {
+        out_values.clear();
+        TokenizeString(value, delim_space, out_values);
+        for (index = 0; out_values.size() <= 12 &&
+             index + 2 < out_values.size(); index++) {
+            defog_table.trig_params.cct_trigger[index/3].start =
+              std::atof(out_values[index].c_str());
+            ++index;
+            defog_table.trig_params.cct_trigger[index/3].end =
+              std::atof(out_values[index].c_str());
+            ++index;
+            defog_table.trig_params.cct_trigger[index/3].fog_p =
+              std::atoi(out_values[index].c_str());
+        }
       } else {
         TEST_ERROR("%s: Invalid field %s\n", __func__, key.c_str());
         return -EINVAL;

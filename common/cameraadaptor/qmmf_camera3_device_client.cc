@@ -134,7 +134,7 @@ Camera3DeviceClient::~Camera3DeviceClient() {
   monitor_.RequestExit();
 
   if (nullptr != alloc_device_interface_) {
-    delete alloc_device_interface_;
+    AllocDeviceFactory::DestroyAllocDevice(alloc_device_interface_);
     alloc_device_interface_ = nullptr;
   }
 
@@ -228,7 +228,7 @@ int32_t Camera3DeviceClient::Initialize() {
 exit:
 
   if (nullptr != alloc_device_interface_) {
-    delete alloc_device_interface_;
+    AllocDeviceFactory::DestroyAllocDevice(alloc_device_interface_);
     alloc_device_interface_ = nullptr;
   }
 

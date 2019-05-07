@@ -1285,6 +1285,8 @@ status_t TrackSource::InitCopy(shared_ptr<TrackSource> master_track_source,
                                int32_t port_track_id,
                                int32_t track_id_master) {
 
+  QMMF_DEBUG("%s: Enter track_id(%x)", __func__, TrackId());
+  status_t result = 0;
   assert(master_track_source.get() != nullptr);
   master_track_ = master_track_source;
 
@@ -1298,8 +1300,17 @@ status_t TrackSource::InitCopy(shared_ptr<TrackSource> master_track_source,
   } else {
     rescaler_ = rescaler;
   }
+#ifndef DISABLE_OVERLAY
+  result = overlay_.Init(TargetBufferFormat::kYUVNV12);
+  if (result != 0) {
+    QMMF_ERROR("%s: Failed to initialize overlay for copy track(%x)", __func__,
+        TrackId());
+    return result;
+  }
+#endif
 
-  return NO_ERROR;
+  QMMF_DEBUG("%s: Exit track_id(%x)", __func__, TrackId());
+  return result;
 }
 
 status_t TrackSource::Init() {

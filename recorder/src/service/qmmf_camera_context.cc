@@ -1623,7 +1623,15 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
         streaming_active_requests_.resize(batch_size);
       }
       for (size_t i = 0; i < batch_size; i++) {
-        streaming_active_requests_[i].streamIds.add(cam_stream_id);
+        if (std::find(streaming_active_requests_[i].streamIds.begin(),
+                      streaming_active_requests_[i].streamIds.end(),
+                      cam_stream_id) ==
+                      streaming_active_requests_[i].streamIds.end()) {
+          // Stream ID not found, so add now.
+          streaming_active_requests_[i].streamIds.add(cam_stream_id);
+          QMMF_DEBUG("%s: CameraPort(0x%p):camera_stream_id(%d) is adding to "
+              "active stream !", __func__, port.get(), cam_stream_id);
+        }
         if ((1 < i) && (streaming_active_requests_[i].metadata.isEmpty())) {
           assert(!streaming_active_requests_[0].metadata.isEmpty());
           streaming_active_requests_[i].metadata.append(
