@@ -42,6 +42,7 @@
 #include <cutils/properties.h>
 #include <random>
 #include <fstream>
+#include <json/json.h>
 //#include <system/graphics.h>
 
 #include <qmmf-sdk/qmmf_queue.h>
@@ -614,6 +615,13 @@ class GtestCommon : public ::testing::Test {
 
   int32_t FindSensorModeIndex(const std::string& name_of_file,
                               const std:: string& mode_index);
+
+  status_t ReadAndParseJsonFile(const std::string &input_file,
+                                Json::Value &value);
+
+  template <typename TItem>
+  void GetValue(const Json::Value &v, const std::string &field_name,
+                TItem &item);
 
 #ifdef CAM_ARCH_V2
   bool VendorTagSupported(const String8& name, const String8& section,
