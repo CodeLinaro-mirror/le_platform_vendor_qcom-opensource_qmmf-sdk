@@ -592,7 +592,11 @@ status_t CameraContext::CaptureImage(const std::vector<CameraMetadata> &meta,
     std::list<Camera3Request> requests;
     std::vector<CameraMetadata>::const_iterator it = meta.begin();
     for (uint32_t i = 0; i < sequence_cnt_; i++) {
-      if (it != meta.end()) {
+      if (streaming_active_requests_.size() > 0 &&
+          !streaming_active_requests_[0].metadata.isEmpty() && snapshot_type_ == SnapshotMode::kVideo) {
+        snapshot_request_.metadata.clear();
+        snapshot_request_.metadata.append(streaming_active_requests_[0].metadata);
+      } else if (it != meta.end()) {
         snapshot_request_.metadata.clear();
         snapshot_request_.metadata.append(*it++);
       }
