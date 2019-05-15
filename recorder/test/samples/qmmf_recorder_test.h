@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -459,9 +459,9 @@ class RecorderTest {
   status_t Session1080pYUVTrackWithDisplay();
 
   status_t Session1080pYUVTrackWithPreview();
-#ifndef DISABLE_RECORDER_TEST_DISPLAY
+
   status_t ToggleDisplayState();
-#endif
+
   status_t CreateAudioPCMTrack();
 
   status_t CreateAudio2PCMTrack();
@@ -716,7 +716,7 @@ class TestTrack {
   status_t DrawOverlay(void *data, int32_t width, int32_t height);
 
   void ExtractColorValues(uint32_t hex_color, RGBAValues* color);
-#ifndef DISABLE_RECORDER_TEST_DISPLAY
+
   void DisplayCallbackHandler(DisplayEventType event_type, void *event_data,
       size_t event_data_size);
 
@@ -727,7 +727,7 @@ class TestTrack {
   status_t StopDisplay(DisplayType display_type);
 
   status_t ToggleDisplayState();
-#endif
+
   const TrackInfo& GetTrackHandle(){return track_info_;}
 
  private:
@@ -737,13 +737,13 @@ class TestTrack {
 
   void TrackDataCB(uint32_t track_id, std::vector<BufferDescriptor> buffers,
                    std::vector<MetaData> meta_buffers);
-#ifndef DISABLE_RECORDER_TEST_DISPLAY
+
   status_t PushFrameToDisplay(BufferDescriptor& buffer,
                               CameraBufferMetaData& meta_data);
 
   qmmf::display::DisplayParamType display_param_type_;
   int32_t display_param_;
-#endif
+
   TrackInfo track_info_;
 
   // One track can have multiple overlay objects.
@@ -757,13 +757,13 @@ class TestTrack {
   RecorderTestMpegh mpegh_output_;
 
   uint32_t num_yuv_frames_;
-#ifndef DISABLE_RECORDER_TEST_DISPLAY
+
   Display*   display_;
   bool display_started_;
   uint32_t   surface_id_;
   SurfaceParam surface_param_;
   SurfaceBuffer surface_buffer_;
-#endif
+
   DumpBitStream dump_bitstream_;
 #if USE_SKIA
   SkCanvas*                canvas_;
