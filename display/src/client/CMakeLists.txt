@@ -58,6 +58,9 @@ target_include_directories(qmmf_display_client
 target_include_directories(qmmf_display_client
  PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
+target_include_directories(qmmf_display_client
+ PRIVATE ${PKG_CONFIG_SYSROOT_DIR}/usr/include/ion_headers)
+
 install(TARGETS qmmf_display_client DESTINATION lib OPTIONAL)
 target_link_libraries(qmmf_display_client log binder utils cutils)
 if (ENABLE_WESTON_CLIENT)
