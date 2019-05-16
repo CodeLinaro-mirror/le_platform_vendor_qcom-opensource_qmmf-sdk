@@ -3,7 +3,7 @@
     "iteration count": 12,
     "tested library": "qmmf/alg-plugins/libqmmf_alg_lcac.so",
     "configuration file": "",
-    "calibration file": "bayer_lcac_calibration.json",
+    "calibration file": "qmmf_tuning_BayerLcac.bin",
     "input buffers": [
       {
         "width": 2208,

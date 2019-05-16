@@ -29,7 +29,7 @@
 
 #pragma once
 
-#include "../../interface/qmmf_postproc_module.h"
+#include "interface/qmmf_postproc_module.h"
 
 #include "common/jpeg-encoder/qmmf_jpeg_encoder.h"
 

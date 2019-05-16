@@ -227,34 +227,10 @@ LOCAL_MODULE_OWNER := qti
 include $(BUILD_PREBUILT)
 
 include $(CLEAR_VARS)
-LOCAL_MODULE := bayer_lcac_calibration.json
-LOCAL_MODULE_CLASS := EXECUTABLES
-LOCAL_MODULE_PATH := $(TARGET_OUT_DATA)/misc/qmmf/
-LOCAL_SRC_FILES := test_cases/calibration/$(LOCAL_MODULE)
-LOCAL_MODULE_OWNER := qti
-include $(BUILD_PREBUILT)
-
-include $(CLEAR_VARS)
-LOCAL_MODULE := binning_correction_calibration.json
-LOCAL_MODULE_CLASS := EXECUTABLES
-LOCAL_MODULE_PATH := $(TARGET_OUT_DATA)/misc/qmmf/
-LOCAL_SRC_FILES := test_cases/calibration/$(LOCAL_MODULE)
-LOCAL_MODULE_OWNER := qti
-include $(BUILD_PREBUILT)
-
-include $(CLEAR_VARS)
 LOCAL_MODULE := bit_blit_configuration.json
 LOCAL_MODULE_CLASS := EXECUTABLES
 LOCAL_MODULE_PATH := $(TARGET_OUT_DATA)/misc/qmmf/
-LOCAL_SRC_FILES := test_cases/calibration/$(LOCAL_MODULE)
-LOCAL_MODULE_OWNER := qti
-include $(BUILD_PREBUILT)
-
-include $(CLEAR_VARS)
-LOCAL_MODULE := mesh_transform_tnr_calibration.raw
-LOCAL_MODULE_CLASS := EXECUTABLES
-LOCAL_MODULE_PATH := $(TARGET_OUT_DATA)/misc/qmmf/
-LOCAL_SRC_FILES := test_cases/calibration/$(LOCAL_MODULE)
+LOCAL_SRC_FILES := test_cases/configuration/$(LOCAL_MODULE)
 LOCAL_MODULE_OWNER := qti
 include $(BUILD_PREBUILT)
 
@@ -262,7 +238,7 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := mesh_transform_tnr_configuration.json
 LOCAL_MODULE_CLASS := EXECUTABLES
 LOCAL_MODULE_PATH := $(TARGET_OUT_DATA)/misc/qmmf/
-LOCAL_SRC_FILES := test_cases/calibration/$(LOCAL_MODULE)
+LOCAL_SRC_FILES := test_cases/configuration/$(LOCAL_MODULE)
 LOCAL_MODULE_OWNER := qti
 include $(BUILD_PREBUILT)
 
@@ -270,7 +246,7 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := privacy_mask_configuration.json
 LOCAL_MODULE_CLASS := EXECUTABLES
 LOCAL_MODULE_PATH := $(TARGET_OUT_DATA)/misc/qmmf/
-LOCAL_SRC_FILES := test_cases/calibration/$(LOCAL_MODULE)
+LOCAL_SRC_FILES := test_cases/configuration/$(LOCAL_MODULE)
 LOCAL_MODULE_OWNER := qti
 include $(BUILD_PREBUILT)
 
@@ -278,15 +254,7 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := res_conv_sub_configuration.json
 LOCAL_MODULE_CLASS := EXECUTABLES
 LOCAL_MODULE_PATH := $(TARGET_OUT_DATA)/misc/qmmf/
-LOCAL_SRC_FILES := test_cases/calibration/$(LOCAL_MODULE)
-LOCAL_MODULE_OWNER := qti
-include $(BUILD_PREBUILT)
-
-include $(CLEAR_VARS)
-LOCAL_MODULE := yuv_cac_calibration_nv21.json
-LOCAL_MODULE_CLASS := EXECUTABLES
-LOCAL_MODULE_PATH := $(TARGET_OUT_DATA)/misc/qmmf/
-LOCAL_SRC_FILES := test_cases/calibration/$(LOCAL_MODULE)
+LOCAL_SRC_FILES := test_cases/configuration/$(LOCAL_MODULE)
 LOCAL_MODULE_OWNER := qti
 include $(BUILD_PREBUILT)
 

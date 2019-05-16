@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+* Copyright (c) 2018, 2019, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -97,6 +97,8 @@ class FakeCamera : public CameraInterface {
   std::vector<int32_t>& GetSupportedFps() override;
 
   void NotifyBufferReturned(StreamBuffer& buffer);
+
+  void SetFlushCb(FlushCb &cb) override;
 
 private:
 

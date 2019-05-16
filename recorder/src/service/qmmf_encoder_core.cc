@@ -289,6 +289,26 @@ bool EncoderCore::isTrackValid(uint32_t track_id) {
   return track_encoders_.count(track_id) != 0 ? true : false;
 }
 
+status_t EncoderCore::FlushTrack(uint32_t track_id) {
+
+  QMMF_DEBUG("%s: Enter track_id(%x)", __func__, track_id);
+
+  if (!isTrackValid(track_id)) {
+    QMMF_ERROR("%s: Invalid track_id(%x)", __func__, track_id);
+    return NAME_NOT_FOUND;
+  }
+  shared_ptr<TrackEncoder> track_encoder;
+  {
+    std::lock_guard<std::mutex> l(encoder_list_lock_);
+    track_encoder = track_encoders_[track_id];
+    assert(track_encoder.get() != nullptr);
+  }
+  auto ret = track_encoder->Flush();
+
+  QMMF_DEBUG("%s: Exit track_id(%x)", __func__, track_id);
+  return ret;
+}
+
 TrackEncoder::TrackEncoder(int32_t ion_device)
     : ion_device_(ion_device),
       eos_atoutput_(false),
@@ -904,6 +924,20 @@ status_t TrackEncoder::AllocOutputPortBufs() {
   }
 
   QMMF_INFO("%s: Exit track_id(%x)", __func__, TrackId());
+  return ret;
+}
+
+status_t TrackEncoder::Flush(){
+
+  QMMF_DEBUG("%s: Enter track_id(%x)", __func__, TrackId());
+
+  if (nullptr == avcodec_) {
+    QMMF_ERROR("%s: AVCodec hasn't been initilized!", __func__);
+    return NO_INIT;
+  }
+  auto ret = avcodec_->FlushCodec(kPortIndexInput);
+
+  QMMF_DEBUG("%s: Enter track_id(%x)", __func__, TrackId());
   return ret;
 }
 

@@ -6,7 +6,7 @@ include $(QMMF_SDK_TOP_SRCDIR)/build.mk
 
 ifneq (,$(BUILD_QMMMF))
 
-# Build recorder test application binary
+# Build recorder gtest application binary
 
 include $(CLEAR_VARS)
 
@@ -40,4 +40,17 @@ LOCAL_VENDOR_MODULE := false
 endif
 
 include $(BUILD_NATIVE_TEST)
+
+include $(CLEAR_VARS)
+
+LOCAL_MODULE := imx577_sensor_mode_config.txt
+
+LOCAL_MODULE_CLASS  := ETC
+
+LOCAL_SRC_FILES     := $(LOCAL_MODULE)
+
+LOCAL_MODULE_PATH   := $(TARGET_OUT_DATA)/misc/qmmf
+
+include $(BUILD_PREBUILT)
+
 endif

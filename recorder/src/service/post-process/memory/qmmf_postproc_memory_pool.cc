@@ -32,7 +32,7 @@
 #include <dlfcn.h>
 #include <hardware/hardware.h>
 
-#include "../interface/qmmf_postproc.h"
+#include "interface/qmmf_postproc.h"
 #include "../factory/qmmf_postproc_factory.h"
 
 #include "qmmf_postproc_memory_pool.h"

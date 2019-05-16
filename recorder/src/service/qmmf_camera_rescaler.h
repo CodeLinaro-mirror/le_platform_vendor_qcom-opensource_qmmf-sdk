@@ -150,6 +150,8 @@ class CameraRescalerBase : public CameraRescalerThread,
 
   void UnMapBufs();
 
+  status_t Configure(const std::string& json_config_data);
+
  protected:
   // Thread for preparing synced and output buffers for processing by the
   // stitch library and passing them to the same library for stitching.
@@ -165,6 +167,9 @@ class CameraRescalerBase : public CameraRescalerThread,
 
   // Method for returning an output buffer back to the memory pool.
   status_t ReturnBufferToBufferPool(const StreamBuffer &buffer);
+
+  status_t Validate(const uint32_t& width, const uint32_t& height,
+                    const BufferFormat& fmt);
 
  private:
 
@@ -214,7 +219,8 @@ class CameraRescaler: public CameraRescalerBase {
   status_t Stop() override;
 
   status_t Init(const uint32_t& width, const uint32_t& height,
-                const BufferFormat& fmt);
+                const BufferFormat& fmt,
+                const float& in_fps, const float& out_fps);
 
   bool IsStop();
 
@@ -233,6 +239,8 @@ class CameraRescaler: public CameraRescalerBase {
   uint32_t                 ref_cnt_;
   bool                     is_stop_;
   std::mutex               stop_lock_;
+
+  std::shared_ptr<FrameRateController> frc_;
 };
 
 }; //namespace recorder

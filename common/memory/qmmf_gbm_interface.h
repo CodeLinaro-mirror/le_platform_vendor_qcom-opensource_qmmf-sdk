@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018, 2019, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -30,6 +30,7 @@
 #pragma once
 
 #include <gbm_priv.h>
+#include <mutex>
 #include "qmmf_memory_interface.h"
 #include "common/utils/qmmf_log.h"
 
@@ -74,9 +75,10 @@ class GBMBuffer : public IBufferInterface {
 
 class GBMDevice : public IAllocDevice {
 public:
-  GBMDevice();
 
-  ~GBMDevice();
+  static std::mutex gbm_device_mutex_;
+  static GBMDevice* CreateGBMDevice();
+  static void DestroyGBMDevice();
 
   gbm_device* GetDevice() const;
 
@@ -98,9 +100,17 @@ public:
                                       { return MemAllocError::kAllocOk; }
 
 private:
+
+  GBMDevice();
+  GBMDevice(GBMDevice const&);
+  GBMDevice& operator=(GBMDevice const&);
+  ~GBMDevice();
+
   gbm_device* gbm_device_;
 
   int gbm_fd_;
 
+  static int32_t ref_count_;
+  static GBMDevice* gbm_device_obj_;
   static const std::unordered_map<int32_t, int32_t> usage_flag_map_;
 };

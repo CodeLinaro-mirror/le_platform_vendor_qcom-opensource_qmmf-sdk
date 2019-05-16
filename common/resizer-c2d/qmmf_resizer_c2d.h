@@ -48,6 +48,8 @@ class C2DResizer : public ResizerInterface {
 
   void DeInit() override;
 
+  RESIZER_STATUS Configure(const std::string& json_config_data) override;
+
   RESIZER_STATUS Draw(StreamBuffer& src_buffer,
                       StreamBuffer& dst_buffer) override;
 
@@ -59,14 +61,28 @@ class C2DResizer : public ResizerInterface {
 
   void UnMapBufs();
 
+  bool BufferFormatToC2D(StreamBuffer &buffer, uint32_t &c2d_color_format);
+
+  RESIZER_STATUS UpdateRGBSurface(StreamBuffer& dst_buffer,
+                                  uint32_t &c2d_color_format,
+                                  void *dst_buf_gpu_addr);
+
+  RESIZER_STATUS UpdateYUVSurface(StreamBuffer& src_buffer,
+                                  StreamBuffer& dst_buffer,
+                                  uint32_t &c2d_color_format,
+                                  void *dst_buf_gpu_addr);
+
  private:
 
   uint32_t src_surface_id_;
   uint32_t dst_surface_id_;
+  uint32_t dst_surface_rgb_id_;
 
   std::map<uint32_t, void*> mapped_buffs_;
 
   std::mutex crop_lock_;
+  ResizerCrop crop_;
+
 };
 
 }; //namespace qmmf ends here

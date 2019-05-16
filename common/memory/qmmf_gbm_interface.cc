@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018, 2019, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -57,6 +57,10 @@ const std::unordered_map<int32_t, int32_t> GBMUsage::gralloc_usage_flag_map_ = {
   {IMemAllocUsage::kSwWriteOften,     GRALLOC_USAGE_SW_WRITE_OFTEN},
   {IMemAllocUsage::kHwFb,             GRALLOC_USAGE_HW_FB},
   {IMemAllocUsage::kVideoEncoder,     private_handle_t::PRIV_FLAGS_VIDEO_ENCODER}};
+
+GBMDevice* GBMDevice::gbm_device_obj_ = nullptr;
+int32_t GBMDevice::ref_count_ = 0;
+std::mutex GBMDevice::gbm_device_mutex_;
 
 int32_t GBMUsage::ToLocal(int32_t common) const {
   int32_t local_usage = 0;
@@ -255,6 +259,33 @@ uint32_t GBMBuffer::GetLocalFormat (int common)
   return gbm_format;
 }
 
+GBMDevice* GBMDevice::CreateGBMDevice() {
+  std::lock_guard<std::mutex> lk(gbm_device_mutex_);
+  if (!gbm_device_obj_) {
+    gbm_device_obj_ = new GBMDevice;
+    if (gbm_device_obj_ == nullptr) {
+      QMMF_ERROR("%s: Failed to create GBM device", __func__);
+      assert(false);
+    }
+  }
+  ref_count_++;
+  QMMF_DEBUG("%s: GBM device(%p) ref count: %d", __func__, gbm_device_obj_,
+             ref_count_);
+  return gbm_device_obj_;
+}
+
+void GBMDevice::DestroyGBMDevice() {
+  std::lock_guard<std::mutex> lk(gbm_device_mutex_);
+  if (gbm_device_obj_) {
+    if (ref_count_ - 1 == 0) {
+      delete gbm_device_obj_;
+      gbm_device_obj_ = nullptr;
+    }
+    ref_count_--;
+  }
+  QMMF_DEBUG("%s: GBM device(%p) ref count: %d", __func__, gbm_device_obj_,
+             ref_count_);
+}
 
 GBMDevice::GBMDevice() {
   gbm_fd_ = open("/dev/dri/card0", O_RDWR);
@@ -320,6 +351,30 @@ MemAllocError GBMDevice::Perform(const IBufferHandle& handle,
     case AllocDeviceAction::GetStride: {
       *static_cast<int32_t*>(result) = gbm_bo_get_stride(bo->GetNativeHandle());
       return MemAllocError::kAllocOk;
+    }
+    case AllocDeviceAction::GetAlignedWidth: {
+      uint32_t align_width;
+      auto ret = gbm_perform(GBM_PERFORM_GET_BO_ALIGNED_WIDTH,
+                             bo->GetNativeHandle(), &align_width);
+      if(ret == GBM_ERROR_NONE) {
+        *static_cast<int32_t*>(result) = align_width;
+        return MemAllocError::kAllocOk;
+      } else {
+        QMMF_ERROR("%s: Get aligned width action failed.", __func__);
+        return MemAllocError::kAllocFail;
+      }
+    }
+    case AllocDeviceAction::GetAlignedHeight: {
+      uint32_t align_height;
+      auto ret = gbm_perform(GBM_PERFORM_GET_BO_ALIGNED_HEIGHT,
+                             bo->GetNativeHandle(), &align_height);
+      if(ret == GBM_ERROR_NONE) {
+        *static_cast<int32_t*>(result) = align_height;
+        return MemAllocError::kAllocOk;
+      } else {
+        QMMF_ERROR("%s: Get aligned height action failed.", __func__);
+        return MemAllocError::kAllocFail;
+      }
     }
     default:
       QMMF_ERROR("%s: Unrecognized action to perform.", __func__);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  * Not a Contribution.
  */
 
@@ -40,8 +40,10 @@
 #endif
 
 #ifdef DISABLE_OP_MODES
-#define QCAMERA3_SENSORMODE_ZZHDR_OPMODE 0xf002
-#define QCAMERA3_SENSORMODE_FPS_DEFAULT_INDEX 0x0
+#define QCAMERA3_SENSORMODE_ZZHDR_OPMODE      (0xF002)
+#define QCAMERA3_SENSORMODE_FPS_DEFAULT_INDEX (0x0)
+#define FORCE_SENSORMODE_ENABLE               (1 << 24)
+#define FORCE_SENSORMODE_INDEX(idx)           ((idx + 1) << 16)
 #endif
 
 // Convenience macros for transitioning to the error state
@@ -58,6 +60,8 @@ namespace qmmf {
 namespace cameraadaptor {
 
 std::mutex Camera3DeviceClient::vendor_tag_mutex_;
+sp<VendorTagDescriptor> Camera3DeviceClient::vendor_tag_desc_ = nullptr;
+uint32_t Camera3DeviceClient::client_count_ = 0;
 
 Camera3DeviceClient::Camera3DeviceClient(CameraClientCallbacks clientCb)
     : client_cb_(clientCb),
@@ -86,6 +90,7 @@ Camera3DeviceClient::Camera3DeviceClient(CameraClientCallbacks clientCb)
       is_raw_only_(false),
       hfr_mode_enabled_(false),
       is_zzhdr_enabled_(false),
+      force_sensor_mode_(-1),
       fps_sensormode_index_(0),
       prepare_handler_(),
       input_stream_{} {
@@ -129,11 +134,16 @@ Camera3DeviceClient::~Camera3DeviceClient() {
   monitor_.RequestExit();
 
   if (nullptr != alloc_device_interface_) {
-    delete alloc_device_interface_;
+    AllocDeviceFactory::DestroyAllocDevice(alloc_device_interface_);
     alloc_device_interface_ = nullptr;
   }
 
-  VendorTagDescriptor::clearGlobalVendorTagDescriptor();
+  {
+    std::lock_guard<std::mutex> lk(vendor_tag_mutex_);
+    if (--client_count_ == 0) {
+      VendorTagDescriptor::clearGlobalVendorTagDescriptor();
+    }
+  }
 
   pthread_mutex_destroy(&lock_);
   pthread_mutex_destroy(&pending_requests_lock_);
@@ -176,30 +186,32 @@ int32_t Camera3DeviceClient::Initialize() {
 
   if (camera_module_->get_vendor_tag_ops) {
     std::lock_guard<std::mutex> lk(vendor_tag_mutex_);
-    vendor_tag_ops_ = vendor_tag_ops_t();
-    camera_module_->get_vendor_tag_ops(&vendor_tag_ops_);
+    if (client_count_ == 0) {
+      vendor_tag_ops_ = vendor_tag_ops_t();
+      camera_module_->get_vendor_tag_ops(&vendor_tag_ops_);
 
-    sp<VendorTagDescriptor> vendor_tag_desc;
-    res = VendorTagDescriptor::createDescriptorFromOps(&vendor_tag_ops_,
-                                                       vendor_tag_desc);
+      res = VendorTagDescriptor::createDescriptorFromOps(&vendor_tag_ops_,
+                                                         vendor_tag_desc_);
 
-    if (0 != res) {
-      QMMF_ERROR("%s: Could not generate descriptor from vendor tag operations,"
-          "received error %s (%d). Camera clients will not be able to use"
-          "vendor tags", __FUNCTION__, strerror(res), res);
-      goto exit;
+      if (0 != res) {
+        QMMF_ERROR("%s: Could not generate descriptor from vendor tag operations,"
+            "received error %s (%d). Camera clients will not be able to use"
+            "vendor tags", __FUNCTION__, strerror(res), res);
+        goto exit;
+      }
+
+      // Set the global descriptor to use with camera metadata
+      res = VendorTagDescriptor::setAsGlobalVendorTagDescriptor(vendor_tag_desc_);
+
+      if (0 != res) {
+        QMMF_ERROR(
+            "%s: Could not set vendor tag descriptor, "
+            "received error %s (%d). \n",
+            __func__, strerror(-res), res);
+        goto exit;
+      }
     }
-
-    // Set the global descriptor to use with camera metadata
-    res = VendorTagDescriptor::setAsGlobalVendorTagDescriptor(vendor_tag_desc);
-
-    if (0 != res) {
-      QMMF_ERROR(
-          "%s: Could not set vendor tag descriptor, "
-          "received error %s (%d). \n",
-          __func__, strerror(-res), res);
-      goto exit;
-    }
+    ++client_count_;
   }
 
   camera_module_->set_callbacks(this);
@@ -216,11 +228,16 @@ int32_t Camera3DeviceClient::Initialize() {
 exit:
 
   if (nullptr != alloc_device_interface_) {
-    delete alloc_device_interface_;
+    AllocDeviceFactory::DestroyAllocDevice(alloc_device_interface_);
     alloc_device_interface_ = nullptr;
   }
 
-  VendorTagDescriptor::clearGlobalVendorTagDescriptor();
+  {
+    std::lock_guard<std::mutex> lk(vendor_tag_mutex_);
+    if (client_count_ == 0) {
+      VendorTagDescriptor::clearGlobalVendorTagDescriptor();
+    }
+  }
 
   if (NULL != camera_module_) {
     dlclose(camera_module_->common.dso);
@@ -381,6 +398,9 @@ int32_t Camera3DeviceClient::ConfigureStreams(const StreamConfiguration& stream_
   if (stream_config.params) {
     is_pp_enabled = stream_config.params->is_pp_enabled;
     is_zzhdr_enabled_ = stream_config.params->is_zzhdr_enabled;
+    if (stream_config.params->force_sensor_mode >= 0) {
+      force_sensor_mode_ = stream_config.params->force_sensor_mode;
+    }
   }
 
 #ifdef USE_FPS_IDX
@@ -411,9 +431,6 @@ int32_t Camera3DeviceClient::ConfigureStreamsLocked(bool is_pp_enabled) {
 #ifndef DISABLE_OP_MODES
   if (is_raw_only_) {
     config.operation_mode = QCAMERA3_VENDOR_STREAM_CONFIGURATION_RAW_ONLY_MODE;
-  } else if (hfr_mode_enabled_) {
-    config.operation_mode =
-        CAMERA3_STREAM_CONFIGURATION_CONSTRAINED_HIGH_SPEED_MODE;
   } else if (!is_pp_enabled) {
     config.operation_mode =
         QCAMERA3_VENDOR_STREAM_CONFIGURATION_PP_DISABLED_MODE;
@@ -423,18 +440,35 @@ int32_t Camera3DeviceClient::ConfigureStreamsLocked(bool is_pp_enabled) {
 #else
   config.operation_mode = CAMERA3_STREAM_CONFIGURATION_NORMAL_MODE;
 
+  // Handle ZZHDR Mode
   if (is_zzhdr_enabled_ == true) {
-    config.operation_mode = QCAMERA3_SENSORMODE_ZZHDR_OPMODE;
+    config.operation_mode |= QCAMERA3_SENSORMODE_ZZHDR_OPMODE;
+  }
+  // Handle HFR Mode
+  if (hfr_mode_enabled_) {
+    config.operation_mode |=
+    CAMERA3_STREAM_CONFIGURATION_CONSTRAINED_HIGH_SPEED_MODE;
   }
 
-  // Setting OpMode for 60fps, which is index of 60fps in sensor mode table
-  if (fps_sensormode_index_ > QCAMERA3_SENSORMODE_FPS_DEFAULT_INDEX) {
+  /*
+   * Below two features are mutually exclusive:
+   * 1. Using force sensor mode
+   * 2. Default 60 fps usecase, in which OpMode is index of 60fps
+   *    in sensor mode table
+   */
+  if (force_sensor_mode_ >= 0) {
+    config.operation_mode |= (FORCE_SENSORMODE_INDEX(force_sensor_mode_) |
+        FORCE_SENSORMODE_ENABLE);
+    QMMF_INFO("%s: Force_sensor_mode OpMode is set to 0x%x \n",
+        __func__, config.operation_mode);
+
+  } else if (fps_sensormode_index_ > QCAMERA3_SENSORMODE_FPS_DEFAULT_INDEX) {
     config.operation_mode |= (fps_sensormode_index_ << 16);
-    QMMF_INFO("%s: 60+ FPS OpMode is Set 0x%x \n", __func__, config.operation_mode);
+    QMMF_INFO("%s: 60+ FPS OpMode is Set 0x%x \n",
+        __func__, config.operation_mode);
   }
 #endif
-  QMMF_DEBUG("%s: operation_mode:0x%x \n", __func__,
-            config.operation_mode);
+  QMMF_DEBUG("%s: operation_mode:0x%x \n", __func__, config.operation_mode);
 
   Vector<camera3_stream_t *> streams;
   for (size_t i = 0; i < streams_.size(); i++) {
@@ -579,6 +613,11 @@ int32_t Camera3DeviceClient::DeleteStream(int streamId, bool cache) {
     }
 
     streams_.removeItem(streamId);
+    if (streams_.isEmpty() && (force_sensor_mode_ >= 0)) {
+      QMMF_INFO("%s: Disabling force_sensor_mode and returning to auto_mode\n",
+                 __func__);
+      force_sensor_mode_ = -1;
+    }
 
     res = stream->Close();
     if (0 != res) {

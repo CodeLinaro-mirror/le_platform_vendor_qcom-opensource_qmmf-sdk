@@ -76,6 +76,7 @@ CameraContext::CameraContext()
       postproc_enable_(false),
       result_cb_(nullptr),
       error_cb_(nullptr),
+      flush_cb_(nullptr),
       hfr_supported_(false),
       batch_size_(1),
       batch_stream_id_(-1),
@@ -104,6 +105,10 @@ CameraContext::~CameraContext() {
   }
   //TODO: check all active ports
   QMMF_INFO("%s: Exit", __func__);
+}
+
+void CameraContext::SetFlushCb(FlushCb &cb){
+  flush_cb_ = cb;
 }
 
 void CameraContext::InitSupportedFPS() {
@@ -196,7 +201,7 @@ status_t CameraContext::CreateSnapshotStream(const SnapshotParam& param) {
             stream_param.height, stream_param.format);
 
   if (IsStreamParamsChanged(stream_param)) {
-
+    PauseActiveStreams();
     if (!snapshot_request_.streamIds.isEmpty()) {
       if (1 < snapshot_request_.streamIds.size()) {
         QMMF_ERROR("%s: Several non-zsl snapshot streams present!\n",
@@ -1031,6 +1036,24 @@ status_t CameraContext::CreateStream(const StreamParam& param,
     }
   }
 
+  if (extra_param.Exists(QMMF_FORCE_SENSOR_MODE)) {
+    size_t entry_count = extra_param.EntryCount(QMMF_FORCE_SENSOR_MODE);
+    for (size_t i = 0; i < entry_count; ++i) {
+      ForceSensorMode force_sensor_mode;
+      extra_param.Fetch(QMMF_FORCE_SENSOR_MODE, force_sensor_mode, i);
+      if (force_sensor_mode.mode >= 0) {
+        (const_cast<StreamParam&>(param).force_sensor_mode) =
+            force_sensor_mode.mode;
+        QMMF_INFO("%s: Force sensor mode(%d) received",
+                  __func__, force_sensor_mode.mode);
+      } else {
+        QMMF_WARN("%s: Invalid sensor mode(%i) received, "
+                  "falling back to auto mode selection",
+                  __func__, force_sensor_mode.mode);
+      }
+    }
+  }
+
   std::shared_ptr<CameraPort> port =
       std::make_shared<CameraPort>(param, batch, CameraPortType::kVideo, this);
   assert(port.get() != nullptr);
@@ -1381,15 +1404,13 @@ status_t CameraContext::CreateDeviceStream(CameraStreamParameters& params,
         max_frame_rate = port_frm_rate;
       }
     }
-
     QMMF_DEBUG("%s: Max fps (%u)!!", __func__, max_frame_rate);
 
-    if (30 < max_frame_rate && max_frame_rate <= 90) {
+    if ((max_frame_rate > 30) && (max_frame_rate <= 90)) {
       fps_sensormode_index = GetSensorModeIndex(max_frame_rate);
       QMMF_DEBUG("%s: Sensor mode index (%u) for fps=%u!!", __func__,
           fps_sensormode_index, max_frame_rate);
     }
-
 #endif
 
     auto is_raw_only = IsRawOnly(params.format);
@@ -1602,7 +1623,15 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
         streaming_active_requests_.resize(batch_size);
       }
       for (size_t i = 0; i < batch_size; i++) {
-        streaming_active_requests_[i].streamIds.add(cam_stream_id);
+        if (std::find(streaming_active_requests_[i].streamIds.begin(),
+                      streaming_active_requests_[i].streamIds.end(),
+                      cam_stream_id) ==
+                      streaming_active_requests_[i].streamIds.end()) {
+          // Stream ID not found, so add now.
+          streaming_active_requests_[i].streamIds.add(cam_stream_id);
+          QMMF_DEBUG("%s: CameraPort(0x%p):camera_stream_id(%d) is adding to "
+              "active stream !", __func__, port.get(), cam_stream_id);
+        }
         if ((1 < i) && (streaming_active_requests_[i].metadata.isEmpty())) {
           assert(!streaming_active_requests_[0].metadata.isEmpty());
           streaming_active_requests_[i].metadata.append(
@@ -1803,6 +1832,8 @@ status_t CameraContext::PauseActiveStreams(bool immedialtely) {
     int64_t last_frame_mumber;
     ret = camera_device_->Flush(&last_frame_mumber);
     assert(ret == NO_ERROR);
+
+    flush_cb_(camera_id_);
 
     ret = camera_device_->WaitUntilIdle();
     assert(ret == NO_ERROR);
@@ -2499,6 +2530,7 @@ status_t CameraPort::Init() {
     cam_stream_params_.height = in_param.height;
   }
   cam_stream_params_.is_zzhdr_enabled = params_.is_zzhdr_enabled;
+  cam_stream_params_.force_sensor_mode = params_.force_sensor_mode;
 
   int32_t stream_id;
   auto ret = context_->CreateDeviceStream(cam_stream_params_,

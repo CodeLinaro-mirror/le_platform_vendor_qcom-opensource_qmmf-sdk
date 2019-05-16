@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -344,6 +344,13 @@ status_t RecorderImpl::StartCamera(const uint32_t client_id,
   }
   std::lock_guard<std::mutex> lock(camera_map_lock_);
   client_cameraid_map_[client_id].emplace(camera_id);
+
+  FlushCb flushcb = [&](const uint32_t camera_id) { CameraFlushCb(camera_id); };
+  ret = camera_source_->SetFlushCb(camera_id, flushcb);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s: SetFlushCb Failed!!", __func__);
+    return BAD_VALUE;
+  }
 
   QMMF_INFO("%s: Number of clients connected(%d)", __func__,
       client_cameraid_map_.size());
@@ -1288,6 +1295,11 @@ status_t RecorderImpl::CreateVideoTrack(const uint32_t client_id,
     }
   }
 
+  {
+    std::lock_guard<std::mutex> lock(camera_tracks_lock_);
+    camera_tracks_map_[params.camera_id].emplace(service_track_id);
+  }
+
   // Assosiate track to session.
   TrackInfo track_info{};
   track_info.track_id     = service_track_id;
@@ -1395,6 +1407,11 @@ status_t RecorderImpl::CreateVideoTrack(const uint32_t client_id,
     }
   }
 
+  {
+    std::lock_guard<std::mutex> lock(camera_tracks_lock_);
+    camera_tracks_map_[params.camera_id].emplace(service_track_id);
+  }
+
   // Assosiate track to session.
   TrackInfo track_info{};
   track_info.track_id     = service_track_id;
@@ -1470,6 +1487,21 @@ status_t RecorderImpl::DeleteVideoTrack(const uint32_t client_id,
       QMMF_ERROR("%s: DeleteTrackEncoder failed for client_track_id(%d):"
           "service_track_id(%x)", __func__, track_id, service_track_id);
       return ret;
+    }
+  }
+  {
+    std::lock_guard<std::mutex> lock(camera_tracks_lock_);
+    // Find the camera-to-tracks mapping that this track id belongs to.
+    auto it = std::find_if(
+        camera_tracks_map_.begin(), camera_tracks_map_.end(),
+        [service_track_id](const std::pair<uint32_t, std::set<uint32_t>>& p) {
+          return p.second.count(service_track_id) != 0;
+        }
+    );
+    // Erase the track id for the found camera-to-tracks map entry.
+    if (it != camera_tracks_map_.end()) {
+      auto& tracks = it->second;
+      tracks.erase(track_id);
     }
   }
   {
@@ -1671,6 +1703,7 @@ status_t RecorderImpl::CaptureImage(const uint32_t client_id,
       uint32_t count, BnBuffer& buf, MetaData& meta_data) {
           CameraSnapshotCb(client_id, camera_id, count, buf, meta_data);
       };
+
   auto ret = camera_source_->CaptureImage(camera_id, param, num_images,
                                           meta, cb);
   if (ret != NO_ERROR) {
@@ -2120,6 +2153,23 @@ void RecorderImpl::CameraSnapshotCb(uint32_t client_id, uint32_t camera_id,
                                                    buffer, meta_data);
   QMMF_DEBUG("%s Exit client_id(%u), camera_id(%u), count(%u)",
       __func__, client_id, camera_id, count);
+}
+
+void RecorderImpl::CameraFlushCb(const uint32_t camera_id) {
+
+  QMMF_VERBOSE("%s: Enter", __func__);
+  std::lock_guard<std::mutex> lock(camera_tracks_lock_);
+  for (auto track_id : camera_tracks_map_[camera_id]) {
+    if (encoder_core_) {
+      auto ret = encoder_core_->FlushTrack(track_id);
+      assert((ret == NO_ERROR) || (ret == NAME_NOT_FOUND));
+    }
+    if (camera_source_) {
+      auto ret = camera_source_->FlushTrack(track_id);
+      assert((ret == NO_ERROR) || (ret == NAME_NOT_FOUND));
+    }
+  }
+  QMMF_VERBOSE("%s: Exit", __func__);
 }
 
 void RecorderImpl::CameraResultCb(uint32_t client_id, uint32_t camera_id,

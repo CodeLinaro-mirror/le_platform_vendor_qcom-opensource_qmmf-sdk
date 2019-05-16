@@ -53,9 +53,14 @@ class FastCVResizer : public ResizerInterface {
   RESIZER_STATUS ValidateOutput(const uint32_t width,
                                 const uint32_t height,
                                 const BufferFormat format) override;
+
+  RESIZER_STATUS Configure(const std::string& json_config_data) override;
+
  private:
 
   uint32_t fastcv_level_;
+
+  ResizerCrop crop_;
 };
 
 }; //namespace qmmf ends here

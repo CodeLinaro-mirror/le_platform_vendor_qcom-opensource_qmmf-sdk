@@ -3,7 +3,7 @@
     "iteration count": 12,
     "tested library": "qmmf/alg-plugins/libqmmf_alg_yuv_cac.so",
     "configuration file": "",
-    "calibration file": "yuv_cac_calibration_nv21.json",
+    "calibration file": "qmmf_tuning_YuvCac.bin",
     "input buffers": [
       {
         "width": 1920,

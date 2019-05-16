@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -44,9 +44,69 @@ status_t DumpBitStream::SetUp(const StreamDumpInfo& dumpinfo) {
   TEST_DBG("%s: Enter", __func__);
   EXPECT_TRUE(dumpinfo.width > 0);
   EXPECT_TRUE(dumpinfo.height > 0);
+  struct timeval tv;
+  gettimeofday(&tv, NULL);
+  SplitFileInfo file_info = {dumpinfo, tv.tv_sec, 0, nullptr, 0};
 
+  std::string bitstream_filepath = GetFileName(file_info);
+  int32_t file_fd = open(bitstream_filepath.c_str(),
+                         O_CREAT | O_WRONLY | O_TRUNC, 0655);
+  if (file_fd < 0) {
+    TEST_ERROR("%s File open failed!", __func__);
+    return BAD_VALUE;
+  }
+  file_info.file_fd = file_fd;
+  uint8_t key_by_session_track_id = GenerateKey(dumpinfo.session_id,
+    dumpinfo.track_id);
+  split_file_info_.insert(std::make_pair(key_by_session_track_id, file_info));
+
+  TEST_DBG("%s: Exit", __func__);
+  return NO_ERROR;
+}
+
+status_t DumpBitStream::SplitFile(const uint8_t file_index) {
+  TEST_DBG("%s: Enter", __func__);
+
+  SplitFileInfo& file_info = split_file_info_[file_index];
+  file_info.part_number += 1;
+  EXPECT_TRUE(file_info.streaminfo.width > 0);
+  EXPECT_TRUE(file_info.streaminfo.height > 0);
+
+  std::string bitstream_filepath = GetFileName(file_info);
+
+  int32_t file_fd = file_info.file_fd;
+  close(file_fd);
+  // Get New FileFd
+  file_fd = open(bitstream_filepath.c_str(),
+                 O_CREAT | O_WRONLY | O_TRUNC, 0655);
+  if (file_fd < 0) {
+    TEST_ERROR("%s File open failed for part number: %d", __func__,
+               file_info.part_number);
+    return BAD_VALUE;
+  }
+  file_info.file_fd = file_fd;
+
+  if (file_info.streaminfo.format == VideoFormat::kAVC ||
+      file_info.streaminfo.format == VideoFormat::kHEVC) {
+    // header or first buffer dump required at start of each file dump in case
+    // of AVC and HEVC format
+    BufferDescriptor *buf = file_info.header;
+    uint32_t exp_size = buf->size;
+    uint32_t written_length = write(file_fd, buf->data, buf->size);
+    if (written_length != exp_size) {
+      TEST_ERROR("%s: Bad Write error (%d) %s", __func__, errno,
+                 strerror(errno));
+      return BAD_VALUE;
+    }
+  }
+
+  TEST_DBG("%s: Exit", __func__);
+  return NO_ERROR;
+}
+
+std::string DumpBitStream::GetFileName(const SplitFileInfo& file_info) {
   const char* type_string;
-  switch (dumpinfo.format) {
+  switch (file_info.streaminfo.format) {
     case VideoFormat::kAVC:
       type_string = "h264";
       break;
@@ -62,37 +122,45 @@ status_t DumpBitStream::SetUp(const StreamDumpInfo& dumpinfo) {
   }
   std::string extn(type_string);
   std::string bitstream_filepath("/data/misc/qmmf/gtest_track_");
-  bitstream_filepath += std::to_string(dumpinfo.track_id) + "_";
-  bitstream_filepath += std::to_string(dumpinfo.width) + "x";
-  bitstream_filepath += std::to_string(dumpinfo.height) + ".";
+  bitstream_filepath += std::to_string(file_info.streaminfo.track_id) + "_";
+  bitstream_filepath += std::to_string(file_info.streaminfo.width) + "x";
+  bitstream_filepath += std::to_string(file_info.streaminfo.height) + "_";
+  bitstream_filepath += std::to_string(file_info.timestamp) + "_";
+  bitstream_filepath += std::to_string(file_info.part_number) + ".";
   bitstream_filepath += extn;
-  int32_t file_fd = open(bitstream_filepath.c_str(),
-                          O_CREAT | O_WRONLY | O_TRUNC, 0655);
-  if (file_fd <= 0) {
-    TEST_ERROR("%s File open failed!", __func__);
-    return BAD_VALUE;
-  }
-  uint8_t key_by_session_track_id = dumpinfo.session_id << 4
-    | dumpinfo.track_id;
-  file_fds_.insert(std::make_pair(key_by_session_track_id, file_fd));
-
-  TEST_DBG("%s: Exit", __func__);
-  return NO_ERROR;
+  return bitstream_filepath;
 }
 
 status_t DumpBitStream::Dump(const std::vector<BufferDescriptor>& buffers,
    const uint32_t &session_id, const uint32_t &track_id) {
 
   TEST_DBG("%s: Enter", __func__);
+  uint8_t key_by_session_track_id = GenerateKey(session_id, track_id);
   int32_t file_fd = GetFileFd(session_id, track_id);
-  EXPECT_TRUE(file_fd > 0);
+  EXPECT_TRUE(file_fd >= 0);
 
+  if (!split_file_info_[key_by_session_track_id].header && buffers.size()) {
+    TEST_DBG("%s: First video frame", __func__);
+    BufferDescriptor *buf = new BufferDescriptor();
+    BufferDescriptor *head = const_cast<BufferDescriptor*>(&buffers[0]);
+    buf->size = head->size;
+    buf->data = malloc(head->size);
+    memcpy(buf->data, head->data, head->size);
+    split_file_info_[key_by_session_track_id].header = buf;
+  }
+
+  uint64_t file_size = GetFileSize(file_fd);
   for (auto& iter : buffers) {
     uint32_t exp_size = iter.size;
     TEST_DBG("%s:%s BitStream buffer data(0x%x):size(%d):ts(%lld):flag(0x%x)"
       ":buf_id(%d):capacity(%d)",  __func__, iter.data, iter.size,
        iter.timestamp, iter.flag, iter.buf_id, iter.capacity);
 
+    if (file_size + iter.size > MAX_DUMP_SIZE) {
+      auto ret = SplitFile(key_by_session_track_id);
+      EXPECT_TRUE(ret == NO_ERROR);
+      file_size += iter.size;
+    }
     uint32_t written_length = write(file_fd, iter.data, iter.size);
     TEST_DBG("%s: written_length(%d)", __func__, written_length);
     if (written_length != exp_size) {
@@ -111,29 +179,87 @@ status_t DumpBitStream::Dump(const std::vector<BufferDescriptor>& buffers,
   return NO_ERROR;
 }
 
-void DumpBitStream::Close(int32_t file_fd) {
+void DumpBitStream::Close(const uint32_t &session_id,
+                          const uint32_t &track_id) {
   TEST_DBG("%s: Enter", __func__);
-  if (file_fd > 0) {
-    auto iter = file_fds_.find(file_fd);
-    if(iter != file_fds_.end()) {
-      close(file_fd);
-      file_fds_.erase(iter);
-    } else {
-      TEST_WARN("%s: file_fd does not exist!", __func__);
-    }
+  uint8_t key_by_session_track_id = GenerateKey(session_id, track_id);
+  int32_t file_fd = split_file_info_[key_by_session_track_id].file_fd;
+  if (file_fd >= 0) {
+    close(file_fd);
+    BufferDescriptor *buf = split_file_info_[key_by_session_track_id].header;
+    free(buf->data);
+    delete(buf);
+    split_file_info_.erase(key_by_session_track_id);
+  } else {
+    TEST_WARN("%s: file_fd does not exist!", __func__);
   }
   TEST_DBG("%s: Exit", __func__);
 }
 
 void DumpBitStream::CloseAll() {
   TEST_DBG("%s: Enter", __func__);
-  for (auto& iter : file_fds_) {
-    if (iter.second > 0) {
-      close(iter.second);
+  for(auto& iter : split_file_info_) {
+    if (iter.second.file_fd >= 0) {
+      close(iter.second.file_fd);
+    }
+    if(iter.second.header) {
+      BufferDescriptor *buf = iter.second.header;
+      free(buf->data);
+      delete(buf);
     }
   }
-  file_fds_.clear();
+  split_file_info_.clear();
   TEST_DBG("%s: Exit", __func__);
+}
+
+void FrameTrace::SetUp(uint32_t session_id, uint32_t track_id, float fps) {
+  std::lock_guard<std::mutex> lk(lock_);
+  session_id_ = session_id;
+  track_id_   = track_id;
+  track_fps_  = fps;
+}
+
+void FrameTrace::Reset() {
+  std::lock_guard<std::mutex> lk(lock_);
+  previous_timestamp_   = 0;
+  total_frames_         = 0;
+  total_dropped_frames_ = 0;
+}
+
+void FrameTrace::BufferAvailableCb(BufferDescriptor buffer) {
+
+  if (!enabled_) {
+    // Not enabled.
+    return;
+  }
+
+  std::lock_guard<std::mutex> lk(lock_);
+  total_frames_++;
+
+  // Timestamp Δ in us = current frame timestamp - previous frame timestamp.
+  uint64_t current_delta = (buffer.timestamp - previous_timestamp_);
+
+  // Calculate the expected timestamp Δ in us.
+  uint64_t expected_delta = 1000000L / track_fps_;
+
+  // Adjust timestamp Δ with variance.
+  uint64_t delta = current_delta + (expected_delta * kTimestampVariance);
+
+  // Calculate if there are any frames dropped and how many.
+  int32_t dropped_frames = (delta / expected_delta) - 1;
+
+  if ((dropped_frames > 0) && (previous_timestamp_ != 0)) {
+    total_frames_ += dropped_frames;
+    total_dropped_frames_ += dropped_frames;
+
+    TEST_WARN("%s: Session %u | Track %u | Expected timestamp Δ = %llu us | "
+        "Current timestamp Δ = %llu us | DROPPED FRAMES = %d | TOTAL DROPPED "
+        "FRAMES = %u / %u", __func__, session_id_, track_id_, expected_delta,
+        current_delta, dropped_frames, total_dropped_frames_, total_frames_);
+  }
+
+  // Save current timestamp for use in next call.
+  previous_timestamp_ = buffer.timestamp;
 }
 
 #ifdef USE_SURFACEFLINGER
@@ -328,6 +454,12 @@ void GtestCommon::SetUp() {
   is_apply_overlay_ = (atoi(prop_val) == 0) ? false : true;
   property_get(PROP_UBWC_STREAM_ENABLE, prop_val, "1");
   ubwc_stream_enable_ = (atoi(prop_val) == 0) ? false : true;
+  property_get(PROP_FRAME_DEBUG, prop_val, "0");
+  is_frame_debug_enabled_ = (atoi(prop_val) == 0) ? false : true;
+  property_get(PROP_SENSOR_CONFIG_FILE, prop_val, "");
+  sensor_mode_file_name_ = std::string(prop_val);
+  property_get(PROP_MEASURE_SOF_LATENCY, prop_val, "0");
+  enable_sof_latency_ = (atoi(prop_val) == 0) ? false : true;
 
   camera_start_params_ = {};
   camera_start_params_.zsl_mode         = false;
@@ -455,6 +587,17 @@ void GtestCommon::VideoTrackYUVDataCb(uint32_t session_id, uint32_t track_id,
                                       std::vector<BufferDescriptor> buffers,
                                       std::vector<MetaData> meta_buffers) {
   TEST_DBG("%s: Enter track_id: %d", __func__, track_id);
+
+  if (enable_sof_latency_) {
+    struct timespec time;
+    clock_gettime(CLOCK_BOOTTIME, &time);
+    auto current_time_ms = time.tv_sec * 1000 + (time.tv_nsec / 1000000);
+    auto buf_time_ms = buffers[0].timestamp / 1000000;
+    auto latency = current_time_ms - buf_time_ms;
+    TEST_INFO("%s: SOF Latency: %llu ms\n", __func__,
+        latency);
+  }
+
   if (is_dump_yuv_enabled_) {
     track_frame_count_map_[track_id]++;
     if (!(track_frame_count_map_[track_id] % dump_yuv_freq_)) {
@@ -635,6 +778,52 @@ void GtestCommon::SnapshotCb(uint32_t camera_id,
   // Return buffer back to recorder service.
   recorder_.ReturnImageCaptureBuffer(camera_id, buffer);
   TEST_INFO("%s Exit", __func__);
+}
+
+void GtestCommon::VideoTrackRGBDataCb(uint32_t session_id, uint32_t track_id,
+                                      std::vector<BufferDescriptor> buffers,
+                                      std::vector<MetaData> meta_buffers) {
+  TEST_DBG("%s: Enter track_id: %d", __func__, track_id);
+  if (is_dump_raw_enabled_) {
+    static uint32_t fcounter = 0;
+    ++fcounter;
+
+    if (fcounter == dump_yuv_freq_) {
+      std::string file_path("/data/misc/qmmf/gtest_track_");
+      size_t written_len;
+      file_path += std::to_string(track_id) + "_";
+      file_path += std::to_string(buffers[0].timestamp);
+      file_path += ".rgb";
+      FILE *file = fopen(file_path.c_str(), "w+");
+      if (!file) {
+        ALOGE("%s: Unable to open file(%s)", __func__,
+            file_path.c_str());
+        goto FAIL;
+      }
+
+      written_len = fwrite(buffers[0].data, sizeof(uint8_t),
+                           buffers[0].size, file);
+      TEST_INFO("%s: written_len =%d", __func__, written_len);
+      if (buffers[0].size != written_len) {
+        TEST_ERROR("%s: Bad Write error (%d):(%s)\n", __func__, errno,
+            strerror(errno));
+        goto FAIL;
+      }
+      TEST_INFO("%s: Buffer(0x%p) Size(%u) Stored@(%s)\n", __func__,
+        buffers[0].data, written_len, file_path.c_str());
+
+  FAIL:
+      if (file != NULL) {
+        fclose(file);
+      }
+      fcounter = 0;
+    }
+  }
+
+  auto ret = recorder_.ReturnTrackBuffer(session_id, track_id, buffers);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  TEST_DBG("%s: Exit", __func__);
 }
 
 status_t GtestCommon::QueueVideoFrame(VideoFormat format_type,
@@ -1498,8 +1687,9 @@ status_t GtestCommon::PopulateDeFogTables(
 
     DeFogTable defog_table{};
     std::string input_str;
-    const char delim_colon = ':';
+    const char delim_colon = ':', delim_space = ' ';
     std::string key, value;
+    uint8_t index = 0;
     std::ifstream input_file(path.c_str());
     std::vector<std::string> out, out_values;
 
@@ -1519,6 +1709,77 @@ status_t GtestCommon::PopulateDeFogTables(
         defog_table.strength = std::atoi(value.c_str());
       } else if (key.compare("convergence_speed") == 0) {
         defog_table.convergence_speed = std::atoi(value.c_str());
+      } else if (key.compare("lp_color_comp_gain") == 0) {
+        defog_table.lp_color_comp_gain = std::atof(value.c_str());
+      } else if (key.compare("abc_en") == 0) {
+        defog_table.abc_en = std::atoi(value.c_str());
+      } else if (key.compare("acc_en") == 0) {
+        defog_table.acc_en = std::atoi(value.c_str());
+      } else if (key.compare("afsd_en") == 0) {
+        defog_table.afsd_en = std::atoi(value.c_str());
+      } else if (key.compare("afsd_2a_en") == 0) {
+        defog_table.afsd_2a_en = std::atoi(value.c_str());
+      } else if (key.compare("defog_dark_thres") == 0) {
+        defog_table.defog_dark_thres = std::atoi(value.c_str());
+      } else if (key.compare("defog_bright_thres") == 0) {
+        defog_table.defog_bright_thres = std::atoi(value.c_str());
+      } else if (key.compare("abc_gain") == 0) {
+        defog_table.abc_gain = std::atof(value.c_str());
+      } else if (key.compare("acc_max_dark_str") == 0) {
+        defog_table.acc_max_dark_str = std::atof(value.c_str());
+      } else if (key.compare("acc_max_bright_str") == 0) {
+        defog_table.acc_max_bright_str = std::atof(value.c_str());
+      } else if (key.compare("dark_limit") == 0) {
+        defog_table.dark_limit = std::atoi(value.c_str());
+      } else if (key.compare("bright_limit") == 0) {
+        defog_table.bright_limit = std::atoi(value.c_str());
+      } else if (key.compare("dark_preserve") == 0) {
+        defog_table.dark_preserve = std::atoi(value.c_str());
+      } else if (key.compare("bright_preserve") == 0) {
+        defog_table.bright_preserve = std::atoi(value.c_str());
+      } else if (key.compare("dnr_trigger") == 0) {
+        out_values.clear();
+        TokenizeString(value, delim_space, out_values);
+        for (index = 0; out_values.size() <= 9 &&
+             index + 2 < out_values.size(); index++) {
+          defog_table.trig_params.dnr_trigger[index/3].start =
+            std::atof(out_values[index].c_str());
+          ++index;
+          defog_table.trig_params.dnr_trigger[index/3].end =
+            std::atof(out_values[index].c_str());
+          ++index;
+          defog_table.trig_params.dnr_trigger[index/3].fog_p =
+            std::atoi(out_values[index].c_str());
+        }
+      } else if (key.compare("lux_trigger") == 0) {
+        out_values.clear();
+        TokenizeString(value, delim_space, out_values);
+        for (index = 0; out_values.size() <= 9 &&
+             index + 2 < out_values.size(); index++) {
+          defog_table.trig_params.lux_trigger[index/3].start =
+            std::atof(out_values[index].c_str());
+          ++index;
+          defog_table.trig_params.lux_trigger[index/3].end =
+            std::atof(out_values[index].c_str());
+          ++index;
+          defog_table.trig_params.lux_trigger[index/3].fog_p =
+            std::atoi(out_values[index].c_str());
+
+        }
+      } else if (key.compare("cct_trigger") == 0) {
+        out_values.clear();
+        TokenizeString(value, delim_space, out_values);
+        for (index = 0; out_values.size() <= 12 &&
+             index + 2 < out_values.size(); index++) {
+            defog_table.trig_params.cct_trigger[index/3].start =
+              std::atof(out_values[index].c_str());
+            ++index;
+            defog_table.trig_params.cct_trigger[index/3].end =
+              std::atof(out_values[index].c_str());
+            ++index;
+            defog_table.trig_params.cct_trigger[index/3].fog_p =
+              std::atoi(out_values[index].c_str());
+        }
       } else {
         TEST_ERROR("%s: Invalid field %s\n", __func__, key.c_str());
         return -EINVAL;
@@ -1606,6 +1867,54 @@ status_t GtestCommon::PopulateExpTables(
     exp_tables.push_back(exp_table);
   }
   return NO_ERROR;
+}
+
+/*
+ * FindSensorModeIndex: This method parses a given sensor mode specified
+ * as a string, and returns the mode index.
+ */
+int32_t GtestCommon::FindSensorModeIndex(const std::string& name_of_file,
+                                         const std::string& mode) {
+
+  if (name_of_file.empty() || mode.empty()) {
+    TEST_ERROR("%s: Please provide correct params:", __func__);
+    return -1;
+  }
+
+  std::string dir_path(kQmmfFolderPath);
+  std::string path = dir_path.append(name_of_file);
+  TEST_INFO("%s: Config File Path: %s", __func__, path.c_str());
+  int32_t index_value = -1;
+  std::string input_str;
+  const char delim_colon = ':';
+  std::string key, value;
+  std::vector < std::string > out;
+
+  std::ifstream input_file(path.c_str());
+  try {
+    input_file.exceptions(input_file.failbit);
+  } catch (const std::ios_base::failure& e) {
+    TEST_ERROR("%s: File open failed:  %s\n", __func__, e.what());
+  }
+
+  while (getline(input_file, input_str)) {
+    out.clear();
+    TokenizeString(input_str, delim_colon, out);
+    key = out[0];
+    value = out[1];
+    RemoveSpaces(key);
+    RemoveSpaces(value);
+    if (key.compare(mode) == 0) {
+      index_value = std::atoi(value.c_str());
+      break;
+    }
+  }
+  if (input_file.is_open()) {
+    input_file.close();
+  }
+  TEST_INFO("%s: Sensor Mode : %s Sensor Mode Value: %u\n", __func__,
+            mode.c_str(), index_value);
+  return index_value;
 }
 
 #ifdef CAM_ARCH_V2

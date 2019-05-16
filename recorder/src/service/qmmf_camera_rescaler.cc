@@ -71,6 +71,10 @@ CameraRescalerBase::CameraRescalerBase()
   uint32_t value = (uint32_t) atoi(prop);
   print_process_time_ = (value == 1) ? true : false;
 
+  property_get(PRESERVE_ASPECT_RATIO, prop, "1");
+  value = (uint32_t) atoi(prop);
+  rescaler_->aspect_ratio_preserve_ = (value == 1) ? true : false;
+
   rescaler_->Init();
   QMMF_INFO("%s: Exit (%p)", __func__, this);
 }
@@ -80,6 +84,22 @@ CameraRescalerBase::~CameraRescalerBase() {
   rescaler_->DeInit();
   delete rescaler_;
   QMMF_INFO("%s: Exit (%p)", __func__, this);
+}
+
+status_t CameraRescalerBase::Validate(const uint32_t& width,
+                                      const uint32_t& height,
+                                      const BufferFormat& fmt) {
+  if (rescaler_ == nullptr) {
+    QMMF_ERROR("%s: Missing Rescaler engine!!!", __func__);
+    return BAD_VALUE;
+  }
+
+  if (rescaler_->ValidateOutput(width, height, fmt) != RESIZER_STATUS_OK) {
+    QMMF_ERROR("%s: Validation Error!!!", __func__);
+    return BAD_VALUE;
+  }
+
+  return NO_ERROR;
 }
 
 status_t CameraRescalerBase::ReturnBufferToBufferPool(
@@ -230,6 +250,14 @@ void CameraRescalerBase::UnMapBufs() {
     }
   }
   mapped_buffs_.clear();
+}
+
+status_t CameraRescalerBase::Configure(const std::string& json_config_data) {
+  auto ret = rescaler_->Configure(json_config_data);
+  if (ret != RESIZER_STATUS_OK) {
+    return BAD_VALUE;
+  }
+  return NO_ERROR;
 }
 
 int32_t CameraRescalerThread::Run(const std::string &name) {
@@ -494,22 +522,24 @@ status_t CameraRescalerMemPool::PopulateMetaInfo(CameraBufferMetaData &info,
 
   int alignedW, alignedH;
   auto ret = alloc_device_interface_->Perform(handle,
-                                    IAllocDevice::AllocDeviceAction::GetHeight,
-                                    static_cast<void*>(&alignedH));
+      IAllocDevice::AllocDeviceAction::GetAlignedHeight,
+      static_cast<void*>(&alignedH));
   if (MemAllocError::kAllocOk != ret) {
     QMMF_ERROR("%s: Unable to query stride&scanline: %d\n", __func__, ret);
     return BAD_VALUE;
   }
 
   ret = alloc_device_interface_->Perform(handle,
-                                     IAllocDevice::AllocDeviceAction::GetStride,
-                                     static_cast<void*>(&alignedW));
-    if (MemAllocError::kAllocOk != ret) {
-      QMMF_ERROR("%s: Unable to query stride&scanline: %d\n", __func__, ret);
-      return BAD_VALUE;
-    }
+      IAllocDevice::AllocDeviceAction::GetAlignedWidth,
+      static_cast<void*>(&alignedW));
+  if (MemAllocError::kAllocOk != ret) {
+    QMMF_ERROR("%s: Unable to query stride&scanline: %d\n", __func__, ret);
+    return BAD_VALUE;
+  }
 
   switch (handle->GetFormat()) {
+    case HAL_PIXEL_FORMAT_YCbCr_420_888:
+    case HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED:
     case HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS:
     case HAL_PIXEL_FORMAT_NV12_ENCODEABLE:
       info.format = BufferFormat::kNV12;
@@ -534,6 +564,14 @@ status_t CameraRescalerMemPool::PopulateMetaInfo(CameraBufferMetaData &info,
       info.plane_info[1].height = init_params_.height/2;
       info.plane_info[1].stride = alignedW;
       info.plane_info[1].scanline = alignedH/2;
+      break;
+    case HAL_PIXEL_FORMAT_RGB_888:
+      info.format = BufferFormat::kRGB;
+      info.num_planes = 1;
+      info.plane_info[0].width = init_params_.width;
+      info.plane_info[0].height = init_params_.height;
+      info.plane_info[0].stride = alignedW;
+      info.plane_info[0].scanline = alignedH;
       break;
     case HAL_PIXEL_FORMAT_NV21_ZSL:
       info.format = BufferFormat::kNV21;
@@ -578,6 +616,14 @@ status_t CameraRescalerMemPool::AllocHWMemBuffer(IBufferHandle &buf) {
   usage.flags |= IMemAllocUsage::kSwWriteOften | IMemAllocUsage::kSwReadOften;
   usage.flags |= IMemAllocUsage::kHwFb | IMemAllocUsage::kVideoEncoder;
 
+  char prop[PROPERTY_VALUE_MAX];
+  memset(prop, 0, sizeof(prop));
+  property_get("persist.qmmf.ubwcstream.enable", prop, "0");
+  if (atoi(prop) == 1) {
+    // Handle UBWC aligned Buffer
+    usage.flags |= IMemAllocUsage::kPrivateAllocUbwc;
+  }
+
   if (!width || !height) {
     width = height = 1;
   }
@@ -600,7 +646,7 @@ status_t CameraRescalerMemPool::FreeHWMemBuffer(IBufferHandle buf) {
 
 CameraRescaler::CameraRescaler()
   : CameraRescalerBase(),
-    is_stop_(false) {
+    is_stop_(false), frc_(nullptr) {
   QMMF_INFO("%s: Enter", __func__);
 
   BufferConsumerImpl<CameraRescaler> *impl;
@@ -654,12 +700,23 @@ sp<IBufferConsumer>& CameraRescaler::GetCopyConsumerIntf() {
   return buffer_consumer_impl_;
 }
 
+bool CameraRescaler::IsFrameSkip() {
+  if (frc_.get() != nullptr) {
+    if (frc_->FrameSkip()) {
+      QMMF_DEBUG("%s: Skip frame", __func__);
+      return true;
+    }
+  }
+  return false;
+}
+
 void CameraRescaler::OnFrameAvailable(StreamBuffer& buffer) {
   QMMF_DEBUG("%s: Camera %u: Frame %d is available",
       __func__, buffer.camera_id, buffer.frame_number);
 
-  if (IsStop()) {
-    QMMF_INFO("%s: IsStop", __func__);
+  if (IsStop() || IsFrameSkip()) {
+    QMMF_DEBUG("%s: IsStop", __func__);
+    ReturnBufferToProducer(buffer);
     return;
   }
 
@@ -730,22 +787,17 @@ bool CameraRescaler::IsStop() {
 }
 
 status_t CameraRescaler::Init(const uint32_t& width, const uint32_t& height,
-                              const BufferFormat& fmt) {
+                              const BufferFormat& fmt,
+                              const float& in_fps, const float& out_fps) {
 
   if ((width == 0) || (height == 0)) {
     QMMF_ERROR("%s: Invalid dimensions: %ux%u!", __func__, width, height);
     return BAD_VALUE;
   }
 
-  switch (fmt) {
-    case BufferFormat::kNV12:
-    case BufferFormat::kNV12UBWC:
-    case BufferFormat::kNV21:
-    case BufferFormat::kNV16:
-      break;
-    default:
-      QMMF_ERROR("%s: Format(%d) not supported!", __func__, fmt);
-      return BAD_VALUE;
+  if (Validate(width, height, fmt) != NO_ERROR) {
+    QMMF_ERROR("%s: Error: Unsupported in params.!!!", __func__);
+    return BAD_VALUE;
   }
 
   char prop[PROPERTY_VALUE_MAX];
@@ -755,6 +807,14 @@ status_t CameraRescaler::Init(const uint32_t& width, const uint32_t& height,
   auto format = Common::FromQmmfToHalFormat(fmt);
   if (is_ubwc_stream_enabled && fmt == BufferFormat::kNV12) {
     format = HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS_UBWC;
+  }
+
+  // Frame Rate Controller creation
+  frc_ = std::make_shared<FrameRateController>(in_fps, out_fps,
+                                               "RescalerFrameController");
+  if (!frc_.get()) {
+    QMMF_ERROR("%s: Can't Instantiate FrameRateController!!", __func__);
+    return NO_MEMORY;
   }
 
   auto ret = Initialize(width, height, format);

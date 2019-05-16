@@ -169,11 +169,11 @@ class QCondition {
                     const std::chrono::time_point<_Clock, _Duration>& tp,
                     _Predicate p) {
     while (!p()) {
-      if (wait_until(lock, tp) == -ETIMEDOUT) {
-        return p();
+      if (WaitUntilImpl(lock, tp) == -ETIMEDOUT) {
+        return -ETIMEDOUT;
       }
     }
-    return true;
+    return 0;
   }
 
   /**

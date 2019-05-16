@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -141,12 +141,15 @@ static const uint32_t kColorLightBlue  = 0x189BF2FF;
 #define FHD_1080p_STREAM_WIDTH    1920
 #define FHD_1080p_STREAM_HEIGHT   1080
 #define MAX_EXP_TABLE_KNEES       50
+#define MAX_DUMP_SIZE             4294967295 //4GB
 
 static const uint32_t kBitRate4k30    = 45000000;
 static const uint32_t kBitRate1440p30 = 25000000;
 static const uint32_t kBitRate1440p60 = 45000000;
 static const uint32_t kBitRate960p90  = 45000000;
 static const uint32_t kBitRate480p    = 4000000;
+static const uint32_t kBitRate100Mbps = 100000000;
+static const uint32_t kBitRate10Mbps  = 10000000;
 
 template<class T>
 struct Rect {
@@ -216,10 +219,23 @@ struct FaceInfo {
 #define PROP_TOGGLE_OVERLAY_USAGE   "persist.qmmf.rec.gtest.overlay"
 // Prop to enable/disable ubwc support in qmmf
 #define PROP_UBWC_STREAM_ENABLE     "persist.qmmf.ubwcstream.enable"
+// Prop to enable debugging frames
+#define PROP_FRAME_DEBUG            "persist.qmmf.rec.gtest.frm.dbg"
+// Prop to set force sensor mode config file
+#define PROP_SENSOR_CONFIG_FILE     "persist.qmmf.sensor.mode.file"
+// Prop to measure SOF latency
+#define PROP_MEASURE_SOF_LATENCY    "persist.qmmf.rec.gtest.sof.ts"
 
 #ifndef MAX
 #define MAX(a,b) ((a) > (b) ? (a) : (b))
 #endif
+
+/*
+* frame timestamps are not always accurate to 1/fps sec
+* due to interrupt latencies
+* variance of 5% is considered
+*/
+#define FRAME_TIMESTAMP_VARIANCE (0.05f)
 
 #ifdef QCAMERA3_TAG_LOCAL_COPY
 enum ISOModes : int64_t {
@@ -246,6 +262,10 @@ enum AWbModes : uint8_t {
   kAWBModeShade,
   kAWBModeEnd
 };
+
+static const int32_t MWBColorTemperatures[] = {0, 2300, 2800, 3200, 4000,
+                                               4500, 5500, 6000, 6500};
+
 #endif
 
 typedef struct StreamDumpInfo {
@@ -256,6 +276,14 @@ typedef struct StreamDumpInfo {
   uint32_t      height;
 } StreamDumpInfo;
 
+typedef struct SplitFileInfo {
+  struct StreamDumpInfo streaminfo;
+  time_t                timestamp;
+  uint32_t              part_number;
+  BufferDescriptor*     header;
+  int32_t               file_fd;
+} SplitFileInfo;
+
 struct RGBAValues {
   double red;
   double green;
@@ -263,23 +291,106 @@ struct RGBAValues {
   double alpha;
 };
 
+typedef struct TriggerParams {
+  float start;
+  float end;
+  int32_t fog_p;
+} TriggerParams;
+
+typedef struct FogSceneDetectionParams {
+  TriggerParams dnr_trigger[3];  // [0]: flat_scene, [1]: fog_scene, [2]:
+                                 // normal_scene, range: 0.0 - 8.0 EV
+  TriggerParams lux_trigger[3];  // [0]: daylight, [1]: normal light, [2]: low
+                                 // light, range: 0.0 - 1000.0 lux index
+  TriggerParams cct_trigger[4];  // [0]: low CCT, [1]: indoor/outdoor CCT, [2]:
+                                 // outdoor/fog CCT, [3]: high CCT
+} FOG_SCENE_DETECTION_PARAMS;
+
 typedef struct DeFogTable {
   uint8_t enable;
   int32_t algo_type;
   int32_t algo_decision_mode;
-  int32_t strength;
-  int32_t strength_range[2];
+  float strength;
+  float strength_range[2];
   int32_t convergence_speed;
   int32_t convergence_speed_range[2];
+  float lp_color_comp_gain;
+  float lp_color_comp_gain_range[2];
+  uint8_t abc_en;
+  uint8_t acc_en;
+  uint8_t afsd_en;
+  uint8_t afsd_2a_en;
+  int32_t defog_dark_thres;
+  int32_t defog_dark_thres_range[2];
+  int32_t defog_bright_thres;
+  int32_t defog_bright_thres_range[2];
+  float abc_gain;
+  float abc_gain_range[2];
+  float acc_max_dark_str;
+  float acc_max_dark_str_range[2];
+  float acc_max_bright_str;
+  float acc_max_bright_str_range[2];
+  int32_t dark_limit;
+  int32_t dark_limit_range[2];
+  int32_t bright_limit;
+  int32_t bright_limit_range[2];
+  int32_t dark_preserve;
+  int32_t dark_preserve_range[2];
+  int32_t bright_preserve;
+  int32_t bright_preserve_range[2];
+  float dnr_trigparam_start_range[2];
+  float dnr_trigparam_end_range[2];
+  int dnr_trigparam_fog_range[2];
+  float lux_trigparam_start_range[2];
+  float lux_trigparam_end_range[2];
+  int lux_trigparam_fog_range[2];
+  float cct_trigparam_start_range[2];
+  float cct_trigparam_end_range[2];
+  int cct_trigparam_fog_range[2];
+  FOG_SCENE_DETECTION_PARAMS trig_params;
 
   DeFogTable() {
-    enable = 0;
+    enable = 1;
     algo_type = 0;
     algo_decision_mode = 0;
-    strength = 0;
+    strength = 1;
     memset(strength_range, 0, sizeof(strength_range));
-    convergence_speed = 0;
+    convergence_speed = 10;
     memset(convergence_speed_range, 0, sizeof(convergence_speed_range));
+    lp_color_comp_gain = 1.0;
+    memset(lp_color_comp_gain_range, 0.0, sizeof(lp_color_comp_gain_range));
+    abc_en = 1;
+    acc_en = 1;
+    afsd_en = 1;
+    afsd_2a_en = 1;
+    defog_dark_thres = 10;
+    memset(defog_dark_thres_range, 0, sizeof(defog_dark_thres_range));
+    defog_bright_thres = 40;
+    memset(defog_bright_thres_range, 0, sizeof(defog_bright_thres_range));
+    abc_gain = 2.0;
+    memset(abc_gain_range, 0.0, sizeof(abc_gain_range));
+    acc_max_dark_str = 2.0;
+    memset(acc_max_dark_str_range, 0.0, sizeof(acc_max_dark_str_range));
+    acc_max_bright_str = 0.5;
+    memset(acc_max_bright_str_range, 0.0, sizeof(acc_max_bright_str_range));
+    dark_limit = 255;
+    memset(dark_limit_range, 0, sizeof(dark_limit_range));
+    bright_limit = 0;
+    memset(bright_limit_range, 0, sizeof(bright_limit_range));
+    dark_preserve = 10;
+    memset(dark_preserve_range, 0, sizeof(dark_preserve_range));
+    bright_preserve = 50;
+    memset(bright_preserve_range, 0, sizeof(bright_preserve_range));
+
+    memset(dnr_trigparam_start_range, 0.0, sizeof(dnr_trigparam_start_range));
+    memset(dnr_trigparam_end_range, 0.0, sizeof(dnr_trigparam_end_range));
+    memset(dnr_trigparam_fog_range, 0, sizeof(dnr_trigparam_fog_range));
+    memset(lux_trigparam_start_range, 0.0, sizeof(lux_trigparam_start_range));
+    memset(lux_trigparam_end_range, 0.0, sizeof(lux_trigparam_end_range));
+    memset(lux_trigparam_fog_range, 0, sizeof(lux_trigparam_fog_range));
+    memset(cct_trigparam_start_range, 0.0, sizeof(cct_trigparam_start_range));
+    memset(cct_trigparam_end_range, 0.0, sizeof(cct_trigparam_end_range));
+    memset(cct_trigparam_fog_range, 0, sizeof(cct_trigparam_fog_range));
   }
 } DeFogTable;
 
@@ -331,17 +442,11 @@ class DumpBitStream {
  public:
   DumpBitStream() : is_enabled_(false) {};
 
-  ~DumpBitStream() {file_fds_.clear();}
+  ~DumpBitStream() {split_file_info_.clear();}
 
   bool IsEnabled() {return is_enabled_;}
 
-  bool IsUsed() {return (is_enabled_ && file_fds_.size());}
-
-  int32_t GetFileFd(const uint32_t &session_id, const uint32_t &track_id) {
-    uint8_t key_by_session_track_id = session_id << 4 | track_id;
-    EXPECT_TRUE(file_fds_.count(key_by_session_track_id));
-    return file_fds_[key_by_session_track_id];
-  }
+  bool IsUsed() {return (is_enabled_ && split_file_info_.size());}
 
   void Enable(const bool enable) {is_enabled_ = enable;}
 
@@ -350,12 +455,63 @@ class DumpBitStream {
   status_t Dump(const std::vector<BufferDescriptor>& buffers,
     const uint32_t &session_id, const uint32_t &track_id);
 
-  void Close(int32_t file_fd);
+  int32_t GetFileFd(const uint32_t &session_id, const uint32_t &track_id) {
+    uint8_t key_by_session_track_id = GenerateKey(session_id, track_id);
+    EXPECT_TRUE(split_file_info_.count(key_by_session_track_id));
+    return split_file_info_[key_by_session_track_id].file_fd;
+  }
+
+  void Close(const uint32_t &session_id, const uint32_t &track_id);
 
   void CloseAll();
  private:
   bool is_enabled_;
-  std::map<uint8_t, int32_t> file_fds_;
+
+  std::map<uint8_t, SplitFileInfo> split_file_info_;
+
+  status_t SplitFile(const uint8_t file_index);
+
+  uint8_t GenerateKey(const uint32_t &session_id, const uint32_t &track_id) {
+    return static_cast<uint8_t>(session_id << 4 | track_id);
+  }
+
+  std::string GetFileName(const SplitFileInfo& file_info);
+
+  uint64_t GetFileSize(const int32_t file_fd) {
+    off_t fsize = lseek(file_fd, 0, SEEK_END);
+    EXPECT_TRUE(fsize >= 0);
+    return static_cast<uint64_t>(fsize);
+  }
+};
+
+class FrameTrace {
+ public:
+  FrameTrace(bool enable)
+     : enabled_(enable), session_id_(0), track_id_(0),  track_fps_(0),
+       previous_timestamp_(0), total_frames_(0), total_dropped_frames_(0) {};
+  ~FrameTrace() {}
+
+  void SetUp(uint32_t session_id, uint32_t track_id, float fps);
+
+  void Reset();
+
+  void BufferAvailableCb(BufferDescriptor buffer);
+
+ private:
+  bool       enabled_;
+
+  uint32_t   session_id_;
+  uint32_t   track_id_;
+  float      track_fps_;
+
+  uint64_t   previous_timestamp_;
+
+  uint32_t   total_frames_;
+  uint32_t   total_dropped_frames_;
+
+  std::mutex lock_;
+
+  static constexpr float kTimestampVariance = 0.05f; // 5% frame rate variance.
 };
 
 class GtestCommon : public ::testing::Test {
@@ -391,6 +547,10 @@ class GtestCommon : public ::testing::Test {
 
   void CameraResultCallbackHandler(uint32_t camera_id,
                                    const CameraMetadata &result);
+
+  void VideoTrackRGBDataCb(uint32_t session_id, uint32_t track_id,
+                           std::vector<BufferDescriptor> buffers,
+                           std::vector<MetaData> meta_buffers);
 
   void VideoTrackYUVDataCb(uint32_t session_id, uint32_t track_id,
                            std::vector<BufferDescriptor> buffers,
@@ -443,7 +603,11 @@ class GtestCommon : public ::testing::Test {
                             std::vector<std::string> &files_list);
 
   status_t PopulateDeFogTables(std::vector<DeFogTable> &defog_tables);
+
   status_t PopulateExpTables(std::vector<ExposureTable> &exp_tables);
+
+  int32_t FindSensorModeIndex(const std::string& name_of_file,
+                              const std:: string& mode_index);
 
 #ifdef CAM_ARCH_V2
   bool VendorTagSupported(const String8& name, const String8& section,
@@ -580,6 +744,8 @@ class GtestCommon : public ::testing::Test {
   bool                  camera_error_;
   bool                  default_eis_margins_;
   bool                  is_apply_overlay_;
+  bool                  is_frame_debug_enabled_;
+  std::string           sensor_mode_file_name_;
 
 #ifndef DISABLE_DISPLAY
   bool                  use_display_;
@@ -599,6 +765,7 @@ class GtestCommon : public ::testing::Test {
 #endif
 
   bool                  ubwc_stream_enable_;
+  bool                  enable_sof_latency_;
 
 #ifdef QCAMERA3_TAG_LOCAL_COPY
   sp<VendorTagDescriptor> vendor_tag_desc_;

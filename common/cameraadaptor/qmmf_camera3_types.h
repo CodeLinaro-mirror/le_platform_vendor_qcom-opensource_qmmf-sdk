@@ -39,7 +39,7 @@ namespace cameraadaptor {
 // from the same context of this callback.
 typedef std::function<void(StreamBuffer buffer)> StreamCallback;
 
-typedef struct {
+struct CameraStreamParameters {
   uint32_t width;
   uint32_t height;
   int32_t format;
@@ -48,9 +48,15 @@ typedef struct {
   MemAllocFlags allocFlags;
   uint32_t bufferCount;
   StreamCallback cb;
-  bool is_pp_enabled = true;
-  bool is_zzhdr_enabled = false;
-} CameraStreamParameters;
+  bool is_pp_enabled;
+  bool is_zzhdr_enabled;
+  int32_t force_sensor_mode;
+  CameraStreamParameters() :
+        width(0), height(0), format(-1), data_space(HAL_DATASPACE_UNKNOWN),
+        rotation(CAMERA3_STREAM_ROTATION_0), allocFlags(), bufferCount(0),
+        cb(nullptr), is_pp_enabled(true), is_zzhdr_enabled(false),
+        force_sensor_mode(-1) {}
+};
 
 struct StreamConfiguration {
   bool is_constrained_high_speed;

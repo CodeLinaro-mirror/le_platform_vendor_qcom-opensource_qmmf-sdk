@@ -72,6 +72,7 @@ enum class CodecMimeType {
 };
 
 enum class VideoFormat {
+  kRGB,
   kHEVC,
   kAVC,
   kYUV,
@@ -545,6 +546,7 @@ struct PlaneInfo {
 };
 
 enum class BufferFormat {
+  kRGB,
   kNV12,
   kNV12UBWC,
   kNV21,

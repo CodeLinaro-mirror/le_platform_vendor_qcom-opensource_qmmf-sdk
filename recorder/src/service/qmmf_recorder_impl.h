@@ -37,6 +37,7 @@
 #include <vector>
 #include <mutex>
 #include <tuple>
+#include <set>
 
 #include <camera/CameraMetadata.h>
 
@@ -284,6 +285,9 @@ class RecorderImpl {
   /// Camera Error callback handler
   void CameraErrorCb(uint32_t client_id, RecorderErrorData &error);
 
+  // Camera Flush Callback Handler
+  void CameraFlushCb(const uint32_t camera_id);
+
 /// @cond PRIVATE
  private:
   enum class ClientState {
@@ -321,6 +325,9 @@ class RecorderImpl {
 
   // <session_id, SessionState>
   typedef std::map<uint32_t, SessionState> ClientSessionStateMap;
+
+  // <camera id, set <track id> >
+  typedef std::map<uint32_t, std::set<uint32_t>> CameraTrackIdsMap;
 
   bool IsClientValid(const uint32_t& client_id);
   bool IsClientAlive(const uint32_t& client_id);
@@ -364,6 +371,9 @@ class RecorderImpl {
 
   ClientCameraIdMap             client_cameraid_map_;
   std::mutex                    camera_map_lock_;
+
+  CameraTrackIdsMap             camera_tracks_map_;
+  std::mutex                    camera_tracks_lock_;
 
   ClientStateMap                client_state_;
   std::mutex                    client_state_lock_;
