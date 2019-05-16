@@ -260,7 +260,7 @@ class CameraContext : public CameraInterface,
 
   bool IsStreamParamsChanged(const CameraStreamParameters& stream_param);
 
-  bool IsNeedReconfigSapshotStream();
+  bool IsNeedReconfigSnapshotStream();
 
   sp<Camera3DeviceClient>  camera_device_;
   CameraClientCallbacks    camera_callbacks_;
