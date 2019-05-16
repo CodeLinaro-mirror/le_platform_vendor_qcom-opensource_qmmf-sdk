@@ -41,13 +41,14 @@ namespace qmmf {
 class ThreadHelper {
  private:
   enum class ThreadHelperState {
-    kActive,
-    kToIdle,
-    kIdle,
+    kActive,   /// MainLoop thread has been created and is running.
+    kToIdle,   /// Request ThreadLoop in MainLoop to stop doing work and exit.
+    kIdle,     /// MainLoop thread has stopped but it is yet not joined.
+    kInactive, /// MainLoop thread has been stopped and resources cleared.
   };
 
  public:
-  ThreadHelper() : state_(ThreadHelperState::kIdle) {}
+  ThreadHelper() : state_(ThreadHelperState::kInactive) {}
 
   virtual ~ThreadHelper() { RequestExitAndWait(); }
 
@@ -56,7 +57,7 @@ class ThreadHelper {
   virtual void RequestExit();
   virtual void RequestExitAndWait();
 
-  bool ExitPending() { return IsState(ThreadHelperState::kToIdle); };
+  bool ExitPending() { return (GetState() == ThreadHelperState::kToIdle); };
 
  protected:
   virtual bool ThreadLoop() = 0;
@@ -64,9 +65,9 @@ class ThreadHelper {
  private:
   void ChangeState(const ThreadHelperState& state);
   void WaitState(const ThreadHelperState& state);
-  bool IsState(const ThreadHelperState& state);
+  ThreadHelperState GetState();
 
-  void MainLoop(bool active = true);
+  void MainLoop();
 
   std::string              name_;
   std::thread              thread_;
