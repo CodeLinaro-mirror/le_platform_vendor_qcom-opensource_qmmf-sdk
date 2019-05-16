@@ -149,6 +149,8 @@ class TrackEncoder : public ICodecSource {
 
   uint32_t TrackId() { return track_params_.track_id; }
 
+  uint64_t GetWaitTime();
+
   VideoTrackParams track_params_;
   IAVCodec*        avcodec_;
 
@@ -174,6 +176,10 @@ class TrackEncoder : public ICodecSource {
   QCondition                 wait_for_frame_;
 
   std::mutex                 lock_;
+
+  uint64_t                   wait_duration_;
+  std::mutex                 wait_duration_lock_;
+  static const uint32_t      kWaitNumFrames_;
 };
 
 }; // namespace recorder
