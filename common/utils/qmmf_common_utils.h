@@ -45,6 +45,7 @@
 #include <sys/mman.h>
 #include <sys/time.h>
 #include <camera/CameraMetadata.h>
+#include <hardware/camera3.h>
 
 #include "common/utils/qmmf_log.h"
 #include "common/utils/qmmf_condition.h"

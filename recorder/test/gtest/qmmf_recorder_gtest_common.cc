@@ -446,6 +446,8 @@ void GtestCommon::SetUp() {
   default_cds_threshold_ = atoi(prop_val);
   property_get(PROP_DEFAULT_EIS_MARGINS, prop_val, "1");
   default_eis_margins_ = atoi(prop_val);
+  property_get(PROP_TIMELAPSE_INTERVAL, prop_val, "2.0");
+  timelapse_interval_ = atof(prop_val);
 #ifndef DISABLE_DISPLAY
   property_get(PROP_TOGGLE_DISPLAY_USAGE, prop_val, "1");
   use_display_ = (atoi(prop_val) == 0) ? false : true;
