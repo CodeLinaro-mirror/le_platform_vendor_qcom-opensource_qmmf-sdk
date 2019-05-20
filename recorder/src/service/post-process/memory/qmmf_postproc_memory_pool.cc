@@ -258,10 +258,12 @@ status_t MemPool::PopulateMetaInfo(CameraBufferMetaData &info,
     case HAL_PIXEL_FORMAT_BLOB:
       info.format = BufferFormat::kBLOB;
       info.num_planes = 1;
-      info.plane_info[0].width = params_.max_size;
-      info.plane_info[0].height = 1;
+      info.plane_info[0].width = params_.width;
+      info.plane_info[0].height = params_.height;
       info.plane_info[0].stride = alignedW;
       info.plane_info[0].scanline = alignedH;
+      info.plane_info[0].size = params_.max_size;
+      info.plane_info[0].offset = 0;
       break;
     case HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS:
     case HAL_PIXEL_FORMAT_NV12_ENCODEABLE:
@@ -271,10 +273,14 @@ status_t MemPool::PopulateMetaInfo(CameraBufferMetaData &info,
       info.plane_info[0].height = params_.height;
       info.plane_info[0].stride = alignedW;
       info.plane_info[0].scanline = alignedH;
+      info.plane_info[0].size = alignedW * alignedH;
+      info.plane_info[0].offset = 0;
       info.plane_info[1].width = params_.width;
       info.plane_info[1].height = params_.height/2;
       info.plane_info[1].stride = alignedW;
       info.plane_info[1].scanline = alignedH/2;
+      info.plane_info[1].size = alignedW * (alignedH / 2);
+      info.plane_info[1].offset = alignedW * alignedH;
       break;
     case HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS_UBWC:
       info.format = BufferFormat::kNV12UBWC;
@@ -283,10 +289,14 @@ status_t MemPool::PopulateMetaInfo(CameraBufferMetaData &info,
       info.plane_info[0].height = params_.height;
       info.plane_info[0].stride = alignedW;
       info.plane_info[0].scanline = alignedH;
+      info.plane_info[0].size = alignedW * alignedH;
+      info.plane_info[0].offset = 0;
       info.plane_info[1].width = params_.width;
       info.plane_info[1].height = params_.height/2;
       info.plane_info[1].stride = alignedW;
       info.plane_info[1].scanline = alignedH/2;
+      info.plane_info[1].size = alignedW * (alignedH / 2);
+      info.plane_info[1].offset = alignedW * alignedH;
       break;
     case HAL_PIXEL_FORMAT_NV21_ZSL:
       info.format = BufferFormat::kNV21;
@@ -295,10 +305,14 @@ status_t MemPool::PopulateMetaInfo(CameraBufferMetaData &info,
       info.plane_info[0].height = params_.height;
       info.plane_info[0].stride = alignedW;
       info.plane_info[0].scanline = alignedH;
+      info.plane_info[0].size = alignedW * alignedH;
+      info.plane_info[0].offset = 0;
       info.plane_info[1].width = params_.width;
       info.plane_info[1].height = params_.height/2;
       info.plane_info[1].stride = alignedW;
       info.plane_info[1].scanline = alignedH/2;
+      info.plane_info[1].size = alignedW * (alignedH / 2);
+      info.plane_info[1].offset = alignedW * alignedH;
       break;
     case HAL_PIXEL_FORMAT_YCbCr_422_888:
       info.format = BufferFormat::kNV16;
@@ -307,10 +321,14 @@ status_t MemPool::PopulateMetaInfo(CameraBufferMetaData &info,
       info.plane_info[0].height = params_.height;
       info.plane_info[0].stride = alignedW;
       info.plane_info[0].scanline = alignedH;
+      info.plane_info[0].size = alignedW * alignedH;
+      info.plane_info[0].offset = 0;
       info.plane_info[1].width = params_.width;
       info.plane_info[1].height = params_.height;
       info.plane_info[1].stride = alignedW;
       info.plane_info[1].scanline = alignedH;
+      info.plane_info[1].size = alignedW * alignedH;
+      info.plane_info[1].offset = alignedW * alignedH;
       break;
     case HAL_PIXEL_FORMAT_RAW8:
       info.format = BufferFormat::kRAW8;
@@ -319,6 +337,8 @@ status_t MemPool::PopulateMetaInfo(CameraBufferMetaData &info,
       info.plane_info[0].height = params_.height;
       info.plane_info[0].stride = alignedW;
       info.plane_info[0].scanline = alignedH;
+      info.plane_info[0].size = alignedW * alignedH;
+      info.plane_info[0].offset = 0;
       break;
     case HAL_PIXEL_FORMAT_RAW10:
       info.format = BufferFormat::kRAW10;
@@ -327,6 +347,8 @@ status_t MemPool::PopulateMetaInfo(CameraBufferMetaData &info,
       info.plane_info[0].height = params_.height;
       info.plane_info[0].stride = alignedW;
       info.plane_info[0].scanline = alignedH;
+      info.plane_info[0].size = alignedW * alignedH;
+      info.plane_info[0].offset = 0;
       break;
     case HAL_PIXEL_FORMAT_RAW12:
       info.format = BufferFormat::kRAW12;
@@ -335,6 +357,8 @@ status_t MemPool::PopulateMetaInfo(CameraBufferMetaData &info,
       info.plane_info[0].height = params_.height;
       info.plane_info[0].stride = alignedW;
       info.plane_info[0].scanline = alignedH;
+      info.plane_info[0].size = alignedW * alignedH;
+      info.plane_info[0].offset = 0;
       break;
     case HAL_PIXEL_FORMAT_RAW16:
       info.format = BufferFormat::kRAW16;
@@ -343,6 +367,8 @@ status_t MemPool::PopulateMetaInfo(CameraBufferMetaData &info,
       info.plane_info[0].height = params_.height;
       info.plane_info[0].stride = alignedW;
       info.plane_info[0].scanline = alignedH;
+      info.plane_info[0].size = alignedW * alignedH;
+      info.plane_info[0].offset = 0;
       break;
     default:
       QMMF_ERROR("%s: Unsupported format: %d", __func__,

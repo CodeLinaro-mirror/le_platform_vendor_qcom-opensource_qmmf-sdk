@@ -47,12 +47,17 @@ Camera3RequestHandler::Camera3RequestHandler(Camera3Monitor &monitor)
       streaming_last_frame_number_(NO_IN_FLIGHT_REPEATING_FRAMES),
       monitor_(monitor),
       monitor_id_(Camera3Monitor::INVALID_ID),
-      batch_size_(1) {
+      batch_size_(1),
+      worker_(ReprocLoop, this),
+      run_worker_(true) {
   pthread_mutex_init(&lock_, NULL);
   pthread_cond_init(&requests_signal_, NULL);
+  pthread_cond_init(&current_request_signal_, NULL);
   pthread_mutex_init(&pause_lock_, NULL);
   pthread_cond_init(&toggle_pause_signal_, NULL);
   pthread_cond_init(&pause_state_signal_, NULL);
+  pthread_mutex_init(&worker_lock_, NULL);
+  pthread_cond_init(&worker_signal_, NULL);
   ClearCaptureRequest(old_request_);
 }
 
@@ -63,7 +68,13 @@ Camera3RequestHandler::~Camera3RequestHandler() {
     monitor_.ReleaseMonitor(monitor_id_);
     monitor_id_ = Camera3Monitor::INVALID_ID;
   }
+  run_worker_ = false;
+  pthread_cond_signal(&worker_signal_);
+  worker_.join();
+  pthread_cond_destroy(&worker_signal_);
+  pthread_mutex_destroy(&worker_lock_);
   pthread_mutex_destroy(&lock_);
+  pthread_cond_destroy(&current_request_signal_);
   pthread_cond_destroy(&requests_signal_);
   pthread_mutex_destroy(&pause_lock_);
   pthread_cond_destroy(&toggle_pause_signal_);
@@ -114,6 +125,29 @@ int32_t Camera3RequestHandler::QueueRequestList(List<CaptureRequest> &requests,
   return 0;
 }
 
+int32_t Camera3RequestHandler::QueueReprocRequestList(List<CaptureRequest> &requests,
+                                                int64_t *lastFrameNumber) {
+  pthread_mutex_lock(&lock_);
+  pthread_mutex_lock(&worker_lock_);
+
+  List<CaptureRequest>::iterator it = requests.begin();
+  for (; it != requests.end(); ++it) {
+    reproc_requests_.push_back(*it);
+  }
+
+  if (lastFrameNumber != NULL) {
+    *lastFrameNumber = current_frame_number_ + reproc_requests_.size() - 1;
+  }
+
+  Resume();
+
+  pthread_cond_signal(&worker_signal_);
+
+  pthread_mutex_unlock(&worker_lock_);
+  pthread_mutex_unlock(&lock_);
+  return 0;
+}
+
 int32_t Camera3RequestHandler::SetRepeatingRequests(const RequestList &requests,
                                                     int64_t *lastFrameNumber) {
   pthread_mutex_lock(&lock_);
@@ -159,8 +193,14 @@ int32_t Camera3RequestHandler::Clear(int64_t *lastFrameNumber) {
     *lastFrameNumber = streaming_last_frame_number_;
   }
   streaming_last_frame_number_ = NO_IN_FLIGHT_REPEATING_FRAMES;
+
+  int32_t ret = 0;
+  if (current_request_.resultExtras.requestId != -1) {
+    // If there is a in-flight request, wait until it is submitted to HAL.
+    ret = cond_wait_relative(&current_request_signal_, &lock_, CLEAR_TIMEOUT);
+  }
   pthread_mutex_unlock(&lock_);
-  return 0;
+  return ret;
 }
 
 void Camera3RequestHandler::TogglePause(bool pause) {
@@ -207,6 +247,57 @@ bool Camera3RequestHandler::ThreadLoop() {
     return false;
   }
 
+  res = SubmitRequest(nextRequest);
+  if (0 != res) {
+    return true;
+  }
+
+  return true;
+}
+
+void Camera3RequestHandler::ReprocLoop(Camera3RequestHandler *ctx) {
+  while(ctx->run_worker_) {
+    pthread_mutex_lock(&ctx->worker_lock_);
+    while (ctx->reproc_requests_.empty()) {
+      cond_wait_relative(&ctx->worker_signal_, &ctx->worker_lock_, WAIT_TIMEOUT);
+      if (!ctx->run_worker_) {
+        QMMF_INFO("%s:%d: Exit", __func__, __LINE__);
+        return;
+      }
+    }
+
+    for (auto &nextRequest : ctx->reproc_requests_) {
+      QMMF_INFO("%s: Submit reprocess request E", __func__);
+      nextRequest.resultExtras.frameNumber = ctx->current_input_frame_number_;
+      ctx->current_input_frame_number_++;
+      ctx->current_request_ = nextRequest;
+
+      pthread_mutex_lock(&ctx->pause_lock_);
+      if (ctx->paused_state_) {
+        ctx->monitor_.ChangeStateToActive(ctx->monitor_id_);
+      }
+      ctx->paused_state_ = false;
+      pthread_mutex_unlock(&ctx->pause_lock_);
+
+      if (ctx->configuration_update_) {
+        ctx->ClearCaptureRequest(ctx->old_request_);
+        ctx->configuration_update_ = false;
+      }
+      pthread_mutex_unlock(&ctx->lock_);
+
+      ctx->SubmitRequest(nextRequest);
+
+      QMMF_INFO("%s: Submit reprocess request X", __func__);
+    }
+    ctx->reproc_requests_.clear();
+
+    pthread_mutex_unlock(&ctx->worker_lock_);
+  }
+  QMMF_INFO("%s:%d: Exit", __func__, __LINE__);
+}
+
+int32_t Camera3RequestHandler::SubmitRequest(CaptureRequest &nextRequest) {
+  int32_t res = 0;
   camera3_capture_request_t request = camera3_capture_request_t();
   request.frame_number = nextRequest.resultExtras.frameNumber;
   request.input_buffer = nullptr;
@@ -242,7 +333,7 @@ bool Camera3RequestHandler::ThreadLoop() {
       }
       pthread_mutex_unlock(&lock_);
       HandleErrorRequest(request, nextRequest, outputBuffers);
-      return true;
+      return res;
     }
     request.num_output_buffers++;
   }
@@ -250,14 +341,12 @@ bool Camera3RequestHandler::ThreadLoop() {
 
   if ((nullptr == mark_cb_) || (NULL == hal3_device_)) {
     HandleErrorRequest(request, nextRequest, outputBuffers);
-    return false;
+    return -1;
   }
 
   // Handle input buffers
-  camera3_stream_buffer_t camera3_in_buf;
   buffer_handle_t in_buf_handle = nullptr;
-  StreamBuffer in_buf;
-  memset(&in_buf, 0, sizeof(in_buf));
+  in_buf_ = {};
 
   // TODO: To be removed when camera supports GBM
 #ifdef TARGET_USES_GBM
@@ -266,26 +355,26 @@ bool Camera3RequestHandler::ThreadLoop() {
         GBMUsage().LocalToGralloc(nextRequest.streams[i]->usage);
   }
   if (nullptr != nextRequest.input) {
-    nextRequest.input->get_input_buffer(in_buf);
-    in_buf_handle = GetGrallocBufferHandle(in_buf.handle);
+    nextRequest.input->get_input_buffer(in_buf_);
+    in_buf_handle = GetGrallocBufferHandle(in_buf_.handle);
   }
 #else
   if (nullptr != nextRequest.input) {
-    nextRequest.input->get_input_buffer(in_buf);
-    in_buf_handle = GetAllocBufferHandle(in_buf.handle);
+    nextRequest.input->get_input_buffer(in_buf_);
+    in_buf_handle = GetAllocBufferHandle(in_buf_.handle);
   }
 #endif
 
   if (nullptr != in_buf_handle) {
     nextRequest.input->buffers_map.insert(
-        std::make_pair(in_buf_handle, in_buf.handle));
-    memset(&camera3_in_buf, 0, sizeof(camera3_in_buf));
-    camera3_in_buf.buffer = &in_buf_handle;
-    camera3_in_buf.acquire_fence = -1;
-    camera3_in_buf.release_fence = -1;
-    camera3_in_buf.status = CAMERA3_BUFFER_STATUS_OK;
-    camera3_in_buf.stream = nextRequest.input;
-    request.input_buffer = &camera3_in_buf;
+        std::make_pair(in_buf_handle, in_buf_.handle));
+    camera3_in_buf_ = {};
+    camera3_in_buf_.buffer = &in_buf_handle;
+    camera3_in_buf_.acquire_fence = -1;
+    camera3_in_buf_.release_fence = -1;
+    camera3_in_buf_.status = CAMERA3_BUFFER_STATUS_OK;
+    camera3_in_buf_.stream = nextRequest.input;
+    request.input_buffer = &camera3_in_buf_;
     totalNumBuffers++;
   }
 
@@ -296,7 +385,7 @@ bool Camera3RequestHandler::ThreadLoop() {
     SIG_ERROR("%s: Unable to register new request: %s (%d)", __func__,
               strerror(-res), res);
     HandleErrorRequest(request, nextRequest, outputBuffers);
-    return false;
+    return res;
   }
 
   res = hal3_device_->ops->process_capture_request(hal3_device_, &request);
@@ -304,7 +393,7 @@ bool Camera3RequestHandler::ThreadLoop() {
     SIG_ERROR("%s: Unable to submit request %d in CameraHal : %s (%d)",
               __func__, request.frame_number, strerror(-res), res);
     HandleErrorRequest(request, nextRequest, outputBuffers);
-    return false;
+    return res;
   }
 
   // TODO: To be removed when camera supports GBM
@@ -321,9 +410,10 @@ bool Camera3RequestHandler::ThreadLoop() {
 
   pthread_mutex_lock(&lock_);
   ClearCaptureRequest(current_request_);
+  pthread_cond_signal(&current_request_signal_);
   pthread_mutex_unlock(&lock_);
 
-  return true;
+  return res;
 }
 
 bool Camera3RequestHandler::IsStreamActive(Camera3Stream &stream) {
@@ -385,6 +475,7 @@ void Camera3RequestHandler::HandleErrorRequest(
 
   pthread_mutex_lock(&lock_);
   ClearCaptureRequest(current_request_);
+  pthread_cond_signal(&current_request_signal_);
   pthread_mutex_unlock(&lock_);
 }
 

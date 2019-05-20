@@ -26,6 +26,7 @@
 #include <camera/CameraMetadata.h>
 #include <utils/KeyedVector.h>
 #include <utils/List.h>
+#include <thread>
 
 #include "common/cameraadaptor/qmmf_camera3_types.h"
 #include "common/cameraadaptor/qmmf_camera3_internal_types.h"
@@ -59,6 +60,9 @@ class Camera3RequestHandler : public ThreadHelper {
   int32_t QueueRequestList(List<CaptureRequest> &requests,
                            int64_t *lastFrameNumber = NULL);
 
+  int32_t QueueReprocRequestList(List<CaptureRequest> &requests,
+                           int64_t *lastFrameNumber = NULL);
+
   int32_t Clear(int64_t *lastFrameNumber = NULL);
 
   void TogglePause(bool pause);
@@ -76,6 +80,7 @@ class Camera3RequestHandler : public ThreadHelper {
 
  private:
   int32_t GetRequest(CaptureRequest &request);
+  int32_t SubmitRequest(CaptureRequest &nextRequest);
   void ClearCaptureRequest(CaptureRequest &request);
   void HandleErrorRequest(camera3_capture_request_t &request,
                           CaptureRequest &nextRequest,
@@ -90,7 +95,8 @@ class Camera3RequestHandler : public ThreadHelper {
   Camera3RequestHandler(const Camera3RequestHandler &);
   Camera3RequestHandler &operator=(const Camera3RequestHandler &);
 
-  static const int64_t WAIT_TIMEOUT = 50e6;  // 50 ms
+  static const int64_t WAIT_TIMEOUT  = 50e6;  // 50 ms
+  static const int64_t CLEAR_TIMEOUT = 500e6; // 500 ms
 
   ErrorCallback error_cb_;
   MarkRequest mark_cb_;
@@ -99,6 +105,7 @@ class Camera3RequestHandler : public ThreadHelper {
 
   pthread_mutex_t lock_;
   pthread_cond_t requests_signal_;
+  pthread_cond_t current_request_signal_;
   RequestList requests_;
   RequestList streaming_requests_;
 
@@ -122,6 +129,17 @@ class Camera3RequestHandler : public ThreadHelper {
   uint32_t batch_size_;
 
   Camera3SmoothZoom smooth_zoom_;
+
+  camera3_stream_buffer_t camera3_in_buf_;
+  StreamBuffer in_buf_;
+
+  static void ReprocLoop(Camera3RequestHandler *ctx);
+  RequestList     reproc_requests_;
+  std::thread     worker_;
+  bool            run_worker_;
+  pthread_mutex_t worker_lock_;
+  pthread_cond_t  worker_signal_;
+
 };
 
 }  // namespace cameraadaptor ends here

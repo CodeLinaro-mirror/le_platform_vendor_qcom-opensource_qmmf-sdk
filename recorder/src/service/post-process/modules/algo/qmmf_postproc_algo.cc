@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -426,7 +426,11 @@ void PostProcAlg::OnFrameReady(const AlgBuffer &output_buffer) {
 
   const std::vector<AlgBuffer> buffers = {output_buffer};
   try {
-    algo_->UnregisterOutputBuffers(buffers);
+    if (algo_caps_.inplace_processing_) {
+      algo_->UnregisterInputBuffers(buffers);
+    } else {
+      algo_->UnregisterOutputBuffers(buffers);
+    }
   } catch (const std::exception &e) {
     QMMF_ERROR("%s: Error unregistering buffers, exception: %s",
         __func__, e.what());

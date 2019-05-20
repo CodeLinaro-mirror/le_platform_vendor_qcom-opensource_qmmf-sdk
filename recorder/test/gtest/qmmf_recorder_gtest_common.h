@@ -167,7 +167,7 @@ struct FaceInfo {
 
 #define DEFAULT_YUV_DUMP_FREQ       "200"
 #define DEFAULT_ITERATIONS          "50"
-#define DEFAULT_BURST_COUNT         "30"
+#define DEFAULT_BURST_COUNT         "15"
 #define IMAGE_QUALITY               "95"
 
 // Default recording duration is 2 minutes i.e. 2 * 60 seconds
@@ -215,6 +215,8 @@ struct FaceInfo {
 #define PROP_DEFAULT_EIS_MARGINS    "persist.qmmf.rec.gtest.eis.dflt"
 // Prop to enable/disable display usage
 #define PROP_TOGGLE_DISPLAY_USAGE   "persist.qmmf.rec.gtest.display"
+// Prop to set video timelapse interval
+#define PROP_TIMELAPSE_INTERVAL     "persist.qmmf.rec.gtest.tlapse"
 // Prop to enable/disable overlay usage
 #define PROP_TOGGLE_OVERLAY_USAGE   "persist.qmmf.rec.gtest.overlay"
 // Prop to enable/disable ubwc support in qmmf
@@ -744,6 +746,7 @@ class GtestCommon : public ::testing::Test {
   bool                  camera_error_;
   bool                  default_eis_margins_;
   bool                  is_apply_overlay_;
+  float                 timelapse_interval_;
   bool                  is_frame_debug_enabled_;
   std::string           sensor_mode_file_name_;
 

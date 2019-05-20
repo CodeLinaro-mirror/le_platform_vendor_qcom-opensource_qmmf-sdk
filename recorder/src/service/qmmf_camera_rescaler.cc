@@ -33,6 +33,10 @@
 #include <map>
 #include <sys/prctl.h>
 
+#ifndef DISABLE_RESCALER_COLORSPACE
+#include "qdMetaData.h"
+#endif
+
 #include "recorder/src/service/qmmf_camera_rescaler.h"
 #include "recorder/src/service/qmmf_recorder_utils.h"
 
@@ -548,10 +552,14 @@ status_t CameraRescalerMemPool::PopulateMetaInfo(CameraBufferMetaData &info,
       info.plane_info[0].height = init_params_.height;
       info.plane_info[0].stride = alignedW;
       info.plane_info[0].scanline = alignedH;
+      info.plane_info[0].size = alignedW * alignedH;
+      info.plane_info[0].offset = 0;
       info.plane_info[1].width = init_params_.width;
       info.plane_info[1].height = init_params_.height/2;
       info.plane_info[1].stride = alignedW;
       info.plane_info[1].scanline = alignedH/2;
+      info.plane_info[1].size = alignedW * (alignedH / 2);
+      info.plane_info[1].offset = alignedW * alignedH;
       break;
     case HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS_UBWC:
       info.format = BufferFormat::kNV12UBWC;
@@ -560,10 +568,14 @@ status_t CameraRescalerMemPool::PopulateMetaInfo(CameraBufferMetaData &info,
       info.plane_info[0].height = init_params_.height;
       info.plane_info[0].stride = alignedW;
       info.plane_info[0].scanline = alignedH;
+      info.plane_info[0].size = alignedW * alignedH;
+      info.plane_info[0].offset = 0;
       info.plane_info[1].width = init_params_.width;
       info.plane_info[1].height = init_params_.height/2;
       info.plane_info[1].stride = alignedW;
       info.plane_info[1].scanline = alignedH/2;
+      info.plane_info[1].size = alignedW * (alignedH / 2);
+      info.plane_info[1].offset = alignedW * alignedH;
       break;
     case HAL_PIXEL_FORMAT_RGB_888:
       info.format = BufferFormat::kRGB;
@@ -580,10 +592,14 @@ status_t CameraRescalerMemPool::PopulateMetaInfo(CameraBufferMetaData &info,
       info.plane_info[0].height = init_params_.height;
       info.plane_info[0].stride = alignedW;
       info.plane_info[0].scanline = alignedH;
+      info.plane_info[0].size = alignedW * alignedH;
+      info.plane_info[0].offset = 0;
       info.plane_info[1].width = init_params_.width;
       info.plane_info[1].height = init_params_.height/2;
       info.plane_info[1].stride = alignedW;
       info.plane_info[1].scanline = alignedH/2;
+      info.plane_info[1].size = alignedW * (alignedH / 2);
+      info.plane_info[1].offset = alignedW * alignedH;
       break;
     case HAL_PIXEL_FORMAT_YCbCr_422_888:
       info.format = BufferFormat::kNV16;
@@ -592,10 +608,14 @@ status_t CameraRescalerMemPool::PopulateMetaInfo(CameraBufferMetaData &info,
       info.plane_info[0].height = init_params_.height;
       info.plane_info[0].stride = alignedW;
       info.plane_info[0].scanline = alignedH;
+      info.plane_info[0].size = alignedW * alignedH;
+      info.plane_info[0].offset = 0;
       info.plane_info[1].width = init_params_.width;
       info.plane_info[1].height = init_params_.height;
       info.plane_info[1].stride = alignedW;
       info.plane_info[1].scanline = alignedH;
+      info.plane_info[1].size = alignedW * alignedH;
+      info.plane_info[1].offset = alignedW * alignedH;
       break;
     default:
       QMMF_ERROR("%s: Unsupported format: %d", __func__,
@@ -636,6 +656,19 @@ status_t CameraRescalerMemPool::AllocHWMemBuffer(IBufferHandle &buf) {
     QMMF_ERROR("%s: Failed to allocate alloc buffer", __func__);
     return NO_MEMORY;
   }
+#ifndef DISABLE_RESCALER_COLORSPACE
+  int32_t color_space = ITU_R_601_FR;
+  private_handle_t *priv_handle = const_cast<private_handle_t *>(
+      static_cast<const private_handle_t *>(*buf));
+
+  auto status = setMetaData(priv_handle, UPDATE_COLOR_SPACE,
+                    static_cast<void *>(&color_space));
+
+  if (NO_ERROR != ret) {
+    QMMF_ERROR("%s  setMetaData Failed: (%d)", __func__, status);
+    return status;
+  }
+#endif
   return NO_ERROR;
 }
 

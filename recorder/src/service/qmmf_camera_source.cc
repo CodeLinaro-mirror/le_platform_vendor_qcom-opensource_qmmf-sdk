@@ -56,6 +56,7 @@ namespace recorder {
 using ::std::make_shared;
 using ::std::shared_ptr;
 
+const uint32_t TrackSource::kWaitNumFrames_ = 5; //frames
 static const nsecs_t kWaitDuration = 5000000000; // 5 s.
 static const int32_t kDebugTrackFps = 1<<0;
 static const int32_t kDebugSourceTrackFps = 1<<1;
@@ -929,13 +930,13 @@ bool CameraSource::IsTrackIdValid(const uint32_t track_id) {
   return (track_sources_.count(track_id) != 0) ? true : false;
 }
 
-uint32_t CameraSource::GetJpegSize(uint8_t *blobBuffer, uint32_t width) {
+uint32_t CameraSource::GetJpegSize(uint8_t *blobBuffer, uint32_t size) {
 
-  uint32_t ret = width;
+  uint32_t ret = size;
   uint32_t blob_size = sizeof(struct camera3_jpeg_blob);
 
-  if (width > blob_size) {
-    size_t offset = width - blob_size - JPEG_BLOB_OFFSET;
+  if (size > blob_size) {
+    size_t offset = size - blob_size - JPEG_BLOB_OFFSET;
     uint8_t *footer = blobBuffer + offset;
     struct camera3_jpeg_blob *jpegBlob = (struct camera3_jpeg_blob *)footer;
 
@@ -945,8 +946,8 @@ uint32_t CameraSource::GetJpegSize(uint8_t *blobBuffer, uint32_t width) {
       QMMF_ERROR("%s Jpeg Blob structure missing!\n", __func__);
     }
   } else {
-    QMMF_ERROR("%s Buffer width: %u equal or smaller than Blob size: %u\n",
-        __func__, width, blob_size);
+    QMMF_ERROR("%s Buffer size: %u equal or smaller than Blob size: %u\n",
+        __func__, size, blob_size);
   }
   return ret;
 }
@@ -1114,7 +1115,7 @@ void CameraSource::SnapshotCallback(uint32_t count, StreamBuffer& buffer) {
       assert(vaddr != nullptr);
       assert(0 < buffer.info.num_planes);
       content_size = GetJpegSize((uint8_t*) vaddr,
-                                 buffer.info.plane_info[0].width);
+                                 buffer.info.plane_info[0].size);
       QMMF_INFO("%s: jpeg buffer size(%d)", __func__, content_size);
       assert(0 < content_size);
       if (buffer.second_thumb) {
@@ -1198,6 +1199,11 @@ TrackSource::TrackSource(const VideoTrackParams& params,
   QMMF_INFO("%s: input_frame_interval_(%f) & output_frame_interval_(%f) & "
       "remaining_frame_skip_time_(%f)",  __func__, input_frame_interval_,
       output_frame_interval_, remaining_frame_skip_time_);
+
+  auto wait = output_frame_interval_ * 1000 * kWaitNumFrames_;
+  wait_duration_ = wait < kWaitDuration ? kWaitDuration : wait;
+  QMMF_INFO("%s: track_id(%x) wait_duration_:(%lld) ns",
+      __func__, TrackId(), wait_duration_);
 
   if (track_params_.extra_param.Exists(QMMF_VIDEO_ROTATE)) {
     VideoRotate video_rotate;
@@ -1609,7 +1615,7 @@ status_t TrackSource::GetBuffer(BufferDescriptor& buffer,
 
   {
     std::unique_lock<std::mutex> lock(frame_lock_);
-    std::chrono::nanoseconds wait_time(kWaitDuration);
+    std::chrono::nanoseconds wait_time(GetWaitTime());
     while (frames_received_.Size() == 0) {
       QMMF_DEBUG("%s: track_id(%x) Wait for bufferr!!", __func__,
           TrackId());
@@ -2081,7 +2087,16 @@ void TrackSource::UpdateFrameRate(const float frame_rate) {
           __func__, TrackId(), track_params_.params.frame_rate, frame_rate);
     track_params_.params.frame_rate = frame_rate;
     output_frame_interval_ = 1000000.0 / frame_rate;
+    auto wait = output_frame_interval_ * 1000 * kWaitNumFrames_;
+    wait_duration_ = wait < kWaitDuration ? kWaitDuration : wait;
+    QMMF_INFO("%s: track_id(%x) wait_duration_:(%lld) ns",
+        __func__, TrackId(), wait_duration_);
   }
+}
+
+uint64_t TrackSource::GetWaitTime(){
+  std::lock_guard<std::mutex> autoLock(frame_skip_lock_);
+  return wait_duration_;
 }
 
 void TrackSource::EnableFrameRepeat(const bool enable_frame_repeat) {

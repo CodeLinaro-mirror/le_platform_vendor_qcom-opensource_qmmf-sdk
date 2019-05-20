@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  * Not a Contribution.
  */
 
@@ -182,9 +182,12 @@ class Camera3DeviceClient : public camera3_callback_ops,
                         uint32_t frameNumber);
 
   int32_t GetRequestListLocked(const List<const CameraMetadata> &metadataList,
-                               RequestList *requestList);
+                               RequestList *requestList,
+                               RequestList *requestListReproc);
   int32_t GenerateCaptureRequestLocked(const CameraMetadata &request,
                                        CaptureRequest &captureRequest);
+
+  uint32_t GetOpMode(bool is_pp_enabled = true);
 
   pthread_mutex_t pending_requests_lock_;
   PendingRequestVector pending_requests_vector_;
@@ -239,6 +242,8 @@ class Camera3DeviceClient : public camera3_callback_ops,
   bool is_raw_only_;
   bool hfr_mode_enabled_;
   bool is_zzhdr_enabled_;
+  bool is_eis_enabled_;
+
   int32_t force_sensor_mode_;
   uint32_t fps_sensormode_index_;
   Camera3PrepareHandler prepare_handler_;
