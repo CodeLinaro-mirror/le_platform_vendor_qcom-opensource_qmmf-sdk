@@ -59,6 +59,9 @@ namespace qmmf_alg_plugin {
  *    @buffer_is_filled_: true if a call to FillBufferWith() has been made
  *    @filled_value_: this value is assigned to each byte of the buffer after a
  *                    call to FillBufferWith()
+ *    @limit_byte_size_: byte size of limit variable
+ *    @max_limit_value_: maximum limit value
+ *
  *    @buffer_holder_: buffer holder
  *
  *  This class handles qmmf algo buffer
@@ -70,7 +73,8 @@ class BufferHandler : public AlgBuffer, public QmmfAlgoTools {
                 std::vector<BufferPlane> &plane,
                 const std::string &input_file_name,
                 const std::string &output_file_name, uint32_t file_stride,
-                uint32_t file_scanline, uint32_t border_up,
+                uint32_t file_scanline, uint32_t limit_byte_size,
+                uint32_t max_limit_value, uint32_t border_up,
                 uint32_t border_left, uint32_t border_down,
                 uint32_t border_right,
                 std::shared_ptr<IBufferHolder> &buffer_holder);
@@ -109,6 +113,8 @@ class BufferHandler : public AlgBuffer, public QmmfAlgoTools {
    *    @input_file_name: input file name
    *    @output_file_name: output file name
    *    @heap_buffer: flag indicating whether buffer is heap
+   *    @limit_byte_size: byte size of limit variable
+   *    @max_limit_value: maximum limit value
    *    @border_up: plane[0]'s first row containing actual data
    *                plane[i]'s border_up = border_up / (i+1)
    *    @border_left: the first column in each plane's row, containing actual
@@ -127,6 +133,7 @@ class BufferHandler : public AlgBuffer, public QmmfAlgoTools {
       uint32_t width, uint32_t height, uint32_t file_stride,
       uint32_t file_scanline, const std::string &input_file_name,
       const std::string &output_file_name, bool heap_buffer,
+      uint32_t limit_byte_size, uint32_t max_limit_value,
       uint32_t border_up = 0, uint32_t border_left = 0,
       uint32_t border_down = 0, uint32_t min_border_right = 0);
 
@@ -225,6 +232,14 @@ class BufferHandler : public AlgBuffer, public QmmfAlgoTools {
   bool MemoryIsCorrupted() const;
 
  private:
+  /** GenerateSynthethicImage
+   *
+   * generate synthethic image
+   *
+   * return: void
+   **/
+  void GenerateSynthethicImage();
+
   const std::string input_file_name_;
   const std::string output_file_name_;
 
@@ -238,6 +253,9 @@ class BufferHandler : public AlgBuffer, public QmmfAlgoTools {
 
   bool buffer_is_filled_;
   uint8_t filled_value_;
+
+  uint32_t limit_byte_size_;
+  uint32_t max_limit_value_;
 
   std::shared_ptr<IBufferHolder> buffer_holder_;
 };
