@@ -134,9 +134,6 @@ class CameraInterface {
   virtual status_t ReturnImageCaptureBuffer(const uint32_t camera_id,
                                             const int32_t buffer_id) = 0;
 
-  /// Return camera input parameters
-  virtual CameraStartParam& GetCameraStartParam() = 0;
-
   /// Return supported fps
   virtual std::vector<int32_t>& GetSupportedFps() = 0;
 

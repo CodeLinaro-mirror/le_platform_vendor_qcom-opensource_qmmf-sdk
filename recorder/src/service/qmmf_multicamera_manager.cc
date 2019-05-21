@@ -363,11 +363,6 @@ status_t MultiCameraManager::CaptureImage(const std::vector<CameraMetadata>
   std::lock_guard<std::mutex> lock(lock_);
   status_t ret = NO_ERROR;
 
-  if (start_params_.zsl_mode) {
-    QMMF_ERROR("%s: ZSL not supported!", __func__);
-    return BAD_VALUE;
-  }
-
   StreamSnapshotCb stream_cb = [&] (uint32_t count, StreamBuffer& buf) {
     snapshot_stitch_algo_->FrameAvailableCb(count, buf);
   };
@@ -789,11 +784,6 @@ status_t MultiCameraManager::ReturnImageCaptureBuffer(const uint32_t camera_id,
     ReturnJpegBuffer(buffer_id);
   }
   return NO_ERROR;
-}
-
-CameraStartParam& MultiCameraManager::GetCameraStartParam() {
-
-  return start_params_;
 }
 
 std::vector<int32_t>& MultiCameraManager::GetSupportedFps() {

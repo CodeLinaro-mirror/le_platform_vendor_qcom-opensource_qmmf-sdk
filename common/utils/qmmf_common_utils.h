@@ -203,6 +203,9 @@ class Common {
       case ImageFormat::kNV12:
         return BufferFormat::kNV12;
         break;
+      case ImageFormat::kNV21:
+        return BufferFormat::kNV21;
+        break;
       case ImageFormat::kBayerRDI8BIT:
         return BufferFormat::kRAW8;
         break;

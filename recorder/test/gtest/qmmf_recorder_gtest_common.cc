@@ -464,10 +464,6 @@ void GtestCommon::SetUp() {
   enable_sof_latency_ = (atoi(prop_val) == 0) ? false : true;
 
   camera_start_params_ = {};
-  camera_start_params_.zsl_mode         = false;
-  camera_start_params_.zsl_queue_depth  = kZslQDepth;
-  camera_start_params_.zsl_width        = kZslWidth;
-  camera_start_params_.zsl_height       = kZslHeight;
   camera_start_params_.frame_rate       = 30;
   camera_start_params_.flags            = 0x0;
 

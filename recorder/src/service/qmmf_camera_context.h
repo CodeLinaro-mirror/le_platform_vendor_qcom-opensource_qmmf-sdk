@@ -125,8 +125,6 @@ class CameraContext : public CameraInterface,
   status_t ReturnImageCaptureBuffer(const uint32_t camera_id,
                                     const int32_t buffer_id) override;
 
-  CameraStartParam& GetCameraStartParam() override;
-
   std::vector<int32_t>& GetSupportedFps() override;
 
   status_t ReturnStreamBuffer(StreamBuffer buffer) override;
@@ -180,9 +178,8 @@ class CameraContext : public CameraInterface,
 
   AECData GetAECData();
 
-  status_t CreateZSLStream(const CameraStartParam &param);
-
-  status_t CreateSnapshotStream(CameraStreamParameters &stream_param);
+  status_t CreateSnapshotStream(CameraStreamParameters &stream_param,
+                                bool cache = false);
 
   status_t DeleteSnapshotStream(bool cache = false);
 
@@ -192,10 +189,10 @@ class CameraContext : public CameraInterface,
 
   status_t PauseActiveStreams(bool immedialtely = true);
 
-  status_t ResumeActiveStreams(bool state_only = false);
+  status_t ValidateResolution(const BufferFormat format, const uint32_t width,
+                              const uint32_t height);
 
-  status_t ValidateResolution(const BufferFormat& format, const uint32_t& width,
-                              const uint32_t& height);
+  status_t ResumeActiveStreams(bool state_only = false);
 
   status_t GetSnapshotStreamParams(const SnapshotParam &image_param,
                                    CameraStreamParameters &stream_param);
@@ -206,6 +203,10 @@ class CameraContext : public CameraInterface,
 
   void InitHFRModes();
 
+  status_t StartZSL(SnapshotType &param);
+
+  status_t StopZSL();
+
   status_t CaptureZSLImage();
 
 #ifndef FLUSH_RESTART_NOTAVAILABLE
@@ -213,9 +214,9 @@ class CameraContext : public CameraInterface,
 #endif
 
   //Camera client callbacks.
-  void SnapshotCaptureCallback(StreamBuffer buffer);
+  void SnapshotCaptureCallback(StreamBuffer &buffer);
 
-  void ReprocessCaptureCallback(StreamBuffer buffer);
+  void ReprocessCaptureCallback(StreamBuffer &buffer);
 
   void CameraErrorCb(CameraErrorCode error_code, const CaptureResultExtras &);
 
@@ -229,11 +230,10 @@ class CameraContext : public CameraInterface,
 
   std::function<void(StreamBuffer)> GetStreamCb(const SnapshotParam& param);
 
-  bool IsPostProcNeeded(const SnapshotParam& param, const uint32_t sequence_cnt);
+  bool IsPostProcNeeded(const SnapshotParam& param, const uint32_t sequence_cnt,
+                   const BufferFormat zsl_format = BufferFormat::kUnsupported);
 
   std::shared_ptr<CameraPort> GetPort(const uint32_t& track_id);
-
-  status_t PostProcDelete();
 
   status_t PostProcSetUp(CameraStreamParameters &stream_param,
                          RequiredInput required_input = {});
@@ -242,6 +242,8 @@ class CameraContext : public CameraInterface,
                               uint32_t frame_rate,
                               const std::vector<uint32_t> &plugins,
                               RequiredInput required_input = {});
+
+  status_t PostProcDelete();
 
   template <typename T>
   bool QueryPartialTag(const CameraMetadata &result, int32_t tag, T *value,
@@ -252,8 +254,6 @@ class CameraContext : public CameraInterface,
                         uint32_t frame_number);
 
   void HandleFinalResult(const CaptureResult &result);
-
-  status_t ValidateCaptureParams(const SnapshotParam& param);
 
   std::string GetSnapshotJsonConfig();
 
@@ -280,7 +280,6 @@ class CameraContext : public CameraInterface,
   // Global Capture request.
   int32_t                  streaming_request_id_;
   int32_t                  capture_request_id_;
-  int32_t                  previous_streaming_request_id_;
 
   // Map of stream id and it's last request frame number submitted to HAL.
   std::map<int32_t, int64_t> last_frame_number_map_;
@@ -303,7 +302,7 @@ class CameraContext : public CameraInterface,
   ErrorCb                  error_cb_;
   FlushCb                  flush_cb_;
   std::vector<int32_t>     supported_fps_;
-  std::shared_ptr<CameraPort>           zsl_port_;
+  uint32_t                 zsl_port_id_;
 
   // Map of <consumer id and CameraPort>
   std::map<uint32_t, std::shared_ptr<CameraPort> > active_ports_;
@@ -321,7 +320,6 @@ class CameraContext : public CameraInterface,
   std::vector<Camera3Request> streaming_active_requests_;
 
   std::map<uint32_t, int32_t> snapshot_buffer_stream_list_;
-  int32_t                  input_stream_id_;
   std::shared_ptr<PostProcPipe> postproc_pipe_;
   uint32_t                 batch_size_;
   int32_t                  batch_stream_id_;
@@ -391,7 +389,7 @@ class CameraPort {
 
   virtual status_t Init();
 
-  status_t DeInit();
+  virtual status_t DeInit();
 
   status_t Start();
 
@@ -429,6 +427,7 @@ class CameraPort {
   CameraContext*         context_;
   int32_t                camera_stream_id_;
   PortState              port_state_;
+  StreamParam            params_;
 
  private:
 
@@ -439,7 +438,6 @@ class CameraPort {
   uint32_t GetExtraBufferCount();
 
   sp<IBufferProducer>    buffer_producer_impl_;
-  StreamParam      params_;
   CameraStreamParameters cam_stream_params_;
   bool                   ready_to_start_;
   size_t                 batch_size_;
@@ -465,11 +463,14 @@ class ZslPort : public CameraPort {
 
  public:
   ZslPort(const StreamParam& param, size_t batch_size,
-          CameraPortType port_type, CameraContext *context);
+          CameraPortType port_type, CameraContext *context,
+          uint32_t zsl_queue_depth, bool postprocess);
 
   ~ZslPort();
 
   status_t Init() override;
+
+  status_t DeInit() override;
 
   status_t PauseAndFlushZSLQueue();
 
@@ -485,6 +486,11 @@ class ZslPort : public CameraPort {
 
   int32_t GetInputStreamId() { return input_stream_id_; }
 
+  status_t ValidateCaptureParams(uint32_t width, uint32_t height,
+                                 BufferFormat format);
+
+  void ReturnZSLInputBuffer(StreamBuffer &buffer);
+
  private:
 
   status_t SetUpZSL();
@@ -493,14 +499,13 @@ class ZslPort : public CameraPort {
 
   void GetZSLInputBuffer(StreamBuffer &buffer);
 
-  void ReturnZSLInputBuffer(StreamBuffer &buffer);
-
   int32_t         input_stream_id_ = -1;
   std::mutex      zsl_queue_lock_;
   std::list<ZSLEntry>  zsl_queue_;
   ZSLEntry        zsl_input_buffer_ = {};
   bool            zsl_running_ = false;
   uint32_t        zsl_queue_depth_ = 0;
+  bool            postprocess_;
 };
 
 }; //namespace recorder

@@ -106,24 +106,25 @@ enum class StitchingMode {
 };
 
 enum class SnapshotMode {
+  /**< this is not valid mode */
   kNone,
-/**< this is not valid mode */
+  /**< High quality snapshot. This snapshot */
+  /**< will interrupt video streaming if any */
   kStill,
-/**< High quality snapshot. This snapshot */
-/**< will interrupt video streaming if any */
+  /**< High quality snapshot plus RAW dump. If kStillPlusRaw is enabled then */
+  /**< RAW reprocessing (RAW plugins) cannot be supported.                   */
   kStillPlusRaw,
-/**< High quality snapshot plus raw dump. this mode cannot be used together  */
-/**< with burst capture because of following limitations:                    */
-/**< - Snapshot callback in camera context                                   */
-/**< is common for all snapshot streams.                                     */
-/**< - If we enable RAW re-process, we will ends up with two raw steams.     */
-/**<   It is not supported by HAL.                                           */
+  /**< Video snapshot is captured with video settings. Video recording will  */
+  /**< not be interrupted in this mode. */
   kVideo,
-/**< High quality snapshot. This snapshot will NOT interrupt video streaming */
-/**< if any. Same sensor frame will be used for video and snapshot  */
-  kContinuous
-/**< Continuous capture. QMMF will take images until CancelCaptureImage. */
-/**< Capture rate could be set by QMMF_POSTPROCESS_FRAME_SKIP tag. */
+  /**< Continuous capture. QMMF will take images until CancelCaptureImage.   */
+  /**< Capture rate could be set by QMMF_POSTPROCESS_FRAME_SKIP tag.         */
+  kContinuous,
+  /**< Zero Shutter Lag capture. QMMF starts ZSL continuous stream. Frames   */
+  /**< from continuous stream are stored in ZSL queue. Last good frame in    */
+  /**< ZSL queue will be used when user call CaptureImage API. ZSL stream    */
+  /**< will be stopped when mode is changed or CancelCaptureImage is called. */
+  kZsl
 };
 
 struct SourceSurfaceDesc : DataTagBase {
@@ -232,10 +233,18 @@ struct SnapshotType : DataTagBase {
   /**< RAW format takes place only if snapshot type is kStillPlusRaw. */
   /**< Default RAW format is kBayerRDI10BIT. */
   ImageFormat raw_format;
+  /**< This is ZSL queue configuration. */
+  ZslQueueParam zsl_queue_params;
+  /**< This is output images configuration in kZsl snapshot mode. */
+  ImageParam    zsl_image_param;
+
   SnapshotType()
     : DataTagBase(QMMF_SNAPSHOT_TYPE),
       type(SnapshotMode::kVideo),
-      raw_format(ImageFormat::kBayerRDI10BIT) {}
+      raw_format(ImageFormat::kBayerRDI10BIT),
+      zsl_queue_params{},
+      zsl_image_param{} {}
+
 };
 
 struct VideoWaitAECMode : DataTagBase {

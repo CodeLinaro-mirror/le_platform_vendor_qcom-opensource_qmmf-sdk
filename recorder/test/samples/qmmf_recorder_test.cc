@@ -1692,12 +1692,6 @@ status_t RecorderTest::StartCamera() {
   TEST_INFO("%s: Enter", __func__);
 
   CameraStartParam camera_params{};
-  camera_params.zsl_mode            = false;
-  camera_params.zsl_queue_depth     = 10;
-  camera_params.zsl_width           = 3840;
-  camera_params.zsl_height          = 2160;
-  camera_params.frame_rate          = 30;
-  camera_params.flags               = 0x0;
   camera_params.enable_partial_metadata  = false;
   CameraResultCb result_cb = [&] (uint32_t camera_id,
             const CameraMetadata &result) {
@@ -2088,12 +2082,6 @@ status_t RecorderTest::StartMultiCameraMode() {
   TEST_INFO("%s: Enter", __func__);
 
   CameraStartParam camera_params{};
-  camera_params.zsl_mode            = false;
-  camera_params.zsl_queue_depth     = 10;
-  camera_params.zsl_width           = 3840;
-  camera_params.zsl_height          = 2160;
-  camera_params.frame_rate          = 30;
-  camera_params.flags               = 0x0;
 
   camera_id_ = 1;
 
@@ -4383,11 +4371,6 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
   // TODO: this parameters to be configured from config file
   // once the proper lower layer support for zsl is added
   CameraStartParam camera_params{};
-  camera_params.zsl_mode            = false;
-  camera_params.zsl_queue_depth     = 10;
-  camera_params.zsl_width           = 3840;
-  camera_params.zsl_height          = 2160;
-  camera_params.flags               = 0x0;
 
   camera_id_ = 0;
 
@@ -5630,10 +5613,6 @@ int32_t RecorderTest::RunAutoMode(int32_t argc, char *argv[]) {
                                           track_info.width, track_info.height,
                                           track_info.fps};
 
-  camera_params.zsl_mode            = false;
-  camera_params.zsl_queue_depth     = 10;
-  camera_params.zsl_width           = 3840;
-  camera_params.zsl_height          = 2160;
   camera_params.frame_rate          = track_info.fps;
   camera_params.flags               = 0x0;
 

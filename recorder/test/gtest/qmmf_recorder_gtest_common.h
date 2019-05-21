@@ -112,8 +112,8 @@ using ::qmmf::display::SurfaceConfig;
 using ::qmmf::display::SurfaceBlending;
 using ::qmmf::display::SurfaceFormat;
 
-static const uint32_t kZslWidth      = 1920;
-static const uint32_t kZslHeight     = 1080;
+static const uint32_t kZslWidth      = 3840;
+static const uint32_t kZslHeight     = 2160;
 static const uint32_t kZslQDepth     = 10;
 
 #if USE_SKIA

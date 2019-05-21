@@ -511,6 +511,7 @@ struct VQZipInfo {
 enum class ImageFormat {
   kJPEG,
   kNV12,
+  kNV21,
   kBayerIdeal,
   kBayerRDI8BIT,
   kBayerRDI10BIT,
