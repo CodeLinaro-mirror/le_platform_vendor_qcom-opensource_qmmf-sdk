@@ -47,6 +47,8 @@ namespace qmmf_alg_plugin {
  *    @pixel_format_: buffer pixel format
  *    @file_name_: file name on the storage
  *    @heap_buffer_: flag indicating whether buffer is heap
+ *    @limit_byte_size_: byte size of limit variable
+ *    @max_limit_value_: maximum limit value
  *    @kPixelFormatFromString: LUT for string to enum values for pixel format
  *
  *  This class handles algo configuration buffer
@@ -83,6 +85,8 @@ class QmmfAlgoConfigurationBuffer {
   std::string input_file_name_;
   std::string output_file_name_;
   bool heap_buffer_;
+  uint32_t limit_byte_size_;
+  uint32_t max_limit_value_;
   static const std::map<std::string, PixelFormat> kPixelFormatFromString;
 };
 

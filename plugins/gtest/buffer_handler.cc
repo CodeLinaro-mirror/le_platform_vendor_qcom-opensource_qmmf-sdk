@@ -53,6 +53,8 @@ namespace qmmf_alg_plugin {
  *    @input_file_name: input file name
  *    @file_stride_: input and/or output file stride
  *    @file_scanline_: input and/or output file scanline
+ *    @limit_byte_size: byte size of limit variable
+ *    @max_limit_value: maximum limit value
  *    @border_up: plane[0]'s first row containing actual data
  *                plane[i]'s border_up = border_up / (i+1)
  *    @border_left: the first column in each plane's row, containing actual
@@ -72,8 +74,9 @@ BufferHandler::BufferHandler(
     uint8_t *vaddr, int32_t fd, uint32_t size, bool cached, PixelFormat pix_fmt,
     int64_t timestamp, uint32_t frame_number, std::vector<BufferPlane> &plane,
     const std::string &input_file_name, const std::string &output_file_name,
-    uint32_t file_stride, uint32_t file_scanline, uint32_t border_up,
-    uint32_t border_left, uint32_t border_down, uint32_t border_right,
+    uint32_t file_stride, uint32_t file_scanline, uint32_t limit_byte_size,
+    uint32_t max_limit_value, uint32_t border_up, uint32_t border_left,
+    uint32_t border_down, uint32_t border_right,
     std::shared_ptr<IBufferHolder> &buffer_holder)
     : AlgBuffer(vaddr, fd, size, cached, pix_fmt, timestamp, frame_number,
                 plane),
@@ -87,6 +90,8 @@ BufferHandler::BufferHandler(
       border_right_(border_right),
       buffer_is_filled_(false),
       filled_value_(0),
+      limit_byte_size_(limit_byte_size),
+      max_limit_value_(max_limit_value),
       buffer_holder_(buffer_holder) {}
 
 /** New
@@ -111,7 +116,7 @@ std::list<std::shared_ptr<BufferHandler>> BufferHandler::New(
         &buffer_configurations,
     uint32_t border_up, uint32_t border_left, uint32_t border_down,
     uint32_t min_border_right) {
-  if (buffer_configurations.size() !=
+  if (buffer_configurations.size() >
       requirements.count_ + requirements.history_buffer_count_) {
     std::string err = std::string("Buffer configuration size ") +
                       std::to_string(buffer_configurations.size()) +
@@ -123,10 +128,11 @@ std::list<std::shared_ptr<BufferHandler>> BufferHandler::New(
 
   std::list<std::shared_ptr<BufferHandler>> allocated_buffers;
   for (auto &c : buffer_configurations) {
-    auto b = New(requirements, c->pixel_format_, c->width_, c->height_,
-                 c->stride_, c->scanline_, c->input_file_name_,
-                 c->output_file_name_, c->heap_buffer_, border_up, border_left,
-                 border_down, min_border_right);
+    auto b =
+        New(requirements, c->pixel_format_, c->width_, c->height_, c->stride_,
+            c->scanline_, c->input_file_name_, c->output_file_name_,
+            c->heap_buffer_, c->limit_byte_size_, c->max_limit_value_,
+            border_up, border_left, border_down, min_border_right);
     allocated_buffers.push_back(b);
   }
   return allocated_buffers;
@@ -142,6 +148,8 @@ std::list<std::shared_ptr<BufferHandler>> BufferHandler::New(
  *    @input_file_name: input file name
  *    @output_file_name: output file name
  *    @heap_buffer: flag indicating whether buffer is heap
+ *    @limit_byte_size: byte size of limit variable
+ *    @max_limit_value: maximum limit value
  *    @border_up: plane[0]'s first row containing actual data
  *                plane[i]'s border_up = border_up / (i+1)
  *    @border_left: the first column in each plane's row, containing actual
@@ -159,8 +167,9 @@ std::shared_ptr<BufferHandler> BufferHandler::New(
     const BufferRequirements &requirements, PixelFormat pix_fmt, uint32_t width,
     uint32_t height, uint32_t file_stride, uint32_t file_scanline,
     const std::string &input_file_name, const std::string &output_file_name,
-    bool heap_buffer, uint32_t border_up, uint32_t border_left,
-    uint32_t border_down, uint32_t min_border_right) {
+    bool heap_buffer, uint32_t limit_byte_size, uint32_t max_limit_value,
+    uint32_t border_up, uint32_t border_left, uint32_t border_down,
+    uint32_t min_border_right) {
   uint32_t num_planes = 0;
 
   // Get number of planes
@@ -244,8 +253,8 @@ std::shared_ptr<BufferHandler> BufferHandler::New(
   std::shared_ptr<BufferHandler> new_handler(new BufferHandler(
       vaddr, buffer_holder->GetFd(), buffer_size, true, pix_fmt, timestamp,
       frame_number, planes, input_file_name, output_file_name, file_stride,
-      file_scanline, border_up, border_left, border_down, border_right,
-      buffer_holder));
+      file_scanline, limit_byte_size, max_limit_value, border_up, border_left,
+      border_down, border_right, buffer_holder));
 
   return new_handler;
 }
@@ -324,6 +333,73 @@ bool BufferHandler::Compare(
  **/
 bool BufferHandler::Compare(int32_t fd) const { return fd == fd_; }
 
+/** GenerateSynthethicImage
+ *
+ * generate synthethic image
+ *
+ * return: void
+ **/
+void BufferHandler::GenerateSynthethicImage() {
+  uint8_t *out_p = nullptr;
+
+  for (uint32_t i = 0; i < plane_.size(); i++) {
+    out_p = vaddr_ + plane_[i].offset_;
+    auto width_in_bytes = GetWidthInBytes(plane_[i].width_, pix_fmt_);
+
+    for (uint32_t j = 0; j < plane_[i].height_; j++) {
+      for (uint32_t k = 0; k < width_in_bytes; k++) {
+        *out_p++ = j + k;
+      }
+      out_p += (plane_[i].stride_ - width_in_bytes);
+
+      switch (limit_byte_size_) {
+        case 0: {
+          // Fallthrough
+          break;
+        }
+        case 1: {
+          if (max_limit_value_ > 255) {
+            Utils::ThrowException(__func__,
+                                  "maximum limit value very high : " +
+                                      std::to_string(max_limit_value_));
+          }
+          uint8_t *p = out_p - width_in_bytes;
+          for (uint32_t k = 0; k < width_in_bytes; k++, p++) {
+            *p = std::min(static_cast<uint8_t>(max_limit_value_), *p);
+          }
+          p += (plane_[i].stride_ - width_in_bytes);
+          break;
+        }
+        case 2: {
+          if (max_limit_value_ > 65535) {
+            Utils::ThrowException(__func__,
+                                  "maximum limit value very high : " +
+                                      std::to_string(max_limit_value_));
+          }
+          uint16_t *p = reinterpret_cast<uint16_t *>(out_p - width_in_bytes);
+          for (uint32_t k = 0; k < width_in_bytes / 2; k++, p++) {
+            *p = std::min(static_cast<uint16_t>(max_limit_value_), *p);
+          }
+          p += (plane_[i].stride_ - width_in_bytes) / 2;
+          break;
+        }
+        case 4: {
+          uint32_t *p = reinterpret_cast<uint32_t *>(out_p - width_in_bytes);
+          for (uint32_t k = 0; k < width_in_bytes / 4; k++, p++) {
+            *p = std::min(max_limit_value_, *p);
+          }
+          p += (plane_[i].stride_ - width_in_bytes) / 4;
+          break;
+        }
+        default:
+          Utils::ThrowException(__func__, "invalid bytesize limit : " +
+                                              std::to_string(limit_byte_size_));
+          break;
+      }
+    }
+  }
+}
+
 /** ReadInputFile
  *
  * reads input file
@@ -371,19 +447,7 @@ void BufferHandler::ReadInputFile() {
       }
     }
   } else {
-    uint8_t *out_p = nullptr;
-
-    for (uint32_t i = 0; i < plane_.size(); i++) {
-      out_p = vaddr_ + plane_[i].offset_;
-      auto width_in_bytes = GetWidthInBytes(plane_[i].width_, pix_fmt_);
-
-      for (uint32_t j = 0; j < plane_[i].height_; j++) {
-        for (uint32_t k = 0; k < width_in_bytes; k++) {
-          *out_p++ = j + k;
-        }
-        out_p += (plane_[i].stride_ - width_in_bytes);
-      }
-    }
+    GenerateSynthethicImage();
   }
   buffer_holder_->CpuAccessEnd();
 }
@@ -584,6 +648,10 @@ uint32_t BufferHandler::GetWidthInBytes(uint32_t width_in_pixels,
     case kRawGbrg12:
     case kRawGrbg12:
     case kRawRggb12:
+    case kRawBggr14:
+    case kRawGbrg14:
+    case kRawGrbg14:
+    case kRawRggb14:
     case kRawBggr16:
     case kRawGbrg16:
     case kRawGrbg16:
@@ -657,6 +725,10 @@ uint32_t BufferHandler::GetHeightInLines(uint32_t image_height,
     case kRawGbrg12:
     case kRawGrbg12:
     case kRawRggb12:
+    case kRawBggr14:
+    case kRawGbrg14:
+    case kRawGrbg14:
+    case kRawRggb14:
     case kRawBggr16:
     case kRawGbrg16:
     case kRawGrbg16:
@@ -717,6 +789,10 @@ uint32_t BufferHandler::GetNumPlanes(PixelFormat pix_fmt) {
     case kRawGbrg12:
     case kRawGrbg12:
     case kRawRggb12:
+    case kRawBggr14:
+    case kRawGbrg14:
+    case kRawGrbg14:
+    case kRawRggb14:
     case kRawBggr16:
     case kRawGbrg16:
     case kRawGrbg16:

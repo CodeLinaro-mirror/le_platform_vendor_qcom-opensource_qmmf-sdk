@@ -1,9 +1,9 @@
 {
   "Common": {
     "iteration count": 12,
-    "tested library": "qmmf/alg-plugins/libqmmf_alg_svhdr.so",
-    "configuration file": "svhdr_configuration.json",
-    "calibration file": "qmmf_tuning_SVHDR.bin",
+    "tested library": "qmmf/alg-plugins/libqmmf_alg_svhdr_ref.so",
+    "configuration file": "",
+    "calibration file": "",
     "input buffers": [
       {
         "width": 16224,
