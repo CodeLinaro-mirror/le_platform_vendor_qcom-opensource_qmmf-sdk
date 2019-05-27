@@ -285,7 +285,28 @@ void Camera3RequestHandler::ReprocLoop(Camera3RequestHandler *ctx) {
       }
       pthread_mutex_unlock(&ctx->lock_);
 
-      ctx->SubmitRequest(nextRequest);
+      StreamBuffer in_buf = {};
+      buffer_handle_t in_buf_handle = nullptr;
+
+      nextRequest.input->get_input_buffer(in_buf);
+
+      // TODO: To be removed when camera supports GBM
+ #ifdef TARGET_USES_GBM
+      in_buf_handle = GetGrallocBufferHandle(in_buf.handle);
+ #else
+      in_buf_handle = GetAllocBufferHandle(in_buf.handle);
+ #endif
+
+      nextRequest.input->buffers_map.insert(
+          std::make_pair(in_buf_handle, in_buf.handle));
+      camera3_stream_buffer_t camera3_in_buf = {};
+      camera3_in_buf.buffer = &in_buf_handle;
+      camera3_in_buf.acquire_fence = -1;
+      camera3_in_buf.release_fence = -1;
+      camera3_in_buf.status = CAMERA3_BUFFER_STATUS_OK;
+      camera3_in_buf.stream = nextRequest.input;
+
+      ctx->SubmitRequest(nextRequest, &camera3_in_buf);
 
       QMMF_INFO("%s: Submit reprocess request X", __func__);
     }
@@ -296,7 +317,9 @@ void Camera3RequestHandler::ReprocLoop(Camera3RequestHandler *ctx) {
   QMMF_INFO("%s:%d: Exit", __func__, __LINE__);
 }
 
-int32_t Camera3RequestHandler::SubmitRequest(CaptureRequest &nextRequest) {
+int32_t Camera3RequestHandler::SubmitRequest(CaptureRequest &nextRequest,
+                                             camera3_stream_buffer_t *in_buf) {
+
   int32_t res = 0;
   camera3_capture_request_t request = camera3_capture_request_t();
   request.frame_number = nextRequest.resultExtras.frameNumber;
@@ -344,37 +367,16 @@ int32_t Camera3RequestHandler::SubmitRequest(CaptureRequest &nextRequest) {
     return -1;
   }
 
-  // Handle input buffers
-  buffer_handle_t in_buf_handle = nullptr;
-  in_buf_ = {};
-
   // TODO: To be removed when camera supports GBM
 #ifdef TARGET_USES_GBM
   for (uint32_t i = 0; i < nextRequest.streams.size(); i++) {
     nextRequest.streams[i]->usage =
         GBMUsage().LocalToGralloc(nextRequest.streams[i]->usage);
   }
-  if (nullptr != nextRequest.input) {
-    nextRequest.input->get_input_buffer(in_buf_);
-    in_buf_handle = GetGrallocBufferHandle(in_buf_.handle);
-  }
-#else
-  if (nullptr != nextRequest.input) {
-    nextRequest.input->get_input_buffer(in_buf_);
-    in_buf_handle = GetAllocBufferHandle(in_buf_.handle);
-  }
 #endif
 
-  if (nullptr != in_buf_handle) {
-    nextRequest.input->buffers_map.insert(
-        std::make_pair(in_buf_handle, in_buf_.handle));
-    camera3_in_buf_ = {};
-    camera3_in_buf_.buffer = &in_buf_handle;
-    camera3_in_buf_.acquire_fence = -1;
-    camera3_in_buf_.release_fence = -1;
-    camera3_in_buf_.status = CAMERA3_BUFFER_STATUS_OK;
-    camera3_in_buf_.stream = nextRequest.input;
-    request.input_buffer = &camera3_in_buf_;
+  if (in_buf) {
+    request.input_buffer = in_buf;
     totalNumBuffers++;
   }
 

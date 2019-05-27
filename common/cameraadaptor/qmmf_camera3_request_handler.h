@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019 The Linux Foundation. All rights reserved.
  * Not a Contribution.
  */
 
@@ -80,7 +80,8 @@ class Camera3RequestHandler : public ThreadHelper {
 
  private:
   int32_t GetRequest(CaptureRequest &request);
-  int32_t SubmitRequest(CaptureRequest &nextRequest);
+  int32_t SubmitRequest(CaptureRequest &nextRequest,
+                        camera3_stream_buffer_t *in_buf = nullptr);
   void ClearCaptureRequest(CaptureRequest &request);
   void HandleErrorRequest(camera3_capture_request_t &request,
                           CaptureRequest &nextRequest,
@@ -129,9 +130,6 @@ class Camera3RequestHandler : public ThreadHelper {
   uint32_t batch_size_;
 
   Camera3SmoothZoom smooth_zoom_;
-
-  camera3_stream_buffer_t camera3_in_buf_;
-  StreamBuffer in_buf_;
 
   static void ReprocLoop(Camera3RequestHandler *ctx);
   RequestList     reproc_requests_;
