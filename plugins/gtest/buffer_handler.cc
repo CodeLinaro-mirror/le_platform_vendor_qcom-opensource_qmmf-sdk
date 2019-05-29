@@ -648,10 +648,6 @@ uint32_t BufferHandler::GetWidthInBytes(uint32_t width_in_pixels,
     case kRawGbrg12:
     case kRawGrbg12:
     case kRawRggb12:
-    case kRawBggr14:
-    case kRawGbrg14:
-    case kRawGrbg14:
-    case kRawRggb14:
     case kRawBggr16:
     case kRawGbrg16:
     case kRawGrbg16:
@@ -725,10 +721,6 @@ uint32_t BufferHandler::GetHeightInLines(uint32_t image_height,
     case kRawGbrg12:
     case kRawGrbg12:
     case kRawRggb12:
-    case kRawBggr14:
-    case kRawGbrg14:
-    case kRawGrbg14:
-    case kRawRggb14:
     case kRawBggr16:
     case kRawGbrg16:
     case kRawGrbg16:
@@ -789,10 +781,6 @@ uint32_t BufferHandler::GetNumPlanes(PixelFormat pix_fmt) {
     case kRawGbrg12:
     case kRawGrbg12:
     case kRawRggb12:
-    case kRawBggr14:
-    case kRawGbrg14:
-    case kRawGrbg14:
-    case kRawRggb14:
     case kRawBggr16:
     case kRawGbrg16:
     case kRawGrbg16:

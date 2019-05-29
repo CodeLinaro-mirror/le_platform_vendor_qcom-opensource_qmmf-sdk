@@ -603,18 +603,6 @@ void PostProcAlg::DumpFrame(AlgBuffer buf, bool input) {
     case kRawRggb12:
       file_name += "plain16_12bit";
       break;
-    case kRawBggr14:
-    case kRawGbrg14:
-    case kRawGrbg14:
-    case kRawRggb14:
-      file_name += "plain16_14bit";
-      break;
-    case kRawBggr16:
-    case kRawGbrg16:
-    case kRawGrbg16:
-    case kRawRggb16:
-      file_name += "plain16_16bit";
-      break;
     case kNv12:
       file_name += "nv12";
       break;
@@ -670,10 +658,6 @@ void PostProcAlg::DumpFrame(AlgBuffer buf, bool input) {
     case kRawGbrg12:
     case kRawGrbg12:
     case kRawRggb12:
-    case kRawBggr14:
-    case kRawGbrg14:
-    case kRawGrbg14:
-    case kRawRggb14:
     case kRawBggr16:
     case kRawGbrg16:
     case kRawGrbg16:
