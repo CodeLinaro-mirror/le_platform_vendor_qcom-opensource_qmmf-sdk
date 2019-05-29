@@ -6419,6 +6419,10 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithSingleCam4KEncAllExposureMeteringM
     ret = recorder_.GetDefaultCaptureParam(camera_id_, meta_img);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    CameraMetadata static_meta;
+    ret = recorder_.GetCameraParam(camera_id_, static_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
     bool res_supported = GtestCommon::ValidateResFromJpegSizes(meta_img,
         image_param.width, image_param.height);
     ASSERT_TRUE (res_supported != false);
@@ -6455,7 +6459,7 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithSingleCam4KEncAllExposureMeteringM
     }
 
     camera_metadata_entry_t exposure_metering_available_modes =
-    meta.find(exposure_metering_available_modes_vtag);
+      static_meta.find(exposure_metering_available_modes_vtag);
     uint32_t available_meter_mode = exposure_metering_available_modes.count;
 
     // Setting tag to exposure metering
@@ -6477,7 +6481,8 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithSingleCam4KEncAllExposureMeteringM
                             &exposure_metering_mode, 1);
       ASSERT_TRUE(ret == NO_ERROR);
 
-      TEST_INFO("%s: Exposure Metering switched to mode[%d]\n", __func__, count);
+      TEST_INFO("%s: Exposure Metering switched to mode[%d]\n", __func__,
+                 exposure_metering_mode);
       ret = recorder_.SetCameraParam(camera_id_, meta);
       ASSERT_TRUE(ret == NO_ERROR);
 

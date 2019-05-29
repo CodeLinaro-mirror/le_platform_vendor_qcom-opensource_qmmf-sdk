@@ -1246,17 +1246,15 @@ status_t CameraContext::GetCameraParam(CameraMetadata &meta) {
 
   QMMF_DEBUG("%s: Enter", __func__);
   meta.clear();
-  int32_t ret = NO_ERROR;
   if ((!streaming_active_requests_.empty()) &&
       (!streaming_active_requests_[0].metadata.isEmpty())) {
     meta.append(streaming_active_requests_[0].metadata);
   } else {
-    QMMF_ERROR("%s No active request present. Return static meta!\n", __func__);
+    QMMF_INFO("%s No active request present. Return static meta!\n", __func__);
     meta.append(static_meta_);
-    return NO_INIT;
   }
   QMMF_DEBUG("%s: Exit", __func__);
-  return ret;
+  return NO_ERROR;
 }
 
 status_t CameraContext::GetDefaultCaptureParam(CameraMetadata &meta) {
