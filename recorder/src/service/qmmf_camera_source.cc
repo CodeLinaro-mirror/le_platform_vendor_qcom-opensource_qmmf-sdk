@@ -58,9 +58,6 @@ using ::std::shared_ptr;
 
 const uint32_t TrackSource::kWaitNumFrames_ = 5; //frames
 static const nsecs_t kWaitDuration = 5000000000; // 5 s.
-static const int32_t kDebugTrackFps = 1<<0;
-static const int32_t kDebugSourceTrackFps = 1<<1;
-static const int32_t kDebugFrameSkip = 1<<2;
 static const uint64_t kTsFactor = 10000000; // 10 ms.
 
 CameraSource* CameraSource::instance_ = nullptr;
@@ -1168,6 +1165,8 @@ TrackSource::TrackSource(const VideoTrackParams& params,
       frame_repeat_ts_prev_(0),
       frame_repeat_ts_curr_(0),
       enable_frame_repeat_(0),
+      fsc_(nullptr),
+      frc_(nullptr),
       rescaler_(nullptr),
       connected_tocamera_port_(true),
       slave_track_source_(false),
@@ -1188,22 +1187,22 @@ TrackSource::TrackSource(const VideoTrackParams& params,
   assert(camera_intf.get() != nullptr);
   camera_interface_ = camera_intf;
 
-  // Assume source frame rate is equal to what track source is requesting as out
-  // put, later point of time actual source frame rate will be calculated by
-  // fps measument logic and frame skip or frame repeate logic will be more
-  // accurate.
-  input_frame_rate_ = track_params_.params.frame_rate;
-  input_frame_interval_  = 1000000.0 / input_frame_rate_;
   output_frame_interval_ = 1000000.0 / track_params_.params.frame_rate;
-  remaining_frame_skip_time_ = output_frame_interval_;
-  QMMF_INFO("%s: input_frame_interval_(%f) & output_frame_interval_(%f) & "
-      "remaining_frame_skip_time_(%f)",  __func__, input_frame_interval_,
-      output_frame_interval_, remaining_frame_skip_time_);
+  std::stringstream track_name;
+  track_name << "Track(" << std::hex << track_params_.track_id << ")";
+  fsc_ = std::make_shared<FrameRateController>(
+      "FrameSkip: " + track_name.str());
+  assert(fsc_.get() != nullptr);
+  fsc_->SetFrameRate(track_params_.params.frame_rate);
 
   auto wait = output_frame_interval_ * 1000 * kWaitNumFrames_;
   wait_duration_ = wait < kWaitDuration ? kWaitDuration : wait;
   QMMF_INFO("%s: track_id(%x) wait_duration_:(%lld) ns",
       __func__, TrackId(), wait_duration_);
+  frc_ = std::make_shared<FrameRateController>(
+      "FrameRepeat: " + track_name.str());
+  assert(frc_.get() != nullptr);
+  frc_->SetFrameRate(track_params_.params.frame_rate);
 
   if (track_params_.extra_param.Exists(QMMF_VIDEO_ROTATE)) {
     VideoRotate video_rotate;
@@ -1401,19 +1400,30 @@ status_t TrackSource::StartTrack() {
   consumer = GetConsumerIntf();
   assert(consumer.get() != nullptr);
 
-  status_t ret;
+  status_t ret = NO_ERROR;
+  ret = frc_->AddConsumer(consumer);
+  assert(ret == NO_ERROR);
+  consumer = frc_->GetConsumerIntf();
+
   if (rescaler_.get() != nullptr) {
-    ret = master_track_->AddConsumer(rescaler_->GetCopyConsumerIntf());
+    ret = master_track_->AddConsumer(fsc_->GetConsumerIntf());
+    assert(ret == NO_ERROR);
+    ret = fsc_->AddConsumer(rescaler_->GetCopyConsumerIntf());
     assert(ret == NO_ERROR);
     ret = rescaler_->AddConsumer(consumer);
     assert(ret == NO_ERROR);
   } else if (slave_track_source_ == true) {
-    ret = master_track_->AddConsumer(consumer);
+    assert(nullptr != fsc_);
+    ret = master_track_->AddConsumer(fsc_->GetConsumerIntf());
+    assert(ret == NO_ERROR);
+    ret = fsc_->AddConsumer(consumer);
     assert(ret == NO_ERROR);
   }
 
   if (slave_track_source_ == false) {
-    ret = camera_interface_->AddConsumer(TrackId(), consumer);
+    ret = camera_interface_->AddConsumer(TrackId(), fsc_->GetConsumerIntf());
+    assert(ret == NO_ERROR);
+    ret = fsc_->AddConsumer(consumer);
     assert(ret == NO_ERROR);
     ret = camera_interface_->StartStream(TrackId());
     assert(ret == NO_ERROR);
@@ -1423,6 +1433,12 @@ status_t TrackSource::StartTrack() {
     ret = rescaler_->Start();
     assert(ret == NO_ERROR);
   }
+
+  ret = fsc_->Start();
+  assert(ret == NO_ERROR);
+
+  ret = frc_->Start();
+  assert(ret == NO_ERROR);
 
   QMMF_DEBUG("%s: Exit track_id(%x)", __func__, TrackId());
   return NO_ERROR;
@@ -1487,23 +1503,42 @@ status_t TrackSource::StopTrack(bool is_force_cleanup) {
       assert(ret == NO_ERROR);
     }
 
+    ret = frc_->Stop();
+    assert(ret == NO_ERROR);
+
     sp<IBufferConsumer> consumer = GetConsumerIntf();
+    ret = frc_->RemoveConsumer(consumer);
+    assert(ret == NO_ERROR);
+
+    consumer = frc_->GetConsumerIntf();
+
     if (rescaler_.get() != nullptr) {
       ret = rescaler_->Stop();
       assert(ret == NO_ERROR);
     }
+
+    ret = fsc_->Stop();
+    assert(ret == NO_ERROR);
+
     if (slave_track_source_ == false) {
-      ret = camera_interface_->RemoveConsumer(TrackId(), consumer);
+      ret = camera_interface_->RemoveConsumer(TrackId(),
+          fsc_->GetConsumerIntf());
+      assert(ret == NO_ERROR);
+      ret = fsc_->RemoveConsumer(consumer);
       assert(ret == NO_ERROR);
     }
 
     if (rescaler_.get() != nullptr) {
       ret = rescaler_->RemoveConsumer(consumer);
       assert(ret == NO_ERROR);
-      ret = master_track_->RemoveConsumer(rescaler_->GetCopyConsumerIntf());
+      ret = fsc_->RemoveConsumer(rescaler_->GetCopyConsumerIntf());
+      assert(ret == NO_ERROR);
+      ret = master_track_->RemoveConsumer(fsc_->GetConsumerIntf());
       assert(ret == NO_ERROR);
     } else if (slave_track_source_ == true) {
-      ret = master_track_->RemoveConsumer(consumer);
+      ret = fsc_->RemoveConsumer(consumer);
+      assert(ret == NO_ERROR);
+      ret = master_track_->RemoveConsumer(fsc_->GetConsumerIntf());
       assert(ret == NO_ERROR);
     }
     QMMF_INFO("%s: Pipe stop done(%x)", __func__, TrackId());
@@ -1569,22 +1604,39 @@ status_t TrackSource::NotifyPortEvent(PortEventType event_type,
       }
 
       sp<IBufferConsumer> consumer = GetConsumerIntf();
+      ret = frc_->RemoveConsumer(consumer);
+      consumer = frc_->GetConsumerIntf();
+
       if (rescaler_.get() != nullptr) {
         ret = rescaler_->Stop();
         assert(ret == NO_ERROR);
       }
+
+      ret = fsc_->Stop();
+      assert(ret == NO_ERROR);
+
+      ret = frc_->Stop();
+      assert(ret == NO_ERROR);
+
       if (slave_track_source_ == false) {
-        ret = camera_interface_->RemoveConsumer(TrackId(), consumer);
+        ret = fsc_->RemoveConsumer(consumer);
+        assert(ret == NO_ERROR);
+        ret = camera_interface_->RemoveConsumer(TrackId(),
+          fsc_->GetConsumerIntf());
         assert(ret == NO_ERROR);
       }
 
       if (rescaler_.get() != nullptr) {
         ret = rescaler_->RemoveConsumer(consumer);
         assert(ret == NO_ERROR);
-        ret = master_track_->RemoveConsumer(rescaler_->GetCopyConsumerIntf());
+        ret = fsc_->RemoveConsumer(rescaler_->GetCopyConsumerIntf());
+        assert(ret == NO_ERROR);
+        ret = master_track_->RemoveConsumer(fsc_->GetConsumerIntf());
         assert(ret == NO_ERROR);
       } else if (slave_track_source_ == true) {
-        ret = master_track_->RemoveConsumer(consumer);
+        fsc_->RemoveConsumer(consumer);
+        assert(ret == NO_ERROR);
+        ret = master_track_->RemoveConsumer(fsc_->GetConsumerIntf());
         assert(ret == NO_ERROR);
       }
       // All input port buffers from encoder are returned, Being encoded queue
@@ -1749,60 +1801,6 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
     }
   }
 
-  // Dynamic FPS measurement of source (Camera)
-  struct timeval tv;
-  gettimeofday(&tv, nullptr);
-  uint64_t time_diff = (uint64_t)((tv.tv_sec * 1000000 + tv.tv_usec) -
-                       (input_prevtv_.tv_sec * 1000000 +
-                       input_prevtv_.tv_usec));
-  input_count_++;
-  if (time_diff >= FPS_TIME_INTERVAL) {
-    float framerate = (input_count_ * 1000000) / (float)time_diff;
-    bool is_first_time = (framerate <= 1.0);
-
-    // Re-calculate input and output frame intervals if input framerate
-    // is different from its previous value
-    if (!(is_first_time) &&
-        (fabs(input_frame_rate_ - framerate) >= FPS_CHANGE_THRESHOLD)) {
-      std::lock_guard<std::mutex> autoLock(frame_skip_lock_);
-      QMMF_INFO("%s: track_id(%x) adjusting fps from (%0.2f) to (%0.2f)",
-                __func__, TrackId(), input_frame_rate_, framerate);
-      input_frame_rate_ = framerate;
-      input_frame_interval_  = 1000000.0 / input_frame_rate_;
-
-      // Track frame rate can be higher than input frame rate only if
-      // frame_repeat is enabled
-      if (input_frame_rate_ < track_params_.params.frame_rate) {
-        if (enable_frame_repeat_) {
-          output_frame_interval_ = 1000000.0 / track_params_.params.frame_rate;
-        } else {
-          output_frame_interval_ = 1000000.0 / input_frame_rate_;
-        }
-      } else {
-        output_frame_interval_ = 1000000.0 / track_params_.params.frame_rate;
-      }
-    }
-    if (!(is_first_time) && (debug_fps_ & kDebugSourceTrackFps)) {
-      QMMF_INFO("%s: camera id %d, track_id(%x): source fps: = %0.2f",
-                 __func__,track_params_.params.camera_id, TrackId(), framerate);
-    }
-    input_prevtv_ = tv;
-    input_count_ = 0;
-  }
-
-  // Return buffer back to camera if frameskip is enabled and valid.
-  if ((IsEnableFrameSkip()) && IsFrameSkip()) {
-    // Skip frame to adjust fps.
-    if (debug_fps_ & kDebugFrameSkip) {
-      QMMF_INFO("%s:cam_id(%d),track_id(%x),skip frame %u,fps %0.2f",
-                __func__,track_params_.params.camera_id,
-                TrackId(),buffer.frame_number,input_frame_rate_);
-    }
-    std::unique_lock<std::mutex> lock(frame_lock_);
-    ReturnBufferToProducer(buffer);
-    return;
-  }
-
   if (!time_lapse_mode_) {
     buffer.needs_return = false;
     buffer.pending_encodes_per_frame = CalculateEncodesPerFrame();
@@ -1947,21 +1945,6 @@ void TrackSource::PushFrameToQueue(StreamBuffer& buffer) {
 
   QMMF_VERBOSE("%s: Enter track_id(%x)", __func__, TrackId());
 
-  // Dynamic FPS measurement of Track
-  if (debug_fps_ & kDebugTrackFps) {
-    struct timeval tv;
-    gettimeofday(&tv, nullptr);
-    uint64_t time_diff = (uint64_t)((tv.tv_sec * 1000000 + tv.tv_usec) -
-                         (prevtv_.tv_sec * 1000000 + prevtv_.tv_usec));
-    count_++;
-    if (time_diff >= FPS_TIME_INTERVAL) {
-      float framerate = (count_ * 1000000) / (float)time_diff;
-      QMMF_INFO("%s: track_id(%x):track fps: = %0.2f", __func__,
-                TrackId(), framerate);
-      prevtv_ = tv;
-      count_ = 0;
-    }
-  }
   frames_received_.PushBack(buffer);
   QMMF_DEBUG("%s: track_id(%x) frames_received.size(%d)", __func__,
       TrackId(), frames_received_.Size());
@@ -2083,10 +2066,9 @@ void TrackSource::UpdateFrameRate(const float frame_rate) {
   assert(frame_rate > 0.0f);
 
   if (fabs(track_params_.params.frame_rate - frame_rate) > 0.1f) {
-      QMMF_INFO("%s: track_id(%x) Track fps changed from (%5.2f) to (%5.2f)",
-          __func__, TrackId(), track_params_.params.frame_rate, frame_rate);
+    fsc_->SetFrameRate(frame_rate);
+    frc_->SetFrameRate(frame_rate);
     track_params_.params.frame_rate = frame_rate;
-    output_frame_interval_ = 1000000.0 / frame_rate;
     auto wait = output_frame_interval_ * 1000 * kWaitNumFrames_;
     wait_duration_ = wait < kWaitDuration ? kWaitDuration : wait;
     QMMF_INFO("%s: track_id(%x) wait_duration_:(%lld) ns",
@@ -2103,35 +2085,7 @@ void TrackSource::EnableFrameRepeat(const bool enable_frame_repeat) {
 
   std::lock_guard<std::mutex> lock(frame_repeat_lock_);
   enable_frame_repeat_ = enable_frame_repeat;
-}
-
-// Enable frameskip only when dynamic fps is FRAME_SKIP_THRESHOLD_PERCENT
-// higher than required and this frame is NOT a stop condition. In STOP
-// condition,frame skip logic is bypassed as the buffer consumer may wait
-// for the last bufferas part of stop processing. Skipping frames may result
-// in timeouts in the consumer.
-bool TrackSource::IsEnableFrameSkip() {
-  bool is_enable = false;
-  if ((!IsStop()) &&
-     ((input_frame_rate_ - track_params_.params.frame_rate) >
-     (track_params_.params.frame_rate * FRAME_SKIP_THRESHOLD_PERCENT))) {
-      is_enable = true;
-  }
-  return is_enable;
-}
-
-bool TrackSource::IsFrameSkip() {
-
-  std::lock_guard<std::mutex> autoLock(frame_skip_lock_);
-  bool skip;
-  remaining_frame_skip_time_ -= input_frame_interval_;
-  if (0 >= remaining_frame_skip_time_) {
-    skip = false;
-    remaining_frame_skip_time_ += output_frame_interval_;
-  } else {
-    skip = true;
-  }
-  return skip;
+  frc_->EnableFrameRepeat(enable_frame_repeat);
 }
 
 uint32_t TrackSource::CalculateEncodesPerFrame() {
