@@ -29,6 +29,7 @@ ${CMAKE_CURRENT_SOURCE_DIR}/post-process/memory/qmmf_postproc_memory_pool.cc
 ${CMAKE_CURRENT_SOURCE_DIR}/post-process/pipe/qmmf_postproc_pipe.cc
 ${CMAKE_CURRENT_SOURCE_DIR}/post-process/common/qmmf_postproc_thread.cc
 ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_camera_rescaler.cc
+${CMAKE_CURRENT_SOURCE_DIR}/qmmf_camera_frc.cc
 ${multicam}
 ${jpeg}
 )

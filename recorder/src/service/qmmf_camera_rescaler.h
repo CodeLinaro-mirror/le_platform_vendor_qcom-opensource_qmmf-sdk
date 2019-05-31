@@ -228,19 +228,13 @@ class CameraRescaler: public CameraRescalerBase {
 
  private:
 
-  bool IsEnableFrameSkip();
-
-  bool IsFrameSkip();
-
   std::mutex               consumer_lock_;
   sp<IBufferConsumer>      buffer_consumer_impl_;
   sp<IBufferProducer>      buffer_producer_impl_;
   sp<IBufferConsumer>      copy_consumer_impl_;
-  uint32_t                 ref_cnt_;
   bool                     is_stop_;
   std::mutex               stop_lock_;
 
-  std::shared_ptr<FrameRateController> frc_;
 };
 
 }; //namespace recorder
