@@ -212,7 +212,7 @@ status_t PostProcAlg::GetCapabilities(PostProcCaps &caps) {
   return NO_ERROR;
 }
 
-status_t PostProcAlg::Start(const int32_t stream_id) {
+status_t PostProcAlg::Start() {
   QMMF_INFO("%s: Enter %p", __func__, this);
 
   recursive_lock_guard lock(lock_);

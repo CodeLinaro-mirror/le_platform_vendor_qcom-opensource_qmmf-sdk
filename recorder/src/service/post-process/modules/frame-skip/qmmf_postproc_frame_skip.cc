@@ -102,7 +102,7 @@ status_t PostProcFrameSkip::GetCapabilities(PostProcCaps &caps) {
   return NO_ERROR;
 }
 
-status_t PostProcFrameSkip::Start(const int32_t stream_id) {
+status_t PostProcFrameSkip::Start() {
   QMMF_INFO("%s: Enter", __func__);
 
   std::lock_guard<std::mutex> lock(state_lock_);

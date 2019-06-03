@@ -201,7 +201,7 @@ status_t PostProcNode::RemoveConsumer(sp<IBufferConsumer>& consumer) {
   return NO_ERROR;
 }
 
-status_t PostProcNode::Start(const int32_t stream_id) {
+status_t PostProcNode::Start() {
   QMMF_VERBOSE("%s:%s: Enter", __func__, name_.c_str());
   status_t ret = NO_ERROR;
 
@@ -217,7 +217,7 @@ status_t PostProcNode::Start(const int32_t stream_id) {
 
   state_ = PostProcNodeState::STARTING;
 
-  ret = module_->Start(stream_id);
+  ret = module_->Start();
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s:%s: fail to start module ret: %d", __func__,
         name_.c_str(), ret);
