@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -479,6 +479,10 @@ status_t InputHandler::GetInputBuffers(std::vector<StreamBuffer> &in_buffs) {
   std::chrono::nanoseconds wait_time(kFrameTimeout);
   while (bufs_list_.empty()) {
     auto ret = wait_.WaitFor(lock, wait_time);
+    if (node_->state_ != PostProcNodeState::ACTIVE) {
+      QMMF_DEBUG("%s: Exit State %d", __func__, node_->state_);
+      return NAME_NOT_FOUND;
+    }
     if (ret != 0) {
       QMMF_DEBUG("%s:%s: Wait for frame available timed out", __func__,
         node_->name_.c_str());
@@ -548,12 +552,36 @@ status_t InputHandler::GetOutputBuffers(std::vector<StreamBuffer> &out_buffs,
   return NO_ERROR;
 }
 
+void InputHandler::RequestExitAndWait() {
+  QMMF_VERBOSE("%s: E", __func__);
+
+  if (!isActive()) {
+    QMMF_VERBOSE("%s: Thread already is stopped. Node: %s\n",
+        __func__, node_->name_.c_str());
+    return;
+  }
+
+  // unblock waiting for input buffer
+  {
+    std::unique_lock<std::mutex> lock(wait_lock_);
+    wait_.Signal();
+  }
+
+  // todo: unblock waiting for output buffer
+  node_->mem_pool_->Abort();
+
+  PostProcThread::RequestExitAndWait();
+
+  QMMF_VERBOSE("%s: X", __func__);
+}
+
 bool InputHandler::ThreadLoop() {
 
   {
     std::lock_guard<std::mutex> lock(node_->state_lock_);
     if (node_->state_ != PostProcNodeState::ACTIVE) {
       // exit from main loop
+      QMMF_VERBOSE("%s:%d: Exit input handler.", __func__, __LINE__);
       return false;
     }
   }
@@ -602,11 +630,31 @@ void OutputHandler::AddBuf(StreamBuffer& buffer) {
   wait_.Signal();
 }
 
+void OutputHandler::RequestExitAndWait() {
+  QMMF_VERBOSE("%s: E", __func__);
+  if (!isActive()) {
+    QMMF_VERBOSE("%s: Thread already is stopped. Node: %s\n",
+        __func__, node_->name_.c_str());
+    return;
+  }
+
+  // unblock waiting for buffer
+  {
+    std::unique_lock<std::mutex> lock(wait_lock_);
+    wait_.Signal();
+  }
+
+  PostProcThread::RequestExitAndWait();
+
+  QMMF_VERBOSE("%s: X", __func__);
+}
+
 bool OutputHandler::ThreadLoop() {
   {
     std::lock_guard<std::mutex> lock(node_->state_lock_);
     if (node_->state_ != PostProcNodeState::ACTIVE) {
       // exit main loop
+      QMMF_VERBOSE("%s:%d: Exit output handler.", __func__, __LINE__);
       return false;
     }
   }
@@ -618,7 +666,11 @@ bool OutputHandler::ThreadLoop() {
     std::chrono::nanoseconds wait_time(kFrameTimeout);
     while (bufs_list_.empty()) {
       auto ret = wait_.WaitFor(lock, wait_time);
-      if (ret != 0) {
+      if (node_->state_ != PostProcNodeState::ACTIVE) {
+        // exit main loop
+        QMMF_VERBOSE("%s:%d: Exit output handler.", __func__, __LINE__);
+        return false;
+      } else if (ret != 0) {
         QMMF_DEBUG("%s: Wait for frame available timed out", __func__);
         return true;
       }
