@@ -365,7 +365,7 @@ CameraRescalerMemPool::~CameraRescalerMemPool() {
     delete[] mem_alloc_slots_;
   }
   if (nullptr != alloc_device_interface_) {
-    delete alloc_device_interface_;
+    AllocDeviceFactory::DestroyAllocDevice(alloc_device_interface_);
     alloc_device_interface_ = nullptr;
   }
   QMMF_INFO("%s: Exit (%p)", __func__, this);
@@ -402,7 +402,7 @@ int32_t CameraRescalerMemPool::Initialize(uint32_t width,
 
 FAIL:
   if (nullptr != alloc_device_interface_) {
-    delete alloc_device_interface_;
+    AllocDeviceFactory::DestroyAllocDevice(alloc_device_interface_);
     alloc_device_interface_ = nullptr;
   }
   return -1;

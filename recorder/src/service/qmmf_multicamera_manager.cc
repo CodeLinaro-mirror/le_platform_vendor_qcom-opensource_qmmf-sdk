@@ -2235,7 +2235,8 @@ HWMemory::~HWMemory() {
   mem_alloc_buffers_.clear();
 
   if (nullptr != alloc_device_interface_) {
-    delete alloc_device_interface_;
+    AllocDeviceFactory::DestroyAllocDevice(alloc_device_interface_);
+    alloc_device_interface_ = nullptr;
   }
   QMMF_INFO("%s: Exit (%p)", __func__, this);
 }
