@@ -42,7 +42,8 @@ namespace qmmf {
 namespace recorder {
 
 MemPool::MemPool()
-    : buffers_allocated_(0),
+    : alloc_device_interface_(nullptr),
+      buffers_allocated_(0),
       pending_buffer_count_(0),
       params_({}),
       abort_(false),
@@ -75,11 +76,14 @@ int32_t MemPool::Initialize(const MemPoolParams &params) {
     mem_alloc_slots_ = nullptr;
   }
 
-  return NO_ERROR;
+  return ret;
 
 FAIL:
-  delete alloc_device_interface_;
-  return -1;
+  if (nullptr != alloc_device_interface_) {
+    AllocDeviceFactory::DestroyAllocDevice(alloc_device_interface_);
+    alloc_device_interface_ = nullptr;
+  }
+  return ret;
 }
 
 status_t MemPool::Delete() {
@@ -93,7 +97,10 @@ status_t MemPool::Delete() {
   }
   delete[] mem_alloc_slots_;
 
-  delete alloc_device_interface_;
+  if (nullptr != alloc_device_interface_) {
+    AllocDeviceFactory::DestroyAllocDevice(alloc_device_interface_);
+    alloc_device_interface_ = nullptr;
+  }
 
   buffers_allocated_ = 0;
   pending_buffer_count_ = 0;

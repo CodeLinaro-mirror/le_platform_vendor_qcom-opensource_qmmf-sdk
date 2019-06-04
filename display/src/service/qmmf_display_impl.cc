@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -116,10 +116,12 @@ DisplayImpl::~DisplayImpl() {
         __func__, error);
   }
   instance_->display_client_info_map_.clear();
-  if (instance_->alloc_device_interface_) {
-    delete instance_->alloc_device_interface_;
+
+  if (nullptr != instance_->alloc_device_interface_) {
+    AllocDeviceFactory::DestroyAllocDevice(instance_->alloc_device_interface_);
     instance_->alloc_device_interface_ = nullptr;
   }
+
   instance_ = nullptr;
   core_intf_ = nullptr;
 
