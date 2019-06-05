@@ -441,10 +441,14 @@ TEST_F(RecorderBaseGTest, CancelCaptureImage) {
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
   ASSERT_TRUE(ret == NO_ERROR);
 
+  CameraMetadata static_meta;
+  ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+  ASSERT_TRUE(ret == NO_ERROR);
+
   bool res_supported = false;
   // Check Supported Raw YUV snapshot resolutions.
-  if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-    entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
+  if (static_meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
+    entry = static_meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
     for (uint32_t i = 0 ; i < entry.count; i += 4) {
       if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
         if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==

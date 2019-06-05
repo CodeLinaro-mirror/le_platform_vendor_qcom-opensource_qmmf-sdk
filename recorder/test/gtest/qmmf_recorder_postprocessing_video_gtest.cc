@@ -131,7 +131,11 @@ TEST_F(RecorderPostprocessVideoGTest, HFRModeSwitch) {
     ret = recorder_.GetCameraParam(camera_id_, meta);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    if (meta.exists(ANDROID_CONTROL_AE_TARGET_FPS_RANGE)) {
+    CameraMetadata static_meta;
+    ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    if (static_meta.exists(ANDROID_CONTROL_AE_TARGET_FPS_RANGE)) {
       fps_range[0] = 60;
       fps_range[1] = 60;
 
@@ -1674,10 +1678,14 @@ TEST_F(RecorderPostprocessVideoGTest, SessionWith1440p60FPSSmoothZoom) {
     auto status = recorder_.GetCameraParam(camera_id_, meta);
     ASSERT_TRUE(status == NO_ERROR);
 
+    CameraMetadata static_meta;
+    ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
     float zoom = 2.0f;
     camera_metadata_entry active_array_size;
-    if (meta.exists(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE)) {
-      active_array_size = meta.find(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE);
+    if (static_meta.exists(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE)) {
+      active_array_size = static_meta.find(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE);
     }
     ASSERT_TRUE(active_array_size.count > 0);
 
@@ -1938,8 +1946,11 @@ TEST_F(RecorderPostprocessVideoGTest, SessionWith4k_VHDR_PM_TNR_1080pLinked720p)
   //Enable TNR - High quality mode.
   CameraMetadata meta;
   auto status = recorder_.GetCameraParam(camera_id_, meta);
+  CameraMetadata static_meta;
+  ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+  ASSERT_TRUE(ret == NO_ERROR);
   if (NO_ERROR == status) {
-    if (meta.exists(ANDROID_NOISE_REDUCTION_MODE)) {
+    if (static_meta.exists(ANDROID_NOISE_REDUCTION_MODE)) {
       const uint8_t tnr_mode = ANDROID_NOISE_REDUCTION_MODE_HIGH_QUALITY;
       TEST_INFO("%s Enable TNR mode(%d)", __func__, tnr_mode);
       meta.update(ANDROID_NOISE_REDUCTION_MODE, &tnr_mode, 1);
@@ -11728,8 +11739,11 @@ TEST_F(RecorderPostprocessVideoGTest, SessionWithDualCam4kEncCopy1080EncAndLinke
     //Enable TNR - High quality mode.
     CameraMetadata meta;
     ret= recorder_.GetCameraParam(camera_id_, meta);
+    CameraMetadata static_meta;
+    ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
     if (NO_ERROR == ret) {
-      if (meta.exists(ANDROID_NOISE_REDUCTION_MODE)) {
+      if (static_meta.exists(ANDROID_NOISE_REDUCTION_MODE)) {
         const uint8_t tnr_mode = ANDROID_NOISE_REDUCTION_MODE_HIGH_QUALITY;
         TEST_INFO("%s Enable TNR mode(%d)", __func__, tnr_mode);
         meta.update(ANDROID_NOISE_REDUCTION_MODE, &tnr_mode, 1);
@@ -11743,7 +11757,7 @@ TEST_F(RecorderPostprocessVideoGTest, SessionWithDualCam4kEncCopy1080EncAndLinke
     //Enable TNR - High quality mode.
     ret = recorder_.GetCameraParam(camera_id_, meta);
     if (NO_ERROR == ret) {
-      if (meta.exists(ANDROID_NOISE_REDUCTION_MODE)) {
+      if (static_meta.exists(ANDROID_NOISE_REDUCTION_MODE)) {
         const uint8_t tnr_mode = ANDROID_NOISE_REDUCTION_MODE_OFF;
         TEST_INFO("%s Enable TNR mode(%d)", __func__, tnr_mode);
         meta.update(ANDROID_NOISE_REDUCTION_MODE, &tnr_mode, 1);
@@ -12255,8 +12269,11 @@ TEST_F(RecorderPostprocessVideoGTest, SessionWithDualCam4kEncCopy1080EncAndCopy7
     //Enable TNR - High quality mode.
     CameraMetadata meta;
     ret = recorder_.GetCameraParam(camera_id_, meta);
+    CameraMetadata static_meta;
+    ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
     if (NO_ERROR == ret) {
-      if (meta.exists(ANDROID_NOISE_REDUCTION_MODE)) {
+      if (static_meta.exists(ANDROID_NOISE_REDUCTION_MODE)) {
         const uint8_t tnr_mode = ANDROID_NOISE_REDUCTION_MODE_HIGH_QUALITY;
         TEST_INFO("%s Enable TNR mode(%d)", __func__, tnr_mode);
         meta.update(ANDROID_NOISE_REDUCTION_MODE, &tnr_mode, 1);
@@ -12270,7 +12287,7 @@ TEST_F(RecorderPostprocessVideoGTest, SessionWithDualCam4kEncCopy1080EncAndCopy7
     //Enable TNR - OFF.
     ret = recorder_.GetCameraParam(camera_id_, meta);
     if (NO_ERROR == ret) {
-      if (meta.exists(ANDROID_NOISE_REDUCTION_MODE)) {
+      if (static_meta.exists(ANDROID_NOISE_REDUCTION_MODE)) {
         const uint8_t tnr_mode = ANDROID_NOISE_REDUCTION_MODE_OFF;
         TEST_INFO("%s Enable TNR mode(%d)", __func__, tnr_mode);
         meta.update(ANDROID_NOISE_REDUCTION_MODE, &tnr_mode, 1);
@@ -12743,8 +12760,11 @@ TEST_F(RecorderPostprocessVideoGTest, SessionWithDualCam4k30Enc1080p30EncAndLink
     //Enable TNR - High quality mode.
     CameraMetadata meta;
     ret= recorder_.GetCameraParam(camera_id_, meta);
+    CameraMetadata static_meta;
+    ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
     if (NO_ERROR == ret) {
-      if (meta.exists(ANDROID_NOISE_REDUCTION_MODE)) {
+      if (static_meta.exists(ANDROID_NOISE_REDUCTION_MODE)) {
         const uint8_t tnr_mode = ANDROID_NOISE_REDUCTION_MODE_HIGH_QUALITY;
         TEST_INFO("%s Enable TNR mode(%d)", __func__, tnr_mode);
         meta.update(ANDROID_NOISE_REDUCTION_MODE, &tnr_mode, 1);
@@ -12933,8 +12953,11 @@ TEST_F(RecorderPostprocessVideoGTest,
     //Enable TNR - High quality mode.
     CameraMetadata meta;
     auto ret= recorder_.GetCameraParam(camera_id_, meta);
+    CameraMetadata static_meta;
+    ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
     if (NO_ERROR == ret) {
-      if (meta.exists(ANDROID_NOISE_REDUCTION_MODE)) {
+      if (static_meta.exists(ANDROID_NOISE_REDUCTION_MODE)) {
         const uint8_t tnr_mode = ANDROID_NOISE_REDUCTION_MODE_HIGH_QUALITY;
         TEST_INFO("%s Enable TNR mode(%d)", __func__, tnr_mode);
         meta.update(ANDROID_NOISE_REDUCTION_MODE, &tnr_mode, 1);
@@ -13121,8 +13144,11 @@ TEST_F(RecorderPostprocessVideoGTest,
     //Enable TNR - High quality mode.
     CameraMetadata meta;
     auto ret= recorder_.GetCameraParam(camera_id_, meta);
+    CameraMetadata static_meta;
+    ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
     if (NO_ERROR == ret) {
-      if (meta.exists(ANDROID_NOISE_REDUCTION_MODE)) {
+      if (static_meta.exists(ANDROID_NOISE_REDUCTION_MODE)) {
         const uint8_t tnr_mode = ANDROID_NOISE_REDUCTION_MODE_HIGH_QUALITY;
         TEST_INFO("%s Enable TNR mode(%d)", __func__, tnr_mode);
         meta.update(ANDROID_NOISE_REDUCTION_MODE, &tnr_mode, 1);

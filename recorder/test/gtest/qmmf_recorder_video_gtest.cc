@@ -104,7 +104,10 @@ TEST_F(VideoGtest, FaceDetectionFor1080pYUVPreview) {
 
   ret = recorder_.GetCameraParam(camera_id_, meta);
   ASSERT_TRUE(ret == NO_ERROR);
-  EXPECT_TRUE(meta.exists(ANDROID_STATISTICS_FACE_DETECT_MODE));
+  CameraMetadata static_meta;
+  ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+  ASSERT_TRUE(ret == NO_ERROR);
+  EXPECT_TRUE(static_meta.exists(ANDROID_STATISTICS_FACE_DETECT_MODE));
 
   meta.update(ANDROID_STATISTICS_FACE_DETECT_MODE, &fd_mode, 1);
   ret = recorder_.SetCameraParam(camera_id_, meta);
@@ -229,7 +232,10 @@ TEST_F(VideoGtest, FaceDetectionFor1080pAVCVideo) {
 
   ret = recorder_.GetCameraParam(camera_id_, meta);
   ASSERT_TRUE(ret == NO_ERROR);
-  EXPECT_TRUE(meta.exists(ANDROID_STATISTICS_FACE_DETECT_MODE));
+  CameraMetadata static_meta;
+  ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+  ASSERT_TRUE(ret == NO_ERROR);
+  EXPECT_TRUE(static_meta.exists(ANDROID_STATISTICS_FACE_DETECT_MODE));
 
   meta.update(ANDROID_STATISTICS_FACE_DETECT_MODE, &fd_mode, 1);
   ret = recorder_.SetCameraParam(camera_id_, meta);
@@ -7549,15 +7555,19 @@ TEST_F(VideoGtest, SmoothZoomWith1080pEncTrack) {
     ret = recorder_.GetCameraParam(camera_id_, video_meta);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    CameraMetadata static_meta;
+    ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
     int32_t crop[4];
     int32_t width = 0;
     int32_t height = 0;
 
-    if (video_meta.exists(ANDROID_SCALER_AVAILABLE_RAW_SIZES)) {
+    if (static_meta.exists(ANDROID_SCALER_AVAILABLE_RAW_SIZES)) {
       width =
-        video_meta.find(ANDROID_SCALER_AVAILABLE_RAW_SIZES).data.i32[0];
+        static_meta.find(ANDROID_SCALER_AVAILABLE_RAW_SIZES).data.i32[0];
       height =
-        video_meta.find(ANDROID_SCALER_AVAILABLE_RAW_SIZES).data.i32[1];
+        static_meta.find(ANDROID_SCALER_AVAILABLE_RAW_SIZES).data.i32[1];
     }
     ASSERT_TRUE (width && height > 0);
 
@@ -9135,10 +9145,14 @@ TEST_F(VideoGtest, SessionWith1440p30FPSSmoothZoom) {
     auto status = recorder_.GetCameraParam(camera_id_, meta);
     ASSERT_TRUE(status == NO_ERROR);
 
+    CameraMetadata static_meta;
+    ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
     float zoom = 2.0f;
     camera_metadata_entry active_array_size;
-    if (meta.exists(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE)) {
-      active_array_size = meta.find(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE);
+    if (static_meta.exists(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE)) {
+      active_array_size = static_meta.find(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE);
     }
     ASSERT_TRUE(active_array_size.count > 0);
 
@@ -9290,10 +9304,14 @@ TEST_F(VideoGtest, SessionWith960p90FPSSmoothZoom) {
     auto status = recorder_.GetCameraParam(camera_id_, meta);
     ASSERT_TRUE(status == NO_ERROR);
 
+    CameraMetadata static_meta;
+    ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
     float zoom = 2.0f;
     camera_metadata_entry active_array_size;
-    if (meta.exists(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE)) {
-      active_array_size = meta.find(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE);
+    if (static_meta.exists(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE)) {
+      active_array_size = static_meta.find(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE);
     }
     ASSERT_TRUE(active_array_size.count > 0);
 
@@ -9765,6 +9783,10 @@ TEST_F(VideoGtest, SessionWithSingleCam4KEncDeFogTables) {
     ret = recorder_.GetCameraParam(camera_id_, meta);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    CameraMetadata static_meta;
+    ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
     for (auto defog_table : defog_tables) {
       if (VendorTagSupported(String8("enable"),
                              String8("org.quic.camera.defog"),
@@ -9788,10 +9810,10 @@ TEST_F(VideoGtest, SessionWithSingleCam4KEncDeFogTables) {
         ASSERT_TRUE(ret == NO_ERROR);
       }
 
-      if (VendorTagExistsInMeta(meta, String8("strength_range"),
+      if (VendorTagExistsInMeta(static_meta, String8("strength_range"),
                                 String8("org.quic.camera.defog"),
                                 &defog_tables_range_vtag)) {
-        entry = meta.find(defog_tables_range_vtag);
+        entry = static_meta.find(defog_tables_range_vtag);
         min_frange = entry.data.f[0];
         max_frange = entry.data.f[1];
         if (defog_table.strength < min_frange ||
@@ -9811,10 +9833,10 @@ TEST_F(VideoGtest, SessionWithSingleCam4KEncDeFogTables) {
         }
       }
 
-      if (VendorTagExistsInMeta(meta, String8("convergence_speed_range"),
+      if (VendorTagExistsInMeta(static_meta, String8("convergence_speed_range"),
                                 String8("org.quic.camera.defog"),
                                 &defog_tables_range_vtag)) {
-        entry = meta.find(defog_tables_range_vtag);
+        entry = static_meta.find(defog_tables_range_vtag);
         min_irange = entry.data.i32[0];
         max_irange = entry.data.i32[1];
         if (defog_table.convergence_speed < min_irange ||
@@ -9835,10 +9857,10 @@ TEST_F(VideoGtest, SessionWithSingleCam4KEncDeFogTables) {
         }
       }
 
-      if (VendorTagExistsInMeta(meta, String8("lp_color_comp_gain_range"),
+      if (VendorTagExistsInMeta(static_meta, String8("lp_color_comp_gain_range"),
                                 String8("org.quic.camera.defog"),
                                 &defog_tables_range_vtag)) {
-        entry = meta.find(defog_tables_range_vtag);
+        entry = static_meta.find(defog_tables_range_vtag);
         min_frange = entry.data.f[0];
         max_frange = entry.data.f[1];
         if (defog_table.lp_color_comp_gain < min_frange ||
@@ -9888,10 +9910,10 @@ TEST_F(VideoGtest, SessionWithSingleCam4KEncDeFogTables) {
         ASSERT_TRUE(ret == NO_ERROR);
       }
 
-      if (VendorTagExistsInMeta(meta, String8("defog_dark_thres_range"),
+      if (VendorTagExistsInMeta(static_meta, String8("defog_dark_thres_range"),
                                 String8("org.quic.camera.defog"),
                                 &defog_tables_range_vtag)) {
-        entry = meta.find(defog_tables_range_vtag);
+        entry = static_meta.find(defog_tables_range_vtag);
         min_irange = entry.data.i32[0];
         max_irange = entry.data.i32[1];
         if (defog_table.defog_dark_thres < min_irange ||
@@ -9911,10 +9933,10 @@ TEST_F(VideoGtest, SessionWithSingleCam4KEncDeFogTables) {
         }
       }
 
-      if (VendorTagExistsInMeta(meta, String8("defog_bright_thres_range"),
+      if (VendorTagExistsInMeta(static_meta, String8("defog_bright_thres_range"),
                                 String8("org.quic.camera.defog"),
                                 &defog_tables_range_vtag)) {
-        entry = meta.find(defog_tables_range_vtag);
+        entry = static_meta.find(defog_tables_range_vtag);
         min_irange = entry.data.i32[0];
         max_irange = entry.data.i32[1];
         if (defog_table.defog_bright_thres < min_irange ||
@@ -9936,10 +9958,10 @@ TEST_F(VideoGtest, SessionWithSingleCam4KEncDeFogTables) {
         }
       }
 
-      if (VendorTagExistsInMeta(meta, String8("abc_gain_range"),
+      if (VendorTagExistsInMeta(static_meta, String8("abc_gain_range"),
                                 String8("org.quic.camera.defog"),
                                 &defog_tables_range_vtag)) {
-        entry = meta.find(defog_tables_range_vtag);
+        entry = static_meta.find(defog_tables_range_vtag);
         min_frange = entry.data.f[0];
         max_frange = entry.data.f[1];
         if (defog_table.abc_gain < min_frange ||
@@ -9959,10 +9981,10 @@ TEST_F(VideoGtest, SessionWithSingleCam4KEncDeFogTables) {
         }
       }
 
-      if (VendorTagExistsInMeta(meta, String8("acc_max_dark_str_range"),
+      if (VendorTagExistsInMeta(static_meta, String8("acc_max_dark_str_range"),
                                 String8("org.quic.camera.defog"),
                                 &defog_tables_range_vtag)) {
-        entry = meta.find(defog_tables_range_vtag);
+        entry = static_meta.find(defog_tables_range_vtag);
         min_frange = entry.data.f[0];
         max_frange = entry.data.f[1];
         if (defog_table.acc_max_dark_str < min_frange ||
@@ -9984,10 +10006,10 @@ TEST_F(VideoGtest, SessionWithSingleCam4KEncDeFogTables) {
         }
       }
 
-      if (VendorTagExistsInMeta(meta, String8("acc_max_bright_str_range"),
+      if (VendorTagExistsInMeta(static_meta, String8("acc_max_bright_str_range"),
                                 String8("org.quic.camera.defog"),
                                 &defog_tables_range_vtag)) {
-        entry = meta.find(defog_tables_range_vtag);
+        entry = static_meta.find(defog_tables_range_vtag);
         min_frange = entry.data.f[0];
         max_frange = entry.data.f[1];
         if (defog_table.acc_max_bright_str < min_frange ||
@@ -10009,10 +10031,10 @@ TEST_F(VideoGtest, SessionWithSingleCam4KEncDeFogTables) {
         }
       }
 
-      if (VendorTagExistsInMeta(meta, String8("dark_limit_range"),
+      if (VendorTagExistsInMeta(static_meta, String8("dark_limit_range"),
                                 String8("org.quic.camera.defog"),
                                 &defog_tables_range_vtag)) {
-        entry = meta.find(defog_tables_range_vtag);
+        entry = static_meta.find(defog_tables_range_vtag);
         min_irange = entry.data.i32[0];
         max_irange = entry.data.i32[1];
         if (defog_table.dark_limit < min_irange ||
@@ -10033,10 +10055,10 @@ TEST_F(VideoGtest, SessionWithSingleCam4KEncDeFogTables) {
         }
       }
 
-      if (VendorTagExistsInMeta(meta, String8("bright_limit_range"),
+      if (VendorTagExistsInMeta(static_meta, String8("bright_limit_range"),
                                 String8("org.quic.camera.defog"),
                                 &defog_tables_range_vtag)) {
-        entry = meta.find(defog_tables_range_vtag);
+        entry = static_meta.find(defog_tables_range_vtag);
         min_irange = entry.data.i32[0];
         max_irange = entry.data.i32[1];
         if (defog_table.bright_limit < min_irange ||
@@ -10057,10 +10079,10 @@ TEST_F(VideoGtest, SessionWithSingleCam4KEncDeFogTables) {
         }
       }
 
-      if (VendorTagExistsInMeta(meta, String8("dark_preserve_range"),
+      if (VendorTagExistsInMeta(static_meta, String8("dark_preserve_range"),
                                 String8("org.quic.camera.defog"),
                                 &defog_tables_range_vtag)) {
-        entry = meta.find(defog_tables_range_vtag);
+        entry = static_meta.find(defog_tables_range_vtag);
         min_irange = entry.data.i32[0];
         max_irange = entry.data.i32[1];
         if (defog_table.dark_preserve < min_irange ||
@@ -10081,10 +10103,10 @@ TEST_F(VideoGtest, SessionWithSingleCam4KEncDeFogTables) {
         }
       }
 
-      if (VendorTagExistsInMeta(meta, String8("bright_preserve_range"),
+      if (VendorTagExistsInMeta(static_meta, String8("bright_preserve_range"),
                                 String8("org.quic.camera.defog"),
                                 &defog_tables_range_vtag)) {
-        entry = meta.find(defog_tables_range_vtag);
+        entry = static_meta.find(defog_tables_range_vtag);
         min_irange = entry.data.i32[0];
         max_irange = entry.data.i32[1];
         if (defog_table.bright_preserve < min_irange ||
@@ -10106,10 +10128,10 @@ TEST_F(VideoGtest, SessionWithSingleCam4KEncDeFogTables) {
         }
       }
 
-      if (VendorTagExistsInMeta(meta, String8("dnr_trigparam_start_range"),
+      if (VendorTagExistsInMeta(static_meta, String8("dnr_trigparam_start_range"),
                                 String8("org.quic.camera.defog"),
                                 &defog_tables_range_vtag)) {
-        entry = meta.find(defog_tables_range_vtag);
+        entry = static_meta.find(defog_tables_range_vtag);
         min_frange = entry.data.f[0];
         max_frange = entry.data.f[1];
         for (int dnr_index = 0; dnr_index < 3; dnr_index++) {
@@ -10129,10 +10151,10 @@ TEST_F(VideoGtest, SessionWithSingleCam4KEncDeFogTables) {
         }
       }
 
-      if (VendorTagExistsInMeta(meta, String8("dnr_trigparam_end_range"),
+      if (VendorTagExistsInMeta(static_meta, String8("dnr_trigparam_end_range"),
                                 String8("org.quic.camera.defog"),
                                 &defog_tables_range_vtag)) {
-        entry = meta.find(defog_tables_range_vtag);
+        entry = static_meta.find(defog_tables_range_vtag);
         min_frange = entry.data.f[0];
         max_frange = entry.data.f[1];
         for (int dnr_index = 0; dnr_index < 3; dnr_index++) {
@@ -10150,10 +10172,10 @@ TEST_F(VideoGtest, SessionWithSingleCam4KEncDeFogTables) {
         }
       }
 
-      if (VendorTagExistsInMeta(meta, String8("dnr_trigparam_fog_range"),
+      if (VendorTagExistsInMeta(static_meta, String8("dnr_trigparam_fog_range"),
                                 String8("org.quic.camera.defog"),
                                 &defog_tables_range_vtag)) {
-        entry = meta.find(defog_tables_range_vtag);
+        entry = static_meta.find(defog_tables_range_vtag);
         min_irange = entry.data.i32[0];
         max_irange = entry.data.i32[1];
         for (int dnr_index = 0; dnr_index < 3; dnr_index++) {
@@ -10173,10 +10195,10 @@ TEST_F(VideoGtest, SessionWithSingleCam4KEncDeFogTables) {
         }
       }
 
-      if (VendorTagExistsInMeta(meta, String8("lux_trigparam_start_range"),
+      if (VendorTagExistsInMeta(static_meta, String8("lux_trigparam_start_range"),
                                 String8("org.quic.camera.defog"),
                                 &defog_tables_range_vtag)) {
-        entry = meta.find(defog_tables_range_vtag);
+        entry = static_meta.find(defog_tables_range_vtag);
         min_frange = entry.data.f[0];
         max_frange = entry.data.f[1];
         for (int lux_index = 0; lux_index < 3; lux_index++) {
@@ -10196,10 +10218,10 @@ TEST_F(VideoGtest, SessionWithSingleCam4KEncDeFogTables) {
         }
       }
 
-      if (VendorTagExistsInMeta(meta, String8("lux_trigparam_end_range"),
+      if (VendorTagExistsInMeta(static_meta, String8("lux_trigparam_end_range"),
                                 String8("org.quic.camera.defog"),
                                 &defog_tables_range_vtag)) {
-        entry = meta.find(defog_tables_range_vtag);
+        entry = static_meta.find(defog_tables_range_vtag);
         min_frange = entry.data.f[0];
         max_frange = entry.data.f[1];
         for (int lux_index = 0; lux_index < 3; lux_index++) {
@@ -10217,10 +10239,10 @@ TEST_F(VideoGtest, SessionWithSingleCam4KEncDeFogTables) {
         }
       }
 
-      if (VendorTagExistsInMeta(meta, String8("lux_trigparam_fog_range"),
+      if (VendorTagExistsInMeta(static_meta, String8("lux_trigparam_fog_range"),
                                 String8("org.quic.camera.defog"),
                                 &defog_tables_range_vtag)) {
-        entry = meta.find(defog_tables_range_vtag);
+        entry = static_meta.find(defog_tables_range_vtag);
         min_irange = entry.data.i32[0];
         max_irange = entry.data.i32[1];
         for (int lux_index = 0; lux_index < 3; lux_index++) {
@@ -10240,10 +10262,10 @@ TEST_F(VideoGtest, SessionWithSingleCam4KEncDeFogTables) {
         }
       }
 
-      if (VendorTagExistsInMeta(meta, String8("cct_trigparam_start_range"),
+      if (VendorTagExistsInMeta(static_meta, String8("cct_trigparam_start_range"),
                                 String8("org.quic.camera.defog"),
                                 &defog_tables_range_vtag)) {
-        entry = meta.find(defog_tables_range_vtag);
+        entry = static_meta.find(defog_tables_range_vtag);
         min_frange = entry.data.f[0];
         max_frange = entry.data.f[1];
         for (int cct_index = 0; cct_index < 4; cct_index++) {
@@ -10263,10 +10285,10 @@ TEST_F(VideoGtest, SessionWithSingleCam4KEncDeFogTables) {
         }
       }
 
-      if (VendorTagExistsInMeta(meta, String8("cct_trigparam_end_range"),
+      if (VendorTagExistsInMeta(static_meta, String8("cct_trigparam_end_range"),
                                 String8("org.quic.camera.defog"),
                                 &defog_tables_range_vtag)) {
-        entry = meta.find(defog_tables_range_vtag);
+        entry = static_meta.find(defog_tables_range_vtag);
         min_frange = entry.data.f[0];
         max_frange = entry.data.f[1];
         for (int cct_index = 0; cct_index < 4; cct_index++) {
@@ -10284,10 +10306,10 @@ TEST_F(VideoGtest, SessionWithSingleCam4KEncDeFogTables) {
         }
       }
 
-      if (VendorTagExistsInMeta(meta, String8("cct_trigparam_fog_range"),
+      if (VendorTagExistsInMeta(static_meta, String8("cct_trigparam_fog_range"),
                                 String8("org.quic.camera.defog"),
                                 &defog_tables_range_vtag)) {
-        entry = meta.find(defog_tables_range_vtag);
+        entry = static_meta.find(defog_tables_range_vtag);
         min_irange = entry.data.i32[0];
         max_irange = entry.data.i32[1];
         for (int cct_index = 0; cct_index < 4; cct_index++) {
@@ -10786,8 +10808,11 @@ TEST_F(VideoGtest, SessionWithDualCam4k30EncRescale1080p30EncAnd1080p30YUVWithTN
     //Enable TNR - High quality mode.
     CameraMetadata meta;
     ret= recorder_.GetCameraParam(camera_id_, meta);
+    CameraMetadata static_meta;
+    ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
     if (NO_ERROR == ret) {
-      if (meta.exists(ANDROID_NOISE_REDUCTION_MODE)) {
+      if (static_meta.exists(ANDROID_NOISE_REDUCTION_MODE)) {
         const uint8_t tnr_mode = ANDROID_NOISE_REDUCTION_MODE_HIGH_QUALITY;
         TEST_INFO("%s Enable TNR mode(%d)", __func__, tnr_mode);
         meta.update(ANDROID_NOISE_REDUCTION_MODE, &tnr_mode, 1);
@@ -10982,8 +11007,11 @@ TEST_F(VideoGtest, SessionWithDualCam4k60EncRescale1080p30EncAnd1080p30YUVWithTN
     //Enable TNR - High quality mode.
     CameraMetadata meta;
     ret= recorder_.GetCameraParam(camera_id_, meta);
+    CameraMetadata static_meta;
+    ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
     if (NO_ERROR == ret) {
-      if (meta.exists(ANDROID_NOISE_REDUCTION_MODE)) {
+      if (static_meta.exists(ANDROID_NOISE_REDUCTION_MODE)) {
         const uint8_t tnr_mode = ANDROID_NOISE_REDUCTION_MODE_HIGH_QUALITY;
         TEST_INFO("%s Enable TNR mode(%d)", __func__, tnr_mode);
         meta.update(ANDROID_NOISE_REDUCTION_MODE, &tnr_mode, 1);
@@ -11178,8 +11206,11 @@ TEST_F(VideoGtest, SessionWithDualCam5_7k30EncRescale1080p30EncAnd1080p30YUVWith
     //Enable TNR - High quality mode.
     CameraMetadata meta;
     ret= recorder_.GetCameraParam(camera_id_, meta);
+    CameraMetadata static_meta;
+    ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
     if (NO_ERROR == ret) {
-      if (meta.exists(ANDROID_NOISE_REDUCTION_MODE)) {
+      if (static_meta.exists(ANDROID_NOISE_REDUCTION_MODE)) {
         const uint8_t tnr_mode = ANDROID_NOISE_REDUCTION_MODE_HIGH_QUALITY;
         TEST_INFO("%s Enable TNR mode(%d)", __func__, tnr_mode);
         meta.update(ANDROID_NOISE_REDUCTION_MODE, &tnr_mode, 1);
@@ -11334,8 +11365,12 @@ TEST_F(VideoGtest, SessionWith4kEncAnd720pEncWithIRFilterModes) {
     ret = recorder_.GetDefaultCaptureParam(camera_id_, meta_img);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    CameraMetadata static_meta;
+    ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
     bool res_supported = GtestCommon::ValidateResFromJpegSizes(
-        meta_img, image_param.width, image_param.height);
+        static_meta, image_param.width, image_param.height);
     ASSERT_TRUE(res_supported != false);
 
     ImageCaptureCb cb = [this](uint32_t camera_id, uint32_t image_count,
@@ -11357,7 +11392,7 @@ TEST_F(VideoGtest, SessionWith4kEncAnd720pEncWithIRFilterModes) {
     if (VendorTagSupported(String8("ir_modes_supported"),
                            String8("org.codeaurora.qcamera3.ir_led"),
                            &ir_modes_supported_vtag)) {
-      auto entry = meta.find(ir_modes_supported_vtag);
+      auto entry = static_meta.find(ir_modes_supported_vtag);
       modes[0] = entry.data.i32[0];
       modes[1] = entry.data.i32[1];
       ir_modes_map.insert(std::make_pair(modes[0], "Off"));
@@ -11527,12 +11562,15 @@ TEST_F(VideoGtest, SessionWith4kEncWithIRFilterModes) {
     std::map<int32_t, std::string> ir_modes_map;
     ret = recorder_.GetCameraParam(camera_id_, meta);
     ASSERT_TRUE(ret == NO_ERROR);
+    CameraMetadata static_meta;
+    ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
     uint32_t ir_modes_supported_vtag, mode_vtag;
 
     if (VendorTagSupported(String8("ir_modes_supported"),
                            String8("org.codeaurora.qcamera3.ir_led"),
                            &ir_modes_supported_vtag)) {
-      auto entry = meta.find(ir_modes_supported_vtag);
+      auto entry = static_meta.find(ir_modes_supported_vtag);
       modes[0] = entry.data.i32[0];
       modes[1] = entry.data.i32[1];
       ir_modes_map.insert(std::make_pair(modes[0], "Off"));

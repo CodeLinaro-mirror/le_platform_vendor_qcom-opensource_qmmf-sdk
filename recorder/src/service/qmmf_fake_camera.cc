@@ -299,6 +299,12 @@ status_t FakeCamera::GetDefaultCaptureParam(CameraMetadata &meta) {
   return NO_ERROR;
 }
 
+status_t FakeCamera::GetCameraCharacteristics(CameraMetadata &meta) {
+
+  meta.append(metadata_);
+  return NO_ERROR;
+}
+
 status_t FakeCamera::ReturnImageCaptureBuffer(const uint32_t camera_id,
                                               const int32_t buffer_id) {
 

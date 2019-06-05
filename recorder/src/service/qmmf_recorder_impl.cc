@@ -1979,6 +1979,35 @@ status_t RecorderImpl::GetDefaultCaptureParam(const uint32_t client_id,
   return NO_ERROR;
 }
 
+status_t RecorderImpl::GetCameraCharacteristics(const uint32_t client_id,
+                                                const uint32_t camera_id,
+                                                CameraMetadata &meta) {
+
+  QMMF_DEBUG("%s: Enter client_id(%d):camera_id(%d)", __func__,
+      client_id, camera_id);
+
+  if (!IsClientValid(client_id)) {
+    QMMF_ERROR("%s: Client(%u) is not connected!", __func__, client_id);
+    return BAD_VALUE;
+  }
+
+  if (!IsCameraValid(client_id, camera_id)) {
+    QMMF_ERROR("%s Client(%u): Camera(%u) is not owned by this client,"
+        " operation not allowed!", __func__, client_id, camera_id);
+    return INVALID_OPERATION;
+  }
+
+  assert(camera_source_ != nullptr);
+  auto ret = camera_source_->GetCameraCharacteristics(camera_id, meta);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s: GetCameraCharacteristics failed!", __func__);
+    return ret;
+  }
+  QMMF_DEBUG("%s: Exit client_id(%d):camera_id(%d)", __func__,
+      client_id, camera_id);
+  return NO_ERROR;
+}
+
 status_t RecorderImpl::CreateOverlayObject(const uint32_t client_id,
                                            const uint32_t track_id,
                                            OverlayParam *param,

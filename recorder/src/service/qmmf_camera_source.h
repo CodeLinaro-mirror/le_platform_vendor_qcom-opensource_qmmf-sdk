@@ -157,6 +157,10 @@ class CameraSource {
   status_t GetDefaultCaptureParam(const uint32_t camera_id,
                                   CameraMetadata &meta);
 
+  /// Return static metadata
+  status_t GetCameraCharacteristics(const uint32_t camera_id,
+                                    CameraMetadata &meta);
+
   /// UpdateTrackFrameRate
   status_t UpdateTrackFrameRate(const uint32_t track_id,
                                 const float frame_rate);

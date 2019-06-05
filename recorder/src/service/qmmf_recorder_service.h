@@ -189,6 +189,10 @@ class RecorderService : public BnInterface<IRecorderService> {
                                   const uint32_t camera_id,
                                   CameraMetadata &meta) override;
 
+  status_t GetCameraCharacteristics(const uint32_t client_id,
+                                    const uint32_t camera_id,
+                                    CameraMetadata &meta) override;
+
   status_t CreateOverlayObject(const uint32_t client_id,
                                const uint32_t track_id, OverlayParam *param,
                                uint32_t *overlay_id) override;

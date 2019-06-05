@@ -1213,6 +1213,19 @@ status_t CameraContext::GetDefaultCaptureParam(CameraMetadata &meta) {
   return ret;
 }
 
+status_t CameraContext::GetCameraCharacteristics(CameraMetadata &meta) {
+
+  QMMF_DEBUG("%s: Enter", __func__);
+  meta.clear();
+  if (static_meta_.isEmpty()) {
+    QMMF_ERROR("%s Static meta is empty!\n", __func__);
+    return NO_INIT;
+  }
+  meta.append(static_meta_);
+  QMMF_DEBUG("%s: Exit", __func__);
+  return NO_ERROR;
+}
+
 status_t CameraContext::ReturnImageCaptureBuffer(const uint32_t camera_id,
                                                  const int32_t buffer_id) {
 
@@ -1529,9 +1542,6 @@ status_t CameraContext::CreateCaptureRequest(Camera3Request& request,
   auto ret = camera_device_->CreateDefaultRequest(template_type,
       &request.metadata);
   assert(ret == NO_ERROR);
-
-  // Append static meta data.
-  request.metadata.append(static_meta_);
   return ret;
 }
 

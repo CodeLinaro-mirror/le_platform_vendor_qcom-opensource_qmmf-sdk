@@ -776,6 +776,16 @@ status_t CameraSource::GetDefaultCaptureParam(const uint32_t camera_id,
   return camera_map_[camera_id]->GetDefaultCaptureParam(meta);
 }
 
+status_t CameraSource::GetCameraCharacteristics(const uint32_t camera_id,
+                                                CameraMetadata &meta) {
+
+  if (camera_map_.count(camera_id) == 0) {
+    QMMF_ERROR("%s: Invalid Camera Id(%d)", __func__, camera_id);
+    return BAD_VALUE;
+  }
+  return camera_map_[camera_id]->GetCameraCharacteristics(meta);
+}
+
 status_t CameraSource::UpdateTrackFrameRate(const uint32_t track_id,
                                             const float frame_rate) {
 

@@ -671,6 +671,17 @@ status_t MultiCameraManager::GetDefaultCaptureParam(CameraMetadata &meta) {
   return ret;
 }
 
+status_t MultiCameraManager::GetCameraCharacteristics(CameraMetadata &meta) {
+
+  std::shared_ptr<CameraContext> camera_context = camera_contexts_.at(0);
+  assert(camera_context.get() != nullptr);
+  status_t ret = camera_context->GetCameraCharacteristics(meta);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s: GetCameraCharacteristics Failed!", __func__);
+  }
+  return ret;
+}
+
 status_t MultiCameraManager::ReturnImageCaptureBuffer(const uint32_t camera_id,
                                                       const int32_t buffer_id) {
 

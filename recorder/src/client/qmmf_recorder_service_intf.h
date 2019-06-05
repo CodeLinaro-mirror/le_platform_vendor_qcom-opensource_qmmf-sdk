@@ -86,6 +86,7 @@ enum QMMF_RECORDER_SERVICE_CMDS {
   RECORDER_SET_CAMERA_PARAMS,
   RECORDER_GET_CAMERA_PARAMS,
   RECORDER_GET_DEFAULT_CAPTURE_PARAMS,
+  RECORDER_GET_CAMERA_CHARACTERISTICS,
   RECORDER_CREATE_OVERLAYOBJECT,
   RECORDER_DELETE_OVERLAYOBJECT,
   RECORDER_GET_OVERLAYOBJECT_PARAMS,
@@ -271,6 +272,10 @@ class IRecorderService : public IInterface {
   virtual status_t GetDefaultCaptureParam(const uint32_t client_id,
                                           const uint32_t camera_id,
                                           CameraMetadata &meta) = 0;
+
+  virtual status_t GetCameraCharacteristics(const uint32_t client_id,
+                                            const uint32_t camera_id,
+                                            CameraMetadata &meta) = 0;
 
   virtual status_t CreateOverlayObject(const uint32_t client_id,
                                        const uint32_t track_id,

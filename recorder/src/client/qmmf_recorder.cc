@@ -434,6 +434,20 @@ status_t Recorder::GetDefaultCaptureParam(const uint32_t camera_id,
   return ret;
 }
 
+status_t Recorder::GetCameraCharacteristics(const uint32_t camera_id,
+                                            CameraMetadata &meta) {
+
+  QMMF_INFO("%s: Enter" ,__func__);
+  assert(recorder_client_ != NULL);
+  auto ret = recorder_client_->GetCameraCharacteristics(camera_id, meta);
+  if (NO_ERROR != ret) {
+      QMMF_ERROR("%s: GetCameraCharacteristics failed!", __func__);
+  }
+
+  QMMF_INFO("%s: Exit", __func__);
+  return ret;
+}
+
 status_t Recorder::CreateOverlayObject(const uint32_t track_id,
                                        const OverlayParam &param,
                                        uint32_t *overlay_id) {

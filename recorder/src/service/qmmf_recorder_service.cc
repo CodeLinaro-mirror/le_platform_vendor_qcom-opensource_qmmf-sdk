@@ -521,6 +521,23 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
         return NO_ERROR;
       }
       break;
+      case RECORDER_GET_CAMERA_CHARACTERISTICS: {
+        uint32_t client_id, camera_id;
+        data.readUint32(&client_id);
+        data.readUint32(&camera_id);
+        CameraMetadata meta;
+        ret = GetCameraCharacteristics(client_id, camera_id, meta);
+        reply->writeInt32(ret);
+        if (NO_ERROR == ret) {
+          ret = meta.writeToParcel(reply);
+          if (NO_ERROR != ret) {
+            QMMF_ERROR("%s: Metadata parcel write failed: %d\n",
+                       __func__, ret);
+          }
+        }
+        return NO_ERROR;
+      }
+      break;
       case RECORDER_CREATE_OVERLAYOBJECT: {
         uint32_t client_id, blob_size, track_id;
         android::Parcel::ReadableBlob image_blob;
@@ -1419,6 +1436,26 @@ status_t RecorderService::GetDefaultCaptureParam(const uint32_t client_id,
   auto ret = recorder_->GetDefaultCaptureParam(client_id, camera_id, meta);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: GetDefaultCaptureParam failed!", __func__);
+    return ret;
+  }
+  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
+  return NO_ERROR;
+}
+
+status_t RecorderService::GetCameraCharacteristics(const uint32_t client_id,
+                                                   const uint32_t camera_id,
+                                                   CameraMetadata &meta) {
+
+  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
+
+  if (!IsRecorderInitialized()) {
+    QMMF_ERROR("%s: Recorder not initialized!", __func__);
+    return NO_INIT;
+  }
+
+  auto ret = recorder_->GetCameraCharacteristics(client_id, camera_id, meta);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s: GetCameraCharacteristics failed!", __func__);
     return ret;
   }
   QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);

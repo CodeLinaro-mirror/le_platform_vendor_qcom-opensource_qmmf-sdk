@@ -136,12 +136,16 @@ TEST_F(RecorderVideoSnapshotGTest, ZSL1080pVideo) {
   snapshot_type.zsl_image_param.image_quality = default_jpeg_quality_;
   snapshot_type.zsl_image_param.image_format = ImageFormat::kJPEG;
 
-  bool res_supported = GtestCommon::ValidateResFromProcessedSizes(meta,
+  CameraMetadata static_meta;
+  ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  bool res_supported = GtestCommon::ValidateResFromProcessedSizes(static_meta,
       snapshot_type.zsl_queue_params.width,
       snapshot_type.zsl_queue_params.height);
   ASSERT_TRUE (res_supported == true);
 
-  res_supported = GtestCommon::ValidateResFromJpegSizes(meta,
+  res_supported = GtestCommon::ValidateResFromJpegSizes(static_meta,
       snapshot_type.zsl_image_param.width,
       snapshot_type.zsl_image_param.height);
   ASSERT_TRUE (res_supported == true);
@@ -303,12 +307,16 @@ TEST_F(RecorderVideoSnapshotGTest, 4KZSL1080pYUVPreview) {
   snapshot_type.zsl_image_param.image_quality = default_jpeg_quality_;
   snapshot_type.zsl_image_param.image_format = ImageFormat::kJPEG;
 
-  bool res_supported = GtestCommon::ValidateResFromProcessedSizes(meta,
+  CameraMetadata static_meta;
+  ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  bool res_supported = GtestCommon::ValidateResFromProcessedSizes(static_meta,
       snapshot_type.zsl_queue_params.width,
       snapshot_type.zsl_queue_params.height);
   ASSERT_TRUE (res_supported == true);
 
-  res_supported = GtestCommon::ValidateResFromJpegSizes(meta,
+  res_supported = GtestCommon::ValidateResFromJpegSizes(static_meta,
       snapshot_type.zsl_image_param.width,
       snapshot_type.zsl_image_param.height);
   ASSERT_TRUE (res_supported == true);
@@ -668,12 +676,16 @@ TEST_F(RecorderVideoSnapshotGTest, TogglePreviewVideoAndZSL) {
     snapshot_type.zsl_image_param.image_quality = default_jpeg_quality_;
     snapshot_type.zsl_image_param.image_format = ImageFormat::kJPEG;
 
-    bool res_supported = GtestCommon::ValidateResFromProcessedSizes(meta,
+    CameraMetadata static_meta;
+    ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    bool res_supported = GtestCommon::ValidateResFromProcessedSizes(static_meta,
         snapshot_type.zsl_queue_params.width,
         snapshot_type.zsl_queue_params.height);
     ASSERT_TRUE (res_supported == true);
 
-    res_supported = GtestCommon::ValidateResFromJpegSizes(meta,
+    res_supported = GtestCommon::ValidateResFromJpegSizes(static_meta,
         snapshot_type.zsl_image_param.width,
         snapshot_type.zsl_image_param.height);
     ASSERT_TRUE (res_supported == true);
@@ -1023,7 +1035,11 @@ TEST_F(RecorderVideoSnapshotGTest, TogglePreviewVideoAndRawZSL) {
     ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    GtestCommon::GetMaxSupportedCameraRes(meta, w, h);
+    CameraMetadata static_meta;
+    ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    GtestCommon::GetMaxSupportedCameraRes(static_meta, w, h);
 
     ImageConfigParam image_config;
     SnapshotType snapshot_type;
@@ -1223,12 +1239,16 @@ TEST_F(RecorderVideoSnapshotGTest, 4KZSL1080p480pYUVPreview) {
   snapshot_type.zsl_image_param.image_quality = default_jpeg_quality_;
   snapshot_type.zsl_image_param.image_format = ImageFormat::kJPEG;
 
-  bool res_supported = GtestCommon::ValidateResFromProcessedSizes(meta,
+  CameraMetadata static_meta;
+  ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  bool res_supported = GtestCommon::ValidateResFromProcessedSizes(static_meta,
       snapshot_type.zsl_queue_params.width,
       snapshot_type.zsl_queue_params.height);
   ASSERT_TRUE (res_supported == true);
 
-  res_supported = GtestCommon::ValidateResFromJpegSizes(meta,
+  res_supported = GtestCommon::ValidateResFromJpegSizes(static_meta,
       snapshot_type.zsl_image_param.width,
       snapshot_type.zsl_image_param.height);
   ASSERT_TRUE (res_supported == true);
@@ -1541,7 +1561,11 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWith4kp30fps4K1fpsSnapshotEncTrack) {
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  bool res_supported = GtestCommon::ValidateResFromJpegSizes(meta,
+  CameraMetadata static_meta;
+  ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  bool res_supported = GtestCommon::ValidateResFromJpegSizes(static_meta,
       image_param.width, image_param.height);
   ASSERT_TRUE (res_supported != false);
 
@@ -1731,7 +1755,11 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWith4kp30fps4K1fps240p30fpsSnapshotEnc
     ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    bool res_supported = GtestCommon::ValidateResFromJpegSizes(meta,
+    CameraMetadata static_meta;
+    ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    bool res_supported = GtestCommon::ValidateResFromJpegSizes(static_meta,
       image_param.width, image_param.height);
     ASSERT_TRUE (res_supported != false);
 
@@ -1871,7 +1899,11 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWith1080p120fpsSnapshotEISEncTrack) {
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  bool res_supported = GtestCommon::ValidateResFromJpegSizes(meta,
+  CameraMetadata static_meta;
+  ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  bool res_supported = GtestCommon::ValidateResFromJpegSizes(static_meta,
     image_param.width, image_param.height);
   ASSERT_TRUE (res_supported != false);
 
@@ -2028,7 +2060,11 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWith1080p120fps480p30fpsSnapshotEncTra
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  bool res_supported = GtestCommon::ValidateResFromJpegSizes(meta,
+  CameraMetadata static_meta;
+  ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  bool res_supported = GtestCommon::ValidateResFromJpegSizes(static_meta,
     image_param.width, image_param.height);
   ASSERT_TRUE (res_supported != false);
 
@@ -2188,7 +2224,11 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWith1080p60fps480p30fpsSnapshotEncTrac
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  bool res_supported = GtestCommon::ValidateResFromJpegSizes(meta,
+  CameraMetadata static_meta;
+  ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  bool res_supported = GtestCommon::ValidateResFromJpegSizes(static_meta,
     image_param.width, image_param.height);
   ASSERT_TRUE (res_supported != false);
 
@@ -2317,7 +2357,11 @@ TEST_F(RecorderVideoSnapshotGTest, 4KEncCancelCaptureImage) {
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  bool res_supported = GtestCommon::ValidateResFromJpegSizes(meta,
+  CameraMetadata static_meta;
+  ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  bool res_supported = GtestCommon::ValidateResFromJpegSizes(static_meta,
       image_param.width, image_param.height);
   ASSERT_TRUE (res_supported != false);
 
@@ -2487,7 +2531,11 @@ TEST_F(RecorderVideoSnapshotGTest, 4KVideo480pVideoAnd4KSnapshot) {
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  bool res_supported = GtestCommon::ValidateResFromJpegSizes(meta,
+  CameraMetadata static_meta;
+  ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  bool res_supported = GtestCommon::ValidateResFromJpegSizes(static_meta,
       image_param.width, image_param.height);
   ASSERT_TRUE (res_supported != false);
 
@@ -2833,11 +2881,15 @@ TEST_F(RecorderVideoSnapshotGTest,
     ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    CameraMetadata static_meta;
+    ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
     // Take a snapshot in the middle of recording time
     ImageParam image_param = {};
     image_param.image_format  = ImageFormat::kJPEG;
     image_param.image_quality = default_jpeg_quality_;
-    GtestCommon::GetMaxSupportedCameraRes(meta, image_param.width,
+    GtestCommon::GetMaxSupportedCameraRes(static_meta, image_param.width,
         image_param.height);
 
     ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
@@ -3066,11 +3118,15 @@ TEST_F(RecorderVideoSnapshotGTest,
     ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    CameraMetadata static_meta;
+    ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
     // Take a snapshot in the middle of recording time
     ImageParam image_param = {};
     image_param.image_format = ImageFormat::kJPEG;
     image_param.image_quality = default_jpeg_quality_;
-    GtestCommon::GetMaxSupportedCameraRes(meta, image_param.width,
+    GtestCommon::GetMaxSupportedCameraRes(static_meta, image_param.width,
       image_param.height);
 
     ImageCaptureCb cb = [this](uint32_t camera_id, uint32_t image_count,
@@ -3288,11 +3344,15 @@ TEST_F(RecorderVideoSnapshotGTest, ThreeSessionsWith1440pEncAnd1440pYUVTrack) {
     ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    CameraMetadata static_meta;
+    ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
     // Take a snapshot in the middle of recording time
     ImageParam image_param = {};
     image_param.image_format  = ImageFormat::kJPEG;
     image_param.image_quality = default_jpeg_quality_;
-    GtestCommon::GetMaxSupportedCameraRes(meta, image_param.width,
+    GtestCommon::GetMaxSupportedCameraRes(static_meta, image_param.width,
       image_param.height);
 
     ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
@@ -3446,11 +3506,15 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWith1440EncWithEISAndLCACEnableAnd12MP
     ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    CameraMetadata static_meta;
+    ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
     // Take a snapshot in the middle of recording time
     ImageParam image_param = {};
     image_param.image_format = ImageFormat::kJPEG;
     image_param.image_quality = default_jpeg_quality_;
-    GtestCommon::GetMaxSupportedCameraRes(meta, image_param.width,
+    GtestCommon::GetMaxSupportedCameraRes(static_meta, image_param.width,
       image_param.height);
 
     std::vector<CameraMetadata> meta_array;
@@ -3579,7 +3643,11 @@ TEST_F(RecorderVideoSnapshotGTest, 1080pVideo4KVideoTypeSnapshot) {
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  bool res_supported = GtestCommon::ValidateResFromJpegSizes(meta,
+  CameraMetadata static_meta;
+  ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  bool res_supported = GtestCommon::ValidateResFromJpegSizes(static_meta,
       image_param.width, image_param.height);
   ASSERT_TRUE (res_supported != false);
 
@@ -3742,15 +3810,19 @@ TEST_F(RecorderVideoSnapshotGTest, SmoothZoomWith1080pEncTrack4KSnapshotFullFOV)
     ret = recorder_.GetCameraParam(camera_id_, video_meta);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    CameraMetadata static_meta;
+    ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
     int32_t crop[4];
     int32_t width = 0;
     int32_t height = 0;
 
-    if (video_meta.exists(ANDROID_SCALER_AVAILABLE_RAW_SIZES)) {
+    if (static_meta.exists(ANDROID_SCALER_AVAILABLE_RAW_SIZES)) {
       width =
-        video_meta.find(ANDROID_SCALER_AVAILABLE_RAW_SIZES).data.i32[0];
+        static_meta.find(ANDROID_SCALER_AVAILABLE_RAW_SIZES).data.i32[0];
       height =
-        video_meta.find(ANDROID_SCALER_AVAILABLE_RAW_SIZES).data.i32[1];
+        static_meta.find(ANDROID_SCALER_AVAILABLE_RAW_SIZES).data.i32[1];
     }
     ASSERT_TRUE (width && height > 0);
 
@@ -3916,15 +3988,19 @@ TEST_F(RecorderVideoSnapshotGTest, SmoothZoomWith1080pEncTrack4KSnapshot) {
     ret = recorder_.GetCameraParam(camera_id_, video_meta);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    CameraMetadata static_meta;
+    ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
     int32_t crop[4];
     int32_t width = 0;
     int32_t height = 0;
 
-    if (video_meta.exists(ANDROID_SCALER_AVAILABLE_RAW_SIZES)) {
+    if (static_meta.exists(ANDROID_SCALER_AVAILABLE_RAW_SIZES)) {
       width =
-        video_meta.find(ANDROID_SCALER_AVAILABLE_RAW_SIZES).data.i32[0];
+        static_meta.find(ANDROID_SCALER_AVAILABLE_RAW_SIZES).data.i32[0];
       height =
-        video_meta.find(ANDROID_SCALER_AVAILABLE_RAW_SIZES).data.i32[1];
+        static_meta.find(ANDROID_SCALER_AVAILABLE_RAW_SIZES).data.i32[1];
     }
     ASSERT_TRUE (width && height > 0);
 
@@ -4078,7 +4154,11 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWith1080pEncTrackCaptureChangeFocalLen
     ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    bool res_supported = GtestCommon::ValidateResFromJpegSizes(meta,
+    CameraMetadata static_meta;
+    ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    bool res_supported = GtestCommon::ValidateResFromJpegSizes(static_meta,
       image_param.width, image_param.height);
     ASSERT_TRUE (res_supported != false);
 
@@ -4189,7 +4269,11 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithDualCam4KEncAllISOModes) {
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta_img);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  bool res_supported = GtestCommon::ValidateResFromJpegSizes(meta_img,
+  CameraMetadata static_meta;
+  ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  bool res_supported = GtestCommon::ValidateResFromJpegSizes(static_meta,
       image_param.width, image_param.height);
   ASSERT_TRUE (res_supported != false);
 
@@ -4386,7 +4470,11 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithDualCam4KEncExposureTime) {
     ret = recorder_.GetDefaultCaptureParam(camera_id_, meta_img);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    bool res_supported = GtestCommon::ValidateResFromJpegSizes(meta_img,
+    CameraMetadata static_meta;
+    ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    bool res_supported = GtestCommon::ValidateResFromJpegSizes(static_meta,
         image_param.width, image_param.height);
     ASSERT_TRUE (res_supported != false);
 
@@ -4433,10 +4521,10 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithDualCam4KEncExposureTime) {
       TEST_WARN("%s: use_iso_exp_priority is not supported", __func__);
       ASSERT_TRUE(0);
     }
-    if (VendorTagExistsInMeta(meta, String8("exposure_time_range"),
+    if (VendorTagExistsInMeta(static_meta, String8("exposure_time_range"),
           String8("org.codeaurora.qcamera3.iso_exp_priority"),
           &exp_time_range_vtag)) {
-      entry = meta.find(exp_time_range_vtag);
+      entry = static_meta.find(exp_time_range_vtag);
       min_exp_time = entry.data.i64[0];
       max_exp_time = entry.data.i64[1];
       if (max_exp_time <= min_exp_time) {
@@ -4577,7 +4665,11 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithDualCam4KEncAllAWBModes) {
     ret = recorder_.GetDefaultCaptureParam(camera_id_, meta_img);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    bool res_supported = GtestCommon::ValidateResFromJpegSizes(meta_img,
+    CameraMetadata static_meta;
+    ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    bool res_supported = GtestCommon::ValidateResFromJpegSizes(static_meta,
         image_param.width, image_param.height);
     ASSERT_TRUE (res_supported != false);
 
@@ -4739,7 +4831,11 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithSingleCam4KEncDeFogTablesWithSnaps
     ret = recorder_.GetDefaultCaptureParam(camera_id_, meta_img);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    bool res_supported = GtestCommon::ValidateResFromJpegSizes(meta_img,
+    CameraMetadata static_meta;
+    ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    bool res_supported = GtestCommon::ValidateResFromJpegSizes(static_meta,
       image_param.width, image_param.height);
     ASSERT_TRUE(res_supported != false);
 
@@ -4802,10 +4898,10 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithSingleCam4KEncDeFogTablesWithSnaps
         ASSERT_TRUE(ret == NO_ERROR);
       }
 
-      if (VendorTagExistsInMeta(meta, String8("strength_range"),
+      if (VendorTagExistsInMeta(static_meta, String8("strength_range"),
                                 String8("org.quic.camera.defog"),
                                 &defog_tables_range_vtag)) {
-        entry = meta.find(defog_tables_range_vtag);
+        entry = static_meta.find(defog_tables_range_vtag);
         min_frange = entry.data.f[0];
         max_frange = entry.data.f[1];
         if (defog_table.strength < min_frange ||
@@ -4827,10 +4923,10 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithSingleCam4KEncDeFogTablesWithSnaps
         }
       }
 
-      if (VendorTagExistsInMeta(meta, String8("convergence_speed_range"),
+      if (VendorTagExistsInMeta(static_meta, String8("convergence_speed_range"),
                                 String8("org.quic.camera.defog"),
                                 &defog_tables_range_vtag)) {
-        entry = meta.find(defog_tables_range_vtag);
+        entry = static_meta.find(defog_tables_range_vtag);
         min_irange = entry.data.i32[0];
         max_irange = entry.data.i32[1];
         if (defog_table.convergence_speed < min_irange ||
@@ -4854,10 +4950,10 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithSingleCam4KEncDeFogTablesWithSnaps
         }
       }
 
-      if (VendorTagExistsInMeta(meta, String8("lp_color_comp_gain_range"),
+      if (VendorTagExistsInMeta(static_meta, String8("lp_color_comp_gain_range"),
                                 String8("org.quic.camera.defog"),
                                 &defog_tables_range_vtag)) {
-        entry = meta.find(defog_tables_range_vtag);
+        entry = static_meta.find(defog_tables_range_vtag);
         min_frange = entry.data.f[0];
         max_frange = entry.data.f[1];
         if (defog_table.lp_color_comp_gain < min_frange ||
@@ -4918,10 +5014,10 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithSingleCam4KEncDeFogTablesWithSnaps
         ASSERT_TRUE(ret == NO_ERROR);
       }
 
-      if (VendorTagExistsInMeta(meta, String8("defog_dark_thres_range"),
+      if (VendorTagExistsInMeta(static_meta, String8("defog_dark_thres_range"),
                                 String8("org.quic.camera.defog"),
                                 &defog_tables_range_vtag)) {
-        entry = meta.find(defog_tables_range_vtag);
+        entry = static_meta.find(defog_tables_range_vtag);
         min_irange = entry.data.i32[0];
         max_irange = entry.data.i32[1];
         if (defog_table.defog_dark_thres < min_irange ||
@@ -4945,10 +5041,10 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithSingleCam4KEncDeFogTablesWithSnaps
         }
       }
 
-      if (VendorTagExistsInMeta(meta, String8("defog_bright_thres_range"),
+      if (VendorTagExistsInMeta(static_meta, String8("defog_bright_thres_range"),
                                 String8("org.quic.camera.defog"),
                                 &defog_tables_range_vtag)) {
-        entry = meta.find(defog_tables_range_vtag);
+        entry = static_meta.find(defog_tables_range_vtag);
         min_irange = entry.data.i32[0];
         max_irange = entry.data.i32[1];
         if (defog_table.defog_bright_thres < min_irange ||
@@ -4973,10 +5069,10 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithSingleCam4KEncDeFogTablesWithSnaps
         }
       }
 
-      if (VendorTagExistsInMeta(meta, String8("abc_gain_range"),
+      if (VendorTagExistsInMeta(static_meta, String8("abc_gain_range"),
                                 String8("org.quic.camera.defog"),
                                 &defog_tables_range_vtag)) {
-        entry = meta.find(defog_tables_range_vtag);
+        entry = static_meta.find(defog_tables_range_vtag);
         min_frange = entry.data.f[0];
         max_frange = entry.data.f[1];
         if (defog_table.abc_gain < min_frange ||
@@ -4998,10 +5094,10 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithSingleCam4KEncDeFogTablesWithSnaps
         }
       }
 
-      if (VendorTagExistsInMeta(meta, String8("acc_max_dark_str_range"),
+      if (VendorTagExistsInMeta(static_meta, String8("acc_max_dark_str_range"),
                                 String8("org.quic.camera.defog"),
                                 &defog_tables_range_vtag)) {
-        entry = meta.find(defog_tables_range_vtag);
+        entry = static_meta.find(defog_tables_range_vtag);
         min_frange = entry.data.f[0];
         max_frange = entry.data.f[1];
         if (defog_table.acc_max_dark_str < min_frange ||
@@ -5026,10 +5122,10 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithSingleCam4KEncDeFogTablesWithSnaps
         }
       }
 
-      if (VendorTagExistsInMeta(meta, String8("acc_max_bright_str_range"),
+      if (VendorTagExistsInMeta(static_meta, String8("acc_max_bright_str_range"),
                                 String8("org.quic.camera.defog"),
                                 &defog_tables_range_vtag)) {
-        entry = meta.find(defog_tables_range_vtag);
+        entry = static_meta.find(defog_tables_range_vtag);
         min_frange = entry.data.f[0];
         max_frange = entry.data.f[1];
         if (defog_table.acc_max_bright_str < min_frange ||
@@ -5054,10 +5150,10 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithSingleCam4KEncDeFogTablesWithSnaps
         }
       }
 
-      if (VendorTagExistsInMeta(meta, String8("dark_limit_range"),
+      if (VendorTagExistsInMeta(static_meta, String8("dark_limit_range"),
                                 String8("org.quic.camera.defog"),
                                 &defog_tables_range_vtag)) {
-        entry = meta.find(defog_tables_range_vtag);
+        entry = static_meta.find(defog_tables_range_vtag);
         min_irange = entry.data.i32[0];
         max_irange = entry.data.i32[1];
         if (defog_table.dark_limit < min_irange ||
@@ -5079,10 +5175,10 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithSingleCam4KEncDeFogTablesWithSnaps
         }
       }
 
-      if (VendorTagExistsInMeta(meta, String8("bright_limit_range"),
+      if (VendorTagExistsInMeta(static_meta, String8("bright_limit_range"),
                                 String8("org.quic.camera.defog"),
                                 &defog_tables_range_vtag)) {
-        entry = meta.find(defog_tables_range_vtag);
+        entry = static_meta.find(defog_tables_range_vtag);
         min_irange = entry.data.i32[0];
         max_irange = entry.data.i32[1];
         if (defog_table.bright_limit < min_irange ||
@@ -5106,10 +5202,10 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithSingleCam4KEncDeFogTablesWithSnaps
         }
       }
 
-      if (VendorTagExistsInMeta(meta, String8("dark_preserve_range"),
+      if (VendorTagExistsInMeta(static_meta, String8("dark_preserve_range"),
                                 String8("org.quic.camera.defog"),
                                 &defog_tables_range_vtag)) {
-        entry = meta.find(defog_tables_range_vtag);
+        entry = static_meta.find(defog_tables_range_vtag);
         min_irange = entry.data.i32[0];
         max_irange = entry.data.i32[1];
         if (defog_table.dark_preserve < min_irange ||
@@ -5133,10 +5229,10 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithSingleCam4KEncDeFogTablesWithSnaps
         }
       }
 
-      if (VendorTagExistsInMeta(meta, String8("bright_preserve_range"),
+      if (VendorTagExistsInMeta(static_meta, String8("bright_preserve_range"),
                                 String8("org.quic.camera.defog"),
                                 &defog_tables_range_vtag)) {
-        entry = meta.find(defog_tables_range_vtag);
+        entry = static_meta.find(defog_tables_range_vtag);
         min_irange = entry.data.i32[0];
         max_irange = entry.data.i32[1];
         if (defog_table.bright_preserve < min_irange ||
@@ -5160,10 +5256,10 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithSingleCam4KEncDeFogTablesWithSnaps
         }
       }
 
-      if (VendorTagExistsInMeta(meta, String8("dnr_trigparam_start_range"),
+      if (VendorTagExistsInMeta(static_meta, String8("dnr_trigparam_start_range"),
                                 String8("org.quic.camera.defog"),
                                 &defog_tables_range_vtag)) {
-        entry = meta.find(defog_tables_range_vtag);
+        entry = static_meta.find(defog_tables_range_vtag);
         min_frange = entry.data.f[0];
         max_frange = entry.data.f[1];
         for (int dnr_index = 0; dnr_index < 3; dnr_index++) {
@@ -5183,10 +5279,10 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithSingleCam4KEncDeFogTablesWithSnaps
         }
       }
 
-      if (VendorTagExistsInMeta(meta, String8("dnr_trigparam_end_range"),
+      if (VendorTagExistsInMeta(static_meta, String8("dnr_trigparam_end_range"),
                                 String8("org.quic.camera.defog"),
                                 &defog_tables_range_vtag)) {
-        entry = meta.find(defog_tables_range_vtag);
+        entry = static_meta.find(defog_tables_range_vtag);
         min_frange = entry.data.f[0];
         max_frange = entry.data.f[1];
         for (int dnr_index = 0; dnr_index < 3; dnr_index++) {
@@ -5204,10 +5300,10 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithSingleCam4KEncDeFogTablesWithSnaps
         }
       }
 
-      if (VendorTagExistsInMeta(meta, String8("dnr_trigparam_fog_range"),
+      if (VendorTagExistsInMeta(static_meta, String8("dnr_trigparam_fog_range"),
                                 String8("org.quic.camera.defog"),
                                 &defog_tables_range_vtag)) {
-        entry = meta.find(defog_tables_range_vtag);
+        entry = static_meta.find(defog_tables_range_vtag);
         min_irange = entry.data.i32[0];
         max_irange = entry.data.i32[1];
         for (int dnr_index = 0; dnr_index < 3; dnr_index++) {
@@ -5227,10 +5323,10 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithSingleCam4KEncDeFogTablesWithSnaps
         }
       }
 
-      if (VendorTagExistsInMeta(meta, String8("lux_trigparam_start_range"),
+      if (VendorTagExistsInMeta(static_meta, String8("lux_trigparam_start_range"),
                                 String8("org.quic.camera.defog"),
                                 &defog_tables_range_vtag)) {
-        entry = meta.find(defog_tables_range_vtag);
+        entry = static_meta.find(defog_tables_range_vtag);
         min_frange = entry.data.f[0];
         max_frange = entry.data.f[1];
         for (int lux_index = 0; lux_index < 3; lux_index++) {
@@ -5250,10 +5346,10 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithSingleCam4KEncDeFogTablesWithSnaps
         }
       }
 
-      if (VendorTagExistsInMeta(meta, String8("lux_trigparam_end_range"),
+      if (VendorTagExistsInMeta(static_meta, String8("lux_trigparam_end_range"),
                                 String8("org.quic.camera.defog"),
                                 &defog_tables_range_vtag)) {
-        entry = meta.find(defog_tables_range_vtag);
+        entry = static_meta.find(defog_tables_range_vtag);
         min_frange = entry.data.f[0];
         max_frange = entry.data.f[1];
         for (int lux_index = 0; lux_index < 3; lux_index++) {
@@ -5271,10 +5367,10 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithSingleCam4KEncDeFogTablesWithSnaps
         }
       }
 
-      if (VendorTagExistsInMeta(meta, String8("lux_trigparam_fog_range"),
+      if (VendorTagExistsInMeta(static_meta, String8("lux_trigparam_fog_range"),
                                 String8("org.quic.camera.defog"),
                                 &defog_tables_range_vtag)) {
-        entry = meta.find(defog_tables_range_vtag);
+        entry = static_meta.find(defog_tables_range_vtag);
         min_irange = entry.data.i32[0];
         max_irange = entry.data.i32[1];
         for (int lux_index = 0; lux_index < 3; lux_index++) {
@@ -5294,10 +5390,10 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithSingleCam4KEncDeFogTablesWithSnaps
         }
       }
 
-      if (VendorTagExistsInMeta(meta, String8("cct_trigparam_start_range"),
+      if (VendorTagExistsInMeta(static_meta, String8("cct_trigparam_start_range"),
                                 String8("org.quic.camera.defog"),
                                 &defog_tables_range_vtag)) {
-        entry = meta.find(defog_tables_range_vtag);
+        entry = static_meta.find(defog_tables_range_vtag);
         min_frange = entry.data.f[0];
         max_frange = entry.data.f[1];
         for (int cct_index = 0; cct_index < 4; cct_index++) {
@@ -5317,10 +5413,10 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithSingleCam4KEncDeFogTablesWithSnaps
         }
       }
 
-      if (VendorTagExistsInMeta(meta, String8("cct_trigparam_end_range"),
+      if (VendorTagExistsInMeta(static_meta, String8("cct_trigparam_end_range"),
                                 String8("org.quic.camera.defog"),
                                 &defog_tables_range_vtag)) {
-        entry = meta.find(defog_tables_range_vtag);
+        entry = static_meta.find(defog_tables_range_vtag);
         min_frange = entry.data.f[0];
         max_frange = entry.data.f[1];
         for (int cct_index = 0; cct_index < 4; cct_index++) {
@@ -5338,10 +5434,10 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithSingleCam4KEncDeFogTablesWithSnaps
         }
       }
 
-      if (VendorTagExistsInMeta(meta, String8("cct_trigparam_fog_range"),
+      if (VendorTagExistsInMeta(static_meta, String8("cct_trigparam_fog_range"),
                                 String8("org.quic.camera.defog"),
                                 &defog_tables_range_vtag)) {
-        entry = meta.find(defog_tables_range_vtag);
+        entry = static_meta.find(defog_tables_range_vtag);
         min_irange = entry.data.i32[0];
         max_irange = entry.data.i32[1];
         for (int cct_index = 0; cct_index < 4; cct_index++) {
@@ -5497,7 +5593,11 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithSingleCam4KEncDynamicExposureTable
     ret = recorder_.GetDefaultCaptureParam(camera_id_, meta_img);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    bool res_supported = GtestCommon::ValidateResFromJpegSizes(meta_img,
+    CameraMetadata static_meta;
+    ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    bool res_supported = GtestCommon::ValidateResFromJpegSizes(static_meta,
       image_param.width, image_param.height);
     ASSERT_TRUE(res_supported != false);
 
@@ -5735,7 +5835,11 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithSingleCam4KEncAllExposureValues) {
     ret = recorder_.GetDefaultCaptureParam(camera_id_, meta_img);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    bool res_supported = GtestCommon::ValidateResFromJpegSizes(meta_img,
+    CameraMetadata static_meta;
+    ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    bool res_supported = GtestCommon::ValidateResFromJpegSizes(static_meta,
         image_param.width, image_param.height);
     ASSERT_TRUE (res_supported != false);
 
@@ -5755,15 +5859,15 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithSingleCam4KEncAllExposureValues) {
     ret = recorder_.GetCameraParam(camera_id_, meta);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    if (meta.exists(ANDROID_CONTROL_AE_COMPENSATION_RANGE)) {
+    if (static_meta.exists(ANDROID_CONTROL_AE_COMPENSATION_RANGE)) {
       camera_metadata_entry meta_entry =
-            meta.find(ANDROID_CONTROL_AE_COMPENSATION_RANGE);
+          static_meta.find(ANDROID_CONTROL_AE_COMPENSATION_RANGE);
 
       int32_t ev_max = meta_entry.data.i32[1];
       int32_t ev_min = meta_entry.data.i32[0];
 
       camera_metadata_entry meta_entry_step =
-            meta.find(ANDROID_CONTROL_AE_COMPENSATION_STEP);
+            static_meta.find(ANDROID_CONTROL_AE_COMPENSATION_STEP);
 
       float step = static_cast<float>(meta_entry_step.data.r[0].numerator) /
                                       meta_entry_step.data.r[0].denominator;
@@ -5907,7 +6011,11 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithDualCam4KEncAllExposureValues) {
     ret = recorder_.GetDefaultCaptureParam(camera_id_, meta_img);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    bool res_supported = GtestCommon::ValidateResFromJpegSizes(meta_img,
+    CameraMetadata static_meta;
+    ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    bool res_supported = GtestCommon::ValidateResFromJpegSizes(static_meta,
         image_param.width, image_param.height);
     ASSERT_TRUE (res_supported != false);
 
@@ -5927,15 +6035,15 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithDualCam4KEncAllExposureValues) {
     ret = recorder_.GetCameraParam(camera_id_, meta);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    if (meta.exists(ANDROID_CONTROL_AE_COMPENSATION_RANGE)) {
+    if (static_meta.exists(ANDROID_CONTROL_AE_COMPENSATION_RANGE)) {
       camera_metadata_entry meta_entry =
-            meta.find(ANDROID_CONTROL_AE_COMPENSATION_RANGE);
+          static_meta.find(ANDROID_CONTROL_AE_COMPENSATION_RANGE);
 
       int32_t ev_max = meta_entry.data.i32[1];
       int32_t ev_min = meta_entry.data.i32[0];
 
       camera_metadata_entry meta_entry_step =
-            meta.find(ANDROID_CONTROL_AE_COMPENSATION_STEP);
+            static_meta.find(ANDROID_CONTROL_AE_COMPENSATION_STEP);
 
       float step = static_cast<float>(meta_entry_step.data.r[0].numerator) /
                                       meta_entry_step.data.r[0].denominator;
@@ -6077,7 +6185,11 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithDualCam4KEncAllExposureMeteringMod
     ret = recorder_.GetDefaultCaptureParam(camera_id_, meta_img);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    bool res_supported = GtestCommon::ValidateResFromJpegSizes(meta_img,
+    CameraMetadata static_meta;
+    ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    bool res_supported = GtestCommon::ValidateResFromJpegSizes(static_meta,
         image_param.width, image_param.height);
     ASSERT_TRUE (res_supported != false);
 
@@ -6113,7 +6225,7 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithDualCam4KEncAllExposureMeteringMod
     }
 
     camera_metadata_entry_t exposure_metering_available_modes =
-    meta.find(exposure_metering_available_modes_vtag);
+    static_meta.find(exposure_metering_available_modes_vtag);
     uint32_t available_meter_mode = exposure_metering_available_modes.count;
 
     // Setting tag to exposure metering
@@ -6214,7 +6326,11 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithSingleCam4KEncCameraISOModes) {
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta_img);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  bool res_supported = GtestCommon::ValidateResFromJpegSizes(meta_img,
+  CameraMetadata static_meta;
+  ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  bool res_supported = GtestCommon::ValidateResFromJpegSizes(static_meta,
       image_param.width, image_param.height);
   ASSERT_TRUE (res_supported != false);
 
@@ -6265,6 +6381,10 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithSingleCam4KEncCameraISOModes) {
     ret = recorder_.GetCameraParam(camera_id_, meta);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    CameraMetadata static_meta;
+    ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
     camera_metadata_entry_t entry;
     uint32_t select_iso_priority_vtag;
     uint32_t use_iso_priority_vtag;
@@ -6283,10 +6403,10 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithSingleCam4KEncCameraISOModes) {
       TEST_WARN("%s: use_iso_exp_priority is not supported", __func__);
       ASSERT_TRUE(0);
     }
-    if (VendorTagExistsInMeta(meta, String8("iso_available_modes"),
+    if (VendorTagExistsInMeta(static_meta, String8("iso_available_modes"),
         String8("org.codeaurora.qcamera3.iso_exp_priority"),
         &iso_available_modes_vtag)) {
-      entry = meta.find(iso_available_modes_vtag);
+      entry = static_meta.find(iso_available_modes_vtag);
       count = entry.count;
     }
 
@@ -6399,7 +6519,11 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithSingleCam4KEncCameraMWBModes) {
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta_img);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  bool res_supported = GtestCommon::ValidateResFromJpegSizes(meta_img,
+  CameraMetadata static_meta;
+  ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  bool res_supported = GtestCommon::ValidateResFromJpegSizes(static_meta,
       image_param.width, image_param.height);
   ASSERT_TRUE (res_supported != false);
 
@@ -6450,6 +6574,10 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithSingleCam4KEncCameraMWBModes) {
     ret = recorder_.GetCameraParam(camera_id_, meta);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    CameraMetadata static_meta;
+    ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
     camera_metadata_entry_t entry;
     uint32_t color_temperature_vtag;
     uint32_t color_temperature_range_vtag;
@@ -6464,10 +6592,10 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithSingleCam4KEncCameraMWBModes) {
       TEST_WARN("%s: color_temperature is not supported", __func__);
       ASSERT_TRUE(0);
     }
-    if (VendorTagExistsInMeta(meta, String8("color_temperature_range"),
+    if (VendorTagExistsInMeta(static_meta, String8("color_temperature_range"),
         String8("org.codeaurora.qcamera3.manualWB"),
         &color_temperature_range_vtag)) {
-      entry = meta.find(color_temperature_range_vtag);
+      entry = static_meta.find(color_temperature_range_vtag);
       min_color_temp = entry.data.i32[0];
       max_color_temp = entry.data.i32[1];
     }
@@ -6588,7 +6716,11 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithSingleCam4KEncAllISOModes) {
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta_img);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  bool res_supported = GtestCommon::ValidateResFromJpegSizes(meta_img,
+  CameraMetadata static_meta;
+  ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  bool res_supported = GtestCommon::ValidateResFromJpegSizes(static_meta,
       image_param.width, image_param.height);
   ASSERT_TRUE (res_supported != false);
 
@@ -6803,7 +6935,11 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithSingleCam4KEncExposureTime) {
     ret = recorder_.GetDefaultCaptureParam(camera_id_, meta_img);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    bool res_supported = GtestCommon::ValidateResFromJpegSizes(meta_img,
+    CameraMetadata static_meta;
+    ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    bool res_supported = GtestCommon::ValidateResFromJpegSizes(static_meta,
         image_param.width, image_param.height);
     ASSERT_TRUE (res_supported != false);
 
@@ -6850,10 +6986,10 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithSingleCam4KEncExposureTime) {
       TEST_WARN("%s: use_iso_exp_priority is not supported", __func__);
       ASSERT_TRUE(0);
     }
-    if (VendorTagExistsInMeta(meta, String8("exposure_time_range"),
+    if (VendorTagExistsInMeta(static_meta, String8("exposure_time_range"),
           String8("org.codeaurora.qcamera3.iso_exp_priority"),
           &exp_time_range_vtag)) {
-      entry = meta.find(exp_time_range_vtag);
+      entry = static_meta.find(exp_time_range_vtag);
       min_exp_time = entry.data.i64[0];
       max_exp_time = entry.data.i64[1];
       if (max_exp_time <= min_exp_time) {
@@ -7004,7 +7140,11 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithSingleCam4KEncAllAWBModes) {
     ret = recorder_.GetDefaultCaptureParam(camera_id_, meta_img);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    bool res_supported = GtestCommon::ValidateResFromJpegSizes(meta_img,
+    CameraMetadata static_meta;
+    ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    bool res_supported = GtestCommon::ValidateResFromJpegSizes(static_meta,
         image_param.width, image_param.height);
     ASSERT_TRUE (res_supported != false);
 
@@ -7165,10 +7305,10 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithSingleCam4KEncAllExposureMeteringM
     ASSERT_TRUE(ret == NO_ERROR);
 
     CameraMetadata static_meta;
-    ret = recorder_.GetCameraParam(camera_id_, static_meta);
+    ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    bool res_supported = GtestCommon::ValidateResFromJpegSizes(meta_img,
+    bool res_supported = GtestCommon::ValidateResFromJpegSizes(static_meta,
         image_param.width, image_param.height);
     ASSERT_TRUE (res_supported != false);
 
@@ -7348,7 +7488,11 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithSingleCam4KEncADRC) {
     ret = recorder_.GetDefaultCaptureParam(camera_id_, meta_img);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    bool res_supported = GtestCommon::ValidateResFromJpegSizes(meta_img,
+    CameraMetadata static_meta;
+    ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    bool res_supported = GtestCommon::ValidateResFromJpegSizes(static_meta,
       image_param.width, image_param.height);
     ASSERT_TRUE(res_supported != false);
 
@@ -7517,7 +7661,11 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWith4kEncWithTNRModes) {
     ret = recorder_.GetDefaultCaptureParam(camera_id_, meta_img);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    bool res_supported = GtestCommon::ValidateResFromJpegSizes(meta_img,
+    CameraMetadata static_meta;
+    ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    bool res_supported = GtestCommon::ValidateResFromJpegSizes(static_meta,
       image_param.width, image_param.height);
     ASSERT_TRUE(res_supported != false);
 
@@ -7562,7 +7710,7 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWith4kEncWithTNRModes) {
     if (VendorTagSupported(String8("tnr_tuning_range"),
                            String8("org.codeaurora.qcamera3.tnr_tuning"),
                            &tnr_tuning_range_vtag)) {
-      auto entry = meta.find(tnr_tuning_range_vtag);
+      auto entry = static_meta.find(tnr_tuning_range_vtag);
       min_tnr_range = entry.data.f[0];
       max_tnr_range = entry.data.f[1];
       fprintf(stderr, "min_tnr_range = %f, max_tnr_range = %f\n",
@@ -7701,8 +7849,12 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWith4kEncWithANRModes) {
     ret = recorder_.GetDefaultCaptureParam(camera_id_, meta_img);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    bool res_supported = GtestCommon::ValidateResFromJpegSizes(meta_img,
-      image_param.width, image_param.height);
+    CameraMetadata static_meta;
+    ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    bool res_supported = GtestCommon::ValidateResFromJpegSizes(static_meta,
+        image_param.width, image_param.height);
     ASSERT_TRUE(res_supported != false);
 
     ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
@@ -7740,7 +7892,7 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWith4kEncWithANRModes) {
     if (VendorTagSupported(String8("anr_tuning_range"),
                            String8("org.quic.camera.anr_tuning"),
                            &anr_tuning_range_vtag)) {
-      auto entry = meta.find(anr_tuning_range_vtag);
+      auto entry = static_meta.find(anr_tuning_range_vtag);
       min_anr_range = entry.data.f[0];
       max_anr_range = entry.data.f[1];
       fprintf(stderr, "min_anr_range = %f , max_anr_range = %f \n",
@@ -7878,8 +8030,12 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWith4kEncWithDynamicContrastControl) {
     ret = recorder_.GetDefaultCaptureParam(camera_id_, meta_img);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    bool res_supported = GtestCommon::ValidateResFromJpegSizes(meta_img,
-      image_param.width, image_param.height);
+    CameraMetadata static_meta;
+    ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    bool res_supported = GtestCommon::ValidateResFromJpegSizes(static_meta,
+        image_param.width, image_param.height);
     ASSERT_TRUE(res_supported != false);
 
     ImageCaptureCb cb = [this] (uint32_t camera_id, uint32_t image_count,
@@ -7924,7 +8080,7 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWith4kEncWithDynamicContrastControl) {
     if (VendorTagSupported(String8("ltmDynamicContrastStrengthRange"),
                            String8("org.quic.camera.ltmDynamicContrast"),
                            &dynamic_strength_range_vtag)) {
-      auto entry = meta.find(dynamic_strength_range_vtag);
+      auto entry = static_meta.find(dynamic_strength_range_vtag);
       min_contrast_range = entry.data.f[0];
       max_contrast_range = entry.data.f[1];
       fprintf(stderr, "min_contrast_range = %f , max_contrast_range = %f \n",
@@ -7937,7 +8093,7 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWith4kEncWithDynamicContrastControl) {
     if (VendorTagSupported(String8("ltmDarkBoostStrengthRange"),
                            String8("org.quic.camera.ltmDynamicContrast"),
                            &boost_strength_range_vtag)) {
-      auto entry = meta.find(boost_strength_range_vtag);
+      auto entry = static_meta.find(boost_strength_range_vtag);
       min_boost_range = entry.data.f[0];
       max_boost_range = entry.data.f[1];
       fprintf(stderr, "min_boost_range = %f , max_boost_range = %f \n",
@@ -7950,7 +8106,7 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWith4kEncWithDynamicContrastControl) {
     if (VendorTagSupported(String8("ltmBrightSupressStrengthRange"),
                            String8("org.quic.camera.ltmDynamicContrast"),
                            &supress_strength_range_vtag)) {
-      auto entry = meta.find(supress_strength_range_vtag);
+      auto entry = static_meta.find(supress_strength_range_vtag);
       min_supress_range = entry.data.f[0];
       max_supress_range = entry.data.f[1];
       fprintf(stderr, "min_supress_range = %f , max_supress_range = %f \n",
@@ -8138,8 +8294,12 @@ TEST_F(RecorderVideoSnapshotGTest, 4kSnapshotWithIRFilterModes) {
     ret = recorder_.GetDefaultCaptureParam(camera_id_, meta_img);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    CameraMetadata static_meta;
+    ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
     bool res_supported = GtestCommon::ValidateResFromJpegSizes(
-        meta_img, image_param.width, image_param.height);
+        static_meta, image_param.width, image_param.height);
     ASSERT_TRUE(res_supported != false);
 
     ImageCaptureCb cb = [this](uint32_t camera_id, uint32_t image_count,
@@ -8159,7 +8319,7 @@ TEST_F(RecorderVideoSnapshotGTest, 4kSnapshotWithIRFilterModes) {
     if (VendorTagSupported(String8("ir_modes_supported"),
                            String8("org.codeaurora.qcamera3.ir_led"),
                            &ir_modes_supported_vtag)) {
-      auto entry = meta.find(ir_modes_supported_vtag);
+      auto entry = static_meta.find(ir_modes_supported_vtag);
       modes[0] = entry.data.i32[0];
       modes[1] = entry.data.i32[1];
       ir_modes_map.insert(std::make_pair(modes[0], "Off"));
@@ -8432,8 +8592,12 @@ TEST_F(RecorderVideoSnapshotGTest,
     ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    CameraMetadata static_meta;
+    ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
     bool res_supported = GtestCommon::ValidateResFromJpegSizes(
-        meta, image_param.width, image_param.height);
+       static_meta, image_param.width, image_param.height);
     ASSERT_TRUE(res_supported != false);
 
     meta_array.push_back(meta);
@@ -8667,8 +8831,12 @@ TEST_F(RecorderVideoSnapshotGTest,
     ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    CameraMetadata static_meta;
+    ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
     bool res_supported = GtestCommon::ValidateResFromJpegSizes(
-        meta, image_param.width, image_param.height);
+        static_meta, image_param.width, image_param.height);
     ASSERT_TRUE(res_supported != false);
 
     meta_array.push_back(meta);
@@ -8903,8 +9071,12 @@ TEST_F(RecorderVideoSnapshotGTest,
     ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    CameraMetadata static_meta;
+    ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
     bool res_supported = GtestCommon::ValidateResFromJpegSizes(
-        meta, image_param.width, image_param.height);
+        static_meta, image_param.width, image_param.height);
     ASSERT_TRUE(res_supported != false);
 
     meta_array.push_back(meta);
@@ -9139,8 +9311,12 @@ TEST_F(RecorderVideoSnapshotGTest,
     ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    CameraMetadata static_meta;
+    ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
     bool res_supported = GtestCommon::ValidateResFromJpegSizes(
-        meta, image_param.width, image_param.height);
+        static_meta, image_param.width, image_param.height);
     ASSERT_TRUE(res_supported != false);
 
     meta_array.push_back(meta);
@@ -9385,8 +9561,12 @@ TEST_F(RecorderVideoSnapshotGTest,
     ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    CameraMetadata static_meta;
+    ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
     bool res_supported = GtestCommon::ValidateResFromJpegSizes(
-        meta, image_param.width, image_param.height);
+        static_meta, image_param.width, image_param.height);
     ASSERT_TRUE(res_supported != false);
 
     meta_array.push_back(meta);
@@ -9630,8 +9810,12 @@ TEST_F(RecorderVideoSnapshotGTest,
     ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    CameraMetadata static_meta;
+    ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
     bool res_supported = GtestCommon::ValidateResFromJpegSizes(
-        meta, image_param.width, image_param.height);
+        static_meta, image_param.width, image_param.height);
     ASSERT_TRUE(res_supported != false);
 
     meta_array.push_back(meta);
@@ -9866,8 +10050,12 @@ TEST_F(
     ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    CameraMetadata static_meta;
+    ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
     bool res_supported = GtestCommon::ValidateResFromJpegSizes(
-        meta, image_param.width, image_param.height);
+        static_meta, image_param.width, image_param.height);
     ASSERT_TRUE(res_supported != false);
 
     meta_array.push_back(meta);
@@ -10102,8 +10290,12 @@ TEST_F(
     ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    CameraMetadata static_meta;
+    ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
     bool res_supported = GtestCommon::ValidateResFromJpegSizes(
-        meta, image_param.width, image_param.height);
+        static_meta, image_param.width, image_param.height);
     ASSERT_TRUE(res_supported != false);
 
     meta_array.push_back(meta);
@@ -10337,8 +10529,12 @@ TEST_F(RecorderVideoSnapshotGTest,
     ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    CameraMetadata static_meta;
+    ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
     bool res_supported = GtestCommon::ValidateResFromJpegSizes(
-        meta, image_param.width, image_param.height);
+        static_meta, image_param.width, image_param.height);
     ASSERT_TRUE(res_supported != false);
 
     meta_array.push_back(meta);
@@ -10572,8 +10768,12 @@ TEST_F(RecorderVideoSnapshotGTest,
     ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    CameraMetadata static_meta;
+    ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
     bool res_supported = GtestCommon::ValidateResFromJpegSizes(
-        meta, image_param.width, image_param.height);
+        static_meta, image_param.width, image_param.height);
     ASSERT_TRUE(res_supported != false);
 
     meta_array.push_back(meta);
@@ -10814,8 +11014,12 @@ TEST_F(RecorderVideoSnapshotGTest,
     ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    CameraMetadata static_meta;
+    ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
     bool res_supported = GtestCommon::ValidateResFromJpegSizes(
-        meta, image_param.width, image_param.height);
+        static_meta, image_param.width, image_param.height);
     ASSERT_TRUE(res_supported != false);
 
     meta_array.push_back(meta);
@@ -11056,8 +11260,12 @@ TEST_F(RecorderVideoSnapshotGTest,
     ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    CameraMetadata static_meta;
+    ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
     bool res_supported = GtestCommon::ValidateResFromJpegSizes(
-        meta, image_param.width, image_param.height);
+        static_meta, image_param.width, image_param.height);
     ASSERT_TRUE(res_supported != false);
 
     meta_array.push_back(meta);
@@ -11297,8 +11505,12 @@ TEST_F(RecorderVideoSnapshotGTest,
     ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    CameraMetadata static_meta;
+    ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
     bool res_supported = GtestCommon::ValidateResFromJpegSizes(
-        meta, image_param.width, image_param.height);
+        static_meta, image_param.width, image_param.height);
     ASSERT_TRUE(res_supported != false);
 
     meta_array.push_back(meta);
@@ -11538,8 +11750,12 @@ TEST_F(RecorderVideoSnapshotGTest,
     ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    CameraMetadata static_meta;
+    ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
     bool res_supported = GtestCommon::ValidateResFromJpegSizes(
-        meta, image_param.width, image_param.height);
+        static_meta, image_param.width, image_param.height);
     ASSERT_TRUE(res_supported != false);
 
     meta_array.push_back(meta);
@@ -11790,8 +12006,12 @@ TEST_F(
     ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    CameraMetadata static_meta;
+    ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
     bool res_supported = GtestCommon::ValidateResFromJpegSizes(
-        meta, image_param.width, image_param.height);
+        static_meta, image_param.width, image_param.height);
     ASSERT_TRUE(res_supported != false);
 
     meta_array.push_back(meta);
@@ -12041,8 +12261,12 @@ TEST_F(
     ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    CameraMetadata static_meta;
+    ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
     bool res_supported = GtestCommon::ValidateResFromJpegSizes(
-        meta, image_param.width, image_param.height);
+        static_meta, image_param.width, image_param.height);
     ASSERT_TRUE(res_supported != false);
 
     meta_array.push_back(meta);
@@ -12281,8 +12505,12 @@ TEST_F(RecorderVideoSnapshotGTest,
     ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    CameraMetadata static_meta;
+    ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
     bool res_supported = GtestCommon::ValidateResFromJpegSizes(
-        meta, image_param.width, image_param.height);
+        static_meta, image_param.width, image_param.height);
     ASSERT_TRUE(res_supported != false);
 
     meta_array.push_back(meta);
@@ -12522,8 +12750,12 @@ TEST_F(
     ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    CameraMetadata static_meta;
+    ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
     bool res_supported = GtestCommon::ValidateResFromJpegSizes(
-        meta, image_param.width, image_param.height);
+        static_meta, image_param.width, image_param.height);
     ASSERT_TRUE(res_supported != false);
 
     meta_array.push_back(meta);
@@ -12763,8 +12995,12 @@ TEST_F(
     ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
     ASSERT_TRUE(ret == NO_ERROR);
 
+    CameraMetadata static_meta;
+    ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
     bool res_supported = GtestCommon::ValidateResFromJpegSizes(
-        meta, image_param.width, image_param.height);
+        static_meta, image_param.width, image_param.height);
     ASSERT_TRUE(res_supported != false);
 
     meta_array.push_back(meta);

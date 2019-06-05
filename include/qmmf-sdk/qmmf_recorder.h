@@ -325,6 +325,11 @@ class Recorder {
   status_t GetDefaultCaptureParam(const uint32_t camera_id,
                                   android::CameraMetadata &meta);
 
+  /// Clients generally calls GetCameraCharacteristics to get
+  /// static camerametadata params.
+  status_t GetCameraCharacteristics(const uint32_t camera_id,
+                                    android::CameraMetadata &meta);
+
   /// @brief Create overlay object of type
   /// static image, date/time, bounding box,
   /// simple text, and privacy mask.

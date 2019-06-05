@@ -218,6 +218,11 @@ class RecorderImpl {
                                   const uint32_t camera_id,
                                   CameraMetadata &meta);
 
+  /// Get static metadata
+  status_t GetCameraCharacteristics(const uint32_t client_id,
+                                    const uint32_t camera_id,
+                                    CameraMetadata &meta);
+
   /// Create Overlay object
   status_t CreateOverlayObject(const uint32_t client_id,
                                const uint32_t track_id,
