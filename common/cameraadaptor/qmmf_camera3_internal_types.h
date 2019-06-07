@@ -39,6 +39,7 @@ typedef struct : public camera3_stream_t {
   GetInputBuffer get_input_buffer;
   ReturnInputBuffer return_input_buffer;
   std::unordered_map <buffer_handle_t, IBufferHandle> buffers_map;
+  uint32_t input_buffer_cnt;
 } Camera3InputStream;
 
 typedef struct CaptureRequest_t {
