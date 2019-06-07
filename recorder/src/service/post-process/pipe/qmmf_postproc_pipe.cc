@@ -51,7 +51,7 @@ PostProcPipe::PostProcPipe(IPostProc* context)
   assert(factory_.get() != nullptr);
 
   char prop_val[PROPERTY_VALUE_MAX];
-  property_get("persist.qmmf.postproc.haljpeg", prop_val, "0");
+  property_get("persist.qmmf.postproc.haljpeg", prop_val, "1");
   use_hal_jpeg_ = (0 == atoi(prop_val)) ? false : true;
 
   state_ = PostProcPipeState::CREATED; // todo
