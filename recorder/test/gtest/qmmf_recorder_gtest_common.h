@@ -36,6 +36,8 @@
 #include <vector>
 #include <map>
 #include <mutex>
+#include <thread>
+#include <random>
 #include <sys/time.h>
 #include <chrono>
 #include <condition_variable>
@@ -743,6 +745,16 @@ class GtestCommon : public ::testing::Test {
       BufferMetaDataTuple;
   std::map <uint32_t, BufferMetaDataTuple > buffer_metadata_map_;
   std::mutex buffer_metadata_lock_;
+
+  enum class GtestCameraState {
+    kClosed,
+    kClosing,
+    kOpened,
+  };
+
+  std::condition_variable  camera_state_updated_;
+  std::mutex               camera_state_lock_;
+  std::map<uint32_t, GtestCameraState> camera_state_;
 
   DumpBitStream         dump_bitstream_;
   bool                  is_dump_jpeg_enabled_;
