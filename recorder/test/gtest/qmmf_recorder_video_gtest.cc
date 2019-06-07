@@ -6426,7 +6426,6 @@ TEST_F(VideoGtest, Session4kYUVTrackWithDisplay) {
 }
 #endif
 
-#ifndef DISABLE_DISPLAY
 /*
 * Session1080pYUVTrackWithDisplay: This test will be used to test display
 * functionality. This test will create session with 1080p YUV track and
@@ -6530,7 +6529,6 @@ TEST_F(VideoGtest, Session1080pYUVTrackWithDisplay) {
   fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
           test_info_->test_case_name(), test_info_->name());
 }
-#endif
 
 /*
 * SessionWith960p90FPSEncCopy480pEncAndLinked480pYUVTrack:
@@ -7493,8 +7491,6 @@ TEST_F(VideoGtest, SmoothZoomWith1080pEncTrack) {
 
 }
 
-#ifndef DISABLE_DISPLAY
-
 /*
 * SessionWithVGA480pEncAndLinked480pWithDisplay:
 *     This test will test session with one 640x480 @ 30 fps encoded track,
@@ -7644,6 +7640,7 @@ TEST_F(VideoGtest,
           test_info_->test_case_name(), test_info_->name());
 }
 
+#ifndef DISABLE_DISPLAY
 /*
 * SessionWithFWVGA480pEncAndLinked480pWithDisplay:
 *     This test will test session with one 848x480 @ 30 fps encoded track,

@@ -38,6 +38,8 @@
 #include <utils/KeyedVector.h>
 #include <map>
 #include <mutex>
+#include <ion/ion.h>
+#include <linux/dma-buf.h>
 #include <linux/msm_ion.h>
 
 #include "display/src/client/qmmf_display_client_intf.h"

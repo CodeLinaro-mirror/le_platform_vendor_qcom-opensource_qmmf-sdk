@@ -450,10 +450,8 @@ void GtestCommon::SetUp() {
   eis_v_margin_ = atof(prop_val);
   property_get(PROP_TIMELAPSE_INTERVAL, prop_val, "2.0");
   timelapse_interval_ = atof(prop_val);
-#ifndef DISABLE_DISPLAY
   property_get(PROP_TOGGLE_DISPLAY_USAGE, prop_val, "1");
   use_display_ = (atoi(prop_val) == 0) ? false : true;
-#endif
   property_get(PROP_TOGGLE_OVERLAY_USAGE, prop_val, "0");
   is_apply_overlay_ = (atoi(prop_val) == 0) ? false : true;
   property_get(PROP_UBWC_STREAM_ENABLE, prop_val, "1");
@@ -473,8 +471,8 @@ void GtestCommon::SetUp() {
   camera_start_params_.frame_rate       = 30;
   camera_start_params_.flags            = 0x0;
 
-#ifndef DISABLE_DISPLAY
   display_started_ = false;
+#ifndef DISABLE_DISPLAY
   enable_gfx_ = false;
 #endif
 
@@ -634,15 +632,16 @@ void GtestCommon::VideoTrackYUVDataCb(uint32_t session_id, uint32_t track_id,
     }
   }
 
-#ifndef DISABLE_DISPLAY
   if (display_ && use_display_) {
+#ifndef DISABLE_DISPLAY
     if (enable_gfx_) {
       DequeueGfxSurfaceBuffer();
       QueueGfxSurfaceBuffer();
     }
+#endif
     PushFrameToDisplay(buffers[0], meta_buffers[0].cam_buffer_meta_data);
   }
-#endif
+
 
   auto ret = recorder_.ReturnTrackBuffer(session_id, track_id, buffers);
   ASSERT_TRUE(ret == NO_ERROR);
@@ -1463,7 +1462,6 @@ bool GtestCommon::GetMinSupportedCameraRes(const CameraMetadata& meta,
   return found;
 }
 
-#ifndef DISABLE_DISPLAY
 void GtestCommon::DisplayCallbackHandler(DisplayEventType event_type,
                                            void *event_data,
                                            size_t event_data_size) {
@@ -1523,7 +1521,7 @@ status_t GtestCommon::StartDisplay(DisplayType display_type,
   surface_param_.surface_transform.rotation = 0.0f;
   surface_param_.surface_transform.flip_horizontal = 0;
   surface_param_.surface_transform.flip_vertical = 0;
-
+#ifndef DISABLE_DISPLAY
   if (enable_gfx_) {
     memset(&gfx_surface_config_, 0x0, sizeof gfx_surface_config_);
     gfx_surface_config_.width = 352;
@@ -1550,7 +1548,7 @@ status_t GtestCommon::StartDisplay(DisplayType display_type,
     gfx_surface_param_.surface_transform.flip_horizontal = 0;
     gfx_surface_param_.surface_transform.flip_vertical = 0;
   }
-
+#endif
   TEST_INFO("%s: Exit", __func__);
   return res;
 }
@@ -1565,14 +1563,14 @@ status_t GtestCommon::StopDisplay(DisplayType display_type) {
     if (res != 0) {
       TEST_ERROR("%s DestroySurface Failed!!", __func__);
     }
-
+#ifndef DISABLE_DISPLAY
     if (enable_gfx_) {
       res = display_->DestroySurface(gfx_surface_id_);
       if (res != 0) {
         TEST_ERROR("%s  DestroyGfxSurface Failed!!", __func__);
       }
     }
-
+#endif
     res = display_->DestroyDisplay(display_type);
     if (res != 0) {
       TEST_ERROR("%s DestroyDisplay Failed!!", __func__);
@@ -1588,8 +1586,6 @@ status_t GtestCommon::StopDisplay(DisplayType display_type) {
   TEST_INFO("%s: Exit", __func__);
   return res;
 }
-
-#endif
 
 status_t GtestCommon::SetCameraFocalLength(const float focal_length) {
   CameraMetadata meta;
@@ -2224,8 +2220,6 @@ status_t GtestCommon::DumpThumbnail(BufferDescriptor buffer,
   return NO_ERROR;
 }
 
-
-#ifndef DISABLE_DISPLAY
 status_t GtestCommon::PushFrameToDisplay(BufferDescriptor &buffer,
                                            CameraBufferMetaData &meta_data) {
   TEST_DBG("%s: Enter", __func__);
@@ -2257,6 +2251,7 @@ status_t GtestCommon::PushFrameToDisplay(BufferDescriptor &buffer,
   return NO_ERROR;
 }
 
+#ifndef DISABLE_DISPLAY
 int32_t GtestCommon::DequeueGfxSurfaceBuffer() {
   TEST_DBG("%s: Enter", __func__);
   auto ret = 0;
