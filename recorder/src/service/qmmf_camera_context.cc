@@ -2908,7 +2908,7 @@ void ZslPort::ResumeZSL() {
 
 bool ZslPort::IsRunning() {
   std::lock_guard<std::mutex> l(zsl_queue_lock_);
-  return zsl_running_ && (camera_stream_id_ > 0);
+  return zsl_running_ && (camera_stream_id_ >= 0);
 }
 
 status_t ZslPort::PickZSLBuffer() {
