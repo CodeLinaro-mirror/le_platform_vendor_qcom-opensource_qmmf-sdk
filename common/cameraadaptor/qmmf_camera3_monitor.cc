@@ -142,13 +142,10 @@ bool Camera3Monitor::ThreadLoop() {
                    strerror(res), res);
       }
       // timeouts can occur
-      pthread_mutex_unlock(&input_lock_);
       break;
     }
   }
-  pthread_mutex_unlock(&input_lock_);
 
-  pthread_mutex_lock(&input_lock_);
   pthread_mutex_lock(&lock_);
 
   MonitorState oldState = BuildCompositeState();
