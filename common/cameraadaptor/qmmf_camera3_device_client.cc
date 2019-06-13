@@ -1861,17 +1861,17 @@ int32_t Camera3DeviceClient::Flush(int64_t *lastFrameNumber) {
   int32_t res;
   pthread_mutex_lock(&lock_);
   flush_on_going_ = true;
+  pthread_mutex_unlock(&lock_);
 
+  // We can't hold locks during RequestHandler call to Clear() or HAL call to
+  // flush. Some implementations will return buffers to client from the same
+  // context and this can cause deadlock if client tries to return them.
   res = request_handler_.Clear(lastFrameNumber);
   if (0 != res) {
-    QMMF_ERROR("%s: Couldn't reset request handler!\n", __func__);
+    QMMF_ERROR("%s: Couldn't reset request handler, err: %d!", __func__, res);
+    pthread_mutex_lock(&lock_);
     goto exit;
   }
-  // We can't hold locks during Hal call to flush.
-  // Some implementations will return buffers to client
-  // from the same context and this can cause deadlock
-  // if client tries to return them.
-  pthread_mutex_unlock(&lock_);
 
   res = device_->ops->flush(device_);
 

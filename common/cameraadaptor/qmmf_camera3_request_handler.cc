@@ -52,6 +52,7 @@ Camera3RequestHandler::Camera3RequestHandler(Camera3Monitor &monitor)
       run_worker_(true) {
   pthread_mutex_init(&lock_, NULL);
   pthread_cond_init(&requests_signal_, NULL);
+  pthread_cond_init(&current_request_signal_, NULL);
   pthread_mutex_init(&pause_lock_, NULL);
   pthread_cond_init(&toggle_pause_signal_, NULL);
   pthread_cond_init(&pause_state_signal_, NULL);
@@ -73,6 +74,7 @@ Camera3RequestHandler::~Camera3RequestHandler() {
   pthread_cond_destroy(&worker_signal_);
   pthread_mutex_destroy(&worker_lock_);
   pthread_mutex_destroy(&lock_);
+  pthread_cond_destroy(&current_request_signal_);
   pthread_cond_destroy(&requests_signal_);
   pthread_mutex_destroy(&pause_lock_);
   pthread_cond_destroy(&toggle_pause_signal_);
@@ -191,8 +193,14 @@ int32_t Camera3RequestHandler::Clear(int64_t *lastFrameNumber) {
     *lastFrameNumber = streaming_last_frame_number_;
   }
   streaming_last_frame_number_ = NO_IN_FLIGHT_REPEATING_FRAMES;
+
+  int32_t ret = 0;
+  if (current_request_.resultExtras.requestId != -1) {
+    // If there is a in-flight request, wait until it is submitted to HAL.
+    ret = cond_wait_relative(&current_request_signal_, &lock_, CLEAR_TIMEOUT);
+  }
   pthread_mutex_unlock(&lock_);
-  return 0;
+  return ret;
 }
 
 void Camera3RequestHandler::TogglePause(bool pause) {
@@ -402,6 +410,7 @@ int32_t Camera3RequestHandler::SubmitRequest(CaptureRequest &nextRequest) {
 
   pthread_mutex_lock(&lock_);
   ClearCaptureRequest(current_request_);
+  pthread_cond_signal(&current_request_signal_);
   pthread_mutex_unlock(&lock_);
 
   return res;
@@ -466,6 +475,7 @@ void Camera3RequestHandler::HandleErrorRequest(
 
   pthread_mutex_lock(&lock_);
   ClearCaptureRequest(current_request_);
+  pthread_cond_signal(&current_request_signal_);
   pthread_mutex_unlock(&lock_);
 }
 
