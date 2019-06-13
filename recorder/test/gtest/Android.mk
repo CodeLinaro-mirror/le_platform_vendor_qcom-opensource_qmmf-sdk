@@ -33,6 +33,8 @@ LOCAL_SHARED_LIBRARIES += libqmmf_display_client
 endif
 LOCAL_SHARED_LIBRARIES += libcamera_client libskia
 
+LOCAL_SHARED_LIBRARIES += $(LIB_JSONCPP)
+
 LOCAL_MODULE = qmmf_recorder_gtest
 
 ifeq ($(LOCAL_VENDOR_MODULE),true)
@@ -43,7 +45,7 @@ include $(BUILD_NATIVE_TEST)
 
 include $(CLEAR_VARS)
 
-LOCAL_MODULE := imx577_sensor_mode_config.txt
+LOCAL_MODULE := imx577_sensor_mode_config.json
 
 LOCAL_MODULE_CLASS  := ETC
 
