@@ -2957,19 +2957,28 @@ void CameraPort::StreamCallback(StreamBuffer buffer) {
 
 uint32_t CameraPort::GetExtraBufferCount() {
   uint32_t extra_buffer_count = 0;
-#ifndef EXTRA_BUFFER_SUPPORT
-  if (params_.width == 3840 && params_.height == 2160) {
-    extra_buffer_count = EXTRA_DCVS_BUFFERS;
-  } else if (params_.width == 1920 && params_.height == 1440 &&
-             params_.framerate == 60) {
-    extra_buffer_count = 4;
+  switch (static_cast<uint32_t>(params_.framerate)) {
+    case 24:
+    case 30:
+    case 48:
+      extra_buffer_count = EXTRA_DCVS_BUFFERS;
+      break;
+    case 60:
+    case 90:
+      extra_buffer_count = EXTRA_HFR_BUFFERS;
+      break;
+    case 120:
+      extra_buffer_count = 2 * EXTRA_HFR_BUFFERS;
+      break;
+    case 240:
+      extra_buffer_count = 3 * EXTRA_HFR_BUFFERS;
+      break;
+    default:
+      QMMF_WARN("%s: FPS is not present in the list", __func__);
+      break;
   }
-#else
-  if (params_.width == 4096 && params_.height == 2048 &&
-      params_.framerate == 60) {
-    extra_buffer_count = EXTRA_DCVS_BUFFERS;
-  }
-#endif
+  QMMF_DEBUG("%s: Number of extra buffers added: %u", __func__,
+             extra_buffer_count);
   return extra_buffer_count;
 }
 
