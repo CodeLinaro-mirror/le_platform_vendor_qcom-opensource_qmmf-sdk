@@ -191,8 +191,17 @@ class CameraSource {
   status_t RemoveOverlayObject(const uint32_t track_id,
                                const uint32_t overlay_id);
 
+  /// Register Flush Callback
+  status_t SetFlushCb(const uint32_t camera_id, FlushCb &cb);
+
+  /// Clear Track input queue
+  status_t FlushTrack(const uint32_t track_id);
+
   /// Return instance for track source for given ID
   const ::std::shared_ptr<TrackSource>& GetTrackSource(uint32_t track_id);
+
+  /// Get Rescaller configuration parameters
+  std::string GetRescalerConfig(const VideoTrackParams& track_params);
 
   /// @cond PRIVATE
  private:
@@ -213,6 +222,11 @@ class CameraSource {
   status_t ParseThumb(uint8_t* vaddr, uint32_t size, StreamBuffer& buffer);
 
   status_t DetectCameras();
+
+  VideoFormat GetYUVFormatType(VideoFormat format_tpye);
+
+  bool IsFormatChanged(VideoFormat src_format_type,
+                       VideoFormat dst_format_type);
 
   // Map of camera id and CameraContext.
   std::map<uint32_t, std::shared_ptr<CameraInterface>> camera_map_;
@@ -379,6 +393,8 @@ class TrackSource : public ICodecSource {
   bool IsNeedScaler(const VideoTrackParams& slave_track,
                     const VideoTrackParams& master_track);
 
+  uint64_t GetWaitTime();
+
   VideoTrackParams         track_params_;
   sp<IBufferConsumer>      buffer_consumer_impl_;
   bool                     is_stop_;
@@ -454,8 +470,9 @@ class TrackSource : public ICodecSource {
   uint32_t num_consumers_;
 
   int32_t rotation_;
+  uint64_t wait_duration_;
+  static const uint32_t kWaitNumFrames_;
   /// @endcond
-
 };
 
 }; //namespace recorder

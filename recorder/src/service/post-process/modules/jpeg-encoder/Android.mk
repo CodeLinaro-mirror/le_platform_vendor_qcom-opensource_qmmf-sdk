@@ -13,6 +13,8 @@ include $(CLEAR_VARS)
 
 include $(QMMF_SDK_TOP_SRCDIR)/common.mk
 
+LOCAL_C_INCLUDES += $(QMMF_SDK_TOP_SRCDIR)/recorder/src/service/post-process
+
 ifneq ($(DISABLE_PP_JPEG),1)
 LOCAL_SRC_FILES := qmmf_jpeg.cc
 endif

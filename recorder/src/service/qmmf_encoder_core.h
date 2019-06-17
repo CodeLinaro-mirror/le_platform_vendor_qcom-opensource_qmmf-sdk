@@ -72,6 +72,9 @@ class EncoderCore {
 
   status_t ReturnTrackBuffer(const uint32_t track_id,
                              std::vector<BnBuffer> &buffers);
+
+  status_t FlushTrack(uint32_t track_id);
+
  private:
 
   bool isTrackValid(uint32_t track_id);
@@ -124,6 +127,8 @@ class TrackEncoder : public ICodecSource {
   // Method to handle returned buffers from client.
   status_t OnBufferReturnFromClient(std::vector<BnBuffer> &buffers);
 
+  status_t Flush();
+
  private:
 
   status_t AllocOutputPortBufs();
@@ -143,6 +148,8 @@ class TrackEncoder : public ICodecSource {
 #endif
 
   uint32_t TrackId() { return track_params_.track_id; }
+
+  uint64_t GetWaitTime();
 
   VideoTrackParams track_params_;
   IAVCodec*        avcodec_;
@@ -169,6 +176,10 @@ class TrackEncoder : public ICodecSource {
   QCondition                 wait_for_frame_;
 
   std::mutex                 lock_;
+
+  uint64_t                   wait_duration_;
+  std::mutex                 wait_duration_lock_;
+  static const uint32_t      kWaitNumFrames_;
 };
 
 }; // namespace recorder

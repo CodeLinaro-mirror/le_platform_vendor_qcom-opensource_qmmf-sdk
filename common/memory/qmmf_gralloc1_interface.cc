@@ -220,6 +220,12 @@ MemAllocError Gralloc1Device::Perform(const IBufferHandle& handle,
     case AllocDeviceAction::GetStride:
       *static_cast<int32_t*>(result) = stride;
       return MemAllocError::kAllocOk;
+    case AllocDeviceAction::GetAlignedHeight:
+      *static_cast<int32_t*>(result) = height;
+      return MemAllocError::kAllocOk;
+    case AllocDeviceAction::GetAlignedWidth:
+      *static_cast<int32_t*>(result) = stride;
+      return MemAllocError::kAllocOk;
     default:
       QMMF_ERROR("%s: Unrecognized action to perform.", __func__);
       return MemAllocError::kAllocFail;

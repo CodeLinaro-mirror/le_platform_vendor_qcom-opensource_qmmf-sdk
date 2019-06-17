@@ -6,7 +6,7 @@ include $(QMMF_SDK_TOP_SRCDIR)/build.mk
 
 ifneq (,$(BUILD_QMMMF))
 
-# Build recorder test application binary
+# Build recorder gtest application binary
 
 include $(CLEAR_VARS)
 
@@ -33,6 +33,8 @@ LOCAL_SHARED_LIBRARIES += libqmmf_display_client
 endif
 LOCAL_SHARED_LIBRARIES += libcamera_client libskia
 
+LOCAL_SHARED_LIBRARIES += $(LIB_JSONCPP)
+
 LOCAL_MODULE = qmmf_recorder_gtest
 
 ifeq ($(LOCAL_VENDOR_MODULE),true)
@@ -40,4 +42,17 @@ LOCAL_VENDOR_MODULE := false
 endif
 
 include $(BUILD_NATIVE_TEST)
+
+include $(CLEAR_VARS)
+
+LOCAL_MODULE := imx577_sensor_mode_config.json
+
+LOCAL_MODULE_CLASS  := ETC
+
+LOCAL_SRC_FILES     := $(LOCAL_MODULE)
+
+LOCAL_MODULE_PATH   := $(TARGET_OUT_DATA)/misc/qmmf
+
+include $(BUILD_PREBUILT)
+
 endif

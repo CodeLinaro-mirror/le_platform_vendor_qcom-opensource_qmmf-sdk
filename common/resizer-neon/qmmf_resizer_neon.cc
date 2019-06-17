@@ -30,6 +30,8 @@
 #define LOG_TAG "CommonNEONResizer"
 
 #include <cstdint>
+#include <json/json.h>
+#include <media/msm_media_info.h>
 
 #include "common/utils/qmmf_log.h"
 
@@ -40,16 +42,41 @@ uint32_t qmmf_log_level;
 namespace qmmf {
 
 NEONResizer::NEONResizer()
-  : handle_(nullptr),
-    method_(neonresizer::RES_BILINEAR_V_SKIP) {
+  : handle_(),
+    method_(neonresizer::ResMethod::kRES_BILINEAR_V_SKIP),
+    crop_() {
   QMMF_VERBOSE("%s: Enter", __func__);
   QMMF_VERBOSE("%s: Exit (0x%p)", __func__, this);
 }
 
 NEONResizer::~NEONResizer() {
   QMMF_VERBOSE("%s: Enter", __func__);
-  DeInit();
   QMMF_VERBOSE("%s: Exit (0x%p)", __func__, this);
+}
+
+RESIZER_STATUS NEONResizer::Configure(const std::string& json_config_data) {
+  Json::Reader r;
+  Json::Value root;
+
+ auto ret = r.parse(json_config_data, root);
+  if (ret == 0) {
+    QMMF_INFO("%s: no json data", __func__);
+    return RESIZER_STATUS_ERROR;
+  }
+
+  if (!root.isMember("crop")) {
+    QMMF_INFO("%s:no crop configuration", __func__);
+  } else if (root["crop"].empty()) {
+    crop_.valid = false;
+    QMMF_INFO("%s: Clear crop configuration", __func__);
+  } else {
+    crop_.width = root["crop"]["width"].asUInt();
+    crop_.height = root["crop"]["height"].asUInt();
+    crop_.x = root["crop"]["x"].asUInt();
+    crop_.y = root["crop"]["y"].asUInt();
+    crop_.valid = true;
+  }
+  return RESIZER_STATUS_OK;
 }
 
 RESIZER_STATUS NEONResizer::Init() {
@@ -57,83 +84,130 @@ RESIZER_STATUS NEONResizer::Init() {
   char prop[PROPERTY_VALUE_MAX];
   memset(prop, 0, sizeof(prop));
   property_get("persist.qmmf.rescaler.method", prop, "0");
-  uint32_t value = (uint32_t) atoi(prop);
-  if (value < neonresizer::RES_NUMBER) {
-    method_ = static_cast<neonresizer::res_method_t>(value);
+  auto value = static_cast<neonresizer::ResMethod>(atoi(prop));
+  if (value < neonresizer::ResMethod::kRES_NUMBER) {
+    method_ = value;
   }
 
   std::lock_guard<std::mutex> lock(lock_);
-  if (handle_) {
-    QMMF_INFO("%s: The neon resizer is already init", __func__);
-    return RESIZER_STATUS_OK;
-  }
-  auto res = neonresizer::resn_init(&handle_);
-  if (neonresizer::RESN_SUCCESS != res) {
-    QMMF_ERROR("%s: Failed! %d", __func__, res);
+  auto ret = handle_.resn_init();
+  if (ret != neonresizer::ResnStatus::kRESN_SUCCESS) {
+    QMMF_ERROR("%s: Failed!", __func__);
     return RESIZER_STATUS_ERROR;
   }
 
-  QMMF_INFO("%s: version: %s", __func__, neonresizer::resn_get_version());
+  QMMF_INFO("%s: version: %s", __func__, handle_.resn_get_version());
 
   return RESIZER_STATUS_OK;
 }
 
 void NEONResizer::DeInit() {
   std::lock_guard<std::mutex> lock(lock_);
-  if (handle_) {
-    neonresizer::resn_deinit(handle_);
-    handle_ = nullptr;
-  }
+    handle_.resn_deinit();
 }
 
 RESIZER_STATUS NEONResizer::Draw(StreamBuffer& src_buffer,
                                  StreamBuffer& dst_buffer) {
-  RESIZER_STATUS status = RESIZER_STATUS_OK;
-
-
   if (ValidateInParams(src_buffer, dst_buffer) != RESIZER_STATUS_OK) {
     QMMF_ERROR("%s Input validation error!!!", __func__);
     return RESIZER_STATUS_ERROR;
   }
 
   std::lock_guard<std::mutex> lock(lock_);
-  if (handle_ == nullptr) {
-    QMMF_ERROR("%s The neon resizer handle is null!!!", __func__);
-    return RESIZER_STATUS_ERROR;
-  }
-
-  neonresizer::resn_t params;
-  FillProcessParams(src_buffer, dst_buffer, params);
-  auto ret = neonresizer::resn_process(handle_, &params);
-  if (neonresizer::RESN_SUCCESS != ret) {
+  neonresizer::Resn params;
+  auto status = FillProcessParams(src_buffer, dst_buffer, params);
+  assert(status == NO_ERROR);
+  auto ret = handle_.resn_process(&params);
+  if (neonresizer::ResnStatus::kRESN_SUCCESS != ret) {
     QMMF_ERROR("%s: Neon process error: %d", __func__, ret);
     return RESIZER_STATUS_ERROR;
   }
 
-  return status;
+  return RESIZER_STATUS_OK;
 }
 
 RESIZER_STATUS NEONResizer::FillProcessParams(const StreamBuffer& src_buffer,
                                               const StreamBuffer& dst_buffer,
-                                              neonresizer::resn_t &params) {
+                                              neonresizer::Resn &params) {
+  uint32_t x = 0;
+  uint32_t y = 0 ;
+  uint32_t width = src_buffer.info.plane_info[0].width;
+  uint32_t height = src_buffer.info.plane_info[0].height;
+
+  if (crop_.ValidateCropData(src_buffer)) {
+    x = crop_.x;
+    y = crop_.y ;
+    width = crop_.width;
+    height = crop_.height;
+  } else if (aspect_ratio_preserve_) {
+
+    double in_ar = static_cast<double>(width) / height;
+    double out_ar = static_cast<double>(dst_buffer.info.plane_info[0].width) /
+                                        dst_buffer.info.plane_info[0].height;
+    /*save aspect ratio*/
+    if (in_ar > out_ar) {
+      width = out_ar * height;
+      x = (src_buffer.info.plane_info[0].width - width) / 2;
+    } else if (in_ar < out_ar) {
+      height = width / out_ar;
+      y = (src_buffer.info.plane_info[0].height - height) / 2;
+    }
+  }
+
   //default tuning should be generate internaly
   params.resn_tuning = nullptr;
 
-  params.src_luma = (unsigned char *)src_buffer.data;
-  auto luma_len = src_buffer.info.plane_info[0].stride *
-                  src_buffer.info.plane_info[0].scanline;
-  params.src_chroma = (unsigned char *)((intptr_t)params.src_luma + luma_len);
+  auto stride = VENUS_Y_STRIDE(COLOR_FMT_NV12, src_buffer.info.plane_info[0].width);
+  auto scanline = VENUS_Y_SCANLINES(COLOR_FMT_NV12, src_buffer.info.plane_info[0].height);
+
+  auto luma_len = stride * scanline;
+
+  if (luma_len > src_buffer.size) {
+    QMMF_ERROR("%s: Failed: Iinvalid luma length %d!", __func__, luma_len);
+    return RESIZER_STATUS_ERROR;
+  }
+
+  auto src_luma_offset = y * stride + x;
+
+  if (luma_len < src_luma_offset) {
+    QMMF_ERROR("%s: Failed: Iinvalid luma offset %d!", __func__,
+        src_luma_offset);
+    return RESIZER_STATUS_ERROR;
+  }
+
+  params.src_luma = reinterpret_cast<unsigned char *>((intptr_t)src_buffer.data
+      + src_luma_offset);
+
+  auto src_chroma_offset = (y/2) * stride + x;
+  src_chroma_offset += luma_len;
+
+  if (src_chroma_offset > src_buffer.size) {
+    QMMF_ERROR("%s: Failed: Iinvalid chroma offset %d!", __func__,
+        src_chroma_offset);
+    return RESIZER_STATUS_ERROR;
+  }
+
+  params.src_chroma =
+      reinterpret_cast<unsigned char *>((intptr_t)src_buffer.data +
+      src_chroma_offset);
 
   // Output data pointers
+  params.dst_luma = reinterpret_cast<unsigned char *>(dst_buffer.data);
+
   auto chroma_len = dst_buffer.info.plane_info[0].stride *
                     dst_buffer.info.plane_info[0].scanline;
-  params.dst_luma = (unsigned char *)dst_buffer.data;
-  params.dst_chroma = (unsigned char *)((intptr_t)params.dst_luma + chroma_len);
+  if (chroma_len > dst_buffer.size) {
+    QMMF_ERROR("%s: Failed: Iinvalid chroma len %d!", __func__, chroma_len);
+    return RESIZER_STATUS_ERROR;
+  }
+
+  params.dst_chroma =
+      reinterpret_cast<unsigned char *>((intptr_t)params.dst_luma + chroma_len);
 
   // Input buffer dimensions
-  params.src_width = src_buffer.info.plane_info[0].width;
-  params.src_height = src_buffer.info.plane_info[0].height;
-  params.src_stride = src_buffer.info.plane_info[0].stride;
+  params.src_width = width;
+  params.src_height = height;
+  params.src_stride = stride;
 
   // Output buffer dimensions
   params.dst_width = dst_buffer.info.plane_info[0].width;

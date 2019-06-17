@@ -37,6 +37,7 @@
 #include <vector>
 #include <mutex>
 #include <tuple>
+#include <set>
 
 #include <camera/CameraMetadata.h>
 
@@ -278,11 +279,13 @@ class RecorderImpl {
                         BnBuffer& buffer, MetaData& meta_data);
 
   /// Camera Result callback handler
-  void CameraResultCb(uint32_t client_id, uint32_t camera_id,
-                      const CameraMetadata &result);
+  void CameraResultCb(uint32_t camera_id, const CameraMetadata &result);
 
   /// Camera Error callback handler
-  void CameraErrorCb(uint32_t client_id, RecorderErrorData &error);
+  void CameraErrorCb(RecorderErrorData &error);
+
+  // Camera Flush Callback Handler
+  void CameraFlushCb(const uint32_t camera_id);
 
 /// @cond PRIVATE
  private:
@@ -313,14 +316,17 @@ class RecorderImpl {
   // <client id, <session_id, vector<client track id, service track id> > >
   typedef std::map<uint32_t, SessionTrackMap> ClientSessionMap;
 
-  // <client id, set<camera ids> >
-  typedef std::map<uint32_t, std::set<uint32_t> > ClientCameraIdMap;
+  // <client id, map<camera id, owned?> >
+  typedef std::map<uint32_t, std::map<uint32_t, bool> > ClientCameraIdMap;
 
   // <client id, ClientState>
   typedef std::map<uint32_t, ClientState> ClientStateMap;
 
   // <session_id, SessionState>
   typedef std::map<uint32_t, SessionState> ClientSessionStateMap;
+
+  // <camera id, set <track id> >
+  typedef std::map<uint32_t, std::set<uint32_t>> CameraTrackIdsMap;
 
   bool IsClientValid(const uint32_t& client_id);
   bool IsClientAlive(const uint32_t& client_id);
@@ -350,6 +356,8 @@ class RecorderImpl {
   uint32_t GetServiceTrackId(const uint32_t& client_id,
                              const uint32_t& track_id);
 
+  std::vector<uint32_t> GetCameraClients(const uint32_t& camera_id);
+
   uint32_t                      unique_session_id_;
 
   CameraSource*                 camera_source_;
@@ -363,7 +371,11 @@ class RecorderImpl {
   std::mutex                    client_session_lock_;
 
   ClientCameraIdMap             client_cameraid_map_;
+  QCondition                    slave_camera_closed_;
   std::mutex                    camera_map_lock_;
+
+  CameraTrackIdsMap             camera_tracks_map_;
+  std::mutex                    camera_tracks_lock_;
 
   ClientStateMap                client_state_;
   std::mutex                    client_state_lock_;

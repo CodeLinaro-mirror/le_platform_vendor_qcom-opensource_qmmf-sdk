@@ -63,8 +63,11 @@ namespace recorder {
 typedef int32_t status_t;
 
 enum class EventType {
-  kServerDied = 1,
-  kCameraError = 2,
+  kServerDied    = 1,
+  kCameraError   = 2,
+  kCameraOpened  = 3,
+  kCameraClosing = 4,
+  kCameraClosed  = 5,
 };
 
 typedef std::function<void(EventType event_type, void *event_data,
@@ -522,6 +525,15 @@ struct CameraStartParam {
     stream << "flags[" << flags << "]";
     return stream.str();
   };
+};
+
+/// @brief CameraFlags define the mode of the camera.
+enum CameraFlags {
+  /// Start camera in slave mode. In this mode the client requires the camera
+  /// to have been opened by another client as master. The client using the
+  /// camera in this mode can create sessions and tracks but can not capture
+  /// images of set/get camera parameters.
+  kCameraSlaveMode  = 1 << 0,
 };
 
 /// @brief For thumbnail images only kJPEG is supported

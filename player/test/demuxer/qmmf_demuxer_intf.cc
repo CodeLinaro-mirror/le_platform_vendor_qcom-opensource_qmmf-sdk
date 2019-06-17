@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016, 2018, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -35,9 +35,9 @@
 #include<unistd.h>
 #include<string.h>
 #include "qmmf_demuxer_intf.h"
-#include "MMDebugMsg.h"
-#include "MMMemory.h"
-#include "MMSignal.h"
+#include "mm-osal/include/MMDebugMsg.h"
+#include "mm-osal/include/MMMemory.h"
+#include "mm-osal/include/MMSignal.h"
 
 //! Events the filter thread processes.
 static const uint32 OPEN_FILE_SUCCESS_EVENT = 0;

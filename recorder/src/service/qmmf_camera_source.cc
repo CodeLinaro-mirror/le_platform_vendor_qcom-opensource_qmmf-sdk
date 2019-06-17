@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -34,6 +34,7 @@
 #include <dirent.h>
 #include <sys/mman.h>
 #include <sys/time.h>
+#include <json/json.h>
 
 
 #ifndef DISABLE_MULTICAM
@@ -55,6 +56,7 @@ namespace recorder {
 using ::std::make_shared;
 using ::std::shared_ptr;
 
+const uint32_t TrackSource::kWaitNumFrames_ = 5; //frames
 static const nsecs_t kWaitDuration = 5000000000; // 5 s.
 static const int32_t kDebugTrackFps = 1<<0;
 static const int32_t kDebugSourceTrackFps = 1<<1;
@@ -98,6 +100,34 @@ CameraSource::~CameraSource() {
   QMMF_INFO("%s: Exit (0x%p)", __func__, this);
 }
 
+status_t CameraSource::SetFlushCb(const uint32_t camera_id, FlushCb &cb) {
+
+  if (camera_map_.count(camera_id) == 0) {
+    QMMF_ERROR("%s: Camera Id(%d) is not opened!", __func__, camera_id);
+    return BAD_VALUE;
+  }
+
+  // Register Encoder Flush Cb
+  auto camera = camera_map_[camera_id];
+  camera->SetFlushCb(cb);
+
+  return NO_ERROR;
+}
+
+status_t CameraSource::FlushTrack(const uint32_t track_id) {
+
+  QMMF_DEBUG("%s: Enter", __func__);
+
+  if (!IsTrackIdValid(track_id)) {
+    QMMF_ERROR("%s: Track(%x) does not exist !!", __func__, track_id);
+    return NAME_NOT_FOUND;
+  }
+  auto const& track = track_sources_[track_id];
+  track->ClearInputQueue();
+
+  QMMF_DEBUG("%s: Exit", __func__);
+  return NO_ERROR;
+}
 status_t CameraSource::StartCamera(const uint32_t camera_id,
                                    const CameraStartParam &param,
                                    const ResultCb &cb,
@@ -130,6 +160,7 @@ status_t CameraSource::StartCamera(const uint32_t camera_id,
           __func__, camera_id);
       return NO_MEMORY;
     }
+
     // Add contexts to map when in regular camera case.
     camera_map_.emplace(camera_id, camera);
   }
@@ -418,9 +449,11 @@ bool CameraSource::ValidateSlaveTrackParam(
   if ((slave_track.params.format_type != VideoFormat::kHEVC) &&
       (slave_track.params.format_type != VideoFormat::kAVC) &&
       (slave_track.params.format_type != VideoFormat::kYUV) &&
+      (slave_track.params.format_type != VideoFormat::kRGB) &&
       (master_track.params.format_type != VideoFormat::kHEVC) &&
       (master_track.params.format_type != VideoFormat::kAVC) &&
-      (master_track.params.format_type != VideoFormat::kYUV)) {
+      (master_track.params.format_type != VideoFormat::kYUV) &&
+      (master_track.params.format_type != VideoFormat::kRGB)) {
     QMMF_ERROR("%s Invalid format:", __func__);
     return false;
   }
@@ -431,6 +464,36 @@ bool CameraSource::ValidateSlaveTrackParam(
     return false;
   }
   return true;
+}
+
+VideoFormat CameraSource::GetYUVFormatType(VideoFormat format_type) {
+
+  switch (format_type) {
+    case VideoFormat::kHEVC:
+    case VideoFormat::kAVC:
+    case VideoFormat::kYUV:
+      format_type = VideoFormat::kYUV;
+      break;
+    case VideoFormat::kRGB:
+    case VideoFormat::kJPEG:
+    case VideoFormat::kBayerRDI8BIT:
+    case VideoFormat::kBayerRDI10BIT:
+    case VideoFormat::kBayerRDI12BIT:
+    case VideoFormat::kBayerIdeal:
+      break;
+  }
+  return format_type;
+}
+
+bool CameraSource::IsFormatChanged(VideoFormat src_format_type,
+                     VideoFormat dst_format_type) {
+
+  if (GetYUVFormatType(src_format_type) ==
+      GetYUVFormatType(dst_format_type)) {
+    return true;
+  } else {
+    return false;
+  }
 }
 
 bool CameraSource::CheckLinkedStream(
@@ -448,19 +511,42 @@ bool CameraSource::CheckLinkedStream(
   if ((slave_track.params.format_type != VideoFormat::kHEVC) &&
       (slave_track.params.format_type != VideoFormat::kAVC) &&
       (slave_track.params.format_type != VideoFormat::kYUV) &&
+      (slave_track.params.format_type != VideoFormat::kRGB) &&
       (master_track.params.format_type != VideoFormat::kHEVC) &&
       (master_track.params.format_type != VideoFormat::kAVC) &&
-      (master_track.params.format_type != VideoFormat::kYUV)) {
+      (master_track.params.format_type != VideoFormat::kYUV) &&
+      (master_track.params.format_type != VideoFormat::kRGB)) {
     QMMF_ERROR("%s Invalid format:", __func__);
     return false;
   }
 
-  if((slave_track.params.width ==  master_track.params.width) ||
-      (slave_track.params.height == master_track.params.height)) {
-    QMMF_ERROR("%s Same size:", __func__);
+  if((slave_track.params.width ==  master_track.params.width) &&
+      (slave_track.params.height == master_track.params.height) &&
+       IsFormatChanged(master_track.params.format_type,
+                       slave_track.params.format_type)) {
+    QMMF_ERROR("%s Same size and format.", __func__);
     return true;
   }
   return false;
+}
+
+std::string CameraSource::GetRescalerConfig(const VideoTrackParams& track_params) {
+  Json::Value root(Json::objectValue);
+  if (track_params.extra_param.Exists(QMMF_TRACK_CROP)) {
+    TrackCrop crop;
+    track_params.extra_param.Fetch(QMMF_TRACK_CROP, crop);
+    root["crop"]["width"] = crop.width;
+    root["crop"]["height"] = crop.height;
+    root["crop"]["x"] = crop.x;
+    root["crop"]["y"] = crop.y;
+    QMMF_INFO("%s Crop applied successfully!", __func__);
+  } else {
+    QMMF_INFO("%s Crop param doesn't exist so it's not applied!", __func__);
+  }
+
+  Json::FastWriter fastWriter;
+  auto config = fastWriter.write(root);
+  return config;
 }
 
 status_t CameraSource::CreateTrackSource(const uint32_t track_id,
@@ -480,6 +566,7 @@ status_t CameraSource::CreateTrackSource(const uint32_t track_id,
   int32_t port_track_id = -1;
   bool copy_stream_mode = false;
   bool linked_mode = false;
+  VideoTrackParams source_track_params {};
 
   int32_t source_track_id = GetSourceTrackId(track_params.extra_param);
   if (source_track_id != NAME_NOT_FOUND) {
@@ -510,6 +597,7 @@ status_t CameraSource::CreateTrackSource(const uint32_t track_id,
       }
       if (port_track_id != -1) {
         copy_stream_mode = true;
+        source_track_params = track->getParams();
         QMMF_INFO("%s: Copy stream should be create.", __func__);
       }
     } else {
@@ -538,12 +626,15 @@ status_t CameraSource::CreateTrackSource(const uint32_t track_id,
             Common::FromVideoToQmmfFormat(track_params.params.format_type);
         ret = rescaler->Init(track_params.params.width,
                              track_params.params.height,
-                             format);
+                             format,
+                             source_track_params.params.frame_rate,
+                             track_params.params.frame_rate);
         if (ret != NO_ERROR) {
           rescaler = nullptr;
           QMMF_ERROR("%s: Rescaler Init Failed", __func__);
           return BAD_VALUE;
         }
+        rescaler->Configure(GetRescalerConfig(track_params));
         rescalers_.emplace(track_id, rescaler);
       } else {
         QMMF_ERROR("%s: GET Copy TrackSource Instance trackId: %x",
@@ -567,6 +658,10 @@ status_t CameraSource::CreateTrackSource(const uint32_t track_id,
       rescalers_.erase(track_id);
     }
   } else {
+    if (track_params.params.format_type == VideoFormat::kRGB) {
+      QMMF_ERROR("%s Unsupported format: RGB", __func__);
+      goto FAIL;
+    }
     ret = track_source->Init();
   }
 
@@ -835,13 +930,13 @@ bool CameraSource::IsTrackIdValid(const uint32_t track_id) {
   return (track_sources_.count(track_id) != 0) ? true : false;
 }
 
-uint32_t CameraSource::GetJpegSize(uint8_t *blobBuffer, uint32_t width) {
+uint32_t CameraSource::GetJpegSize(uint8_t *blobBuffer, uint32_t size) {
 
-  uint32_t ret = width;
+  uint32_t ret = size;
   uint32_t blob_size = sizeof(struct camera3_jpeg_blob);
 
-  if (width > blob_size) {
-    size_t offset = width - blob_size - JPEG_BLOB_OFFSET;
+  if (size > blob_size) {
+    size_t offset = size - blob_size - JPEG_BLOB_OFFSET;
     uint8_t *footer = blobBuffer + offset;
     struct camera3_jpeg_blob *jpegBlob = (struct camera3_jpeg_blob *)footer;
 
@@ -851,8 +946,8 @@ uint32_t CameraSource::GetJpegSize(uint8_t *blobBuffer, uint32_t width) {
       QMMF_ERROR("%s Jpeg Blob structure missing!\n", __func__);
     }
   } else {
-    QMMF_ERROR("%s Buffer width: %u equal or smaller than Blob size: %u\n",
-        __func__, width, blob_size);
+    QMMF_ERROR("%s Buffer size: %u equal or smaller than Blob size: %u\n",
+        __func__, size, blob_size);
   }
   return ret;
 }
@@ -1020,7 +1115,7 @@ void CameraSource::SnapshotCallback(uint32_t count, StreamBuffer& buffer) {
       assert(vaddr != nullptr);
       assert(0 < buffer.info.num_planes);
       content_size = GetJpegSize((uint8_t*) vaddr,
-                                 buffer.info.plane_info[0].width);
+                                 buffer.info.plane_info[0].size);
       QMMF_INFO("%s: jpeg buffer size(%d)", __func__, content_size);
       assert(0 < content_size);
       if (buffer.second_thumb) {
@@ -1065,7 +1160,7 @@ TrackSource::TrackSource(const VideoTrackParams& params,
     : track_params_(params),
       is_stop_(false),
       eos_acked_(false),
-      is_idle_(false),
+      is_idle_(true),
       active_overlays_(0),
       input_count_(0),
       count_(0),
@@ -1104,6 +1199,11 @@ TrackSource::TrackSource(const VideoTrackParams& params,
   QMMF_INFO("%s: input_frame_interval_(%f) & output_frame_interval_(%f) & "
       "remaining_frame_skip_time_(%f)",  __func__, input_frame_interval_,
       output_frame_interval_, remaining_frame_skip_time_);
+
+  auto wait = output_frame_interval_ * 1000 * kWaitNumFrames_;
+  wait_duration_ = wait < kWaitDuration ? kWaitDuration : wait;
+  QMMF_INFO("%s: track_id(%x) wait_duration_:(%lld) ns",
+      __func__, TrackId(), wait_duration_);
 
   if (track_params_.extra_param.Exists(QMMF_VIDEO_ROTATE)) {
     VideoRotate video_rotate;
@@ -1191,6 +1291,8 @@ status_t TrackSource::InitCopy(shared_ptr<TrackSource> master_track_source,
                                int32_t port_track_id,
                                int32_t track_id_master) {
 
+  QMMF_DEBUG("%s: Enter track_id(%x)", __func__, TrackId());
+  status_t result = 0;
   assert(master_track_source.get() != nullptr);
   master_track_ = master_track_source;
 
@@ -1204,8 +1306,17 @@ status_t TrackSource::InitCopy(shared_ptr<TrackSource> master_track_source,
   } else {
     rescaler_ = rescaler;
   }
+#ifndef DISABLE_OVERLAY
+  result = overlay_.Init(TargetBufferFormat::kYUVNV12);
+  if (result != 0) {
+    QMMF_ERROR("%s: Failed to initialize overlay for copy track(%x)", __func__,
+        TrackId());
+    return result;
+  }
+#endif
 
-  return NO_ERROR;
+  QMMF_DEBUG("%s: Exit track_id(%x)", __func__, TrackId());
+  return result;
 }
 
 status_t TrackSource::Init() {
@@ -1347,7 +1458,8 @@ status_t TrackSource::StopTrack(bool is_force_cleanup) {
   //    the status:kPortIdle, and at this point client's stop method can be
   //    returned.
 
-  if (track_params_.params.format_type == VideoFormat::kYUV ||
+  if (track_params_.params.format_type == VideoFormat::kRGB ||
+      track_params_.params.format_type == VideoFormat::kYUV ||
       track_params_.params.format_type == VideoFormat::kBayerRDI8BIT ||
       track_params_.params.format_type == VideoFormat::kBayerRDI10BIT ||
       track_params_.params.format_type == VideoFormat::kBayerRDI12BIT ||
@@ -1503,7 +1615,7 @@ status_t TrackSource::GetBuffer(BufferDescriptor& buffer,
 
   {
     std::unique_lock<std::mutex> lock(frame_lock_);
-    std::chrono::nanoseconds wait_time(kWaitDuration);
+    std::chrono::nanoseconds wait_time(GetWaitTime());
     while (frames_received_.Size() == 0) {
       QMMF_DEBUG("%s: track_id(%x) Wait for bufferr!!", __func__,
           TrackId());
@@ -1740,6 +1852,7 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
   // If format type is YUV or BAYER then give callback from this point, do not
   // feed buffer to Encoder.
   if (track_params_.params.format_type == VideoFormat::kYUV ||
+      track_params_.params.format_type == VideoFormat::kRGB ||
       track_params_.params.format_type == VideoFormat::kBayerRDI8BIT ||
       track_params_.params.format_type == VideoFormat::kBayerRDI10BIT ||
       track_params_.params.format_type == VideoFormat::kBayerRDI12BIT ||
@@ -1974,7 +2087,16 @@ void TrackSource::UpdateFrameRate(const float frame_rate) {
           __func__, TrackId(), track_params_.params.frame_rate, frame_rate);
     track_params_.params.frame_rate = frame_rate;
     output_frame_interval_ = 1000000.0 / frame_rate;
+    auto wait = output_frame_interval_ * 1000 * kWaitNumFrames_;
+    wait_duration_ = wait < kWaitDuration ? kWaitDuration : wait;
+    QMMF_INFO("%s: track_id(%x) wait_duration_:(%lld) ns",
+        __func__, TrackId(), wait_duration_);
   }
+}
+
+uint64_t TrackSource::GetWaitTime(){
+  std::lock_guard<std::mutex> autoLock(frame_skip_lock_);
+  return wait_duration_;
 }
 
 void TrackSource::EnableFrameRepeat(const bool enable_frame_repeat) {

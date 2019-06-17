@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -54,6 +54,9 @@ enum ParamTag {
   QMMF_VIDEO_ROTATE,
   QMMF_EXIF,
   QMMF_VIDEO_HDR_MODE,
+  QMMF_TRACK_CROP,
+  QMMF_FORCE_SENSOR_MODE,
+  QMMF_EIS,
 };
 
 enum class RotationFlags {
@@ -222,10 +225,12 @@ struct ImageThumbnail : DataTagBase {
 };
 
 struct SnapshotType : DataTagBase {
-  SnapshotMode type;
+  /**< This is to change the Snapshot type */
+  /**< Supported Modes are: kStill, kStillPlusRaw, kVideo, kContinuous. */
+  SnapshotMode type;  // Default: kVideo
   SnapshotType()
     : DataTagBase(QMMF_SNAPSHOT_TYPE),
-      type(SnapshotMode::kStill) {}
+      type(SnapshotMode::kVideo) {}
 };
 
 struct VideoWaitAECMode : DataTagBase {
@@ -258,6 +263,44 @@ struct VideoHDRMode : DataTagBase {
   VideoHDRMode()
     : DataTagBase(QMMF_VIDEO_HDR_MODE),
       enable(false) {}
+};
+
+struct TrackCrop : DataTagBase {
+  // Y-axis coordinate of the crop rectangle top left starting point.
+  // The coordinate system begins from the top left corner of the source.
+  uint32_t x;         // Default: 0
+  // X-axis coordinate of the crop rectangle top left starting point.
+  // The coordinate system begins from the top left corner of the source.
+  uint32_t y;         // Default: 0
+  // Width in pixels of the crop rectangle.
+  uint32_t width;     // Default: 0
+  // Height in pixels of the crop rectangle.
+  uint32_t height;    // Default: 0
+
+  TrackCrop()
+    : DataTagBase(QMMF_TRACK_CROP),
+       x(0), y(0), width(0), height(0) {}
+};
+
+struct ForceSensorMode : DataTagBase {
+  int32_t  mode;    // Default: -1 to disable ForceSensorMode
+  ForceSensorMode()
+    : DataTagBase(QMMF_FORCE_SENSOR_MODE),
+      /**< Index of sensor mode to be passed by the application. */
+      /**< Application needs to set the mode only once, attach this tag */
+      /**< to only one of the tracks. Once all tracks are deleted, */
+      /**< framework will return to auto mode selection. */
+      /**< Force Sensor Mode index starts with 0. To disable this feature, */
+      /**< set it to -1 in any one track, to allow auto mode selection. */
+      mode(-1) {}
+};
+
+struct EISSetup : DataTagBase {
+  bool enable; // Default: false to disable EIS
+  EISSetup() :
+    DataTagBase(QMMF_EIS),
+    enable(false) {
+  }
 };
 
 }; //namespace recorder.

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018, 2019, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -231,11 +231,14 @@ class IAllocDevice {
   /** AllocDeviceAction
   * @GetStride - reads stride from handle
   * @GetHeight - reads height from handle
+  * @GetAlignedWidth - reads aligned width in pixels from handle
+  * @GetAlignedHeight - reads aligned height in pixels from handle
   *
   * Enumeration type for performing action on BufferHandler.
   *
   **/
-  enum class AllocDeviceAction {GetStride, GetHeight};
+  enum class AllocDeviceAction {GetStride, GetHeight,
+                                GetAlignedWidth, GetAlignedHeight};
 
   virtual ~IAllocDevice(){};
 
@@ -324,6 +327,7 @@ class IAllocDevice {
 class AllocDeviceFactory {
  public:
   static IAllocDevice* CreateAllocDevice();
+  static void DestroyAllocDevice(IAllocDevice* alloc_device_interface);
 };
 
 /** AllocUsageFactory

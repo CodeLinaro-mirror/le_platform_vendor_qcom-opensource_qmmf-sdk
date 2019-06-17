@@ -31,7 +31,7 @@
 
 #include "recorder/src/service/qmmf_recorder_utils.h"
 
-#include "../interface/qmmf_postproc.h"
+#include "interface/qmmf_postproc.h"
 #include "../node/qmmf_postproc_node.h"
 
 #include "qmmf_postproc_pipe.h"

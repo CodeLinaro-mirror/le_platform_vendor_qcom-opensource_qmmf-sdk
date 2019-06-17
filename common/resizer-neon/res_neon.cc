@@ -29,39 +29,183 @@
 
 #define LOG_TAG "res_neon"
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <iostream>
+#include <cstring>
+#include <numeric>
 
-#include <time.h>
-
-#include <utils/Log.h>
+#include "common/utils/qmmf_log.h"
 
 #include "res_neon.h"
 #include "res_neon_prv.h"
-
-#define _ARM_NEON_SUPPORT_
 
 namespace qmmf {
 
 namespace neonresizer {
 
-static void* neon_thread_y_pass(void* arg);
-static void* neon_thread_uv_pass(void* arg);
+const char NeonCore::version_[] = "1.0.0.0";
 
-static char version[] = {
-#include "lib_version.txt"
+const std::map<ResMethod, pfunc> NeonThrdArgs::func_y_ = {
+
+      {ResMethod::kRES_BILINEAR_V_SKIP, LumaProcessBilinearVSkipNEON},
+      {ResMethod::kRES_BILINEAR,        LumaProcessBilinearNEON},
 };
 
-/** resn_get_version
- *
- * Returns lib version
- *
- * return: lib version
- **/
-char* resn_get_version() { return version; }
+const std::map<ResMethod, pfunc> NeonThrdArgs::func_uv_ = {
 
-#ifdef _ARM_NEON_SUPPORT_
+      {ResMethod::kRES_BILINEAR_V_SKIP, ChromaProcessBilinearVSkipNEON},
+      {ResMethod::kRES_BILINEAR,        ChromaProcessBilinearNEON},
+};
+
+NeonThrdArgs::NeonThrdArgs()
+ : thread_(nullptr), img_(),
+   thread_started_(false), thread_ready_(false), thread_active_(true) {
+
+  QMMF_DEBUG("%s: Enter", __func__);
+  QMMF_DEBUG("%s: Exit", __func__);
+}
+
+NeonThrdArgs::~NeonThrdArgs() {
+  QMMF_DEBUG("%s: Enter", __func__);
+  QMMF_DEBUG("%s: Exit", __func__);
+}
+
+ResnStatus NeonThrdArgs::CreateYPass() {
+  thread_ = new std::thread(NeonThreadYPass, this);
+  if (thread_ == nullptr) {
+    return ResnStatus::kRESN_FAILED_TO_CREATE_WORK_THREADS;
+  }
+  return ResnStatus::kRESN_SUCCESS;
+}
+
+ResnStatus NeonThrdArgs::CreateUVPass() {
+  thread_ = new std::thread(NeonThreadUVPass, this);
+  if (thread_ == nullptr) {
+    return ResnStatus::kRESN_FAILED_TO_CREATE_WORK_THREADS;
+  }
+  return ResnStatus::kRESN_SUCCESS;
+}
+
+void NeonThrdArgs::DeleteYUVPass() {
+  {
+    std::unique_lock<std::mutex> lk(lock_);
+    thread_active_ = false;
+    signal_thread_.Signal();
+  }
+
+  thread_->join();
+  delete(thread_);
+  thread_ = nullptr;
+  InitThreadFlags();
+}
+
+void NeonThrdArgs::setImg(NeonImgArgs& img_in) {
+  std::unique_lock<std::mutex> lk(lock_);
+  img_ = img_in;
+}
+
+NeonImgArgs& NeonThrdArgs::getImg() {
+  std::unique_lock<std::mutex> lk(lock_);
+  return img_;
+}
+
+void NeonThrdArgs::Start() {
+  std::unique_lock<std::mutex> lk(lock_);
+  thread_started_ = true;
+  signal_thread_.Signal();
+}
+
+void NeonThrdArgs::WaitReady() {
+  std::chrono::nanoseconds wait_time(kFrameTimeout);
+  std::unique_lock<std::mutex> lk(lock_);
+  while (!thread_ready_) {
+    auto ret = signal_base_.WaitFor(lk, wait_time);
+    if (ret != 0) {
+      QMMF_DEBUG("%s: Wait for ready timed out", __func__);
+      return;
+    }
+  }
+  thread_ready_ = false;
+}
+
+void NeonThrdArgs::Done() {
+  std::unique_lock<std::mutex> lk(lock_);
+  thread_ready_ = true;
+  signal_base_.Signal();
+}
+
+void* NeonThrdArgs::NeonThreadYPass(void* arg) {
+  NeonThrdArgs* n_thrd_arg = reinterpret_cast<NeonThrdArgs*>(arg);
+  std::shared_ptr<NeonImgArgs> thrd_arg;
+  bool thread_active = true;
+
+  if (NULL == n_thrd_arg) {
+    thread_active = false;
+    return NULL;
+  }
+
+  std::chrono::nanoseconds wait_time(kFrameTimeout);
+  while (thread_active) {
+    {
+      std::unique_lock<std::mutex> lk(n_thrd_arg->lock_);
+      while (!n_thrd_arg->thread_started_ && n_thrd_arg->thread_active_) {
+        auto ret = n_thrd_arg->signal_thread_.WaitFor(lk, wait_time);
+        if (ret != 0) {
+          QMMF_INFO("%s: Wait for YPass timed out", __func__);
+          return NULL;
+        }
+      }
+      n_thrd_arg->thread_started_ = false;
+      thrd_arg = std::make_shared<NeonImgArgs>(n_thrd_arg->img_);
+      if (!n_thrd_arg->thread_active_) {
+        thread_active = false;
+        break;
+      }
+    }
+
+    func_y_.find(n_thrd_arg->getMethod())->second(thrd_arg);
+
+    n_thrd_arg->Done();
+  }
+
+  return NULL;
+}
+
+void* NeonThrdArgs::NeonThreadUVPass(void* arg) {
+  NeonThrdArgs* n_thrd_arg = reinterpret_cast<NeonThrdArgs*>(arg);
+  std::shared_ptr<NeonImgArgs> thrd_arg;
+  bool thread_active = true;
+
+  if (NULL == n_thrd_arg) {
+    thread_active = false;
+    return NULL;
+  }
+
+  std::chrono::nanoseconds wait_time(kFrameTimeout);
+  while (thread_active) {
+    {
+      std::unique_lock<std::mutex> lk(n_thrd_arg->lock_);
+      while (!n_thrd_arg->thread_started_ && n_thrd_arg->thread_active_) {
+        auto ret = n_thrd_arg->signal_thread_.WaitFor(lk, wait_time);
+        if (ret != 0) {
+          QMMF_INFO("%s: Wait for YPass timed out", __func__);
+          return NULL;
+        }
+      }
+      n_thrd_arg->thread_started_ = false;
+      thrd_arg = std::make_shared<NeonImgArgs>(n_thrd_arg->img_);
+      if (!n_thrd_arg->thread_active_) {
+        thread_active = false;
+        break;
+      }
+    }
+
+    func_uv_.find(n_thrd_arg->getMethod())->second(thrd_arg);
+
+    n_thrd_arg->Done();
+  }
+
+  return NULL;
+}
 
 /** LumaProcessBilinearVSkikNEON
  *
@@ -71,7 +215,9 @@ char* resn_get_version() { return version; }
  *
  * return:
  **/
-static void LumaProcessBilinearVSkipNEON(neon_thrd_args* n_thrd_arg) {
+void NeonThrdArgs::LumaProcessBilinearVSkipNEON(
+    std::shared_ptr<NeonImgArgs> n_thrd_arg) {
+
   uint32_t row, col;
   uint8_t *src, *src0, *src1, *src2, *src3, *src4, *src5, *src6, *src7;
   uint16_t* pcoef;
@@ -165,7 +311,9 @@ static void LumaProcessBilinearVSkipNEON(neon_thrd_args* n_thrd_arg) {
  *
  * return:
  **/
-static void LumaProcessBilinearNEON(neon_thrd_args* n_thrd_arg) {
+void NeonThrdArgs::LumaProcessBilinearNEON(
+    std::shared_ptr<NeonImgArgs> n_thrd_arg) {
+
   uint32_t row, col;
   uint8_t *src, *src0, *src1, *src2, *src3, *src4, *src5, *src6, *src7;
   uint16_t* pcoef;
@@ -322,7 +470,9 @@ static void LumaProcessBilinearNEON(neon_thrd_args* n_thrd_arg) {
  *
  * return:
  **/
-static void ChromaProcessBilinearVSkipNEON(neon_thrd_args* n_thrd_arg) {
+void NeonThrdArgs::ChromaProcessBilinearVSkipNEON(
+    std::shared_ptr<NeonImgArgs> n_thrd_arg) {
+
   uint32_t row, col;
   uint8_t *src, *src0, *src1, *src2, *src3;
   uint16_t* pcoef;
@@ -400,7 +550,9 @@ static void ChromaProcessBilinearVSkipNEON(neon_thrd_args* n_thrd_arg) {
  *
  * return:
  **/
-static void ChromaProcessBilinearNEON(neon_thrd_args* n_thrd_arg) {
+void NeonThrdArgs::ChromaProcessBilinearNEON(
+    std::shared_ptr<NeonImgArgs> n_thrd_arg) {
+
   uint32_t row, col;
   uint8_t *src, *src0, *src1, *src2, *src3;
   uint16_t* pcoef;
@@ -512,399 +664,64 @@ static void ChromaProcessBilinearNEON(neon_thrd_args* n_thrd_arg) {
           : "q0", "q1", "q2", "q3", "q4", "q5", "q6", "q7", "q8", "q9",
             "memory", "cc");
       dst += 8;
-      // if ((row == 1) && (col == 0)) {
-      //  ALOGE("Results %d %d %d %d %d %d %d %d", *(dst - 8), *(dst - 7),
-      //        *(dst - 6), *(dst - 5), *(dst - 4), *(dst - 3), *(dst - 2),
-      //        *(dst - 1));
-      //}
     }
     dst += (stride - width);
   }
 }
-#else
 
-/** LumaProcessBilinearVSkip
+NeonCore::NeonCore() : ctx_(nullptr), num_threads_(8) {
+  QMMF_DEBUG("%s: Enter", __func__);
+  QMMF_DEBUG("%s: Exit", __func__);
+}
+
+NeonCore::~NeonCore() {
+  QMMF_DEBUG("%s: Enter", __func__);
+  QMMF_DEBUG("%s: Exit", __func__);
+}
+
+/** resn_get_version
  *
- * @n_thrd_arg: struct with input thread parameters
+ * Returns lib version
  *
- * Resize Luma Process function
- *
- * return:
+ * return: lib version
  **/
-static void LumaProcessBilinearVSkip(neon_thrd_args* n_thrd_arg) {
-  uint32_t row, col;
-  uint32_t res_val;
-  uint32_t w_ind, h_ind;
-  uint32_t offset;
-  uint16_t w_rem, h_rem;
-  uint8_t* src;
-
-  uint8_t* src_luma = n_thrd_arg->src_luma;
-  uint8_t* dst =
-      n_thrd_arg->dst_luma + n_thrd_arg->line_start * n_thrd_arg->stride;
-  uint32_t w_coef = n_thrd_arg->w_coef;
-  uint32_t h_coef = n_thrd_arg->h_coef;
-  uint32_t line_start = n_thrd_arg->line_start;
-  uint32_t line_end = n_thrd_arg->line_end;
-  uint32_t width = n_thrd_arg->width;
-  uint32_t stride = n_thrd_arg->stride;
-  uint32_t src_stride = n_thrd_arg->src_stride;
-
-  for (row = line_start; row < line_end; row++) {
-    h_ind = row * h_coef;
-    h_rem = h_ind - ((h_ind >> 8) << 8);
-    h_ind = ((h_ind - h_rem) >> 8);
-    for (col = 0; col < width; col++) {
-      w_ind = col * w_coef;
-      w_rem = w_ind - ((w_ind >> 8) << 8);
-      w_ind = ((w_ind - w_rem) >> 8);
-      offset = h_ind * src_stride + w_ind;
-      src = src_luma + offset;
-      res_val = ((src[0] * (256 - w_rem) + src[1] * w_rem + (1 << 4)) >> 8);
-
-      if (res_val > 255) res_val = 255;
-
-      *dst++ = (uint8_t)res_val;
-    }
-    dst += (stride - width);
-  }
-}
-
-/** LumaProcessBilinear
- *
- * @n_thrd_arg: struct with input thread parameters
- *
- * Resize Luma Process function
- *
- * return:
- **/
-static void LumaProcessBilinear(neon_thrd_args* n_thrd_arg) {
-  uint32_t row, col;
-  uint32_t res_val, res_val_row1, res_val_row2;
-  uint32_t w_ind, h_ind;
-  uint32_t offset;
-  uint16_t w_rem, h_rem;
-
-  uint8_t* src_luma = n_thrd_arg->src_luma;
-  uint8_t* dst =
-      n_thrd_arg->dst_luma + n_thrd_arg->line_start * n_thrd_arg->stride;
-  uint32_t w_coef = n_thrd_arg->w_coef;
-  uint32_t h_coef = n_thrd_arg->h_coef;
-  uint32_t line_start = n_thrd_arg->line_start;
-  uint32_t line_end = n_thrd_arg->line_end;
-  uint32_t width = n_thrd_arg->width;
-  uint32_t stride = n_thrd_arg->stride;
-  uint32_t src_stride = n_thrd_arg->src_stride;
-
-  for (row = line_start; row < line_end; row++) {
-    for (col = 0; col < width; col++) {
-      w_ind = col * w_coef;
-      h_ind = row * h_coef;
-      w_rem = w_ind - ((w_ind >> 8) << 8);
-      w_ind = ((w_ind - w_rem) >> 8);
-      h_rem = h_ind - ((h_ind >> 8) << 8);
-      h_ind = ((h_ind - h_rem) >> 8);
-      offset = h_ind * src_stride + w_ind;
-      res_val_row1 =
-          src_luma[offset] * (256 - w_rem) + src_luma[offset + 1] * w_rem;
-
-      res_val_row2 = src_luma[offset + src_stride] * (256 - w_rem) +
-                     src_luma[offset + src_stride + 1] * w_rem;
-
-      res_val =
-          (res_val_row1 * (256 - h_rem) + res_val_row2 * h_rem + (1 << 8)) >>
-          16;
-
-      if (res_val > 255) res_val = 255;
-
-      *dst++ = (uint8_t)res_val;
-    }
-    dst += (stride - width);
-  }
-}
-
-/** ChromaProcessBilinearVSkip
- *
- * @n_thrd_arg: struct with input thread parameters
- *
- * Resize Luma Process function
- *
- * return:
- **/
-static void ChromaProcessBilinearVSkip(neon_thrd_args* n_thrd_arg) {
-  uint32_t row, col;
-  uint32_t res_val[2];
-  uint32_t w_ind, h_ind;
-  uint32_t offset;
-  uint16_t w_rem, h_rem;
-
-  uint8_t* src_chroma = n_thrd_arg->src_chroma;
-  uint8_t* dst =
-      n_thrd_arg->dst_chroma + n_thrd_arg->line_start * n_thrd_arg->stride / 2;
-  uint32_t w_coef = n_thrd_arg->w_coef;
-  uint32_t h_coef = n_thrd_arg->h_coef;
-  uint32_t line_start = n_thrd_arg->line_start;
-  uint32_t line_end = n_thrd_arg->line_end;
-  uint32_t width = n_thrd_arg->width;
-  uint32_t stride = n_thrd_arg->stride;
-  uint32_t src_stride = n_thrd_arg->src_stride;
-
-  for (row = (line_start / 2); row < (line_end / 2); row++) {
-    for (col = 0; col < (width / 2); col++) {
-      w_ind = col * w_coef;
-      h_ind = row * h_coef;
-      w_rem = w_ind - ((w_ind >> 8) << 8);
-      w_ind = ((w_ind - w_rem) >> 8);
-      h_rem = h_ind - ((h_ind >> 8) << 8);
-      h_ind = ((h_ind - h_rem) >> 8);
-      offset = h_ind * src_stride + w_ind * 2;
-      res_val[0] = ((src_chroma[offset] * (256 - w_rem) +
-                     src_chroma[offset + 2] * w_rem + (1 << 4)) >>
-                    8);
-      res_val[1] = ((src_chroma[offset + 1] * (256 - w_rem) +
-                     src_chroma[offset + 3] * w_rem + (1 << 4)) >>
-                    8);
-
-      if (res_val[0] > 255) res_val[0] = 255;
-      if (res_val[1] > 255) res_val[1] = 255;
-
-      *dst++ = (uint8_t)res_val[0];
-      *dst++ = (uint8_t)res_val[1];
-    }
-    dst += (stride - width);
-  }
-}
-
-/** ChromaProcessBilinear
- *
- * @n_thrd_arg: struct with input thread parameters
- *
- * Resize Luma Process function
- *
- * return:
- **/
-static void ChromaProcessBilinear(neon_thrd_args* n_thrd_arg) {
-  uint32_t row, col;
-  uint32_t res_val[2], res_val_row1[2], res_val_row2[2];
-  uint32_t w_ind, h_ind;
-  uint32_t offset;
-  uint16_t w_rem, h_rem;
-
-  uint8_t* src_chroma = n_thrd_arg->src_chroma;
-  uint8_t* dst =
-      n_thrd_arg->dst_chroma + n_thrd_arg->line_start * n_thrd_arg->stride / 2;
-  uint32_t w_coef = n_thrd_arg->w_coef;
-  uint32_t h_coef = n_thrd_arg->h_coef;
-  uint32_t line_start = n_thrd_arg->line_start;
-  uint32_t line_end = n_thrd_arg->line_end;
-  uint32_t width = n_thrd_arg->width;
-  uint32_t stride = n_thrd_arg->stride;
-  uint32_t src_stride = n_thrd_arg->src_stride;
-
-  ALOGE("N start end %d %d %d ", n_thrd_arg->tid, line_start, line_end);
-
-  for (row = (line_start / 2); row < (line_end / 2); row++) {
-    for (col = 0; col < (width / 2); col++) {
-      w_ind = col * w_coef;
-      h_ind = row * h_coef;
-      w_rem = w_ind - ((w_ind >> 8) << 8);
-      w_ind = ((w_ind - w_rem) >> 8);
-      h_rem = h_ind - ((h_ind >> 8) << 8);
-      h_ind = ((h_ind - h_rem) >> 8);
-      offset = h_ind * src_stride + w_ind * 2;
-      res_val_row1[0] =
-          (src_chroma[offset] * (256 - w_rem) + src_chroma[offset + 2] * w_rem);
-      res_val_row1[1] = (src_chroma[offset + 1] * (256 - w_rem) +
-                         src_chroma[offset + 3] * w_rem);
-
-      res_val_row2[0] = (src_chroma[offset + src_stride] * (256 - w_rem) +
-                         src_chroma[offset + src_stride + 2] * w_rem);
-      res_val_row2[1] = (src_chroma[offset + src_stride + 1] * (256 - w_rem) +
-                         src_chroma[offset + src_stride + 3] * w_rem);
-
-      res_val[0] = (res_val_row1[0] * (256 - h_rem) + res_val_row2[0] * h_rem +
-                    (1 << 8)) >>
-                   16;
-
-      res_val[1] = (res_val_row1[1] * (256 - h_rem) + res_val_row2[1] * h_rem +
-                    (1 << 8)) >>
-                   16;
-
-      if (res_val[0] > 255) res_val[0] = 255;
-      if (res_val[1] > 255) res_val[1] = 255;
-
-      *dst++ = (uint8_t)res_val[0];
-      *dst++ = (uint8_t)res_val[1];
-    }
-    dst += (stride - width);
-  }
-}
-
-#endif  //_ARM_NEON_SUPPORT_
-
-/** UpdateInternalBuffs
-*
-* @ctx: internal data pointer
-* @resn: resize input data structure
-* Update internal buffers
-*
-* return:
-**/
-static resn_status_t UpdateInternalBuffs(resn_cnt_t* ctx, resn_t* resn) {
-  resn_status_t status = RESN_SUCCESS;
-  bool update_coefs = false;
-  if ((resn->src_width != ctx->src_width) ||
-      (resn->src_height != ctx->src_height) ||
-      (resn->dst_width != ctx->dst_width) ||
-      (resn->dst_height != ctx->dst_height)) {
-    ctx->src_width = resn->src_width;
-    ctx->src_height = resn->src_height;
-    ctx->dst_width = resn->dst_width;
-    ctx->dst_height = resn->dst_height;
-    update_coefs = true;
-  }
-
-  if (update_coefs) {
-    free(ctx->y_coefs);
-    free(ctx->uv_coefs);
-    free(ctx->ver_offsets);
-    free(ctx->ver_coefs);
-    free(ctx->input_offsets);
-
-    ctx->y_coefs = (uint16_t*)malloc(ctx->dst_width * sizeof(uint16_t));
-    if (ctx->y_coefs == nullptr) {
-      ALOGE("%s: Mem allocation failed!", __func__);
-      status = RESN_ERR_NO_MEMORY;
-      return status;
-    }
-    ctx->uv_coefs = (uint16_t*)malloc(ctx->dst_width * sizeof(uint16_t));
-    if (ctx->uv_coefs == nullptr) {
-      ALOGE("%s: Mem allocation failed!", __func__);
-      free(ctx->y_coefs);
-      status = RESN_ERR_NO_MEMORY;
-      return status;
-    }
-    ctx->input_offsets = (uint16_t*)malloc(ctx->dst_width * sizeof(uint16_t));
-    if (ctx->input_offsets == nullptr) {
-      ALOGE("%s: Mem allocation failed!", __func__);
-      free(ctx->uv_coefs);
-      free(ctx->y_coefs);
-      status = RESN_ERR_NO_MEMORY;
-      return status;
-    }
-    ctx->ver_offsets = (uint16_t*)malloc(ctx->dst_height * sizeof(uint16_t));
-    if (ctx->ver_offsets == nullptr) {
-      ALOGE("%s: Mem allocation failed!", __func__);
-      free(ctx->input_offsets);
-      free(ctx->uv_coefs);
-      free(ctx->y_coefs);
-      status = RESN_ERR_NO_MEMORY;
-      return status;
-    }
-    ctx->ver_coefs = (uint16_t*)malloc(ctx->dst_height * sizeof(uint16_t));
-    if (ctx->ver_coefs == nullptr) {
-      ALOGE("%s: Mem allocation failed!", __func__);
-      free(ctx->ver_offsets);
-      free(ctx->input_offsets);
-      free(ctx->uv_coefs);
-      free(ctx->y_coefs);
-      status = RESN_ERR_NO_MEMORY;
-      return status;
-    }
-
-    uint32_t w_coef = (ctx->src_width * 256) / ctx->dst_width;
-    uint32_t h_coef = (ctx->src_height * 256) / ctx->dst_height;
-    uint32_t w_ind, h_ind;
-    uint16_t w_rem, h_rem, col, row;
-    for (col = 0; col < ctx->dst_width; col++) {
-      w_ind = col * w_coef;
-      w_rem = w_ind - ((w_ind >> 8) << 8);
-      w_ind = ((w_ind - w_rem) >> 8);
-      ctx->y_coefs[col] = w_rem;
-      ctx->input_offsets[col] = (uint16_t)w_ind;
-    }
-
-    for (col = 0; col < (ctx->dst_width / 2); col++) {
-      w_ind = col * w_coef;
-      w_rem = w_ind - ((w_ind >> 8) << 8);
-      w_ind = ((w_ind - w_rem) >> 8);
-      ctx->uv_coefs[col * 2] = w_rem;
-      ctx->uv_coefs[col * 2 + 1] = w_rem;
-    }
-
-    for (row = 0; row < ctx->dst_height; row++) {
-      h_ind = row * h_coef;
-      h_rem = h_ind - ((h_ind >> 8) << 8);
-      h_ind = ((h_ind - h_rem) >> 8);
-      ctx->ver_offsets[row] = h_ind;
-      ctx->ver_coefs[row] = h_rem;
-    }
-  }
-  return status;
+const char* NeonCore::resn_get_version() {
+  return version_;
 }
 
 /** resn_init
-   *    @handle: resize internal data pointer
    *
    * Main Resizer Init function
    *
-   * return: resn_status_t
+   * return: ResnStatus
    **/
-resn_status_t resn_init(void** handle) {
-  resn_status_t status = RESN_SUCCESS;
-  int rc = 0;
+ResnStatus NeonCore::resn_init() {
+
   uint32_t i;
 
-  if (!handle) {
-    return RESN_FAILED_TO_CREATE_CONTEXT;
+  ctx_ = std::make_unique<ResnCtx>(num_threads_);
+  if (ctx_.get() == nullptr) {
+    QMMF_DEBUG("%s: Memory error", __func__);
+    assert(0);
   }
 
-  resn_cnt_t* ctx = (resn_cnt_t*)calloc(1, sizeof(resn_cnt_t));
-  if (!ctx) {
-    return RESN_FAILED_TO_CREATE_CONTEXT;
-  }
-
-  ctx->num_threads = 4 * 2;
-
-  ctx->neon_work_args =
-      (neon_thrd_args*)calloc(1, ctx->num_threads * sizeof(neon_thrd_args));
-
-  for (i = 0; i < ctx->num_threads; i++) {
-    ctx->neon_work_args[i].tid = i;
-    ctx->neon_work_args[i].thread_started = false;
-    ctx->neon_work_args[i].thread_ready = false;
-    ctx->neon_work_args[i].thread_active = true;
-    pthread_cond_init(&ctx->neon_work_args[i].signal_base, NULL);
-    pthread_cond_init(&ctx->neon_work_args[i].signal_thread, NULL);
-    pthread_mutex_init(&ctx->neon_work_args[i].lock, NULL);
-  }
-
-  for (i = 0; i < ctx->num_threads / 2; i++) {
-    rc = pthread_create(&ctx->neon_work_args[i].thread, NULL,
-                        neon_thread_y_pass, (void*)&ctx->neon_work_args[i]);
-    if (rc) {
-      ALOGE("failed to create y pass thread %d, rc = %d\n",
-            ctx->neon_work_args[i].tid, rc);
-      ctx->num_threads = i;
-      resn_deinit(ctx);
-      return RESN_FAILED_TO_CREATE_WORK_THREADS;
+  for (i = 0; i < num_threads_ / 2; i++) {
+    if (ctx_->CreateYPass(i) != ResnStatus::kRESN_SUCCESS) {
+      num_threads_ = i;
+      resn_deinit();
+      return ResnStatus::kRESN_FAILED_TO_CREATE_WORK_THREADS;
     }
   }
 
-  for (i = ctx->num_threads / 2; i < ctx->num_threads; i++) {
-    rc = pthread_create(&ctx->neon_work_args[i].thread, NULL,
-                        neon_thread_uv_pass, (void*)&ctx->neon_work_args[i]);
-    if (rc) {
-      ALOGE("failed to create uv pass thread %d, rc = %d\n",
-            ctx->neon_work_args[i].tid, rc);
-      ctx->num_threads = i;
-      resn_deinit(ctx);
-      return RESN_FAILED_TO_CREATE_WORK_THREADS;
+  for (i = num_threads_ / 2; i < num_threads_; i++) {
+    if (ctx_->CreateUVPass(i) != ResnStatus::kRESN_SUCCESS) {
+      num_threads_ = i;
+      resn_deinit();
+      return ResnStatus::kRESN_FAILED_TO_CREATE_WORK_THREADS;
     }
   }
 
-  *handle = (void*)ctx;
-  return status;
+  return ResnStatus::kRESN_SUCCESS;
 }
 
 /** resn_deinit
@@ -914,37 +731,15 @@ resn_status_t resn_init(void** handle) {
    *
    * return:
    **/
-void resn_deinit(void* handle) {
-  int rc = 0;
+void NeonCore::resn_deinit() {
   uint32_t i;
 
-  if (handle) {
-    resn_cnt_t* ctx = (resn_cnt_t*)handle;
+  if (ctx_.get() == nullptr) {
+    return;
+  }
 
-    for (i = 0; i < ctx->num_threads; i++) {
-      pthread_mutex_lock(&ctx->neon_work_args[i].lock);
-      ctx->neon_work_args[i].thread_active = false;
-      pthread_cond_signal(&ctx->neon_work_args[i].signal_thread);
-      pthread_mutex_unlock(&ctx->neon_work_args[i].lock);
-      rc = pthread_join(ctx->neon_work_args[i].thread, NULL);
-      if (rc) {
-        ALOGE("error: failed to join y pass thread %d, rc = %d\n",
-              ctx->neon_work_args[i].tid, rc);
-      }
-
-      pthread_cond_destroy(&ctx->neon_work_args[i].signal_thread);
-      pthread_cond_destroy(&ctx->neon_work_args[i].signal_base);
-      pthread_mutex_destroy(&ctx->neon_work_args[i].lock);
-    }
-
-    free(ctx->neon_work_args);
-    free(ctx->y_coefs);
-    free(ctx->uv_coefs);
-    free(ctx->input_offsets);
-    free(ctx->ver_offsets);
-    free(ctx->ver_coefs);
-    free(ctx);
-    handle = NULL;
+  for (i = 0; i < num_threads_; i++) {
+    ctx_->DeleteYUVPass(i);
   }
 }
 
@@ -955,225 +750,111 @@ void resn_deinit(void* handle) {
 *
 * Main Resizer function
 *
-* return: resn_status_t
+* return: ResnStatus
 **/
-resn_status_t resn_process(void* handle, resn_t* resn) {
-  resn_status_t status = RESN_SUCCESS;
+ResnStatus NeonCore::resn_process(Resn* resn) {
+
+  ResnStatus status = ResnStatus::kRESN_SUCCESS;
   uint32_t i;
 
-  resn_cnt_t* ctx = (resn_cnt_t*)handle;
+  if (ctx_.get() == nullptr) {
+    QMMF_DEBUG("%s: Bad access", __func__);
+    assert(0);
+  }
 
   if (!resn) {
-    return (RESN_NOT_INITIALIZED);
+    return (ResnStatus::kRESN_NOT_INITIALIZED);
   }
 
   if (resn->src_width > resn->src_stride) {
-    return RESN_WRONG_WIDTH_INBUF;
+    return ResnStatus::kRESN_WRONG_WIDTH_INBUF;
   }
 
   if (resn->dst_width > resn->dst_stride) {
-    return RESN_WRONG_WIDTH_OUTBUF;
+    return ResnStatus::kRESN_WRONG_WIDTH_OUTBUF;
   }
 
-  UpdateInternalBuffs(ctx, resn);
-
-  uint32_t width, height, stride, src_stride;
-  uint32_t num_threads;
-  neon_thrd_args* neon_work_args = ctx->neon_work_args;
-  num_threads = ctx->num_threads;
-
-  uint8_t* src_luma = resn->src_luma;
-  uint8_t* src_chroma = resn->src_chroma;
-
-  uint8_t* dst_luma = resn->dst_luma;
-  uint8_t* dst_chroma = resn->dst_chroma;
-
-  width = resn->dst_width;
-  height = resn->dst_height;
-  stride = resn->dst_stride;
-
-  uint32_t src_width = resn->src_width;
-  uint32_t src_height = resn->src_height;
-  src_stride = resn->src_stride;
+  ctx_->update_coefs(resn->src_width,resn->src_height,
+                     resn->dst_width, resn->dst_height);
 
   uint32_t w_coef, h_coef;
 
-  w_coef = (src_width * 256) / width;
-  h_coef = (src_height * 256) / height;
+  w_coef = (resn->src_width * 256) / resn->dst_width;
+  h_coef = (resn->src_height * 256) / resn->dst_height;
 
-  for (i = 0; i < (num_threads / 2); i++) {
-    pthread_mutex_lock(&neon_work_args[i].lock);
-    neon_work_args[i].res_method = resn->res_method;
-    neon_work_args[i].width = width;
-    neon_work_args[i].height = height;
-    neon_work_args[i].src_stride = src_stride;
-    neon_work_args[i].stride = stride;
-    neon_work_args[i].src_luma = src_luma;
-    neon_work_args[i].src_chroma = src_chroma;
-    neon_work_args[i].dst_luma = dst_luma;
-    neon_work_args[i].dst_chroma = dst_chroma;
-    neon_work_args[i].y_coefs = ctx->y_coefs;
-    neon_work_args[i].uv_coefs = ctx->uv_coefs;
-    neon_work_args[i].input_offsets = ctx->input_offsets;
-    neon_work_args[i].ver_offsets = ctx->ver_offsets;
-    neon_work_args[i].ver_coefs = ctx->ver_coefs;
-    neon_work_args[i].w_coef = w_coef;
-    neon_work_args[i].h_coef = h_coef;
-    neon_work_args[i].line_start = i * ((height * 2 / num_threads) & (~1u));
-    neon_work_args[i].line_end =
-        neon_work_args[i].line_start + ((height * 2 / num_threads) & (~1u));
-    pthread_mutex_unlock(&neon_work_args[i].lock);
-  }
-  neon_work_args[i - 1].line_end = height;
+  for (i = 0; i < (num_threads_ / 2); i++) {
+    NeonImgArgs img;
+    img.res_method = resn->res_method;
+    img.width = resn->dst_width;
+    img.height = resn->dst_height;
+    img.src_stride = resn->src_stride;
+    img.stride = resn->dst_stride;
+    img.src_luma = resn->src_luma;
+    img.src_chroma = resn->src_chroma;
+    img.dst_luma = resn->dst_luma;
+    img.dst_chroma = resn->dst_chroma;
+    img.y_coefs = ctx_->getYCoefs();
+    img.uv_coefs =  ctx_->getUVCoefs();
+    img.input_offsets = ctx_->getInputOffsets();
+    img.ver_offsets = ctx_->getVerOffsets();
+    img.ver_coefs = ctx_->getVerCoefs();
+    img.w_coef = w_coef;
+    img.h_coef = h_coef;
+    img.line_start = i * ((resn->dst_height * 2 / num_threads_) & (~1u));
+    img.line_end =
+        img.line_start + ((resn->dst_height * 2 / num_threads_) & (~1u));
 
-  for (; i < num_threads; i++) {
-    pthread_mutex_lock(&neon_work_args[i].lock);
-    neon_work_args[i].res_method = resn->res_method;
-    neon_work_args[i].width = width;
-    neon_work_args[i].height = height;
-    neon_work_args[i].src_stride = src_stride;
-    neon_work_args[i].stride = stride;
-    neon_work_args[i].src_luma = src_luma;
-    neon_work_args[i].src_chroma = src_chroma;
-    neon_work_args[i].dst_luma = dst_luma;
-    neon_work_args[i].dst_chroma = dst_chroma;
-    neon_work_args[i].y_coefs = ctx->y_coefs;
-    neon_work_args[i].uv_coefs = ctx->uv_coefs;
-    neon_work_args[i].input_offsets = ctx->input_offsets;
-    neon_work_args[i].ver_offsets = ctx->ver_offsets;
-    neon_work_args[i].ver_coefs = ctx->ver_coefs;
-    neon_work_args[i].w_coef = w_coef;
-    neon_work_args[i].h_coef = h_coef;
-    neon_work_args[i].line_start =
-        (i - num_threads / 2) * ((height * 2 / num_threads) & (~1u));
-    neon_work_args[i].line_end =
-        neon_work_args[i].line_start + ((height * 2 / num_threads) & (~1u));
-    pthread_mutex_unlock(&neon_work_args[i].lock);
+    ctx_->setImg(i, img);
   }
 
-  neon_work_args[i - 1].line_end = height;
+  ctx_->getImg(i - 1).line_end = resn->dst_height;
 
-  for (i = 0; i < num_threads / 2; i++) {
-    pthread_mutex_lock(&neon_work_args[i].lock);
-    neon_work_args[i].thread_started = true;
-    pthread_cond_signal(&neon_work_args[i].signal_thread);
-    pthread_mutex_unlock(&neon_work_args[i].lock);
+  for (; i < num_threads_; i++) {
+    NeonImgArgs img;
+    img.res_method = resn->res_method;
+    img.width = resn->dst_width;
+    img.height = resn->dst_height;
+    img.src_stride = resn->src_stride;
+    img.stride = resn->dst_stride;
+    img.src_luma = resn->src_luma;
+    img.src_chroma = resn->src_chroma;
+    img.dst_luma = resn->dst_luma;
+    img.dst_chroma = resn->dst_chroma;
+    img.y_coefs = ctx_->getYCoefs();
+    img.uv_coefs = ctx_->getUVCoefs();
+    img.input_offsets = ctx_->getInputOffsets();
+    img.ver_offsets = ctx_->getVerOffsets();
+    img.ver_coefs = ctx_->getVerCoefs();
+
+    img.w_coef = w_coef;
+    img.h_coef = h_coef;
+    img.line_start = (i - num_threads_ / 2) *
+                     ((resn->dst_height * 2 / num_threads_) & (~1u));
+    img.line_end =
+        img.line_start + ((resn->dst_height * 2 / num_threads_) & (~1u));
+
+    ctx_->setImg(i, img);
   }
 
-  for (i = 0; i < num_threads / 2; i++) {
-    pthread_mutex_lock(&neon_work_args[i].lock);
-    while (!neon_work_args[i].thread_ready) {
-      pthread_cond_wait(&neon_work_args[i].signal_base,
-                        &neon_work_args[i].lock);
-    }
-    neon_work_args[i].thread_ready = false;
-    pthread_mutex_unlock(&neon_work_args[i].lock);
+  ctx_->getImg(i - 1).line_end = resn->dst_height;
+
+  for (i = 0; i < num_threads_ / 2; i++) {
+    ctx_->Start(i);
   }
 
-  for (i = num_threads / 2; i < num_threads; i++) {
-    pthread_mutex_lock(&neon_work_args[i].lock);
-    neon_work_args[i].thread_started = true;
-    pthread_cond_signal(&neon_work_args[i].signal_thread);
-    pthread_mutex_unlock(&neon_work_args[i].lock);
+  for (i = 0; i < num_threads_ / 2; i++) {
+    ctx_->WaitReady(i);
   }
 
-  for (i = num_threads / 2; i < num_threads; i++) {
-    pthread_mutex_lock(&neon_work_args[i].lock);
-    while (!neon_work_args[i].thread_ready) {
-      pthread_cond_wait(&neon_work_args[i].signal_base,
-                        &neon_work_args[i].lock);
-    }
-    neon_work_args[i].thread_ready = false;
-    pthread_mutex_unlock(&neon_work_args[i].lock);
+  for (i = num_threads_ / 2; i < num_threads_; i++) {
+    ctx_->Start(i);
   }
 
-  return (status);
-}
-
-static void* neon_thread_y_pass(void* arg) {
-  neon_thrd_args* n_thrd_arg = (neon_thrd_args*)arg;
-  neon_thrd_args thrd_arg;
-  bool thread_active = true;
-
-  while (thread_active) {
-    pthread_mutex_lock(&n_thrd_arg->lock);
-    while (!n_thrd_arg->thread_started && n_thrd_arg->thread_active) {
-      pthread_cond_wait(&n_thrd_arg->signal_thread, &n_thrd_arg->lock);
-    }
-    n_thrd_arg->thread_started = false;
-    thrd_arg = *n_thrd_arg;
-    thread_active = n_thrd_arg->thread_active;
-    if (!thread_active) {
-      break;
-    }
-    pthread_mutex_unlock(&n_thrd_arg->lock);
-
-#ifdef _ARM_NEON_SUPPORT_
-    if (thrd_arg.res_method == RES_BILINEAR_V_SKIP) {
-      LumaProcessBilinearVSkipNEON(&thrd_arg);
-    }
-    if (thrd_arg.res_method == RES_BILINEAR) {
-      LumaProcessBilinearNEON(&thrd_arg);
-    }
-#else
-    if (thrd_arg.res_method == RES_BILINEAR_V_SKIP) {
-      LumaProcessBilinearVSkip(&thrd_arg);
-    }
-    if (thrd_arg.res_method == RES_BILINEAR) {
-      LumaProcessBilinear(&thrd_arg);
-    }
-#endif
-
-    pthread_mutex_lock(&n_thrd_arg->lock);
-    n_thrd_arg->thread_ready = true;
-    pthread_cond_signal(&n_thrd_arg->signal_base);
-    pthread_mutex_unlock(&n_thrd_arg->lock);
+  for (i = num_threads_ / 2; i < num_threads_; i++) {
+    ctx_->WaitReady(i);
   }
 
-  return NULL;
-}
-
-static void* neon_thread_uv_pass(void* arg) {
-  neon_thrd_args* n_thrd_arg = (neon_thrd_args*)arg;
-  neon_thrd_args thrd_arg;
-  bool thread_active = true;
-
-  while (thread_active) {
-    pthread_mutex_lock(&n_thrd_arg->lock);
-    while (!n_thrd_arg->thread_started && n_thrd_arg->thread_active) {
-      pthread_cond_wait(&n_thrd_arg->signal_thread, &n_thrd_arg->lock);
-    }
-    n_thrd_arg->thread_started = false;
-    thrd_arg = *n_thrd_arg;
-    thread_active = n_thrd_arg->thread_active;
-    if (!thread_active) {
-      break;
-    }
-    pthread_mutex_unlock(&n_thrd_arg->lock);
-
-#ifdef _ARM_NEON_SUPPORT_
-    if (thrd_arg.res_method == RES_BILINEAR_V_SKIP) {
-      ChromaProcessBilinearVSkipNEON(&thrd_arg);
-    }
-    if (thrd_arg.res_method == RES_BILINEAR) {
-      ChromaProcessBilinearNEON(&thrd_arg);
-    }
-#else
-    if (thrd_arg.res_method == RES_BILINEAR_V_SKIP) {
-      ChromaProcessBilinearVSkip(&thrd_arg);
-    }
-    if (thrd_arg.res_method == RES_BILINEAR) {
-      ChromaProcessBilinear(&thrd_arg);
-    }
-#endif
-
-    pthread_mutex_lock(&n_thrd_arg->lock);
-    n_thrd_arg->thread_ready = true;
-    pthread_cond_signal(&n_thrd_arg->signal_base);
-    pthread_mutex_unlock(&n_thrd_arg->lock);
-  }
-
-  return NULL;
+  return status;
 }
 
 }; // namespace neonresizer

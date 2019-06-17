@@ -3,7 +3,7 @@
     "iteration count": 12,
     "tested library": "qmmf/alg-plugins/libqmmf_alg_mesh_transform_tnr.so",
     "configuration file": "mesh_transform_tnr_configuration.json",
-    "calibration file": "mesh_transform_tnr_calibration.raw",
+    "calibration file": "qmmf_tuning_MeshTransformTnr.bin",
     "input buffers": [
       {
         "width": 3966,

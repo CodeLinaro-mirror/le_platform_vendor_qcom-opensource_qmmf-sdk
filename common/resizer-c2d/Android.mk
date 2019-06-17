@@ -16,6 +16,7 @@ include $(QMMF_SDK_TOP_SRCDIR)/common.mk
 LOCAL_SRC_FILES := qmmf_resizer_c2d.cc
 
 LOCAL_SHARED_LIBRARIES += libC2D2 libcamera_metadata libqmmf_memory_interface
+LOCAL_SHARED_LIBRARIES += $(LIB_JSONCPP)
 
 LOCAL_MODULE = libqmmf_common_resizer_c2d
 
