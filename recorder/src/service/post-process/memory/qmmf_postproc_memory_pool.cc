@@ -95,9 +95,13 @@ status_t MemPool::Delete() {
     }
     mem_alloc_buffers_.clear();
   }
-  delete[] mem_alloc_slots_;
 
-  if (nullptr != alloc_device_interface_) {
+  if (mem_alloc_slots_) {
+    delete[] mem_alloc_slots_;
+    mem_alloc_slots_ = nullptr;
+  }
+
+  if (alloc_device_interface_) {
     AllocDeviceFactory::DestroyAllocDevice(alloc_device_interface_);
     alloc_device_interface_ = nullptr;
   }

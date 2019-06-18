@@ -352,6 +352,8 @@ status_t PostProcAlg::Process(
     }
 
     assert(in_alg_buffers.size() ==
+           algo_caps_.in_buffer_requirements_.count_);
+    assert(out_alg_buffers.size() ==
            algo_caps_.out_buffer_requirements_.count_);
     if (dump_in_frame_ == true) {
       for (auto buf : in_alg_buffers) {
