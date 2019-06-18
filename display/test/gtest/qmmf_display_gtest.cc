@@ -2391,8 +2391,8 @@ TEST_F(DisplayGtest, Test1YUV_1RGB_Both_ExternalBuffers) {
             for (std::vector<BufInfo*>::iterator iter = it->second.begin();
                iter != it->second.end(); ++iter) {
               buffer_allocator_.FreeBuffer(&((*iter)->buffer_info));
-              *iter = nullptr;
               delete *iter;
+              *iter = nullptr;
             }
           }
         }
