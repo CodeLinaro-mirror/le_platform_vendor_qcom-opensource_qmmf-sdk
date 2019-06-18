@@ -649,7 +649,13 @@ status_t TrackEncoder::ReturnBuffer(BufferDescriptor& codec_buffer,
   QMMF_VERBOSE("%s: track_id(%x) Received buffer(0x%p) from FBD",
       __func__, TrackId(), codec_buffer.data);
 
-  if (debug_fps_ & kDebugTrackFps) {
+  // When the encoder flush is in progress then it will return buffers
+  // as is i.e. with timestamp and size 0. If that is the case then
+  // it is not a valid buffer and should not be notified to the client
+  bool is_buffer_invalid = (codec_buffer.size == 0 ||
+                            codec_buffer.timestamp == 0);
+
+  if ((debug_fps_ & kDebugTrackFps) && !is_buffer_invalid) {
     struct timeval tv;
     gettimeofday(&tv, nullptr);
     uint64_t time_diff = (uint64_t)((tv.tv_sec * 1000000 + tv.tv_usec) -
@@ -697,19 +703,25 @@ status_t TrackEncoder::ReturnBuffer(BufferDescriptor& codec_buffer,
   }
   assert(found == true);
 #else
-  if (eos_atoutput_ == true) {
-    //  If EOS happend on output port then don't notify buffers to application.
-    //  simply remove the buffer from output queue in input queue, note last
-    //  buffer with EOS is already notified to application before setting
-    //  eos_atoutput_ to true.
+  if (eos_atoutput_ == true || is_buffer_invalid) {
+    //  If EOS or the buffer is invalid on output port then don't notify
+    //  buffers to application, simply remove the buffer from output queue
+    //  in input queue, note last buffer with EOS is already notified to
+    //  application before setting eos_atoutput_ to true.
     {
       std::lock_guard<std::mutex> lock(queue_lock_);
       for (size_t idx = 0; idx < output_occupy_buffer_queue_.size(); ++idx) {
         BufferDescriptor& buffer = output_occupy_buffer_queue_[idx];
 
         if (buffer.data == codec_buffer.data) {
-          QMMF_INFO("%s: track_id(%x) EOS is already done! moving buffer from"
-              " Out to In queue!",  __func__, TrackId());
+          if (eos_atoutput_) {
+            QMMF_INFO("%s: track_id(%x) EOS is already done! moving buffer from"
+                " Out to In queue!",  __func__, TrackId());
+          } else {
+            QMMF_INFO("%s: track_id(%x) Invalid buffer check if encoder is"
+                "flushing! moving buffer from  Out to In queue!",
+                __func__, TrackId());
+          }
           output_free_buffer_queue_.push(buffer);
           output_occupy_buffer_queue_.erase(
               output_occupy_buffer_queue_.begin() + idx);
