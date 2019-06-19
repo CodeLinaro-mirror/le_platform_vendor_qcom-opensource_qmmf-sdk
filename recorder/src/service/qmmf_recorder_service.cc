@@ -90,7 +90,7 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
         data.readBlob(blob_size, &blob);
         void* params = const_cast<void*>(blob.data());
         CameraStartParam camera_start_params;
-        memset(&camera_start_params, 0x0, sizeof camera_start_params);
+        assert(blob_size == sizeof(camera_start_params));
         memcpy(&camera_start_params, params, blob_size);
         ret = StartCamera(client_id, camera_id, camera_start_params,
                           enable_result_cb);
@@ -175,9 +175,10 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
           size_t blob_size = plugin.Size();
           reply->writeUint32(blob_size);
           android::Parcel::WritableBlob blob;
-          reply->writeBlob(blob_size, false, &blob);
-          memset(blob.data(), 0x0, blob_size);
-          memcpy(blob.data(), plugin.ToBlob().get(), blob_size);
+          auto status = reply->writeBlob(blob_size, false, &blob);
+          if (status == NO_ERROR) {
+            memcpy(blob.data(), plugin.ToBlob().get(), blob_size);
+          }
         }
         reply->writeInt32(ret);
         return NO_ERROR;
@@ -245,8 +246,9 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
         data.readBlob(blob_size, &blob);
         void* params = const_cast<void*>(blob.data());
         VideoTrackCreateParam video_track_param;
-        memset(&video_track_param, 0x0, sizeof video_track_param);
+        assert(blob_size == sizeof(video_track_param));
         memcpy(&video_track_param, params, blob_size);
+
         ret = CreateVideoTrack(client_id, session_id, track_id,
                                video_track_param);
         blob.release();
@@ -267,8 +269,9 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
         data.readUint32(&extra_blob_size);
         data.readBlob(extra_blob_size, &extra_blob);
         VideoTrackCreateParam video_track_param;
-        memset(&video_track_param, 0x0, sizeof video_track_param);
+        assert(blob_size == sizeof(video_track_param));
         memcpy(&video_track_param, blob.data(), blob_size);
+
         VideoExtraParam extra_param(extra_blob.data(), extra_blob_size);
         ret = CreateVideoTrack(client_id, session_id, track_id,
                                video_track_param, extra_param);
@@ -316,7 +319,6 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
             void* buffer = const_cast<void*>(blob.data());
             BnBuffer track_buffer;
             assert(size == sizeof(track_buffer));
-            memset(&track_buffer, 0x0, sizeof track_buffer);
             memcpy(&track_buffer, buffer, size);
             buffers.push_back(track_buffer);
             blob.release();
@@ -378,7 +380,9 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
         android::Parcel::ReadableBlob blob;
         data.readBlob(blob_size, &blob);
         ImageParam param;
+        assert(blob_size == sizeof(param));
         memcpy(&param, blob.data(), blob_size);
+
         data.readUint32(&num_images);
         data.readUint32(&meta_size);
         std::vector<CameraMetadata> meta_array;
@@ -515,7 +519,7 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
         void* params = const_cast<void*>(blob.data());
 
         OverlayParam  overlay_params;
-        memset(&overlay_params, 0x0, sizeof(OverlayParam));
+        assert(blob_size == sizeof(OverlayParam));
         memcpy(&overlay_params, static_cast<OverlayParam*>(params),
             sizeof(OverlayParam));
 
@@ -561,10 +565,11 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
           uint32_t param_size = sizeof overlay_param;
           reply->writeUint32(param_size);
           android::Parcel::WritableBlob blob;
-          reply->writeBlob(param_size, false, &blob);
-          memset(blob.data(), 0x0, param_size);
-          memcpy(blob.data(), reinterpret_cast<void*>(&overlay_param),
-              sizeof overlay_param);
+          auto status = reply->writeBlob(param_size, false, &blob);
+          if (status == NO_ERROR) {
+            memcpy(blob.data(), reinterpret_cast<void*>(&overlay_param),
+                sizeof overlay_param);
+          }
         }
         return NO_ERROR;
       }
@@ -583,7 +588,7 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
         void* params = const_cast<void*>(blob.data());
 
         OverlayParam  overlay_params;
-        memset(&overlay_params, 0x0, sizeof(OverlayParam));
+        assert(blob_size == sizeof(OverlayParam));
         memcpy(&overlay_params, static_cast<OverlayParam*>(params),
             sizeof(OverlayParam));
 
