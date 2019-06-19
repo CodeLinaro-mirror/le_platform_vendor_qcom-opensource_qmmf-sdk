@@ -9952,6 +9952,10 @@ TEST_F(RecorderVideoSnapshotGTest,
         VideoRateControlType::kConstant;
     video_track_param.codec_param.hevc.bitrate = kBitRate100Mbps;
 
+    if (enable_10bit_support_) {
+      video_track_param.codec_param.hevc.profile = HEVCProfileType::kMain10;
+    }
+
     track_trace_1.SetUp(session_id, video_track_id_4k_hevc, 30.0);
 
     // Enable Force Sensor Mode
@@ -10437,6 +10441,10 @@ TEST_F(RecorderVideoSnapshotGTest,
 
     track_trace_1.SetUp(session_id, video_track_id_4k_hevc, 60.0);
 
+    if (enable_10bit_support_) {
+      video_track_param.codec_param.hevc.profile = HEVCProfileType::kMain10;
+    }
+
     // Enable Force Sensor Mode
     VideoExtraParam extra_param_force_mode;
     ForceSensorMode force_sensor_mode;
@@ -10677,6 +10685,10 @@ TEST_F(RecorderVideoSnapshotGTest,
     video_track_param.codec_param.hevc.bitrate = kBitRate100Mbps;
 
     track_trace_1.SetUp(session_id, video_track_id_4k_hevc, 48.0);
+
+    if (enable_10bit_support_) {
+      video_track_param.codec_param.hevc.profile = HEVCProfileType::kMain10;
+    }
 
     // Enable Force Sensor Mode
     VideoExtraParam extra_param_force_mode;
@@ -10919,6 +10931,10 @@ TEST_F(
     video_track_param.codec_param.hevc.bitrate = kBitRate100Mbps;
 
     track_trace_1.SetUp(session_id, video_track_id_4k_hevc, 60.0);
+
+    if (enable_10bit_support_) {
+      video_track_param.codec_param.hevc.profile = HEVCProfileType::kMain10;
+    }
 
     // Setting Enable HDR Extra Param
     VideoExtraParam extra_params;
@@ -11421,6 +11437,10 @@ TEST_F(RecorderVideoSnapshotGTest,
     video_track_param.codec_param.hevc.bitrate = kBitRate100Mbps;
 
     track_trace_1.SetUp(session_id, video_track_id_4k_hevc, 30.0);
+
+    if (enable_10bit_support_) {
+      video_track_param.codec_param.hevc.profile = HEVCProfileType::kMain10;
+    }
 
     // Enable Force Sensor Mode
     VideoExtraParam extra_param_force_mode;
