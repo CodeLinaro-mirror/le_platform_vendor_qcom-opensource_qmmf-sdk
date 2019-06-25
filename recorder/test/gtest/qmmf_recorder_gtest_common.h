@@ -176,6 +176,8 @@ struct FaceInfo {
 // Default recording duration is 2 minutes i.e. 2 * 60 seconds
 #define DEFAULT_RECORD_DURATION     "120"
 
+// Prop to enable the dump to external storage
+#define PROP_DUMP_TO_EXT            "persist.qmmf.gtest.dumptoext"
 // Prop to enable YUV data dumping from YUV track
 #define PROP_DUMP_YUV_FRAMES        "persist.qmmf.rec.gtest.dumpyuv"
 // Prop to enable encoded bitstream data dumping

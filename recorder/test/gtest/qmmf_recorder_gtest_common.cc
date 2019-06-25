@@ -122,6 +122,11 @@ std::string DumpBitStream::GetFileName(const SplitFileInfo& file_info) {
   }
   std::string extn(type_string);
   std::string bitstream_filepath("/data/misc/qmmf/gtest_track_");
+  char prop_val[PROPERTY_VALUE_MAX];
+  property_get(PROP_DUMP_TO_EXT, prop_val, "0");
+  if (atoi(prop_val) == 1) {
+    bitstream_filepath = "/mnt/sdcard/data/misc/qmmf/gtest_track_";
+  }
   bitstream_filepath += std::to_string(file_info.streaminfo.track_id) + "_";
   bitstream_filepath += std::to_string(file_info.streaminfo.width) + "x";
   bitstream_filepath += std::to_string(file_info.streaminfo.height) + "_";
