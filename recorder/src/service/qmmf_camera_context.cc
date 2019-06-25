@@ -576,14 +576,14 @@ status_t CameraContext::SetUpCapture(const SnapshotParam& param,
       reconfigure_needed = snapshot_request_.streamIds.empty() ||
                            (snapshot_param_.width != param.width) ||
                            (snapshot_param_.height != param.height) ||
-                           (sequence_cnt_ != num_images) ||
+                           (sequence_cnt_ < num_images) ||
                            (postproc_enable_ != new_postproc_enable) ||
                            IsNeedReconfigSnapshotStream() ||
                            (new_postproc_enable && restart_pipe_) ||
                            (jpeg_input_format_ != new_jpeg_input_format_);
       QMMF_DEBUG("%s: reconfigure_needed=%d", __func__, reconfigure_needed);
 
-      if (postproc_enable_ == true && new_postproc_enable == false) {
+      if ((postproc_enable_ && !new_postproc_enable) || reconfigure_needed) {
         PostProcDelete();
       }
 

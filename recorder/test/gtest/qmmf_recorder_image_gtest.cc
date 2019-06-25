@@ -3382,11 +3382,26 @@ TEST_F(RecorderImageGTest, ToggleBurstSnapshot) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
         test_info_->name(), i);
 
+    num_images = 20;
     ret = recorder_.CaptureImage(camera_id_, image_param, num_images,
                                  meta_array, cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    sleep(5);
+    sleep(10);
+
+    num_images = 30;
+    ret = recorder_.CaptureImage(camera_id_, image_param, num_images,
+                                 meta_array, cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    sleep(10);
+
+    num_images = 15;
+    ret = recorder_.CaptureImage(camera_id_, image_param, num_images,
+                                 meta_array, cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    sleep(10);
 
     ret = recorder_.CaptureImage(camera_id_, image_param, 1,
                                  meta_array, cb);
