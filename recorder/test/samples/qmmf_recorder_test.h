@@ -677,6 +677,8 @@ class RecorderTest {
   std::mutex   error_lock_;
   bool         camera_error_;
 
+  std::mutex   metadata_lock_;
+  CameraMetadata dynamic_metadata_;
 #ifdef CAM_ARCH_V2
   sp<VendorTagDescriptor> vendor_tag_desc_;
 #endif

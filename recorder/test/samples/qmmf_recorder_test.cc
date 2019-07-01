@@ -1178,24 +1178,17 @@ status_t RecorderTest::SetSensorSensitivity(const int32_t& val) {
 
 status_t RecorderTest::GetExposureTime(int64_t *time_ns) {
   TEST_INFO("%s: Enter", __func__);
-  CameraMetadata meta;
 
-  status_t ret = recorder_.GetCameraParam(camera_id_, meta);
-  if (ret != 0) {
-    TEST_ERROR("%s: Failed to get camera params", __func__);
-    return ret;
-  }
-
-  if (meta.exists(ANDROID_SENSOR_EXPOSURE_TIME)) {
-    TEST_INFO("%s: Exit", __func__);
-    *time_ns = meta.find(ANDROID_SENSOR_EXPOSURE_TIME).data.i64[0];
+  std::unique_lock<std::mutex> lock(metadata_lock_);
+  if (dynamic_metadata_.exists(ANDROID_SENSOR_EXPOSURE_TIME)) {
+    *time_ns = dynamic_metadata_.find(ANDROID_SENSOR_EXPOSURE_TIME).data.i64[0];
   } else {
     TEST_ERROR("%s Meta tag does not exists\n", __func__);
     return -ENOENT;
   }
 
   TEST_INFO("%s: Exit", __func__);
-  return ret;
+  return NO_ERROR;
 }
 
 status_t RecorderTest::SetExposureTime(const int64_t& val) {
@@ -4261,6 +4254,10 @@ void RecorderTest::CameraResultCallbackHandler(uint32_t camera_id,
     }
   }
 #endif
+
+  std::unique_lock<std::mutex> lock(metadata_lock_);
+  dynamic_metadata_.clear();
+  dynamic_metadata_.append(result);
 
   if (dump_aec_awb_stats_ &&
       (aec_awb_stat_enable.count > 0) &&
