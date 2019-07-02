@@ -26,6 +26,8 @@
 #include <camera/CameraMetadata.h>
 #include <utils/KeyedVector.h>
 #include <utils/List.h>
+#include <chrono>
+#include <mutex>
 #include <thread>
 
 #include "common/cameraadaptor/qmmf_camera3_types.h"
@@ -132,11 +134,11 @@ class Camera3RequestHandler : public ThreadHelper {
   Camera3SmoothZoom smooth_zoom_;
 
   static void ReprocLoop(Camera3RequestHandler *ctx);
-  RequestList     reproc_requests_;
-  std::thread     worker_;
-  bool            run_worker_;
-  pthread_mutex_t worker_lock_;
-  pthread_cond_t  worker_signal_;
+  RequestList       reproc_requests_;
+  std::thread       worker_;
+  std::atomic<bool> run_worker_;
+  std::mutex        worker_lock_;
+  QCondition        worker_signal_;
 
 };
 
