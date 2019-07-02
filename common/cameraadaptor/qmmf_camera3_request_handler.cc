@@ -34,6 +34,8 @@ namespace qmmf {
 
 namespace cameraadaptor {
 
+static const uint64_t kWaitWorkerTimeout = 50;
+
 Camera3RequestHandler::Camera3RequestHandler(Camera3Monitor &monitor)
     : error_cb_(nullptr),
       mark_cb_(nullptr),
@@ -56,8 +58,6 @@ Camera3RequestHandler::Camera3RequestHandler(Camera3Monitor &monitor)
   pthread_mutex_init(&pause_lock_, NULL);
   pthread_cond_init(&toggle_pause_signal_, NULL);
   pthread_cond_init(&pause_state_signal_, NULL);
-  pthread_mutex_init(&worker_lock_, NULL);
-  pthread_cond_init(&worker_signal_, NULL);
   ClearCaptureRequest(old_request_);
 }
 
@@ -68,11 +68,12 @@ Camera3RequestHandler::~Camera3RequestHandler() {
     monitor_.ReleaseMonitor(monitor_id_);
     monitor_id_ = Camera3Monitor::INVALID_ID;
   }
-  run_worker_ = false;
-  pthread_cond_signal(&worker_signal_);
+  {
+    std::unique_lock<std::mutex> lock(worker_lock_);
+    run_worker_ = false;
+    worker_signal_.Signal();
+  }
   worker_.join();
-  pthread_cond_destroy(&worker_signal_);
-  pthread_mutex_destroy(&worker_lock_);
   pthread_mutex_destroy(&lock_);
   pthread_cond_destroy(&current_request_signal_);
   pthread_cond_destroy(&requests_signal_);
@@ -128,7 +129,7 @@ int32_t Camera3RequestHandler::QueueRequestList(List<CaptureRequest> &requests,
 int32_t Camera3RequestHandler::QueueReprocRequestList(List<CaptureRequest> &requests,
                                                 int64_t *lastFrameNumber) {
   pthread_mutex_lock(&lock_);
-  pthread_mutex_lock(&worker_lock_);
+  std::unique_lock<std::mutex> lock(worker_lock_);
 
   List<CaptureRequest>::iterator it = requests.begin();
   for (; it != requests.end(); ++it) {
@@ -141,9 +142,8 @@ int32_t Camera3RequestHandler::QueueReprocRequestList(List<CaptureRequest> &requ
 
   Resume();
 
-  pthread_cond_signal(&worker_signal_);
+  worker_signal_.Signal();
 
-  pthread_mutex_unlock(&worker_lock_);
   pthread_mutex_unlock(&lock_);
   return 0;
 }
@@ -257,9 +257,14 @@ bool Camera3RequestHandler::ThreadLoop() {
 
 void Camera3RequestHandler::ReprocLoop(Camera3RequestHandler *ctx) {
   while(ctx->run_worker_) {
-    pthread_mutex_lock(&ctx->worker_lock_);
+    std::unique_lock<std::mutex> lock(ctx->worker_lock_);
     while (ctx->reproc_requests_.empty()) {
-      cond_wait_relative(&ctx->worker_signal_, &ctx->worker_lock_, WAIT_TIMEOUT);
+      auto res = ctx->worker_signal_.WaitFor(lock,
+          std::chrono::milliseconds(kWaitWorkerTimeout),
+          [&] { return (ctx->run_worker_ == false); });
+      if (!res) {
+        QMMF_WARN("%s: Time out!", __func__);
+      }
       if (!ctx->run_worker_) {
         QMMF_INFO("%s:%d: Exit", __func__, __LINE__);
         return;
@@ -313,7 +318,6 @@ void Camera3RequestHandler::ReprocLoop(Camera3RequestHandler *ctx) {
     }
     ctx->reproc_requests_.clear();
 
-    pthread_mutex_unlock(&ctx->worker_lock_);
   }
   QMMF_INFO("%s:%d: Exit", __func__, __LINE__);
 }
