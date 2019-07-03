@@ -1425,6 +1425,7 @@ status_t TrackSource::StartTrack() {
   ret = frc_->AddConsumer(consumer);
   assert(ret == NO_ERROR);
   consumer = frc_->GetConsumerIntf();
+  assert(consumer.get() != nullptr);
 
   if (rescaler_.get() != nullptr) {
     ret = master_track_->AddConsumer(fsc_->GetConsumerIntf());
@@ -1518,34 +1519,27 @@ status_t TrackSource::StopTrack(bool is_force_cleanup) {
     // Encoder is not involved in this case.
     assert(camera_interface_.get() != nullptr);
 
-
-    if (slave_track_source_ == false) {
-      ret = camera_interface_->StopStream(TrackId());
-      assert(ret == NO_ERROR);
-    }
-
     ret = frc_->Stop();
     assert(ret == NO_ERROR);
 
-    sp<IBufferConsumer> consumer = GetConsumerIntf();
-    ret = frc_->RemoveConsumer(consumer);
+    ret = fsc_->Stop();
     assert(ret == NO_ERROR);
-
-    consumer = frc_->GetConsumerIntf();
 
     if (rescaler_.get() != nullptr) {
       ret = rescaler_->Stop();
       assert(ret == NO_ERROR);
     }
 
-    ret = fsc_->Stop();
-    assert(ret == NO_ERROR);
+    sp<IBufferConsumer> consumer = frc_->GetConsumerIntf();
+    assert(consumer.get() != nullptr);
 
     if (slave_track_source_ == false) {
-      ret = camera_interface_->RemoveConsumer(TrackId(),
-          fsc_->GetConsumerIntf());
+      ret = camera_interface_->StopStream(TrackId());
       assert(ret == NO_ERROR);
       ret = fsc_->RemoveConsumer(consumer);
+      assert(ret == NO_ERROR);
+      ret = camera_interface_->RemoveConsumer(TrackId(),
+          fsc_->GetConsumerIntf());
       assert(ret == NO_ERROR);
     }
 
@@ -1562,6 +1556,12 @@ status_t TrackSource::StopTrack(bool is_force_cleanup) {
       ret = master_track_->RemoveConsumer(fsc_->GetConsumerIntf());
       assert(ret == NO_ERROR);
     }
+
+    consumer = GetConsumerIntf();
+    assert(consumer.get() != nullptr);
+    ret = frc_->RemoveConsumer(consumer);
+    assert(ret == NO_ERROR);
+
     QMMF_INFO("%s: Pipe stop done(%x)", __func__, TrackId());
     {
       std::lock_guard<std::mutex> lk(buffer_list_lock_);
@@ -1619,31 +1619,27 @@ status_t TrackSource::NotifyPortEvent(PortEventType event_type,
         }
       }
       status_t ret = NO_ERROR;
-      if (slave_track_source_ == false) {
-       ret = camera_interface_->StopStream(TrackId());
-        assert(ret == NO_ERROR);
-      }
+      ret = frc_->Stop();
+      assert(ret == NO_ERROR);
 
-      sp<IBufferConsumer> consumer = GetConsumerIntf();
-      ret = frc_->RemoveConsumer(consumer);
-      consumer = frc_->GetConsumerIntf();
+      ret = fsc_->Stop();
+      assert(ret == NO_ERROR);
 
       if (rescaler_.get() != nullptr) {
         ret = rescaler_->Stop();
         assert(ret == NO_ERROR);
       }
 
-      ret = fsc_->Stop();
-      assert(ret == NO_ERROR);
-
-      ret = frc_->Stop();
-      assert(ret == NO_ERROR);
+      sp<IBufferConsumer> consumer = frc_->GetConsumerIntf();
+      assert(consumer.get() != nullptr);
 
       if (slave_track_source_ == false) {
+        ret = camera_interface_->StopStream(TrackId());
+        assert(ret == NO_ERROR);
         ret = fsc_->RemoveConsumer(consumer);
         assert(ret == NO_ERROR);
         ret = camera_interface_->RemoveConsumer(TrackId(),
-          fsc_->GetConsumerIntf());
+            fsc_->GetConsumerIntf());
         assert(ret == NO_ERROR);
       }
 
@@ -1655,11 +1651,16 @@ status_t TrackSource::NotifyPortEvent(PortEventType event_type,
         ret = master_track_->RemoveConsumer(fsc_->GetConsumerIntf());
         assert(ret == NO_ERROR);
       } else if (slave_track_source_ == true) {
-        fsc_->RemoveConsumer(consumer);
+        ret = fsc_->RemoveConsumer(consumer);
         assert(ret == NO_ERROR);
         ret = master_track_->RemoveConsumer(fsc_->GetConsumerIntf());
         assert(ret == NO_ERROR);
       }
+
+      consumer = GetConsumerIntf();
+      assert(consumer.get() != nullptr);
+      ret = frc_->RemoveConsumer(consumer);
+      assert(ret == NO_ERROR);
       // All input port buffers from encoder are returned, Being encoded queue
       // should be zero at this point.
       assert(frames_being_encoded_.Size() == 0);
