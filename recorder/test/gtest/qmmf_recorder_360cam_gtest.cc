@@ -2104,7 +2104,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNR) {
         test_info_->name(), i);
 
     // Set parameters for and create 3840x1920 h264 encoded track.
-    video_track_param.low_power_mode = false;
     video_track_param.codec_param.avc.idr_interval = 1;
     video_track_param.codec_param.avc.bitrate    = 4000000;
     video_track_param.codec_param.avc.profile = AVCProfileType::kBaseline;
@@ -2256,7 +2255,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRAnd1080pYUVTrack) {
     format_type = VideoFormat::kAVC;
     video_track_param.width       = stream_width;
     video_track_param.height      = stream_height;
-    video_track_param.low_power_mode = false;
     video_track_param.codec_param.avc.idr_interval = 1;
     video_track_param.codec_param.avc.bitrate    = 4000000;
     video_track_param.codec_param.avc.profile = AVCProfileType::kBaseline;
@@ -2311,7 +2309,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRAnd1080pYUVTrack) {
     video_track_param.height      = stream_height;
     video_track_param.frame_rate  = stream_fps;
     video_track_param.format_type = format_type;
-    video_track_param.low_power_mode = true;
 
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
                                   std::vector<BufferDescriptor> buffers,
@@ -2435,7 +2432,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRAnd480pYUVTrack) {
     video_track_param.height      = stream_height;
     video_track_param.frame_rate  = stream_fps;
     video_track_param.format_type = format_type;
-    video_track_param.low_power_mode = false;
 
     video_track_param.codec_param.avc.idr_interval = 1;
     video_track_param.codec_param.avc.bitrate    = 12000000;
@@ -2491,7 +2487,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRAnd480pYUVTrack) {
     video_track_param.height      = stream_height;
     video_track_param.frame_rate  = stream_fps;
     video_track_param.format_type = format_type;
-    video_track_param.low_power_mode = true;
 
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
                                   std::vector<BufferDescriptor> buffers,
@@ -2618,7 +2613,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAnd480pYUVTrack) 
     video_track_param.height = stream_height;
     video_track_param.frame_rate = stream_fps;
     video_track_param.format_type = format_type;
-    video_track_param.low_power_mode = false;
 
     video_track_param.codec_param.avc.idr_interval = 1;
     video_track_param.codec_param.avc.bitrate = 12000000;
@@ -2687,7 +2681,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAnd480pYUVTrack) 
     video_track_param.height = stream_height;
     video_track_param.frame_rate = stream_fps;
     video_track_param.format_type = format_type;
-    video_track_param.low_power_mode = true;
 
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
@@ -2818,7 +2811,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAnd960pYUVTrack) 
     video_track_param.height = stream_height;
     video_track_param.frame_rate = stream_fps;
     video_track_param.format_type = format_type;
-    video_track_param.low_power_mode = false;
 
     video_track_param.codec_param.avc.idr_interval = 1;
     video_track_param.codec_param.avc.bitrate = 12000000;
@@ -2888,7 +2880,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAnd960pYUVTrack) 
     video_track_param.height = stream_height;
     video_track_param.frame_rate = stream_fps;
     video_track_param.format_type = format_type;
-    video_track_param.low_power_mode = true;
 
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
@@ -3017,7 +3008,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayMix) {
     video_track_param.height = stream_height;
     video_track_param.frame_rate = stream_fps;
     video_track_param.format_type = format_type;
-    video_track_param.low_power_mode = false;
 
     video_track_param.codec_param.avc.idr_interval = 1;
     video_track_param.codec_param.avc.bitrate = 12000000;
@@ -3378,7 +3368,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayBlob) {
     video_track_param.height = stream_height;
     video_track_param.frame_rate = stream_fps;
     video_track_param.format_type = format_type;
-    video_track_param.low_power_mode = false;
 
     video_track_param.codec_param.avc.idr_interval = 1;
     video_track_param.codec_param.avc.bitrate = 12000000;
@@ -3746,7 +3735,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAndOverlayMix) {
     video_track_param.height = stream_height;
     video_track_param.frame_rate = stream_fps;
     video_track_param.format_type = format_type;
-    video_track_param.low_power_mode = false;
 
     video_track_param.codec_param.avc.idr_interval = 1;
     video_track_param.codec_param.avc.bitrate = 12000000;
@@ -4061,7 +4049,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRAndOverlayBlob) {
     video_track_param.height = stream_height;
     video_track_param.frame_rate = stream_fps;
     video_track_param.format_type = format_type;
-    video_track_param.low_power_mode = false;
 
     video_track_param.codec_param.avc.idr_interval = 1;
     video_track_param.codec_param.avc.bitrate = 12000000;
@@ -4443,7 +4430,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayBlobAnd480pYUVTrack
     video_track_param.height = stream_height;
     video_track_param.frame_rate = stream_fps;
     video_track_param.format_type = format_type;
-    video_track_param.low_power_mode = false;
 
     video_track_param.codec_param.avc.idr_interval = 1;
     video_track_param.codec_param.avc.bitrate = 12000000;
@@ -4504,7 +4490,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithTNRWithOverlayBlobAnd480pYUVTrack
     video_track_param.height = stream_height;
     video_track_param.frame_rate = stream_fps;
     video_track_param.format_type = format_type;
-    video_track_param.low_power_mode = true;
 
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
@@ -4842,7 +4827,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlobAn
     video_track_param.height = stream_height;
     video_track_param.frame_rate = stream_fps;
     video_track_param.format_type = format_type;
-    video_track_param.low_power_mode = false;
 
     video_track_param.codec_param.avc.idr_interval = 1;
     video_track_param.codec_param.avc.bitrate = 12000000;
@@ -4913,7 +4897,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlobAn
     video_track_param.height = stream_height;
     video_track_param.frame_rate = stream_fps;
     video_track_param.format_type = format_type;
-    video_track_param.low_power_mode = true;
 
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
@@ -5251,7 +5234,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlobAn
     video_track_param.height = stream_height;
     video_track_param.frame_rate = stream_fps;
     video_track_param.format_type = format_type;
-    video_track_param.low_power_mode = false;
 
     video_track_param.codec_param.avc.idr_interval = 1;
     video_track_param.codec_param.avc.bitrate = 12000000;
@@ -5322,7 +5304,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlobAn
     video_track_param.height = stream_height;
     video_track_param.frame_rate = stream_fps;
     video_track_param.format_type = format_type;
-    video_track_param.low_power_mode = true;
 
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
@@ -5653,7 +5634,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNR480pPreviewTrack9
     video_track_param.height = stream_height;
     video_track_param.frame_rate = stream_fps;
     video_track_param.format_type = format_type;
-    video_track_param.low_power_mode = false;
 
     video_track_param.codec_param.avc.idr_interval = 1;
     video_track_param.codec_param.avc.bitrate = 12000000;
@@ -5748,7 +5728,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNR480pPreviewTrack9
     video_track_param.height = stream_height;
     video_track_param.frame_rate = stream_fps;
     video_track_param.format_type = format_type;
-    video_track_param.low_power_mode = true;
 
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
@@ -5879,7 +5858,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNR480pPreviewEncTra
     video_track_param.height = stream_height;
     video_track_param.frame_rate = stream_fps;
     video_track_param.format_type = format_type;
-    video_track_param.low_power_mode = false;
 
     video_track_param.codec_param.avc.idr_interval = 1;
     video_track_param.codec_param.avc.bitrate = 12000000;
@@ -6006,7 +5984,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNR480pPreviewEncTra
     video_track_param.height = stream_height;
     video_track_param.frame_rate = stream_fps;
     video_track_param.format_type = format_type;
-    video_track_param.low_power_mode = true;
 
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
@@ -6144,7 +6121,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
     video_track_param.height = stream_height;
     video_track_param.frame_rate = stream_fps;
     video_track_param.format_type = format_type;
-    video_track_param.low_power_mode = false;
 
     video_track_param.codec_param.avc.idr_interval = 1;
     video_track_param.codec_param.avc.bitrate = 12000000;
@@ -6270,7 +6246,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
     video_track_param.height = stream_height;
     video_track_param.frame_rate = stream_fps;
     video_track_param.format_type = format_type;
-    video_track_param.low_power_mode = true;
 
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
@@ -6613,7 +6588,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
     video_track_param.height = stream_height;
     video_track_param.frame_rate = stream_fps;
     video_track_param.format_type = format_type;
-    video_track_param.low_power_mode = false;
 
     video_track_param.codec_param.avc.idr_interval = 1;
     video_track_param.codec_param.avc.bitrate = 12000000;
@@ -6739,7 +6713,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
     video_track_param.height = stream_height;
     video_track_param.frame_rate = stream_fps;
     video_track_param.format_type = format_type;
-    video_track_param.low_power_mode = true;
 
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
@@ -7128,7 +7101,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNR960pEncTrack960pY
     uint32_t video_track_id_960p = 2;
     VideoTrackCreateParam second_video_track_param{multicam_id_, VideoFormat::kAVC,
                                                    1920, 960, 30};
-    second_video_track_param.low_power_mode = true;
     second_video_track_param.codec_param.avc.idr_interval = 1;
     second_video_track_param.codec_param.avc.bitrate = 12000000;
     second_video_track_param.codec_param.avc.profile = AVCProfileType::kBaseline;
@@ -7183,8 +7155,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNR960pEncTrack960pY
                                                    1920,
                                                    960,
                                                    30};
-    video_track_param.low_power_mode = false;
-
     TrackCb yuv_track_cb3;
     yuv_track_cb3.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
@@ -7377,8 +7347,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
     uint32_t video_track_id_960p = 2;
     VideoTrackCreateParam second_video_track_param{multicam_id_, VideoFormat::kAVC,
                                                    1920, 960, 30};
-    second_video_track_param.low_power_mode = true;
-
     second_video_track_param.codec_param.avc.idr_interval = 1;
     second_video_track_param.codec_param.avc.bitrate = 12000000;
     second_video_track_param.codec_param.avc.profile = AVCProfileType::kBaseline;
@@ -7434,8 +7402,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
                                             1920,
                                             960,
                                             30};
-
-    video_track_param.low_power_mode = false;
 
     TrackCb yuv_track_cb3;
     yuv_track_cb3.data_cb = [&, session_id](
@@ -7831,8 +7797,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
     uint32_t video_track_id_960p = 2;
     VideoTrackCreateParam second_video_track_param{multicam_id_, VideoFormat::kAVC,
                                                    1920, 960, 24};
-    second_video_track_param.low_power_mode = true;
-
     second_video_track_param.codec_param.avc.idr_interval = 1;
     second_video_track_param.codec_param.avc.bitrate = 12000000;
     second_video_track_param.codec_param.avc.profile = AVCProfileType::kBaseline;
@@ -7887,7 +7851,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
                                             1920,
                                             960,
                                             24};
-    video_track_param.low_power_mode = false;
 
     TrackCb yuv_track_cb3;
     yuv_track_cb3.data_cb = [&, session_id](
@@ -8341,8 +8304,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
                                             960,
                                             30};
 
-    video_track_param.low_power_mode = false;
-
     TrackCb yuv_track_cb3;
     yuv_track_cb3.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
@@ -8793,8 +8754,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob96
                                             1920,
                                             960,
                                             24};
-
-    video_track_param.low_power_mode = false;
 
     TrackCb yuv_track_cb3;
     yuv_track_cb3.data_cb = [&, session_id](
@@ -9641,8 +9600,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
     uint32_t video_track_id_720p = 2;
     VideoTrackCreateParam second_video_track_param{multicam_id_, VideoFormat::kAVC,
                                                    1440, 720, 30};
-    second_video_track_param.low_power_mode = true;
-
     second_video_track_param.codec_param.avc.idr_interval = 1;
     second_video_track_param.codec_param.avc.bitrate = 12000000;
     second_video_track_param.codec_param.avc.profile = AVCProfileType::kBaseline;
@@ -10093,8 +10050,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob72
     uint32_t yuv_track_id_720p_src = 2;
     VideoTrackCreateParam second_video_track_param{multicam_id_, VideoFormat::kYUV,
                                                    1440, 720, 30};
-
-    second_video_track_param.low_power_mode = true;
 
     if (dump_bitstream_.IsEnabled()) {
       StreamDumpInfo dumpinfo = { second_video_track_param.format_type,
@@ -11035,8 +10990,6 @@ TEST_F(Recorder360Gtest, Stitched4KEncTrackWithSrcSurfDSWithTNRWithOverlayBlob48
 
     VideoTrackCreateParam video_track_param{multicam_id_,VideoFormat::kYUV,
                                             1440, 720, 24};
-
-    video_track_param.low_power_mode = true;
 
     TrackCb yuv_track_cb3;
     yuv_track_cb3.data_cb = [&, session_id](

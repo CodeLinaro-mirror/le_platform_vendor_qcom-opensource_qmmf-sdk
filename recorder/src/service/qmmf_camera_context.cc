@@ -95,7 +95,14 @@ CameraContext::CameraContext()
       restart_pipe_(true),
       reconfig_pipe_(false),
       port_paused_(false),
-      camera_parameters_{} {
+      camera_parameters_{},
+      is_ubwc_enabled_(false) {
+
+  char prop[PROPERTY_VALUE_MAX];
+  memset(prop, 0, sizeof(prop));
+  property_get("persist.qmmf.ubwcstream.enable", prop, "0");
+  is_ubwc_enabled_ = (atoi(prop) == 0) ? false : true;
+  QMMF_INFO("%s: Value of UBWC property: %d", __func__, is_ubwc_enabled_);
 }
 
 CameraContext::~CameraContext() {
@@ -2084,7 +2091,6 @@ status_t CameraContext::StartZSL(SnapshotType &param) {
   zsl_param.height         = stream_param.height;
   zsl_param.format         = Common::FromHalToQmmfFormat(stream_param.format);
   zsl_param.framerate      = camera_parameters_.frame_rate;
-  zsl_param.low_power_mode = false;
   zsl_param.id = zsl_port_id_;
 
   auto zsl_port = std::make_shared<ZslPort>(zsl_param, camera_parameters_,
@@ -2671,38 +2677,35 @@ status_t CameraPort::Init() {
   cam_stream_params_.width  = params_.width;
   cam_stream_params_.height = params_.height;
   cam_stream_params_.format = Common::FromQmmfToHalFormat(params_.format);
-
-  char prop[PROPERTY_VALUE_MAX];
-  memset(prop, 0, sizeof(prop));
-  property_get("persist.qmmf.ubwcstream.enable", prop, "0");
-  bool is_ubwc_stream_enabled = atoi(prop);
-  if (!is_ubwc_stream_enabled) {
-    cam_stream_params_.allocFlags.flags =
-        IMemAllocUsage::kSwReadOften | IMemAllocUsage::kSwWriteOften;
-  } else if (!params_.low_power_mode) {
-    cam_stream_params_.allocFlags.flags = IMemAllocUsage::kPrivateAllocUbwc;
-  }
-
   cam_stream_params_.rotation =
       static_cast<camera3_stream_rotation_t> (params_.rotation);
-  bool is_lpm_use_preview = false;
-  memset(prop, 0, sizeof(prop));
-  property_get("persist.camera.lpm.preview", prop, "0");
-  is_lpm_use_preview = atoi(prop);
-  if (params_.low_power_mode) {
-    cam_stream_params_.bufferCount = PREVIEW_STREAM_BUFFER_COUNT;
-    if (!is_lpm_use_preview) {
-      cam_stream_params_.format = HAL_PIXEL_FORMAT_YCbCr_420_888;
-      if (is_ubwc_stream_enabled) {
-        cam_stream_params_.allocFlags.flags |= IMemAllocUsage::kVideoEncoder;
-      }
-      cam_stream_params_.is_pp_enabled = false;
+
+  bool is_ubwc_stream_enabled = IsUbwcValidForStream(params_.width,
+                                                     params_.height);
+  if (!params_.is_yuv_track) {
+    cam_stream_params_.allocFlags.flags = IMemAllocUsage::kVideoEncoder;
+    cam_stream_params_.bufferCount =
+        VIDEO_STREAM_BUFFER_COUNT + GetExtraBufferCount();
+    if (is_ubwc_stream_enabled) {
+      cam_stream_params_.allocFlags.flags |= IMemAllocUsage::kPrivateAllocUbwc;
     }
   } else {
-    cam_stream_params_.allocFlags.flags |= IMemAllocUsage::kVideoEncoder;
-    cam_stream_params_.bufferCount = VIDEO_STREAM_BUFFER_COUNT +
-        GetExtraBufferCount();
+    cam_stream_params_.bufferCount = PREVIEW_STREAM_BUFFER_COUNT;
+    cam_stream_params_.format = HAL_PIXEL_FORMAT_YCbCr_420_888;
+    cam_stream_params_.is_pp_enabled = false;
   }
+
+  if (params_.is_caching_enabled) {
+    if (is_ubwc_stream_enabled) {
+      QMMF_WARN("%s:CPU Caching is not applicable when UBWC is on", __func__);
+    } else {
+      cam_stream_params_.allocFlags.flags |=
+          IMemAllocUsage::kSwReadOften | IMemAllocUsage::kSwWriteOften;
+    }
+  } else {
+    cam_stream_params_.allocFlags.flags |= IMemAllocUsage::kPrivateUncached;
+  }
+
   cam_stream_params_.cb = [&] (StreamBuffer buffer) { StreamCallback(buffer); };
 
   assert(context_ != nullptr);
@@ -3023,6 +3026,25 @@ uint32_t CameraPort::GetExtraBufferCount() {
   QMMF_DEBUG("%s: Number of extra buffers added: %u", __func__,
              extra_buffer_count);
   return extra_buffer_count;
+}
+
+bool CameraPort::IsUbwcValidForStream(uint32_t width, uint32_t height) {
+  bool is_ubwc_valid_for_track = false;
+
+  if (context_->is_ubwc_enabled_) {
+    if ((width / height == 2) && (width >= (2 * MIN_UBWC_WIDTH))) {
+      // If dual camera case and supported resolution
+      // TODO: Use org.codeaurora.qcamera3.logicalCameraType tag
+      //       to detect dual camera.
+      is_ubwc_valid_for_track = true;
+    } else if (width >= MIN_UBWC_WIDTH && height >= MIN_UBWC_HEIGHT) {
+      // If single camera case and supported resolution
+      is_ubwc_valid_for_track = true;
+    }
+  }
+  QMMF_DEBUG("%s: UBWC status for this track: %d", __func__,
+             is_ubwc_valid_for_track);
+  return is_ubwc_valid_for_track;
 }
 
 ZslPort::ZslPort(const StreamParam& param,
