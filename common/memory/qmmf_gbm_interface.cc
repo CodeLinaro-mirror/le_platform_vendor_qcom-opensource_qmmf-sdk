@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -52,6 +52,7 @@ const std::unordered_map<int32_t, int32_t> GBMUsage::gralloc_usage_flag_map_ = {
   //TODO: remove when repacking to buffer_handle_t is no longer needed
   {IMemAllocUsage::kHwCameraZsl,      GRALLOC_USAGE_HW_CAMERA_ZSL},
   {IMemAllocUsage::kPrivateAllocUbwc, GRALLOC_USAGE_PRIVATE_ALLOC_UBWC},
+  {IMemAllocUsage::kPrivateUncached,  GRALLOC_USAGE_PRIVATE_UNCACHED},
   {IMemAllocUsage::kProtected,        GRALLOC_USAGE_PROTECTED},
   {IMemAllocUsage::kSwReadOften,      GRALLOC_USAGE_SW_READ_OFTEN},
   {IMemAllocUsage::kSwWriteOften,     GRALLOC_USAGE_SW_WRITE_OFTEN},

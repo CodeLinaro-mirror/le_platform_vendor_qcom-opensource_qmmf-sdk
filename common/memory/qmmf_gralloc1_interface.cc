@@ -121,6 +121,11 @@ MemAllocError Gralloc1Device::AllocBuffer(IBufferHandle& handle,
     producer_flags |= GRALLOC1_PRODUCER_USAGE_PRIVATE_ALLOC_UBWC;
   }
 
+  if (local_usage & GRALLOC_USAGE_PRIVATE_UNCACHED) {
+    QMMF_INFO("%s: Setting UNCACHED producer_flags", __func__);
+    producer_flags |=  GRALLOC1_PRODUCER_USAGE_PRIVATE_UNCACHED;
+   }
+
   res = CreateDescriptor(gralloc1_device_, &buf_desc);
   if (GRALLOC1_ERROR_NONE != res) {
     QMMF_ERROR("%s: Error in CreateDescriptor\n", __func__);
