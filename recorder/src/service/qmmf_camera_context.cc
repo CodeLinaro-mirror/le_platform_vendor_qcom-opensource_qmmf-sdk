@@ -510,6 +510,11 @@ status_t CameraContext::SetUpCapture(const SnapshotParam& param,
                            (new_postproc_enable && restart_pipe_) ||
                            (jpeg_input_format_ != new_jpeg_input_format_);
       QMMF_DEBUG("%s: reconfigure_needed=%d", __func__, reconfigure_needed);
+
+      if (postproc_enable_ == true && new_postproc_enable == false) {
+        PostProcDelete();
+      }
+
       snapshot_param_ = param;
       postproc_enable_ = new_postproc_enable;
       snapshot_type_ = new_snapshot_type_;
@@ -2506,6 +2511,7 @@ status_t CameraContext::PostProcSetUp(CameraStreamParameters &stream_param,
       QMMF_ERROR("%s: Error while creating pipe!", __func__);
       return ret;
     }
+    restart_pipe_ = false;
   } else if (reconfig_pipe_) {
     ret = postproc_pipe_->Configure(GetSnapshotJsonConfig());
     if (ret != NO_ERROR) {
@@ -2514,7 +2520,6 @@ status_t CameraContext::PostProcSetUp(CameraStreamParameters &stream_param,
       return ret;
     }
   }
-  restart_pipe_ = false;
   reconfig_pipe_ = false;
 
   QMMF_INFO("%s: W(%d) & H(%d) Fmt(0x%x)", __func__, stream_param.width,
