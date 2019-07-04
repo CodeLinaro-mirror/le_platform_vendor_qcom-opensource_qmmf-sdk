@@ -81,9 +81,7 @@ CameraContext::CameraContext()
       flush_cb_(nullptr),
       zsl_port_id_(0x100),
       hfr_supported_(false),
-      batch_size_(1),
       batch_stream_id_(-1),
-      partial_metadata_required_(false),
       partial_result_count_(0),
       snapshot_param_{0, 0, 0, BufferFormat::kBLOB},
       snapshot_type_(SnapshotMode::kVideo),
@@ -96,8 +94,8 @@ CameraContext::CameraContext()
       snapshot_stream_param_{},
       restart_pipe_(true),
       reconfig_pipe_(false),
-      port_paused_(false) {
-  camera_start_params_ = {};
+      port_paused_(false),
+      camera_parameters_{} {
 }
 
 CameraContext::~CameraContext() {
@@ -178,7 +176,7 @@ status_t CameraContext::CreateSnapshotStream(
         return ret;
       }
     }
-    ret = CreateDeviceStream(stream_param, camera_start_params_.frame_rate,
+    ret = CreateDeviceStream(stream_param, camera_parameters_.frame_rate,
                              &stream_id, cache);
     if (ret != NO_ERROR) {
       QMMF_ERROR("%s: Failed creating snapshot stream: %d!", __func__, ret);
@@ -204,7 +202,7 @@ status_t CameraContext::CreateSnapshotStream(
         raw_stream_param.width, raw_stream_param.height,
         raw_stream_param.format);
 
-    ret = CreateDeviceStream(raw_stream_param, camera_start_params_.frame_rate,
+    ret = CreateDeviceStream(raw_stream_param, camera_parameters_.frame_rate,
                              &stream_id, cache);
     if (ret != NO_ERROR) {
       QMMF_ERROR("%s: Failed creating snapshot stream: %d!",
@@ -243,7 +241,8 @@ status_t CameraContext::DeleteSnapshotStream(bool cache) {
 }
 
 status_t CameraContext::OpenCamera(const uint32_t camera_id,
-                                   const CameraStartParam &param,
+                                   const float frame_rate,
+                                   const CameraExtraParam& extra_param,
                                    const ResultCb &cb,
                                    const ErrorCb &errcb) {
 
@@ -265,16 +264,82 @@ status_t CameraContext::OpenCamera(const uint32_t camera_id,
   camera_callbacks_.resultCb = [&] (const CaptureResult &result)
       { CameraResultCb(result); };
 
-  if (param.enable_partial_metadata) {
-    partial_metadata_required_ = true;
+  camera_parameters_ = {};
+  camera_parameters_.frame_rate = frame_rate;
+
+  if (extra_param.Exists(QMMF_VIDEO_HDR_MODE)) {
+    size_t entry_count = extra_param.EntryCount(QMMF_VIDEO_HDR_MODE);
+    if (entry_count == 1) {
+      VideoHDRMode vid_hdr_mode;
+      extra_param.Fetch(QMMF_VIDEO_HDR_MODE, vid_hdr_mode, 0);
+      if (vid_hdr_mode.enable == true) {
+        QMMF_INFO("%s: HDR is ON..", __func__);
+        camera_parameters_.is_zzhdr_enabled = true;
+      }
+    } else {
+      QMMF_ERROR("%s: Invalid hdr mode received", __func__);
+      return BAD_VALUE;
+    }
   }
+
+  if (extra_param.Exists(QMMF_FORCE_SENSOR_MODE)) {
+    size_t entry_count = extra_param.EntryCount(QMMF_FORCE_SENSOR_MODE);
+    if (entry_count == 1) {
+      ForceSensorMode force_sensor_mode;
+      extra_param.Fetch(QMMF_FORCE_SENSOR_MODE, force_sensor_mode, 0);
+      if (force_sensor_mode.mode >= 0) {
+        camera_parameters_.force_sensor_mode =
+          force_sensor_mode.mode;
+        QMMF_INFO("%s: Force sensor mode(%d) received",
+                  __func__, force_sensor_mode.mode);
+      } else {
+        QMMF_WARN("%s: Invalid sensor mode(%i) received, "
+                  "falling back to auto mode selection",
+                  __func__, force_sensor_mode.mode);
+      }
+    } else {
+      QMMF_ERROR("%s: Invalid sensor mode received", __func__);
+      return BAD_VALUE;
+    }
+  }
+
+  if (extra_param.Exists(QMMF_EIS)) {
+    size_t entry_count = extra_param.EntryCount(QMMF_EIS);
+    if (entry_count == 1) {
+      EISSetup eis_mode;
+      extra_param.Fetch(QMMF_EIS, eis_mode, 0);
+      if (eis_mode.enable == true) {
+        QMMF_INFO("%s: EIS is ON..", __func__);
+        camera_parameters_.is_eis_enabled = true;
+      }
+    } else {
+      QMMF_ERROR("%s: Invalid EIS mode received", __func__);
+      return BAD_VALUE;
+    }
+  }
+
+  if (extra_param.Exists(QMMF_PARTIAL_METADATA)) {
+    size_t entry_count = extra_param.EntryCount(QMMF_PARTIAL_METADATA);
+    if (entry_count == 1) {
+      PartialMetadata partial_metadata;
+      extra_param.Fetch(QMMF_PARTIAL_METADATA, partial_metadata, 0);
+      if (partial_metadata.enable == true) {
+        QMMF_INFO("%s: PartialMetadata is ON..", __func__);
+        camera_parameters_.is_partial_metadata_enabled = true;
+      }
+    } else {
+      QMMF_ERROR("%s: Invalid partial metadata received", __func__);
+      return BAD_VALUE;
+    }
+  }
+
+  camera_parameters_.batch_size = 1;
 
   camera_device_ = new Camera3DeviceClient(camera_callbacks_);
   if(!camera_device_.get()) {
     QMMF_ERROR("%s: Can't Instantiate Camera3DeviceClient", __func__);
     return NO_MEMORY;
   }
-  camera_start_params_ = param;
 
   ret = camera_device_->Initialize();
   if(ret != NO_ERROR) {
@@ -878,7 +943,7 @@ void CameraContext::RestoreBatchStreamId(std::shared_ptr<CameraPort>& port) {
 
   if (batch_stream_id_ == port->GetCameraStreamId()) {
     batch_stream_id_ = -1;
-    batch_size_ = 1;
+    camera_parameters_.batch_size = 1;
   }
 }
 
@@ -897,7 +962,7 @@ status_t CameraContext::GetBatchSize(const StreamParam& param,
                                      uint32_t& batch_size) {
 
   /* only one batch stream is supported */
-  if (batch_size_ > 1) {
+  if (camera_parameters_.batch_size > 1) {
     /* set batch size to default */
     batch_size = 1;
     return NO_ERROR;
@@ -937,7 +1002,7 @@ status_t CameraContext::GetBatchSize(const StreamParam& param,
   }
 
   batch_size = batch;
-  batch_size_ = batch_size;
+  camera_parameters_.batch_size = batch_size;
 
   return NO_ERROR;
 }
@@ -962,46 +1027,11 @@ status_t CameraContext::CreateStream(const StreamParam& param,
     return BAD_VALUE;
   }
 
-  if (extra_param.Exists(QMMF_VIDEO_HDR_MODE)) {
-    size_t entry_count = extra_param.EntryCount(QMMF_VIDEO_HDR_MODE);
-
-    for (size_t i = 0; i < entry_count; ++i) {
-      VideoHDRMode vid_hdr_mode;
-      extra_param.Fetch(QMMF_VIDEO_HDR_MODE, vid_hdr_mode, i);
-      if (vid_hdr_mode.enable == true) {
-        QMMF_INFO("%s: HDR is ON..", __func__);
-        (const_cast<StreamParam&>(param).is_zzhdr_enabled) = true;
-      }
-    }
-  }
-
-  if (extra_param.Exists(QMMF_FORCE_SENSOR_MODE)) {
-    size_t entry_count = extra_param.EntryCount(QMMF_FORCE_SENSOR_MODE);
-    for (size_t i = 0; i < entry_count; ++i) {
-      ForceSensorMode force_sensor_mode;
-      extra_param.Fetch(QMMF_FORCE_SENSOR_MODE, force_sensor_mode, i);
-      if (force_sensor_mode.mode >= 0) {
-        (const_cast<StreamParam&>(param).force_sensor_mode) =
-            force_sensor_mode.mode;
-        QMMF_INFO("%s: Force sensor mode(%d) received",
-                  __func__, force_sensor_mode.mode);
-      } else {
-        QMMF_WARN("%s: Invalid sensor mode(%i) received, "
-                  "falling back to auto mode selection",
-                  __func__, force_sensor_mode.mode);
-      }
-    }
-  }
-
-  if (extra_param.Exists(QMMF_EIS)) {
-    EISSetup eis_mode;
-    extra_param.Fetch(QMMF_EIS, eis_mode, 0);
-    QMMF_INFO("%s: EIS Value is: %d", __func__, eis_mode.enable);
-    (const_cast<StreamParam&>(param).is_eis_enabled) = eis_mode.enable;
-  }
+  camera_parameters_.batch_size = batch;
 
   std::shared_ptr<CameraPort> port =
-      std::make_shared<CameraPort>(param, batch, CameraPortType::kVideo, this);
+      std::make_shared<CameraPort>(param, camera_parameters_,
+                                   CameraPortType::kVideo, this);
   assert(port.get() != nullptr);
 
   if (extra_param.Exists(QMMF_POSTPROCESS_PLUGIN)) {
@@ -1213,6 +1243,19 @@ status_t CameraContext::GetDefaultCaptureParam(CameraMetadata &meta) {
   return ret;
 }
 
+status_t CameraContext::GetCameraCharacteristics(CameraMetadata &meta) {
+
+  QMMF_DEBUG("%s: Enter", __func__);
+  meta.clear();
+  if (static_meta_.isEmpty()) {
+    QMMF_ERROR("%s Static meta is empty!\n", __func__);
+    return NO_INIT;
+  }
+  meta.append(static_meta_);
+  QMMF_DEBUG("%s: Exit", __func__);
+  return NO_ERROR;
+}
+
 status_t CameraContext::ReturnImageCaptureBuffer(const uint32_t camera_id,
                                                  const int32_t buffer_id) {
 
@@ -1358,7 +1401,7 @@ status_t CameraContext::CreateDeviceStream(CameraStreamParameters& params,
     StreamConfiguration stream_config{};
     stream_config.is_constrained_high_speed = is_constrained_mode;
     stream_config.is_raw_only = is_raw_only;
-    stream_config.batch_size = batch_size_;
+    stream_config.batch_size = camera_parameters_.batch_size;
     stream_config.fps_sensormode_index = fps_sensormode_index;
     stream_config.params = &params;
 
@@ -1529,9 +1572,6 @@ status_t CameraContext::CreateCaptureRequest(Camera3Request& request,
   auto ret = camera_device_->CreateDefaultRequest(template_type,
       &request.metadata);
   assert(ret == NO_ERROR);
-
-  // Append static meta data.
-  request.metadata.append(static_meta_);
   return ret;
 }
 
@@ -2033,8 +2073,8 @@ status_t CameraContext::StartZSL(SnapshotType &param) {
   }
 
   int32_t fps_range[2];
-  fps_range[0] = camera_start_params_.frame_rate;
-  fps_range[1] = camera_start_params_.frame_rate;
+  fps_range[0] = camera_parameters_.frame_rate;
+  fps_range[1] = camera_parameters_.frame_rate;
 
   streaming_active_requests_[0].metadata.update(
       ANDROID_CONTROL_AE_TARGET_FPS_RANGE, fps_range, 2);
@@ -2043,13 +2083,15 @@ status_t CameraContext::StartZSL(SnapshotType &param) {
   zsl_param.width          = stream_param.width;
   zsl_param.height         = stream_param.height;
   zsl_param.format         = Common::FromHalToQmmfFormat(stream_param.format);
-  zsl_param.framerate      = camera_start_params_.frame_rate;
+  zsl_param.framerate      = camera_parameters_.frame_rate;
   zsl_param.low_power_mode = false;
   zsl_param.id = zsl_port_id_;
 
-  auto zsl_port = std::make_shared<ZslPort>(zsl_param, 1, CameraPortType::kZSL,
-                                        this, param.zsl_queue_params.queue_depth,
-                                        postproc_enable_);
+  auto zsl_port = std::make_shared<ZslPort>(zsl_param, camera_parameters_,
+                                            CameraPortType::kZSL,
+                                            this,
+                                            param.zsl_queue_params.queue_depth,
+                                            postproc_enable_);
   assert(zsl_port.get() != nullptr);
 
   ret = zsl_port->Init();
@@ -2394,7 +2436,7 @@ void CameraContext::CameraResultCb(const CaptureResult &result) {
         QueryPartialTag(result.metadata, ANDROID_CONTROL_AF_STATE, &afState,
                         frame_number);
 
-    if (!complete_result && partial_metadata_required_) {
+    if (!complete_result && camera_parameters_.is_partial_metadata_enabled) {
       if (nullptr != result_cb_) {
         result_cb_(camera_id_, result.metadata);
       }
@@ -2509,7 +2551,7 @@ status_t CameraContext::PostProcSetUp(CameraStreamParameters &stream_param,
   if (restart_pipe_) {
     PauseActiveStreams();
     PostProcDelete();
-    ret = PostProcCreatePipe(stream_param, camera_start_params_.frame_rate,
+    ret = PostProcCreatePipe(stream_param, camera_parameters_.frame_rate,
                              capture_plugins_, required_input);
     if (ret != NO_ERROR) {
       QMMF_ERROR("%s: Error while creating pipe!", __func__);
@@ -2592,15 +2634,16 @@ AECData CameraContext::GetAECData() {
   return aec_;
 }
 
-CameraPort::CameraPort(const StreamParam& param, size_t batch,
+CameraPort::CameraPort(const StreamParam& param,
+                       const CameraParameters camera_parameters,
                        CameraPortType port_type, CameraContext* context)
     : port_type_(port_type),
       context_(context),
       camera_stream_id_(-1),
       params_(param),
       ready_to_start_(false),
-      batch_size_(batch),
-      port_id_(param.id) {
+      port_id_(param.id),
+      camera_parameters_(camera_parameters) {
 
   QMMF_INFO("%s: Enter", __func__);
 
@@ -2692,9 +2735,9 @@ status_t CameraPort::Init() {
     cam_stream_params_.width  = in_param.width;
     cam_stream_params_.height = in_param.height;
   }
-  cam_stream_params_.is_zzhdr_enabled = params_.is_zzhdr_enabled;
-  cam_stream_params_.force_sensor_mode = params_.force_sensor_mode;
-  cam_stream_params_.is_eis_enabled = params_.is_eis_enabled;
+  cam_stream_params_.is_zzhdr_enabled = camera_parameters_.is_zzhdr_enabled;
+  cam_stream_params_.force_sensor_mode = camera_parameters_.force_sensor_mode;
+  cam_stream_params_.is_eis_enabled = camera_parameters_.is_eis_enabled;
 
 
   int32_t stream_id;
@@ -2982,10 +3025,11 @@ uint32_t CameraPort::GetExtraBufferCount() {
   return extra_buffer_count;
 }
 
-ZslPort::ZslPort(const StreamParam& param, size_t batch_size,
+ZslPort::ZslPort(const StreamParam& param,
+                 const CameraParameters camera_port_parameters,
                  CameraPortType port_type, CameraContext *context,
                  uint32_t zsl_queue_depth, bool postprocess)
-    : CameraPort(param, batch_size, port_type, context),
+    : CameraPort(param, camera_port_parameters, port_type, context),
       zsl_queue_depth_(zsl_queue_depth),
       postprocess_(postprocess) {
   QMMF_INFO("%s: Enter", __func__);

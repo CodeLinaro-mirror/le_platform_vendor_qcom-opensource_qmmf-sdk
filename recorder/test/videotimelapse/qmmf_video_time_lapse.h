@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -220,7 +220,6 @@ class TimeLapse {
   TimeLapseParams params_;
   TimeLapseMode time_lapse_mode_;
   qmmf::recorder::MultiCameraConfigType multicam_type_;
-  qmmf::recorder::CameraStartParam multicam_start_params_;
   std::thread time_lapse_thread_;
   uint32_t session_id_;
   uint32_t cam_id_;

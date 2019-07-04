@@ -63,8 +63,15 @@ target_include_directories(qmmf_algo_interface_gtest
 target_include_directories(qmmf_algo_interface_gtest
  PRIVATE $<BUILD_INTERFACE:${KERNEL_INCDIR}/usr/include>)
 
+# TODO remove this hack when camx issue with propagating c and cpp flags is solved
+target_include_directories(qmmf_algo_interface_gtest
+ PRIVATE ${PKG_CONFIG_SYSROOT_DIR}/usr/include/ion_headers)
+
 install(TARGETS qmmf_algo_interface_gtest DESTINATION bin OPTIONAL)
 target_link_libraries(qmmf_algo_interface_gtest log utils cutils gtest gtest_main dl jsoncpp pthread)
+
+# TODO remove this hack when camx issue with propagating c and cpp glags is solved
+target_link_libraries(qmmf_algo_interface_gtest ion)
 
 # Build qmmf algorithm interface gtest application binary
 add_executable(qmmf_utils_gtest ${exclude}
@@ -74,11 +81,18 @@ ${CMAKE_CURRENT_SOURCE_DIR}/gtest/qmmf_utils_gtest.cc
 target_include_directories(qmmf_utils_gtest
  PRIVATE ${TOP_DIRECTORY})
 
- target_include_directories(qmmf_utils_gtest
+target_include_directories(qmmf_utils_gtest
  PRIVATE $<BUILD_INTERFACE:${KERNEL_INCDIR}/usr/include>)
+
+ # TODO remove this hack when camx issue with propagating c and cpp flags is solved
+target_include_directories(qmmf_utils_gtest
+ PRIVATE ${PKG_CONFIG_SYSROOT_DIR}/usr/include/ion_headers)
 
 install(TARGETS qmmf_utils_gtest DESTINATION bin OPTIONAL)
 target_link_libraries(qmmf_utils_gtest log utils cutils gtest gtest_main dl)
+
+# TODO remove this hack when camx issue with propagating c and cpp glags is solved
+target_link_libraries(qmmf_utils_gtest ion)
 
 if (PLUGINS_ENABLED)
 file(GLOB_RECURSE JSON_FILES ${CMAKE_CURRENT_LIST_DIR}/test_cases/*.json)

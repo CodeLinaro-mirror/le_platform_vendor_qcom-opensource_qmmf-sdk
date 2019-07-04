@@ -240,49 +240,6 @@ struct VideoTrackCreateParamInternal : public VideoTrackCreateParam {
  *  Enhances the base struct with methods suitable for marshalling over the
  *  Binder RPC framework.
  */
-struct CameraStartParamInternal : public CameraStartParam {
-
-  //! Default constructor
-  CameraStartParamInternal() {}
-
-  //! Copy constructor
-  CameraStartParamInternal(CameraStartParam& base) : CameraStartParam(base) {}
-
-  //! Copy constructor (const)
-  CameraStartParamInternal(const CameraStartParam& base)
-      : CameraStartParam(const_cast<CameraStartParam&>(base)) {}
-
-  /*! @brief Marshals the struct to the given Parcel.
-   *
-   *  Marshals the individual fields of the struct into the given Parcel.
-   *
-   *  @param [in,out] parcel Receives the marshalled fields.
-   */
-  void ToParcel(::android::Parcel* parcel) const {
-    parcel->writeUint32(frame_rate);
-    parcel->writeUint32(flags);
-  }
-
-  /*! @brief Unmarshals the given Parcel into the struct.
-   *
-   *  Unmarshals the flattened contents of the given Parcel into the individual
-   *  fields of the struct.
-   *
-   *  @param [in] parcel Provides the flattened contents.
-   *  @returns Reference to the struct.
-   */
-  CameraStartParamInternal& FromParcel(const ::android::Parcel& parcel) {
-    frame_rate = parcel.readUint32();
-    flags = parcel.readUint32();
-    return *this;
-  }
-};
-
-/*! @brief Struct enhanced with marshalling methods.
- *
- *  Enhances the base struct with methods suitable for marshalling over the
- *  Binder RPC framework.
- */
 struct ImageParamInternal : public ImageParam {
 
   //! Default constructor

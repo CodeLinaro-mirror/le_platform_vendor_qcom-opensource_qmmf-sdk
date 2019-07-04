@@ -74,7 +74,9 @@ class CameraSource {
   ~CameraSource();
 
   /// Open Camera.
-  status_t StartCamera(const uint32_t camera_id, const CameraStartParam &param,
+  status_t StartCamera(const uint32_t camera_id,
+                       const float frame_rate,
+                       const CameraExtraParam& extra_param,
                        const ResultCb &cb = nullptr,
                        const ErrorCb &errcb = nullptr);
 
@@ -156,6 +158,10 @@ class CameraSource {
   /// Return default settings for Image Capture
   status_t GetDefaultCaptureParam(const uint32_t camera_id,
                                   CameraMetadata &meta);
+
+  /// Return static metadata
+  status_t GetCameraCharacteristics(const uint32_t camera_id,
+                                    CameraMetadata &meta);
 
   /// UpdateTrackFrameRate
   status_t UpdateTrackFrameRate(const uint32_t track_id,

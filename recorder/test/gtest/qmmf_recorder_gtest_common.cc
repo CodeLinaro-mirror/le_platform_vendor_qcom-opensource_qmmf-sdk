@@ -463,10 +463,6 @@ void GtestCommon::SetUp() {
   property_get(PROP_MEASURE_SOF_LATENCY, prop_val, "0");
   enable_sof_latency_ = (atoi(prop_val) == 0) ? false : true;
 
-  camera_start_params_ = {};
-  camera_start_params_.frame_rate       = 30;
-  camera_start_params_.flags            = 0x0;
-
   display_started_ = false;
 #ifndef DISABLE_DISPLAY
   enable_gfx_ = false;
@@ -2498,7 +2494,13 @@ status_t GtestCommon::FillCropMetadata(CameraMetadata& meta,
                                             int32_t crop_x, int32_t crop_y,
                                             int32_t crop_w, int32_t crop_h) {
 
-  auto active_array_size = meta.find(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE);
+  CameraMetadata static_meta;
+  auto ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+  if (NO_ERROR != ret) {
+    TEST_ERROR("%s: GetCameraCharacteristics failed!", __func__);
+    return ret;
+  }
+  auto active_array_size = static_meta.find(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE);
   if (!active_array_size.count) {
     TEST_ERROR("%s: Active sensor array size is missing!", __func__);
     return NAME_NOT_FOUND;
@@ -2522,7 +2524,7 @@ status_t GtestCommon::FillCropMetadata(CameraMetadata& meta,
       static_cast<int32_t>(round(width)),
       static_cast<int32_t>(round(height)),
   };
-  auto ret = meta.update(ANDROID_SCALER_CROP_REGION, crop_region, 4);
+  ret = meta.update(ANDROID_SCALER_CROP_REGION, crop_region, 4);
   if (NO_ERROR != ret) {
     TEST_ERROR("%s: Failed to set crop region metadata!", __func__);
     return ret;

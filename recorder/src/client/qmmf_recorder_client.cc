@@ -202,7 +202,8 @@ status_t RecorderClient::Disconnect() {
 }
 
 status_t RecorderClient::StartCamera(const uint32_t camera_id,
-                                     const CameraStartParam &param,
+                                     const float frame_rate,
+                                     const CameraExtraParam& extra_param,
                                      const CameraResultCb &result_cb) {
   bool enable_result_cb = false;
   QMMF_DEBUG("%s Enter ", __func__);
@@ -217,8 +218,10 @@ status_t RecorderClient::StartCamera(const uint32_t camera_id,
     metadata_cb_ = result_cb;
     enable_result_cb = true;
   }
+
   assert(client_id_ > 0);
-  auto ret = recorder_service_->StartCamera(client_id_, camera_id, param,
+  auto ret = recorder_service_->StartCamera(client_id_, camera_id, frame_rate,
+                                            extra_param,
                                             enable_result_cb);
   if (NO_ERROR != ret) {
     QMMF_ERROR("%s StartCamera failed!", __func__);
@@ -1006,6 +1009,24 @@ status_t RecorderClient::GetDefaultCaptureParam(const uint32_t camera_id,
   return ret;
 }
 
+status_t RecorderClient::GetCameraCharacteristics(const uint32_t camera_id,
+                                                  CameraMetadata &meta) {
+
+  QMMF_DEBUG("%s Enter ", __func__);
+  std::lock_guard<std::mutex> lock(lock_);
+  if (!CheckServiceStatus()) {
+    return NO_INIT;
+  }
+  assert(client_id_ > 0);
+  auto ret = recorder_service_->GetCameraCharacteristics(client_id_,  camera_id,
+                                                         meta);
+  if (NO_ERROR != ret) {
+    QMMF_ERROR("%s GetCameraCharacteristics failed!", __func__);
+  }
+  QMMF_DEBUG("%s Exit ", __func__);
+  return ret;
+}
+
 status_t RecorderClient::CreateOverlayObject(const uint32_t track_id,
                                              const OverlayParam &param,
                                              uint32_t *overlay_id) {
@@ -1601,24 +1622,26 @@ class BpRecorderService: public BpInterface<IRecorderService> {
   }
 
   status_t StartCamera(const uint32_t client_id, const uint32_t camera_id,
-                       const CameraStartParam &param,
+                       const float frame_rate,
+                       const CameraExtraParam& extra_param,
                        bool enable_result_cb) {
     Parcel data, reply;
     data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
     data.writeUint32(client_id);
     data.writeUint32(camera_id);
+    data.writeFloat(frame_rate);
     data.writeUint32(enable_result_cb ? 1 : 0);
-    uint32_t param_size = sizeof param;
-    data.writeUint32(param_size);
-    android::Parcel::WritableBlob blob;
-    data.writeBlob(param_size, false, &blob);
-    memset(blob.data(), 0x0, param_size);
-    CameraStartParam* start_param;
-    start_param = const_cast<CameraStartParam*>(&param);
-    memcpy(blob.data(), reinterpret_cast<void*>(start_param), param_size);
+    uint32_t extra_param_size = extra_param.Size();
+    data.writeUint32(extra_param_size);
+    const void *extra_data = extra_param.GetAndLock();
+    android::Parcel::WritableBlob extra_blob;
+    data.writeBlob(extra_param_size, false, &extra_blob);
+    memset(extra_blob.data(), 0x0, extra_param_size);
+    memcpy(extra_blob.data(), extra_data, extra_param_size);
     remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
                             RECORDER_START_CAMERA), data, &reply);
-    blob.release();
+    extra_param.ReturnAndUnlock(extra_data);
+    extra_blob.release();
     return reply.readInt32();
   }
 
@@ -2095,6 +2118,23 @@ class BpRecorderService: public BpInterface<IRecorderService> {
     data.writeUint32(camera_id);
     remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
                                 RECORDER_GET_DEFAULT_CAPTURE_PARAMS), data,
+                                &reply);
+    auto ret = reply.readInt32();
+    if (NO_ERROR == ret) {
+      ret = meta.readFromParcel(&reply);
+    }
+    return ret;
+  }
+
+  status_t GetCameraCharacteristics(const uint32_t client_id,
+                                    const uint32_t camera_id,
+                                    CameraMetadata &meta) {
+    Parcel data, reply;
+    data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
+    data.writeUint32(client_id);
+    data.writeUint32(camera_id);
+    remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
+                                RECORDER_GET_CAMERA_CHARACTERISTICS), data,
                                 &reply);
     auto ret = reply.readInt32();
     if (NO_ERROR == ret) {

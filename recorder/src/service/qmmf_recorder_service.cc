@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -82,21 +82,21 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
         uint32_t camera_id, enable_flag;
         bool enable_result_cb;
         uint32_t client_id;
+        float frame_rate;
         data.readUint32(&client_id);
         data.readUint32(&camera_id);
+        data.readFloat(&frame_rate);
         data.readUint32(&enable_flag);
         enable_result_cb = (1 == enable_flag) ? true : false;
-        uint32_t blob_size;
-        data.readUint32(&blob_size);
-        android::Parcel::ReadableBlob blob;
-        data.readBlob(blob_size, &blob);
-        void* params = const_cast<void*>(blob.data());
-        CameraStartParam camera_start_params;
-        memset(&camera_start_params, 0x0, sizeof camera_start_params);
-        memcpy(&camera_start_params, params, blob_size);
-        ret = StartCamera(client_id, camera_id, camera_start_params,
+        uint32_t extra_blob_size;
+        android::Parcel::ReadableBlob extra_blob;
+        data.readUint32(&extra_blob_size);
+        data.readBlob(extra_blob_size, &extra_blob);
+        CameraExtraParam extra_param(extra_blob.data(), extra_blob_size);
+        ret = StartCamera(client_id, camera_id, frame_rate,
+                          extra_param,
                           enable_result_cb);
-        blob.release();
+        extra_blob.release();
         reply->writeInt32(ret);
         return NO_ERROR;
       }
@@ -521,6 +521,23 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
         return NO_ERROR;
       }
       break;
+      case RECORDER_GET_CAMERA_CHARACTERISTICS: {
+        uint32_t client_id, camera_id;
+        data.readUint32(&client_id);
+        data.readUint32(&camera_id);
+        CameraMetadata meta;
+        ret = GetCameraCharacteristics(client_id, camera_id, meta);
+        reply->writeInt32(ret);
+        if (NO_ERROR == ret) {
+          ret = meta.writeToParcel(reply);
+          if (NO_ERROR != ret) {
+            QMMF_ERROR("%s: Metadata parcel write failed: %d\n",
+                       __func__, ret);
+          }
+        }
+        return NO_ERROR;
+      }
+      break;
       case RECORDER_CREATE_OVERLAYOBJECT: {
         uint32_t client_id, blob_size, track_id;
         android::Parcel::ReadableBlob image_blob;
@@ -810,7 +827,8 @@ status_t RecorderService::Disconnect(uint32_t client_id) {
 
 status_t RecorderService::StartCamera(const uint32_t client_id,
                                       const uint32_t camera_id,
-                                      const CameraStartParam &params,
+                                      const float frame_rate,
+                                      const CameraExtraParam& extra_param,
                                       bool enable_result_cb) {
 
   QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
@@ -821,7 +839,8 @@ status_t RecorderService::StartCamera(const uint32_t client_id,
     return BAD_VALUE;
   }
 
-  auto ret = recorder_->StartCamera(client_id, camera_id, params,
+  auto ret = recorder_->StartCamera(client_id, camera_id, frame_rate,
+                                    extra_param,
                                     enable_result_cb);
   if(ret != NO_ERROR) {
     QMMF_ERROR("%s: Can't start Camera!!", __func__);
@@ -1406,7 +1425,7 @@ status_t RecorderService::GetCameraParam(const uint32_t client_id,
 }
 
 status_t RecorderService::GetDefaultCaptureParam(const uint32_t client_id,
-                                                const uint32_t camera_id,
+                                                 const uint32_t camera_id,
                                                  CameraMetadata &meta) {
 
   QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
@@ -1419,6 +1438,26 @@ status_t RecorderService::GetDefaultCaptureParam(const uint32_t client_id,
   auto ret = recorder_->GetDefaultCaptureParam(client_id, camera_id, meta);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: GetDefaultCaptureParam failed!", __func__);
+    return ret;
+  }
+  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
+  return NO_ERROR;
+}
+
+status_t RecorderService::GetCameraCharacteristics(const uint32_t client_id,
+                                                   const uint32_t camera_id,
+                                                   CameraMetadata &meta) {
+
+  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
+
+  if (!IsRecorderInitialized()) {
+    QMMF_ERROR("%s: Recorder not initialized!", __func__);
+    return NO_INIT;
+  }
+
+  auto ret = recorder_->GetCameraCharacteristics(client_id, camera_id, meta);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s: GetCameraCharacteristics failed!", __func__);
     return ret;
   }
   QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);

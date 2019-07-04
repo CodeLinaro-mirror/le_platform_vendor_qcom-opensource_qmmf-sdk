@@ -1691,15 +1691,14 @@ status_t RecorderTest::StartCamera() {
 
   TEST_INFO("%s: Enter", __func__);
 
-  CameraStartParam camera_params{};
-  camera_params.enable_partial_metadata  = false;
   CameraResultCb result_cb = [&] (uint32_t camera_id,
             const CameraMetadata &result) {
             CameraResultCallbackHandler(camera_id, result); };
   if (kpi_debug_mask) {
     kpi_marker_.SetUp();
   }
-  auto ret = recorder_.StartCamera(camera_id_, camera_params, result_cb);
+  CameraExtraParam empty_extra_params;
+  auto ret = recorder_.StartCamera(camera_id_, 30, empty_extra_params, result_cb);
   if(ret != 0) {
       ALOGE("%s StartCamera Failed!!", __func__);
   }
@@ -2081,11 +2080,9 @@ status_t RecorderTest::StartMultiCameraMode() {
 
   TEST_INFO("%s: Enter", __func__);
 
-  CameraStartParam camera_params{};
-
   camera_id_ = 1;
 
-  auto ret = recorder_.StartCamera(camera_id_, camera_params);
+  auto ret = recorder_.StartCamera(camera_id_, 30);
   if(ret != 0) {
       ALOGE("%s StartCamera Failed!!", __func__);
   }
@@ -2139,7 +2136,7 @@ status_t RecorderTest::StartMultiCameraMode() {
   sleep(1);
   camera_id_ = 0;
 
-  ret = recorder_.StartCamera(camera_id_, camera_params);
+  ret = recorder_.StartCamera(camera_id_, 30);
   if(ret != 0) {
       ALOGE("%s StartCamera Failed!!", __func__);
   }
@@ -2181,7 +2178,7 @@ status_t RecorderTest::StartMultiCameraMode() {
   sleep(1);
   camera_id_ = 2;
 
-  ret = recorder_.StartCamera(camera_id_, camera_params);
+  ret = recorder_.StartCamera(camera_id_, 30);
   if(ret != 0) {
       ALOGE("%s StartCamera Failed!!", __func__);
   }
@@ -4370,7 +4367,6 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
   // StartCamera - Begin
   // TODO: this parameters to be configured from config file
   // once the proper lower layer support for zsl is added
-  CameraStartParam camera_params{};
 
   camera_id_ = 0;
 
@@ -4382,12 +4378,14 @@ int32_t RecorderTest::RunFromConfig(int32_t argc, char *argv[])
     current_camera_id = current_camera_info->camera_id;
     if (current_camera_id == -1)
         current_camera_id = camera_id_;
-    camera_params.frame_rate = current_camera_info->camera_fps;
     CameraResultCb result_cb = [&] (uint32_t camera_id,
             const CameraMetadata &result) {
             CameraResultCallbackHandler(camera_id, result); };
     printf("%s StartCamera (%d)\n",__func__, current_camera_id);
-    ret = recorder_.StartCamera(current_camera_id, camera_params, result_cb);
+    CameraExtraParam empty_extra_params;
+    ret = recorder_.StartCamera(current_camera_id,
+                                current_camera_info->camera_fps,
+                                empty_extra_params, result_cb);
     if(ret != 0) {
       ALOGE("%s StartCamera (%d) Failed!", __func__, current_camera_id);
       return ret;
@@ -5370,9 +5368,8 @@ int32_t RecorderTest::StartRecording(
   int32_t ret;
   TrackCb video_track_cb;
   SessionCb session_status_cb;
-  CameraStartParam camera_params;
 
-  ret = recorder_.StartCamera(camera_id_, camera_params);
+  ret = recorder_.StartCamera(camera_id_, 30);
   if (ret != 0) {
     TEST_ERROR("%s StartCamera Failed!!", __func__);
     return ret;
@@ -5587,7 +5584,6 @@ exit:
 int32_t RecorderTest::RunAutoMode(int32_t argc, char *argv[]) {
   ALOGD("%s: Enter ",__func__);
 
-  CameraStartParam camera_params{};
   TrackCb video_track_cb;
   SessionCb session_status_cb;
   uint32_t session_id;
@@ -5613,10 +5609,7 @@ int32_t RecorderTest::RunAutoMode(int32_t argc, char *argv[]) {
                                           track_info.width, track_info.height,
                                           track_info.fps};
 
-  camera_params.frame_rate          = track_info.fps;
-  camera_params.flags               = 0x0;
-
-  ret = recorder_.StartCamera(camera_id_, camera_params);
+  ret = recorder_.StartCamera(camera_id_, track_info.fps);
   if(ret != 0) {
       ALOGE("%s StartCamera Failed!!", __func__);
       goto disconnect;

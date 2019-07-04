@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -462,45 +462,6 @@ struct VideoTrackCreateParam {
 /// which includes a video track.
 typedef std::function<void(uint32_t camera_id,
                            const android::CameraMetadata &res)> CameraResultCb;
-
-/// \brief Parameters passed to StartCamera API
-///
-/// flags provide a mechanism to provide a custom initialization
-/// parameter to camera
-struct CameraStartParam {
-  bool     enable_partial_metadata;
-  uint32_t frame_rate;
-  uint32_t flags;
-
-  CameraStartParam()
-      : enable_partial_metadata(false),
-        frame_rate(30),
-        flags(0) {}
-
-  CameraStartParam(bool enable_partial_metadata, uint32_t frame_rate,
-                   uint32_t flags)
-      : enable_partial_metadata(enable_partial_metadata),
-        frame_rate(frame_rate),
-        flags(flags) {}
-
-  ::std::string ToString() const {
-    ::std::stringstream stream;
-    stream << "enable_partial_metadata[" << ::std::boolalpha
-        << enable_partial_metadata << ::std::noboolalpha << "]";
-    stream << "frame_rate[" << frame_rate << "] ";
-    stream << "flags[" << flags << "]";
-    return stream.str();
-  };
-};
-
-/// @brief CameraFlags define the mode of the camera.
-enum CameraFlags {
-  /// Start camera in slave mode. In this mode the client requires the camera
-  /// to have been opened by another client as master. The client using the
-  /// camera in this mode can create sessions and tracks but can not capture
-  /// images of set/get camera parameters.
-  kCameraSlaveMode  = 1 << 0,
-};
 
 /// @brief For thumbnail images only kJPEG is supported
 /// For YUV and Bayer formats, quality is ignored

@@ -62,7 +62,8 @@ class RecorderClient {
   status_t Disconnect();
 
   status_t StartCamera(const uint32_t camera_id,
-                       const CameraStartParam &param,
+                       const float frame_rate,
+                       const CameraExtraParam& extra_param,
                        const CameraResultCb &result_cb = nullptr);
 
   status_t StopCamera(const uint32_t camera_id);
@@ -142,6 +143,9 @@ class RecorderClient {
 
   status_t GetDefaultCaptureParam(const uint32_t camera_id,
                                   CameraMetadata &meta);
+
+  status_t GetCameraCharacteristics(const uint32_t camera_id,
+                                    CameraMetadata &meta);
 
   status_t CreateOverlayObject(const uint32_t track_id,
                                const OverlayParam &param,
