@@ -2745,14 +2745,14 @@ TEST_F(VideoGtest, SessionWith4KSwTnrEncTrack) {
           test_info_->test_case_name(), test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
   uint32_t width = 3840;
   uint32_t height = 2160;
 
   ret = recorder_.StartCamera(camera_id_, 30);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
@@ -2767,8 +2767,8 @@ TEST_F(VideoGtest, SessionWith4KSwTnrEncTrack) {
 
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
-    assert(session_id > 0);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
     VideoTrackCreateParam video_track_param{camera_id_, format_type, width,
                                             height, 30};
     uint32_t video_track_id = 1;
@@ -2777,7 +2777,7 @@ TEST_F(VideoGtest, SessionWith4KSwTnrEncTrack) {
       StreamDumpInfo dumpinfo = { format_type, session_id, video_track_id,
                                   width, height };
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb;
@@ -2797,12 +2797,12 @@ TEST_F(VideoGtest, SessionWith4KSwTnrEncTrack) {
 
     SupportedPlugins supported_plugins;
     ret = recorder_.GetSupportedPlugins(&supported_plugins);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     for (auto const &plugin_info : supported_plugins) {
       if (plugin_info.name == "SwTnr") {
         ret = recorder_.CreatePlugin(&sw_tnr_plugin.uid, plugin_info);
-        assert(ret == NO_ERROR);
+        ASSERT_TRUE(ret == NO_ERROR);
 
         extra_param.Update(QMMF_POSTPROCESS_PLUGIN, sw_tnr_plugin);
       }
@@ -2811,39 +2811,39 @@ TEST_F(VideoGtest, SessionWith4KSwTnrEncTrack) {
     ret = recorder_.CreateVideoTrack(session_id, video_track_id,
                                      video_track_param, extra_param,
                                      video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     std::vector<uint32_t> track_ids;
     track_ids.push_back(video_track_id);
     sessions_.insert(std::make_pair(session_id, track_ids));
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     // Let session run for record_duration_, during this time buffer with valid
     // data would be received in track callback (VideoTrackDataCb).
     sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeletePlugin(sw_tnr_plugin.uid);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.StopCamera(camera_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
           test_info_->test_case_name(), test_info_->name());
