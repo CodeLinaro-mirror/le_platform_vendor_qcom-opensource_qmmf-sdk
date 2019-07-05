@@ -194,7 +194,8 @@ status_t CameraContext::CreateSnapshotStream(
     snapshot_request_.streamIds.add(stream_id);
   }
 
-  if (snapshot_type_ == SnapshotMode::kStillPlusRaw) {
+  if (snapshot_type_ == SnapshotMode::kStillPlusRaw ||
+      snapshot_type_ == SnapshotMode::kVideoPlusRaw) {
     CameraStreamParameters raw_stream_param = stream_param;
     raw_stream_param.format = Common::FromQmmfToHalFormat(raw_snapshot_format_);
     Common::GetMaxSupportedCameraRes(static_meta_,
@@ -550,16 +551,18 @@ bool CameraContext::IsNeedReconfigSnapshotStream() {
 
   if (snapshot_type_ == new_snapshot_type_) {
     reconfiguration = false;
-  } else if (new_snapshot_type_ == SnapshotMode::kStillPlusRaw ||
-             snapshot_type_ == SnapshotMode::kStillPlusRaw) {
-    // only kStillPlusRaw requires pipe restart
+  } else if ((new_snapshot_type_ == SnapshotMode::kStillPlusRaw ||
+              snapshot_type_ == SnapshotMode::kStillPlusRaw) ||
+             (new_snapshot_type_ == SnapshotMode::kVideoPlusRaw ||
+              snapshot_type_ == SnapshotMode::kVideoPlusRaw)) {
+    // only kStillPlusRaw/kVideoPlusRaw requires pipe restart
     reconfiguration = true;
   } else {
     reconfiguration = false;
   }
 
   QMMF_VERBOSE("%s curr mode %d new mode %d need reconfiguration %d", __func__,
-    snapshot_type_, new_snapshot_type_, reconfiguration);
+               snapshot_type_, new_snapshot_type_, reconfiguration);
 
   return reconfiguration;
 }
@@ -665,7 +668,9 @@ status_t CameraContext::CaptureImage(const std::vector<CameraMetadata> &meta,
     std::vector<CameraMetadata>::const_iterator it = meta.begin();
     for (uint32_t i = 0; i < sequence_cnt_; i++) {
       if (streaming_active_requests_.size() > 0 &&
-          !streaming_active_requests_[0].metadata.isEmpty() && snapshot_type_ == SnapshotMode::kVideo) {
+          !streaming_active_requests_[0].metadata.isEmpty() &&
+          (snapshot_type_ == SnapshotMode::kVideo ||
+           snapshot_type_ == SnapshotMode::kVideoPlusRaw)) {
         snapshot_request_.metadata.clear();
         snapshot_request_.metadata.append(streaming_active_requests_[0].metadata);
       } else if (it != meta.end()) {
@@ -676,7 +681,8 @@ status_t CameraContext::CaptureImage(const std::vector<CameraMetadata> &meta,
       uint32_t active_streamid_count = 0;
 
       if (snapshot_type_ == SnapshotMode::kVideo ||
-          snapshot_type_ == SnapshotMode::kContinuous) {
+          snapshot_type_ == SnapshotMode::kContinuous ||
+          snapshot_type_ == SnapshotMode::kVideoPlusRaw) {
 
         if (streaming_active_requests_.size() == 1) {
           if (port_paused_ == true) {
@@ -867,7 +873,8 @@ status_t CameraContext::ConfigImageCapture(const ImageConfigParam &config) {
     SnapshotType type;
     config.Fetch(QMMF_SNAPSHOT_TYPE, type);
 
-    if (type.type == SnapshotMode::kStillPlusRaw) {
+    if ((type.type == SnapshotMode::kStillPlusRaw) ||
+        (type.type == SnapshotMode::kVideoPlusRaw)) {
       BufferFormat format = Common::FromImageToQmmfFormat(type.raw_format);
       if (format != BufferFormat::kRAW8 && format != BufferFormat::kRAW10 &&
           format != BufferFormat::kRAW12 && format != BufferFormat::kRAW16) {

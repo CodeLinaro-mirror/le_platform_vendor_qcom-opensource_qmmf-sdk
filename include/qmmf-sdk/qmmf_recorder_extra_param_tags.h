@@ -127,7 +127,9 @@ enum class SnapshotMode {
   /**< from continuous stream are stored in ZSL queue. Last good frame in    */
   /**< ZSL queue will be used when user call CaptureImage API. ZSL stream    */
   /**< will be stopped when mode is changed or CancelCaptureImage is called. */
-  kZsl
+  kZsl,
+  /**< It is the combination of kVideo and RAW snapshot. */
+  kVideoPlusRaw
 };
 
 enum class SlaveMode {
