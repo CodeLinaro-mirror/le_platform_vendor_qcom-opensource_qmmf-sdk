@@ -259,10 +259,6 @@ struct CameraStartParamInternal : public CameraStartParam {
    *  @param [in,out] parcel Receives the marshalled fields.
    */
   void ToParcel(::android::Parcel* parcel) const {
-    parcel->writeInt32(static_cast<int32_t>(zsl_mode));
-    parcel->writeUint32(zsl_queue_depth);
-    parcel->writeUint32(zsl_width);
-    parcel->writeUint32(zsl_height);
     parcel->writeUint32(frame_rate);
     parcel->writeUint32(flags);
   }
@@ -276,10 +272,6 @@ struct CameraStartParamInternal : public CameraStartParam {
    *  @returns Reference to the struct.
    */
   CameraStartParamInternal& FromParcel(const ::android::Parcel& parcel) {
-    zsl_mode = static_cast<bool>(parcel.readInt32());
-    zsl_queue_depth = parcel.readUint32();
-    zsl_width = parcel.readUint32();
-    zsl_height = parcel.readUint32();
     frame_rate = parcel.readUint32();
     flags = parcel.readUint32();
     return *this;

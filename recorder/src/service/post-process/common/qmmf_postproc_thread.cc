@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -121,6 +121,11 @@ void *PostProcThread::MainLoop(void *userdata) {
 bool PostProcThread::ExitPending() {
   std::lock_guard<std::mutex> lock(lock_);
   return (abort_ == true && running_ == true)  ? false : true;
+}
+
+bool PostProcThread::isActive() {
+  std::lock_guard<std::mutex> lock(lock_);
+  return (thread_ == nullptr) ? false : true;
 }
 
 }  // namespace recorder ends here

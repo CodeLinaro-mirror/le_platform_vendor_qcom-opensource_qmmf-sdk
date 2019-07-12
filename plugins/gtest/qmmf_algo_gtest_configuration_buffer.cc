@@ -113,7 +113,8 @@ const std::map<std::string, PixelFormat>
  *
  * return: void
  **/
-QmmfAlgoConfigurationBuffer::QmmfAlgoConfigurationBuffer(Json::Value &v) {
+QmmfAlgoConfigurationBuffer::QmmfAlgoConfigurationBuffer(Json::Value &v)
+    : limit_byte_size_(0), max_limit_value_(0) {
   FromJson(v);
 }
 
@@ -134,6 +135,8 @@ void QmmfAlgoConfigurationBuffer::FromJson(Json::Value &v) {
   h.Get("input file name", input_file_name_, false);
   h.Get("output file name", output_file_name_, false);
   h.Get("heap buffer", heap_buffer_);
+  h.Get("limit byte size", limit_byte_size_, false);
+  h.Get("maximum limit value", max_limit_value_, false);
 }
 
 /** New

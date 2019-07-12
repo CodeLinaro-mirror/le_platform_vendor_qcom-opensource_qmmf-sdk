@@ -1179,6 +1179,7 @@ void Camera3DeviceClient::HandleCaptureResult(
       input_stream->buffers_map[*result->input_buffer->buffer];
     input_stream->buffers_map.erase(*result->input_buffer->buffer);
     input_stream->return_input_buffer(input_buffer);
+    input_stream->input_buffer_cnt--;
   }
 
   return;
@@ -1917,6 +1918,15 @@ int32_t Camera3DeviceClient::WaitUntilDrainedLocked() {
   int32_t res = WaitUntilStateThenRelock(false, WAIT_FOR_SHUTDOWN);
   if (0 != res) {
     SET_ERR_L("Error waiting for HAL to drain: %s (%d)", strerror(-res), res);
+    for (uint32_t i = 0; i < streams_.size(); i++) {
+      streams_[i]->PrintBuffersInfo();
+    }
+    if (input_stream_.stream_id != -1) {
+      QMMF_ERROR("%s: Input Stream: dim: %ux%u, fmt: %d "
+          "input_buffer_cnt(%u)", __func__,
+          input_stream_.width, input_stream_.height,
+          input_stream_.format, input_stream_.input_buffer_cnt);
+    }
   }
   return res;
 }

@@ -2062,6 +2062,7 @@ int32_t OverlayItemPrivacyMask::UpdateAndDraw() {
   cairo_paint(cr_context_);
   assert(CAIRO_STATUS_SUCCESS == cairo_status(cr_context_));
   cairo_surface_flush (cr_surface_);
+  usleep(35000);
 #elif USE_SKIA
   //Create Skia canvas outof ION memory.
   SkPaint paintBox;
@@ -2083,6 +2084,7 @@ int32_t OverlayItemPrivacyMask::UpdateAndDraw() {
   OVDBG_VERBOSE(" x_ %d y_ %d width_ %d height_ %d",x_,y_,width_,height_);
   canvas_->drawRect(SkRect::MakeXYWH(0,0, width_, height_), paintBox);
   canvas_->flush();
+  usleep(30000);
 #endif
   // Don't paint until params gets updated by app(UpdateParameters).
   MarkDirty(false);

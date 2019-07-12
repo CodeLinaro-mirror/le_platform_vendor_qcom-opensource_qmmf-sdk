@@ -47,6 +47,9 @@ CameraHalReproc::CameraHalReproc(IPostProc* context)
       reprocess_request_({}),
       input_param_({}),
       output_param_({}),
+      process_buffer_twice_(false),
+      input_buffer_hold_(false),
+      discard_output_(false),
       reproc_partial_list_({}) {
   QMMF_VERBOSE("%s: Enter ", __func__);
   static_meta_ = context_->GetCameraStaticMeta();
@@ -78,7 +81,12 @@ void CameraHalReproc::ReturnInputBuffer(StreamBuffer &buffer) {
   auto iter = input_buffer_done_.begin();
   for (; iter != input_buffer_done_.end(); iter++) {
     if ((*iter).handle == buffer.handle) {
-      listener_->OnFrameProcessed(*iter);
+      if (input_buffer_hold_) {
+        input_buffer_hold_ = false;
+        QMMF_VERBOSE("%s: Hold input fd: %d", __func__, buffer.fd);
+      } else {
+        listener_->OnFrameProcessed(*iter);
+      }
       input_buffer_done_.erase(iter);
       break;
     }
@@ -107,7 +115,12 @@ void CameraHalReproc::ReprocessCallback(StreamBuffer buf) {
     std::lock_guard<std::mutex> lock(module_lock_);
     std::unique_lock<std::mutex> processing_lock(abort_lock_);
     if (state_ == PostProcHalState::ACTIVE) {
-      listener_->OnFrameReady(buf);
+      if (discard_output_) {
+        listener_->OnFrameReturn(buf);
+        discard_output_ = false;
+      } else {
+        listener_->OnFrameReady(buf);
+      }
     } else {
       listener_->OnFrameReturn(buf);
     }
@@ -176,9 +189,9 @@ PostProcIOParam CameraHalReproc::GetInput(const PostProcIOParam &out) {
     break;
   }
 
-  int32_t hal_format = Common::FromQmmfToHalFormat(input_param.format);
-  if (!Common::ValidateStreamFormat(static_meta_, hal_format)) {
-    QMMF_ERROR("%s: Format(%d) not found in metadata!", __func__, hal_format);
+  if (!Common::ValidateStreamFormat(static_meta_, input_param.format)) {
+    QMMF_ERROR("%s: Format(%d) not found in metadata!", __func__,
+        input_param.format);
     assert(0);
   }
 
@@ -189,7 +202,7 @@ PostProcIOParam CameraHalReproc::GetInput(const PostProcIOParam &out) {
       input_param.format == BufferFormat::kRAW12 ||
       input_param.format == BufferFormat::kRAW16) {
     auto supported = Common::GetMaxSupportedCameraRes(static_meta_,
-        input_param.width, input_param.height, hal_format);
+        input_param.width, input_param.height, input_param.format);
     if (supported == false) {
       QMMF_ERROR("%s: failed to get max supported resolution!", __func__);
       assert(0);
@@ -219,82 +232,30 @@ PostProcIOParam CameraHalReproc::GetInput(const PostProcIOParam &out) {
 status_t CameraHalReproc::ValidateInput(const PostProcIOParam& input,
                                         const PostProcIOParam& output) {
 
-  auto entry =
-      static_meta_.find(ANDROID_SCALER_AVAILABLE_INPUT_OUTPUT_FORMATS_MAP);
-
-  if (entry.count == 0) {
-    QMMF_ERROR("%s: AVAILABLE_INPUT_OUTPUT_FORMATS_MAP is empty!", __func__);
-    return NAME_NOT_FOUND;
+  bool ret = Common::ValidateInputFormat(static_meta_, input.format,
+      output.format);
+  if (ret == false) {
+    QMMF_ERROR("%s: Failed to find format mapping: Input format: %d ->"
+        " Output format: %d", __func__, input.format, output.format);
+    return BAD_VALUE;
   }
 
-  size_t idx = 0;
-  int32_t input_format = 0, num_output_formats = 0;
+  QMMF_INFO("%s: Found supported format mapping: Input format: %d "
+      "-> Output format: %d", __func__, input.format, output.format);
 
-  while (idx < entry.count) {
-    // Increment the idx with the number of output formats from previous entry.
-    idx += num_output_formats;
-
-    input_format       = entry.data.i32[idx++];
-    num_output_formats = entry.data.i32[idx++];
-
-    if (input_format != Common::FromQmmfToHalFormat(input.format)) {
-      // Different input formats, skip map entry.
-      continue;
-    }
-
-    for (auto i = idx; i < (idx + num_output_formats); ++i) {
-      if (Common::FromQmmfToHalFormat(output.format) == entry.data.i32[i]) {
-        QMMF_INFO("%s: Found supported format mapping: Input format: %d "
-            "-> Output format: %d", __func__, input.format, output.format);
-        return NO_ERROR;
-      }
-    }
-    // Didn't find supported format mapping, no point to continue.
-    break;
-  }
-
-  QMMF_ERROR("%s: Failed to find format mapping: Input format: %d ->"
-      " Output format: %d", __func__, input.format, output.format);
-  return BAD_VALUE;
+  return NO_ERROR;
 }
 
 status_t CameraHalReproc::ValidateOutput(const PostProcIOParam &output) {
 
-  int32_t hal_format = Common::FromQmmfToHalFormat(output.format);
-  if (!Common::ValidateStreamFormat(static_meta_, hal_format)) {
-    QMMF_ERROR("%s: Format(%d) not found in metadata!", __func__, hal_format);
+  if (!Common::ValidateStreamFormat(static_meta_, output.format)) {
+    QMMF_ERROR("%s: Format(%d) not found in metadata!", __func__,
+        output.format);
     return BAD_TYPE;
   }
 
-  bool is_supported = false;
-  switch (output.format) {
-    case BufferFormat::kRAW8:
-    case BufferFormat::kRAW10:
-    case BufferFormat::kRAW12:
-    case BufferFormat::kRAW16:
-      is_supported = Common::ValidateResFromRawSizes(static_meta_,
-          output.width, output.height);
-      break;
-
-    case BufferFormat::kNV12:
-    case BufferFormat::kNV12UBWC:
-    case BufferFormat::kNV21:
-    case BufferFormat::kNV16:
-      is_supported = Common::ValidateResFromProcessedSizes(static_meta_,
-          output.width, output.height);
-      break;
-
-    case BufferFormat::kBLOB:
-      is_supported = Common::ValidateResFromJpegSizes(static_meta_,
-          output.width, output.height);
-      break;
-
-    default:
-      QMMF_ERROR("%s: Format(%d) not supported!", __func__, output.format);
-      return BAD_TYPE;
-  }
-
-  if (is_supported == false) {
+  if (!Common::ValidateResolution(static_meta_, output.format, output.width,
+      output.height)) {
     QMMF_ERROR("%s: Format(%d) and output dimensions(%dx%d) are not supported",
         __func__, output.format, output.width, output.height);
     return BAD_VALUE;
@@ -304,6 +265,7 @@ status_t CameraHalReproc::ValidateOutput(const PostProcIOParam &output) {
 }
 
 status_t CameraHalReproc::GetCapabilities(PostProcCaps &caps) {
+
   auto found = Common::GetMaxSupportedCameraRes(static_meta_,
       caps.max_width_, caps.max_height_);
   if (found == false) {
@@ -318,9 +280,6 @@ status_t CameraHalReproc::GetCapabilities(PostProcCaps &caps) {
     return NAME_NOT_FOUND;
   }
 
-  QMMF_VERBOSE("%s: supported dim: min %dx%d max %dx%d", __func__,
-    caps.min_width_, caps.min_height_, caps.max_width_, caps.max_height_);
-
   caps.output_buff_        = 0;
   caps.crop_support_       = false;
   caps.inplace_processing_ = false;
@@ -328,29 +287,49 @@ status_t CameraHalReproc::GetCapabilities(PostProcCaps &caps) {
   caps.usage_              = 0;
 
   caps.formats_.clear();
-  auto entry = static_meta_.find(ANDROID_SCALER_AVAILABLE_FORMATS);
-  for (uint32_t i = 0; i < entry.count; i++) {
-    auto format = Common::FromHalToQmmfFormat(entry.data.i32[i]);
-    if (format != BufferFormat::kUnsupported && !caps.formats_.count(format)) {
-      caps.formats_.insert(format);
-      QMMF_VERBOSE("%s: supports format %d", __func__, format);
-    }
+  found = Common::GetSupportedCameraFormats(static_meta_, caps.formats_);
+  if (found == false) {
+    QMMF_ERROR("%s: failed to get supported formats!", __func__);
+    return NAME_NOT_FOUND;
   }
+
+  QMMF_VERBOSE("%s: supported dim: min %dx%d max %dx%d", __func__,
+    caps.min_width_, caps.min_height_, caps.max_width_, caps.max_height_);
 
   return NO_ERROR;
 }
 
-status_t CameraHalReproc::Start(const int32_t stream_id) {
+status_t CameraHalReproc::Start() {
   QMMF_INFO("%s: Enter", __func__);
+
   std::lock_guard<std::mutex> lock(module_lock_);
   if (state_ != PostProcHalState::INITIALIZED &&
       state_ != PostProcHalState::ABORTED) {
     QMMF_ERROR("%s: Failed: Already configured.", __func__);
     return BAD_VALUE;
   }
-  //state_ = PostProcHalState::STARTING;
+  state_ = PostProcHalState::STARTING;
+
+#ifndef CAM_ARCH_V2
+  // Current camera has HW limiation and first frame quality is different (
+  // because of LTM needs stats from previous frame)
+  // If bellow persist property is enabled then first frame is processed twice
+  // in order to avoid image quality difference.
+  char prop_val[PROPERTY_VALUE_MAX];
+  property_get("persist.qmmf.pp.dual.halreproc", prop_val, "1");
+  process_buffer_twice_ = (0 == atoi(prop_val)) ? false : true;
+  if (process_buffer_twice_) {
+    // hold first input buffer because we have to process it twice
+    input_buffer_hold_ = true;
+    // Discard output of first processing
+    discard_output_ = true;
+    QMMF_DEBUG("%s: Process first buffer twice", __func__);
+  }
+#endif
 
   state_ = PostProcHalState::ACTIVE;
+
+  QMMF_INFO("%s: Exit", __func__);
 
   return NO_ERROR;
 }
@@ -458,6 +437,11 @@ void CameraHalReproc::AddBuff(const StreamBuffer buf) {
     while (it != end) {
       if (it->timestamp == buf.timestamp) {
         it->buffer = buf;
+        if (process_buffer_twice_) {
+          reproc_ready_list_.push_back(*it);
+          process_buffer_twice_ = false;
+          QMMF_DEBUG("%s: Process buffer fd %d twice", __func__, it->buffer.fd);
+        }
         reproc_ready_list_.push_back(*it);
         reproc_partial_list_.erase(it);
         append = false;
@@ -507,8 +491,13 @@ void CameraHalReproc::AddMeta(const CameraMetadata &metadata) {
     auto it = reproc_partial_list_.begin();
     auto end = reproc_partial_list_.end();
     while (it != end) {
-      if (it->timestamp == timestamp) {
+      if (it->timestamp == timestamp && it->buffer.fd) {
         it->metadata.append(metadata);
+        if (process_buffer_twice_) {
+          reproc_ready_list_.push_back(*it);
+          process_buffer_twice_ = false;
+          QMMF_DEBUG("%s: Process buffer fd %d twice", __func__, it->buffer.fd);
+        }
         reproc_ready_list_.push_back(*it);
         reproc_partial_list_.erase(it);
         append = false;
@@ -605,7 +594,6 @@ status_t CameraHalReproc::StartProcessing(bool from_cb) {
   reprocess_request_.metadata.append(reproc_bundle.metadata);
 
   QMMF_VERBOSE("%s: Submit reprocess request.", __func__);
-
 
   int64_t last_frame_number = -1;
   auto ret = context_->SubmitRequest(reprocess_request_,

@@ -305,11 +305,6 @@ status_t FakeCamera::ReturnImageCaptureBuffer(const uint32_t camera_id,
   return NO_ERROR;
 }
 
-CameraStartParam& FakeCamera::GetCameraStartParam() {
-
-  return camera_start_params_;
-}
-
 std::vector<int32_t>& FakeCamera::GetSupportedFps() {
 
   return supported_fps_;

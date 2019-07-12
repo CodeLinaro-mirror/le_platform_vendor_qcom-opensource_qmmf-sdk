@@ -36,12 +36,15 @@
 #include <vector>
 #include <map>
 #include <mutex>
+#include <thread>
+#include <random>
 #include <sys/time.h>
 #include <chrono>
 #include <condition_variable>
 #include <cutils/properties.h>
 #include <random>
 #include <fstream>
+#include <json/json.h>
 //#include <system/graphics.h>
 
 #include <qmmf-sdk/qmmf_queue.h>
@@ -109,8 +112,8 @@ using ::qmmf::display::SurfaceConfig;
 using ::qmmf::display::SurfaceBlending;
 using ::qmmf::display::SurfaceFormat;
 
-static const uint32_t kZslWidth      = 1920;
-static const uint32_t kZslHeight     = 1080;
+static const uint32_t kZslWidth      = 3840;
+static const uint32_t kZslHeight     = 2160;
 static const uint32_t kZslQDepth     = 10;
 
 #if USE_SKIA
@@ -211,8 +214,10 @@ struct FaceInfo {
 #define PROP_JPEG_QUALITY           "persist.qmmf.rec.gtest.jpegq"
 // Prop to set CDS sensitivity threshold
 #define PROP_CDS_THRESHOLD          "persist.qmmf.rec.gtest.cdsth"
-// Prop to enable default EIS margins
-#define PROP_DEFAULT_EIS_MARGINS    "persist.qmmf.rec.gtest.eis.dflt"
+// Prop to override default EIS horizontal margin
+#define PROP_EIS_H_MARGIN           "persist.qmmf.rec.gtest.eis.h.mrg"
+// Prop to override default EIS vertical margin
+#define PROP_EIS_V_MARGIN           "persist.qmmf.rec.gtest.eis.v.mrg"
 // Prop to enable/disable display usage
 #define PROP_TOGGLE_DISPLAY_USAGE   "persist.qmmf.rec.gtest.display"
 // Prop to set video timelapse interval
@@ -594,6 +599,8 @@ class GtestCommon : public ::testing::Test {
 
   status_t SetCameraFocalLength(const float focal_length);
 
+  status_t SetCameraZoom(const float zoom);
+
   void RemoveSpaces(std::string &str);
 
   void TokenizeString(std::string const &str, const char delim,
@@ -610,6 +617,13 @@ class GtestCommon : public ::testing::Test {
 
   int32_t FindSensorModeIndex(const std::string& name_of_file,
                               const std:: string& mode_index);
+
+  status_t ReadAndParseJsonFile(const std::string &input_file,
+                                Json::Value &value);
+
+  template <typename TItem>
+  void GetValue(const Json::Value &v, const std::string &field_name,
+                TItem &item);
 
 #ifdef CAM_ARCH_V2
   bool VendorTagSupported(const String8& name, const String8& section,
@@ -732,6 +746,16 @@ class GtestCommon : public ::testing::Test {
   std::map <uint32_t, BufferMetaDataTuple > buffer_metadata_map_;
   std::mutex buffer_metadata_lock_;
 
+  enum class GtestCameraState {
+    kClosed,
+    kClosing,
+    kOpened,
+  };
+
+  std::condition_variable  camera_state_updated_;
+  std::mutex               camera_state_lock_;
+  std::map<uint32_t, GtestCameraState> camera_state_;
+
   DumpBitStream         dump_bitstream_;
   bool                  is_dump_jpeg_enabled_;
   bool                  is_dump_raw_enabled_;
@@ -744,7 +768,8 @@ class GtestCommon : public ::testing::Test {
   int32_t               default_cds_threshold_;
   std::mutex            error_lock_;
   bool                  camera_error_;
-  bool                  default_eis_margins_;
+  float                 eis_h_margin_;
+  float                 eis_v_margin_;
   bool                  is_apply_overlay_;
   float                 timelapse_interval_;
   bool                  is_frame_debug_enabled_;

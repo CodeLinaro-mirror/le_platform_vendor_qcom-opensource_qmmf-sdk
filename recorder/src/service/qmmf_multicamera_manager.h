@@ -35,7 +35,6 @@
 #include <future>
 #include <mutex>
 
-#include <qmmf-alg/qmmf_alg_intf.h>
 #include <qmmf-sdk/qmmf_recorder_extra_param.h>
 #include <qmmf-sdk/qmmf_recorder_extra_param_tags.h>
 
@@ -44,7 +43,6 @@
 #include "recorder/src/service/qmmf_recorder_utils.h"
 #include "recorder/src/service/qmmf_recorder_common.h"
 #include "recorder/src/service/qmmf_camera_reprocess.h"
-#include "recorder/src/service/qmmf_camera_jpeg.h"
 
 namespace qmmf {
 
@@ -54,7 +52,6 @@ static const uint32_t kVirtualCameraIdOffset = 1000;
 
 class StreamStitching;
 class SnapshotStitching;
-class HWMemory;
 
 class MultiCameraManager : public CameraInterface {
  public:
@@ -112,8 +109,6 @@ class MultiCameraManager : public CameraInterface {
   status_t ReturnImageCaptureBuffer(const uint32_t camera_id,
                                     const int32_t buffer_id) override;
 
-  CameraStartParam& GetCameraStartParam() override;
-
   std::vector<int32_t>& GetSupportedFps() override;
 
   void SetFlushCb(FlushCb &cb) override;
@@ -127,11 +122,7 @@ class MultiCameraManager : public CameraInterface {
 
   status_t SetDefaultSurfaceDim(uint32_t& w, uint32_t& h);
 
-  status_t CreateJpegEncoder(const SnapshotParam& param);
-  void EncodeJpegImage(const StreamBuffer &buffer);
   void OnStitchedFrameAvailable(StreamBuffer buffer);
-  void OnJpegImageAvailable(StreamBuffer in_buffer, StreamBuffer out_buffer);
-  status_t ReturnJpegBuffer(const int32_t buffer_id);
 
   // Create Stitching stream is identified with param.id, make sure
   // that same id is passed on DeleteStreamStitching
@@ -157,14 +148,10 @@ class MultiCameraManager : public CameraInterface {
   //Non zsl capture request.
   SnapshotParam            snapshot_param_;
   uint32_t                 sequence_cnt_;
-  bool                     jpeg_encoding_enabled_;
   bool                     snapshot_configured_;
 
   std::shared_ptr<SnapshotStitching>    snapshot_stitch_algo_;
-  std::shared_ptr<CameraJpeg>           jpeg_encoder_;
   StreamSnapshotCb         client_snapshot_cb_;
-  std::shared_ptr<HWMemory>        jpeg_memory_pool_;
-  std::vector<ImageThumbnail>           thumbnails_;
 
   std::map<int32_t, SourceSurfaceDesc> source_surface_;
   std::map<int32_t, SurfaceCrop> surface_crop_;
@@ -181,67 +168,13 @@ class MultiCameraManager : public CameraInterface {
   // Map of track id and StreamStitching class
   std::map<uint32_t, std::shared_ptr<StreamStitching> > stream_stitch_algos_;
 
-  // Map of output_buffer's fd to StreamBuffer
-  std::map<uint32_t, StreamBuffer> jpeg_buffers_map_;
-
-  std::mutex               jpeg_lock_;
-  QCondition               wait_for_jpeg_;
-
   std::mutex               lock_;
   QCondition               capture_done_;
 
-  static const uint32_t kWaitJPEGTimeout = 100000000; // 100 ms
   static const uint32_t kAecConvergeTimeout = 500000000; // 500 ms
 
   static const uint32_t kWidth4K  = 3840;
   static const uint32_t kHeight4K = 1920;
-};
-
-class HWMemory {
- public:
-  struct BufferParams {
-    uint32_t width;
-    uint32_t height;
-    int32_t  format;
-    MemAllocFlags  alloc_flags;
-    uint32_t max_size;
-    uint32_t max_buffer_count;
-  };
-
-  HWMemory(alloc_device_t *alloc_device = nullptr);
-  ~HWMemory();
-
-  status_t Initialize();
-  status_t Configure(BufferParams &params);
-
-  status_t GetBuffer(IBufferHandle &buffer);
-  status_t ReturnBuffer(const IBufferHandle &buffer);
-
-  status_t PopulateMetaInfo(CameraBufferMetaData &info,
-                            IBufferHandle &handle);
-
- private:
-  status_t GetBufferLocked(IBufferHandle &buffer);
-  status_t ReturnBufferLocked(const IBufferHandle &buffer);
-
-  status_t AllocHWMemBuffer(IBufferHandle *buf);
-  status_t FreeHWMemBuffer(IBufferHandle buf);
-
-  BufferParams             params_;
-  IAllocDevice             *alloc_device_interface_;
-  IBufferHandle            *mem_alloc_slots_;
-  uint32_t                 buffers_allocated_;
-  uint32_t                 pending_buffer_count_;
-
-  // Pool with allocated buffers, the bool value indicates
-  // if the buffer has been returned to the producer and is available
-  // to be used.
-  std::map<IBufferHandle, bool> mem_alloc_buffers_;
-
-  std::mutex               buffer_lock_;
-  QCondition               wait_for_buffer_;
-
-  static const uint32_t kBufferWaitTimeout = 1000000000; // 1 s.
 };
 
 class StitchingBase : public ThreadHelper {
@@ -257,8 +190,6 @@ class StitchingBase : public ThreadHelper {
   StitchingBase(InitParams &param, MultiCameraManager *mgr);
   virtual ~StitchingBase();
 
-  status_t Initialize();
-  status_t Configure(HWMemory::BufferParams &param);
 
   int32_t Run();
   void RequestExitAndWait() override;
@@ -276,8 +207,6 @@ class StitchingBase : public ThreadHelper {
   // Method for handling the synchronization between frames.
   status_t FrameSync(StreamBuffer& buffer);
 
-  // Method for returning an output buffer back to the memory pool.
-  status_t ReturnBufferToBufferPool(const StreamBuffer &buffer);
 
   MultiCameraManager       *manager_;
 
@@ -291,51 +220,10 @@ class StitchingBase : public ThreadHelper {
   std::mutex               frame_lock_;
 
  private:
-  struct StitchLibInterface {
-    void        *handle;
-    void        *context;
-    bool        initialized;
-    bool        configured;
-    qmmf_alg_status_t (*init)(void **handle,
-                              qmmf_alg_blob_t *calibration_data);
-    void              (*deinit)(void *handle);
-    qmmf_alg_status_t (*get_caps)(void *handle, qmmf_alg_caps_t *caps);
-    qmmf_alg_status_t (*set_tuning)(void *handle, qmmf_alg_blob_t *blob);
-    qmmf_alg_status_t (*config)(void *handle, qmmf_alg_config_t *config);
-    qmmf_alg_status_t (*register_bufs)(void *handle, qmmf_alg_buf_list_t bufs);
-    qmmf_alg_status_t (*unregister_bufs)(void *handle,
-                                         qmmf_alg_buf_list_t bufs);
-    qmmf_alg_status_t (*flush)(void *handle);
-    qmmf_alg_status_t (*process)(void *handle,
-                                 qmmf_alg_process_data_t *proc_data);
-    qmmf_alg_status_t (*get_debug_info_log)(void *handle, char **log);
-  };
 
   status_t StopFrameSync();
 
   status_t ReturnUnsyncedBuffers(uint32_t camera_id);
-  status_t ReturnProcessedBuffer(IBufferHandle &handle,
-                                 qmmf_alg_status_t status);
-
-  status_t InitLibrary();
-  status_t DeInitLibrary();
-  status_t FlushLibrary();
-  status_t Configlibrary(std::vector<StreamBuffer> &input_buffers,
-                         std::vector<StreamBuffer> &output_buffers);
-  status_t ProcessBuffers(std::vector<StreamBuffer> &input_buffers,
-                          std::vector<StreamBuffer> &output_buffers);
-  status_t ParseCalibFile(void **data, uint32_t &size);
-  status_t PopulateImageFormat(qmmf_alg_format_t &fmt,
-                               const StreamBuffer *buffer);
-  status_t PrepareBuffer(qmmf_alg_buf_list_t &reg_buf_list,
-                         qmmf_alg_buffer_t &img_buffer,
-                         const StreamBuffer *buffer);
-  status_t UnregisterBuffers(std::set<int32_t> buffer_fds);
-
-  static void ProcessCallback(qmmf_alg_cb_t *cb_data);
-
-  StitchLibInterface                    stitch_lib_;
-  std::shared_ptr<HWMemory>             memory_pool_;
 
   // Map of incoming filled buffers for each of the actual cameras
   // that have not yet been synchronized.

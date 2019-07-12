@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -51,7 +51,7 @@ PostProcPipe::PostProcPipe(IPostProc* context)
   assert(factory_.get() != nullptr);
 
   char prop_val[PROPERTY_VALUE_MAX];
-  property_get("persist.qmmf.postproc.haljpeg", prop_val, "0");
+  property_get("persist.qmmf.postproc.haljpeg", prop_val, "1");
   use_hal_jpeg_ = (0 == atoi(prop_val)) ? false : true;
 
   state_ = PostProcPipeState::CREATED; // todo
@@ -67,7 +67,8 @@ PostProcPipe::~PostProcPipe() {
 
 status_t PostProcPipe::CreatePipe(const PipeIOParam &pipe_out_param,
                                   const std::vector<uint32_t> &plugins,
-                                  PipeIOParam &pipe_in_param) {
+                                  PipeIOParam &pipe_in_param,
+                                  RequiredInput required_input) {
   std::shared_ptr<PostProcNode> node;
 
   if (!pipe_out_param.exif_en && use_hal_jpeg_) {
@@ -97,7 +98,7 @@ status_t PostProcPipe::CreatePipe(const PipeIOParam &pipe_out_param,
   node_out_param.stride        = pipe_out_param.stride;
   node_out_param.scanline      = pipe_out_param.scanline;
   node_out_param.frame_rate    = pipe_out_param.frame_rate;
-  node_out_param.alloc_flags = pipe_out_param.alloc_flags;
+  node_out_param.alloc_flags   = pipe_out_param.alloc_flags;
   node_out_param.buffer_count  = pipe_out_param.buffer_count;
   node_out_param.buffer_max    = pipe_out_param.max_internal_buffers;
   node_out_param.format = Common::FromHalToQmmfFormat(pipe_out_param.format);
@@ -139,10 +140,10 @@ status_t PostProcPipe::CreatePipe(const PipeIOParam &pipe_out_param,
     auto ret = node->ValidateOutput(node_out_param);
     if (ret == BAD_TYPE) {
       // Unsupported format, try to fix this
-      std::shared_ptr<PostProcNode> new_node =
-          FindInternalNode(node_out_param);
+      std::shared_ptr<PostProcNode> new_node = FindInternalNode(node_out_param);
       if (new_node.get() == nullptr) {
         QMMF_ERROR("%s: Node format incompatibility!", __func__);
+        DeletePipe();
         return ret;
       }
 
@@ -156,6 +157,7 @@ status_t PostProcPipe::CreatePipe(const PipeIOParam &pipe_out_param,
       continue;
     } else if (ret != NO_ERROR) {
       QMMF_ERROR("%s: Node dimensions incompatibility!", __func__);
+      DeletePipe();
       return ret;
     }
 
@@ -167,6 +169,7 @@ status_t PostProcPipe::CreatePipe(const PipeIOParam &pipe_out_param,
     ret = node->Initialize(node_in_param, node_out_param);
     if (ret != NO_ERROR) {
       QMMF_ERROR("%s: Failed to initialize node!", __func__);
+      DeletePipe();
       return ret;
     }
 
@@ -177,13 +180,55 @@ status_t PostProcPipe::CreatePipe(const PipeIOParam &pipe_out_param,
     --idx;
   }
 
+  if (!IsCompatibleFormatWithInput(required_input, node_out_param) ||
+      !IsCompatibleDimensionWithInput(required_input, node_out_param)) {
+    std::shared_ptr<PostProcNode> new_node = FindInternalNode(node_out_param);
+    if (new_node.get() == nullptr) {
+      QMMF_ERROR("%s: Node format incompatibility!", __func__);
+      DeletePipe();
+      return BAD_VALUE;
+    }
+
+    pipe_.insert(pipe_.begin(), new_node);
+
+    // todo: Get all possible inputs and iterate until the good one is found
+    // The function returns only one input today
+    PostProcIOParam node_in_param = new_node->GetInput(node_out_param);
+
+    // Initialize node
+    auto ret = new_node->Initialize(node_in_param, node_out_param);
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s: Failed to initialize node!", __func__);
+      DeletePipe();
+      return ret;
+    }
+
+    // Update the output parameters for the next node
+    node_out_param = node_in_param;
+  }
+
+  if (!IsCompatibleDimensionWithInput(required_input, node_out_param)) {
+    QMMF_ERROR("%s: Input dimension %dx%d (%d %d) are not supported", __func__,
+      required_input.width, required_input.height, required_input.stride,
+      required_input.scanline);
+    DeletePipe();
+    return BAD_VALUE;
+  }
+
+  if (!IsCompatibleFormatWithInput(required_input, node_out_param)) {
+    QMMF_ERROR("%s: Input format %d is not supported", __func__,
+      required_input.format);
+    DeletePipe();
+    return BAD_VALUE;
+  }
+
   // Save the input params from the first node in the pipe
   pipe_in_param.width         = node_out_param.width;
   pipe_in_param.height        = node_out_param.height;
   pipe_in_param.stride        = node_out_param.stride;
   pipe_in_param.scanline      = node_out_param.scanline;
   pipe_in_param.frame_rate    = node_out_param.frame_rate;
-  pipe_in_param.alloc_flags = node_out_param.alloc_flags;
+  pipe_in_param.alloc_flags   = node_out_param.alloc_flags;
   pipe_in_param.buffer_count  = node_out_param.buffer_count;
   pipe_in_param.format = Common::FromQmmfToHalFormat(node_out_param.format);
 
@@ -195,7 +240,6 @@ status_t PostProcPipe::CreatePipe(const PipeIOParam &pipe_out_param,
     nodes.append(", ");
   }
   QMMF_INFO("%s: Reprocess pipe: %s", __func__, nodes.c_str());
-
 
   return NO_ERROR;
 }
@@ -244,6 +288,40 @@ void PostProcPipe::PipeNotifyBufferReturn(StreamBuffer& buffer) {
     pipe_.back()->NotifyBufferReturned(buffer);
   }
   QMMF_VERBOSE("%s: Exit", __func__);
+}
+
+bool PostProcPipe::IsCompatibleDimensionWithInput(RequiredInput &required_input,
+                                                  PostProcIOParam &real_input) {
+
+  if ((required_input.width != 0) &&
+      (required_input.width != real_input.width)) {
+    return false;
+  }
+
+  if ((required_input.height != 0) &&
+      (required_input.height != real_input.height)) {
+    return false;
+  }
+
+  if ((required_input.stride != 0) &&
+      (required_input.stride != real_input.stride)) {
+    return false;
+  }
+
+  if ((required_input.scanline != 0) &&
+      (required_input.scanline != real_input.scanline)) {
+    return false;
+  }
+  return true;
+}
+
+bool PostProcPipe::IsCompatibleFormatWithInput(RequiredInput &required_input,
+                                               PostProcIOParam &real_input) {
+  if ((required_input.format != 0) && (required_input.format !=
+      Common::FromQmmfToHalFormat(real_input.format))) {
+    return false;
+  }
+  return true;
 }
 
 void PostProcPipe::LinkPipe(sp<IBufferConsumer>& consumer) {
@@ -339,7 +417,7 @@ bool PostProcPipe::SupportsJPEGFormat(const std::set<BufferFormat> &formats) {
   return false;
 }
 
-status_t PostProcPipe::Start(const int32_t stream_id) {
+status_t PostProcPipe::Start() {
   if (pipe_.empty()) {
     QMMF_ERROR("%s: Pipe is empty", __func__);
     return BAD_VALUE;
@@ -347,7 +425,7 @@ status_t PostProcPipe::Start(const int32_t stream_id) {
   auto iter = pipe_.end();
   while (iter != pipe_.begin()) {
     --iter;
-    (*iter)->Start(stream_id);
+    (*iter)->Start();
   }
   return NO_ERROR;
 }

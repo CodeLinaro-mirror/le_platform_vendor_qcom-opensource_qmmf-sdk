@@ -54,8 +54,7 @@ const int32_t PostProcJpeg::kSupportedOutputFormat = HAL_PIXEL_FORMAT_BLOB;
 PostProcJpeg::PostProcJpeg()
     : jpeg_encoder_(nullptr),
       state_(State::CREATED),
-      abort_(nullptr),
-      skip_first_(false) {
+      abort_(nullptr) {
   QMMF_VERBOSE("%s: Enter", __func__);
   jpeg_encoder_ = reprocjpegencoder::JpegEncoder::getInstance();
   jpeg_params_.image_quality = 95;
@@ -80,10 +79,6 @@ status_t PostProcJpeg::Initialize(const PostProcIOParam &in_param,
   image_width_ = out_param.width;
   image_height_ = out_param.height;
   jpeg_params_.thumbnail_data.clear();
-
-  char prop_val[PROPERTY_VALUE_MAX];
-  property_get("persist.qmmf.pp.skip.first", prop_val, "0");
-  skip_first_ = (0 == atoi(prop_val)) ? false : true;
 
   return NO_ERROR;
 }
@@ -137,7 +132,7 @@ status_t PostProcJpeg::GetCapabilities(PostProcCaps &caps) {
   return NO_ERROR;
 }
 
-status_t PostProcJpeg::Start(const int32_t stream_id) {
+status_t PostProcJpeg::Start() {
   QMMF_VERBOSE("%s: Enter %p", __func__, this);
 
   auto ret = jpeg_encoder_->Init(image_width_, image_height_);
@@ -276,13 +271,6 @@ status_t PostProcJpeg::Process(const std::vector<StreamBuffer> &in_buffers,
   QMMF_VERBOSE("%s: %d: Enter in FD: %d out FD: %d ",
       __func__, __LINE__, in_buffer.fd, out_buffer.fd);
 
-  if (skip_first_) {
-    QMMF_INFO("%s: Skip First Frame!!", __func__);
-    listener_->OnFrameReturn(out_buffer);
-    listener_->OnFrameProcessed(in_buffer);
-    skip_first_ = false;
-    return NO_ERROR;
-  }
   {
     std::lock_guard<std::mutex> lock(state_lock_);
     if (state_ != State::ACTIVE) {

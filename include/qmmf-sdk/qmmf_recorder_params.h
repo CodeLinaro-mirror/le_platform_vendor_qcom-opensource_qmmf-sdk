@@ -63,8 +63,11 @@ namespace recorder {
 typedef int32_t status_t;
 
 enum class EventType {
-  kServerDied = 1,
-  kCameraError = 2,
+  kServerDied    = 1,
+  kCameraError   = 2,
+  kCameraOpened  = 3,
+  kCameraClosing = 4,
+  kCameraClosed  = 5,
 };
 
 typedef std::function<void(EventType event_type, void *event_data,
@@ -460,68 +463,43 @@ struct VideoTrackCreateParam {
 typedef std::function<void(uint32_t camera_id,
                            const android::CameraMetadata &res)> CameraResultCb;
 
-/// @brief Parameters passed to StartCamera API
+/// \brief Parameters passed to StartCamera API
 ///
-/// When the zsl mode is set to true during StartCamera, recorder
-/// would start capturing images of resolution max_snapshot_width
-/// and max_snapshot_height from camera at the frame_rate specified.
-/// In non-zsl mode, snapshot resolution and frame rate parameter are
-/// ignored.
 /// flags provide a mechanism to provide a custom initialization
 /// parameter to camera
 struct CameraStartParam {
-  /// If set to true during StartCamera, recorder would start capturing
-  /// unprocessed frames at the specified rate. When CaptureImage is
-  /// issued a frame from the queue will be taken and sent for re-process
-  /// in order to produce a snapshot image.
-  bool     zsl_mode;
-  /// Allow partial frame metadata.
   bool     enable_partial_metadata;
-  /// Set for how many frames in the past to keep data.
-  uint32_t zsl_queue_depth;
-  /// Set the width of the Zero Shutter Lag stream.
-  uint32_t zsl_width;
-  /// Set the height of the Zero Shutter Lag stream.
-  uint32_t zsl_height;
-  /// Set the frame rate of the Zero Shutter Lag stream.
   uint32_t frame_rate;
-  /// flags provide a mechanism to provide a custom initialization
-  /// parameter to camera
   uint32_t flags;
 
   CameraStartParam()
-      : zsl_mode(false),
-        enable_partial_metadata(false),
-        zsl_queue_depth(10),
-        zsl_width(3840),
-        zsl_height(2160),
+      : enable_partial_metadata(false),
         frame_rate(30),
         flags(0) {}
 
-  CameraStartParam(bool zsl_mode, bool enable_partial_metadata,
-                   uint32_t zsl_queue_depth, uint32_t zsl_width,
-                   uint32_t zsl_height, uint32_t frame_rate, uint32_t flags)
-      : zsl_mode(zsl_mode),
-        enable_partial_metadata(enable_partial_metadata),
-        zsl_queue_depth(zsl_queue_depth),
-        zsl_width(zsl_width),
-        zsl_height(zsl_height),
+  CameraStartParam(bool enable_partial_metadata, uint32_t frame_rate,
+                   uint32_t flags)
+      : enable_partial_metadata(enable_partial_metadata),
         frame_rate(frame_rate),
         flags(flags) {}
 
   ::std::string ToString() const {
     ::std::stringstream stream;
-    stream << "zsl_mode[" << ::std::boolalpha << zsl_mode << ::std::noboolalpha
-           << "]";
     stream << "enable_partial_metadata[" << ::std::boolalpha
         << enable_partial_metadata << ::std::noboolalpha << "]";
-    stream << "zsl_queue_depth[" << zsl_queue_depth << "] ";
-    stream << "zsl_width[" << zsl_width << "] ";
-    stream << "zsl_height[" << zsl_height << "] ";
     stream << "frame_rate[" << frame_rate << "] ";
     stream << "flags[" << flags << "]";
     return stream.str();
   };
+};
+
+/// @brief CameraFlags define the mode of the camera.
+enum CameraFlags {
+  /// Start camera in slave mode. In this mode the client requires the camera
+  /// to have been opened by another client as master. The client using the
+  /// camera in this mode can create sessions and tracks but can not capture
+  /// images of set/get camera parameters.
+  kCameraSlaveMode  = 1 << 0,
 };
 
 /// @brief For thumbnail images only kJPEG is supported
@@ -541,6 +519,34 @@ struct ImageParam {
     stream << "width[" << width << "]";
     stream << "height[" << height << "] ";
     stream << "image_quality[" << image_quality << "] ";
+    stream << "image_format["
+           << static_cast<::std::underlying_type<ImageFormat>::type>
+                         (image_format)
+           << "]";
+    return stream.str();
+  }
+};
+
+/// \brief ZSL queue parameters
+///
+/// Images in ZSL queue might have different dimension than final image.
+struct ZslQueueParam {
+  uint32_t    width;
+  uint32_t    height;
+  uint32_t    queue_depth;
+  ImageFormat image_format;
+
+  ZslQueueParam()
+    : width(3840),
+      height(2160),
+      queue_depth(4),
+      image_format(ImageFormat::kNV21) {}
+
+  ::std::string ToString() const {
+    ::std::stringstream stream;
+    stream << "width[" << width << "]";
+    stream << "height[" << height << "] ";
+    stream << "queue_depth[" << queue_depth << "] ";
     stream << "image_format["
            << static_cast<::std::underlying_type<ImageFormat>::type>
                          (image_format)

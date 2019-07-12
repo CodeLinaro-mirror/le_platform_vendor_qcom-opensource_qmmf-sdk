@@ -444,8 +444,10 @@ void GtestCommon::SetUp() {
   default_jpeg_quality_ = atoi(prop_val);
   property_get(PROP_CDS_THRESHOLD, prop_val, "600");
   default_cds_threshold_ = atoi(prop_val);
-  property_get(PROP_DEFAULT_EIS_MARGINS, prop_val, "1");
-  default_eis_margins_ = atoi(prop_val);
+  property_get(PROP_EIS_H_MARGIN, prop_val, "-1.0");
+  eis_h_margin_ = atof(prop_val);
+  property_get(PROP_EIS_V_MARGIN, prop_val, "-1.0");
+  eis_v_margin_ = atof(prop_val);
   property_get(PROP_TIMELAPSE_INTERVAL, prop_val, "2.0");
   timelapse_interval_ = atof(prop_val);
   property_get(PROP_TOGGLE_DISPLAY_USAGE, prop_val, "1");
@@ -462,10 +464,6 @@ void GtestCommon::SetUp() {
   enable_sof_latency_ = (atoi(prop_val) == 0) ? false : true;
 
   camera_start_params_ = {};
-  camera_start_params_.zsl_mode         = false;
-  camera_start_params_.zsl_queue_depth  = kZslQDepth;
-  camera_start_params_.zsl_width        = kZslWidth;
-  camera_start_params_.zsl_height       = kZslHeight;
   camera_start_params_.frame_rate       = 30;
   camera_start_params_.flags            = 0x0;
 
@@ -557,6 +555,27 @@ void GtestCommon::RecorderCallbackHandler(EventType event_type,
     test_wait_.Done();
     std::lock_guard<std::mutex> lock(error_lock_);
     camera_error_ = true;
+  } else if (event_type == EventType::kCameraOpened &&
+             event_data_size && event_data != nullptr) {
+    ASSERT_TRUE(event_data_size == sizeof(uint32_t));
+    auto camera_id = *(static_cast<uint32_t*>(event_data));
+    std::lock_guard<std::mutex> lk(camera_state_lock_);
+    camera_state_[camera_id] = GtestCameraState::kOpened;
+    camera_state_updated_.notify_all();
+  } else if (event_type == EventType::kCameraClosing &&
+             event_data_size && event_data != nullptr) {
+    ASSERT_TRUE(event_data_size == sizeof(uint32_t));
+    auto camera_id = *(static_cast<uint32_t*>(event_data));
+    std::lock_guard<std::mutex> lk(camera_state_lock_);
+    camera_state_[camera_id] = GtestCameraState::kClosing;
+    camera_state_updated_.notify_all();
+  } else if (event_type == EventType::kCameraClosed &&
+             event_data_size && event_data != nullptr) {
+    ASSERT_TRUE(event_data_size == sizeof(uint32_t));
+    auto camera_id = *(static_cast<uint32_t*>(event_data));
+    std::lock_guard<std::mutex> lk(camera_state_lock_);
+    camera_state_[camera_id] = GtestCameraState::kClosed;
+    camera_state_updated_.notify_all();
   }
   TEST_INFO("%s Exit ", __func__);
 }
@@ -1607,6 +1626,36 @@ status_t GtestCommon::SetCameraFocalLength(const float focal_length) {
   return NO_ERROR;
 }
 
+status_t GtestCommon::SetCameraZoom(const float zoom) {
+  CameraMetadata meta;
+  auto ret = recorder_.GetCameraParam(camera_id_, meta);
+  EXPECT_TRUE(ret == NO_ERROR);
+
+  if (meta.exists(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE)) {
+    auto active_array_size = meta.find(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE);
+    EXPECT_TRUE(active_array_size.count > 0);
+
+    int32_t width = active_array_size.data.i32[2];
+    int32_t height = active_array_size.data.i32[3];
+
+    int32_t crop[4];
+    crop[2] = static_cast<int32_t>(width / zoom);
+    crop[3] = (crop[2] * height / width);
+    crop[0] = (width - crop[2]) / 2;
+    crop[1] = (height - crop[3]) / 2;
+
+    TEST_INFO("%s: zoom: %.2f crop[0]=%d, crop[1]=%d, crop[2]=%d, crop[3]=%d",
+        __func__, zoom, crop[0], crop[1], crop[2], crop[3]);
+
+    auto ret = meta.update(ANDROID_SCALER_CROP_REGION, crop, 4);
+    EXPECT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.SetCameraParam(camera_id_, meta);
+    EXPECT_TRUE(ret == NO_ERROR);
+  }
+  return NO_ERROR;
+}
+
 /*
 * RemoveSpaces: Utility method to remove the spaces from a string
 */
@@ -1867,49 +1916,89 @@ status_t GtestCommon::PopulateExpTables(
   return NO_ERROR;
 }
 
+status_t GtestCommon::ReadAndParseJsonFile(const std::string &input_file,
+                                           Json::Value &value) {
+  std::string data;
+  Json::Reader reader;
+  status_t ret = NO_ERROR;
+
+  if (input_file.empty()) {
+    TEST_ERROR("%s: Please provide input file ", __func__);
+    return -EINVAL;
+  }
+
+  std::ifstream cfg_data(input_file);
+  if (!cfg_data.is_open()) {
+    TEST_ERROR("%s: File not found: %s", __func__, input_file.c_str());
+    return -ENOENT;
+  }
+  data = std::string((std::istreambuf_iterator<char>(cfg_data)),
+                     std::istreambuf_iterator<char>());
+  cfg_data.close();
+
+  if (!reader.parse(data, value)) {
+    TEST_ERROR("%s: Parsing Failed for file: %s", __func__, input_file.c_str());
+    ret = -EINVAL;
+  }
+  return ret;
+}
+
+template <typename TItem>
+void GtestCommon::GetValue(const Json::Value &v,const std::string &field_name,
+                           TItem &item) {
+  if (field_name.empty()) {
+    TEST_ERROR("%s: Please provide input key ", __func__);
+    return;
+  }
+  Json::Value root = v[field_name];
+  if (!root.empty()) {
+    switch (root.type()) {
+      case Json::ValueType::intValue:
+        item = root.asInt();
+        break;
+      case Json::ValueType::uintValue:
+        item = root.asUInt();
+        break;
+      case Json::ValueType::realValue:
+        item = root.asDouble();
+        break;
+      case Json::ValueType::booleanValue:
+        item = root.asBool();
+        break;
+      default:
+        std::stringstream s;
+        TEST_ERROR("%s: value type: %d is not supported by current get method",
+                   __func__, root.type());
+        break;
+    }
+  } else {
+    TEST_ERROR("%s: field_name: %s is not set in json", __func__,
+               field_name.c_str());
+  }
+}
+
 /*
  * FindSensorModeIndex: This method parses a given sensor mode specified
  * as a string, and returns the mode index.
  */
 int32_t GtestCommon::FindSensorModeIndex(const std::string& name_of_file,
                                          const std::string& mode) {
-
+  Json::Value value;
   if (name_of_file.empty() || mode.empty()) {
     TEST_ERROR("%s: Please provide correct params:", __func__);
-    return -1;
+    return -EINVAL;
   }
 
   std::string dir_path(kQmmfFolderPath);
   std::string path = dir_path.append(name_of_file);
   TEST_INFO("%s: Config File Path: %s", __func__, path.c_str());
   int32_t index_value = -1;
-  std::string input_str;
-  const char delim_colon = ':';
-  std::string key, value;
-  std::vector < std::string > out;
 
-  std::ifstream input_file(path.c_str());
-  try {
-    input_file.exceptions(input_file.failbit);
-  } catch (const std::ios_base::failure& e) {
-    TEST_ERROR("%s: File open failed:  %s\n", __func__, e.what());
+  auto status = ReadAndParseJsonFile(path, value);
+  if (status == NO_ERROR) {
+    GetValue(value, mode, index_value);
   }
 
-  while (getline(input_file, input_str)) {
-    out.clear();
-    TokenizeString(input_str, delim_colon, out);
-    key = out[0];
-    value = out[1];
-    RemoveSpaces(key);
-    RemoveSpaces(value);
-    if (key.compare(mode) == 0) {
-      index_value = std::atoi(value.c_str());
-      break;
-    }
-  }
-  if (input_file.is_open()) {
-    input_file.close();
-  }
   TEST_INFO("%s: Sensor Mode : %s Sensor Mode Value: %u\n", __func__,
             mode.c_str(), index_value);
   return index_value;

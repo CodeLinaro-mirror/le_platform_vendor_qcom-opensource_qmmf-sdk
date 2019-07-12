@@ -65,7 +65,7 @@ class PostProcJpeg : public IPostProcModule {
 
   status_t ReturnBuff(StreamBuffer &buffer) override { return NO_ERROR; };
 
-  status_t Start(const int32_t stream_id) override;
+  status_t Start() override;
 
   status_t Stop() override;
 
@@ -105,7 +105,6 @@ class PostProcJpeg : public IPostProcModule {
 
   QCondition                     wait_for_result_;
   std::mutex                     result_lock_;
-  bool                           skip_first_;
 
   static const uint32_t          kMinWidth;
   static const uint32_t          kMinHeight;

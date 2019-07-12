@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -77,6 +77,8 @@ class InputHandler : public PostProcThread {
 
   void UnMapBufs();
 
+  void RequestExitAndWait() override;
+
  protected:
 
   bool ThreadLoop() override;
@@ -95,7 +97,7 @@ class InputHandler : public PostProcThread {
     size_t size;
   };
 
-  static const nsecs_t              kFrameTimeout  = 50000000;  // 50 ms.
+  static const nsecs_t              kFrameTimeout  = 1000000000;  // 1 sec.
   PostProcNode                      *node_;
   std::map<uint32_t, map_data_t>    mapped_buffs_;
   std::deque<StreamBuffer>          bufs_list_;
@@ -113,13 +115,15 @@ class OutputHandler : public PostProcThread {
 
   void FlushBufs(std::function<void(StreamBuffer&)> BuffHandler);
 
+  void RequestExitAndWait() override;
+
  protected:
 
   bool ThreadLoop() override;
 
  private:
 
-  static const nsecs_t              kFrameTimeout  = 50000000;  // 50 ms.
+  static const nsecs_t              kFrameTimeout  = 1000000000;  // 1 sec.
   PostProcNode                      *node_;
   std::vector<StreamBuffer>         bufs_list_;
   std::mutex                        wait_lock_;
@@ -167,7 +171,7 @@ class PostProcNode : public PostProcPlugin<PostProcNode>,
 
    void AddResult(const void* result);
 
-   status_t Start(const int32_t stream_id);
+   status_t Start();
 
    status_t Stop();
 

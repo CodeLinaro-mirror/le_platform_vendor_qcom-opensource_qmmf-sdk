@@ -87,7 +87,7 @@ status_t PostProcTest::GetCapabilities(PostProcCaps &caps) {
   return NO_ERROR;
 }
 
-status_t PostProcTest::Start(const int32_t stream_id) {
+status_t PostProcTest::Start() {
   QMMF_INFO("%s: Enter", __func__);
   return NO_ERROR;
 }

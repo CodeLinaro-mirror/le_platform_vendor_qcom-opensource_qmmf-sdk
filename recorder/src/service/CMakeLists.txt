@@ -8,11 +8,6 @@ if (NOT RECORDER_SERVICE_ENABLED)
   set(exclude EXCLUDE_FROM_ALL)
 endif()
 
-if(NOT DISABLE_MULTICAM)
-set(multicam "${CMAKE_CURRENT_SOURCE_DIR}/qmmf_multicamera_manager.cc")
-set(jpeg  "${CMAKE_CURRENT_SOURCE_DIR}/qmmf_camera_jpeg.cc")
-endif()
-
 add_library(qmmf_recorder_service SHARED ${exclude}
 ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_recorder_service.cc
 ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_recorder_impl.cc
@@ -21,6 +16,7 @@ ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_remote_cb.cc
 ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_camera_source.cc
 ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_camera_context.cc
 ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_fake_camera.cc
+${CMAKE_CURRENT_SOURCE_DIR}/qmmf_multicamera_manager.cc
 ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_encoder_core.cc
 ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_audio_source.cc
 ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_audio_raw_track_source.cc
@@ -33,6 +29,7 @@ ${CMAKE_CURRENT_SOURCE_DIR}/post-process/memory/qmmf_postproc_memory_pool.cc
 ${CMAKE_CURRENT_SOURCE_DIR}/post-process/pipe/qmmf_postproc_pipe.cc
 ${CMAKE_CURRENT_SOURCE_DIR}/post-process/common/qmmf_postproc_thread.cc
 ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_camera_rescaler.cc
+${CMAKE_CURRENT_SOURCE_DIR}/qmmf_camera_frc.cc
 ${multicam}
 ${jpeg}
 )
