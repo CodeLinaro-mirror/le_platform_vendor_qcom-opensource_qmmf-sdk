@@ -215,7 +215,6 @@ status_t RecorderTest::AddPreviewTrack() {
   video_track_param.height = 480;
   video_track_param.frame_rate = 30;
   video_track_param.format_type = VideoFormat::kYUV;
-  video_track_param.low_power_mode = 1;
   TrackCb video_track_cb;
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
     vector <BufferDescriptor> buffers,
@@ -2121,7 +2120,6 @@ status_t RecorderTest::StartMultiCameraMode() {
   info.track_type = TrackType::kVideoRDI;
   info.session_id = session_id;
   info.camera_id = camera_id_;
-  info.low_power_mode = false;
 
   ret = rdi_track->SetUp(info);
   assert(ret == 0);
@@ -2202,7 +2200,6 @@ status_t RecorderTest::StartMultiCameraMode() {
   info.track_type = TrackType::kVideoYUV;
   info.session_id = session_id;
   info.camera_id = camera_id_;
-  info.low_power_mode = true;
 
   ret = yuv_stereo_track->SetUp(info);
   assert(ret == 0);
@@ -2584,8 +2581,8 @@ status_t RecorderTest::SessionTwo1080pEncTracks(const TrackType& track_type) {
   return ret;
 }
 
-// This session has one 720P LPM track
-status_t RecorderTest::Session720pLPMTrack(const TrackType& track_type) {
+// This session has one 720P track
+status_t RecorderTest::Session720pTrack(const TrackType& track_type) {
 
   TEST_INFO("%s: Enter", __func__);
 
@@ -2608,7 +2605,6 @@ status_t RecorderTest::Session720pLPMTrack(const TrackType& track_type) {
   info.track_type = track_type;
   info.session_id = session_id;
   info.camera_id = camera_id_;
-  info.low_power_mode = true;
 
   ret = yuv_720p_track->SetUp(info);
   assert(ret == 0);
@@ -2619,8 +2615,8 @@ status_t RecorderTest::Session720pLPMTrack(const TrackType& track_type) {
   return ret;
 }
 
-// This session has one 1080p Encode and one 1080p LPM tracks
-status_t RecorderTest::Session1080pEnc1080pLPMTracks(const TrackType& track_type) {
+// This session has one 1080p Encode and one 1080p tracks
+status_t RecorderTest::Session1080pEnc1080pTracks(const TrackType& track_type) {
 
   TEST_INFO("%s: Enter", __func__);
   SessionCb session_status_cb;
@@ -2642,7 +2638,6 @@ status_t RecorderTest::Session1080pEnc1080pLPMTracks(const TrackType& track_type
   info.track_type = track_type;
   info.ltr_count  = ltr_count_;
   info.session_id = session_id;
-  info.low_power_mode = false;
 
   ret = enc_1080p_track->SetUp(info);
   assert(ret == 0);
@@ -2655,7 +2650,6 @@ status_t RecorderTest::Session1080pEnc1080pLPMTracks(const TrackType& track_type
   info.track_id       = 2;
   info.track_type     = TrackType::kVideoYUV;
   info.session_id     = session_id;
-  info.low_power_mode = true;
   info.camera_id = camera_id_;
 
   ret = yuv_1080p_track->SetUp(info);
@@ -3345,7 +3339,6 @@ status_t RecorderTest::SessionRDITrack() {
   info.track_type = TrackType::kVideoRDI;
   info.session_id = session_id;
   info.camera_id = camera_id_;
-  info.low_power_mode = false;
 
   ret = rdi_track->SetUp(info);
   assert(ret == 0);
@@ -5279,8 +5272,6 @@ int32_t RecorderTest::ParseConfig(char *fileName, TestInitParams *initParams,
       } else if (track_info.track_type == TrackType::kVideoHEVC) {
         // No support from Venus as of now
       }
-    } else if (!strncmp("CamLowPowerMode", key, strlen("CamLowPowerMode"))) {
-      track_info.low_power_mode = atoi(value) ? true : false;
       isStreamReadCompleted = true;
     } else {
       ALOGE("Unknown Key %s found in %s", key, fileName);
@@ -5896,7 +5887,6 @@ status_t TestTrack::SetUp(TrackInfo& track_info) {
       video_track_param.frame_rate  = fps;
     else
       video_track_param.frame_rate  = 30;
-    video_track_param.low_power_mode  = track_info.low_power_mode;
 
     switch (track_info.track_type) {
       case TrackType::kVideoAVC:
@@ -6956,10 +6946,10 @@ void CmdMenu::PrintMenu() {
     CmdMenu::CREATE_1080pENC_AVC_1080YUV_SESSION_CMD);
   printf("   %c. Create Session: (4K Enc HEVC + 1080 YUV)\n",
     CmdMenu::CREATE_4KENC_HEVC_1080YUV_SESSION_CMD);
-  printf("   %c. Create Session: (720p LPM YUV)\n",
-    CmdMenu::CREATE_720pLPM_SESSION_CMD);
-  printf("   %c. Create Session: (1080p Enc AVC + 1080 LPM YUV)\n",
-      CmdMenu::CREATE_1080pENC_AVC_1080LPM_SESSION_CMD);
+  printf("   %c. Create Session: (720p YUV)\n",
+    CmdMenu::CREATE_720p_SESSION_CMD);
+  printf("   %c. Create Session: (1080p Enc AVC + 1080 YUV)\n",
+      CmdMenu::CREATE_1080pENC_AVC_1080p_SESSION_CMD);
   printf("   %c. Create Session: (RDI)\n",
       CmdMenu::CREATE_RDI_SESSION_CMD);
   printf("   %c. Create Session: (PCM mono,16,48KHz)\n",
@@ -7129,12 +7119,12 @@ int main(int argc,char *argv[]) {
         test_context.SessionTwo1080pEncTracks(TrackType::kVideoAVC);
       }
       break;
-      case CmdMenu::CREATE_720pLPM_SESSION_CMD: {
-        test_context.Session720pLPMTrack(TrackType::kVideoYUV);
+      case CmdMenu::CREATE_720p_SESSION_CMD: {
+        test_context.Session720pTrack(TrackType::kVideoYUV);
       }
       break;
-      case CmdMenu::CREATE_1080pENC_AVC_1080LPM_SESSION_CMD: {
-        test_context.Session1080pEnc1080pLPMTracks(TrackType::kVideoAVC);
+      case CmdMenu::CREATE_1080pENC_AVC_1080p_SESSION_CMD: {
+        test_context.Session1080pEnc1080pTracks(TrackType::kVideoAVC);
       }
       break;
       case CmdMenu::CREATE_PCM_AUD_SESSION_CMD: {

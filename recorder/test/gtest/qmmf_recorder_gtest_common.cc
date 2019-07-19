@@ -459,8 +459,6 @@ void GtestCommon::SetUp() {
   use_display_ = (atoi(prop_val) == 0) ? false : true;
   property_get(PROP_TOGGLE_OVERLAY_USAGE, prop_val, "0");
   is_apply_overlay_ = (atoi(prop_val) == 0) ? false : true;
-  property_get(PROP_UBWC_STREAM_ENABLE, prop_val, "1");
-  ubwc_stream_enable_ = (atoi(prop_val) == 0) ? false : true;
   property_get(PROP_FRAME_DEBUG, prop_val, "0");
   is_frame_debug_enabled_ = (atoi(prop_val) == 0) ? false : true;
   property_get(PROP_SENSOR_CONFIG_FILE, prop_val, "");

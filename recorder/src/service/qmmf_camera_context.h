@@ -51,6 +51,8 @@ using namespace cameraadaptor;
 #define SNAPSHOT_STREAM_BUFFER_COUNT 30
 #define EXTRA_DCVS_BUFFERS            2
 #define EXTRA_HFR_BUFFERS             4
+#define MIN_UBWC_WIDTH               1280
+#define MIN_UBWC_HEIGHT              720
 
 namespace recorder {
 
@@ -373,6 +375,7 @@ class CameraContext : public CameraInterface,
   bool                          port_paused_;
   std::set<int32_t>             stopped_stream_ids_;
   CameraParameters              camera_parameters_;
+  bool                          is_ubwc_enabled_;
 };
 
 enum class CameraPortType {
@@ -449,6 +452,8 @@ class CameraPort {
   StreamParam            params_;
 
  private:
+
+  bool IsUbwcValidForStream(uint32_t width, uint32_t height);
 
   bool IsConsumerConnected(sp<IBufferConsumer>& consumer);
 

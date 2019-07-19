@@ -46,13 +46,15 @@ struct StreamParam {
   uint32_t     rotation;
   BufferFormat format;
   float        framerate;
-  bool         low_power_mode;
+  bool         is_yuv_track;
   bool         wait_aec_mode;
+  bool         is_caching_enabled;
 
   StreamParam()
       :  id(0), width(0), height(0), rotation(0),
          format(BufferFormat::kUnsupported), framerate(0.0),
-         low_power_mode(false), wait_aec_mode(false) {}
+         is_yuv_track(false), wait_aec_mode(false),
+         is_caching_enabled(true){}
 };
 
 struct SnapshotParam {

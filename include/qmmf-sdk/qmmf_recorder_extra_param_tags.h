@@ -59,6 +59,7 @@ enum ParamTag {
   QMMF_EIS,
   QMMF_PARTIAL_METADATA,
   QMMF_CAMERA_SLAVE_MODE,
+  QMMF_CPU_CACHE,
 };
 
 enum class RotationFlags {
@@ -352,6 +353,16 @@ struct CameraSlaveMode : DataTagBase {
   CameraSlaveMode() :
     DataTagBase(QMMF_CAMERA_SLAVE_MODE),
     mode(SlaveMode::kNone) {
+  }
+};
+
+struct SystemCache : DataTagBase {
+  /**< Add support for client to enable/disable system cache.
+  /**< Default: True*/
+  bool enable;
+  SystemCache() :
+    DataTagBase(QMMF_CPU_CACHE),
+    enable(true) {
   }
 };
 

@@ -300,10 +300,6 @@ struct VideoTrackCreateParam {
   float frame_rate;
   VideoFormat format_type;
   VideoCodecParams codec_param;
-  /// true indicates that track to be output by VFE
-  /// (Video Front End) camera block without any post-processing.
-  /// Currently atmost one track can be a low_power_mode track.
-  bool low_power_mode;
   bool do_vqzip;
   VQZipInfo vqzip_params;
 
@@ -331,8 +327,7 @@ struct VideoTrackCreateParam {
       }
     }
 
-    // Setting LPM,VQZipInfo parameters
-    low_power_mode = false;
+    // Setting VQZipInfo parameters
     do_vqzip = false;
     vqzip_params = {};
   }

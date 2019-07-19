@@ -564,8 +564,6 @@ int32_t TimeLapse::CreateLPMTrack() {
     video_track_param = video_track_param2;
   }
 
-  video_track_param.low_power_mode = true;
-
   TrackCb video_track_cb;
   video_track_cb.data_cb = {[&](uint32_t track_id,
                                 std::vector<BufferDescriptor> buffers,

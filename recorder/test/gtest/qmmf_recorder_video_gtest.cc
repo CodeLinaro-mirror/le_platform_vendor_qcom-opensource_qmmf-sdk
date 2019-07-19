@@ -76,7 +76,6 @@ TEST_F(VideoGtest, FaceDetectionFor1080pYUVPreview) {
   ASSERT_TRUE(ret == NO_ERROR);
   VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kYUV,
                                           stream_width, stream_height, 30};
-  video_track_param.low_power_mode = true;
   uint32_t video_track_id = 1;
 
   TrackCb video_track_cb;
@@ -317,9 +316,6 @@ TEST_F(VideoGtest, SessionWith1080pYUVTrack) {
     VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kYUV,
                                             1920, 1080, 30};
     uint32_t video_track_id = 1;
-    if (ubwc_stream_enable_) {
-      video_track_param.low_power_mode = true;
-    }
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
@@ -1334,7 +1330,6 @@ TEST_F(VideoGtest, SessionWith1080p120fps480p30fpsEncTrack) {
   video_track_param.height      = height;
   video_track_param.frame_rate  = fps;
   video_track_param.format_type = format_type;
-  video_track_param.low_power_mode = true;
 
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
@@ -1643,9 +1638,6 @@ TEST_F(VideoGtest, SessionWith4kp30fps480p30fpsEncTrack) {
 
   video_track_param.width       = width;
   video_track_param.height      = height;
-  if (ubwc_stream_enable_) {
-    video_track_param.low_power_mode = true;
-  }
 
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
@@ -1773,9 +1765,6 @@ TEST_F(VideoGtest, SessionWith27Kp60fps480p30fpsEncTrack) {
   video_track_param.width       = width;
   video_track_param.height      = height;
   video_track_param.frame_rate  = fps;
-  if (ubwc_stream_enable_) {
-    video_track_param.low_power_mode = true;
-  }
 
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
@@ -1901,9 +1890,7 @@ TEST_F(VideoGtest, SessionWith27Kp30fps480p30fpsEncTrack) {
 
   video_track_param.width       = width;
   video_track_param.height      = height;
-  if (ubwc_stream_enable_) {
-    video_track_param.low_power_mode = true;
-  }
+
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
@@ -2118,9 +2105,6 @@ TEST_F(VideoGtest, SessionWith480pEncTrack) {
   VideoTrackCreateParam video_track_param{camera_id_, format_type,
                                           width, height, fps};
   uint32_t video_track_id = 1;
-  if (ubwc_stream_enable_) {
-    video_track_param.low_power_mode = true;
-  }
   if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = { format_type, session_id, video_track_id,
                                 width, height };
@@ -2853,10 +2837,6 @@ TEST_F(VideoGtest, SessionWith4KAnd1080pYUVTrack) {
         test_info_->name(), i);
     VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kYUV,
                                             3840, 2160, 30};
-
-    if (ubwc_stream_enable_) {
-      video_track_param.low_power_mode = true;
-    }
 
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
@@ -4526,10 +4506,6 @@ TEST_F(VideoGtest, SessionWith4KAnd1080pYUVTrackStartStop) {
   VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kYUV,
                                           3840, 2160, 30};
 
-  if (ubwc_stream_enable_) {
-    video_track_param.low_power_mode = true;
-  }
-
   TrackCb video_track_cb;
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
@@ -5958,9 +5934,6 @@ TEST_F(VideoGtest, SessionWith720EncAndLinked720Enc) {
 
     VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC,
                                             1280, 720, fps };
-    if (ubwc_stream_enable_) {
-      video_track_param.low_power_mode = true;
-    }
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
@@ -9630,9 +9603,6 @@ TEST_F(VideoGtest, SessionWith4kEnc1080pEncAnd720pYUVTrack) {
     video_track_param.width = 1280;
     video_track_param.height = 720;
     video_track_param.format_type = VideoFormat::kYUV;
-    if (ubwc_stream_enable_) {
-      video_track_param.low_power_mode = true;
-    }
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
@@ -10779,7 +10749,6 @@ TEST_F(VideoGtest, SessionWithDualCam4k30EncRescale1080p30EncAnd1080p30YUVWithTN
     track_ids.push_back(video_track_id_1080p_avc);
 
     video_track_param.format_type = VideoFormat::kYUV;
-    video_track_param.low_power_mode = true;
 
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
@@ -10977,7 +10946,6 @@ TEST_F(VideoGtest, SessionWithDualCam4k60EncRescale1080p30EncAnd1080p30YUVWithTN
     track_ids.push_back(video_track_id_1080p_avc);
 
     video_track_param.format_type = VideoFormat::kYUV;
-    video_track_param.low_power_mode = true;
 
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
@@ -11175,7 +11143,6 @@ TEST_F(VideoGtest, SessionWithDualCam5_7k30EncRescale1080p30EncAnd1080p30YUVWith
     track_ids.push_back(video_track_id_1080p_avc);
 
     video_track_param.format_type = VideoFormat::kYUV;
-    video_track_param.low_power_mode = true;
 
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
@@ -11330,7 +11297,6 @@ TEST_F(VideoGtest, SessionWith4kEncAnd720pEncWithIRFilterModes) {
     track_ids.push_back(video_track_id_4k);
     video_track_param.width = 1280;
     video_track_param.height = 720;
-    video_track_param.low_power_mode = true;
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
@@ -11729,9 +11695,6 @@ TEST_F(VideoGtest,
         VideoRateControlType::kConstant;
     video_track_param_1.codec_param.avc.bitrate = kBitRate10Mbps;
 
-    if (ubwc_stream_enable_) {
-      video_track_param_1.low_power_mode = true;
-    }
     track_trace_2.SetUp(session_id, video_track_id_720p_avc, 30.0);
 
     video_track_cb.data_cb = [&, session_id](
@@ -11760,7 +11723,6 @@ TEST_F(VideoGtest,
 
     video_track_param_1.width = 1280;
     video_track_param_1.height = 720;
-    video_track_param_1.low_power_mode = true;
     video_track_param_1.format_type = VideoFormat::kYUV;
 
     video_track_cb.data_cb = [&, session_id](
@@ -11934,9 +11896,6 @@ TEST_F(VideoGtest,
         VideoRateControlType::kConstant;
     video_track_param_1.codec_param.avc.bitrate = kBitRate10Mbps;
 
-    if (ubwc_stream_enable_) {
-      video_track_param_1.low_power_mode = true;
-    }
     track_trace_2.SetUp(session_id, video_track_id_720p_avc, 30.0);
 
     video_track_cb.data_cb = [&, session_id](
@@ -11966,7 +11925,6 @@ TEST_F(VideoGtest,
 
     video_track_param_1.width = 1280;
     video_track_param_1.height = 720;
-    video_track_param_1.low_power_mode = true;
     video_track_param_1.format_type = VideoFormat::kYUV;
 
     video_track_cb.data_cb = [&, session_id](
@@ -12134,9 +12092,6 @@ TEST_F(VideoGtest,
         VideoRateControlType::kConstant;
     video_track_param_1.codec_param.avc.bitrate = kBitRate10Mbps;
 
-    if (ubwc_stream_enable_) {
-      video_track_param_1.low_power_mode = true;
-    }
     track_trace_2.SetUp(session_id, video_track_id_720p_avc, 30.0);
 
     video_track_cb.data_cb = [&, session_id](
@@ -12165,7 +12120,6 @@ TEST_F(VideoGtest,
 
     video_track_param_1.width = 1280;
     video_track_param_1.height = 720;
-    video_track_param_1.low_power_mode = true;
     video_track_param_1.format_type = VideoFormat::kYUV;
 
     video_track_cb.data_cb = [&, session_id](
@@ -12338,9 +12292,6 @@ TEST_F(VideoGtest,
         VideoRateControlType::kConstant;
     video_track_param_1.codec_param.avc.bitrate = kBitRate10Mbps;
 
-    if (ubwc_stream_enable_) {
-      video_track_param_1.low_power_mode = true;
-    }
     track_trace_2.SetUp(session_id, video_track_id_720p_avc_copied, 30.0);
 
     video_track_cb.data_cb = [&, session_id](
@@ -12370,7 +12321,6 @@ TEST_F(VideoGtest,
 
     video_track_param_1.width = 1280;
     video_track_param_1.height = 720;
-    video_track_param_1.low_power_mode = true;
     video_track_param_1.format_type = VideoFormat::kYUV;
 
     video_track_cb.data_cb = [&, session_id](
@@ -12659,9 +12609,6 @@ TEST_F(VideoGtest,
         VideoRateControlType::kConstant;
     video_track_param_1.codec_param.avc.bitrate = kBitRate10Mbps;
 
-    if (ubwc_stream_enable_) {
-      video_track_param_1.low_power_mode = true;
-    }
     track_trace_2.SetUp(session_id, video_track_id_720p_avc_copied, 30.0);
 
     video_track_cb.data_cb = [&, session_id](
@@ -13194,7 +13141,6 @@ TEST_F(
     video_track_param_1.codec_param.avc.ratecontrol_type =
         VideoRateControlType::kConstant;
     video_track_param_1.codec_param.avc.bitrate = kBitRate10Mbps;
-    video_track_param_1.low_power_mode = true;
 
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
@@ -13395,9 +13341,6 @@ TEST_F(VideoGtest,
         VideoRateControlType::kConstant;
     video_track_param_1.codec_param.avc.bitrate = kBitRate10Mbps;
 
-    if (ubwc_stream_enable_) {
-      video_track_param_1.low_power_mode = true;
-    }
     track_trace_2.SetUp(session_id, video_track_id_720p_avc, 30.0);
 
     video_track_cb.data_cb = [&, session_id](
@@ -13426,7 +13369,6 @@ TEST_F(VideoGtest,
 
     video_track_param_1.width = 1280;
     video_track_param_1.height = 720;
-    video_track_param_1.low_power_mode = true;
     video_track_param_1.format_type = VideoFormat::kYUV;
 
     video_track_cb.data_cb = [&, session_id](
@@ -13605,9 +13547,6 @@ TEST_F(
         VideoRateControlType::kConstant;
     video_track_param_1.codec_param.avc.bitrate = kBitRate10Mbps;
 
-    if (ubwc_stream_enable_) {
-      video_track_param_1.low_power_mode = true;
-    }
     track_trace_2.SetUp(session_id, video_track_id_720p_avc, 30.0);
 
     video_track_cb.data_cb = [&, session_id](
@@ -13637,7 +13576,6 @@ TEST_F(
 
     video_track_param_1.width = 1280;
     video_track_param_1.height = 720;
-    video_track_param_1.low_power_mode = true;
     video_track_param_1.format_type = VideoFormat::kYUV;
 
     video_track_cb.data_cb = [&, session_id](
@@ -13811,9 +13749,6 @@ TEST_F(
         VideoRateControlType::kConstant;
     video_track_param_1.codec_param.avc.bitrate = kBitRate10Mbps;
 
-    if (ubwc_stream_enable_) {
-      video_track_param_1.low_power_mode = true;
-    }
     track_trace_2.SetUp(session_id, video_track_id_720p_avc, 30.0);
 
     video_track_cb.data_cb = [&, session_id](
@@ -13842,7 +13777,6 @@ TEST_F(
 
     video_track_param_1.width = 1280;
     video_track_param_1.height = 720;
-    video_track_param_1.low_power_mode = true;
     video_track_param_1.format_type = VideoFormat::kYUV;
 
     video_track_cb.data_cb = [&, session_id](

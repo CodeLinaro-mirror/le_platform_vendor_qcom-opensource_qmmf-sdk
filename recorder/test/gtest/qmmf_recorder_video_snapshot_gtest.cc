@@ -260,7 +260,6 @@ TEST_F(RecorderVideoSnapshotGTest, 4KZSL1080pYUVPreview) {
 
   VideoTrackCreateParam preview_track_param{camera_id_, VideoFormat::kYUV,
     width, height, frame_rate};
-  preview_track_param.low_power_mode = true;
 
   TrackCb video_track_cb;
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
@@ -1176,7 +1175,6 @@ TEST_F(RecorderVideoSnapshotGTest, 4KZSL1080p480pYUVPreview) {
                                             1920,
                                             1080,
                                             30};
-  preview_track_param.low_power_mode = false;
   uint32_t preview_track_id          = 1;
 
   TrackCb video_track_cb;
@@ -2011,7 +2009,6 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWith1080p120fps480p30fpsSnapshotEncTra
   video_track_param.height      = height;
   video_track_param.frame_rate  = fps;
   video_track_param.format_type = format_type;
-  video_track_param.low_power_mode = true;
 
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
@@ -2299,7 +2296,6 @@ TEST_F(RecorderVideoSnapshotGTest, 4KEncCancelCaptureImage) {
   ASSERT_TRUE(ret == NO_ERROR);
   VideoTrackCreateParam video_track_param{camera_id_, format_type,
                                           width, height, fps};
-  video_track_param.low_power_mode = false;
   uint32_t video_track_id = 1;
 
   if (dump_bitstream_.IsEnabled()) {
@@ -2446,7 +2442,6 @@ TEST_F(RecorderVideoSnapshotGTest, 4KVideo480pVideoAnd4KSnapshot) {
                                           width,
                                           height,
                                           30};
-   video_track_param.low_power_mode = false;
 
   TrackCb video_track_cb;
   video_track_cb.event_cb =
@@ -2478,7 +2473,6 @@ TEST_F(RecorderVideoSnapshotGTest, 4KVideo480pVideoAnd4KSnapshot) {
   uint32_t video_track_id2 = 2;
   video_track_param.width         = 640;
   video_track_param.height        = 480;
-  video_track_param.low_power_mode = false;
 
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
@@ -3580,7 +3574,6 @@ TEST_F(RecorderVideoSnapshotGTest, 1080pVideo4KVideoTypeSnapshot) {
   uint32_t video_track_id1 = 1;
   VideoTrackCreateParam video_track_param{camera_id_, format_type,
                                           width, height, 30};
-   video_track_param.low_power_mode = false;
 
   TrackCb video_track_cb;
   video_track_cb.event_cb =
@@ -8243,10 +8236,6 @@ TEST_F(RecorderVideoSnapshotGTest, 4kSnapshotWithIRFilterModes) {
     VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kYUV, 640,
                                             480, 30};
 
-    if (ubwc_stream_enable_) {
-      video_track_param.low_power_mode = true;
-    }
-
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&](uint32_t track_id,
                                  std::vector<BufferDescriptor> buffers,
@@ -8507,9 +8496,6 @@ TEST_F(RecorderVideoSnapshotGTest,
         VideoRateControlType::kConstant;
     video_track_param_1.codec_param.avc.bitrate = kBitRate10Mbps;
 
-    if (ubwc_stream_enable_) {
-      video_track_param_1.low_power_mode = true;
-    }
     track_trace_2.SetUp(session_id, video_track_id_720p_avc, 30.0);
 
     video_track_cb.data_cb = [&, session_id](
@@ -8538,7 +8524,6 @@ TEST_F(RecorderVideoSnapshotGTest,
 
     video_track_param_1.width = 1280;
     video_track_param_1.height = 720;
-    video_track_param_1.low_power_mode = true;
     video_track_param_1.format_type = VideoFormat::kYUV;
 
     video_track_cb.data_cb = [&, session_id](
@@ -8745,9 +8730,6 @@ TEST_F(RecorderVideoSnapshotGTest,
         VideoRateControlType::kConstant;
     video_track_param_1.codec_param.avc.bitrate = kBitRate10Mbps;
 
-    if (ubwc_stream_enable_) {
-      video_track_param_1.low_power_mode = true;
-    }
     track_trace_2.SetUp(session_id, video_track_id_720p_avc, 24.0);
 
     video_track_cb.data_cb = [&, session_id](
@@ -8776,7 +8758,6 @@ TEST_F(RecorderVideoSnapshotGTest,
 
     video_track_param_1.width = 1280;
     video_track_param_1.height = 720;
-    video_track_param_1.low_power_mode = true;
     video_track_param_1.format_type = VideoFormat::kYUV;
 
     video_track_cb.data_cb = [&, session_id](
@@ -8983,10 +8964,6 @@ TEST_F(RecorderVideoSnapshotGTest,
         VideoRateControlType::kConstant;
     video_track_param_1.codec_param.avc.bitrate = kBitRate10Mbps;
 
-    if (ubwc_stream_enable_) {
-      video_track_param_1.low_power_mode = true;
-    }
-
     track_trace_2.SetUp(session_id, video_track_id_720p_avc, 30.0);
 
     video_track_cb.data_cb = [&, session_id](
@@ -9015,7 +8992,6 @@ TEST_F(RecorderVideoSnapshotGTest,
 
     video_track_param_1.width = 1280;
     video_track_param_1.height = 720;
-    video_track_param_1.low_power_mode = true;
     video_track_param_1.format_type = VideoFormat::kYUV;
 
     video_track_cb.data_cb = [&, session_id](
@@ -9222,9 +9198,6 @@ TEST_F(RecorderVideoSnapshotGTest,
         VideoRateControlType::kConstant;
     video_track_param_1.codec_param.avc.bitrate = kBitRate10Mbps;
 
-    if (ubwc_stream_enable_) {
-      video_track_param_1.low_power_mode = true;
-    }
     track_trace_2.SetUp(session_id, video_track_id_720p_avc, 24.0);
 
     video_track_cb.data_cb = [&, session_id](
@@ -9253,7 +9226,6 @@ TEST_F(RecorderVideoSnapshotGTest,
 
     video_track_param_1.width = 1280;
     video_track_param_1.height = 720;
-    video_track_param_1.low_power_mode = true;
     video_track_param_1.format_type = VideoFormat::kYUV;
 
     video_track_cb.data_cb = [&, session_id](
@@ -9466,9 +9438,6 @@ TEST_F(RecorderVideoSnapshotGTest,
         VideoRateControlType::kConstant;
     video_track_param_1.codec_param.avc.bitrate = kBitRate10Mbps;
 
-    if (ubwc_stream_enable_) {
-      video_track_param_1.low_power_mode = true;
-    }
     track_trace_2.SetUp(session_id, video_track_id_720p_avc, 30.0);
 
     video_track_cb.data_cb = [&, session_id](
@@ -9498,7 +9467,6 @@ TEST_F(RecorderVideoSnapshotGTest,
 
     video_track_param_1.width = 1280;
     video_track_param_1.height = 720;
-    video_track_param_1.low_power_mode = true;
     video_track_param_1.format_type = VideoFormat::kYUV;
 
     video_track_cb.data_cb = [&, session_id](
@@ -9709,9 +9677,6 @@ TEST_F(RecorderVideoSnapshotGTest,
         VideoRateControlType::kConstant;
     video_track_param_1.codec_param.avc.bitrate = kBitRate10Mbps;
 
-    if (ubwc_stream_enable_) {
-      video_track_param_1.low_power_mode = true;
-    }
     track_trace_2.SetUp(session_id, video_track_id_720p_avc, 24.0);
 
     video_track_cb.data_cb = [&, session_id](
@@ -9741,7 +9706,6 @@ TEST_F(RecorderVideoSnapshotGTest,
 
     video_track_param_1.width = 1280;
     video_track_param_1.height = 720;
-    video_track_param_1.low_power_mode = true;
     video_track_param_1.format_type = VideoFormat::kYUV;
 
     video_track_cb.data_cb = [&, session_id](
@@ -9949,9 +9913,6 @@ TEST_F(
         VideoRateControlType::kConstant;
     video_track_param_1.codec_param.avc.bitrate = kBitRate10Mbps;
 
-    if (ubwc_stream_enable_) {
-      video_track_param_1.low_power_mode = true;
-    }
     track_trace_2.SetUp(session_id, video_track_id_720p_avc, 30.0);
 
     video_track_cb.data_cb = [&, session_id](
@@ -9980,7 +9941,6 @@ TEST_F(
 
     video_track_param_1.width = 1280;
     video_track_param_1.height = 720;
-    video_track_param_1.low_power_mode = true;
     video_track_param_1.format_type = VideoFormat::kYUV;
 
     video_track_cb.data_cb = [&, session_id](
@@ -10188,9 +10148,6 @@ TEST_F(
         VideoRateControlType::kConstant;
     video_track_param_1.codec_param.avc.bitrate = kBitRate10Mbps;
 
-    if (ubwc_stream_enable_) {
-      video_track_param_1.low_power_mode = true;
-    }
     track_trace_2.SetUp(session_id, video_track_id_720p_avc, 30.0);
 
     video_track_cb.data_cb = [&, session_id](
@@ -10219,7 +10176,6 @@ TEST_F(
 
     video_track_param_1.width = 1280;
     video_track_param_1.height = 720;
-    video_track_param_1.low_power_mode = true;
     video_track_param_1.format_type = VideoFormat::kYUV;
 
     video_track_cb.data_cb = [&, session_id](
@@ -10426,9 +10382,6 @@ TEST_F(RecorderVideoSnapshotGTest,
         VideoRateControlType::kConstant;
     video_track_param_1.codec_param.avc.bitrate = kBitRate10Mbps;
 
-    if (ubwc_stream_enable_) {
-      video_track_param_1.low_power_mode = true;
-    }
     track_trace_2.SetUp(session_id, video_track_id_720p_avc, 30.0);
 
     video_track_cb.data_cb = [&, session_id](
@@ -10457,7 +10410,6 @@ TEST_F(RecorderVideoSnapshotGTest,
 
     video_track_param_1.width = 1280;
     video_track_param_1.height = 720;
-    video_track_param_1.low_power_mode = true;
     video_track_param_1.format_type = VideoFormat::kYUV;
 
     video_track_cb.data_cb = [&, session_id](
@@ -10664,9 +10616,6 @@ TEST_F(RecorderVideoSnapshotGTest,
         VideoRateControlType::kConstant;
     video_track_param_1.codec_param.avc.bitrate = kBitRate10Mbps;
 
-    if (ubwc_stream_enable_) {
-      video_track_param_1.low_power_mode = true;
-    }
     track_trace_2.SetUp(session_id, video_track_id_720p_avc, 30.0);
 
     video_track_cb.data_cb = [&, session_id](
@@ -10695,7 +10644,6 @@ TEST_F(RecorderVideoSnapshotGTest,
 
     video_track_param_1.width = 1280;
     video_track_param_1.height = 720;
-    video_track_param_1.low_power_mode = true;
     video_track_param_1.format_type = VideoFormat::kYUV;
 
     video_track_cb.data_cb = [&, session_id](
@@ -10908,10 +10856,6 @@ TEST_F(RecorderVideoSnapshotGTest,
         VideoRateControlType::kConstant;
     video_track_param_1.codec_param.avc.bitrate = kBitRate10Mbps;
 
-    if (ubwc_stream_enable_) {
-      video_track_param_1.low_power_mode = true;
-    }
-
     track_trace_2.SetUp(session_id, video_track_id_720p_avc, 30.0);
 
     video_track_cb.data_cb = [&, session_id](
@@ -10940,7 +10884,6 @@ TEST_F(RecorderVideoSnapshotGTest,
 
     video_track_param_1.width = 1280;
     video_track_param_1.height = 720;
-    video_track_param_1.low_power_mode = true;
     video_track_param_1.format_type = VideoFormat::kYUV;
 
     video_track_cb.data_cb = [&, session_id](
@@ -11153,10 +11096,6 @@ TEST_F(RecorderVideoSnapshotGTest,
         VideoRateControlType::kConstant;
     video_track_param_1.codec_param.avc.bitrate = kBitRate10Mbps;
 
-    if (ubwc_stream_enable_) {
-      video_track_param_1.low_power_mode = true;
-    }
-
     track_trace_2.SetUp(session_id, video_track_id_720p_avc, 24.0);
 
     video_track_cb.data_cb = [&, session_id](
@@ -11185,7 +11124,6 @@ TEST_F(RecorderVideoSnapshotGTest,
 
     video_track_param_1.width = 1280;
     video_track_param_1.height = 720;
-    video_track_param_1.low_power_mode = true;
     video_track_param_1.format_type = VideoFormat::kYUV;
 
     video_track_cb.data_cb = [&, session_id](
@@ -11397,10 +11335,6 @@ TEST_F(RecorderVideoSnapshotGTest,
         VideoRateControlType::kConstant;
     video_track_param_1.codec_param.avc.bitrate = kBitRate10Mbps;
 
-    if (ubwc_stream_enable_) {
-      video_track_param_1.low_power_mode = true;
-    }
-
     track_trace_2.SetUp(session_id, video_track_id_720p_avc, 30.0);
 
     video_track_cb.data_cb = [&, session_id](
@@ -11429,7 +11363,6 @@ TEST_F(RecorderVideoSnapshotGTest,
 
     video_track_param_1.width = 1280;
     video_track_param_1.height = 720;
-    video_track_param_1.low_power_mode = true;
     video_track_param_1.format_type = VideoFormat::kYUV;
 
     video_track_cb.data_cb = [&, session_id](
@@ -11641,9 +11574,6 @@ TEST_F(RecorderVideoSnapshotGTest,
         VideoRateControlType::kConstant;
     video_track_param_1.codec_param.avc.bitrate = kBitRate10Mbps;
 
-    if (ubwc_stream_enable_) {
-      video_track_param_1.low_power_mode = true;
-    }
     track_trace_2.SetUp(session_id, video_track_id_720p_avc, 24.0);
 
     video_track_cb.data_cb = [&, session_id](
@@ -11672,7 +11602,6 @@ TEST_F(RecorderVideoSnapshotGTest,
 
     video_track_param_1.width = 1280;
     video_track_param_1.height = 720;
-    video_track_param_1.low_power_mode = true;
     video_track_param_1.format_type = VideoFormat::kYUV;
 
     video_track_cb.data_cb = [&, session_id](
@@ -11891,9 +11820,6 @@ TEST_F(
         VideoRateControlType::kConstant;
     video_track_param_1.codec_param.avc.bitrate = kBitRate10Mbps;
 
-    if (ubwc_stream_enable_) {
-      video_track_param_1.low_power_mode = true;
-    }
     track_trace_2.SetUp(session_id, video_track_id_720p_avc, 30.0);
 
     video_track_cb.data_cb = [&, session_id](
@@ -11923,7 +11849,6 @@ TEST_F(
 
     video_track_param_1.width = 1280;
     video_track_param_1.height = 720;
-    video_track_param_1.low_power_mode = true;
     video_track_param_1.format_type = VideoFormat::kYUV;
 
     video_track_cb.data_cb = [&, session_id](
@@ -12140,9 +12065,6 @@ TEST_F(
         VideoRateControlType::kConstant;
     video_track_param_1.codec_param.avc.bitrate = kBitRate10Mbps;
 
-    if (ubwc_stream_enable_) {
-      video_track_param_1.low_power_mode = true;
-    }
     track_trace_2.SetUp(session_id, video_track_id_720p_avc, 24.0);
 
     video_track_cb.data_cb = [&, session_id](
@@ -12172,7 +12094,6 @@ TEST_F(
 
     video_track_param_1.width = 1280;
     video_track_param_1.height = 720;
-    video_track_param_1.low_power_mode = true;
     video_track_param_1.format_type = VideoFormat::kYUV;
 
     video_track_cb.data_cb = [&, session_id](
@@ -12384,9 +12305,6 @@ TEST_F(RecorderVideoSnapshotGTest,
         VideoRateControlType::kConstant;
     video_track_param_1.codec_param.avc.bitrate = kBitRate10Mbps;
 
-    if (ubwc_stream_enable_) {
-      video_track_param_1.low_power_mode = true;
-    }
     track_trace_2.SetUp(session_id, video_track_id_720p_avc, 30.0);
 
     video_track_cb.data_cb = [&, session_id](
@@ -12415,7 +12333,6 @@ TEST_F(RecorderVideoSnapshotGTest,
 
     video_track_param_1.width = 1280;
     video_track_param_1.height = 720;
-    video_track_param_1.low_power_mode = true;
     video_track_param_1.format_type = VideoFormat::kYUV;
 
     video_track_cb.data_cb = [&, session_id](
@@ -12628,9 +12545,6 @@ TEST_F(
         VideoRateControlType::kConstant;
     video_track_param_1.codec_param.avc.bitrate = kBitRate10Mbps;
 
-    if (ubwc_stream_enable_) {
-      video_track_param_1.low_power_mode = true;
-    }
     track_trace_2.SetUp(session_id, video_track_id_720p_avc, 30.0);
 
     video_track_cb.data_cb = [&, session_id](
@@ -12659,7 +12573,6 @@ TEST_F(
 
     video_track_param_1.width = 1280;
     video_track_param_1.height = 720;
-    video_track_param_1.low_power_mode = true;
     video_track_param_1.format_type = VideoFormat::kYUV;
 
     video_track_cb.data_cb = [&, session_id](
@@ -12872,9 +12785,6 @@ TEST_F(
         VideoRateControlType::kConstant;
     video_track_param_1.codec_param.avc.bitrate = kBitRate10Mbps;
 
-    if (ubwc_stream_enable_) {
-      video_track_param_1.low_power_mode = true;
-    }
     track_trace_2.SetUp(session_id, video_track_id_720p_avc, 30.0);
 
     video_track_cb.data_cb = [&, session_id](
@@ -12903,7 +12813,6 @@ TEST_F(
 
     video_track_param_1.width = 1280;
     video_track_param_1.height = 720;
-    video_track_param_1.low_power_mode = true;
     video_track_param_1.format_type = VideoFormat::kYUV;
 
     video_track_cb.data_cb = [&, session_id](

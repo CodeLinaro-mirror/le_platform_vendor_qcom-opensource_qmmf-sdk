@@ -1336,8 +1336,25 @@ status_t TrackSource::Init() {
   param.width          = track_params_.params.width;
   param.height         = track_params_.params.height;
   param.framerate      = track_params_.params.frame_rate;
-  param.low_power_mode = track_params_.params.low_power_mode;
-  param.format = Common::FromVideoToQmmfFormat(track_params_.params.format_type);
+  if (track_params_.params.format_type == VideoFormat::kYUV) {
+    param.is_yuv_track = true;
+  }
+  param.format =
+      Common::FromVideoToQmmfFormat(track_params_.params.format_type);
+
+  if (track_params_.extra_param.Exists(QMMF_CPU_CACHE)) {
+    size_t entry_count = track_params_.extra_param.EntryCount(QMMF_CPU_CACHE);
+    if (entry_count == 1) {
+      SystemCache mode;
+      track_params_.extra_param.Fetch(QMMF_CPU_CACHE, mode, 0);
+      param.is_caching_enabled = mode.enable;
+      QMMF_INFO("%s: Caching value is: %d", __func__,
+                param.is_caching_enabled);
+    } else {
+      QMMF_ERROR("%s: Invalid Caching mode received", __func__);
+      return BAD_VALUE;
+    }
+  }
 
   if (track_params_.extra_param.Exists(QMMF_VIDEO_WAIT_AEC_MODE)) {
     VideoWaitAECMode wait_aec;

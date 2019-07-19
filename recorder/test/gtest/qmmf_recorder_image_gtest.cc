@@ -608,7 +608,6 @@ TEST_F(RecorderImageGTest, 4KSnapshotDisableEXIF) {
 
   VideoTrackCreateParam preview_track_param{camera_id_, VideoFormat::kYUV,
                                           640, 480, 30};
-    preview_track_param.low_power_mode = true;
 
   preview_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
@@ -752,7 +751,6 @@ TEST_F(RecorderImageGTest, 10MPSnapshotDisableEXIF) {
 
   VideoTrackCreateParam preview_track_param{camera_id_, VideoFormat::kYUV,
                                           640, 480, 30};
-    preview_track_param.low_power_mode = true;
 
   preview_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
@@ -901,7 +899,6 @@ TEST_F(RecorderImageGTest, 10MPSnapshotDisableEXIFUpdateFocalLength) {
 
   VideoTrackCreateParam preview_track_param{camera_id_, VideoFormat::kYUV,
                                           640, 480, 30};
-    preview_track_param.low_power_mode = true;
 
   preview_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
@@ -1060,7 +1057,6 @@ TEST_F(RecorderImageGTest, 4KSnapshot) {
 
   VideoTrackCreateParam preview_track_param{camera_id_, VideoFormat::kYUV,
                                           640, 480, 30};
-    preview_track_param.low_power_mode = true;
 
   preview_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
@@ -1195,7 +1191,6 @@ TEST_F(RecorderImageGTest, 4KSnapshotStillPlusRaw) {
   uint32_t video_track_id = 1;
   VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kAVC,
                                           640, 480, 30};
-  video_track_param.low_power_mode = false;
 
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
@@ -1339,7 +1334,6 @@ TEST_F(RecorderImageGTest, 10MPSnapshot) {
 
   VideoTrackCreateParam preview_track_param{camera_id_, VideoFormat::kYUV,
                                           640, 480, 30};
-    preview_track_param.low_power_mode = true;
 
   preview_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
@@ -1477,7 +1471,6 @@ TEST_F(RecorderImageGTest, 10MPJPEG422Snapshot) {
                                           640,
                                           480,
                                           30};
-    preview_track_param.low_power_mode = true;
 
   preview_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
@@ -1676,7 +1669,6 @@ TEST_F(RecorderImageGTest, Jpeg422BurstSnapshotWithBayerLCAC15fps) {
                                           640,
                                           480,
                                           frame_rate};
-  video_track_param.low_power_mode = false;
 
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
@@ -1917,7 +1909,6 @@ TEST_F(RecorderImageGTest, 10MPSnapshotMultiThumbnails) {
                                           640,
                                           480,
                                           30};
-    preview_track_param.low_power_mode = true;
 
   preview_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
@@ -2072,7 +2063,6 @@ TEST_F(RecorderImageGTest, 10MPSnapshotWithEdgeSmooth) {
                                           640,
                                           480,
                                           30};
-  video_track_param.low_power_mode = false;
 
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
@@ -2236,8 +2226,6 @@ TEST_F(RecorderImageGTest, 10MPSnapshotWithLCAC) {
                                           480,
                                           30};
 
-  video_track_param.low_power_mode = false;
-
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
@@ -2400,7 +2388,6 @@ TEST_F(RecorderImageGTest, 10MPSnapshotWithLCACandEdgeSmooth) {
                                           640,
                                           480,
                                           30};
-  video_track_param.low_power_mode = false;
 
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
@@ -3481,7 +3468,6 @@ TEST_F(RecorderImageGTest, BurstSnapshotWithYuvCAC) {
                                           640,
                                           480,
                                           30};
-  video_track_param.low_power_mode = false;
 
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
@@ -3674,7 +3660,6 @@ TEST_F(RecorderImageGTest, BurstSnapshotWithBayerLCAC) {
                                           640,
                                           480,
                                           30};
-  video_track_param.low_power_mode = false;
 
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
@@ -3890,7 +3875,6 @@ TEST_F(RecorderImageGTest, BurstSnapshotWithBayerLCAC15fps) {
                                           640,
                                           480,
                                           frame_rate};
-  video_track_param.low_power_mode = false;
 
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
@@ -4151,7 +4135,6 @@ TEST_F(RecorderImageGTest, BurstSnapshotWithBayerLCAC15fpsWithCdsOff) {
                                           640,
                                           480,
                                           frame_rate};
-  video_track_param.low_power_mode = false;
 
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
@@ -4405,7 +4388,6 @@ TEST_F(RecorderImageGTest, AutoBurstCaptureWithBayerLCAC) {
                                             640,
                                             480,
                                             (float)rate};
-    video_track_param.low_power_mode = false;
 
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
@@ -4672,7 +4654,6 @@ TEST_F(RecorderImageGTest, ContinuousSnapshotWithBayerLCAC) {
                                           640,
                                           480,
                                           preview_frame_rate};
-  video_track_param.low_power_mode = false;
 
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
@@ -5941,7 +5922,6 @@ TEST_F(RecorderImageGTest, 4kSnapshotWithGPSInfo) {
     yuv_track_param.width = 960;
     yuv_track_param.height = 480;
   }
-  yuv_track_param.low_power_mode = 1;
   yuv_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<MetaData> meta_buffers) {
@@ -6290,7 +6270,6 @@ TEST_F(RecorderImageGTest,
     video_track_param_1.codec_param.avc.ratecontrol_type =
         VideoRateControlType::kConstant;
     video_track_param_1.codec_param.avc.bitrate = kBitRate10Mbps;
-    video_track_param_1.low_power_mode = true;
     track_trace_2.SetUp(session_id, video_track_id_720p_avc, 30.0);
 
     video_track_cb.data_cb = [&, session_id](
@@ -6319,7 +6298,6 @@ TEST_F(RecorderImageGTest,
 
     video_track_param_1.width = 1280;
     video_track_param_1.height = 720;
-    video_track_param_1.low_power_mode = true;
     video_track_param_1.format_type = VideoFormat::kYUV;
 
     video_track_cb.data_cb = [&, session_id](
@@ -6523,7 +6501,6 @@ TEST_F(RecorderImageGTest,
     video_track_param_1.codec_param.avc.ratecontrol_type =
         VideoRateControlType::kConstant;
     video_track_param_1.codec_param.avc.bitrate = kBitRate10Mbps;
-    video_track_param_1.low_power_mode = true;
 
     track_trace_2.SetUp(session_id, video_track_id_720p_avc, 30.0);
 
@@ -6553,7 +6530,6 @@ TEST_F(RecorderImageGTest,
 
     video_track_param_1.width = 1280;
     video_track_param_1.height = 720;
-    video_track_param_1.low_power_mode = true;
     video_track_param_1.format_type = VideoFormat::kYUV;
 
     video_track_cb.data_cb = [&, session_id](

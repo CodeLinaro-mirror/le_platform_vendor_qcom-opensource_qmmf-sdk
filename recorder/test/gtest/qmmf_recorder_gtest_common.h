@@ -226,8 +226,6 @@ struct FaceInfo {
 #define PROP_TIMELAPSE_INTERVAL     "persist.qmmf.rec.gtest.tlapse"
 // Prop to enable/disable overlay usage
 #define PROP_TOGGLE_OVERLAY_USAGE   "persist.qmmf.rec.gtest.overlay"
-// Prop to enable/disable ubwc support in qmmf
-#define PROP_UBWC_STREAM_ENABLE     "persist.qmmf.ubwcstream.enable"
 // Prop to enable debugging frames
 #define PROP_FRAME_DEBUG            "persist.qmmf.rec.gtest.frm.dbg"
 // Prop to set force sensor mode config file
@@ -793,7 +791,6 @@ class GtestCommon : public ::testing::Test {
   SurfaceConfig         gfx_surface_config_;
 #endif
 
-  bool                  ubwc_stream_enable_;
   bool                  enable_sof_latency_;
 
 #ifdef QCAMERA3_TAG_LOCAL_COPY
