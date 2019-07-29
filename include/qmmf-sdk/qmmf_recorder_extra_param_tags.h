@@ -121,9 +121,11 @@ enum class SnapshotMode {
   kVideo,
 /**< High quality snapshot. This snapshot will NOT interrupt video streaming */
 /**< if any. Same sensor frame will be used for video and snapshot  */
-  kContinuous
+  kContinuous,
 /**< Continuous capture. QMMF will take images until CancelCaptureImage. */
 /**< Capture rate could be set by QMMF_POSTPROCESS_FRAME_SKIP tag. */
+  kVideoPlusRaw
+  /**< It is the combination of kVideo and RAW snapshot. */
 };
 
 struct SourceSurfaceDesc : DataTagBase {
@@ -226,11 +228,19 @@ struct ImageThumbnail : DataTagBase {
 
 struct SnapshotType : DataTagBase {
   /**< This is to change the Snapshot type */
-  /**< Supported Modes are: kStill, kStillPlusRaw, kVideo, kContinuous. */
-  SnapshotMode type;  // Default: kVideo
+  /**< Supported Modes are: kStill, kStillPlusRaw, kVideo, kContinuous */
+  /**< kVideoPlusRaw */
+  /**< Default snapshot mode is kVideo. */
+  SnapshotMode type;
+  /**< RAW format takes place only if snapshot type is */
+  /**< kStillPlusRaw/kVideoPlusRaw */
+  /**< Default RAW format is kBayerRDI10BIT. */
+  ImageFormat raw_format;
+
   SnapshotType()
     : DataTagBase(QMMF_SNAPSHOT_TYPE),
-      type(SnapshotMode::kVideo) {}
+      type(SnapshotMode::kVideo),
+      raw_format(ImageFormat::kBayerRDI10BIT) {}
 };
 
 struct VideoWaitAECMode : DataTagBase {
