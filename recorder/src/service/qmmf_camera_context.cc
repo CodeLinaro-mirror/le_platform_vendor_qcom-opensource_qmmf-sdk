@@ -961,13 +961,6 @@ void CameraContext::StoreBatchStreamId(std::shared_ptr<CameraPort>& port) {
 status_t CameraContext::GetBatchSize(const StreamParam& param,
                                      uint32_t& batch_size) {
 
-  /* only one batch stream is supported */
-  if (batch_size_ > 1) {
-    /* set batch size to default */
-    batch_size = 1;
-    return NO_ERROR;
-  }
-
   if ((kConstrainedModeThreshold < param.framerate) && (!hfr_supported_)) {
     QMMF_ERROR("%s: Stream tries to enable HFR which is not supported!",
                __func__);
