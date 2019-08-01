@@ -118,6 +118,9 @@ class RecorderService : public BnInterface<IRecorderService> {
   status_t ConfigPlugin(const uint32_t client_id, const uint32_t &uid,
                         const std::string &json_config) override;
 
+  status_t GetPluginConfig(const uint32_t client_id, const uint32_t &uid,
+                           std::string &json_config) override;
+
   status_t CreateAudioTrack(const uint32_t client_id,
                             const uint32_t session_id,
                             const uint32_t track_id,

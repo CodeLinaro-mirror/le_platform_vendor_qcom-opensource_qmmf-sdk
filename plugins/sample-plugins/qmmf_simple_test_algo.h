@@ -108,6 +108,30 @@ class QmmfSimpleTestAlgo : public IAlgPlugin {
     return res;
   }
 
+  /** GetConfig
+   *
+   * Get algorithm specific config data
+   *
+   * return: string
+   **/
+  void GetConfig(std::string &config_json_data) {
+    config_json_data.assign(config_json_data_);
+  }
+
+  /** GetConfig
+   *    @type: binary data type
+   *
+   * Get algorithm specific config data
+   *
+   * return: std::vector<uint8_t>
+   **/
+  const std::vector<uint8_t> GetConfig(
+      __attribute__((unused)) const int32_t type) {
+    std::vector<uint8_t> res = {};
+
+    return res;
+  }
+
   /** GetInputRequirements
    *    @out: output parameters
    *

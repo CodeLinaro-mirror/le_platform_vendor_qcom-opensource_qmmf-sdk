@@ -226,6 +226,10 @@ status_t PostProcJpeg::Configure(const std::string config_json_data) {
   return NO_ERROR;
 }
 
+status_t PostProcJpeg::GetConfig(std::string &config_json_data) {
+  return NO_ERROR;
+}
+
 void PostProcJpeg::AddResult(const void* result) {
 
   CameraMetadata meta = *(reinterpret_cast<const CameraMetadata *>(result));

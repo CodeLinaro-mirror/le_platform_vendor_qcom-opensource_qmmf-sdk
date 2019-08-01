@@ -90,6 +90,8 @@ class RecorderClient {
 
   status_t ConfigPlugin(const uint32_t &uid, const std::string &json_config);
 
+  status_t GetPluginConfig(const uint32_t &uid, std::string &json_config);
+
   status_t CreateAudioTrack(const uint32_t session_id, const uint32_t track_id,
                             const AudioTrackCreateParam& param,
                             const TrackCb& cb);

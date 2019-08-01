@@ -132,6 +132,10 @@ class RecorderImpl {
   status_t ConfigPlugin(const uint32_t client_id, const uint32_t &uid,
                         const std::string &json_config);
 
+  /// Get plugin config
+  status_t GetPluginConfig(const uint32_t client_id, const uint32_t &uid,
+                           std::string &json_config);
+
   /// Create Audio Track and associates it to the session.
   status_t CreateAudioTrack(const uint32_t client_id,
                             const uint32_t session_id,

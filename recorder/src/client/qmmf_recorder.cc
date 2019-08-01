@@ -236,6 +236,18 @@ status_t Recorder::ConfigPlugin(const uint32_t &uid,
   return ret;
 }
 
+status_t Recorder::GetPluginConfig(const uint32_t &uid,
+                                   std::string &json_config) {
+
+  assert(recorder_client_ != NULL);
+  auto ret = recorder_client_->GetPluginConfig(uid, json_config);
+  if (NO_ERROR != ret) {
+    QMMF_ERROR("%s: ConfigPlugin failed!", __func__);
+  }
+
+  return ret;
+}
+
 status_t Recorder::CreateAudioTrack(const uint32_t session_id,
                                     const uint32_t track_id,
                                     const AudioTrackCreateParam& params,
