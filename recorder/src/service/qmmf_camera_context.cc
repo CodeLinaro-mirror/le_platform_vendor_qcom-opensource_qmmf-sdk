@@ -2489,8 +2489,10 @@ status_t CameraPort::Init() {
     case BuffFormat::kNV12:
       QMMF_DEBUG("%s: Non UBWC buffer format selected %d", __func__,
                  buffer_format);
-      cam_stream_params_.allocFlags.flags =
-          IMemAllocUsage::kSwReadOften | IMemAllocUsage::kSwWriteOften;
+      if (!is_ubwc_stream_enabled) {
+        cam_stream_params_.allocFlags.flags =
+            IMemAllocUsage::kSwReadOften | IMemAllocUsage::kSwWriteOften;
+      }
       break;
     case BuffFormat::kUBWCNV12:
       QMMF_DEBUG("%s: UBWC buffer format selected %d", __func__, buffer_format);
