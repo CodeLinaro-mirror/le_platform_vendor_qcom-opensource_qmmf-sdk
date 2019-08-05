@@ -460,6 +460,8 @@ void GtestCommon::SetUp() {
   sensor_mode_file_name_ = std::string(prop_val);
   property_get(PROP_MEASURE_SOF_LATENCY, prop_val, "0");
   enable_sof_latency_ = (atoi(prop_val) == 0) ? false : true;
+  property_get(PROP_ENABLE_10_BIT, prop_val, "0");
+  enable_10bit_support_ = (atoi(prop_val) == 0) ? false : true;
 
   camera_start_params_ = {};
   camera_start_params_.zsl_mode         = false;
