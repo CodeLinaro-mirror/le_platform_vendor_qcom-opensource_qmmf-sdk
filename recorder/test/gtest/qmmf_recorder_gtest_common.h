@@ -271,6 +271,16 @@ enum AWbModes : uint8_t {
 static const int32_t MWBColorTemperatures[] = {0, 2300, 2800, 3200, 4000,
                                                4500, 5500, 6000, 6500};
 
+// As of now HDRModeHDR10 is only supported for QCS605 target.
+enum StreamHDRMode : uint8_t {
+  HDRModeNone = 0,
+  HDRModeHLG,
+  HDRModeHDR10,
+  HDRModeHDR10Plus,
+  HDRModePQ,
+  HDRModeMax
+};
+
 #endif
 
 typedef struct StreamDumpInfo {
