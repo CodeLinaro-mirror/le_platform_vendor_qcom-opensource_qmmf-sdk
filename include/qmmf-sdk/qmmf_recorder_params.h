@@ -546,53 +546,6 @@ struct ZslQueueParam {
   }
 };
 
-/// @brief Advance configuration for image capture
-struct ImageCaptureConfig {
-  /// When multiple images needs to be captured
-  /// clients can set the sample_rate of capture through this parameter.
-  /// If this value is set to 1, every alternate image is captured,
-  /// if 2, every 3rd image is captured and so on_event_id
-  uint32_t sensor_frame_skip_interval;
-  /// Applies only when image codec is set to JPEG. If set to
-  /// true, EXIF along with with thumbnails are embedded with the image.
-  /// Else thumbnails and camera meta information is send separately through
-  /// metadata
-  bool with_exif;
-  /// Applies only with with_exif is set to false. In
-  /// this case, camera metadata is send separately
-  bool with_camera_meta;
-  /// Enables clients to take a RAW image along with JPEG. This
-  /// can be set to true only when ImageFormat is NOT RAW
-  bool with_raw;
-  /// Could be either of RDI RAW or IDEAL Raw
-  ImageFormat raw_image_format;
-  uint32_t num_thumbnail_image_param;
-  /// Thumbnail image characteristics. This is
-  /// array since a single image can contain more than one thumbnail
-  ImageParam thumbnail_image_param[MAX_THUMBNAIL_IMAGE_PARAM];
-
-  ::std::string ToString() const {
-    ::std::stringstream stream;
-    stream << "sensor_frame_skip_interval[" << sensor_frame_skip_interval
-           << "] ";
-    stream << "with_exif[" << ::std::boolalpha << with_exif
-           << ::std::noboolalpha << "] ";
-    stream << "with_camera_meta[" << ::std::boolalpha << with_camera_meta
-           << ::std::noboolalpha << "] ";
-    stream << "with_raw[" << ::std::boolalpha << with_raw << ::std::noboolalpha
-           << "] ";
-    stream << "raw_image_format["
-           << static_cast<::std::underlying_type<ImageFormat>::type>
-                         (raw_image_format)
-           << "] ";
-    stream << "thumbnail_image_param[";
-    for (uint32_t i = 0; i < num_thumbnail_image_param; i++)
-      stream << "thumbnail_image_param[" << thumbnail_image_param[i].ToString() << "] ";
-    stream << "SIZE[" << num_thumbnail_image_param << "]], ";
-    return stream.str();
-  }
-};
-
 /// @brief CameraType describes camera purpose and usage
 enum class CameraType {
   /// Normal single cameras
