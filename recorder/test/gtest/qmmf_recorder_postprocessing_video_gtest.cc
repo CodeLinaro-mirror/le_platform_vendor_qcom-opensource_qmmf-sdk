@@ -349,14 +349,14 @@ TEST_F(RecorderPostprocessVideoGTest, SessionWith4KEnc1080pYUVSwTnrTrack) {
           test_info_->test_case_name(), test_info_->name());
 
   auto ret = Init();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   VideoFormat format_type = VideoFormat::kAVC;
   uint32_t width = 3840;
   uint32_t height = 2160;
 
   ret = recorder_.StartCamera(camera_id_, 30);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
@@ -366,8 +366,8 @@ TEST_F(RecorderPostprocessVideoGTest, SessionWith4KEnc1080pYUVSwTnrTrack) {
     SessionCb session_status_cb = CreateSessionStatusCb();
     uint32_t session_id;
     ret = recorder_.CreateSession(session_status_cb, &session_id);
-    assert(session_id > 0);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
     VideoTrackCreateParam video_track_param{camera_id_, format_type, width,
                                             height, 30};
     uint32_t video_track_id_4k = 1;
@@ -375,7 +375,7 @@ TEST_F(RecorderPostprocessVideoGTest, SessionWith4KEnc1080pYUVSwTnrTrack) {
       StreamDumpInfo dumpinfo = { format_type, session_id, video_track_id_4k,
                                   width, height};
       ret = dump_bitstream_.SetUp(dumpinfo);
-      assert(ret == NO_ERROR);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     TrackCb video_track_cb;
@@ -395,12 +395,12 @@ TEST_F(RecorderPostprocessVideoGTest, SessionWith4KEnc1080pYUVSwTnrTrack) {
 
     SupportedPlugins supported_plugins;
     ret = recorder_.GetSupportedPlugins(&supported_plugins);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     for (auto const &plugin_info : supported_plugins) {
       if (plugin_info.name == "SwTnr") {
         ret = recorder_.CreatePlugin(&sw_tnr_plugin4k.uid, plugin_info);
-        assert(ret == NO_ERROR);
+        ASSERT_TRUE(ret == NO_ERROR);
 
         extra_param.Update(QMMF_POSTPROCESS_PLUGIN, sw_tnr_plugin4k);
       }
@@ -410,7 +410,7 @@ TEST_F(RecorderPostprocessVideoGTest, SessionWith4KEnc1080pYUVSwTnrTrack) {
                                      video_track_param, extra_param,
                                      video_track_cb);
 
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     std::vector<uint32_t> track_ids;
     track_ids.push_back(video_track_id_4k);
@@ -430,7 +430,7 @@ TEST_F(RecorderPostprocessVideoGTest, SessionWith4KEnc1080pYUVSwTnrTrack) {
     for (auto const &plugin_info : supported_plugins) {
       if (plugin_info.name == "SwTnr") {
         ret = recorder_.CreatePlugin(&sw_tnr_plugin1080p.uid, plugin_info);
-        assert(ret == NO_ERROR);
+        ASSERT_TRUE(ret == NO_ERROR);
 
         extra_param.Update(QMMF_POSTPROCESS_PLUGIN, sw_tnr_plugin1080p);
       }
@@ -439,45 +439,45 @@ TEST_F(RecorderPostprocessVideoGTest, SessionWith4KEnc1080pYUVSwTnrTrack) {
     ret = recorder_.CreateVideoTrack(session_id, video_trackid_1080p,
                                      video_track_param, extra_param,
                                      video_track_cb);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     track_ids.push_back(video_trackid_1080p);
 
     sessions_.insert(std::make_pair(session_id, track_ids));
 
     ret = recorder_.StartSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     // Let session run for record_duration_, during this time buffer with valid
     // data would be received in track callback (VideoTrackDataCb).
     sleep(record_duration_);
 
     ret = recorder_.StopSession(session_id, false);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_4k);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_trackid_1080p);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeletePlugin(sw_tnr_plugin4k.uid);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeletePlugin(sw_tnr_plugin1080p.uid);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteSession(session_id);
-    assert(ret == NO_ERROR);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     dump_bitstream_.CloseAll();
   }
 
   ret = recorder_.StopCamera(camera_id_);
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   ret = DeInit();
-  assert(ret == NO_ERROR);
+  ASSERT_TRUE(ret == NO_ERROR);
 
   fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
           test_info_->test_case_name(), test_info_->name());
