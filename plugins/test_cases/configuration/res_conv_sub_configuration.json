@@ -10,6 +10,13 @@
   "InputWidth": 1920,
   "InputHeight": 1080,
   "KeepAspectRatio": 0,
+  "KeepFieldOfView": 0,
   "RatioWidth": 0.0,
-  "RatioHeight": 0.0
+  "RatioHeight": 0.0,
+  "color": {
+    "y": 0,
+    "u": 128,
+    "v": 128,
+    "valid": 1
+  }
 }

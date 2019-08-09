@@ -1045,6 +1045,94 @@ TEST_F(QmmfAlgoInterfaceGtest, Configure) {
 }
 
 /*
+ * GetConfig: This test case will test Get Configure API
+ * Api test sequence:
+ *  - new instance
+ *  - GetCaps
+ *  - Configure
+ *  - RegisterInputBuffers
+ *  - RegisterOutputBuffers
+ *  - Process
+ *  - UnregisterInputBuffers
+ *  - UnregisterOutputBuffers
+ *  - GetConfig
+ *  - destroy instance
+ */
+TEST_F(QmmfAlgoInterfaceGtest, GetConfig) {
+  std::stringstream err;
+  std::string configuration_data;
+  fprintf(stderr, "\n---------- Run Test %s.%s ------------\n",
+          test_info_->test_case_name(), test_info_->name());
+
+  auto test_contents = test_suite_->GetTestContents();
+  for (auto &test : test_contents) {
+    configuration_ = test->GetConfiguration(test_info_->name());
+    std::string tested_library = configuration_->tested_library_;
+    fprintf(stderr, "\n++++++++++++ Tested Library %s ++++++++++++\n",
+            tested_library.c_str());
+    try {
+      for (uint32_t i = 1; i <= configuration_->iteration_count_; i++) {
+        fprintf(stderr, "test iteration = %d/%d\n", i,
+                configuration_->iteration_count_);
+        ALOGD("%s: Running Test(%s) iteration = %d\n", __func__,
+              test_info_->name(), i);
+
+        Init();
+
+        const auto caps = get_caps_func_();
+
+        algo_->Configure(configuration_->configuration_data_);
+
+        std::vector<AlgBuffer> input_buffers;
+        std::vector<AlgBuffer> output_buffers;
+
+        auto input_buffer_handlers = BufferHandler::New(
+            caps->in_buffer_requirements_, configuration_->input_buffers_);
+        auto output_buffer_handlers = BufferHandler::New(
+            caps->out_buffer_requirements_, configuration_->output_buffers_);
+
+        for (auto &b : input_buffer_handlers) {
+          b->ReadInputFile();
+        }
+
+        QmmfAlgoEventListener l(caps->inplace_processing_, false,
+                                configuration_->input_buffers_.size(),
+                                configuration_->output_buffers_.size(),
+                                input_buffer_handlers, output_buffer_handlers,
+                                algo_);
+        algo_->SetCallbacks(&l);
+
+        l.GetIdleBuffers(input_buffers, output_buffers, configuration_,
+                         kOneFrameProcessTimeout);
+
+        algo_->RegisterInputBuffers(input_buffers);
+        algo_->RegisterOutputBuffers(output_buffers);
+
+        algo_->Process(input_buffers, output_buffers);
+
+        l.Wait(kOneFrameProcessTimeout);
+
+        algo_->GetConfig(configuration_data);
+
+        ALOGD("Algorithm Get Configuration =\n%s\n",
+              configuration_data.c_str());
+
+        Deinit();
+      }
+    } catch (const std::exception &e) {
+      err << "\t" << tested_library << " : \n";
+      err << "\t\t" << e.what() << "\n";
+    }
+  }
+
+  ASSERT_EQ(err.str().length(), 0u) << "List of failed libraries:\n"
+                                    << err.str();
+
+  fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
+}
+
+/*
  * RegisterUnregisterInputBuffers: This test case will test
  *   RegisterUnregisterInputBuffers API.
  * Api test sequence:
