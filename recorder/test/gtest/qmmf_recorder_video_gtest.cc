@@ -10937,6 +10937,73 @@ TEST_F(VideoGtest, SessionWithSingleCam4KEncDeFogTables) {
         }
       }
 
+      if (VendorTagExistsInMeta(meta, String8("drc_trigparam_start_range"),
+                                String8("org.quic.camera.defog"),
+                                &defog_tables_range_vtag)) {
+        entry = meta.find(defog_tables_range_vtag);
+        min_frange = entry.data.f[0];
+        max_frange = entry.data.f[1];
+        for (int drc_index = 0; drc_index < 2; drc_index++) {
+          if (defog_table.trig_params.drc_trigger[drc_index].start <
+              min_frange ||
+              defog_table.trig_params.drc_trigger[drc_index].start >
+              max_frange) {
+            defog_table.trig_params.drc_trigger[drc_index].start =
+              (min_frange + max_frange) / 2;
+
+            TEST_INFO("%s: min_defog_drc_trigparam[%d]_start = %f, "
+                      "max_defog_drc_trigparam[%d]_start = %f.. Resetting "
+                      "drc_trigparam[%d]_start to %f", __func__, drc_index,
+                      min_frange, drc_index, max_frange, drc_index,
+                      defog_table.trig_params.drc_trigger[drc_index].start);
+          }
+        }
+      }
+
+      if (VendorTagExistsInMeta(meta, String8("drc_trigparam_end_range"),
+                                String8("org.quic.camera.defog"),
+                                &defog_tables_range_vtag)) {
+        entry = meta.find(defog_tables_range_vtag);
+        min_frange = entry.data.f[0];
+        max_frange = entry.data.f[1];
+        for (int drc_index = 0; drc_index < 2; drc_index++) {
+          if (defog_table.trig_params.drc_trigger[drc_index].end < min_frange ||
+              defog_table.trig_params.drc_trigger[drc_index].end > max_frange) {
+            defog_table.trig_params.drc_trigger[drc_index].end =
+              (min_frange + max_frange) / 2;
+
+            TEST_INFO("%s: min_defog_drc_trigparam[%d]_end = %f, "
+                      "max_defog_drc_trigparam[%d]_end = %f.. Resetting "
+                      "drc_trigparam[%d]_end to %f", __func__, drc_index,
+                      min_frange, drc_index, max_frange, drc_index,
+                      defog_table.trig_params.drc_trigger[drc_index].end);
+          }
+        }
+      }
+
+      if (VendorTagExistsInMeta(meta, String8("drc_trigparam_fog_range"),
+                                String8("org.quic.camera.defog"),
+                                &defog_tables_range_vtag)) {
+        entry = meta.find(defog_tables_range_vtag);
+        min_irange = entry.data.i32[0];
+        max_irange = entry.data.i32[1];
+        for (int drc_index = 0; drc_index < 2; drc_index++) {
+          if (defog_table.trig_params.drc_trigger[drc_index].fog_p <
+              min_irange ||
+              defog_table.trig_params.drc_trigger[drc_index].fog_p >
+              max_irange) {
+            defog_table.trig_params.drc_trigger[drc_index].fog_p =
+              (min_irange + max_irange) / 2;
+
+            TEST_INFO("%s: min_defog_drc_trigparam[%d]_fog_p = %d, "
+                      "max_defog_drc_trigparam[%d]_fog_p = %d.. Resetting "
+                      "drc_trigparam[%d]_fog_p to %d", __func__, drc_index,
+                      min_irange, drc_index, max_irange, drc_index,
+                      defog_table.trig_params.drc_trigger[drc_index].fog_p);
+          }
+        }
+      }
+
       if (VendorTagSupported(String8("trig_params"),
                              String8("org.quic.camera.defog"),
                              &defog_tables_vtag)) {
@@ -10944,6 +11011,132 @@ TEST_F(VideoGtest, SessionWithSingleCam4KEncDeFogTables) {
                                      &defog_table.trig_params);
         ret = meta.update(defog_tables_vtag, trig_params_bytes,
                           sizeof(defog_table.trig_params));
+        ASSERT_TRUE(ret == NO_ERROR);
+      }
+
+      if (VendorTagSupported(String8("ce_en"),
+                             String8("org.quic.camera.defog"),
+                             &defog_tables_vtag)) {
+        ret = meta.update(defog_tables_vtag, &defog_table.ce_en, 1);
+        ASSERT_TRUE(ret == NO_ERROR);
+      }
+
+      if (VendorTagSupported(String8("convergence_mode"),
+                             String8("org.quic.camera.defog"),
+                             &defog_tables_vtag)) {
+        ret = meta.update(defog_tables_vtag, &defog_table.convergence_mode, 1);
+        ASSERT_TRUE(ret == NO_ERROR);
+      }
+
+      if (VendorTagSupported(String8("guc_en"),
+                             String8("org.quic.camera.defog"),
+                             &defog_tables_vtag)) {
+        ret = meta.update(defog_tables_vtag, &defog_table.guc_en, 1);
+        ASSERT_TRUE(ret == NO_ERROR);
+      }
+
+      if (VendorTagSupported(String8("dcc_en"),
+                             String8("org.quic.camera.defog"),
+                             &defog_tables_vtag)) {
+        ret = meta.update(defog_tables_vtag, &defog_table.dcc_en, 1);
+        ASSERT_TRUE(ret == NO_ERROR);
+      }
+
+      if (VendorTagSupported(String8("guc_str"),
+                             String8("org.quic.camera.defog"),
+                             &defog_tables_vtag)) {
+        ret = meta.update(defog_tables_vtag, &defog_table.guc_str, 1);
+        ASSERT_TRUE(ret == NO_ERROR);
+      }
+
+      if (VendorTagSupported(String8("dcc_dark_str"),
+                             String8("org.quic.camera.defog"),
+                             &defog_tables_vtag)) {
+        ret = meta.update(defog_tables_vtag, &defog_table.dcc_dark_str, 1);
+        ASSERT_TRUE(ret == NO_ERROR);
+      }
+
+      if (VendorTagSupported(String8("dcc_bright_str"),
+                             String8("org.quic.camera.defog"),
+                             &defog_tables_vtag)) {
+        ret = meta.update(defog_tables_vtag, &defog_table.dcc_bright_str, 1);
+        ASSERT_TRUE(ret == NO_ERROR);
+      }
+
+      if (VendorTagExistsInMeta(meta, String8("ce_trigparam_start_range"),
+                                String8("org.quic.camera.defog"),
+                                &defog_tables_range_vtag)) {
+        entry = meta.find(defog_tables_range_vtag);
+        min_frange = entry.data.f[0];
+        max_frange = entry.data.f[1];
+        for (int gain_index = 0; gain_index < 3; gain_index++) {
+          if (defog_table.ce_trig_params.gain_trigger[gain_index].start <
+              min_frange ||
+              defog_table.ce_trig_params.gain_trigger[gain_index].start >
+              max_frange) {
+            defog_table.ce_trig_params.gain_trigger[gain_index].start =
+              (min_frange + max_frange) / 2;
+
+            TEST_INFO("%s: min_defog_ce_trigparam[%d]_start = %f, "
+                      "max_defog_ce_trigparam[%d]_start = %f.. Resetting "
+                      "ce_trigparam[%d]_start to %f", __func__, gain_index,
+                      min_frange, gain_index, max_frange, gain_index,
+                      defog_table.ce_trig_params.gain_trigger[gain_index].start);
+          }
+        }
+      }
+
+      if (VendorTagExistsInMeta(meta, String8("ce_trigparam_end_range"),
+                                String8("org.quic.camera.defog"),
+                                &defog_tables_range_vtag)) {
+        entry = meta.find(defog_tables_range_vtag);
+        min_frange = entry.data.f[0];
+        max_frange = entry.data.f[1];
+        for (int gain_index = 0; gain_index < 3; gain_index++) {
+          if (defog_table.ce_trig_params.gain_trigger[gain_index].end < min_frange ||
+              defog_table.ce_trig_params.gain_trigger[gain_index].end > max_frange) {
+            defog_table.ce_trig_params.gain_trigger[gain_index].end =
+              (min_frange + max_frange) / 2;
+
+            TEST_INFO("%s: min_defog_ce_trigparam[%d]_end = %f, "
+                      "max_defog_ce_trigparam[%d]_end = %f.. Resetting "
+                      "ce_trigparam[%d]_end to %f", __func__, gain_index,
+                      min_frange, gain_index, max_frange, gain_index,
+                      defog_table.ce_trig_params.gain_trigger[gain_index].end);
+          }
+        }
+      }
+
+      if (VendorTagExistsInMeta(meta, String8("ce_trigparam_fog_range"),
+                                String8("org.quic.camera.defog"),
+                                &defog_tables_range_vtag)) {
+        entry = meta.find(defog_tables_range_vtag);
+        min_irange = entry.data.i32[0];
+        max_irange = entry.data.i32[1];
+        for (int gain_index = 0; gain_index < 3; gain_index++) {
+          if (defog_table.ce_trig_params.gain_trigger[gain_index].fog_p <
+              min_irange ||
+              defog_table.ce_trig_params.gain_trigger[gain_index].fog_p >
+              max_irange) {
+            defog_table.ce_trig_params.gain_trigger[gain_index].fog_p =
+              (min_irange + max_irange) / 2;
+
+            TEST_INFO("%s: min_defog_ce_trigparam[%d]_fog_p = %d, "
+                      "max_defog_ce_trigparam[%d]_fog_p = %d.. Resetting "
+                      "ce_trigparam[%d]_fog_p to %d", __func__, gain_index,
+                      min_irange, gain_index, max_irange, gain_index,
+                      defog_table.ce_trig_params.gain_trigger[gain_index].fog_p);
+          }
+        }
+      }
+
+      if (VendorTagSupported(String8("ce_trig_params"),
+                             String8("org.quic.camera.defog"),
+                             &defog_tables_vtag)) {
+        uint8_t *ce_trig_params_bytes = reinterpret_cast<uint8_t *>(
+                                     &defog_table.ce_trig_params);
+        ret = meta.update(defog_tables_vtag, ce_trig_params_bytes,
+                          sizeof(defog_table.ce_trig_params));
         ASSERT_TRUE(ret == NO_ERROR);
       }
 
