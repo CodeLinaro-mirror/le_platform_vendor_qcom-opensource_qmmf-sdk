@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -43,6 +43,9 @@
 #define GRALLOC_USAGE_PRIVATE_ALLOC_UBWC         0x10000000
 #define HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS      0x7FA30C04
 #define HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS_UBWC 0x7FA30C06
+#define HAL_PIXEL_FORMAT_YCbCr_420_TP10_UBWC     0x7FA30C09
+#define HAL_PIXEL_FORMAT_YCbCr_420_P010          0x11F
+#define HAL_PIXEL_FORMAT_YCbCr_420_P010_VENUS    0x7FA30C0A
 
 struct private_handle_t : public native_handle {
   enum {
@@ -128,7 +131,8 @@ class MemAllocFlags {
 * @kSwWriteOften - buffer will be used for SW write
 * @kHwFb - buffer will be used for HW read/write
 * @kVideoEncoder - buffer will be used by encoder
-*
+* @kP010 - P010 10-bit buffer will be used by encoder
+* @kTP10 - TP10 10-bit buffer will be used by encoder
 * Abstract class providing definitions and convertion methods for usage flags
 * Does not contain any variable data.
 *
@@ -145,6 +149,8 @@ class IMemAllocUsage {
   static const int kSwWriteOften;
   static const int kHwFb;
   static const int kVideoEncoder;
+  static const int kP010;
+  static const int kTP10;
 
   /** IMemAllocUsage::ToLocal
   *

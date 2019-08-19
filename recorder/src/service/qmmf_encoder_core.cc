@@ -660,13 +660,16 @@ status_t TrackEncoder::ReturnBuffer(BufferDescriptor& codec_buffer,
 
     count_++;
     if (time_diff >= FPS_TIME_INTERVAL) {
+      bool is_first_time = (prevtv_.tv_sec == 0 && prevtv_.tv_usec == 0);
+      if (!is_first_time) {
         float framerate = (count_ * 1000000) / (float)time_diff;
         uint32_t bitrate = (num_bytes_ * 8/count_) * framerate;
         QMMF_INFO(" %s: track_id(%x): encoded fps: = %0.2f bitrate=%d",
                   __func__, TrackId(), framerate, bitrate);
-        prevtv_ = tv;
-        count_ = 0;
-        num_bytes_ = 0;
+      }
+      prevtv_ = tv;
+      count_ = 0;
+      num_bytes_ = 0;
     }
   }
 

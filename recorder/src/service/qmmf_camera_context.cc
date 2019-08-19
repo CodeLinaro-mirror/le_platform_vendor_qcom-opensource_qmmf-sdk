@@ -961,13 +961,6 @@ void CameraContext::StoreBatchStreamId(std::shared_ptr<CameraPort>& port) {
 status_t CameraContext::GetBatchSize(const StreamParam& param,
                                      uint32_t& batch_size) {
 
-  /* only one batch stream is supported */
-  if (batch_size_ > 1) {
-    /* set batch size to default */
-    batch_size = 1;
-    return NO_ERROR;
-  }
-
   if ((kConstrainedModeThreshold < param.framerate) && (!hfr_supported_)) {
     QMMF_ERROR("%s: Stream tries to enable HFR which is not supported!",
                __func__);
@@ -2469,9 +2462,8 @@ CameraPort::~CameraPort() {
 }
 
 status_t CameraPort::Init() {
-
   cam_stream_params_ = {};
-  cam_stream_params_.width  = params_.width;
+  cam_stream_params_.width = params_.width;
   cam_stream_params_.height = params_.height;
   cam_stream_params_.format = Common::FromQmmfToHalFormat(params_.format);
 
@@ -2479,13 +2471,55 @@ status_t CameraPort::Init() {
   memset(prop, 0, sizeof(prop));
   property_get("persist.qmmf.ubwcstream.enable", prop, "0");
   bool is_ubwc_stream_enabled = atoi(prop);
-  if (!is_ubwc_stream_enabled) {
-    cam_stream_params_.allocFlags.flags =
-        IMemAllocUsage::kSwReadOften | IMemAllocUsage::kSwWriteOften;
-  } else if (!params_.low_power_mode) {
-    cam_stream_params_.allocFlags.flags = IMemAllocUsage::kPrivateAllocUbwc;
+  enum class BuffFormat { kNV12 = 0, kUBWCNV12, kP010, kUBWCTP10 };
+  BuffFormat buffer_format;
+
+  if (!params_.is_10bit_type) {
+    if (is_ubwc_stream_enabled && !params_.low_power_mode)
+      buffer_format = BuffFormat::kUBWCNV12;
+    else
+      buffer_format = BuffFormat::kNV12;
+  } else {
+    if (is_ubwc_stream_enabled && !params_.low_power_mode)
+      buffer_format = BuffFormat::kUBWCTP10;
+    else
+      buffer_format = BuffFormat::kP010;
+  }
+  switch (buffer_format) {
+    case BuffFormat::kNV12:
+      QMMF_DEBUG("%s: Non UBWC buffer format selected %d", __func__,
+                 buffer_format);
+      if (!is_ubwc_stream_enabled) {
+        cam_stream_params_.allocFlags.flags =
+            IMemAllocUsage::kSwReadOften | IMemAllocUsage::kSwWriteOften;
+      }
+      break;
+    case BuffFormat::kUBWCNV12:
+      QMMF_DEBUG("%s: UBWC buffer format selected %d", __func__, buffer_format);
+      if (!params_.low_power_mode) {
+        cam_stream_params_.allocFlags.flags = IMemAllocUsage::kPrivateAllocUbwc;
+      }
+      break;
+    case BuffFormat::kP010:
+      QMMF_DEBUG("%s: P010 buffer format selected %d", __func__, buffer_format);
+      cam_stream_params_.allocFlags.flags = IMemAllocUsage::kSwReadOften |
+                                            IMemAllocUsage::kSwWriteOften |
+                                            IMemAllocUsage::kP010;
+      break;
+    case BuffFormat::kUBWCTP10:
+      QMMF_DEBUG("%s: TP10 buffer format selected %d", __func__, buffer_format);
+      cam_stream_params_.allocFlags.flags =
+          IMemAllocUsage::kPrivateAllocUbwc | IMemAllocUsage::kTP10;
+      break;
+    default:
+      QMMF_ERROR("%s: Unsupported buffer format %d", __func__, buffer_format);
+      return BAD_VALUE;
   }
 
+  if (!is_ubwc_stream_enabled) {
+    cam_stream_params_.allocFlags.flags |=
+        IMemAllocUsage::kSwReadOften | IMemAllocUsage::kSwWriteOften;
+  }
   cam_stream_params_.rotation =
       static_cast<camera3_stream_rotation_t> (params_.rotation);
   bool is_lpm_use_preview = false;
@@ -2791,19 +2825,28 @@ void CameraPort::StreamCallback(StreamBuffer buffer) {
 
 uint32_t CameraPort::GetExtraBufferCount() {
   uint32_t extra_buffer_count = 0;
-#ifndef EXTRA_BUFFER_SUPPORT
-  if (params_.width == 3840 && params_.height == 2160) {
-    extra_buffer_count = EXTRA_DCVS_BUFFERS;
-  } else if (params_.width == 1920 && params_.height == 1440 &&
-             params_.framerate == 60) {
-    extra_buffer_count = 4;
+  switch (static_cast<uint32_t>(params_.framerate)) {
+    case 24:
+    case 30:
+    case 48:
+      extra_buffer_count = EXTRA_DCVS_BUFFERS;
+      break;
+    case 60:
+    case 90:
+      extra_buffer_count = EXTRA_HFR_BUFFERS;
+      break;
+    case 120:
+      extra_buffer_count = 2 * EXTRA_HFR_BUFFERS;
+      break;
+    case 240:
+      extra_buffer_count = 3 * EXTRA_HFR_BUFFERS;
+      break;
+    default:
+      QMMF_WARN("%s: FPS is not present in the list", __func__);
+      break;
   }
-#else
-  if (params_.width == 4096 && params_.height == 2048 &&
-      params_.framerate == 60) {
-    extra_buffer_count = EXTRA_DCVS_BUFFERS;
-  }
-#endif
+  QMMF_DEBUG("%s: Number of extra buffers added: %u", __func__,
+             extra_buffer_count);
   return extra_buffer_count;
 }
 

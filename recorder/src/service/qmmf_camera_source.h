@@ -45,6 +45,7 @@
 #include "recorder/src/service/qmmf_camera_interface.h"
 #include "recorder/src/service/qmmf_camera_context.h"
 #include "recorder/src/service/qmmf_camera_rescaler.h"
+#include "recorder/src/service/qmmf_camera_frc.h"
 
 namespace qmmf {
 
@@ -448,6 +449,8 @@ class TrackSource : public ICodecSource {
   uint64_t   frame_repeat_ts_curr_;
   bool       enable_frame_repeat_;
   std::mutex frame_repeat_lock_;
+  std::shared_ptr<FrameRateController> fsc_;
+  std::shared_ptr<FrameRateController> frc_;
   std::shared_ptr<CameraRescaler>  rescaler_;
 
   bool  connected_tocamera_port_;

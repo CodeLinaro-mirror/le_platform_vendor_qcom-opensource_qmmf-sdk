@@ -662,7 +662,7 @@ status_t CameraRescalerMemPool::FreeHWMemBuffer(IBufferHandle buf) {
 
 CameraRescaler::CameraRescaler()
   : CameraRescalerBase(),
-    is_stop_(false), frc_(nullptr) {
+    is_stop_(false) {
   QMMF_INFO("%s: Enter", __func__);
 
   BufferConsumerImpl<CameraRescaler> *impl;
@@ -716,21 +716,11 @@ sp<IBufferConsumer>& CameraRescaler::GetCopyConsumerIntf() {
   return buffer_consumer_impl_;
 }
 
-bool CameraRescaler::IsFrameSkip() {
-  if (frc_.get() != nullptr) {
-    if (frc_->FrameSkip()) {
-      QMMF_DEBUG("%s: Skip frame", __func__);
-      return true;
-    }
-  }
-  return false;
-}
-
 void CameraRescaler::OnFrameAvailable(StreamBuffer& buffer) {
   QMMF_DEBUG("%s: Camera %u: Frame %d is available",
       __func__, buffer.camera_id, buffer.frame_number);
 
-  if (IsStop() || IsFrameSkip()) {
+  if (IsStop()) {
     QMMF_DEBUG("%s: IsStop", __func__);
     ReturnBufferToProducer(buffer);
     return;
@@ -823,14 +813,6 @@ status_t CameraRescaler::Init(const uint32_t& width, const uint32_t& height,
   auto format = Common::FromQmmfToHalFormat(fmt);
   if (is_ubwc_stream_enabled && fmt == BufferFormat::kNV12) {
     format = HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS_UBWC;
-  }
-
-  // Frame Rate Controller creation
-  frc_ = std::make_shared<FrameRateController>(in_fps, out_fps,
-                                               "RescalerFrameController");
-  if (!frc_.get()) {
-    QMMF_ERROR("%s: Can't Instantiate FrameRateController!!", __func__);
-    return NO_MEMORY;
   }
 
   auto ret = Initialize(width, height, format);

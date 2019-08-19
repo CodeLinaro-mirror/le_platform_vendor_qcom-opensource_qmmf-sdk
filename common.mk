@@ -112,11 +112,6 @@ ifeq ($(TARGET_BOARD_PLATFORM),qcs605)
 LOCAL_CFLAGS += -DMPEGH_ENCODER_SUPPORT
 endif #MPEGH_ENCODER_SUPPORT
 
-# Add extra input buffers for high fps
-ifeq ($(TARGET_BOARD_PLATFORM),qcs605)
-LOCAL_CFLAGS += -DEXTRA_BUFFER_SUPPORT
-endif #EXTRA_BUFFER_SUPPORT
-
 # AEC timeout value in ms (if not set here, default value is set in src)
 ifeq ($(TARGET_BOARD_PLATFORM),qcs605)
 LOCAL_CFLAGS += -DAEC_WAIT_TIMEOUT=750000000
