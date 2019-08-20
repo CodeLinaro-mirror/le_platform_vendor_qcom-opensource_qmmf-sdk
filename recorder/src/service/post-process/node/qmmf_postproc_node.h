@@ -149,6 +149,9 @@ class PostProcNode : public PostProcPlugin<PostProcNode>,
 
    status_t Configure(const std::string &config_json_data);
 
+   status_t Configure(const int32_t type,
+                      const std::vector<uint8_t> &config_blob_data);
+
    status_t GetConfig(std::string &config_json_data);
 
    PostProcIOParam GetInput(const PostProcIOParam &out);

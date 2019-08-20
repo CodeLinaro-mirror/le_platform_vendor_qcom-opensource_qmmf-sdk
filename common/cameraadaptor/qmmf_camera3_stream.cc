@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2019 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  * Not a Contribution.
  */
 
@@ -464,9 +464,9 @@ int32_t Camera3Stream::PopulateMetaInfo(CameraBufferMetaData &info,
                ret);
     return -EINVAL;
   }
-  ret  = mem_alloc_interface_->Perform(handle,
-                                      IAllocDevice::AllocDeviceAction::GetHeight,
-                                       static_cast<void*>(&alignedH));
+  ret = mem_alloc_interface_->Perform(handle,
+                            IAllocDevice::AllocDeviceAction::GetAlignedHeight,
+                            static_cast<void*>(&alignedH));
   if (MemAllocError::kAllocOk != ret) {
     QMMF_ERROR("%s: Error in GetStrideAndHeightFromHandle() : %d\n", __func__,
                ret);

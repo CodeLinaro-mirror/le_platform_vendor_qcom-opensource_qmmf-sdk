@@ -1152,6 +1152,25 @@ status_t RecorderImpl::ConfigPlugin(const uint32_t client_id,
   return NO_ERROR;
 }
 
+status_t RecorderImpl::ConfigPlugin(const uint32_t client_id,
+                                    const uint32_t &uid,
+                                    const int32_t type,
+                                    const std::vector<uint8_t> &blob_config) {
+
+  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
+  assert(camera_source_ != nullptr);
+  try {
+    camera_source_->ConfigPlugin(uid, type, blob_config);
+  } catch (const std::exception &e) {
+    QMMF_ERROR("%s: Error while configuring exception: %s",
+       __func__, e.what());
+    return BAD_VALUE;
+  }
+
+  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
+  return NO_ERROR;
+}
+
 status_t RecorderImpl::GetPluginConfig(const uint32_t client_id,
                                     const uint32_t &uid,
                                     std::string &json_config) {

@@ -340,6 +340,24 @@ status_t CameraSource::ConfigPlugin(const uint32_t &uid,
   return NO_ERROR;
 }
 
+status_t CameraSource::ConfigPlugin(const uint32_t &uid,
+                                    const int32_t type,
+                                    const std::vector<uint8_t> &blob_config) {
+
+  QMMF_DEBUG("%s: Enter", __func__);
+
+#ifndef CAMERA_HAL1_SUPPORT
+  auto ret = factory_->ConfigPlugin(uid, type, blob_config);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s: ConfigPlugin Failed!", __func__);
+    return ret;
+  }
+#endif
+
+  QMMF_DEBUG("%s: Exit", __func__);
+  return NO_ERROR;
+}
+
 status_t CameraSource::GetPluginConfig(const uint32_t &uid,
                                        std::string &json_config) {
 

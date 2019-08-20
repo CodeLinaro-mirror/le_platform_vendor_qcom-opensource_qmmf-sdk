@@ -396,7 +396,15 @@ status_t CameraHalReproc::Configure(const std::string config_json_data) {
   return NO_ERROR;
 }
 
+status_t CameraHalReproc::Configure(
+          __attribute__((unused)) const int32_t type,
+          __attribute__((unused)) const std::vector<uint8_t> &blob_config) {
+  QMMF_INFO("%s: API not implemented \n", __func__);
+  return BAD_VALUE;
+}
+
 status_t CameraHalReproc::GetConfig(std::string &config_json_data) {
+  QMMF_INFO("%s: API not implemented \n", __func__);
   return NO_ERROR;
 }
 

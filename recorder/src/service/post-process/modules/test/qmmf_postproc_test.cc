@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017, 2019, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -112,7 +112,15 @@ status_t PostProcTest::Configure(const std::string config_json_data) {
   return NO_ERROR;
 }
 
+status_t PostProcTest::Configure(
+          __attribute__((unused)) const int32_t type,
+          __attribute__((unused)) const std::vector<uint8_t> &blob_config) {
+  QMMF_INFO("%s: API not implemented \n", __func__);
+  return BAD_VALUE;
+}
+
 status_t PostProcTest::GetConfig(std::string &config_json_data) {
+  QMMF_INFO("%s: API not implemented \n", __func__);
   return NO_ERROR;
 }
 

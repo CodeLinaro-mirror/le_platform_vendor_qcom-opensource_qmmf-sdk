@@ -186,6 +186,15 @@ class Recorder {
   /// This is an async API.
   status_t ConfigPlugin(const uint32_t &uid, const std::string &config);
 
+  /// @brief Set plugin specific configuration data.
+  ///
+  /// @param uid: The UID of the specific plugin
+  /// @param type: Overlay type (Date, UserText, StaticImage, BoundingBox)
+  /// @param blob_config: A vector with data for overlay with StaticImage
+  /// This is an async API.
+  status_t ConfigPlugin(const uint32_t &uid, const int32_t type,
+                        const std::vector<uint8_t> &blob_config);
+
   /// @brief Get plugin specific configuration data.
   ///
   /// @param uid: The UID of the specific plugin

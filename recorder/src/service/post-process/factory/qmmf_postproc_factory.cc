@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017, 2019, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -167,6 +167,23 @@ status_t PostProcFactory::ConfigPlugin(const uint32_t &uid,
                                        const std::string &config) {
   if (plugin_nodes_.find(uid) != plugin_nodes_.end()) {
     auto ret = plugin_nodes_.at(uid)->Configure(config);
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s: Failed to configure plugin uid: %d", __func__, uid);
+      return ret;
+    }
+  } else {
+    QMMF_ERROR("%s: Invalid plugin uid: %d", __func__, uid);
+    return BAD_VALUE;
+  }
+
+  return NO_ERROR;
+}
+
+status_t PostProcFactory::ConfigPlugin(const uint32_t &uid,
+                                       const int32_t type,
+                                       const std::vector<uint8_t> &config) {
+  if (plugin_nodes_.find(uid) != plugin_nodes_.end()) {
+    auto ret = plugin_nodes_.at(uid)->Configure(type, config);
     if (ret != NO_ERROR) {
       QMMF_ERROR("%s: Failed to configure plugin uid: %d", __func__, uid);
       return ret;

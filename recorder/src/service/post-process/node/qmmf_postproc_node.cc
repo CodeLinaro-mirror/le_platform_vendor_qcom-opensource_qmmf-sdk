@@ -146,6 +146,21 @@ status_t PostProcNode::Configure(const std::string &config_json_data) {
   return NO_ERROR;
 }
 
+status_t PostProcNode::Configure(const int32_t type,
+                                 const std::vector<uint8_t> &config_blob_data) {
+
+  std::lock_guard<std::mutex> lock(state_lock_);
+  try {
+    module_->Configure(type, config_blob_data);
+  } catch (const std::exception &e) {
+    QMMF_ERROR("%s: Error while configuring exception: %s",
+       __func__, e.what());
+    return BAD_VALUE;
+  }
+
+  return NO_ERROR;
+}
+
 status_t PostProcNode::GetConfig(std::string &config_json_data) {
 
   std::lock_guard<std::mutex> lock(state_lock_);

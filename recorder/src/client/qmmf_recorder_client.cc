@@ -552,6 +552,25 @@ status_t RecorderClient::ConfigPlugin(const uint32_t &uid,
   return ret;
 }
 
+status_t RecorderClient::ConfigPlugin(const uint32_t &uid,
+                                      const int32_t type,
+                                      const std::vector<uint8_t> &blob_config)
+{
+  QMMF_DEBUG("%s Enter ", __func__);
+  QMMF_KPI_DETAIL();
+  std::lock_guard<std::mutex> lock(lock_);
+
+  assert(client_id_ > 0);
+
+  auto ret = recorder_service_->ConfigPlugin(client_id_, uid, type, blob_config);
+  if (NO_ERROR != ret) {
+    QMMF_ERROR("%s: ConfigPlugin failed!", __func__);
+  }
+
+  QMMF_DEBUG("%s Exit ", __func__);
+  return ret;
+}
+
 status_t RecorderClient::GetPluginConfig(const uint32_t &uid,
                                             std::string &json_config)
 {
@@ -1927,6 +1946,26 @@ class BpRecorderService: public BpInterface<IRecorderService> {
     memcpy(blob.data(), json_config.data(), blob_size);
     remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
                        RECORDER_CONFIGURE_PLUGIN), data, &reply);
+    blob.release();
+    return reply.readInt32();
+  }
+
+  status_t ConfigPlugin(const uint32_t client_id,
+                        const uint32_t &uid,
+                        const int32_t type,
+                        const std::vector<uint8_t> &blob_config) {
+    Parcel data, reply;
+    data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
+    data.writeUint32(client_id);
+    data.writeUint32(uid);
+    data.writeInt32(type);
+    size_t blob_size = blob_config.size();
+    data.writeUint32(blob_size);
+    android::Parcel::WritableBlob blob;
+    data.writeBlob(blob_size, false, &blob);
+    memcpy(blob.data(), blob_config.data(), blob_size);
+    remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
+                       RECORDER_CONFIGURE_PLUGIN_WITH_BLOB), data, &reply);
     blob.release();
     return reply.readInt32();
   }

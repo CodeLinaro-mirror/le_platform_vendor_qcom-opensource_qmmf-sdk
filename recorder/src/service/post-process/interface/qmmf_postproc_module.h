@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -156,6 +156,9 @@ class IPostProcModule {
    virtual void SetCallbacks(IPostProcEventListener *cb) = 0;
 
    virtual status_t Configure(const std::string config_json_data) = 0;
+
+   virtual status_t Configure(const int32_t type,
+                              const std::vector<uint8_t> &blob_config) = 0;
 
    virtual status_t GetConfig(std::string &config_json_data) = 0;
 

@@ -325,6 +325,19 @@ status_t PostProcAlg::Configure(const std::string config_json_data) {
   return NO_ERROR;
 }
 
+status_t PostProcAlg::Configure(const int32_t type,
+                                const std::vector<uint8_t> &config_blob) {
+  try {
+    algo_->Configure(type, config_blob);
+  } catch (const std::exception &e) {
+    QMMF_ERROR("%s: Error while configuring exception: %s",
+       __func__, e.what());
+    return BAD_VALUE;
+  }
+
+  return NO_ERROR;
+}
+
 status_t PostProcAlg::GetConfig(std::string &config_json_data) {
 
   try {

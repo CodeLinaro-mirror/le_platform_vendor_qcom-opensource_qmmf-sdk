@@ -244,6 +244,23 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
         return NO_ERROR;
       }
       break;
+      case RECORDER_CONFIGURE_PLUGIN_WITH_BLOB: {
+        uint32_t client_id, uid;
+        int32_t type;
+        data.readUint32(&client_id);
+        data.readUint32(&uid);
+        data.readInt32(&type);
+        uint32_t blob_size;
+        data.readUint32(&blob_size);
+        android::Parcel::ReadableBlob blob;
+        data.readBlob(blob_size, &blob);
+        const char *raw_blob = reinterpret_cast<const char *>(blob.data());
+        std::vector<uint8_t> blob_config(raw_blob, raw_blob + blob_size);
+        ret = ConfigPlugin(client_id, uid, type, blob_config);
+        reply->writeInt32(ret);
+        return NO_ERROR;
+      }
+      break;
       case RECORDER_GET_PLUGIN_CONFIG: {
         uint32_t client_id, uid;
         data.readUint32(&client_id);
@@ -1119,6 +1136,24 @@ status_t RecorderService::ConfigPlugin(const uint32_t client_id,
     QMMF_ERROR("%s: ConfigPlugin uid(%d) failed: %d", __func__, uid, ret);
     return ret;
   }
+  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
+  return NO_ERROR;
+}
+
+status_t RecorderService::ConfigPlugin(const uint32_t client_id,
+                                       const uint32_t &uid,
+                                       const int32_t type,
+                                       const std::vector<uint8_t> &blob_config) {
+
+  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
+  try {
+    recorder_->ConfigPlugin(client_id, uid, type, blob_config);
+  } catch (const std::exception &e) {
+    QMMF_ERROR("%s: Error while configuring exception: %s",
+       __func__, e.what());
+    return BAD_VALUE;
+  }
+
   QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
   return NO_ERROR;
 }

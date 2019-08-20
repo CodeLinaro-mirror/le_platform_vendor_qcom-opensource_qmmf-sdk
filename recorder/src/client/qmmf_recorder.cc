@@ -236,13 +236,27 @@ status_t Recorder::ConfigPlugin(const uint32_t &uid,
   return ret;
 }
 
+status_t Recorder::ConfigPlugin(const uint32_t &uid,
+                                const int32_t type,
+                                const std::vector<uint8_t> &blob_config) {
+
+  assert(recorder_client_ != NULL);
+
+  auto ret = recorder_client_->ConfigPlugin(uid, type, blob_config);
+  if (NO_ERROR != ret) {
+    QMMF_ERROR("%s: ConfigPlugin failed!", __func__);
+  }
+
+  return ret;
+}
+
 status_t Recorder::GetPluginConfig(const uint32_t &uid,
                                    std::string &json_config) {
 
   assert(recorder_client_ != NULL);
   auto ret = recorder_client_->GetPluginConfig(uid, json_config);
   if (NO_ERROR != ret) {
-    QMMF_ERROR("%s: ConfigPlugin failed!", __func__);
+    QMMF_ERROR("%s: GetPluginConfig failed!", __func__);
   }
 
   return ret;

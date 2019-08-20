@@ -61,6 +61,9 @@ class PostProcFactory {
 
    status_t ConfigPlugin(const uint32_t &uid, const std::string &config);
 
+   status_t ConfigPlugin(const uint32_t &uid, const int32_t type,
+                         const std::vector<uint8_t> &config);
+
    status_t GetPluginConfig(const uint32_t &uid, std::string &config);
 
    std::shared_ptr<PostProcNode> GetProcNode(const uint32_t &uid);
