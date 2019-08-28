@@ -650,17 +650,16 @@ status_t TrackEncoder::ReturnBuffer(BufferDescriptor& codec_buffer,
       __func__, TrackId(), codec_buffer.data);
 
   if (debug_fps_ & kDebugTrackFps) {
-    struct timeval tv;
-    gettimeofday(&tv, nullptr);
-    uint64_t time_diff = (uint64_t)((tv.tv_sec * 1000000 + tv.tv_usec) -
-        (prevtv_.tv_sec * 1000000 + prevtv_.tv_usec));
-
+    struct timespec tv = {0, 0};
+    clock_gettime(CLOCK_MONOTONIC, &tv);
+    uint64_t time_diff = (uint64_t)((tv.tv_sec * 1000000 + tv.tv_nsec / 1000) -
+        (prevtv_.tv_sec * 1000000 + prevtv_.tv_nsec / 1000));
     size_t size = codec_buffer.size;
     num_bytes_ += size;
 
     count_++;
     if (time_diff >= FPS_TIME_INTERVAL) {
-      bool is_first_time = (prevtv_.tv_sec == 0 && prevtv_.tv_usec == 0);
+      bool is_first_time = (prevtv_.tv_sec == 0 && prevtv_.tv_nsec == 0);
       if (!is_first_time) {
         float framerate = (count_ * 1000000) / (float)time_diff;
         uint32_t bitrate = (num_bytes_ * 8/count_) * framerate;
