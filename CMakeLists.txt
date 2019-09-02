@@ -67,12 +67,6 @@ add_subdirectory(avcodec/test/sample)
 
 add_subdirectory(avcodec/src)
 
-add_subdirectory(system/test/samples)
-
-add_subdirectory(system/src/service)
-
-add_subdirectory(system/src/client)
-
 add_subdirectory(common/memory)
 
 if (NOT CAMERA_HAL1_SUPPORT)

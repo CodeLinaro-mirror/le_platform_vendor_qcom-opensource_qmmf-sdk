@@ -101,7 +101,6 @@ enum class AudioOutSubtype {
 /// handle to a specific device
 typedef int32_t DeviceId;
 
-// TODO(kwestfie@codeaurora.org): remove when system is handling devices
 enum class AudioDeviceId {
   kDefault = 0,
   kCommunication,

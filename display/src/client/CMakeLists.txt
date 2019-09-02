@@ -24,8 +24,6 @@ install(FILES
  ${TOP_DIRECTORY}/include/qmmf-sdk/qmmf_recorder_params.h
  ${TOP_DIRECTORY}/include/qmmf-sdk/qmmf_display.h
  ${TOP_DIRECTORY}/include/qmmf-sdk/qmmf_display_params.h
- ${TOP_DIRECTORY}/include/qmmf-sdk/qmmf_system.h
- ${TOP_DIRECTORY}/include/qmmf-sdk/qmmf_system_params.h
  ${TOP_DIRECTORY}/include/qmmf-sdk/qmmf_device.h
  ${TOP_DIRECTORY}/include/qmmf-sdk/qmmf_codec.h
  DESTINATION include/qmmf-sdk)

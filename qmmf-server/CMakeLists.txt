@@ -17,9 +17,6 @@ endif()
 if(NOT DISABLE_DISPLAY)
 add_dependencies(qmmf-server qmmf_display_service)
 endif()
-if(NOT DISABLE_SYSTEM_SERVICE)
-add_dependencies(qmmf-server qmmf_system_service)
-endif()
 
 target_include_directories(qmmf-server
  PRIVATE ${TOP_DIRECTORY})
@@ -48,9 +45,6 @@ target_link_libraries(qmmf-server log cutils utils binder qmmf_recorder_service)
 endif()
 if(NOT DISABLE_DISPLAY)
 target_link_libraries(qmmf-server qmmf_display_service)
-endif()
-if(NOT DISABLE_SYSTEM_SERVICE)
-target_link_libraries(qmmf-server qmmf_system_service)
 endif()
 
 # TODO remove this hack when camx issue with propagating c and cpp glags is solved
