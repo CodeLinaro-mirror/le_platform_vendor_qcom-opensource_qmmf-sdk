@@ -31,23 +31,13 @@ endforeach()
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${PLATFORM_CXX_FLAGS}")
 
+install(FILES
+    ${TOP_DIRECTORY}/include/qmmf-sdk/qmmf_player_params.h
+DESTINATION include/qmmf-sdk)
+
 add_subdirectory(qmmf-server)
 
 add_subdirectory(plugins)
-
-add_subdirectory(player/src/service)
-
-add_subdirectory(player/test/gtest)
-
-add_subdirectory(player/test/samples)
-
-add_subdirectory(player/test/screen-nail)
-
-add_subdirectory(player/test/transcode_app)
-
-add_subdirectory(player/test/demuxer)
-
-add_subdirectory(player/src/client)
 
 add_subdirectory(recorder/src/service)
 
