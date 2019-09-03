@@ -33,7 +33,19 @@ ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_camera_frc.cc
 ${multicam}
 ${jpeg}
 )
-add_dependencies(qmmf_recorder_service qmmf_audio_client qmmf_utils qmmf_codec_adaptor qmmf_camera_adaptor qmmf_exif_generator qmmf_overlay qmmf_common_resizer_neon qmmf_common_resizer_c2d qmmf_common_resizer_fastcv qmmf_recorder_client)
+add_dependencies(
+  qmmf_recorder_service
+  qmmf_audio_client
+  qmmf_utils
+  qmmf_codec_adaptor
+  qmmf_camera_adaptor
+  qmmf_exif_generator
+  qmmf_overlay
+  qmmf_common_resizer_neon
+  qmmf_common_resizer_c2d
+  qmmf_common_resizer_fastcv
+  qmmf_recorder_client
+)
 if (NOT DISABLE_RESCALER_COLORSPACE)
 add_dependencies(qdMetaData)
 endif()

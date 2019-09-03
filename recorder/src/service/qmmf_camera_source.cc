@@ -1157,13 +1157,14 @@ void CameraSource::SnapshotCallback(uint32_t count, StreamBuffer& buffer) {
   }
 
   BnBuffer bn_buffer{};
-  bn_buffer.ion_fd    = buffer.fd;
-  bn_buffer.size      = content_size;
-  bn_buffer.timestamp = buffer.timestamp;
-  bn_buffer.width     = width;
-  bn_buffer.height    = height;
-  bn_buffer.buffer_id = buffer.fd;
-  bn_buffer.capacity  = buffer.size;
+  bn_buffer.ion_fd      = buffer.fd;
+  bn_buffer.ion_meta_fd = buffer.metafd;
+  bn_buffer.size        = content_size;
+  bn_buffer.timestamp   = buffer.timestamp;
+  bn_buffer.width       = width;
+  bn_buffer.height      = height;
+  bn_buffer.buffer_id   = buffer.fd;
+  bn_buffer.capacity    = buffer.size;
 
   MetaData meta_data{};
   meta_data.meta_flag = static_cast<uint32_t>(MetaParamType::kCamBufMetaData);
@@ -1903,6 +1904,7 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
 
     BnBuffer bn_buffer{};
     bn_buffer.ion_fd            = buffer.fd;
+    bn_buffer.ion_meta_fd       = buffer.metafd;
     bn_buffer.size              = buffer.size;
     bn_buffer.timestamp         = buffer.timestamp;
     bn_buffer.width             = buffer.info.plane_info[0].width;

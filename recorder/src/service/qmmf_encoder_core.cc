@@ -831,14 +831,15 @@ void TrackEncoder::NotifyBufferToClient(BufferDescriptor& codec_buffer) {
         QMMF_VERBOSE("%s: track_id(%x) fd(%d):size(%d):timestamp(%lld):"
             "capacity(%d)",  __func__, TrackId(), buffer.fd,
             codec_buffer.size, codec_buffer.timestamp, buffer.capacity);
-        bn_buffer.ion_fd    = buffer.fd;
-        bn_buffer.size      = codec_buffer.size;
-        bn_buffer.timestamp = codec_buffer.timestamp;
-        bn_buffer.width     = -1;
-        bn_buffer.height    = -1;
-        bn_buffer.buffer_id = buffer.fd;
-        bn_buffer.flag      = codec_buffer.flag;
-        bn_buffer.capacity  = buffer.capacity;
+        bn_buffer.ion_fd      = buffer.fd;
+        bn_buffer.ion_meta_fd = -1;
+        bn_buffer.size        = codec_buffer.size;
+        bn_buffer.timestamp   = codec_buffer.timestamp;
+        bn_buffer.width       = -1;
+        bn_buffer.height      = -1;
+        bn_buffer.buffer_id   = buffer.fd;
+        bn_buffer.flag        = codec_buffer.flag;
+        bn_buffer.capacity    = buffer.capacity;
         found = true;
         break;
       }

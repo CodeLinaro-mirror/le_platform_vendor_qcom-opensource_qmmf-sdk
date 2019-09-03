@@ -85,6 +85,14 @@ RecorderClient::RecorderClient()
   ProcessState::initWithDriver("/dev/vndbinder");
 #endif
 
+#ifdef TARGET_USES_GBM
+  gbm_fd_ = open("/dev/ion", O_RDWR);
+  assert(gbm_fd_ >= 0);
+
+  gbm_device_ = gbm_create_device(gbm_fd_);
+  assert(gbm_device_ != nullptr);
+#endif
+
   sp<ProcessState> proc(ProcessState::self());
   proc->startThreadPool();
   QMMF_INFO("%s Exit (0x%p)", __func__, this);
@@ -97,6 +105,11 @@ RecorderClient::~RecorderClient() {
 
   recorder_service_.clear();
   recorder_service_ = nullptr;
+
+#ifdef TARGET_USES_GBM
+  gbm_device_destroy(gbm_device_);
+  close(gbm_fd_);
+#endif
 
   QMMF_INFO("%s Exit 0x%p", __func__, this);
 }
@@ -697,14 +710,15 @@ status_t RecorderClient::ReturnTrackBuffer(const uint32_t session_id,
 
   for (auto const& buffer : buffers) {
     BnBuffer bn_buffer = {
-      buffer.buf_id,    // ion_fd
-      buffer.size,      // size
-      buffer.timestamp, // timestamp
-      0,                // width
-      0,                // height
-      buffer.buf_id,    // buffer_id
-      buffer.flag,      // flag
-      buffer.capacity   // capacity
+      static_cast<int32_t>(buffer.buf_id), // ion_fd
+      -1,                                  // metadata ion_fd
+      buffer.size,                         // size
+      buffer.timestamp,                    // timestamp
+      0,                                   // width
+      0,                                   // height
+      buffer.buf_id,                       // buffer_id
+      buffer.flag,                         // flag
+      buffer.capacity                      // capacity
     };
     bn_buffers.push_back(bn_buffer);
   }
@@ -854,6 +868,10 @@ status_t RecorderClient::DeleteVideoTrack(const uint32_t session_id,
                   __func__, track_id, buffer_info.ion_fd, buffer_info.vaddr,
                   buffer_info.size);
 
+#ifdef TARGET_USES_GBM
+        ReleaseBuffer(buffer_info.ion_fd);
+#endif
+
         ret = UnmapBuffer(buffer_info);
         if (NO_ERROR != ret) {
           QMMF_ERROR("%s Failed to unmap buffer!", __func__);
@@ -863,6 +881,7 @@ status_t RecorderClient::DeleteVideoTrack(const uint32_t session_id,
       track_buffers_map_.erase(track_id);
     }
   }
+
   assert(client_id_ > 0);
   ret = recorder_service_->DeleteVideoTrack(client_id_, session_id, track_id);
   if (NO_ERROR != ret) {
@@ -956,6 +975,10 @@ status_t RecorderClient::ReturnImageCaptureBuffer(const uint32_t camera_id,
 
     QMMF_INFO("%s Snapshot BufInfo: ion_fd(%d), vaddr(%p), size(%u)", __func__,
               buffer_info.ion_fd, buffer_info.vaddr, buffer_info.size);
+
+#ifdef TARGET_USES_GBM
+        ReleaseBuffer(buffer_info.ion_fd);
+#endif
 
     auto ret = UnmapBuffer(buffer_info);
     if (NO_ERROR != ret) {
@@ -1219,6 +1242,64 @@ status_t RecorderClient::GetVendorTagDescriptor(sp<VendorTagDescriptor> &desc) {
   return ret;
 }
 
+#ifdef TARGET_USES_GBM
+void RecorderClient::ImportBuffer(int32_t fd, int32_t metafd,
+                                  const MetaData& meta) {
+
+  std::lock_guard<std::mutex> lock(gbm_lock_);
+  if (gbm_buffers_map_.count(fd) != 0) {
+    // Already imported fd and metafd.
+    return;
+  } else if (metafd == -1) {
+    // The metadata FD is missing, do not import.
+    return;
+  }
+
+  uint32_t width = 0, height = 0, format = 0;
+  if (meta.meta_flag && static_cast<uint32_t>(MetaParamType::kCamBufMetaData)) {
+    auto& bufdata = meta.cam_buffer_meta_data;
+    width = bufdata.plane_info[0].width;
+    height = bufdata.plane_info[0].height;
+
+    switch (bufdata.format) {
+      case BufferFormat::kNV12:
+        format = GBM_FORMAT_NV12;
+        break;
+      case BufferFormat::kNV21:
+        format = GBM_FORMAT_NV21_ZSL;
+        break;
+      case BufferFormat::kNV16:
+        format = GBM_FORMAT_NV16;
+        break;
+      case BufferFormat::kBLOB:
+        format = GBM_FORMAT_BLOB;
+        break;
+      case BufferFormat::kNV12UBWC:
+        format = GBM_FORMAT_YCbCr_420_SP_VENUS_UBWC;
+        break;
+      default:
+        format = 0;
+    }
+  }
+
+  gbm_buf_info bufinfo = { fd, metafd, width , height, format };
+
+  auto bo = gbm_bo_import(gbm_device_, GBM_BO_IMPORT_GBM_BUF_TYPE, &bufinfo, 0);
+  gbm_buffers_map_.emplace(fd, bo);
+}
+
+void RecorderClient::ReleaseBuffer(int32_t fd) {
+
+  std::lock_guard<std::mutex> lock(gbm_lock_);
+  if (gbm_buffers_map_.count(fd) == 0) {
+    return;
+  }
+
+  gbm_bo_destroy(gbm_buffers_map_[fd]);
+  gbm_buffers_map_.erase(fd);
+}
+#endif
+
 status_t RecorderClient::MapBuffer(BufferInfo& info) {
 
   QMMF_DEBUG("%s Enter ", __func__);
@@ -1312,6 +1393,10 @@ void RecorderClient::ServiceDeathHandler() {
                   __func__, track_id, buffer_info.ion_fd,
                   buffer_info.vaddr, buffer_info.size);
 
+#ifdef TARGET_USES_GBM
+        ReleaseBuffer(buffer_info.ion_fd);
+#endif
+
         ret = UnmapBuffer(buffer_info);
         if (NO_ERROR != ret) {
           QMMF_ERROR("%s Failed to unmap buffer!", __func__);
@@ -1330,6 +1415,10 @@ void RecorderClient::ServiceDeathHandler() {
       QMMF_INFO("%s Snapshot BufInfo: ion_fd(%d), vaddr(%p), size(%u)",
                 __func__, buffer_info.ion_fd,
                 buffer_info.vaddr, buffer_info.size);
+
+#ifdef TARGET_USES_GBM
+        ReleaseBuffer(buffer_info.ion_fd);
+#endif
 
       ret = UnmapBuffer(buffer_info);
       if (NO_ERROR != ret) {
@@ -1394,8 +1483,9 @@ void RecorderClient::NotifySnapshotData(uint32_t camera_id,
   assert(buffer.buffer_id > 0);
 
   BufferInfo buffer_info {};
-  buffer_info.ion_fd = buffer.ion_fd;
-  buffer_info.size   = buffer.capacity;
+  buffer_info.ion_fd      = buffer.ion_fd;
+  buffer_info.ion_meta_fd = buffer.ion_meta_fd;
+  buffer_info.size        = buffer.capacity;
 
   auto ret = MapBuffer(buffer_info);
   if (NO_ERROR != ret) {
@@ -1406,6 +1496,10 @@ void RecorderClient::NotifySnapshotData(uint32_t camera_id,
     std::lock_guard<std::mutex> lock(snapshot_buffers_lock_);
     snapshot_buffers_.emplace(buffer.ion_fd, buffer_info);
   }
+
+#ifdef TARGET_USES_GBM
+  ImportBuffer(buffer.ion_fd, buffer.ion_meta_fd, meta_data);
+#endif
 
   BufferDescriptor image_buffer {};
   image_buffer.data      = buffer_info.vaddr;
@@ -1435,7 +1529,8 @@ void RecorderClient::NotifyVideoTrackData(uint32_t track_id,
   QMMF_DEBUG("%s Enter track_id=%d", __func__, track_id);
 
   std::vector<BufferDescriptor> track_buffers;
-  for (auto& bn_buffer : bn_buffers) {
+  for (uint32_t idx = 0; idx < bn_buffers.size(); ++idx) {
+    BnBuffer& bn_buffer = bn_buffers[idx];
 
     bool is_mapped = false;
     BufferInfo buffer_info {};
@@ -1451,6 +1546,7 @@ void RecorderClient::NotifyVideoTrackData(uint32_t track_id,
           buffer_info = info_map[bn_buffer.buffer_id];
 
           bn_buffer.ion_fd = buffer_info.ion_fd;
+          bn_buffer.ion_meta_fd = buffer_info.ion_meta_fd;
           is_mapped = true;
 
           QMMF_VERBOSE("%s Buffer is already mapped! buffer_id(%d):ion_fd(%d):"
@@ -1462,14 +1558,19 @@ void RecorderClient::NotifyVideoTrackData(uint32_t track_id,
       }
     }
     if (!is_mapped) {
-      buffer_info.ion_fd = bn_buffer.ion_fd;
-      buffer_info.size   = bn_buffer.capacity;
+      buffer_info.ion_fd      = bn_buffer.ion_fd;
+      buffer_info.ion_meta_fd = bn_buffer.ion_meta_fd;
+      buffer_info.size        = bn_buffer.capacity;
 
       auto ret = MapBuffer(buffer_info);
       if (NO_ERROR != ret) {
         QMMF_ERROR("%s Failed to map buffer!", __func__);
         return;
       }
+
+#ifdef TARGET_USES_GBM
+      ImportBuffer(bn_buffer.ion_fd, bn_buffer.ion_meta_fd, meta_buffers[idx]);
+#endif
 
       QMMF_INFO("%s track_id(%d): BufInfo: ion_fd(%d), "
           "vaddr(%p), size(%u)", __func__, track_id, buffer_info.ion_fd,
@@ -1559,7 +1660,7 @@ void RecorderClient::NotifyAudioTrackData(uint32_t track_id,
 
   std::vector<BufferDescriptor> track_buffers;
   for (const BnBuffer& bn_buffer : bn_buffers) {
-    BufferDescriptor buffer;
+    BufferDescriptor buffer {};
     auto ret = buffer_ion_.Associate(track_id, bn_buffer, &buffer);
     if (ret != 0) {
       QMMF_ERROR("%s Failed to associate audio buffer: %d[%s]\n", __func__,
@@ -1992,7 +2093,8 @@ class BpRecorderService: public BpInterface<IRecorderService> {
         android::Parcel::WritableBlob blob;
         data.writeBlob(param_size, false, &blob);
         memset(blob.data(), 0x0, param_size);
-        buffers[i].ion_fd = buffers[i].buffer_id;
+        buffers[i].ion_fd = buffers[i].ion_fd;
+        buffers[i].ion_meta_fd = buffers[i].ion_meta_fd;
         memcpy(blob.data(), reinterpret_cast<void*>(&buffers[i]), param_size);
       }
     } else {
@@ -2513,6 +2615,7 @@ class BpRecorderServiceCallback: public BpInterface<IRecorderServiceCallback> {
     data.writeUint32(camera_id);
     data.writeUint32(image_sequence_count);
     data.writeFileDescriptor(buffer.ion_fd);
+    data.writeFileDescriptor(buffer.ion_meta_fd);
     uint32_t size = sizeof buffer;
     data.writeUint32(size);
     android::Parcel::WritableBlob blob;
@@ -2545,45 +2648,37 @@ class BpRecorderServiceCallback: public BpInterface<IRecorderServiceCallback> {
 
     data.writeUint32(track_id);
     data.writeUint32(buffers.size());
-    for(uint32_t i = 0; i < buffers.size(); i++) {
 
-      bool is_mapped = false;
-      bool exist = false;
+    for(uint32_t i = 0; i < buffers.size(); i++) {
+      bool ismapped = false;
       {
         std::lock_guard<std::mutex> l(track_buffers_lock_);
-        if (!track_buffers_map_.empty()) {
-          auto it = track_buffers_map_.find(track_id);
-          if (it != track_buffers_map_.end()) {
-            exist = true;
-            buffer_map buf_map;
-            buf_map  = it->second;
-            auto buf_map_it = buf_map.find(buffers[i].ion_fd);
-            if (buf_map_it != buf_map.end()) {
-              // This ION fd has already been sent to client, no binder packing is
-              // required, only index would be sufficient for client to get mapped
-              // buffer from his own map.
-              is_mapped = buf_map_it->second;
-              QMMF_VERBOSE("Bp%s: buffers[%d].ion_fd=%d is_mapped:%d",
-                  __func__, i, buffers[i].ion_fd, is_mapped);
+        auto& buffer_ids = track_buffers_map_[track_id];
 
-            }
-          }
-        }
+        // If ION fd has already been sent to client, no binder packing is
+        // required, only index would be sufficient for client to get mapped
+        // buffer from his own map.
+        ismapped = (buffer_ids.count(buffers[i].buffer_id) != 0);
+
+        QMMF_VERBOSE("Bp%s: buffers[%d].ion_fd=%d ismapped:%d",
+            __func__, i, buffers[i].ion_fd, ismapped);
       }
       // If buffer has not been sent to client then pack the file descriptor
       // and provide hint about incoming fd.
-      data.writeInt32(!is_mapped);
-      if (!is_mapped) {
+      data.writeInt32(ismapped);
+
+      if (!ismapped) {
         // Pack file descriptor.
         data.writeFileDescriptor(buffers[i].ion_fd);
-        buffer_map map_to_update;
+        bool hasmetafd = (buffers[i].ion_meta_fd > 0);
+        data.writeUint32(hasmetafd);
+        if (hasmetafd) {
+          data.writeFileDescriptor(buffers[i].ion_meta_fd);
+        }
         {
           std::lock_guard<std::mutex> l(track_buffers_lock_);
-          if (exist) {
-            map_to_update = track_buffers_map_.find(track_id)->second;
-          }
-          map_to_update.insert(std::make_pair(buffers[i].ion_fd, true));
-          track_buffers_map_[track_id] = map_to_update;
+          auto& buffer_ids = track_buffers_map_[track_id];
+          buffer_ids.emplace(buffers[i].buffer_id);
         }
         QMMF_VERBOSE("%s: Bp: track_id=%d", __func__, track_id);
         QMMF_VERBOSE("%s: Bp: buffers[%d].ion_fd=%d mapping:%d", __func__,
@@ -2676,20 +2771,13 @@ class BpRecorderServiceCallback: public BpInterface<IRecorderServiceCallback> {
   void NotifyDeleteVideoTrack(uint32_t track_id) {
     QMMF_VERBOSE("Bp%s: Enter", __func__);
     std::lock_guard<std::mutex> l(track_buffers_lock_);
-    if (track_buffers_map_.empty()) {
-      return;
-    }
-    if (track_buffers_map_.find(track_id) != track_buffers_map_.end()) {
-      track_buffers_map_.erase(track_id);
-    }
+    track_buffers_map_.erase(track_id);
     QMMF_VERBOSE("Bp%s: Exit", __func__);
   }
 
  private:
-  // vector <ion_fd, bool>
-  typedef std::map <uint32_t, bool> buffer_map;
-  // map <track_id , buffer_map>
-  std::map<uint32_t,  buffer_map > track_buffers_map_;
+  // map <track_id , set <buffer_id> >
+  std::map<uint32_t,  std::set<uint32_t> > track_buffers_map_;
   // to protect track_buffers_map_
   std::mutex  track_buffers_lock_;
 };
@@ -2737,6 +2825,7 @@ status_t BnRecorderServiceCallback::onTransact(uint32_t code,
       data.readUint32(&camera_id);
       data.readUint32(&count);
       uint32_t ion_fd = dup(data.readFileDescriptor());
+      uint32_t ion_meta_fd = dup(data.readFileDescriptor());
       data.readUint32(&size);
       android::Parcel::ReadableBlob blob;
       data.readBlob(size, &blob);
@@ -2744,6 +2833,7 @@ status_t BnRecorderServiceCallback::onTransact(uint32_t code,
       BnBuffer bn_buffer{};
       memcpy(&bn_buffer, buf, size);
       bn_buffer.ion_fd = ion_fd;
+      bn_buffer.ion_meta_fd = ion_meta_fd;
       uint32_t meta_size;
       MetaData meta_data{};
       android::Parcel::ReadableBlob meta_blob;
@@ -2770,11 +2860,15 @@ status_t BnRecorderServiceCallback::onTransact(uint32_t code,
       QMMF_VERBOSE("Bn%s: vector_size=%d", __func__, vector_size);
       uint32_t size = 0;
       for (uint32_t i = 0; i < vector_size; i++)  {
-        int32_t is_fd = 0;
-        int32_t ion_fd = -1;
-        data.readInt32(&is_fd);
-        if (is_fd == 1) {
+        int32_t ismapped = 0, hasmetafd = 0;
+        int32_t ion_fd = -1, ion_meta_fd = -1;
+        data.readInt32(&ismapped);
+        if (ismapped == 0) {
           ion_fd = dup(data.readFileDescriptor());
+          data.readInt32(&hasmetafd);
+          if (hasmetafd == 1) {
+            ion_meta_fd = dup(data.readFileDescriptor());
+          }
         }
         data.readUint32(&size);
         android::Parcel::ReadableBlob blob;
@@ -2783,6 +2877,7 @@ status_t BnRecorderServiceCallback::onTransact(uint32_t code,
         BnBuffer track_buffer;
         memcpy(&track_buffer, buffer, size);
         track_buffer.ion_fd = ion_fd;
+        track_buffer.ion_meta_fd = ion_meta_fd;
         buffers.push_back(track_buffer);
         blob.release();
       }

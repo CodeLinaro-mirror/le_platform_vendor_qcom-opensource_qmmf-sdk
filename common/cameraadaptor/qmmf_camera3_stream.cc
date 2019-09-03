@@ -626,6 +626,11 @@ void Camera3Stream::ReturnBufferToClient(const camera3_stream_buffer &buffer,
   PopulateMetaInfo(b.info, b.handle);
   is_stream_active_ = true;
 
+  mem_alloc_interface_->Perform(
+      b.handle, IAllocDevice::AllocDeviceAction::GetMetaFd,
+      static_cast<void*>(&b.metafd)
+  );
+
   pthread_mutex_unlock(&lock_);
 
   if (CAMERA3_BUFFER_STATUS_OK == buffer.status) {

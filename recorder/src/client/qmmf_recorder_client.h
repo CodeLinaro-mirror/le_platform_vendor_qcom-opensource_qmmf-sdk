@@ -40,6 +40,8 @@
 
 #include <ion/ion.h>
 #include <linux/dma-buf.h>
+#include <gbm.h>
+#include <gbm_priv.h>
 
 #include "common/utils/qmmf_log.h"
 #include "recorder/src/client/qmmf_recorder_client_ion.h"
@@ -224,13 +226,19 @@ class RecorderClient {
   };
 
   struct BufferInfo {
-    uint32_t          ion_fd;     // Transferred ION Id.
-    size_t            size;       // Buffer length/size.
-    void*             vaddr;      // Memory mapped buffer.
+    uint32_t ion_fd;      // Transferred ION Id.
+    uint32_t ion_meta_fd; // Transferred ION metadata Id.
+    size_t   size;        // Buffer length/size.
+    void*    vaddr;       // Memory mapped buffer.
   };
 
   // Map <buffer index, buffer info>
   typedef std::map<uint32_t, BufferInfo> BufferInfoMap;
+
+#ifdef TARGET_USES_GBM
+  void ImportBuffer(int32_t fd, int32_t metafd, const MetaData& meta);
+  void ReleaseBuffer(int32_t fd);
+#endif
 
   status_t MapBuffer(BufferInfo& info);
   status_t UnmapBuffer(BufferInfo& info);
@@ -271,6 +279,14 @@ class RecorderClient {
   // List of information regarding the buffers for image capture.
   BufferInfoMap                     snapshot_buffers_;
   std::mutex                        snapshot_buffers_lock_;
+
+#ifdef TARGET_USES_GBM
+  int32_t                           gbm_fd_;
+  gbm_device*                       gbm_device_;
+
+  std::map<int32_t, gbm_bo*>        gbm_buffers_map_;
+  std::mutex                        gbm_lock_;
+#endif
 
   // VendorTagDescriptor
   sp<VendorTagDescriptor>           vendor_tag_desc_;

@@ -71,6 +71,7 @@ struct StreamBuffer {
   IBufferHandle handle;
   int32_t fd;
   uint32_t size;
+  int32_t metafd;
   void *data;
   uint32_t flags;
   uint32_t filled_length;

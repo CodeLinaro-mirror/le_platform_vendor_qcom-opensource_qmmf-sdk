@@ -369,11 +369,23 @@ MemAllocError GBMDevice::Perform(const IBufferHandle& handle,
       uint32_t align_height;
       auto ret = gbm_perform(GBM_PERFORM_GET_BO_ALIGNED_HEIGHT,
                              bo->GetNativeHandle(), &align_height);
-      if(ret == GBM_ERROR_NONE) {
+      if (ret == GBM_ERROR_NONE) {
         *static_cast<int32_t*>(result) = align_height;
         return MemAllocError::kAllocOk;
       } else {
         QMMF_ERROR("%s: Get aligned height action failed.", __func__);
+        return MemAllocError::kAllocFail;
+      }
+    }
+    case AllocDeviceAction::GetMetaFd: {
+      int32_t metafd;
+      auto ret = gbm_perform(GBM_PERFORM_GET_METADATA_ION_FD,
+                             bo->GetNativeHandle(), &metafd);
+      if (ret == GBM_ERROR_NONE) {
+        *static_cast<int32_t*>(result) = metafd;
+        return MemAllocError::kAllocOk;
+      } else {
+        QMMF_ERROR("%s: Get meta FD action failed.", __func__);
         return MemAllocError::kAllocFail;
       }
     }

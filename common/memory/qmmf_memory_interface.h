@@ -238,7 +238,7 @@ class IAllocDevice {
   * Enumeration type for performing action on BufferHandler.
   *
   **/
-  enum class AllocDeviceAction {GetStride, GetHeight,
+  enum class AllocDeviceAction {GetMetaFd, GetStride, GetHeight,
                                 GetAlignedWidth, GetAlignedHeight};
 
   virtual ~IAllocDevice(){};

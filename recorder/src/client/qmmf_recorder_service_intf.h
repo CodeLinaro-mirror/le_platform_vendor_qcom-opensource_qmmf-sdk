@@ -100,7 +100,8 @@ enum QMMF_RECORDER_SERVICE_CMDS {
 };
 
 struct BnBuffer {
-  uint32_t  ion_fd;
+  int32_t   ion_fd;
+  int32_t   ion_meta_fd;
   uint32_t  size;
   uint64_t  timestamp;
   uint32_t  width;
@@ -112,6 +113,7 @@ struct BnBuffer {
   string ToString() const {
     stringstream stream;
     stream << "ion_fd[" << ion_fd << "] ";
+    stream << "ion_meta_fd[" << ion_meta_fd << "] ";
     stream << "size[" << size << "] ";
     stream << "timestamp[" << timestamp << "] ";
     stream << "width[" << width << "] ";
@@ -123,10 +125,13 @@ struct BnBuffer {
   }
 
   void ToParcel(Parcel* parcel, bool writeFileDescriptor) const {
-    if (writeFileDescriptor)
+    if (writeFileDescriptor) {
       parcel->writeFileDescriptor(ion_fd);
-    else
+      parcel->writeFileDescriptor(ion_meta_fd);
+    } else {
       parcel->writeUint32(ion_fd);
+      parcel->writeUint32(ion_meta_fd);
+    }
     parcel->writeUint32(size);
     parcel->writeInt64(timestamp);
     parcel->writeUint32(width);
@@ -137,10 +142,13 @@ struct BnBuffer {
   }
 
   void FromParcel(const Parcel& parcel, bool readFileDescriptor) {
-    if (readFileDescriptor)
+    if (readFileDescriptor) {
       ion_fd = dup(parcel.readFileDescriptor());
-    else
+      ion_meta_fd = dup(parcel.readFileDescriptor());
+    } else {
       ion_fd = parcel.readUint32();
+      ion_meta_fd = parcel.readUint32();
+    }
     size = parcel.readUint32();
     timestamp = parcel.readInt64();
     width = parcel.readUint32();
