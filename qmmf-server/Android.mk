@@ -31,10 +31,6 @@ ifneq ($(DISABLE_DISPLAY),1)
 LOCAL_SHARED_LIBRARIES += libqmmf_display_service
 endif
 
-ifneq ($(DISABLE_AUDIO_SERVICE),1)
-LOCAL_SHARED_LIBRARIES += libqmmf_audio_service
-endif
-
 LOCAL_SHARED_LIBRARIES += libqmmf_recorder_service
 
 LOCAL_SHARED_LIBRARIES += libbinder

@@ -38,9 +38,8 @@
 #include <thread>
 
 #include "common/utils/qmmf_condition.h"
-#include "common/audio/inc/qmmf_audio_definitions.h"
-#include "common/audio/inc/qmmf_audio_endpoint.h"
 #include "common/codecadaptor/src/qmmf_avcodec.h"
+#include "recorder/src/service/qmmf_audio_pulse_client.h"
 #include "recorder/src/service/qmmf_recorder_common.h"
 #include "recorder/src/service/qmmf_recorder_ion.h"
 
@@ -112,17 +111,17 @@ class IAudioTrackSource {
   virtual status_t ReturnTrackBuffer(const ::std::vector<BnBuffer>& buffers) = 0;
 };
 
-/*! @brief Manages the audio data flow between RecorderImpl and AudioEndPoint.
+/*! @brief Manages the audio data flow between RecorderImpl and AudioPulseClient.
  *
  *  Sets up the data path between the RecorderImpl and a newly created
- *  instance of an AudioEndPoint.  Configures the audio endpoint based
+ *  instance of an AudioPulseClient.  Configures the pulseaudio client based
  *  on the parameters of AudioTrackParam.  Also allocates a number
  *  of audio ION buffers and pushes them to the thread's buffer queue.
  *
  *  Once setup, manages the data flow of audio buffers between the RecorderImpl
- *  and the audio endpoint.
+ *  and the pulseaudio client.
  *
- *  After streaming has completed, destroys the instance of the AudioEndPoint
+ *  After streaming has completed, destroys the instance of the AudioPulseClient
  *  and the data path.
  *
  *  @startuml
@@ -135,10 +134,10 @@ class IAudioTrackSource {
  *  
  *  participant RecorderImpl as ri
  *  participant AudioRawTrackSource as arts
- *  participant AudioEndPoint as aep
+ *  participant AudioPulseClient as apc
  *  
- *  arts -> aep : AudioEndPoint::SendBuffers()
- *  aep -> arts : AudioRawTrackSource::BufferHandler()
+ *  arts -> apc : AudioPulseClient::SendBuffers()
+ *  apc -> arts : AudioRawTrackSource::BufferHandler()
  *  arts -> ri  : RecorderImpl::AudioTrackBufferCb()
  *  ri -> arts  : AudioRawTrackSource::ReturnTrackBuffer()
  *  
@@ -189,7 +188,7 @@ class AudioRawTrackSource : public IAudioTrackSource {
     kMessageStop, //!< Directs the thread to stop data flow.
     kMessagePause, //!< Directs the thread to pause data flow.
     kMessageResume, //!< Directs the thread to resume data flow.
-    kMessageBuffer, //!< Message contains a buffer from the AudioEndPoint.
+    kMessageBuffer, //!< Message contains a buffer from the AudioPulseClient.
     kMessageBnBuffer, //!< Message contains a buffer from the RecorderImpl.
   };
 
@@ -197,7 +196,7 @@ class AudioRawTrackSource : public IAudioTrackSource {
   struct AudioMessage {
     AudioMessageType type; //!< The type of message.
     union {
-      ::qmmf::common::audio::AudioBuffer buffer; //!< Buffer from AudioEndPoint.
+      BufferDescriptor buffer; //!< Buffer from AudioPulseClient.
       BnBuffer bn_buffer; //!< Buffer from RecorderImpl.
     };
   };
@@ -211,21 +210,21 @@ class AudioRawTrackSource : public IAudioTrackSource {
   //! The AudioRawTrackSource thread that manages data flow.
   void Thread();
 
-  /*! @brief Handles error-related callbacks from the AudioEndPoint.
+  /*! @brief Handles error-related callbacks from the AudioPulseClient.
    *
    *  @param [in] error Indicates which error occurred.
    */
   void ErrorHandler(const int32_t error);
 
   /*! @brief Callback handler used to receive a filled buffer from the
-   *         AudioEndPoint.
+   *         AudioPulseClient.
    *
-   *  @param [in] buffer Audio data from the AudioEndPoint.
+   *  @param [in] buffer Audio data from the AudioPulseClient.
    */
-  void BufferHandler(const ::qmmf::common::audio::AudioBuffer& buffer);
+  void BufferHandler(const BufferDescriptor& buffer);
 
   AudioTrackParams track_params_; //!< Saved set of given parameters.
-  ::qmmf::common::audio::AudioEndPoint* end_point_; //!< Audio endpoint pointer.
+  AudioPulseClient* pulse_client_; //!< PulseAudio client.
   RecorderIon ion_; //!< Instance of the RecorderIon.
 
   ::std::thread* thread_; //!< Pointer to the running thread.
@@ -240,17 +239,17 @@ class AudioRawTrackSource : public IAudioTrackSource {
   AudioRawTrackSource& operator=(const AudioRawTrackSource&&) = delete;
 };
 
-/*! @brief Manages the audio data flow between AVCodec and AudioEndPoint.
+/*! @brief Manages the audio data flow between AVCodec and AudioPulseClient.
  *
  *  Sets up the data path between an AVCodec audio encoder and a newly created
- *  instance of an AudioEndPoint.  Configures the audio endpoint based
+ *  instance of an AudioPulseClient.  Configures the pulseaudio client based
  *  on the parameters of AudioTrackParam.  Also allocates a number
  *  of audio ION buffers and pushes them to the buffer queue.
  *
  *  Once setup, manages the data flow of audio buffers between the AVCodec
- *  audio encoder and the audio endpoint.
+ *  audio encoder and the pulseaudio client.
  *
- *  After streaming has completed, destroys the instance of the AudioEndPoint
+ *  After streaming has completed, destroys the instance of the AudioPulseClient
  *  and the data path.
  *
  *  @startuml
@@ -263,10 +262,10 @@ class AudioRawTrackSource : public IAudioTrackSource {
  *  
  *  participant AVCodec as avc
  *  participant AudioEncodedTrackSource as aets
- *  participant AudioEndPoint as aep
+ *  participant AudioPulseClient as apc
  *  
- *  aets -> aep : AudioEndPoint::SendBuffers()
- *  aep -> aets : AudioEncodedTrackSource::BufferHandler()
+ *  aets -> apc : AudioPulseClient::SendBuffers()
+ *  apc -> aets : AudioEncodedTrackSource::BufferHandler()
  *  aets -> avc : AudioTrackEncoder::GetBuffer()
  *  avc -> aets : AudioTrackEncoder::ReturnBuffer()
  *  
@@ -337,21 +336,21 @@ class AudioEncodedTrackSource : public ::qmmf::avcodec::ICodecSource,
 
  private:
 
-  /*! @brief Handles error-related callbacks from the AudioEndPoint.
+  /*! @brief Handles error-related callbacks from the AudioPulseClient.
    *
    *  @param [in] error Indicates which error occurred.
    */
   void ErrorHandler(const int32_t error);
 
   /*! @brief Callback handler used to receive a filled buffer from the
-   *         AudioEndPoint.
+   *         AudioPulseClient.
    *
-   *  @param [in] buffer Audio data from the AudioEndPoint.
+   *  @param [in] buffer Audio data from the AudioPulseClient.
    */
-  void BufferHandler(const ::qmmf::common::audio::AudioBuffer& buffer);
+  void BufferHandler(const BufferDescriptor& buffer);
 
   AudioTrackParams track_params_; //!< Saved set of given parameters.
-  ::qmmf::common::audio::AudioEndPoint* end_point_; //!< Audio endpoint pointer.
+  AudioPulseClient* pulse_client_; //!< PulseAudio client.
   RecorderIon ion_; //!< Instance of the RecorderIon.
   ::std::queue<BufferDescriptor> buffers_; //!< Queue of allocated buffers.
   int32_t buffer_size_; //!< Size of audio buffers to allocate (bytes).

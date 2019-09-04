@@ -37,6 +37,7 @@ LOCAL_SRC_FILES += qmmf_camera_context.cc
 LOCAL_SRC_FILES += qmmf_fake_camera.cc
 LOCAL_SRC_FILES += qmmf_multicamera_manager.cc
 LOCAL_SRC_FILES += qmmf_encoder_core.cc
+LOCAL_SRC_FILES += qmmf_audio_pulse_client.cc
 LOCAL_SRC_FILES += qmmf_audio_source.cc
 LOCAL_SRC_FILES += qmmf_audio_raw_track_source.cc
 LOCAL_SRC_FILES += qmmf_audio_encoded_track_source.cc

@@ -31,6 +31,8 @@
 
 #define LOG_TAG "RecorderAudioEncodedTrackSource"
 
+#include "recorder/src/service/qmmf_audio_track_source.h"
+
 #include <atomic>
 #include <chrono>
 #include <cstdint>
@@ -43,25 +45,14 @@
 
 #include "common/utils/qmmf_log.h"
 #include "common/utils/qmmf_condition.h"
-#include "common/audio/inc/qmmf_audio_definitions.h"
-#include "common/audio/inc/qmmf_audio_endpoint.h"
 #include "common/codecadaptor/src/qmmf_avcodec.h"
-#include "recorder/src/service/qmmf_audio_track_source.h"
+#include "recorder/src/service/qmmf_audio_pulse_client.h"
 #include "recorder/src/service/qmmf_recorder_common.h"
 #include "recorder/src/service/qmmf_recorder_ion.h"
 
 namespace qmmf {
 namespace recorder {
 
-using ::qmmf::common::audio::AudioBuffer;
-using ::qmmf::common::audio::AudioEndPoint;
-using ::qmmf::common::audio::AudioEndPointType;
-using ::qmmf::common::audio::AudioEventHandler;
-using ::qmmf::common::audio::AudioEventType;
-using ::qmmf::common::audio::AudioEventData;
-using ::qmmf::common::audio::AudioMetadata;
-using ::qmmf::common::audio::AudioParamCustomData;
-using ::qmmf::common::audio::AudioParamType;
 using ::qmmf::avcodec::CodecPortStatus;
 using ::qmmf::avcodec::PortEventType;
 using ::qmmf::avcodec::PortreconfigData;
@@ -78,7 +69,7 @@ static const int kNumberOfBuffers = INPUT_MAX_COUNT;
 
 AudioEncodedTrackSource::AudioEncodedTrackSource(const AudioTrackParams& params)
     : track_params_(params),
-      end_point_(nullptr),
+      pulse_client_(nullptr),
       buffer_size_(0),
       stop_called_(true),
       stop_notify_received_(true) {
@@ -93,26 +84,24 @@ AudioEncodedTrackSource::~AudioEncodedTrackSource() {
 
 /*!
  *  Sets up the data path between an instance of an AVCodec audio encoder and a
- *  newly created instance of an AudioEndPoint.  Connects to the audio service
- *  and configures the audio endpoint based on the given parameters.
+ *  newly created instance of an AudioPulseClient.  Connects to the audio
+ *  service and configures the pulseaudio client based on the given parameters.
  *
  *  Allocates a set number of audio buffers, the size of each being determined
- *  by the audio endpoint.
+ *  by the AVCodec audio encoder.
  */
 status_t AudioEncodedTrackSource::Init() {
-  QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__,
-             track_params_.track_id);
-  int32_t result;
-  AudioMetadata metadata{};
+  QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__, track_params_.track_id);
+  status_t result;
 
-  if (end_point_ != nullptr) {
-    QMMF_ERROR("%s() endpoint already exists", __func__);
+  if (pulse_client_ != nullptr) {
+    QMMF_ERROR("%s() pulse client already exists", __func__);
     return ::android::ALREADY_EXISTS;
   }
 
-  end_point_ = new AudioEndPoint;
-  if (end_point_ == nullptr) {
-    QMMF_ERROR("%s() could not instantiate endpoint", __func__);
+  pulse_client_ = new AudioPulseClient;
+  if (pulse_client_ == nullptr) {
+    QMMF_ERROR("%s() could not instantiate pulse client", __func__);
     return ::android::NO_MEMORY;
   }
 
@@ -126,33 +115,19 @@ status_t AudioEncodedTrackSource::Init() {
         case AudioEventType::kBuffer:
           BufferHandler(event_data.buffer);
           break;
-        case AudioEventType::kStopped:
-          // TODO
-          break;
       }
     };
 
-  result = end_point_->Connect(audio_handler);
+  result = pulse_client_->Connect(audio_handler);
   if (result < 0) {
-    QMMF_ERROR("%s() endpoint->Connect failed: %d[%s]", __func__,
+    QMMF_ERROR("%s() pulseclient->Connect failed: %d[%s]", __func__,
                result, strerror(result));
     goto error_init_free;
   }
 
-  metadata.format = AudioFormat::kPCM;
-  metadata.num_channels = track_params_.params.channels;
-  metadata.sample_rate = track_params_.params.sample_rate;
-  metadata.sample_size = track_params_.params.bit_depth;
-  {
-    vector<DeviceId> devices;
-    for (uint32_t i = 0; i < track_params_.params.in_devices_num; i++)
-      devices.push_back(track_params_.params.in_devices[i]);
-
-    result = end_point_->Configure(AudioEndPointType::kSource, devices,
-                                   metadata);
-  }
+  result = pulse_client_->Configure(track_params_);
   if (result < 0) {
-    QMMF_ERROR("%s() endpoint->Configure failed: %d[%s]", __func__,
+    QMMF_ERROR("%s() pulseclient->Configure failed: %d[%s]", __func__,
                result, strerror(result));
     goto error_init_disconnect;
   }
@@ -167,9 +142,9 @@ status_t AudioEncodedTrackSource::Init() {
   }
 
   int32_t buffer_size;
-  result = end_point_->GetBufferSize(&buffer_size);
+  result = pulse_client_->GetBufferSize(&buffer_size);
   if (result < 0) {
-    QMMF_ERROR("%s() endpoint->GetBufferSize failed: %d[%s]", __func__,
+    QMMF_ERROR("%s() pulseclient->GetBufferSize failed: %d[%s]", __func__,
                result, strerror(result));
     goto error_init_disconnect;
   }
@@ -189,53 +164,51 @@ error_init_deallocate:
   ion_.Deallocate();
 
 error_init_disconnect:
-  end_point_->Disconnect();
+  pulse_client_->Disconnect();
 
 error_init_free:
-  delete end_point_;
-  end_point_ = nullptr;
+  delete pulse_client_;
+  pulse_client_ = nullptr;
 
   return ::android::FAILED_TRANSACTION;
 }
 
 /*!
- *  Deallocates the audio buffers, disconnects from the audio service, and then
- *  destroys the audio endpoint.
+ *  Deallocates the audio buffers, disconnects from the pulseaudio service, and
+ *  then destroys the pulseaudio client.
  */
 status_t AudioEncodedTrackSource::DeInit() {
-  QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__,
-             track_params_.track_id);
-  int32_t result;
+  QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__, track_params_.track_id);
+  status_t result;
 
   result = ion_.Deallocate();
   if (result < 0)
     QMMF_ERROR("%s() ion->Deallocate failed: %d[%s]", __func__,
                result, strerror(result));
 
-  result = end_point_->Disconnect();
+  result = pulse_client_->Disconnect();
   if (result < 0)
-    QMMF_ERROR("%s() endpoint->Disconnect failed: %d[%s]", __func__,
+    QMMF_ERROR("%s() pulseclient->Disconnect failed: %d[%s]", __func__,
                result, strerror(result));
 
-  delete end_point_;
-  end_point_ = nullptr;
+  delete pulse_client_;
+  pulse_client_ = nullptr;
 
   return ::android::NO_ERROR;
 }
 
 /*!
- *  Starts the data flow in the audio endpoint and pushes the list of audio
+ *  Starts the data flow in the pulseaudio client and pushes the list of audio
  *  buffers to it. Initializes the state flags to indicate data is flowing.
  */
 status_t AudioEncodedTrackSource::StartTrack() {
-  QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__,
-             track_params_.track_id);
-  vector<AudioBuffer> initial_buffers;
-  int32_t result;
+  QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__, track_params_.track_id);
+  vector<BufferDescriptor> initial_buffers;
+  status_t result;
 
-  result = end_point_->Start();
+  result = pulse_client_->Start();
   if (result < 0) {
-    QMMF_ERROR("%s() endpoint->Start failed: %d[%s]", __func__,
+    QMMF_ERROR("%s() pulseclient->Start failed: %d[%s]", __func__,
                result, strerror(result));
     goto error_start_stop;
   }
@@ -247,9 +220,9 @@ status_t AudioEncodedTrackSource::StartTrack() {
     goto error_start_stop;
   }
 
-  result = end_point_->SendBuffers(initial_buffers);
+  result = pulse_client_->SendBuffers(initial_buffers);
   if (result < 0) {
-    QMMF_ERROR("%s() endpoint->SendBuffers failed: %d[%s]", __func__,
+    QMMF_ERROR("%s() pulseclient->SendBuffers failed: %d[%s]", __func__,
                result, strerror(result));
     goto error_start_stop;
   }
@@ -266,16 +239,15 @@ error_start_stop:
 }
 
 /*!
- *  Stops the data flow in the audio endpoint and sets the state flag to
+ *  Stops the data flow in the pulseaudio client and sets the state flag to
  *  indicate that stop has been called.
  */
 status_t AudioEncodedTrackSource::StopTrack() {
-  QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__,
-             track_params_.track_id);
+  QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__, track_params_.track_id);
 
-  int32_t result = end_point_->Stop();
+  status_t result = pulse_client_->Stop();
   if (result < 0) {
-    QMMF_ERROR("%s() endpoint->Stop failed: %d[%s]", __func__,
+    QMMF_ERROR("%s() pulseclient->Stop failed: %d[%s]", __func__,
                result, strerror(result));
     return ::android::FAILED_TRANSACTION;
   }
@@ -286,59 +258,47 @@ status_t AudioEncodedTrackSource::StopTrack() {
 }
 
 /*!
- *  Pauses the data flow in the audio endpoint.
+ *  Pauses the data flow in the pulseaudio client.
  */
 status_t AudioEncodedTrackSource::PauseTrack() {
-  QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__,
-             track_params_.track_id);
+  QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__, track_params_.track_id);
 
-  int32_t result = end_point_->Pause();
-  if (result < 0) {
-    QMMF_ERROR("%s() endpoint->Pause failed: %d[%s]", __func__,
+  status_t result = pulse_client_->Pause();
+  if (result < 0)
+    QMMF_ERROR("%s() pulseclient->Pause failed: %d[%s]", __func__,
                result, strerror(result));
-    return ::android::FAILED_TRANSACTION;
-  }
 
-  return ::android::NO_ERROR;
+  return result;
 }
 
 /*!
- *  Resumes the data flow in the audio endpoint.
+ *  Resumes the data flow in the pulseaudio client.
  */
 status_t AudioEncodedTrackSource::ResumeTrack() {
-  QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__,
-             track_params_.track_id);
+  QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__, track_params_.track_id);
 
-  int32_t result = end_point_->Resume();
-  if (result < 0) {
-    QMMF_ERROR("%s() endpoint->Resume failed: %d[%s]", __func__,
+  status_t result = pulse_client_->Resume();
+  if (result < 0)
+    QMMF_ERROR("%s() pulseclient->Resume failed: %d[%s]", __func__,
                result, strerror(result));
-    return ::android::FAILED_TRANSACTION;
-  }
 
-  return ::android::NO_ERROR;
+  return result;
 }
 
 /*!
- *  Passes the given parameter arguments to the audio endpoint.
+ *  Passes the given parameter arguments to the pulseaudio client.
  */
 status_t AudioEncodedTrackSource::SetParameter(const string& key,
                                                const string& value) {
   QMMF_VERBOSE("%s() INPARAM: key[%s]", __func__, key.c_str());
   QMMF_VERBOSE("%s() INPARAM: value[%s]", __func__, value.c_str());
 
-  AudioParamCustomData data;
-  data.key = key;
-  data.value = value;
-
-  int32_t result = end_point_->SetParam(AudioParamType::kCustom, data);
-  if (result < 0) {
-    QMMF_ERROR("%s() endpoint->SetParam failed: %d[%s]", __func__,
+  status_t result = pulse_client_->SetParam(key, value);
+  if (result < 0)
+    QMMF_ERROR("%s() pulseclient->SetParam failed: %d[%s]", __func__,
                result, strerror(result));
-    return ::android::FAILED_TRANSACTION;
-  }
 
-  return ::android::NO_ERROR;
+  return result;
 }
 
 /*!
@@ -347,8 +307,7 @@ status_t AudioEncodedTrackSource::SetParameter(const string& key,
  */
 status_t AudioEncodedTrackSource::ReturnTrackBuffer(
     const std::vector<BnBuffer> &buffers) {
-  QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__,
-             track_params_.track_id);
+  QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__, track_params_.track_id);
   for (const BnBuffer& buffer : buffers)
     QMMF_VERBOSE("%s() INPARAM: bn_buffer[%s]", __func__,
                  buffer.ToString().c_str());
@@ -364,8 +323,8 @@ status_t AudioEncodedTrackSource::ReturnTrackBuffer(
  *  the audio encoder.  If this is the last buffer, then the audio encoder is
  *  notified by a return value of -1.
  *
- *  If the buffer queue is empty, waits for a buffer from the audio endpoint to
- *  be pushed into the queue.
+ *  If the buffer queue is empty, waits for a buffer from the pulseaudio client
+ *  to be pushed into the queue.
  */
 status_t AudioEncodedTrackSource::GetBuffer(BufferDescriptor& buffer,
                                             void* client_data) {
@@ -397,8 +356,8 @@ status_t AudioEncodedTrackSource::GetBuffer(BufferDescriptor& buffer,
 }
 
 /*!
- *  Receives an empty buffer from the audio encoder, maps it to
- *  the audio endpoint buffer and sends it to the audio endpoint.
+ *  Receives an empty buffer from the audio encoder and sends it to the
+ *  pulseaudio client.
  *
  *  If stop has been called, then the buffer is discarded.
  */
@@ -415,21 +374,16 @@ status_t AudioEncodedTrackSource::ReturnBuffer(BufferDescriptor& buffer,
     return ::android::NO_ERROR;
   }
 
-  AudioBuffer audio_buffer{};
-  result = ion_.Import(buffer, &audio_buffer);
-  if (result < 0) {
-    QMMF_ERROR("%s() ion->Import failed: %d[%s]", __func__, result,
-               strerror(result));
-    return ::android::FAILED_TRANSACTION;
-  }
+  buffer.buf_id = buffer.fd;
+  buffer.capacity = buffer_size_;
+  memset(buffer.data, 0x00, buffer.capacity);
+  buffer.size = 0;
+  buffer.offset = 0;
+  buffer.timestamp = 0;
 
-  memset(audio_buffer.data, 0x00, audio_buffer.capacity);
-  audio_buffer.size = 0;
-  audio_buffer.timestamp = 0;
-
-  result = end_point_->SendBuffers({audio_buffer});
+  result = pulse_client_->SendBuffers({buffer});
   if (result < 0 && !stop_called_) {
-    QMMF_ERROR("%s() endpoint->SendBuffers failed: %d[%s]",
+    QMMF_ERROR("%s() pulseclient->SendBuffers failed: %d[%s]",
                __func__, result, strerror(result));
     return ::android::FAILED_TRANSACTION;
   }
@@ -446,14 +400,14 @@ status_t AudioEncodedTrackSource::ReturnBuffer(BufferDescriptor& buffer,
  */
 status_t AudioEncodedTrackSource::NotifyPortEvent(PortEventType event_type,
                                                   void* event_data) {
-  QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__,
-             track_params_.track_id);
+  QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__, track_params_.track_id);
   if (event_type == PortEventType::kPortStatus) {
     CodecPortStatus status = *(static_cast<CodecPortStatus*>(event_data));
     switch (status) {
       case CodecPortStatus::kPortStop:
-        if (stop_called_)
+        if (stop_called_) {
           stop_notify_received_ = true;
+        }
         break;
       case CodecPortStatus::kPortIdle:
         if (stop_notify_received_) {
@@ -501,38 +455,30 @@ status_t AudioEncodedTrackSource::SetBufferSize(const int32_t buffer_size) {
 }
 
 /*!
- *  Logs the error from the audio endpoint and asserts (crashing the service).
+ *  Logs the error from the pulseaudio client and asserts (crashing the service).
  *
  *  @todo Send notification to application instead of asserting.
  */
 void AudioEncodedTrackSource::ErrorHandler(const int32_t error) {
-  QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__,
-             track_params_.track_id);
+  QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__, track_params_.track_id);
   QMMF_VERBOSE("%s() INPARAM: type[%d]", __func__, error);
 
-  QMMF_ERROR("%s() received error from endpoint: %d[%s]", __func__,
-               error, strerror(error));
+  QMMF_ERROR("%s() received error from pulse client: %d[%s]", __func__,
+             error, strerror(error));
   assert(false);
 }
 
 /*!
- *  Receives a buffer (filled with PCM audio) from the audio endpoint, maps it
- *  to the buffer descriptor and pushes it into the buffer queue.
+ *  Receives a buffer (filled with PCM audio) from the pulseaudio client, maps
+ *  it to the buffer descriptor and pushes it into the buffer queue.
  */
-void AudioEncodedTrackSource::BufferHandler(const AudioBuffer& buffer) {
-  QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__,
-             track_params_.track_id);
+void AudioEncodedTrackSource::BufferHandler(const BufferDescriptor& buffer) {
+  QMMF_DEBUG("%s() TRACE: track_id[%u]", __func__, track_params_.track_id);
   QMMF_VERBOSE("%s() INPARAM: buffer[%s]", __func__,
                buffer.ToString().c_str());
 
-  BufferDescriptor stream_buffer{};
-  int32_t result = ion_.Export(buffer, &stream_buffer);
-  if (result < 0)
-    QMMF_ERROR("%s() ion->Export failed: %d[%s]", __func__, result,
-               strerror(result));
-
   mutex_.lock();
-  buffers_.push(stream_buffer);
+  buffers_.push(buffer);
   mutex_.unlock();
   signal_.Signal();
 }
