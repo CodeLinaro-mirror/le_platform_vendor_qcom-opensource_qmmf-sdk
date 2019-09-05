@@ -2114,6 +2114,34 @@ status_t RecorderImpl::DeleteOverlayObject(const uint32_t client_id,
   return NO_ERROR;
 }
 
+status_t RecorderImpl::DeleteOverlayObjects(const uint32_t client_id,
+                                            const uint32_t track_id) {
+  QMMF_VERBOSE("%s: Enter", __func__);
+
+  if (!IsClientValid(client_id)) {
+    QMMF_ERROR("%s: Client(%u) is not connected!", __func__, client_id);
+    return BAD_VALUE;
+  }
+
+  if (!IsTrackValid(client_id, track_id)) {
+    QMMF_ERROR("%s: Client(%d): Track(%d) does not exist!", __func__, client_id,
+               track_id);
+    return BAD_VALUE;
+  }
+
+  uint32_t service_track_id = GetServiceTrackId(client_id, track_id);
+  assert(service_track_id > 0);
+
+  assert(camera_source_ != NULL);
+  auto ret = camera_source_->DeleteOverlayObjects(service_track_id);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s: DeleteOverlayObjects failed!", __func__);
+    return ret;
+  }
+  QMMF_VERBOSE("%s: Exit", __func__);
+  return NO_ERROR;
+}
+
 status_t RecorderImpl::GetOverlayObjectParams(const uint32_t client_id,
                                               const uint32_t track_id,
                                               const uint32_t overlay_id,
@@ -2172,6 +2200,36 @@ status_t RecorderImpl::UpdateOverlayObjectParams(const uint32_t client_id,
                                                        overlay_id, param);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: UpdateOverlayObjectParams failed!", __func__);
+    return ret;
+  }
+  QMMF_VERBOSE("%s: Exit", __func__);
+  return NO_ERROR;
+}
+
+status_t RecorderImpl::ProcessOverlayObjects(
+    const uint32_t client_id, const uint32_t track_id,
+    const std::vector<OverlayParam>& overlay_list) {
+  QMMF_VERBOSE("%s: Enter", __func__);
+
+  if (!IsClientValid(client_id)) {
+    QMMF_ERROR("%s: Client(%u) is not connected!", __func__, client_id);
+    return BAD_VALUE;
+  }
+
+  if (!IsTrackValid(client_id, track_id)) {
+    QMMF_ERROR("%s: Client(%d): Track(%d) does not exist!", __func__, client_id,
+               track_id);
+    return BAD_VALUE;
+  }
+
+  uint32_t service_track_id = GetServiceTrackId(client_id, track_id);
+  assert(service_track_id > 0);
+
+  assert(camera_source_ != NULL);
+  auto ret =
+      camera_source_->ProcessOverlayObjects(service_track_id, overlay_list);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s: failed!", __func__);
     return ret;
   }
   QMMF_VERBOSE("%s: Exit", __func__);

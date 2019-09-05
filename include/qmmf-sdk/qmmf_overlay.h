@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, 2018, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016, 2018-2019, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -35,6 +35,7 @@
 #include <sys/types.h>
 #include <map>
 #include <mutex>
+#include <vector>
 
 namespace qmmf {
 
@@ -127,6 +128,12 @@ struct OverlayTargetBuffer {
   uint32_t  frame_len;
 };
 
+struct OverlayParamInfo {
+  uint32_t *id;
+  OverlayParam param;
+  bool is_active;
+};
+
 class OverlayItem;
 
 // This class provides facility to embed different
@@ -155,6 +162,11 @@ class Overlay {
   /// Overlay item can be deleted at any point of time after creation.
   int32_t DeleteOverlayItem(uint32_t overlay_id);
 
+  // Overlay item can be deleted at any point of time after creation.
+  /// Overlay item can be deleted at any point of time after creation.
+  int32_t DeleteOverlayItems();
+
+
   // Overlay item's parameters can be queried using this Api, it is recommended
   // to call get parameters first before setting new parameters using Api
   // updateOverlayItem.
@@ -177,6 +189,12 @@ class Overlay {
   // Provide input YUV buffer to apply overlay.
   /// Provide input YUV buffer to apply overlay.
   int32_t ApplyOverlay(const OverlayTargetBuffer& buffer);
+
+  // Process a batch of overlay requests
+  // The overlay items are specified as vector and processed
+  // This method creates and enables specified overlay items,
+  // updates specified overlay items, disables inactive overlay items.
+  int32_t ProcessOverlayItems(const std::vector<OverlayParam>& overlay_list);
 
  private:
 

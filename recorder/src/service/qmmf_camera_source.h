@@ -193,6 +193,9 @@ class CameraSource {
   status_t DeleteOverlayObject(const uint32_t track_id,
                                const uint32_t overlay_id);
 
+  /// Delete Overlay object parameters in a batch
+  status_t DeleteOverlayObjects(const uint32_t track_id);
+
   /// Get Overlay object parameters
   status_t GetOverlayObjectParams(const uint32_t track_id,
                                   const uint32_t overlay_id,
@@ -202,6 +205,10 @@ class CameraSource {
   status_t UpdateOverlayObjectParams(const uint32_t track_id,
                                      const uint32_t overlay_id,
                                      OverlayParam *param);
+
+  /// Process Overlay objects in batch
+  status_t ProcessOverlayObjects(const uint32_t track_id,
+                                 const std::vector<OverlayParam>& overlay_list);
 
   /// Set Overlay object parameters
   status_t SetOverlayObject(const uint32_t track_id,
@@ -339,6 +346,9 @@ class TrackSource : public ICodecSource {
   /// Delete Overlay object
   status_t DeleteOverlayObject(const uint32_t overlay_id);
 
+  /// Delete Overlay object in batch
+  status_t DeleteOverlayObjects();
+
   /// Get Overlay object parameters
   status_t GetOverlayObjectParams(const uint32_t overlay_id,
                                   OverlayParam &param);
@@ -347,6 +357,10 @@ class TrackSource : public ICodecSource {
   /// Update Overlay object parameters
   status_t UpdateOverlayObjectParams(const uint32_t overlay_id,
                                      OverlayParam *param);
+
+  /// Process Overlay objects in batch
+  status_t ProcessOverlayObjects(const std::vector<OverlayParam> &overlay_list);
+
 
   /// Set Overlay object parameters
   status_t SetOverlayObject(const uint32_t overlay_id);

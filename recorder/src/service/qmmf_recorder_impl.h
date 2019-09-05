@@ -245,6 +245,10 @@ class RecorderImpl {
                                const uint32_t track_id,
                                const uint32_t overlay_id);
 
+  /// Delete Overlay objects associated with given track
+  status_t DeleteOverlayObjects(const uint32_t client_id,
+                                const uint32_t track_id);
+
   /// Get Overlay object parameters
   status_t GetOverlayObjectParams(const uint32_t client_id,
                                   const uint32_t track_id,
@@ -256,6 +260,11 @@ class RecorderImpl {
                                      const uint32_t track_id,
                                      const uint32_t overlay_id,
                                      OverlayParam *param);
+
+  /// Process overlays in batch
+  status_t ProcessOverlayObjects(const uint32_t client_id,
+                                 const uint32_t track_id,
+                                 const std::vector<OverlayParam>& overlay_list);
 
   /// Set Overlay object parameters
   status_t SetOverlayObject(const uint32_t client_id,

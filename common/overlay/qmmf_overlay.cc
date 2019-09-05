@@ -188,7 +188,6 @@ int32_t Overlay::CreateOverlayItem(OverlayParam& param, uint32_t* overlay_id) {
 }
 
 int32_t Overlay::DeleteOverlayItem(uint32_t overlay_id) {
-
   OVDBG_VERBOSE("%s:Enter ", __func__);
   std::lock_guard<std::mutex> lock(lock_);
 
@@ -236,9 +235,10 @@ int32_t Overlay::UpdateOverlayParams(uint32_t overlay_id,
   OverlayItem* overlayItem = overlay_items_.at(overlay_id);
   assert(overlayItem != nullptr);
 
-  OVDBG_VERBOSE("%s:Exit ", __func__);
+   OVDBG_VERBOSE("%s:Exit ", __func__);
   return overlayItem->UpdateParameters(param);
 }
+
 
 int32_t Overlay::EnableOverlayItem(uint32_t overlay_id) {
 
@@ -502,6 +502,96 @@ EXIT:
   OVDBG_INFO("%s: Time taken in 2D draw + Blit=%lld ms", __func__, diff);
 #endif
   OVDBG_VERBOSE("%s: Exit ",__func__);
+  return ret;
+}
+
+int32_t Overlay::ProcessOverlayItems(
+    const std::vector<OverlayParam>& overlay_list) {
+  OVDBG_VERBOSE("%s: Enter", __func__);
+  std::lock_guard<std::mutex> lock(lock_);
+
+  int32_t ret = 0;
+  uint32_t overlay_id = 0;
+  uint32_t size = overlay_list.size();
+  uint32_t num_items = overlay_items_.size();
+
+  if (num_items < size) {
+    auto overlay_param = overlay_list.at(0);
+    for (auto i = 0; i < 10; i++) {
+      ret = CreateOverlayItem(overlay_param, &overlay_id);
+      if (ret) {
+        OVDBG_ERROR("%s: CreateOverlayItem failed for id:%u!!", __func__,
+                    overlay_id);
+        return ret;
+      }
+    }
+  }
+  // Check overlay_items_ size and allocate in chunks of 10
+  // If request size is greater than available allocate more
+  // Remove active flag
+  OVDBG_VERBOSE("%s: size:%u num_items:%u", __func__, size, num_items);
+  auto items_iter = overlay_items_.begin();
+  OverlayItem* overlayItem = nullptr;
+  for (auto index = 0; index < size; index++, items_iter++) {
+    auto overlay_param = overlay_list.at(index);
+    overlay_id = items_iter->first;
+    overlayItem = items_iter->second;
+    OVDBG_VERBOSE("%s:id:%u w: %u h:%u", __func__, overlay_id,
+                  overlay_param.dst_rect.width,
+                  overlay_param.dst_rect.height);
+    ret = overlayItem->UpdateParameters(overlay_param);
+
+    if (ret) {
+      OVDBG_ERROR("%s: UpdateParameters failed for id: %u!", __func__,
+                  overlay_id);
+      return ret;
+    }
+
+    if (!overlayItem->IsActive()) {
+      overlayItem->Activate(true);
+      OVDBG_DEBUG("%s: OverlayItem Id(%d) Activated", __func__, overlay_id);
+    } else {
+      OVDBG_DEBUG("%s: OverlayItem Id(%d) already Activated", __func__,
+                  overlay_id);
+    }
+  }
+  // Disable inactive overlay
+  while (items_iter != overlay_items_.end()) {
+    overlay_id = items_iter->first;
+    overlayItem = items_iter->second;
+    if (overlayItem->IsActive()) {
+      OVDBG_DEBUG("%s: Disable overlayItem for id: %u!", __func__,
+                    overlay_id);
+      overlayItem->Activate(false);
+    }
+    items_iter++;
+  }
+
+  return ret;
+  OVDBG_VERBOSE("%s: Exit", __func__);
+}
+
+int32_t Overlay::DeleteOverlayItems() {
+  OVDBG_VERBOSE("%s: Enter", __func__);
+  std::lock_guard<std::mutex> lock(lock_);
+  int32_t ret = 0;
+  uint32_t overlay_id = 0;
+  OverlayItem* overlayItem = nullptr;
+
+  auto items_iter = overlay_items_.begin();
+  while (items_iter != overlay_items_.end()) {
+    overlay_id = items_iter->first;
+    overlayItem = items_iter->second;
+
+    assert(overlayItem != nullptr);
+    delete overlayItem;
+    overlay_items_.erase(overlay_id);
+    OVDBG_INFO("%s: overlay_id(%d) & overlayItem(0x%p) Removed from map",
+               __func__, overlay_id, overlayItem);
+    items_iter++;
+  }
+
+  OVDBG_VERBOSE("%s: Exit", __func__);
   return ret;
 }
 

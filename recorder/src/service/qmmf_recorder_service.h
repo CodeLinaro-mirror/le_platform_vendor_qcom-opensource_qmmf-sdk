@@ -209,6 +209,9 @@ class RecorderService : public BnInterface<IRecorderService> {
                                const uint32_t track_id,
                                const uint32_t overlay_id) override;
 
+  status_t DeleteOverlayObjects(const uint32_t client_id,
+                               const uint32_t track_id) override;
+
   status_t GetOverlayObjectParams(const uint32_t client_id,
                                   const uint32_t track_id,
                                   const uint32_t overlay_id,
@@ -218,6 +221,10 @@ class RecorderService : public BnInterface<IRecorderService> {
                                      const uint32_t track_id,
                                      const uint32_t overlay_id,
                                      OverlayParam *param) override;
+
+  status_t ProcessOverlayObjects(
+      const uint32_t client_id, const uint32_t track_id,
+      const std::vector<OverlayParam> &overlay_list) override;
 
   status_t SetOverlayObject(const uint32_t client_id,
                             const uint32_t track_id,

@@ -624,6 +624,15 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
         return NO_ERROR;
       }
       break;
+      case RECORDER_DELETE_OVERLAYOBJECTS: {
+        uint32_t client_id, track_id;
+        data.readUint32(&client_id);
+        data.readUint32(&track_id);
+        ret = DeleteOverlayObjects(client_id, track_id);
+        reply->writeInt32(ret);
+        return NO_ERROR;
+      }
+      break;
       case RECORDER_GET_OVERLAYOBJECT_PARAMS: {
         uint32_t client_id, overlay_id, track_id;
         data.readUint32(&client_id);
@@ -682,6 +691,32 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
         return NO_ERROR;
       }
       break;
+      case RECORDER_PROCESS_OVERLAYOBJECTS: {
+        uint32_t client_id, track_id, list_size;
+        data.readUint32(&client_id);
+        data.readUint32(&track_id);
+        data.readUint32(&list_size);
+        std::vector<OverlayParam> overlay_list;
+        QMMF_VERBOSE("%s: info_size:%u\n", __func__, list_size);
+        for (uint32_t i = 0; i < list_size; i++) {
+          uint32_t size;
+          OverlayParam param;
+          data.readUint32(&size);
+          android::Parcel::ReadableBlob blob;
+          data.readBlob(size, &blob);
+          void *param_ptr = const_cast<void *>(blob.data());
+          assert(size == sizeof(OverlayParam));
+          memset(&param, 0x0, size);
+          memcpy(&param, param_ptr, size);
+          overlay_list.push_back(param);
+          QMMF_VERBOSE("%s: w:%u h:%u\n", __func__, param.dst_rect.width,
+                       param.dst_rect.height);
+          blob.release();
+        }
+        ret = ProcessOverlayObjects(client_id, track_id, overlay_list);
+        reply->writeInt32(ret);
+        return NO_ERROR;
+      }
       case RECORDER_SET_OVERLAYOBJECT: {
         uint32_t client_id, track_id, overlay_id;
         data.readUint32(&client_id);
@@ -1584,6 +1619,24 @@ status_t RecorderService::DeleteOverlayObject(const uint32_t client_id,
   return NO_ERROR;
 }
 
+status_t RecorderService::DeleteOverlayObjects(const uint32_t client_id,
+                                               const uint32_t track_id) {
+  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
+
+  if (!IsRecorderInitialized()) {
+    QMMF_ERROR("%s: Recorder not initialized!", __func__);
+    return NO_INIT;
+  }
+
+  auto ret = recorder_->DeleteOverlayObjects(client_id, track_id);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s: DeleteOverlayObjects failed!", __func__);
+    return ret;
+  }
+  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
+  return NO_ERROR;
+}
+
 status_t RecorderService::GetOverlayObjectParams(const uint32_t client_id,
                                                  const uint32_t track_id,
                                                  const uint32_t overlay_id,
@@ -1624,6 +1677,27 @@ status_t RecorderService::UpdateOverlayObjectParams(const uint32_t client_id,
     QMMF_ERROR("%s: UpdateOverlayObjectParams failed!", __func__);
     return ret;
   }
+  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
+  return NO_ERROR;
+}
+
+status_t RecorderService::ProcessOverlayObjects(
+    const uint32_t client_id, const uint32_t track_id,
+    const std::vector<OverlayParam> &overlay_list) {
+  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
+
+  if (!IsRecorderInitialized()) {
+    QMMF_ERROR("%s: Recorder not initialized!", __func__);
+    return NO_INIT;
+  }
+
+  auto ret =
+      recorder_->ProcessOverlayObjects(client_id, track_id, overlay_list);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s: failed!", __func__);
+    return ret;
+  }
+
   QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
   return NO_ERROR;
 }
