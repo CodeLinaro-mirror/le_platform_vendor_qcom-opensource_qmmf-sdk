@@ -3534,11 +3534,11 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithDualCam4KEncAllISOModes) {
 
       sleep(record_dur/kISOModeEnd);
 
-      ret = recorder_.CancelCaptureImage(camera_id_);
-      ASSERT_TRUE(ret == NO_ERROR);
-
       meta_array.clear();
     }
+
+    ret = recorder_.CancelCaptureImage(camera_id_);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StopSession(session_id, false);
     ASSERT_TRUE(ret == NO_ERROR);
@@ -3734,10 +3734,11 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithDualCam4KEncExposureTime) {
                                  cb);
       ASSERT_TRUE(ret == NO_ERROR);
       sleep(record_dur/num_samples);
-      ret = recorder_.CancelCaptureImage(camera_id_);
-      ASSERT_TRUE(ret == NO_ERROR);
       meta_array.clear();
     }
+
+    ret = recorder_.CancelCaptureImage(camera_id_);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StopSession(session_id, false);
     ASSERT_TRUE(ret == NO_ERROR);
@@ -3878,10 +3879,11 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithDualCam4KEncAllAWBModes) {
                                  cb);
       ASSERT_TRUE(ret == NO_ERROR);
       sleep(record_dur/kAWBModeEnd);
-      ret = recorder_.CancelCaptureImage(camera_id_);
-      ASSERT_TRUE(ret == NO_ERROR);
       meta_array.clear();
     }
+
+    ret = recorder_.CancelCaptureImage(camera_id_);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StopSession(session_id, false);
     ASSERT_TRUE(ret == NO_ERROR);
@@ -4873,10 +4875,11 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithSingleCam4KEncDynamicExposureTable
       ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array, cb);
       ASSERT_TRUE(ret == NO_ERROR);
       sleep(record_duration_);
-      ret = recorder_.CancelCaptureImage(camera_id_);
-      ASSERT_TRUE(ret == NO_ERROR);
       meta_array.clear();
     }
+
+    ret = recorder_.CancelCaptureImage(camera_id_);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StopSession(session_id, false);
     ASSERT_TRUE(ret == NO_ERROR);
@@ -5045,10 +5048,11 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithSingleCam4KEncAllExposureValues) {
         ASSERT_TRUE(ret == NO_ERROR);
 
         sleep(record_dur);
-        ret = recorder_.CancelCaptureImage(camera_id_);
-        ASSERT_TRUE(ret == NO_ERROR);
         meta_array.clear();
       }
+
+      ret = recorder_.CancelCaptureImage(camera_id_);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     ret = recorder_.StopSession(session_id, false);
@@ -5217,10 +5221,11 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithDualCam4KEncAllExposureValues) {
         ASSERT_TRUE(ret == NO_ERROR);
 
         sleep(record_dur);
-        ret = recorder_.CancelCaptureImage(camera_id_);
-        ASSERT_TRUE(ret == NO_ERROR);
         meta_array.clear();
       }
+
+      ret = recorder_.CancelCaptureImage(camera_id_);
+      ASSERT_TRUE(ret == NO_ERROR);
     }
 
     ret = recorder_.StopSession(session_id, false);
@@ -5395,10 +5400,11 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithDualCam4KEncAllExposureMeteringMod
       ASSERT_TRUE(ret == NO_ERROR);
 
       sleep(record_dur/available_meter_mode);
-      ret = recorder_.CancelCaptureImage(camera_id_);
-      ASSERT_TRUE(ret == NO_ERROR);
       meta_array.clear();
     }
+
+    ret = recorder_.CancelCaptureImage(camera_id_);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StopSession(session_id, false);
     ASSERT_TRUE(ret == NO_ERROR);
@@ -5579,11 +5585,11 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithSingleCam4KEncCameraISOModes) {
 
       sleep(record_dur/count);
 
-      ret = recorder_.CancelCaptureImage(camera_id_);
-      ASSERT_TRUE(ret == NO_ERROR);
-
       meta_array.clear();
     }
+
+    ret = recorder_.CancelCaptureImage(camera_id_);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StopSession(session_id, false);
     ASSERT_TRUE(ret == NO_ERROR);
@@ -5765,11 +5771,11 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithSingleCam4KEncCameraMWBModes) {
 
       sleep(record_dur/count);
 
-      ret = recorder_.CancelCaptureImage(camera_id_);
-      ASSERT_TRUE(ret == NO_ERROR);
-
       meta_array.clear();
     }
+
+    ret = recorder_.CancelCaptureImage(camera_id_);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StopSession(session_id, false);
     ASSERT_TRUE(ret == NO_ERROR);
@@ -5941,11 +5947,11 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithSingleCam4KEncAllISOModes) {
 
       sleep(record_dur/kISOModeEnd);
 
-      ret = recorder_.CancelCaptureImage(camera_id_);
-      ASSERT_TRUE(ret == NO_ERROR);
-
       meta_array.clear();
     }
+
+    ret = recorder_.CancelCaptureImage(camera_id_);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StopSession(session_id, false);
     ASSERT_TRUE(ret == NO_ERROR);
@@ -6151,10 +6157,11 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithSingleCam4KEncExposureTime) {
                                  cb);
       ASSERT_TRUE(ret == NO_ERROR);
       sleep(record_dur/num_samples);
-      ret = recorder_.CancelCaptureImage(camera_id_);
-      ASSERT_TRUE(ret == NO_ERROR);
       meta_array.clear();
     }
+
+    ret = recorder_.CancelCaptureImage(camera_id_);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StopSession(session_id, false);
     ASSERT_TRUE(ret == NO_ERROR);
@@ -6305,10 +6312,11 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithSingleCam4KEncAllAWBModes) {
                                  cb);
       ASSERT_TRUE(ret == NO_ERROR);
       sleep(record_dur/kAWBModeEnd);
-      ret = recorder_.CancelCaptureImage(camera_id_);
-      ASSERT_TRUE(ret == NO_ERROR);
       meta_array.clear();
     }
+
+    ret = recorder_.CancelCaptureImage(camera_id_);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StopSession(session_id, false);
     ASSERT_TRUE(ret == NO_ERROR);
@@ -6492,10 +6500,11 @@ TEST_F(RecorderVideoSnapshotGTest, SessionWithSingleCam4KEncAllExposureMeteringM
       ASSERT_TRUE(ret == NO_ERROR);
 
       sleep(record_dur/available_meter_mode);
-      ret = recorder_.CancelCaptureImage(camera_id_);
-      ASSERT_TRUE(ret == NO_ERROR);
       meta_array.clear();
     }
+
+    ret = recorder_.CancelCaptureImage(camera_id_);
+    ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.StopSession(session_id, false);
     ASSERT_TRUE(ret == NO_ERROR);
