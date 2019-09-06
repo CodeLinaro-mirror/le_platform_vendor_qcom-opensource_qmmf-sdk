@@ -750,7 +750,7 @@ status_t RecorderService::Connect(const sp<IRecorderServiceCallback>&
       return NO_MEMORY;
     }
     std::function< const sp<RemoteCallBack>& (uint32_t id)>
-      remote_cb_handle = [&] (uint32_t id) {
+      remote_cb_handle = [&] (uint32_t id) -> sp<RemoteCallBack>& {
         QMMF_VERBOSE("%s: Remote Callback request for client(%d)", __func__, id);
         assert(remote_cb_list_.count(id) != 0);
         return remote_cb_list_[id];
