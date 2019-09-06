@@ -421,45 +421,49 @@ int32_t Overlay::ApplyOverlay(const OverlayTargetBuffer& buffer) {
       }
     }
   }
+
   C2dObjects c2d_objects;
   memset(&c2d_objects, 0x0, sizeof c2d_objects);
   // Iterate all updated overlayItems, and get coordinates.
   for (auto &iter : overlay_items_) {
-    DrawInfo draw_info;
-    memset(&draw_info, 0x0, sizeof draw_info);
-    OverlayItem *overlay_item = (iter).second;
-    if(overlay_item->IsActive()) {
-      overlay_item->GetDrawInfo(buffer.width, buffer.height,
-          &draw_info);
-      c2d_objects.objects[obj_idx].surface_id  = draw_info.c2dSurfaceId;
-      c2d_objects.objects[obj_idx].config_mask = C2D_ALPHA_BLEND_SRC_ATOP
-                                           |C2D_TARGET_RECT_BIT;
-      if (draw_info.in_width) {
+    std::vector<DrawInfo> draw_infos;
+    OverlayItem* overlay_item = (iter).second;
+    if (overlay_item->IsActive()) {
+      overlay_item->GetDrawInfo(buffer.width, buffer.height, draw_infos);
+      auto info_size = draw_infos.size();
+      for (auto i = 0; i < info_size; i++) {
+        c2d_objects.objects[obj_idx].surface_id = draw_infos[i].c2dSurfaceId;
+        c2d_objects.objects[obj_idx].config_mask =
+            C2D_ALPHA_BLEND_SRC_ATOP | C2D_TARGET_RECT_BIT;
+      if (draw_infos[i].in_width) {
         c2d_objects.objects[obj_idx].config_mask        |= C2D_SOURCE_RECT_BIT;
-        c2d_objects.objects[obj_idx].source_rect.x       = draw_info.in_x << 16;
-        c2d_objects.objects[obj_idx].source_rect.y       = draw_info.in_y << 16;
+        c2d_objects.objects[obj_idx].source_rect.x       = draw_infos[i].in_x << 16;
+        c2d_objects.objects[obj_idx].source_rect.y       = draw_infos[i].in_y << 16;
         c2d_objects.objects[obj_idx].source_rect.width   =
-            draw_info.in_width << 16;
+            draw_infos[i].in_width << 16;
         c2d_objects.objects[obj_idx].source_rect.height  =
-            draw_info.in_height << 16;
+            draw_infos[i].in_height << 16;
       }
-      c2d_objects.objects[obj_idx].target_rect.x       = draw_info.x << 16;
-      c2d_objects.objects[obj_idx].target_rect.y       = draw_info.y << 16;
-      c2d_objects.objects[obj_idx].target_rect.width   = draw_info.width << 16;
-      c2d_objects.objects[obj_idx].target_rect.height  = draw_info.height << 16;
+        c2d_objects.objects[obj_idx].target_rect.x = draw_infos[i].x << 16;
+        c2d_objects.objects[obj_idx].target_rect.y = draw_infos[i].y << 16;
+        c2d_objects.objects[obj_idx].target_rect.width =
+            draw_infos[i].width << 16;
+        c2d_objects.objects[obj_idx].target_rect.height =
+            draw_infos[i].height << 16;
 
-      OVDBG_VERBOSE("%s: c2d_objects[%d].surface_id=%d", __func__, obj_idx,
-          c2d_objects.objects[obj_idx].surface_id);
-      OVDBG_VERBOSE("%s: c2d_objects[%d].target_rect.x=%d", __func__, obj_idx,
-          draw_info.x);
-      OVDBG_VERBOSE("%s: c2d_objects[%d].target_rect.y=%d", __func__, obj_idx,
-          draw_info.y);
-      OVDBG_VERBOSE("%s: c2d_objects[%d].target_rect.width=%d", __func__,
-          obj_idx, draw_info.width);
-      OVDBG_VERBOSE("%s: c2d_objects[%d].target_rect.height=%d", __func__,
-          obj_idx, draw_info.height);
-      ++numActiveOverlays;
-      ++obj_idx;
+        OVDBG_VERBOSE("%s: c2d_objects[%d].surface_id=%d", __func__, obj_idx,
+                      c2d_objects.objects[obj_idx].surface_id);
+        OVDBG_VERBOSE("%s: c2d_objects[%d].target_rect.x=%d", __func__, obj_idx,
+                      draw_infos[i].x);
+        OVDBG_VERBOSE("%s: c2d_objects[%d].target_rect.y=%d", __func__, obj_idx,
+                      draw_infos[i].y);
+        OVDBG_VERBOSE("%s: c2d_objects[%d].target_rect.width=%d", __func__,
+                      obj_idx, draw_infos[i].width);
+        OVDBG_VERBOSE("%s: c2d_objects[%d].target_rect.height=%d", __func__,
+                      obj_idx, draw_infos[i].height);
+        ++numActiveOverlays;
+        ++obj_idx;
+      }
     }
   }
 
@@ -884,11 +888,13 @@ int32_t OverlayItemStaticImage::UpdateAndDraw() {
 
 void OverlayItemStaticImage::GetDrawInfo(uint32_t targetWidth,
                                          uint32_t targetHeight,
-                                         DrawInfo* draw_info) {
+                                         std::vector<DrawInfo>& draw_infos) {
 
   OVDBG_VERBOSE("%s: Enter", __func__);
-  draw_info->width  = width_;
-  draw_info->height = height_;
+  DrawInfo draw_info;
+  memset(&draw_info, 0x0, sizeof(DrawInfo));
+  draw_info.width  = width_;
+  draw_info.height = height_;
   int32_t xMargin = targetWidth * OVERLAYITEM_X_MARGIN_PERCENT/100;
   int32_t yMargin = targetHeight * OVERLAYITEM_Y_MARGIN_PERCENT/100;
   int32_t x = 0;
@@ -925,21 +931,22 @@ void OverlayItemStaticImage::GetDrawInfo(uint32_t targetWidth,
       y = y_;
       break;
   }
-  draw_info->x            = x;
-  draw_info->y            = y;
-  draw_info->c2dSurfaceId = c2dsurface_id_;
+  draw_info.x            = x;
+  draw_info.y            = y;
+  draw_info.c2dSurfaceId = c2dsurface_id_;
 
   if (width_ != crop_rect_width_ || height_ != crop_rect_height_) {
-    draw_info->in_width = crop_rect_width_;
-    draw_info->in_height = crop_rect_height_;
-    draw_info->in_x = crop_rect_x_;
-    draw_info->in_y = crop_rect_y_;
+    draw_info.in_width = crop_rect_width_;
+    draw_info.in_height = crop_rect_height_;
+    draw_info.in_x = crop_rect_x_;
+    draw_info.in_y = crop_rect_y_;
   } else {
-    draw_info->in_width = 0;
-    draw_info->in_height = 0;
-    draw_info->in_x = 0;
-    draw_info->in_y = 0;
+    draw_info.in_width = 0;
+    draw_info.in_height = 0;
+    draw_info.in_x = 0;
+    draw_info.in_y = 0;
   }
+  draw_infos.push_back(draw_info);
 
   OVDBG_VERBOSE("%s: Exit", __func__);
 }
@@ -1327,11 +1334,14 @@ int32_t OverlayItemDateAndTime::UpdateAndDraw() {
 
 void OverlayItemDateAndTime::GetDrawInfo(uint32_t targetWidth,
                                          uint32_t targetHeight,
-                                         DrawInfo* draw_info) {
+                                         std::vector<DrawInfo>& draw_infos) {
 
   OVDBG_VERBOSE("%s:Enter ",__func__);
-  draw_info->width  = targetWidth * DATETIME_TARGET_WIDTH_PERCENT/100;
-  draw_info->height = targetHeight * DATETIME_TARGET_HEIGHT_PERCENT/100;
+  DrawInfo draw_info;
+  memset(&draw_info, 0x0, sizeof(DrawInfo));
+
+  draw_info.width  = targetWidth * DATETIME_TARGET_WIDTH_PERCENT/100;
+  draw_info.height = targetHeight * DATETIME_TARGET_HEIGHT_PERCENT/100;
 
   int32_t xMargin = targetWidth * OVERLAYITEM_X_MARGIN_PERCENT/100;
   int32_t yMargin = targetHeight * OVERLAYITEM_Y_MARGIN_PERCENT/100;
@@ -1345,20 +1355,20 @@ void OverlayItemDateAndTime::GetDrawInfo(uint32_t targetWidth,
       y = yMargin;
       break;
     case OverlayLocationType::kTopRight:
-      x = targetWidth - (draw_info->width + xMargin);
+      x = targetWidth - (draw_info.width + xMargin);
       y = yMargin;
       break;
     case OverlayLocationType::kCenter:
-      x = (targetWidth - draw_info->width)/2;
-      y = (targetHeight - draw_info->height)/2;
+      x = (targetWidth - draw_info.width)/2;
+      y = (targetHeight - draw_info.height)/2;
       break;
     case OverlayLocationType::kBottomLeft:
       x = xMargin;
-      y = targetHeight - (draw_info->height + yMargin);
+      y = targetHeight - (draw_info.height + yMargin);
       break;
     case OverlayLocationType::kBottomRight:
-      x = targetWidth - (draw_info->width + xMargin);
-      y = targetHeight - (draw_info->height + yMargin);
+      x = targetWidth - (draw_info.width + xMargin);
+      y = targetHeight - (draw_info.height + yMargin);
       break;
     case OverlayLocationType::kRandom:
       x = x_;
@@ -1368,9 +1378,10 @@ void OverlayItemDateAndTime::GetDrawInfo(uint32_t targetWidth,
     default:
       break;
   }
-  draw_info->x            = x;
-  draw_info->y            = y;
-  draw_info->c2dSurfaceId = c2dsurface_id_;
+  draw_info.x            = x;
+  draw_info.y            = y;
+  draw_info.c2dSurfaceId = c2dsurface_id_;
+  draw_infos.push_back(draw_info);
   OVDBG_VERBOSE("%s:Exit ",__func__);
 }
 
@@ -1501,6 +1512,38 @@ OverlayItemBoundingBox::OverlayItemBoundingBox(int32_t ion_device)
 OverlayItemBoundingBox::~OverlayItemBoundingBox() {
   OVDBG_INFO("%s: Enter", __func__);
   bbox_name_.clear();
+#if USE_CAIRO
+  // Unmap overlay gpu address.
+  if (text_gpu_addr_) {
+    c2dUnMapAddr(text_gpu_addr_);
+    text_gpu_addr_ = nullptr;
+    OVDBG_INFO("%s: Unmapped text GPU address for type(%d)", __func__, type_);
+  }
+  if (text_vaddr_) {
+    if (text_ion_fd_) SyncEnd(text_ion_fd_);
+    munmap(text_vaddr_, text_size_);
+    text_vaddr_ = nullptr;
+  }
+  // Destroy source overlay surface.
+  if (text_c2dsurface_id_) {
+    c2dDestroySurface(text_c2dsurface_id_);
+    text_c2dsurface_id_ = -1;
+    OVDBG_INFO("%s: Destroyed c2d text Surface for type(%d)", __func__, type_);
+  }
+  // Free overlay ION memory.
+  if (text_ion_fd_) {
+    close(text_ion_fd_);
+    text_ion_fd_ = -1;
+    OVDBG_INFO("%s: Destroyed text ION buffer for type(%d)", __func__, type_);
+  }
+
+  if (text_cr_surface_) {
+    cairo_surface_destroy(text_cr_surface_);
+  }
+  if (text_cr_context_) {
+    cairo_destroy(text_cr_context_);
+  }
+#endif
   OVDBG_INFO("%s: Exit", __func__);
 }
 
@@ -1519,6 +1562,17 @@ int32_t OverlayItemBoundingBox::Init(OverlayParam& param) {
   width_      = param.dst_rect.width;
   height_     = param.dst_rect.height;
   bbox_color_ = param.color;
+#if USE_CAIRO
+  text_width_ = 320;
+  text_height_ = 80;
+  box_stroke_width_ = BOUNDING_BOX_STROKE_WIDTH;
+
+  char prop_val[PROPERTY_VALUE_MAX];
+  property_get(PROP_BOX_STROKE_WIDTH, prop_val, "4");
+  box_stroke_width_ = (static_cast<uint32_t>(atoi(prop_val)) >
+      box_stroke_width_) ? static_cast<uint32_t>(atoi(prop_val)) :
+      box_stroke_width_;
+#endif
 
   float scaled_width  = static_cast<float>(width_) / DOWNSCALE_FACTOR;
   float scaled_height = static_cast<float>(height_) / DOWNSCALE_FACTOR;
@@ -1550,6 +1604,7 @@ int32_t OverlayItemBoundingBox::Init(OverlayParam& param) {
     OVDBG_ERROR("%s: CreateSurface failed!", __func__);
     return NO_INIT;
   }
+
   OVDBG_VERBOSE("%s: Exit", __func__);
   return ret;
 }
@@ -1563,42 +1618,38 @@ int32_t OverlayItemBoundingBox::UpdateAndDraw() {
     OVDBG_DEBUG("%s: Item is not dirty! Don't draw!", __func__);
     return ret;
   }
-  //  Bounding Box and text are drawn on same buffer.
+  //  First text is drawn.
   //  ----------
   //  | TEXT   |
+  //  ----------
+  // Then bounding box is drawn
   //  ----------
   //  |        |
   //  |  BOX   |
   //  |        |
   //  ----------
 
-  uint32_t box_stroke_width = BOUNDING_BOX_STROKE_WIDTH;
-
-  char prop_val[PROPERTY_VALUE_MAX];
-  property_get(PROP_BOX_STROKE_WIDTH, prop_val, "4");
-  box_stroke_width = (static_cast<uint32_t>(atoi(prop_val)) >
-      box_stroke_width) ? static_cast<uint32_t>(atoi(prop_val)) :
-      box_stroke_width;
 
 #if USE_CAIRO
   OVDBG_INFO("%s: Draw bounding box and text!", __func__);
   ClearSurface();
+  ClearTextSurface();
   // Draw text first.
-  cairo_select_font_face(cr_context_, "@cairo:Georgia", CAIRO_FONT_SLANT_NORMAL,
+  cairo_select_font_face(text_cr_context_, "@cairo:Georgia", CAIRO_FONT_SLANT_NORMAL,
                          CAIRO_FONT_WEIGHT_BOLD);
 
-  cairo_set_font_size (cr_context_, BOUNDING_BOX_TEXT_SIZE);
-  cairo_set_antialias(cr_context_, CAIRO_ANTIALIAS_BEST);
+  cairo_set_font_size (text_cr_context_, BOUNDING_BOX_TEXT_SIZE);
+  cairo_set_antialias(text_cr_context_, CAIRO_ANTIALIAS_BEST);
 
   cairo_font_extents_t font_extents;
-  cairo_font_extents (cr_context_, &font_extents);
+  cairo_font_extents (text_cr_context_, &font_extents);
   OVDBG_VERBOSE("%s: BBox Font: ascent=%f, descent=%f, height=%f, "
       "max_x_advance=%f, max_y_advance = %f", __func__, font_extents.ascent,
       font_extents.descent, font_extents.height, font_extents.max_x_advance,
       font_extents.max_y_advance);
 
   cairo_text_extents_t text_extents;
-  cairo_text_extents (cr_context_, bbox_name_.string(), &text_extents);
+  cairo_text_extents (text_cr_context_, bbox_name_.string(), &text_extents);
 
   OVDBG_VERBOSE("%s: BBox Text: te.x_bearing=%f, te.y_bearing=%f, te.width=%f,"
       " te.height=%f, te.x_advance=%f, te.y_advance=%f", __func__,
@@ -1609,29 +1660,29 @@ int32_t OverlayItemBoundingBox::UpdateAndDraw() {
   cairo_font_options_t *options;
   options = cairo_font_options_create ();
   cairo_font_options_set_antialias (options, CAIRO_ANTIALIAS_BEST);
-  cairo_set_font_options (cr_context_, options);
+  cairo_set_font_options (text_cr_context_, options);
   cairo_font_options_destroy (options);
 
   double x_text = 0.0;
-  double y_text = text_extents.height;
-  cairo_move_to (cr_context_, x_text, y_text);
+  double y_text = text_extents.height + (font_extents.descent/2.0);
+  OVDBG_VERBOSE("%s: x_text=%f, y_text=%f", __func__, x_text, y_text);
+  cairo_move_to (text_cr_context_, x_text, y_text);
 
   RGBAValues bbox_color;
   memset(&bbox_color, 0x0, sizeof bbox_color);
   ExtractColorValues(bbox_color_, &bbox_color);
-  cairo_set_source_rgba (cr_context_, bbox_color.red, bbox_color.green,
+  cairo_set_source_rgba (text_cr_context_, bbox_color.red, bbox_color.green,
                          bbox_color.blue, bbox_color.alpha);
-  cairo_show_text (cr_context_, bbox_name_.string());
-  assert(CAIRO_STATUS_SUCCESS == cairo_status(cr_context_));
+  cairo_show_text (text_cr_context_, bbox_name_.string());
+  assert(CAIRO_STATUS_SUCCESS == cairo_status(text_cr_context_));
+  cairo_surface_flush (text_cr_surface_);
 
   // Draw rectangle
-  cairo_set_line_width (cr_context_, box_stroke_width);
+  cairo_set_line_width (cr_context_, box_stroke_width_);
   cairo_set_source_rgba (cr_context_, bbox_color.red, bbox_color.green,
                          bbox_color.blue, bbox_color.alpha);
-  double x_rect = 0.0;
-  double y_rect = text_extents.height + (font_extents.descent/2);
-  cairo_rectangle (cr_context_, x_rect, y_rect, buffer_width_,
-                   buffer_height_ - y_rect);
+  cairo_rectangle (cr_context_, 0, 0, buffer_width_,
+                   buffer_height_);
   cairo_stroke (cr_context_);
   assert(CAIRO_STATUS_SUCCESS == cairo_status(cr_context_));
 
@@ -1682,17 +1733,26 @@ int32_t OverlayItemBoundingBox::UpdateAndDraw() {
 
 void OverlayItemBoundingBox::GetDrawInfo(uint32_t targetWidth,
                                          uint32_t targetHeight,
-                                         DrawInfo* draw_info) {
+                                         std::vector<DrawInfo>& draw_infos) {
   OVDBG_VERBOSE("%s: Enter", __func__);
-  //Cut Text portion while scaling up bounding box to stream size.
-  int32_t textPortion = buffer_height_ * BOUNDING_BOX_TEXT_PERCENT/100;
-  textPortion        += BOUNDING_BOX_TEXT_MARGIN;
-  int32_t ratio           = height_ / buffer_height_;
-  draw_info->x            = x_;
-  draw_info->y            = y_ - (ratio * textPortion);
-  draw_info->width        = width_;
-  draw_info->height       = height_ + (ratio * textPortion);
-  draw_info->c2dSurfaceId = c2dsurface_id_;
+  DrawInfo draw_info_bbox;
+  memset(&draw_info_bbox, 0x0, sizeof(DrawInfo));
+  draw_info_bbox.x = x_;
+  draw_info_bbox.y = y_;
+  draw_info_bbox.width = width_;
+  draw_info_bbox.height = height_;
+  draw_info_bbox.c2dSurfaceId = c2dsurface_id_;
+  draw_infos.push_back(draw_info_bbox);
+#if USE_CAIRO
+  DrawInfo draw_info_text;
+  memset(&draw_info_text, 0x0, sizeof(DrawInfo));
+  draw_info_text.x = x_ + box_stroke_width_+ 4;
+  draw_info_text.y = y_ + (box_stroke_width_/2);
+  draw_info_text.width = targetWidth * TEXT_TARGET_WIDTH_PERCENT/100;
+  draw_info_text.height = targetHeight * TEXT_TARGET_HEIGHT_PERCENT/100;
+  draw_info_text.c2dSurfaceId = text_c2dsurface_id_;
+  draw_infos.push_back(draw_info_text);
+#endif
   OVDBG_VERBOSE("%s: Exit", __func__);
 }
 
@@ -1709,6 +1769,32 @@ void OverlayItemBoundingBox::GetParameters(OverlayParam& param) {
   std::string str(bbox_name_.string());
   str.copy(param.bounding_box.box_name, bbox_name_.length());
   OVDBG_VERBOSE("%s:Exit ",__func__);
+}
+
+void OverlayItemBoundingBox::ClearTextSurface() {
+#if USE_CAIRO
+  RGBAValues bg_color;
+  memset(&bg_color, 0x0, sizeof bg_color);
+  // Painting entire surface with background color or with fully transparent
+  // color doesn't work since cairo uses the OVER compositing operator
+  // by default, and blending something entirely transparent OVER something
+  // else has no effect at all until compositing operator is changed to SOURCE,
+  // the SOURCE operator copies both color and alpha values directly from the
+  // source to the destination instead of blending.
+#ifdef DEBUG_BACKGROUND_SURFACE
+  ExtractColorValues(BG_DEBUG_COLOR, &bg_color);
+  cairo_set_source_rgba(text_cr_context_, bg_color.red, bg_color.green,
+                        bg_color.blue, bg_color.alpha);
+  cairo_set_operator(text_cr_context_, CAIRO_OPERATOR_SOURCE);
+#else
+  cairo_set_operator(text_cr_context_, CAIRO_OPERATOR_CLEAR);
+#endif
+  cairo_paint(text_cr_context_);
+  cairo_surface_flush(text_cr_surface_);
+  cairo_set_operator(text_cr_context_, CAIRO_OPERATOR_OVER);
+  assert(CAIRO_STATUS_SUCCESS == cairo_status(text_cr_context_));
+  cairo_surface_mark_dirty(text_cr_surface_);
+#endif
 }
 
 int32_t OverlayItemBoundingBox::UpdateParameters(OverlayParam& param) {
@@ -1818,11 +1904,63 @@ int32_t OverlayItemBoundingBox::CreateSurface() {
   ion_fd_      = mem_info.fd;
   vaddr_       = mem_info.vaddr;
   size_        = mem_info.size;
+
+#if USE_CAIRO
+  // Setup text surface
+  size = text_width_ * text_height_ * 4;
+  memset(&mem_info, 0x0, sizeof(IonMemInfo));
+  ret = AllocateIonMemory(mem_info, size);
+  if (0 != ret) {
+    OVDBG_ERROR("%s:AllocateIonMemory failed", __func__);
+    return ret;
+  }
+  OVDBG_INFO("%s: Ion memory allocated fd = %d", __func__, mem_info.fd);
+
+  text_cr_surface_ = cairo_image_surface_create_for_data(
+      static_cast<unsigned char*>(mem_info.vaddr), CAIRO_FORMAT_ARGB32,
+      text_width_, text_height_, text_width_ * 4);
+  assert(text_cr_surface_ != nullptr);
+  text_cr_context_ = cairo_create(text_cr_surface_);
+  assert(text_cr_context_ != nullptr);
+  // Setup c2d for text
+  ret = c2dMapAddr(mem_info.fd, mem_info.vaddr, mem_info.size, 0,
+                   KGSL_USER_MEM_TYPE_ION, &text_gpu_addr_);
+  if (ret != C2D_STATUS_OK) {
+    OVDBG_ERROR("%s: c2dMapAddr failed!", __func__);
+    goto ERROR;
+  }
+
+  memset(&c2dSurfaceDef, 0x0, sizeof(C2D_RGB_SURFACE_DEF));
+  c2dSurfaceDef.format = C2D_COLOR_FORMAT_8888_ARGB;
+  c2dSurfaceDef.width = text_width_;
+  c2dSurfaceDef.height = text_height_;
+  c2dSurfaceDef.buffer = mem_info.vaddr;
+  c2dSurfaceDef.phys = text_gpu_addr_;
+  c2dSurfaceDef.stride = text_width_ * 4;
+
+  // Create source c2d surface.
+  ret = c2dCreateSurface(
+      &text_c2dsurface_id_, C2D_SOURCE,
+      (C2D_SURFACE_TYPE)(C2D_SURFACE_RGB_HOST | C2D_SURFACE_WITH_PHYS),
+      &c2dSurfaceDef);
+  if (ret != C2D_STATUS_OK) {
+    OVDBG_ERROR("%s: c2dCreateSurface failed!", __func__);
+    goto ERROR;
+  }
+
+  text_ion_fd_ = mem_info.fd;
+  text_vaddr_ = mem_info.vaddr;
+  text_size_ = mem_info.size;
+#endif
   OVDBG_VERBOSE("%s: Exit", __func__);
   return ret;
 ERROR:
   close(ion_fd_);
   ion_fd_ = -1;
+#if USE_CAIRO
+  close(text_ion_fd_);
+  text_ion_fd_ = -1;
+#endif
   return ret;
 }
 
@@ -1946,11 +2084,14 @@ int32_t OverlayItemText::UpdateAndDraw() {
 }
 
 void OverlayItemText::GetDrawInfo(uint32_t targetWidth,
-                                  uint32_t targetHeight, DrawInfo* draw_info) {
+                                  uint32_t targetHeight,
+                                  std::vector<DrawInfo>& draw_infos) {
 
   OVDBG_VERBOSE("%s: Enter", __func__);
-  draw_info->width  = targetWidth * TEXT_TARGET_WIDTH_PERCENT/100;
-  draw_info->height = targetHeight * TEXT_TARGET_HEIGHT_PERCENT/100;
+  DrawInfo draw_info;
+  memset(&draw_info, 0x0, sizeof(DrawInfo));
+  draw_info.width  = targetWidth * TEXT_TARGET_WIDTH_PERCENT/100;
+  draw_info.height = targetHeight * TEXT_TARGET_HEIGHT_PERCENT/100;
 
   int32_t xMargin = targetWidth * OVERLAYITEM_X_MARGIN_PERCENT/100;
   int32_t yMargin = targetHeight * OVERLAYITEM_Y_MARGIN_PERCENT/100;
@@ -1964,20 +2105,20 @@ void OverlayItemText::GetDrawInfo(uint32_t targetWidth,
       y = yMargin;
       break;
     case OverlayLocationType::kTopRight:
-      x = targetWidth - (draw_info->width + xMargin);
+      x = targetWidth - (draw_info.width + xMargin);
       y = yMargin;
       break;
     case OverlayLocationType::kCenter:
-      x = (targetWidth - draw_info->width)/2;
-      y = (targetHeight - draw_info->height)/2;
+      x = (targetWidth - draw_info.width)/2;
+      y = (targetHeight - draw_info.height)/2;
       break;
     case OverlayLocationType::kBottomLeft:
       x = xMargin;
-      y = targetHeight - (draw_info->height + yMargin);
+      y = targetHeight - (draw_info.height + yMargin);
       break;
     case OverlayLocationType::kBottomRight:
-      x = targetWidth - (draw_info->width + xMargin);
-      y = targetHeight - (draw_info->height + yMargin);
+      x = targetWidth - (draw_info.width + xMargin);
+      y = targetHeight - (draw_info.height + yMargin);
       break;
     case OverlayLocationType::kRandom:
       x = x_;
@@ -1989,9 +2130,10 @@ void OverlayItemText::GetDrawInfo(uint32_t targetWidth,
       y = y_;
       break;
   }
-  draw_info->x            = x;
-  draw_info->y            = y;
-  draw_info->c2dSurfaceId = c2dsurface_id_;
+  draw_info.x            = x;
+  draw_info.y            = y;
+  draw_info.c2dSurfaceId = c2dsurface_id_;
+  draw_infos.push_back(draw_info);
 
   OVDBG_VERBOSE("%s: Exit", __func__);
 }
@@ -2203,14 +2345,17 @@ int32_t OverlayItemPrivacyMask::UpdateAndDraw() {
 
 void OverlayItemPrivacyMask::GetDrawInfo(uint32_t targetWidth,
                                          uint32_t targetHeight,
-                                         DrawInfo* draw_info) {
+                                         std::vector<DrawInfo>& draw_infos) {
 
   OVDBG_VERBOSE("%s: Enter", __func__);
-  draw_info->x            = x_;
-  draw_info->y            = y_;
-  draw_info->width        = width_;
-  draw_info->height       = height_;
-  draw_info->c2dSurfaceId = c2dsurface_id_;
+  DrawInfo draw_info;
+  memset(&draw_info, 0x0, sizeof(DrawInfo));
+  draw_info.x            = x_;
+  draw_info.y            = y_;
+  draw_info.width        = width_;
+  draw_info.height       = height_;
+  draw_info.c2dSurfaceId = c2dsurface_id_;
+  draw_infos.push_back(draw_info);
   OVDBG_VERBOSE("%s: Exit", __func__);
 }
 
