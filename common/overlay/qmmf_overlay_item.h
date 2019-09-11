@@ -246,8 +246,8 @@ class OverlayItemDateAndTime: public OverlayItem {
 #endif
 };
 
-#define BOUNDING_BOX_BUF_WIDTH     480
-#define BOUNDING_BOX_BUF_HEIGHT    270
+#define BOUNDING_BOX_BUF_WIDTH     240
+#define BOUNDING_BOX_BUF_HEIGHT    320
 #define BOUNDING_BOX_STROKE_WIDTH  4
 #define BOUNDING_BOX_TEXT_LIMIT    20
 #define BOUNDING_BOX_TEXT_SIZE     25

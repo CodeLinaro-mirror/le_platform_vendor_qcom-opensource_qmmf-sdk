@@ -1574,23 +1574,8 @@ int32_t OverlayItemBoundingBox::Init(OverlayParam& param) {
       box_stroke_width_;
 #endif
 
-  float scaled_width  = static_cast<float>(width_) / DOWNSCALE_FACTOR;
-  float scaled_height = static_cast<float>(height_) / DOWNSCALE_FACTOR;
-
-  float aspect_ratio = scaled_width / scaled_height;
-
-  OVDBG_INFO("%s: BoundingBox(W:%dxH:%d), aspect_ratio(%f), scaled(W:%fxH:%f)",
-      __func__, param.dst_rect.width, param.dst_rect.height,
-      aspect_ratio, scaled_width, scaled_height);
-
-  int32_t width = static_cast<int32_t>(round(scaled_width));
-  width = ROUND_TO(width, 16); // Round to multiple of 16.
-  width = width > BOUNDING_BOX_BUF_WIDTH ? width : BOUNDING_BOX_BUF_WIDTH;
-  int32_t height = (static_cast<int32_t>(width/aspect_ratio + 15)>> 4) << 4;
-  height = height > BOUNDING_BOX_BUF_HEIGHT ? height : BOUNDING_BOX_BUF_HEIGHT;
-
-  buffer_width_  = width;
-  buffer_height_ = height;
+  buffer_width_ = BOUNDING_BOX_BUF_WIDTH;
+  buffer_height_ = BOUNDING_BOX_BUF_HEIGHT;
 
   OVDBG_INFO("%s: Offscreen buffer:(%dx%d)",__func__, buffer_width_,
       buffer_height_);
@@ -1687,7 +1672,7 @@ int32_t OverlayItemBoundingBox::UpdateAndDraw() {
   assert(CAIRO_STATUS_SUCCESS == cairo_status(cr_context_));
 
   cairo_surface_flush (cr_surface_);
-
+  usleep(9000);
 #elif USE_SKIA
   if (width_ > 0 && height_ > 0) {
 
