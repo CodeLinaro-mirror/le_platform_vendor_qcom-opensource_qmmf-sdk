@@ -228,6 +228,8 @@ struct FaceInfo {
 #define PROP_SENSOR_CONFIG_FILE     "persist.qmmf.sensor.mode.file"
 // Prop to measure SOF latency
 #define PROP_MEASURE_SOF_LATENCY    "persist.qmmf.rec.gtest.sof.ts"
+// Prop to enable 10 bit support
+#define PROP_ENABLE_10_BIT          "persist.qmmf.rec.gtest.10bit.on"
 
 #ifndef MAX
 #define MAX(a,b) ((a) > (b) ? (a) : (b))
@@ -786,6 +788,7 @@ class GtestCommon : public ::testing::Test {
 
   bool                  ubwc_stream_enable_;
   bool                  enable_sof_latency_;
+  bool                  enable_10bit_support_;
 
 #ifdef QCAMERA3_TAG_LOCAL_COPY
   sp<VendorTagDescriptor> vendor_tag_desc_;

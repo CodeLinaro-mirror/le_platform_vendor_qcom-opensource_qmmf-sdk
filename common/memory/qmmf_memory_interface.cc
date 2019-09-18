@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -49,6 +49,8 @@ const int IMemAllocUsage::kSwReadOften = (1 << 6);
 const int IMemAllocUsage::kSwWriteOften = (1 << 7);
 const int IMemAllocUsage::kHwFb = (1 << 8);
 const int IMemAllocUsage::kVideoEncoder = (1 << 9);
+const int IMemAllocUsage::kP010 = (1 << 10);
+const int IMemAllocUsage::kTP10 = (1 << 11);
 
 IAllocDevice *AllocDeviceFactory::CreateAllocDevice() {
 #ifdef TARGET_USES_GRALLOC1

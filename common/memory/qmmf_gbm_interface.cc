@@ -46,7 +46,9 @@ const std::unordered_map<int32_t, int32_t> GBMUsage::usage_flag_map_ = {
   {IMemAllocUsage::kProtected,        GBM_BO_USAGE_PROTECTED_QTI},
   {IMemAllocUsage::kSwReadOften,      0},
   {IMemAllocUsage::kSwWriteOften,     0},
-  {IMemAllocUsage::kVideoEncoder,     GBM_BO_USAGE_VIDEO_ENCODER_QTI}};
+  {IMemAllocUsage::kVideoEncoder,     GBM_BO_USAGE_VIDEO_ENCODER_QTI},
+  {IMemAllocUsage::kP010,             0},
+  {IMemAllocUsage::kTP10,             0}};
 
 const std::unordered_map<int32_t, int32_t> GBMUsage::gralloc_usage_flag_map_ = {
   //TODO: remove when repacking to buffer_handle_t is no longer needed
@@ -56,7 +58,9 @@ const std::unordered_map<int32_t, int32_t> GBMUsage::gralloc_usage_flag_map_ = {
   {IMemAllocUsage::kSwReadOften,      GRALLOC_USAGE_SW_READ_OFTEN},
   {IMemAllocUsage::kSwWriteOften,     GRALLOC_USAGE_SW_WRITE_OFTEN},
   {IMemAllocUsage::kHwFb,             GRALLOC_USAGE_HW_FB},
-  {IMemAllocUsage::kVideoEncoder,     private_handle_t::PRIV_FLAGS_VIDEO_ENCODER}};
+  {IMemAllocUsage::kVideoEncoder,     private_handle_t::PRIV_FLAGS_VIDEO_ENCODER},
+  {IMemAllocUsage::kP010,             0},
+  {IMemAllocUsage::kTP10,             0}};
 
 GBMDevice* GBMDevice::gbm_device_obj_ = nullptr;
 int32_t GBMDevice::ref_count_ = 0;

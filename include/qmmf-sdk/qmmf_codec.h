@@ -125,6 +125,7 @@ enum class AVCLevelType {
 
 enum class HEVCProfileType {
   kMain,
+  kMain10,
 };
 
 enum class HEVCLevelType {
@@ -557,6 +558,8 @@ enum class BufferFormat {
   kRAW12,
   kRAW16,
   kNV12Encodable,
+  kP010,
+  kTP10UBWC,
   kUnsupported,
 };
 
