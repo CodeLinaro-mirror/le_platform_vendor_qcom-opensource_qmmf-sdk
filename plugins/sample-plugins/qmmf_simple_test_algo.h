@@ -83,13 +83,10 @@ class QmmfSimpleTestAlgo : public IAlgPlugin {
    * Set algorithm specific config data
    *    @config_json_data: config data in JSON format
    *
-   * return: string
+   * return: void
    **/
-  const std::string Configure(const std::string &config_json_data) {
-    std::string res = {};
+  void Configure(const std::string &config_json_data) {
     config_json_data_ = config_json_data;
-
-    return res;
   }
 
   /** Configure
@@ -98,14 +95,11 @@ class QmmfSimpleTestAlgo : public IAlgPlugin {
    *
    * Set algorithm specific config data
    *
-   * return: std::vector<uint8_t>
+   * return: void
    **/
-  const std::vector<uint8_t> Configure(
+  void Configure(
       __attribute__((unused)) const int32_t type,
       __attribute__((unused)) const std::vector<uint8_t> &config_data) {
-    std::vector<uint8_t> res = {};
-
-    return res;
   }
 
   /** GetConfig
