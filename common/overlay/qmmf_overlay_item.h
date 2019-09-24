@@ -96,6 +96,10 @@ struct DrawInfo {
     uint32_t x;
     uint32_t y;
     uint32_t c2dSurfaceId;
+    uint32_t in_width;
+    uint32_t in_height;
+    uint32_t in_x;
+    uint32_t in_y;
 };
 
 struct RGBAValues {
