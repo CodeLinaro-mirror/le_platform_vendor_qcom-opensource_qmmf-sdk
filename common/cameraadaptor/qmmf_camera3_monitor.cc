@@ -42,9 +42,9 @@ Camera3Monitor::Camera3Monitor()
 Camera3Monitor::~Camera3Monitor() {
   RequestExitAndWait();
 
-  pthread_mutex_destroy(&input_lock_);
-  pthread_mutex_destroy(&lock_);
   pthread_cond_destroy(&input_signal_);
+  pthread_mutex_destroy(&lock_);
+  pthread_mutex_destroy(&input_lock_);
 }
 
 int32_t Camera3Monitor::AcquireMonitor() {
