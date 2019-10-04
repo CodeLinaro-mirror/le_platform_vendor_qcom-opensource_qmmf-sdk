@@ -50,3 +50,7 @@ target_link_libraries(qmmf_recorder_client log binder utils cutils dl
 
 # TODO remove this hack when camx issue with propagating c and cpp glags is solved
 target_link_libraries(qmmf_recorder_client ion)
+
+if(TARGET_USES_GBM)
+target_link_libraries(qmmf_recorder_client gbm)
+endif()
