@@ -147,9 +147,9 @@ Camera3DeviceClient::~Camera3DeviceClient() {
     }
   }
 
-  pthread_mutex_destroy(&lock_);
-  pthread_mutex_destroy(&pending_requests_lock_);
   pthread_cond_destroy(&state_updated_);
+  pthread_mutex_destroy(&pending_requests_lock_);
+  pthread_mutex_destroy(&lock_);
 }
 
 int32_t Camera3DeviceClient::Initialize() {
