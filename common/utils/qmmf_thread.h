@@ -35,6 +35,7 @@
 #include <mutex>
 
 #include <common/utils/qmmf_condition.h>
+#include <sys/prctl.h>
 
 namespace qmmf {
 

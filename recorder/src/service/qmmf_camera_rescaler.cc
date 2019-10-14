@@ -291,7 +291,7 @@ int32_t CameraRescalerThread::Run(const std::string &name) {
   } else {
     name_ = name;
   }
-
+  prctl(PR_SET_NAME, name_.c_str(), 0, 0, 0);
   QMMF_INFO("%s: Thread %s is running\n", __func__, name_.c_str());
 
 exit:
@@ -322,7 +322,6 @@ void CameraRescalerThread::RequestExitAndWait() {
 }
 
 void *CameraRescalerThread::MainLoop(void *userdata) {
-  prctl(PR_SET_NAME, "CamRescaleMain", 0, 0, 0);
 
   CameraRescalerThread *pme = reinterpret_cast<CameraRescalerThread *>(userdata);
   if (nullptr == pme) {

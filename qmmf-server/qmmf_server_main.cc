@@ -131,6 +131,7 @@ int32_t main(int32_t argc, char **argv) {
 #endif
 
   android::ProcessState::self()->startThreadPool();
+  android::ProcessState::self()->giveThreadPoolName();
   property_set(QMMF_BOOT_COMPLETE, "1");
   IPCThreadState::self()->joinThreadPool();
   return 0;
