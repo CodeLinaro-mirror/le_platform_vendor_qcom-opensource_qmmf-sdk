@@ -31,6 +31,7 @@
 
 #include <cerrno>
 #include <exception>
+#include <sstream>
 
 #include "common/utils/qmmf_log.h"
 
@@ -66,7 +67,14 @@ int32_t ThreadHelper::Run(const std::string& name) {
     return -EINTR;
   }
 
-  name_ = name;
+  if (name.empty()) {
+    std::stringstream ss;
+    ss << thread_.get_id();
+    name_ = ss.str();
+  } else {
+    name_ = name;
+  }
+  prctl(PR_SET_NAME, name.c_str(), 0, 0, 0);
   ChangeState(ThreadHelperState::kActive);
   QMMF_INFO("%s: %s thread is active!", __func__, name_.c_str());
   return 0;
