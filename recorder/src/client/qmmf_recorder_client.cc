@@ -868,15 +868,12 @@ status_t RecorderClient::DeleteVideoTrack(const uint32_t session_id,
                   __func__, track_id, buffer_info.ion_fd, buffer_info.vaddr,
                   buffer_info.size);
 
-#ifdef TARGET_USES_GBM
-        ReleaseBuffer(buffer_info.ion_fd);
-#endif
-
         ret = UnmapBuffer(buffer_info);
         if (NO_ERROR != ret) {
           QMMF_ERROR("%s Failed to unmap buffer!", __func__);
           return ret;
         }
+
       }
       track_buffers_map_.erase(track_id);
     }
@@ -976,15 +973,12 @@ status_t RecorderClient::ReturnImageCaptureBuffer(const uint32_t camera_id,
     QMMF_INFO("%s Snapshot BufInfo: ion_fd(%d), vaddr(%p), size(%u)", __func__,
               buffer_info.ion_fd, buffer_info.vaddr, buffer_info.size);
 
-#ifdef TARGET_USES_GBM
-        ReleaseBuffer(buffer_info.ion_fd);
-#endif
-
     auto ret = UnmapBuffer(buffer_info);
     if (NO_ERROR != ret) {
       QMMF_ERROR("%s Failed to unmap buffer!", __func__);
       return ret;
     }
+
     snapshot_buffers_.erase(buffer.fd);
   }
 
@@ -1335,12 +1329,16 @@ status_t RecorderClient::UnmapBuffer(BufferInfo& info) {
     }
     info.vaddr = nullptr;
 
+#ifdef TARGET_USES_GBM
+    ReleaseBuffer(info.ion_fd);
+#else
     result = close(info.ion_fd);
     if (result < 0) {
       QMMF_ERROR("%s() error closing shared fd[%d]: %d[%s]", __func__,
                  info.ion_fd, errno, strerror(errno));
       return errno;
     }
+#endif
     info.ion_fd = -1;
   }
 
@@ -1393,10 +1391,6 @@ void RecorderClient::ServiceDeathHandler() {
                   __func__, track_id, buffer_info.ion_fd,
                   buffer_info.vaddr, buffer_info.size);
 
-#ifdef TARGET_USES_GBM
-        ReleaseBuffer(buffer_info.ion_fd);
-#endif
-
         ret = UnmapBuffer(buffer_info);
         if (NO_ERROR != ret) {
           QMMF_ERROR("%s Failed to unmap buffer!", __func__);
@@ -1415,10 +1409,6 @@ void RecorderClient::ServiceDeathHandler() {
       QMMF_INFO("%s Snapshot BufInfo: ion_fd(%d), vaddr(%p), size(%u)",
                 __func__, buffer_info.ion_fd,
                 buffer_info.vaddr, buffer_info.size);
-
-#ifdef TARGET_USES_GBM
-        ReleaseBuffer(buffer_info.ion_fd);
-#endif
 
       ret = UnmapBuffer(buffer_info);
       if (NO_ERROR != ret) {
