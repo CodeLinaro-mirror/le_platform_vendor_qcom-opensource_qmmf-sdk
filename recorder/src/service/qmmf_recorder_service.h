@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -79,7 +79,8 @@ class RecorderService : public BnInterface<IRecorderService> {
   status_t Disconnect(const uint32_t client_id) override;
 
   status_t StartCamera(const uint32_t client_id, const uint32_t camera_id,
-                       const CameraStartParam &param,
+                       const float frame_rate,
+                       const CameraExtraParam& extra_param,
                        bool enable_result_cb = false) override;
 
   status_t StopCamera(const uint32_t client_id,
@@ -116,6 +117,9 @@ class RecorderService : public BnInterface<IRecorderService> {
 
   status_t ConfigPlugin(const uint32_t client_id, const uint32_t &uid,
                         const std::string &json_config) override;
+
+  status_t GetPluginConfig(const uint32_t client_id, const uint32_t &uid,
+                           std::string &json_config) override;
 
   status_t CreateAudioTrack(const uint32_t client_id,
                             const uint32_t session_id,
@@ -188,6 +192,10 @@ class RecorderService : public BnInterface<IRecorderService> {
   status_t GetDefaultCaptureParam(const uint32_t client_id,
                                   const uint32_t camera_id,
                                   CameraMetadata &meta) override;
+
+  status_t GetCameraCharacteristics(const uint32_t client_id,
+                                    const uint32_t camera_id,
+                                    CameraMetadata &meta) override;
 
   status_t CreateOverlayObject(const uint32_t client_id,
                                const uint32_t track_id, OverlayParam *param,

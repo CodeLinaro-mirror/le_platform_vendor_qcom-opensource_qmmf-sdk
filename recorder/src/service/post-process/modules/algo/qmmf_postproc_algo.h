@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -52,7 +52,8 @@ class PostProcAlg : public IPostProcModule,
 
  public:
 
-  PostProcAlg(std::string lib);
+  PostProcAlg(const std::string &lib,
+              const std::string &tuning_file_name);
 
   ~PostProcAlg();
 
@@ -64,6 +65,8 @@ class PostProcAlg : public IPostProcModule,
   void SetCallbacks(IPostProcEventListener *cb) override {listener_ = cb;};
 
   status_t Configure(const std::string config_json_data) override;
+
+  status_t GetConfig(std::string &config_json_data) override;
 
   status_t Process(const std::vector<StreamBuffer> &in_buffers,
                    const std::vector<StreamBuffer> &out_buffers) override;
@@ -113,6 +116,9 @@ class PostProcAlg : public IPostProcModule,
   };
 
   static const int32_t kBufCount = 3; // count for buffer rotation
+
+  status_t LoadTuning(std::vector<uint8_t> &calibration_data,
+                      const std::string &name);
 
   PixelFormat GetAlgFormat(BufferFormat format);
 

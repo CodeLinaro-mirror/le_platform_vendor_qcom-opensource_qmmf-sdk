@@ -3480,7 +3480,8 @@ void AVCodec::DeliverOutput() {
   BufferDescriptor codec_buffer;
   OMX_BUFFERHEADERTYPE *buf_header;
   while (1) {
-    if (format_type_ == CodecType::kVideoDecoder)
+    if (format_type_ == CodecType::kVideoDecoder ||
+        format_type_ == CodecType::kVideoEncoder)
       while(flush_in_progress_) usleep(kSleepFlush);
 
     if (format_type_ == CodecType::kVideoDecoder)

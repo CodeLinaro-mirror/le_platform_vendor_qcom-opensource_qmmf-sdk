@@ -87,7 +87,8 @@ class RecorderImpl {
 
   /// Start(open) the Camera
   status_t StartCamera(const uint32_t client_id, const uint32_t camera_id,
-                       const CameraStartParam& param,
+                       const float frame_rate,
+                       const CameraExtraParam& extra_param,
                        bool enable_result_cb = false);
 
   /// Stop(close) the Camera
@@ -130,6 +131,10 @@ class RecorderImpl {
   /// Configures plugin
   status_t ConfigPlugin(const uint32_t client_id, const uint32_t &uid,
                         const std::string &json_config);
+
+  /// Get plugin config
+  status_t GetPluginConfig(const uint32_t client_id, const uint32_t &uid,
+                           std::string &json_config);
 
   /// Create Audio Track and associates it to the session.
   status_t CreateAudioTrack(const uint32_t client_id,
@@ -217,6 +222,11 @@ class RecorderImpl {
   status_t GetDefaultCaptureParam(const uint32_t client_id,
                                   const uint32_t camera_id,
                                   CameraMetadata &meta);
+
+  /// Get static metadata
+  status_t GetCameraCharacteristics(const uint32_t client_id,
+                                    const uint32_t camera_id,
+                                    CameraMetadata &meta);
 
   /// Create Overlay object
   status_t CreateOverlayObject(const uint32_t client_id,

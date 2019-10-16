@@ -169,6 +169,10 @@ status_t PostProcFrameSkip::Configure(const std::string config_json_data) {
   return NO_ERROR;
 }
 
+status_t PostProcFrameSkip::GetConfig(std::string &config_json_data) {
+  return NO_ERROR;
+}
+
 status_t PostProcFrameSkip::Process(
     const std::vector<StreamBuffer> &in_buffers,
     const std::vector<StreamBuffer> &out_buffers) {

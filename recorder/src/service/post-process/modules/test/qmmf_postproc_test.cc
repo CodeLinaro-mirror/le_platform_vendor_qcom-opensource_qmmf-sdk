@@ -112,6 +112,10 @@ status_t PostProcTest::Configure(const std::string config_json_data) {
   return NO_ERROR;
 }
 
+status_t PostProcTest::GetConfig(std::string &config_json_data) {
+  return NO_ERROR;
+}
+
 status_t PostProcTest::Process(
     const std::vector<StreamBuffer> &in_buffers,
     const std::vector<StreamBuffer> &out_buffers) {

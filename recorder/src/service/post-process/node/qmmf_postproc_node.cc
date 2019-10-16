@@ -146,6 +146,19 @@ status_t PostProcNode::Configure(const std::string &config_json_data) {
   return NO_ERROR;
 }
 
+status_t PostProcNode::GetConfig(std::string &config_json_data) {
+
+  std::lock_guard<std::mutex> lock(state_lock_);
+  auto ret = module_->GetConfig(config_json_data);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s:%s fail to get config ret: %d", __func__,
+        name_.c_str(), ret);
+    return ret;
+  }
+
+  return NO_ERROR;
+}
+
 PostProcIOParam PostProcNode::GetInput(const PostProcIOParam &out) {
   QMMF_VERBOSE("%s:%s: Enter", __func__, name_.c_str());
   return module_->GetInput(out);

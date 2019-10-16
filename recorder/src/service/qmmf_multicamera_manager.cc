@@ -51,7 +51,6 @@ namespace recorder {
 
 MultiCameraManager::MultiCameraManager()
   : virtual_camera_id_(kVirtualCameraIdOffset),
-    start_params_{},
     multicam_type_(MultiCameraConfigType::k360Stitch),
     result_cb_(nullptr),
     error_cb_(nullptr),
@@ -116,7 +115,8 @@ status_t MultiCameraManager::ConfigureMultiCamera(
 }
 
 status_t MultiCameraManager::OpenCamera(const uint32_t virtual_camera_id,
-                                        const CameraStartParam &param,
+                                        const float frame_rate,
+                                        const CameraExtraParam& extra_param,
                                         const ResultCb &cb,
                                         const ErrorCb &errcb) {
   QMMF_INFO("%s: Enter", __func__);
@@ -143,11 +143,11 @@ status_t MultiCameraManager::OpenCamera(const uint32_t virtual_camera_id,
       const CameraMetadata &meta) { ResultCallback(camera_id, meta); };
 
     auto future = std::async(std::launch::async, &CameraContext::OpenCamera,
-                             context.get(), cam_id, param, result_cb, nullptr);
+                             context.get(), cam_id, frame_rate,
+                             extra_param, result_cb, nullptr);
     results.push_back(std::make_tuple(cam_id, std::move(future)));
   }
 
-  start_params_ = param;
   result_cb_    = cb;
   error_cb_     = errcb;
 
@@ -667,6 +667,17 @@ status_t MultiCameraManager::GetDefaultCaptureParam(CameraMetadata &meta) {
   status_t ret = camera_context->GetDefaultCaptureParam(meta);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: GetDefaultCaptureParam Failed!", __func__);
+  }
+  return ret;
+}
+
+status_t MultiCameraManager::GetCameraCharacteristics(CameraMetadata &meta) {
+
+  std::shared_ptr<CameraContext> camera_context = camera_contexts_.at(0);
+  assert(camera_context.get() != nullptr);
+  status_t ret = camera_context->GetCameraCharacteristics(meta);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s: GetCameraCharacteristics Failed!", __func__);
   }
   return ret;
 }

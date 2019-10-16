@@ -306,7 +306,8 @@ status_t RecorderImpl::DeRegisterClient(const uint32_t client_id,
 
 status_t RecorderImpl::StartCamera(const uint32_t client_id,
                                    const uint32_t camera_id,
-                                   const CameraStartParam &param,
+                                   const float frame_rate,
+                                   const CameraExtraParam& extra_param,
                                    bool enable_result_cb) {
 
   QMMF_DEBUG("%s: Enter", __func__);
@@ -319,11 +320,19 @@ status_t RecorderImpl::StartCamera(const uint32_t client_id,
 
   bool owned = IsCameraOwned(client_id, camera_id);
 
- if ((param.flags & kCameraSlaveMode) && !owned) {
+  CameraSlaveMode camera_slave_mode = {};
+  if (extra_param.Exists(QMMF_CAMERA_SLAVE_MODE)) {
+    size_t entry_count = extra_param.EntryCount(QMMF_CAMERA_SLAVE_MODE);
+    if (entry_count == 1) {
+      extra_param.Fetch(QMMF_CAMERA_SLAVE_MODE, camera_slave_mode, 0);
+    }
+  }
+
+  if ((camera_slave_mode.mode == SlaveMode::kSlave) && !owned) {
     QMMF_WARN("%s Client(%u): Camera(%u) hasn't been opened yet,"
         " operation not allowed!", __func__, client_id, camera_id);
     return NAME_NOT_FOUND;
-  } else if ((param.flags & kCameraSlaveMode) && owned) {
+  } else if ((camera_slave_mode.mode == SlaveMode::kSlave) && owned) {
     QMMF_INFO("%s Client(%u): Camera(%u) is already owned by another client,"
         " using camera in slave mode!", __func__, client_id, camera_id);
     std::lock_guard<std::mutex> lock(camera_map_lock_);
@@ -348,7 +357,7 @@ status_t RecorderImpl::StartCamera(const uint32_t client_id,
 
   ErrorCb errcb = [&] (RecorderErrorData &error) { CameraErrorCb(error); };
 
-  auto ret = camera_source_->StartCamera(camera_id, param,
+  auto ret = camera_source_->StartCamera(camera_id, frame_rate, extra_param,
                                          enable_result_cb ? cb : nullptr,
                                          errcb);
   if (ret != NO_ERROR) {
@@ -1110,6 +1119,29 @@ status_t RecorderImpl::ConfigPlugin(const uint32_t client_id,
 
   assert(camera_source_ != nullptr);
   auto ret = camera_source_->ConfigPlugin(uid, json_config);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s: client_id(%d): ConfigPlugin uid(%d) failed!",
+        __func__, client_id, uid);
+    return ret;
+  }
+
+  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
+  return NO_ERROR;
+}
+
+status_t RecorderImpl::GetPluginConfig(const uint32_t client_id,
+                                    const uint32_t &uid,
+                                    std::string &json_config) {
+
+  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
+
+  if (!IsClientValid(client_id)) {
+    QMMF_ERROR("%s: Client(%u) is not connected!", __func__, client_id);
+    return BAD_VALUE;
+  }
+
+  assert(camera_source_ != nullptr);
+  auto ret = camera_source_->GetPluginConfig(uid, json_config);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: client_id(%d): ConfigPlugin uid(%d) failed!",
         __func__, client_id, uid);
@@ -1972,6 +2004,35 @@ status_t RecorderImpl::GetDefaultCaptureParam(const uint32_t client_id,
   auto ret = camera_source_->GetDefaultCaptureParam(camera_id, meta);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: GetDefaultCaptureParam failed!", __func__);
+    return ret;
+  }
+  QMMF_DEBUG("%s: Exit client_id(%d):camera_id(%d)", __func__,
+      client_id, camera_id);
+  return NO_ERROR;
+}
+
+status_t RecorderImpl::GetCameraCharacteristics(const uint32_t client_id,
+                                                const uint32_t camera_id,
+                                                CameraMetadata &meta) {
+
+  QMMF_DEBUG("%s: Enter client_id(%d):camera_id(%d)", __func__,
+      client_id, camera_id);
+
+  if (!IsClientValid(client_id)) {
+    QMMF_ERROR("%s: Client(%u) is not connected!", __func__, client_id);
+    return BAD_VALUE;
+  }
+
+  if (!IsCameraValid(client_id, camera_id)) {
+    QMMF_ERROR("%s Client(%u): Camera(%u) is not owned by this client,"
+        " operation not allowed!", __func__, client_id, camera_id);
+    return INVALID_OPERATION;
+  }
+
+  assert(camera_source_ != nullptr);
+  auto ret = camera_source_->GetCameraCharacteristics(camera_id, meta);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s: GetCameraCharacteristics failed!", __func__);
     return ret;
   }
   QMMF_DEBUG("%s: Exit client_id(%d):camera_id(%d)", __func__,

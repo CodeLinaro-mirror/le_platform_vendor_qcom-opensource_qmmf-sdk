@@ -123,8 +123,10 @@ status_t CameraSource::FlushTrack(const uint32_t track_id) {
   QMMF_DEBUG("%s: Exit", __func__);
   return NO_ERROR;
 }
+
 status_t CameraSource::StartCamera(const uint32_t camera_id,
-                                   const CameraStartParam &param,
+                                   const float frame_rate,
+                                   const CameraExtraParam& extra_param,
                                    const ResultCb &cb,
                                    const ErrorCb &errcb) {
 
@@ -158,7 +160,7 @@ status_t CameraSource::StartCamera(const uint32_t camera_id,
     camera_map_.emplace(camera_id, camera);
   }
 
-  auto ret = camera->OpenCamera(camera_id, param, cb, errcb);
+  auto ret = camera->OpenCamera(camera_id, frame_rate, extra_param, cb, errcb);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: OpenCamera(%d) Failed!", __func__, camera_id);
     if (!is_virtual_camera_id) {
@@ -305,6 +307,21 @@ status_t CameraSource::ConfigPlugin(const uint32_t &uid,
   QMMF_DEBUG("%s: Enter", __func__);
 
   auto ret = factory_->ConfigPlugin(uid, json_config);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s: ConfigPlugin Failed!", __func__);
+    return ret;
+  }
+
+  QMMF_DEBUG("%s: Exit", __func__);
+  return NO_ERROR;
+}
+
+status_t CameraSource::GetPluginConfig(const uint32_t &uid,
+                                       std::string &json_config) {
+
+  QMMF_DEBUG("%s: Enter", __func__);
+
+  auto ret = factory_->GetPluginConfig(uid, json_config);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: ConfigPlugin Failed!", __func__);
     return ret;
@@ -774,6 +791,16 @@ status_t CameraSource::GetDefaultCaptureParam(const uint32_t camera_id,
     return BAD_VALUE;
   }
   return camera_map_[camera_id]->GetDefaultCaptureParam(meta);
+}
+
+status_t CameraSource::GetCameraCharacteristics(const uint32_t camera_id,
+                                                CameraMetadata &meta) {
+
+  if (camera_map_.count(camera_id) == 0) {
+    QMMF_ERROR("%s: Invalid Camera Id(%d)", __func__, camera_id);
+    return BAD_VALUE;
+  }
+  return camera_map_[camera_id]->GetCameraCharacteristics(meta);
 }
 
 status_t CameraSource::UpdateTrackFrameRate(const uint32_t track_id,
@@ -1324,8 +1351,25 @@ status_t TrackSource::Init() {
   param.width          = track_params_.params.width;
   param.height         = track_params_.params.height;
   param.framerate      = track_params_.params.frame_rate;
-  param.low_power_mode = track_params_.params.low_power_mode;
-  param.format = Common::FromVideoToQmmfFormat(track_params_.params.format_type);
+  if (track_params_.params.format_type == VideoFormat::kYUV) {
+    param.is_yuv_track = true;
+  }
+  param.format =
+      Common::FromVideoToQmmfFormat(track_params_.params.format_type);
+
+  if (track_params_.extra_param.Exists(QMMF_CPU_CACHE)) {
+    size_t entry_count = track_params_.extra_param.EntryCount(QMMF_CPU_CACHE);
+    if (entry_count == 1) {
+      SystemCache mode;
+      track_params_.extra_param.Fetch(QMMF_CPU_CACHE, mode, 0);
+      param.is_caching_enabled = mode.enable;
+      QMMF_INFO("%s: Caching value is: %d", __func__,
+                param.is_caching_enabled);
+    } else {
+      QMMF_ERROR("%s: Invalid Caching mode received", __func__);
+      return BAD_VALUE;
+    }
+  }
 
   if (track_params_.extra_param.Exists(QMMF_VIDEO_WAIT_AEC_MODE)) {
     VideoWaitAECMode wait_aec;
@@ -1396,6 +1440,7 @@ status_t TrackSource::StartTrack() {
   ret = frc_->AddConsumer(consumer);
   assert(ret == NO_ERROR);
   consumer = frc_->GetConsumerIntf();
+  assert(consumer.get() != nullptr);
 
   if (rescaler_.get() != nullptr) {
     ret = master_track_->AddConsumer(fsc_->GetConsumerIntf());
@@ -1489,34 +1534,27 @@ status_t TrackSource::StopTrack(bool is_force_cleanup) {
     // Encoder is not involved in this case.
     assert(camera_interface_.get() != nullptr);
 
-
-    if (slave_track_source_ == false) {
-      ret = camera_interface_->StopStream(TrackId());
-      assert(ret == NO_ERROR);
-    }
-
     ret = frc_->Stop();
     assert(ret == NO_ERROR);
 
-    sp<IBufferConsumer> consumer = GetConsumerIntf();
-    ret = frc_->RemoveConsumer(consumer);
+    ret = fsc_->Stop();
     assert(ret == NO_ERROR);
-
-    consumer = frc_->GetConsumerIntf();
 
     if (rescaler_.get() != nullptr) {
       ret = rescaler_->Stop();
       assert(ret == NO_ERROR);
     }
 
-    ret = fsc_->Stop();
-    assert(ret == NO_ERROR);
+    sp<IBufferConsumer> consumer = frc_->GetConsumerIntf();
+    assert(consumer.get() != nullptr);
 
     if (slave_track_source_ == false) {
-      ret = camera_interface_->RemoveConsumer(TrackId(),
-          fsc_->GetConsumerIntf());
+      ret = camera_interface_->StopStream(TrackId());
       assert(ret == NO_ERROR);
       ret = fsc_->RemoveConsumer(consumer);
+      assert(ret == NO_ERROR);
+      ret = camera_interface_->RemoveConsumer(TrackId(),
+          fsc_->GetConsumerIntf());
       assert(ret == NO_ERROR);
     }
 
@@ -1533,6 +1571,12 @@ status_t TrackSource::StopTrack(bool is_force_cleanup) {
       ret = master_track_->RemoveConsumer(fsc_->GetConsumerIntf());
       assert(ret == NO_ERROR);
     }
+
+    consumer = GetConsumerIntf();
+    assert(consumer.get() != nullptr);
+    ret = frc_->RemoveConsumer(consumer);
+    assert(ret == NO_ERROR);
+
     QMMF_INFO("%s: Pipe stop done(%x)", __func__, TrackId());
     {
       std::lock_guard<std::mutex> lk(buffer_list_lock_);
@@ -1590,31 +1634,27 @@ status_t TrackSource::NotifyPortEvent(PortEventType event_type,
         }
       }
       status_t ret = NO_ERROR;
-      if (slave_track_source_ == false) {
-       ret = camera_interface_->StopStream(TrackId());
-        assert(ret == NO_ERROR);
-      }
+      ret = frc_->Stop();
+      assert(ret == NO_ERROR);
 
-      sp<IBufferConsumer> consumer = GetConsumerIntf();
-      ret = frc_->RemoveConsumer(consumer);
-      consumer = frc_->GetConsumerIntf();
+      ret = fsc_->Stop();
+      assert(ret == NO_ERROR);
 
       if (rescaler_.get() != nullptr) {
         ret = rescaler_->Stop();
         assert(ret == NO_ERROR);
       }
 
-      ret = fsc_->Stop();
-      assert(ret == NO_ERROR);
-
-      ret = frc_->Stop();
-      assert(ret == NO_ERROR);
+      sp<IBufferConsumer> consumer = frc_->GetConsumerIntf();
+      assert(consumer.get() != nullptr);
 
       if (slave_track_source_ == false) {
+        ret = camera_interface_->StopStream(TrackId());
+        assert(ret == NO_ERROR);
         ret = fsc_->RemoveConsumer(consumer);
         assert(ret == NO_ERROR);
         ret = camera_interface_->RemoveConsumer(TrackId(),
-          fsc_->GetConsumerIntf());
+            fsc_->GetConsumerIntf());
         assert(ret == NO_ERROR);
       }
 
@@ -1626,11 +1666,16 @@ status_t TrackSource::NotifyPortEvent(PortEventType event_type,
         ret = master_track_->RemoveConsumer(fsc_->GetConsumerIntf());
         assert(ret == NO_ERROR);
       } else if (slave_track_source_ == true) {
-        fsc_->RemoveConsumer(consumer);
+        ret = fsc_->RemoveConsumer(consumer);
         assert(ret == NO_ERROR);
         ret = master_track_->RemoveConsumer(fsc_->GetConsumerIntf());
         assert(ret == NO_ERROR);
       }
+
+      consumer = GetConsumerIntf();
+      assert(consumer.get() != nullptr);
+      ret = frc_->RemoveConsumer(consumer);
+      assert(ret == NO_ERROR);
       // All input port buffers from encoder are returned, Being encoded queue
       // should be zero at this point.
       assert(frames_being_encoded_.Size() == 0);

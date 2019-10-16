@@ -77,6 +77,8 @@ class CameraHalReproc : public IPostProcModule {
 
    status_t Configure(const std::string config_json_data) override;
 
+   status_t GetConfig(std::string &config_json_data) override;
+
    status_t Process(const std::vector<StreamBuffer> &in_buffers,
                     const std::vector<StreamBuffer> &out_buffers) override;
 

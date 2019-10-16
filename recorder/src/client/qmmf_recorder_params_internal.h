@@ -240,49 +240,6 @@ struct VideoTrackCreateParamInternal : public VideoTrackCreateParam {
  *  Enhances the base struct with methods suitable for marshalling over the
  *  Binder RPC framework.
  */
-struct CameraStartParamInternal : public CameraStartParam {
-
-  //! Default constructor
-  CameraStartParamInternal() {}
-
-  //! Copy constructor
-  CameraStartParamInternal(CameraStartParam& base) : CameraStartParam(base) {}
-
-  //! Copy constructor (const)
-  CameraStartParamInternal(const CameraStartParam& base)
-      : CameraStartParam(const_cast<CameraStartParam&>(base)) {}
-
-  /*! @brief Marshals the struct to the given Parcel.
-   *
-   *  Marshals the individual fields of the struct into the given Parcel.
-   *
-   *  @param [in,out] parcel Receives the marshalled fields.
-   */
-  void ToParcel(::android::Parcel* parcel) const {
-    parcel->writeUint32(frame_rate);
-    parcel->writeUint32(flags);
-  }
-
-  /*! @brief Unmarshals the given Parcel into the struct.
-   *
-   *  Unmarshals the flattened contents of the given Parcel into the individual
-   *  fields of the struct.
-   *
-   *  @param [in] parcel Provides the flattened contents.
-   *  @returns Reference to the struct.
-   */
-  CameraStartParamInternal& FromParcel(const ::android::Parcel& parcel) {
-    frame_rate = parcel.readUint32();
-    flags = parcel.readUint32();
-    return *this;
-  }
-};
-
-/*! @brief Struct enhanced with marshalling methods.
- *
- *  Enhances the base struct with methods suitable for marshalling over the
- *  Binder RPC framework.
- */
 struct ImageParamInternal : public ImageParam {
 
   //! Default constructor
@@ -321,62 +278,6 @@ struct ImageParamInternal : public ImageParam {
     height = parcel.readUint32();
     image_quality = parcel.readUint32();
     image_format = static_cast<ImageFormat>(parcel.readInt32());
-    return *this;
-  }
-};
-
-/*! @brief Struct enhanced with marshalling methods.
- *
- *  Enhances the base struct with methods suitable for marshalling over the
- *  Binder RPC framework.
- */
-struct ImageCaptureConfigInternal : public ImageCaptureConfig {
-
-  //! Default constructor
-  ImageCaptureConfigInternal() {}
-
-  //! Copy constructor
-  ImageCaptureConfigInternal(ImageCaptureConfig& base)
-      : ImageCaptureConfig(base) {}
-  ImageCaptureConfigInternal(const ImageCaptureConfig& base)
-      : ImageCaptureConfig(const_cast<ImageCaptureConfig&>(base)) {}
-
-  /*! @brief Marshals the struct to the given Parcel.
-   *
-   *  Marshals the individual fields of the struct into the given Parcel.
-   *
-   *  @param [in,out] parcel Receives the marshalled fields.
-   */
-  void ToParcel(::android::Parcel* parcel) const {
-    parcel->writeUint32(sensor_frame_skip_interval);
-    parcel->writeInt32(static_cast<int32_t>(with_exif));
-    parcel->writeInt32(static_cast<int32_t>(with_camera_meta));
-    parcel->writeInt32(static_cast<int32_t>(with_raw));
-    parcel->writeInt32(static_cast<int32_t>(raw_image_format));
-    parcel->writeUint32(num_thumbnail_image_param);
-    for (uint32_t i = 0; i < num_thumbnail_image_param; i++)
-      ImageParamInternal(thumbnail_image_param[i]).ToParcel(parcel);
-  }
-
-  /*! @brief Unmarshals the given Parcel into the struct.
-   *
-   *  Unmarshals the flattened contents of the given Parcel into the individual
-   *  fields of the struct.
-   *
-   *  @param [in] parcel Provides the flattened contents.
-   *  @returns Reference to the struct.
-   */
-  ImageCaptureConfigInternal& FromParcel(const ::android::Parcel& parcel) {
-    sensor_frame_skip_interval = parcel.readUint32();
-    with_exif = static_cast<bool>(parcel.readInt32());
-    with_camera_meta = static_cast<bool>(parcel.readInt32());
-    with_raw = static_cast<bool>(parcel.readInt32());
-    raw_image_format = static_cast<ImageFormat>(parcel.readInt32());
-    num_thumbnail_image_param = static_cast<uint32_t>(parcel.readUint32());
-    if (num_thumbnail_image_param > QMMF_ARRAY_SIZE(thumbnail_image_param))
-      num_thumbnail_image_param = QMMF_ARRAY_SIZE(thumbnail_image_param);
-    for (uint32_t i = 0; i < num_thumbnail_image_param; i++)
-      ImageParamInternal(thumbnail_image_param[i]).FromParcel(parcel);
     return *this;
   }
 };

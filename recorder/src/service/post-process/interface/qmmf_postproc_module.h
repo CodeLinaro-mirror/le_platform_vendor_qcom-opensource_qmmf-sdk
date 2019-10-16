@@ -157,6 +157,8 @@ class IPostProcModule {
 
    virtual status_t Configure(const std::string config_json_data) = 0;
 
+   virtual status_t GetConfig(std::string &config_json_data) = 0;
+
    virtual status_t Process(const std::vector<StreamBuffer> &in_buffers,
                             const std::vector<StreamBuffer> &out_buffers) = 0;
 

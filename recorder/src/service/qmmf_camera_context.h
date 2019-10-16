@@ -50,6 +50,9 @@ using namespace cameraadaptor;
 #define REPROC_STREAM_BUFFER_COUNT    2
 #define SNAPSHOT_STREAM_BUFFER_COUNT 30
 #define EXTRA_DCVS_BUFFERS            2
+#define EXTRA_HFR_BUFFERS             4
+#define MIN_UBWC_WIDTH               1280
+#define MIN_UBWC_HEIGHT              720
 
 namespace recorder {
 
@@ -71,6 +74,23 @@ struct AECData {
   }
 };
 
+struct CameraParameters {
+  bool is_zzhdr_enabled;
+  int32_t force_sensor_mode;
+  bool is_eis_enabled;
+  bool is_partial_metadata_enabled;
+  int32_t frame_rate;
+  size_t batch_size;
+
+  CameraParameters()
+    : is_zzhdr_enabled(false),
+      force_sensor_mode(-1),
+      is_eis_enabled(false),
+      is_partial_metadata_enabled(false),
+      frame_rate(30),
+      batch_size(1) {}
+};
+
 // This class deals with Camera3DeviceClient, and exposes simple Apis to create
 // Different types of streams (preview, video, and snashot). this class has a
 // Concept of ports, maintains vector of ports, each port is mapped one-to-one
@@ -83,7 +103,8 @@ class CameraContext : public CameraInterface,
 
   ~CameraContext();
 
-  status_t OpenCamera(const uint32_t camera_id, const CameraStartParam &param,
+  status_t OpenCamera(const uint32_t camera_id, const float frame_rate,
+                      const CameraExtraParam& extra_param,
                       const ResultCb &cb = nullptr,
                       const ErrorCb &errcb = nullptr) override;
 
@@ -121,6 +142,8 @@ class CameraContext : public CameraInterface,
   status_t GetCameraParam(CameraMetadata &meta) override;
 
   status_t GetDefaultCaptureParam(CameraMetadata &meta) override;
+
+  status_t GetCameraCharacteristics(CameraMetadata &meta) override;
 
   status_t ReturnImageCaptureBuffer(const uint32_t camera_id,
                                     const int32_t buffer_id) override;
@@ -270,7 +293,6 @@ class CameraContext : public CameraInterface,
   CameraClientCallbacks    camera_callbacks_;
   uint32_t                 camera_id_;
   std::mutex               device_access_lock_;
-  CameraStartParam         camera_start_params_;
   CameraMetadata           static_meta_;
 
   std::map<uint32_t, bool> stream_prepared_;
@@ -321,7 +343,6 @@ class CameraContext : public CameraInterface,
 
   std::map<uint32_t, int32_t> snapshot_buffer_stream_list_;
   std::shared_ptr<PostProcPipe> postproc_pipe_;
-  uint32_t                 batch_size_;
   int32_t                  batch_stream_id_;
 
   std::mutex               pending_frames_lock_;
@@ -334,7 +355,6 @@ class CameraContext : public CameraInterface,
   static const uint32_t    kWaitAecTimeout;
   static const uint32_t    kWaitPendingFramesTimeout = 1500000000; // 1500 ms.
 
-  bool                     partial_metadata_required_;
   int32_t                  partial_result_count_;
   std::mutex               partial_result_lock_;
 
@@ -354,6 +374,8 @@ class CameraContext : public CameraInterface,
   bool                          reconfig_pipe_;
   bool                          port_paused_;
   std::set<int32_t>             stopped_stream_ids_;
+  CameraParameters              camera_parameters_;
+  bool                          is_ubwc_enabled_;
 };
 
 enum class CameraPortType {
@@ -382,7 +404,7 @@ struct ZSLEntry {
 // same.
 class CameraPort {
  public:
-  CameraPort(const StreamParam& param, size_t batch_size,
+  CameraPort(const StreamParam& param, const CameraParameters camera_parameters,
              CameraPortType port_type, CameraContext *context);
 
   virtual ~CameraPort();
@@ -414,7 +436,7 @@ class CameraPort {
 
   float GetPortFramerate() { return params_.framerate; }
 
-  size_t GetPortBatchSize() { return batch_size_; }
+  size_t GetPortBatchSize() { return camera_parameters_.batch_size; }
 
   int32_t GetCameraStreamId() { return camera_stream_id_; }
 
@@ -431,6 +453,8 @@ class CameraPort {
 
  private:
 
+  bool IsUbwcValidForStream(uint32_t width, uint32_t height);
+
   bool IsConsumerConnected(sp<IBufferConsumer>& consumer);
 
   void StreamCallback(StreamBuffer buffer);
@@ -440,7 +464,6 @@ class CameraPort {
   sp<IBufferProducer>    buffer_producer_impl_;
   CameraStreamParameters cam_stream_params_;
   bool                   ready_to_start_;
-  size_t                 batch_size_;
   uint32_t               port_id_;
 
   // Indicates whether and for which frame the AE has converged after start.
@@ -457,12 +480,13 @@ class CameraPort {
   std::mutex             aec_lock_;
 
   std::string            pipe_config_json_data_;
+  CameraParameters       camera_parameters_;
 };
 
 class ZslPort : public CameraPort {
 
  public:
-  ZslPort(const StreamParam& param, size_t batch_size,
+  ZslPort(const StreamParam& param, const CameraParameters camera_parameters,
           CameraPortType port_type, CameraContext *context,
           uint32_t zsl_queue_depth, bool postprocess);
 

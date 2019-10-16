@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -129,7 +129,7 @@ PostProcFactory::CreatePlugin(uint32_t &uid, const PluginInfo &plugin) {
     std::string library = plugin_libraries_.at(plugin.name);
 
     std::shared_ptr<IPostProcModule> module =
-        std::make_shared<PostProcAlg>(library);
+        std::make_shared<PostProcAlg>(library, plugin.tuning_file_name);
     if (module.get() != nullptr) {
       std::shared_ptr<PostProcNode> node =
           std::make_shared<PostProcNode>(uid, plugin.name, module);
@@ -167,6 +167,22 @@ status_t PostProcFactory::ConfigPlugin(const uint32_t &uid,
                                        const std::string &config) {
   if (plugin_nodes_.find(uid) != plugin_nodes_.end()) {
     auto ret = plugin_nodes_.at(uid)->Configure(config);
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s: Failed to configure plugin uid: %d", __func__, uid);
+      return ret;
+    }
+  } else {
+    QMMF_ERROR("%s: Invalid plugin uid: %d", __func__, uid);
+    return BAD_VALUE;
+  }
+
+  return NO_ERROR;
+}
+
+status_t PostProcFactory::GetPluginConfig(const uint32_t &uid,
+                                          std::string &config) {
+  if (plugin_nodes_.find(uid) != plugin_nodes_.end()) {
+    auto ret = plugin_nodes_.at(uid)->GetConfig(config);
     if (ret != NO_ERROR) {
       QMMF_ERROR("%s: Failed to configure plugin uid: %d", __func__, uid);
       return ret;

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -78,12 +78,14 @@ status_t Recorder::Disconnect() {
 }
 
 status_t Recorder::StartCamera(const uint32_t camera_id,
-                               const CameraStartParam &params,
+                               const float frame_rate,
+                               const CameraExtraParam& extra_param,
                                const CameraResultCb &cb) {
 
   assert(recorder_client_ != NULL);
 
-  auto ret = recorder_client_->StartCamera(camera_id, params, cb);
+  auto ret = recorder_client_->StartCamera(camera_id, frame_rate,
+                                           extra_param, cb);
   if (NO_ERROR != ret) {
     QMMF_ERROR("%s: StartCamera failed!", __func__);
   }
@@ -227,6 +229,18 @@ status_t Recorder::ConfigPlugin(const uint32_t &uid,
   assert(recorder_client_ != NULL);
 
   auto ret = recorder_client_->ConfigPlugin(uid, json_config);
+  if (NO_ERROR != ret) {
+    QMMF_ERROR("%s: ConfigPlugin failed!", __func__);
+  }
+
+  return ret;
+}
+
+status_t Recorder::GetPluginConfig(const uint32_t &uid,
+                                   std::string &json_config) {
+
+  assert(recorder_client_ != NULL);
+  auto ret = recorder_client_->GetPluginConfig(uid, json_config);
   if (NO_ERROR != ret) {
     QMMF_ERROR("%s: ConfigPlugin failed!", __func__);
   }
@@ -428,6 +442,20 @@ status_t Recorder::GetDefaultCaptureParam(const uint32_t camera_id,
   auto ret = recorder_client_->GetDefaultCaptureParam(camera_id, meta);
   if (NO_ERROR != ret) {
       QMMF_ERROR("%s: GetDefaultCaptureParam failed!", __func__);
+  }
+
+  QMMF_INFO("%s: Exit", __func__);
+  return ret;
+}
+
+status_t Recorder::GetCameraCharacteristics(const uint32_t camera_id,
+                                            CameraMetadata &meta) {
+
+  QMMF_INFO("%s: Enter" ,__func__);
+  assert(recorder_client_ != NULL);
+  auto ret = recorder_client_->GetCameraCharacteristics(camera_id, meta);
+  if (NO_ERROR != ret) {
+      QMMF_ERROR("%s: GetCameraCharacteristics failed!", __func__);
   }
 
   QMMF_INFO("%s: Exit", __func__);

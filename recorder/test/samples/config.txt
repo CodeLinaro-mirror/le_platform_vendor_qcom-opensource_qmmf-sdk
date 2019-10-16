@@ -21,7 +21,6 @@
  *                 : HEVC(Track HEVC format stream), RAW(Track RAW format stream).
  * LTRCount        : LTR count for track[AVC/HEVC]. Should be in range [1-4].
  *                 : Default is 0(disabled).
- * CamLowPowerMode : 0 (with post processing), 1 (without post processing)
  */
 
 CameraID               : 0
@@ -69,14 +68,12 @@ insert_aud_delimiter   : 1
 prepend_sps_pps_to_idr : 1
 slice_enabled          : 0
 slice_header_spacing   : 8192
-CamLowPowerMode        : 0
 
 #Second Stream Encoder Params
 Width                  : 1920
 Height                 : 1080
 FPS                    : 30
 TrackType              : YUV
-CamLowPowerMode        : 1
 
 #Third Stream Encoder Params
 Width                  : 640
@@ -106,4 +103,3 @@ min_BQP                : 10
 max_BQP                : 15
 insert_aud_delimiter   : 1
 prepend_sps_pps_to_idr : 1
-CamLowPowerMode        : 0

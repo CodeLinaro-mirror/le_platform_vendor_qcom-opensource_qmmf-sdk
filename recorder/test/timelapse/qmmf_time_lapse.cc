@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -137,9 +137,7 @@ int32_t TimeLapse::Init() {
     return ret;
   }
 
-  CameraStartParam camera_start_params{};
-
-  ret = recorder_.StartCamera(params_.camera_id, camera_start_params);
+  ret = recorder_.StartCamera(params_.camera_id, 30);
   if (NO_ERROR != ret) {
     printf("%s StartCamera Failed: %d!!", __func__, ret);
     return ret;
@@ -287,7 +285,6 @@ int32_t TimeLapse::AddPreviewTrack() {
   video_track_param.height      = params_.preview_height;
   video_track_param.frame_rate  = 30;
   video_track_param.format_type = VideoFormat::kYUV;
-  video_track_param.low_power_mode = true;
 
   TrackCb video_track_cb;
   video_track_cb.data_cb = { [&] (uint32_t track_id,

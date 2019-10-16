@@ -92,7 +92,9 @@ class Recorder {
   /// calling CaptureImage API. The result callback is optional. In case
   /// it is set by client, notifications will get triggered on each
   /// incoming streaming request along with the camera results.
-  status_t StartCamera(const uint32_t camera_id, const CameraStartParam &param,
+  status_t StartCamera(const uint32_t camera_id,
+                       const float frame_rate,
+                       const CameraExtraParam& extra_param = {},
                        const CameraResultCb &cb = nullptr);
 
   /// @brief Stops camera. This API should be called to free up all resources
@@ -179,8 +181,17 @@ class Recorder {
 
   /// @brief Set plugin specific configuration data.
   ///
+  /// @param uid: The UID of the specific plugin
+  /// @param config: A configuration string for the plugin
   /// This is an async API.
   status_t ConfigPlugin(const uint32_t &uid, const std::string &config);
+
+  /// @brief Get plugin specific configuration data.
+  ///
+  /// @param uid: The UID of the specific plugin
+  /// @param config: A configuration string returned by the plugin
+  /// This is an async API.
+  status_t GetPluginConfig(const uint32_t &uid, std::string &config);
 
   /// @brief Creates an audio track and
   /// associates it to the session id provided.
@@ -324,6 +335,11 @@ class Recorder {
   /// applicable only for non-zsl capture.
   status_t GetDefaultCaptureParam(const uint32_t camera_id,
                                   android::CameraMetadata &meta);
+
+  /// Clients generally calls GetCameraCharacteristics to get
+  /// static camerametadata params.
+  status_t GetCameraCharacteristics(const uint32_t camera_id,
+                                    android::CameraMetadata &meta);
 
   /// @brief Create overlay object of type
   /// static image, date/time, bounding box,

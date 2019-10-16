@@ -68,7 +68,6 @@ FakeCamera::FakeCamera()
       buffer_data_(nullptr),
       buffer_count_(0) {
 
-  camera_start_params_ = {};
   mem_pool_params_ = {};
 
   BufferProducerImpl<FakeCamera> *producer_impl;
@@ -92,12 +91,12 @@ FakeCamera::~FakeCamera() {
 void FakeCamera::SetFlushCb(FlushCb &cb) {}
 
 status_t FakeCamera::OpenCamera(const uint32_t camera_id,
-                                const CameraStartParam &param,
+                                const float frame_rate,
+                                const CameraExtraParam& extra_param,
                                 const ResultCb &cb,
                                 const ErrorCb &errcb) {
 
   camera_id_ = camera_id;
-  camera_start_params_ = param;
   result_cb_ = cb;
   error_cb_ = errcb;
 
@@ -294,6 +293,12 @@ status_t FakeCamera::GetCameraParam(CameraMetadata &meta) {
 }
 
 status_t FakeCamera::GetDefaultCaptureParam(CameraMetadata &meta) {
+
+  meta.append(metadata_);
+  return NO_ERROR;
+}
+
+status_t FakeCamera::GetCameraCharacteristics(CameraMetadata &meta) {
 
   meta.append(metadata_);
   return NO_ERROR;

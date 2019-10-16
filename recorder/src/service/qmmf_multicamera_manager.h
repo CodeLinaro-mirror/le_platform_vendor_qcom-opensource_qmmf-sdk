@@ -67,7 +67,8 @@ class MultiCameraManager : public CameraInterface {
                                 const MultiCameraConfigType type,
                                 const void *param, const size_t param_size);
 
-  status_t OpenCamera(const uint32_t camera_id, const CameraStartParam &param,
+  status_t OpenCamera(const uint32_t camera_id, const float frame_rate,
+                      const CameraExtraParam& extra_param,
                       const ResultCb &cb = nullptr,
                       const ErrorCb &errcb = nullptr) override;
 
@@ -106,6 +107,8 @@ class MultiCameraManager : public CameraInterface {
 
   status_t GetDefaultCaptureParam(CameraMetadata &meta) override;
 
+  status_t GetCameraCharacteristics(CameraMetadata &meta) override;
+
   status_t ReturnImageCaptureBuffer(const uint32_t camera_id,
                                     const int32_t buffer_id) override;
 
@@ -139,7 +142,6 @@ class MultiCameraManager : public CameraInterface {
   status_t FillCropMetadata(CameraMetadata& meta, const uint32_t& cam_idx);
 
   uint32_t                 virtual_camera_id_;
-  CameraStartParam         start_params_;
   MultiCameraConfigType    multicam_type_;
   std::vector<int32_t>     supported_fps_;
   ResultCb                 result_cb_;

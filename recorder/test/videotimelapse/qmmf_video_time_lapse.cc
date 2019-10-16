@@ -359,9 +359,7 @@ int32_t TimeLapse::StartCamera() {
 
   if (multicam_mode_ == false) {
 
-    CameraStartParam camera_start_params{false, 30, 0};
-
-    ret = recorder_.StartCamera(params_.camera_id, camera_start_params);
+    ret = recorder_.StartCamera(params_.camera_id, 30);
     cam_id_ = params_.camera_id;
     if (NO_ERROR != ret) {
       ALOGE("%s: StartCamera Failed", __func__);
@@ -371,10 +369,6 @@ int32_t TimeLapse::StartCamera() {
 
     uint32_t multicam_id;
     multicam_id = 0;
-
-    memset(&multicam_start_params_, 0x0, sizeof multicam_start_params_);
-    multicam_start_params_.enable_partial_metadata = false;
-    multicam_start_params_.flags            = 0x0;
 
     std::vector<uint32_t> camera_ids;
     camera_ids.push_back(params_.camera_id);
@@ -393,7 +387,7 @@ int32_t TimeLapse::StartCamera() {
       return ret;
     }
 
-    ret = recorder_.StartCamera(cam_id_, multicam_start_params_);
+    ret = recorder_.StartCamera(cam_id_, 30);
     if (NO_ERROR != ret) {
       ALOGE("%s: StartCamera Failed", __func__);
       return ret;
@@ -569,8 +563,6 @@ int32_t TimeLapse::CreateLPMTrack() {
                                              kLPMTrackWidth, kLPMTrackHeight, 30};
     video_track_param = video_track_param2;
   }
-
-  video_track_param.low_power_mode = true;
 
   TrackCb video_track_cb;
   video_track_cb.data_cb = {[&](uint32_t track_id,

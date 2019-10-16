@@ -374,11 +374,12 @@ status_t CameraHalReproc::Abort(std::shared_ptr<void> &abort) {
 }
 
 status_t CameraHalReproc::Delete() {
-  std::lock_guard<std::mutex> lock(module_lock_);
+  std::unique_lock<std::mutex> lock(module_lock_);
   if (state_ != PostProcHalState::INITIALIZED) {
     QMMF_ERROR("%s: Failed: Wrong state %d.", __func__, state_);
     return BAD_VALUE;
   }
+  lock.unlock();
 
   auto ret = DeleteDeviceStreams();
   if (NO_ERROR != ret) {
@@ -386,11 +387,16 @@ status_t CameraHalReproc::Delete() {
     return ret;
   }
 
+  lock.lock();
   state_ = PostProcHalState::CREATED;
   return NO_ERROR;
 }
 
 status_t CameraHalReproc::Configure(const std::string config_json_data) {
+  return NO_ERROR;
+}
+
+status_t CameraHalReproc::GetConfig(std::string &config_json_data) {
   return NO_ERROR;
 }
 
@@ -669,17 +675,17 @@ status_t CameraHalReproc::CreateDeviceStreams() {
 
 
 status_t CameraHalReproc::DeleteDeviceStreams() {
-  if (!reprocess_request_.streamIds.isEmpty()) {
-    for (auto streamId : reprocess_request_.streamIds) {
-      if (NO_ERROR != context_->DeleteDeviceStream(streamId, true)) {
-        QMMF_ERROR("%s: Failed to delete non-zsl snapshot stream",
-          __func__);
-        return BAD_VALUE;
-      }
+
+  std::lock_guard<std::mutex> lock(reproc_lock_);
+
+  for (auto stream_id : reprocess_request_.streamIds) {
+    if (NO_ERROR != context_->DeleteDeviceStream(stream_id, true)) {
+      QMMF_ERROR("%s: Failed to delete non-zsl snapshot stream", __func__);
+      return BAD_VALUE;
     }
-    reprocess_request_.streamIds.clear();
   }
 
+  reprocess_request_.streamIds.clear();
   return NO_ERROR;
 }
 

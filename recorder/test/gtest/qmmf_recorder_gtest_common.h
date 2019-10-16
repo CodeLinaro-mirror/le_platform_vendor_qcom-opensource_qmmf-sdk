@@ -176,6 +176,8 @@ struct FaceInfo {
 // Default recording duration is 2 minutes i.e. 2 * 60 seconds
 #define DEFAULT_RECORD_DURATION     "120"
 
+// Prop to enable the dump to external storage
+#define PROP_DUMP_TO_EXT            "persist.qmmf.gtest.dumptoext"
 // Prop to enable YUV data dumping from YUV track
 #define PROP_DUMP_YUV_FRAMES        "persist.qmmf.rec.gtest.dumpyuv"
 // Prop to enable encoded bitstream data dumping
@@ -224,8 +226,6 @@ struct FaceInfo {
 #define PROP_TIMELAPSE_INTERVAL     "persist.qmmf.rec.gtest.tlapse"
 // Prop to enable/disable overlay usage
 #define PROP_TOGGLE_OVERLAY_USAGE   "persist.qmmf.rec.gtest.overlay"
-// Prop to enable/disable ubwc support in qmmf
-#define PROP_UBWC_STREAM_ENABLE     "persist.qmmf.ubwcstream.enable"
 // Prop to enable debugging frames
 #define PROP_FRAME_DEBUG            "persist.qmmf.rec.gtest.frm.dbg"
 // Prop to set force sensor mode config file
@@ -644,7 +644,6 @@ class GtestCommon : public ::testing::Test {
   uint32_t              camera_id_;
   uint32_t              iteration_count_;
   std::vector<uint32_t> camera_ids_;
-  CameraStartParam      camera_start_params_;
   RecorderCb            recorder_status_cb_;
   std::map <uint32_t , std::vector<uint32_t> > sessions_;
   std::map<uint32_t,uint32_t> track_frame_count_map_;
@@ -792,7 +791,6 @@ class GtestCommon : public ::testing::Test {
   SurfaceConfig         gfx_surface_config_;
 #endif
 
-  bool                  ubwc_stream_enable_;
   bool                  enable_sof_latency_;
 
 #ifdef QCAMERA3_TAG_LOCAL_COPY

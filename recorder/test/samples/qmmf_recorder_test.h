@@ -228,7 +228,6 @@ struct TrackInfo {
   uint32_t  session_id;
   uint32_t  track_id;
   int32_t   camera_id;
-  uint32_t  low_power_mode;
   DeviceId  device_id;
   AVCParams avcparams;
   HEVCParams hevcparams;
@@ -243,15 +242,14 @@ struct TrackInfo {
         session_id(-1),
         track_id(1),
         camera_id(0),
-        low_power_mode(0),
         device_id(0),
         avcparams(),
         hevcparams() {}
 
   TrackInfo(uint32_t width, uint32_t height, float fps, float focal_length,
             TrackType track_type, int32_t ltr_count, uint32_t session_id,
-            uint32_t track_id, int32_t camera_id, uint32_t low_power_mode,
-            DeviceId device_id, AVCParams avcparams, HEVCParams hevcparams)
+            uint32_t track_id, int32_t camera_id, DeviceId device_id,
+            AVCParams avcparams, HEVCParams hevcparams)
       : width(width),
         height(height),
         fps(fps),
@@ -261,7 +259,6 @@ struct TrackInfo {
         session_id(session_id),
         track_id(track_id),
         camera_id(camera_id),
-        low_power_mode(low_power_mode),
         device_id(device_id),
         avcparams(avcparams),
         hevcparams(hevcparams) {}
@@ -452,9 +449,9 @@ class RecorderTest {
 
   status_t SessionTwo1080pEncTracks(const TrackType& type);
 
-  status_t Session720pLPMTrack(const TrackType& type);
+  status_t Session720pTrack(const TrackType& type);
 
-  status_t Session1080pEnc1080pLPMTracks(const TrackType& track_type);
+  status_t Session1080pEnc1080pTracks(const TrackType& track_type);
 
   status_t Session1080pYUVTrackWithDisplay();
 
@@ -680,6 +677,8 @@ class RecorderTest {
   std::mutex   error_lock_;
   bool         camera_error_;
 
+  std::mutex   metadata_lock_;
+  CameraMetadata dynamic_metadata_;
 #ifdef CAM_ARCH_V2
   sp<VendorTagDescriptor> vendor_tag_desc_;
 #endif
@@ -792,8 +791,8 @@ public:
         CREATE_TWO_1080pENC_SESSION_CMD                 = 'M',
         CREATE_1080pENC_AVC_1080YUV_SESSION_CMD         = 'E',
         CREATE_4KENC_HEVC_1080YUV_SESSION_CMD           = 'F',
-        CREATE_720pLPM_SESSION_CMD                      = 'G',
-        CREATE_1080pENC_AVC_1080LPM_SESSION_CMD         = 'J',
+        CREATE_720p_SESSION_CMD                         = 'G',
+        CREATE_1080pENC_AVC_1080p_SESSION_CMD           = 'J',
         CREATE_PCM_AUD_SESSION_CMD                      = 'a',
         CREATE_2PCM_AUD_SESSION_CMD                     = 'b',
         CREATE_SCO_AUD_SESSION_CMD                      = 'c',
