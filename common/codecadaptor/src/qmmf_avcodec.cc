@@ -549,7 +549,11 @@ status_t AVCodec::RegisterOutputBuffers(vector<BufferDescriptor>& list) {
     for (size_t index = 0; index < list.size(); index++) {
       struct VideoDecoderOutputMetaData param;
       param.pHandle =
+#ifdef __LIBGBM__
+          const_cast<gbm_bo*>(static_cast<buffer_handle_t>(malloc(sizeof(struct gbm_bo))));
+#else
           static_cast<buffer_handle_t>(malloc(sizeof(struct private_handle_t)));
+#endif
       if (param.pHandle == nullptr) {
         QMMF_ERROR("%s: Mem allocation failed!", __func__);
         for (size_t inner_index = outparam_size + index - 1;
@@ -2379,7 +2383,11 @@ status_t AVCodec::ConfigureBitrate(CodecParam& param) {
     return ret;
   }
 
+#ifndef CAMERA_HAL1_SUPPORT
   bitrate_type.eControlRate = control_rate;
+#else
+  bitrate_type.eControlRate = OMX_Video_ControlRateDisable;
+#endif
   bitrate_type.nTargetBitrate = bitrate;
 
   ret = omx_client_->SetParameter(OMX_IndexParamVideoBitrate, &bitrate_type);
@@ -3425,8 +3433,7 @@ void AVCodec::DeliverInput() {
     }
 
     if (format_type_ == CodecType::kVideoEncoder)
-      QMMF_VERBOSE("%s: ETB buffer fd[%d] ts[%lld]", __func__,
-                   native_handle->data[0], stream_buffer.timestamp);
+      QMMF_VERBOSE("%s: ETB buffer ts[%lld]", __func__, stream_buffer.timestamp);
     else
       QMMF_VERBOSE("%s: ETB buffer[%s]", __func__,
                    stream_buffer.ToString().c_str());
@@ -3571,7 +3578,11 @@ OMX_BUFFERHEADERTYPE *AVCodec::GetInputBufferHdr(BufferDescriptor& buffer) {
     media_buffer->buffer_type =
         MetadataBufferType::kMetadataBufferTypeGrallocSource;
 
+#ifdef __LIBGBM__
+    media_buffer->meta_handle = const_cast<gbm_bo*>(reinterpret_cast<buffer_handle_t>(buffer.data));
+#else
     media_buffer->meta_handle = reinterpret_cast<buffer_handle_t>(buffer.data);
+#endif
 
     used_input_buffhdr_list_.PushBack(header);
     free_input_buffhdr_list_.Erase(free_input_buffhdr_list_.Begin());

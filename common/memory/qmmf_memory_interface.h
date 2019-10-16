@@ -34,7 +34,11 @@
 #include <libgralloc1/gralloc_priv.h>
 #elif TARGET_USES_GBM
 #include <gbm_priv.h>
+#ifdef __LIBGBM__
+typedef const struct gbm_bo* buffer_handle_t;
+#else
 #include <system/window.h>
+#endif
 
 // todo: add and move to platform specific header
 #define HAL_PIXEL_FORMAT_RAW8                    0x123
@@ -45,7 +49,11 @@
 #define HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS      0x7FA30C04
 #define HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS_UBWC 0x7FA30C06
 
+#ifdef __LIBGBM__
+struct private_handle_t : public gbm_bo {
+#else
 struct private_handle_t : public native_handle {
+#endif
   enum {
       PRIV_FLAGS_FRAMEBUFFER = 0x00000001,
       PRIV_FLAGS_VIDEO_ENCODER = 0x00010000
@@ -64,8 +72,13 @@ struct private_handle_t : public native_handle {
 
   static const int sNumFds = 2;
   static inline int sNumInts() {
+#ifdef __LIBGBM__
+      return (((sizeof(private_handle_t) - sizeof(struct gbm_bo*)) /
+              sizeof(int)) - sNumFds);
+#else
       return (((sizeof(private_handle_t) - sizeof(native_handle_t)) /
               sizeof(int)) - sNumFds);
+#endif
   }
 
   private_handle_t(int fd, unsigned int size, int flags, int bufferType,
@@ -73,9 +86,11 @@ struct private_handle_t : public native_handle {
       fd(fd), flags(flags), size(size), offset(0), bufferType(bufferType),
       format(format), width(width), height(height), unaligned_width(width),
       unaligned_height(height) {
+#ifndef __LIBGBM__
     version = (int) sizeof(native_handle);
     numInts = sNumInts();
     numFds = sNumFds;
+#endif
   };
 
   ~private_handle_t() {
@@ -262,6 +277,9 @@ class IAllocDevice {
                                     int32_t height, int32_t format,
                                     MemAllocFlags usage,
                                     uint32_t* stride) = 0;
+
+  virtual MemAllocError ImportBuffer(IBufferHandle& handle,
+                                     void* native_handle) = 0;
 
   /** IAllocDevice::FreeBuffer
   * @handle - handle to the allocated buffer

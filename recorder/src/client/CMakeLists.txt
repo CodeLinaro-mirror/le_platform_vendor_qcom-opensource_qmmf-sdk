@@ -29,7 +29,6 @@ ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_recorder_client.cc
 ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_recorder_client_ion.cc
 ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_recorder_extra_param.cc
 )
-add_dependencies(qmmf_recorder_client qmmf_camera_adaptor)
 
 target_include_directories(qmmf_recorder_client
  PRIVATE ${TOP_DIRECTORY})
@@ -46,7 +45,7 @@ target_include_directories(qmmf_recorder_client
 
 install(TARGETS qmmf_recorder_client DESTINATION lib OPTIONAL)
 target_link_libraries(qmmf_recorder_client log binder utils cutils dl
- camera_client camera_metadata qmmf_camera_adaptor)
+ camera_client camera_metadata)
 
 # TODO remove this hack when camx issue with propagating c and cpp glags is solved
 target_link_libraries(qmmf_recorder_client ion)

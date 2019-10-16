@@ -35,7 +35,9 @@
 #include "common/utils/qmmf_log.h"
 
 #include "recorder/src/client/qmmf_recorder_service_intf.h"
+#ifndef CAMERA_HAL1_SUPPORT
 #include "common/cameraadaptor/qmmf_camera3_device_client.h"
+#endif
 #include "recorder/src/service/qmmf_remote_cb.h"
 
 #define FRAME_DUMP_PATH        "/data/misc/qmmf"
@@ -60,8 +62,9 @@
 namespace qmmf {
 
 namespace recorder {
-
+#ifndef CAMERA_HAL1_SUPPORT
 using namespace cameraadaptor;
+#endif
 
 enum class TrackType {
   kVideo,

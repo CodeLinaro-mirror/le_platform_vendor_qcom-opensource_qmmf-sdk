@@ -67,6 +67,9 @@ class GrallocDevice : public IAllocDevice {
                             int32_t height, int32_t format,
                             MemAllocFlags usage, uint32_t* stride) override;
 
+  MemAllocError ImportBuffer(IBufferHandle& handle,
+                             void* native_handle) override;
+
   MemAllocError FreeBuffer(IBufferHandle handle) override;
 
   MemAllocError Perform(const IBufferHandle& handle, AllocDeviceAction action,

@@ -60,12 +60,20 @@ RecorderImpl* RecorderImpl::CreateRecorder() {
   return instance_;
 }
 
+#ifndef CAMERA_HAL1_SUPPORT
 RecorderImpl::RecorderImpl()
   : unique_session_id_(0),
     camera_source_(nullptr),
     encoder_core_(nullptr),
     audio_source_(nullptr),
-    audio_encoder_core_(nullptr){
+    audio_encoder_core_(nullptr)
+#else
+RecorderImpl::RecorderImpl()
+  : unique_session_id_(0),
+    camera_source_(nullptr),
+    encoder_core_(nullptr)
+#endif
+{
 
     QMMF_GET_LOG_LEVEL();
     QMMF_KPI_GET_MASK();
@@ -87,6 +95,7 @@ RecorderImpl::~RecorderImpl() {
     delete encoder_core_;
     encoder_core_ = nullptr;
   }
+#ifndef CAMERA_HAL1_SUPPORT
   if (audio_source_) {
     delete audio_source_;
     audio_source_ = nullptr;
@@ -95,6 +104,7 @@ RecorderImpl::~RecorderImpl() {
     delete audio_encoder_core_;
     audio_encoder_core_ = nullptr;
   }
+#endif
   instance_ = nullptr;
   QMMF_INFO("%s: Exit (0x%p)", __func__, this);
 }
@@ -122,7 +132,7 @@ status_t RecorderImpl::Init(const RemoteCallbackHandle& remote_cb_handle) {
   }
   QMMF_INFO("%s: EncoderCore Instance Created Successfully!",
       __func__);
-
+#ifndef CAMERA_HAL1_SUPPORT
   audio_source_ = AudioSource::CreateAudioSource();
   if (!audio_source_) {
     QMMF_ERROR("%s: Can't Create AudioSource Instance!", __func__);
@@ -138,7 +148,7 @@ status_t RecorderImpl::Init(const RemoteCallbackHandle& remote_cb_handle) {
   }
   QMMF_INFO("%s: AudioEncoderCore Instance Created Successfully!",
       __func__);
-
+#endif
   QMMF_INFO("%s: Exit", __func__);
   return NO_ERROR;
 }
@@ -156,6 +166,7 @@ status_t RecorderImpl::DeInit() {
     delete encoder_core_;
     encoder_core_ = nullptr;
   }
+#ifndef CAMERA_HAL1_SUPPORT
   if (audio_source_) {
     delete audio_source_;
     audio_source_ = nullptr;
@@ -164,6 +175,7 @@ status_t RecorderImpl::DeInit() {
     delete audio_encoder_core_;
     audio_encoder_core_ = nullptr;
   }
+#endif
   QMMF_INFO("%s: Exit", __func__);
   return NO_ERROR;
 }
@@ -258,7 +270,9 @@ status_t RecorderImpl::DeRegisterClient(const uint32_t client_id,
         if (track_info.type == TrackType::kVideo) {
           ret = DeleteVideoTrack(client_id, session_id, client_track_id);
         } else {
+#ifndef CAMERA_HAL1_SUPPORT
           ret = DeleteAudioTrack(client_id, session_id, client_track_id);
+#endif
         }
         // Carry-on even delete track fails.
         ++track;
@@ -604,7 +618,7 @@ status_t RecorderImpl::StartSession(const uint32_t client_id,
 
   QMMF_INFO("%s: client_id(%d):session_id(%d) number of tracks(%d) to start",
       __func__, client_id, session_id, tracks_in_session.size());
-
+#ifndef CAMERA_HAL1_SUPPORT
   std::future<uint32_t> audio_tracks_result;
   std::function<uint32_t()> audio_tracks = [&]() -> uint32_t {
     uint32_t ret = NO_ERROR;
@@ -660,7 +674,7 @@ status_t RecorderImpl::StartSession(const uint32_t client_id,
     return ret;
   };
   audio_tracks_result = std::async(std::launch::async, audio_tracks);
-
+#endif
   // all of the video tracks associated to one session starts together
   for (auto const& track : tracks_in_session) {
     uint32_t client_track_id  = track.first;
@@ -699,7 +713,7 @@ status_t RecorderImpl::StartSession(const uint32_t client_id,
         "client_track_id(%d):service_track_id(%x) Started Successfully!",
         __func__, client_id, session_id, client_track_id, service_track_id);
   }
-
+#ifndef CAMERA_HAL1_SUPPORT
   if (audio_tracks_result.get() == NO_ERROR && ret == NO_ERROR) {
     QMMF_INFO("%s: client_id(%d):session_id(%d) with num tracks(%d) Started"
         " Successfully!", __func__, client_id, session_id,
@@ -707,7 +721,9 @@ status_t RecorderImpl::StartSession(const uint32_t client_id,
 
     ChangeSessionState(session_id, SessionState::kActive);
   }
-
+#else
+  ChangeSessionState(session_id, SessionState::kActive);
+#endif
   QMMF_DEBUG("%s: Exit client_id(%d):session_id(%d)", __func__,
       client_id, session_id);
   return ret;
@@ -784,7 +800,9 @@ status_t RecorderImpl::StopSession(const uint32_t client_id,
           break;
         }
       }
-    } else if (track_info.type == TrackType::kAudio) {
+    }
+#ifndef CAMERA_HAL1_SUPPORT
+     else if (track_info.type == TrackType::kAudio) {
 
       assert(audio_source_ != nullptr);
       ret = audio_source_->StopTrackSource(service_track_id);
@@ -806,6 +824,7 @@ status_t RecorderImpl::StopSession(const uint32_t client_id,
         }
       }
     }
+#endif
     QMMF_INFO("%s: client_id(%d):session_id(%d), "
         "client_track_id(%d):service_track_id(%x) Stoped Successfully!",
         __func__, client_id, session_id, client_track_id, service_track_id);
@@ -886,8 +905,9 @@ status_t RecorderImpl::PauseSession(const uint32_t client_id,
            (track_info.format.video == VideoFormat::kJPEG)) {
         //TODO: Add logic to stop TrackEncoder
       }
-
-    } else if (track_info.type == TrackType::kAudio) {
+    }
+#ifndef CAMERA_HAL1_SUPPORT
+    else if (track_info.type == TrackType::kAudio) {
 
       assert(audio_source_ != nullptr);
       ret = audio_source_->PauseTrackSource(service_track_id);
@@ -911,6 +931,7 @@ status_t RecorderImpl::PauseSession(const uint32_t client_id,
         }
       }
     }
+#endif
   }
   if (ret == NO_ERROR) {
     QMMF_INFO("%s: client_id(%d):session_id(%d) with num tracks(%d) Paused"
@@ -980,8 +1001,9 @@ status_t RecorderImpl::ResumeSession(const uint32_t client_id,
            (track_info.format.video == VideoFormat::kJPEG)) {
         //TODO: Add logic to resume TrackEncoder
       }
-
-    } else if (track_info.type == TrackType::kAudio) {
+    }
+#ifndef CAMERA_HAL1_SUPPORT
+    else if (track_info.type == TrackType::kAudio) {
 
       assert(audio_source_ != nullptr);
       ret = audio_source_->ResumeTrackSource(service_track_id);
@@ -1005,6 +1027,7 @@ status_t RecorderImpl::ResumeSession(const uint32_t client_id,
         }
       }
     }
+#endif
   }
   if (ret == NO_ERROR) {
     QMMF_INFO("%s: client_id(%d):session_id(%d) with num tracks(%d) Resumed"
@@ -1154,7 +1177,7 @@ status_t RecorderImpl::GetPluginConfig(const uint32_t client_id,
 
 bool RecorderImpl::IsAudioTrackCreateParamValid(const AudioTrackCreateParam& param) {
   bool valid = true;
-
+#ifndef CAMERA_HAL1_SUPPORT
   // Validate MPEGH encoding input information and shall always be same as the
   // conditions defined in ConfigureAudioEncoder() of
   // <common/codecadaptor/src/qmmf_avcodec.cc>
@@ -1172,6 +1195,7 @@ bool RecorderImpl::IsAudioTrackCreateParamValid(const AudioTrackCreateParam& par
       valid = false;
     }
   }
+#endif
   return valid;
 }
 
@@ -1179,7 +1203,7 @@ status_t RecorderImpl::CreateAudioTrack(const uint32_t client_id,
                                         const uint32_t session_id,
                                         const uint32_t track_id,
                                         const AudioTrackCreateParam& param) {
-
+#ifndef CAMERA_HAL1_SUPPORT
   QMMF_DEBUG("%s: Enter client_id(%d):session_id(%d)", __func__,
       client_id, session_id);
   QMMF_KPI_DETAIL();
@@ -1257,13 +1281,14 @@ status_t RecorderImpl::CreateAudioTrack(const uint32_t client_id,
 
   QMMF_DEBUG("%s: Exit client_id(%d):session_id(%d)", __func__,
       client_id, session_id);
+#endif
   return NO_ERROR;
 }
 
 status_t RecorderImpl::DeleteAudioTrack(const uint32_t client_id,
                                         const uint32_t session_id,
                                         const uint32_t track_id) {
-
+#ifndef CAMERA_HAL1_SUPPORT
   QMMF_DEBUG("%s: Enter client_id(%d):session_id(%d)", __func__,
       client_id, session_id);
   QMMF_KPI_DETAIL();
@@ -1329,6 +1354,7 @@ status_t RecorderImpl::DeleteAudioTrack(const uint32_t client_id,
 
   QMMF_DEBUG("%s: Enter client_id(%d):session_id(%d)", __func__,
       client_id, session_id);
+#endif
   return NO_ERROR;
 }
 
@@ -1603,7 +1629,6 @@ status_t RecorderImpl::DeleteVideoTrack(const uint32_t client_id,
         __func__, service_track_id);
     return ret;
   }
-
   if ((track_info.format.video == VideoFormat::kHEVC) ||
       (track_info.format.video == VideoFormat::kAVC) ||
       (track_info.format.video == VideoFormat::kJPEG)) {
@@ -1615,6 +1640,7 @@ status_t RecorderImpl::DeleteVideoTrack(const uint32_t client_id,
       return ret;
     }
   }
+
   {
     std::lock_guard<std::mutex> lock(camera_tracks_lock_);
     // Find the camera-to-tracks mapping that this track id belongs to.
@@ -1645,7 +1671,7 @@ status_t RecorderImpl::DeleteVideoTrack(const uint32_t client_id,
   remote_cb_handle_(client_id)->NotifyDeleteVideoTrack(track_id);
   timelapse_mode_.erase(track_id);
 
-  QMMF_DEBUG("%s: Enter client_id(%d):session_id(%d)", __func__,
+  QMMF_DEBUG("%s: Exit client_id(%d):session_id(%d)", __func__,
       client_id, session_id);
   return NO_ERROR;
 }
@@ -1689,7 +1715,6 @@ status_t RecorderImpl::ReturnTrackBuffer(const uint32_t client_id,
       assert(encoder_core_ != nullptr);
       ret = encoder_core_->ReturnTrackBuffer(track_info.track_id, buffers);
       assert(ret == NO_ERROR);
-
     } else {
       // These are the RAW frames, return them back to camera source directly.
       assert(camera_source_ != nullptr);
@@ -1697,7 +1722,9 @@ status_t RecorderImpl::ReturnTrackBuffer(const uint32_t client_id,
       assert(ret == NO_ERROR);
     }
 
-  } else {
+  }
+#ifndef CAMERA_HAL1_SUPPORT
+  else {
     if (track_info.format.audio != AudioFormat::kPCM) {
       assert(audio_encoder_core_ != nullptr);
       ret = audio_encoder_core_->ReturnTrackBuffer(track_info.track_id,
@@ -1709,6 +1736,7 @@ status_t RecorderImpl::ReturnTrackBuffer(const uint32_t client_id,
       assert(ret == NO_ERROR);
     }
   }
+#endif
   QMMF_VERBOSE("%s: Exit client_id(%d):session_id(%d)", __func__,
       client_id, session_id);
   return NO_ERROR;
@@ -1720,6 +1748,7 @@ status_t RecorderImpl::SetAudioTrackParam(const uint32_t client_id,
                                           CodecParamType type,
                                           void *param,
                                           size_t param_size) {
+#ifndef CAMERA_HAL1_SUPPORT
   QMMF_DEBUG("%s: Enter client_id(%d):session_id(%d)", __func__,
       client_id, session_id);
 
@@ -1742,6 +1771,7 @@ status_t RecorderImpl::SetAudioTrackParam(const uint32_t client_id,
 
   QMMF_DEBUG("%s: Exit client_id(%d):session_id(%d)", __func__,
       client_id, session_id);
+#endif
   return NO_ERROR;
 }
 
@@ -2284,7 +2314,7 @@ void RecorderImpl::AudioTrackBufferCb(uint32_t client_id, uint32_t session_id,
                                       uint32_t track_id,
                                       std::vector<BnBuffer>& buffers,
                                       std::vector<MetaData>& meta_buffers) {
-
+#ifndef CAMERA_HAL1_SUPPORT
   QMMF_DEBUG("%s Enter client_id(%u), session_id(%u), track_id(%u)",
       __func__, client_id, session_id, track_id);
   assert(remote_cb_handle_ != nullptr);
@@ -2298,6 +2328,7 @@ void RecorderImpl::AudioTrackBufferCb(uint32_t client_id, uint32_t session_id,
   }
   QMMF_DEBUG("%s Exit client_id(%u), session_id(%u), track_id(%u)",
       __func__, client_id, session_id, track_id);
+#endif
 }
 
 void RecorderImpl::CameraSnapshotCb(uint32_t client_id, uint32_t camera_id,

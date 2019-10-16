@@ -42,7 +42,9 @@
 
 #include "common/resizer-neon/qmmf_resizer_neon.h"
 #include "common/resizer-c2d/qmmf_resizer_c2d.h"
+#ifndef CAMERA_HAL1_SUPPORT
 #include "common/resizer-fastCV/qmmf_resizer_fastCV.h"
+#endif
 
 namespace qmmf {
 
@@ -61,7 +63,7 @@ CameraRescalerBase::CameraRescalerBase()
   memset(prop, 0, sizeof(prop));
   property_get("persist.qmmf.rescaler.type", prop, "Neon");
   std::string name = prop;
-
+#ifndef CAMERA_HAL1_SUPPORT
   if (name == "Neon") {
     rescaler_ = new NEONResizer();
   } else if (name == "FastCV") {
@@ -69,6 +71,13 @@ CameraRescalerBase::CameraRescalerBase()
   } else {
     rescaler_ = new C2DResizer();
   }
+#else
+  if (name == "Neon") {
+    rescaler_ = new NEONResizer();
+  } else {
+    rescaler_ = new C2DResizer();
+  }
+#endif
 
   memset(prop, 0, sizeof(prop));
   property_get("persist.qipcam.rescaler.perf", prop, "0");

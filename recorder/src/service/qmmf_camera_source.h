@@ -39,19 +39,29 @@
 #include <qmmf-sdk/qmmf_recorder_extra_param_tags.h>
 
 #include "common/utils/qmmf_condition.h"
+#ifndef CAMERA_HAL1_SUPPORT
 #include "common/cameraadaptor/qmmf_camera3_device_client.h"
+#endif
 #include "common/codecadaptor/src/qmmf_avcodec.h"
 #include "recorder/src/service/qmmf_recorder_common.h"
 #include "recorder/src/service/qmmf_camera_interface.h"
+#ifndef CAMERA_HAL1_SUPPORT
 #include "recorder/src/service/qmmf_camera_context.h"
+#else
+#include "recorder/src/service/qmmf_camera_context_hal1.h"
+#endif
 #include "recorder/src/service/qmmf_camera_rescaler.h"
 #include "recorder/src/service/qmmf_camera_frc.h"
 
 namespace qmmf {
 
+#ifndef CAMERA_HAL1_SUPPORT
 using namespace cameraadaptor;
+#endif
 using namespace android;
+#ifndef CAMERA_HAL1_SUPPORT
 using namespace overlay;
+#endif
 using namespace avcodec;
 
 namespace recorder {
@@ -246,7 +256,9 @@ class CameraSource {
 
   SnapshotCb client_snapshot_cb_;
 
+#ifndef CAMERA_HAL1_SUPPORT
   std::shared_ptr<PostProcFactory> factory_;
+#endif
 
   SupportedCameras supported_cameras_;
 
@@ -437,10 +449,10 @@ class TrackSource : public ICodecSource {
   TSQueue<StreamBuffer> frames_being_encoded_;
 
   std::shared_ptr<CameraInterface>   camera_interface_;
-
+#ifndef CAMERA_HAL1_SUPPORT
   Overlay  overlay_;
   uint32_t active_overlays_;
-
+#endif
   float   input_frame_rate_;
   double  input_frame_interval_;
   double  output_frame_interval_;

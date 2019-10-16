@@ -34,7 +34,9 @@
 #include <camera/VendorTagDescriptor.h>
 
 #include "recorder/src/client/qmmf_recorder_service_intf.h"
+#ifndef CAMERA_HAL1_SUPPORT
 #include "recorder/src/service/qmmf_recorder_common.h"
+#endif
 #include "recorder/src/service/qmmf_recorder_impl.h"
 
 namespace qmmf {

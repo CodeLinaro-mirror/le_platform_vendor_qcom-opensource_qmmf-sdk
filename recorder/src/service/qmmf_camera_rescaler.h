@@ -40,8 +40,12 @@
 #include "common/utils/qmmf_condition.h"
 #include "recorder/src/service/qmmf_camera_interface.h"
 #include "recorder/src/service/qmmf_recorder_common.h"
+#ifndef CAMERA_HAL1_SUPPORT
 #include "common/cameraadaptor/qmmf_camera3_stream.h"
 #include "common/cameraadaptor/qmmf_camera3_device_client.h"
+#else
+#include <utils/List.h>
+#endif
 
 #include "common/resizer-interface/qmmf_resizer_interface.h"
 

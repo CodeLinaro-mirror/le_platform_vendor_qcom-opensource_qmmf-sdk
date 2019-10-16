@@ -35,13 +35,18 @@
 #include <sys/mman.h>
 #include <sys/time.h>
 #include <json/json.h>
+#ifndef CAMERA_HAL1_SUPPORT
+#include <hardware/camera3.h>
+#endif
 
 
+#ifndef CAMERA_HAL1_SUPPORT
 #include "recorder/src/service/qmmf_multicamera_manager.h"
+#include "recorder/src/service/post-process/factory/qmmf_postproc_factory.h"
+#endif
 #include "recorder/src/service/qmmf_camera_source.h"
 #include "recorder/src/service/qmmf_recorder_common.h"
 #include "recorder/src/service/qmmf_recorder_utils.h"
-#include "recorder/src/service/post-process/factory/qmmf_postproc_factory.h"
 
 #ifndef JPEG_BLOB_OFFSET
 #define JPEG_BLOB_OFFSET (1)
@@ -79,7 +84,9 @@ CameraSource::CameraSource() {
   QMMF_KPI_GET_MASK();
   QMMF_KPI_DETAIL();
   QMMF_INFO("%s: Enter", __func__);
+#ifndef CAMERA_HAL1_SUPPORT
   factory_ = PostProcFactory::getInstance();
+#endif
   DetectCameras();
   QMMF_INFO("%s: Exit", __func__);
 }
@@ -89,8 +96,10 @@ CameraSource::~CameraSource() {
   QMMF_KPI_DETAIL();
   QMMF_INFO("%s: Enter", __func__);
   camera_map_.clear();
+#ifndef CAMERA_HAL1_SUPPORT
   PostProcFactory::releaseInstance();
   factory_ = nullptr;
+#endif
   instance_ = nullptr;
   QMMF_INFO("%s: Exit (0x%p)", __func__, this);
 }
@@ -134,8 +143,11 @@ status_t CameraSource::StartCamera(const uint32_t camera_id,
   QMMF_KPI_DETAIL();
   bool is_virtual_camera_id = false;
 
+#ifndef CAMERA_HAL1_SUPPORT
   is_virtual_camera_id = (kVirtualCameraIdOffset <= camera_id);
-
+#else
+  is_virtual_camera_id = false;//(kVirtualCameraIdOffset <= camera_id);
+#endif
   std::shared_ptr<CameraInterface> camera;
 
   if (is_virtual_camera_id) {
@@ -201,6 +213,7 @@ status_t CameraSource::StopCamera(const uint32_t camera_id) {
 status_t CameraSource::CreateMultiCamera(const std::vector<uint32_t> camera_ids,
                                          uint32_t *virtual_camera_id) {
 
+#ifndef CAMERA_HAL1_SUPPORT
   QMMF_INFO("%s: Enter ", __func__);
   QMMF_KPI_DETAIL();
   std::shared_ptr<CameraInterface> multi_camera = std::make_shared<MultiCameraManager>();
@@ -222,6 +235,7 @@ status_t CameraSource::CreateMultiCamera(const std::vector<uint32_t> camera_ids,
   // for 360 camera case.
   camera_map_.insert(std::make_pair(*virtual_camera_id, multi_camera));
   QMMF_INFO("%s: Exit ", __func__);
+#endif
   return NO_ERROR;
 }
 
@@ -231,6 +245,7 @@ status_t CameraSource::ConfigureMultiCamera(const uint32_t virtual_camera_id,
                                             const uint32_t param_size) {
 
   status_t ret = NO_ERROR;
+#ifndef CAMERA_HAL1_SUPPORT
   if ((kVirtualCameraIdOffset > virtual_camera_id) ||
       (camera_map_.end() == camera_map_.find(virtual_camera_id))) {
     QMMF_ERROR("%s: Invalid Virtual Camera Id(%u)!", __func__,
@@ -246,6 +261,7 @@ status_t CameraSource::ConfigureMultiCamera(const uint32_t virtual_camera_id,
 
   ret = camera_mgr->ConfigureMultiCamera(virtual_camera_id, type,
                                          param, param_size);
+#endif
   return ret;
 }
 
@@ -263,11 +279,13 @@ status_t CameraSource::GetSupportedPlugins(SupportedPlugins *plugins) {
 
   QMMF_DEBUG("%s: Enter", __func__);
 
+#ifndef CAMERA_HAL1_SUPPORT
   auto ret = factory_->GetSupportedPlugins(plugins);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: GetSupportedPlugins Failed!", __func__);
     return ret;
   }
+#endif
 
   QMMF_DEBUG("%s: Exit", __func__);
   return NO_ERROR;
@@ -277,11 +295,13 @@ status_t CameraSource::CreatePlugin(uint32_t *uid, const PluginInfo &plugin) {
 
   QMMF_DEBUG("%s: Enter", __func__);
 
+#ifndef CAMERA_HAL1_SUPPORT
   auto ret = factory_->CreatePlugin(*uid, plugin);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: CreatePlugin Failed!", __func__);
     return ret;
   }
+#endif
 
   QMMF_DEBUG("%s: Exit", __func__);
   return NO_ERROR;
@@ -291,11 +311,13 @@ status_t CameraSource::DeletePlugin(const uint32_t &uid) {
 
   QMMF_DEBUG("%s: Enter", __func__);
 
+#ifndef CAMERA_HAL1_SUPPORT
   auto ret = factory_->DeletePlugin(uid);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: DeletePlugin Failed!", __func__);
     return ret;
   }
+#endif
 
   QMMF_DEBUG("%s: Exit", __func__);
   return NO_ERROR;
@@ -306,11 +328,13 @@ status_t CameraSource::ConfigPlugin(const uint32_t &uid,
 
   QMMF_DEBUG("%s: Enter", __func__);
 
+#ifndef CAMERA_HAL1_SUPPORT
   auto ret = factory_->ConfigPlugin(uid, json_config);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: ConfigPlugin Failed!", __func__);
     return ret;
   }
+#endif
 
   QMMF_DEBUG("%s: Exit", __func__);
   return NO_ERROR;
@@ -321,11 +345,13 @@ status_t CameraSource::GetPluginConfig(const uint32_t &uid,
 
   QMMF_DEBUG("%s: Enter", __func__);
 
+#ifndef CAMERA_HAL1_SUPPORT
   auto ret = factory_->GetPluginConfig(uid, json_config);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: ConfigPlugin Failed!", __func__);
     return ret;
   }
+#endif
 
   QMMF_DEBUG("%s: Exit", __func__);
   return NO_ERROR;
@@ -833,6 +859,7 @@ status_t CameraSource::CreateOverlayObject(const uint32_t track_id,
                                            OverlayParam *param,
                                            uint32_t *overlay_id) {
 
+#ifndef CAMERA_HAL1_SUPPORT
   if (!IsTrackIdValid(track_id)) {
     QMMF_ERROR("%s: Track(%x) does not exist !!", __func__, track_id);
     return BAD_VALUE;
@@ -845,11 +872,14 @@ status_t CameraSource::CreateOverlayObject(const uint32_t track_id,
     return BAD_VALUE;
   }
   return ret;
+#endif
+  return NO_ERROR;
 }
 
 status_t CameraSource::DeleteOverlayObject(const uint32_t track_id,
                                            const uint32_t overlay_id) {
 
+#ifndef CAMERA_HAL1_SUPPORT
   if (!IsTrackIdValid(track_id)) {
     QMMF_ERROR("%s: Track(%x) does not exist !!", __func__, track_id);
     return BAD_VALUE;
@@ -862,12 +892,15 @@ status_t CameraSource::DeleteOverlayObject(const uint32_t track_id,
     return BAD_VALUE;
   }
   return ret;
+#endif
+  return NO_ERROR;
 }
 
 status_t CameraSource::GetOverlayObjectParams(const uint32_t track_id,
                                               const uint32_t overlay_id,
                                               OverlayParam &param) {
 
+#ifndef CAMERA_HAL1_SUPPORT
   if (!IsTrackIdValid(track_id)) {
     QMMF_ERROR("%s: Track(%x) does not exist !!", __func__, track_id);
     return BAD_VALUE;
@@ -880,12 +913,15 @@ status_t CameraSource::GetOverlayObjectParams(const uint32_t track_id,
     return BAD_VALUE;
   }
   return ret;
+#endif
+  return NO_ERROR;
 }
 
 status_t CameraSource::UpdateOverlayObjectParams(const uint32_t track_id,
                                                  const uint32_t overlay_id,
                                                  OverlayParam *param) {
 
+#ifndef CAMERA_HAL1_SUPPORT
   if (!IsTrackIdValid(track_id)) {
     QMMF_ERROR("%s: Track(%x) does not exist !!", __func__, track_id);
     return BAD_VALUE;
@@ -898,11 +934,14 @@ status_t CameraSource::UpdateOverlayObjectParams(const uint32_t track_id,
     return BAD_VALUE;
   }
   return ret;
+#endif
+  return NO_ERROR;
 }
 
 status_t CameraSource::SetOverlayObject(const uint32_t track_id,
                                         const uint32_t overlay_id) {
 
+#ifndef CAMERA_HAL1_SUPPORT
   if (!IsTrackIdValid(track_id)) {
     QMMF_ERROR("%s: Track(%x) does not exist !!", __func__, track_id);
     return BAD_VALUE;
@@ -915,11 +954,14 @@ status_t CameraSource::SetOverlayObject(const uint32_t track_id,
     return BAD_VALUE;
   }
   return ret;
+#endif
+  return NO_ERROR;
 }
 
 status_t CameraSource::RemoveOverlayObject(const uint32_t track_id,
                                            const uint32_t overlay_id) {
 
+#ifndef CAMERA_HAL1_SUPPORT
   if (!IsTrackIdValid(track_id)) {
     QMMF_ERROR("%s: Track(%x) does not exist !!", __func__, track_id);
     return BAD_VALUE;
@@ -932,6 +974,8 @@ status_t CameraSource::RemoveOverlayObject(const uint32_t track_id,
     return BAD_VALUE;
   }
   return ret;
+#endif
+  return NO_ERROR;
 }
 
 const shared_ptr<TrackSource>& CameraSource::GetTrackSource(uint32_t track_id) {
@@ -949,6 +993,7 @@ bool CameraSource::IsTrackIdValid(const uint32_t track_id) {
 uint32_t CameraSource::GetJpegSize(uint8_t *blobBuffer, uint32_t size) {
 
   uint32_t ret = size;
+#ifndef CAMERA_HAL1_SUPPORT
   uint32_t blob_size = sizeof(struct camera3_jpeg_blob);
 
   if (size > blob_size) {
@@ -965,6 +1010,7 @@ uint32_t CameraSource::GetJpegSize(uint8_t *blobBuffer, uint32_t size) {
     QMMF_ERROR("%s Buffer size: %u equal or smaller than Blob size: %u\n",
         __func__, size, blob_size);
   }
+#endif
   return ret;
 }
 
@@ -1168,7 +1214,9 @@ TrackSource::TrackSource(const VideoTrackParams& params,
       is_stop_(false),
       eos_acked_(false),
       is_idle_(true),
+#ifndef CAMERA_HAL1_SUPPORT
       active_overlays_(0),
+#endif
       input_count_(0),
       count_(0),
       pending_encodes_per_frame_ratio_(0.0),
@@ -1840,6 +1888,7 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
   QMMF_VERBOSE("%s: track_id(%x) size = %d", __func__, TrackId(),
       buffer.size);
 
+#ifndef CAMERA_HAL1_SUPPORT
   if (active_overlays_ > 0) {
     OverlayTargetBuffer overlay_buf;
 
@@ -1859,6 +1908,7 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
 
     overlay_.ApplyOverlay(overlay_buf);
   }
+#endif
 #ifdef ENABLE_FRAME_DUMP
   DumpYUV(buffer);
 #endif
@@ -2010,7 +2060,7 @@ void TrackSource::ClearInputQueue() {
 
 status_t TrackSource::CreateOverlayObject(OverlayParam *param,
                                           uint32_t *overlay_id) {
-
+#ifndef CAMERA_HAL1_SUPPORT
   QMMF_DEBUG("%s: Enter track_id(%x)", __func__, TrackId());
   uint32_t id;
   auto ret = overlay_.CreateOverlayItem(*param, &id);
@@ -2023,10 +2073,12 @@ status_t TrackSource::CreateOverlayObject(OverlayParam *param,
       param->type, id);
   QMMF_DEBUG("%s: Exit track_id(%x)", __func__, TrackId());
   return ret;
+#endif
+  return NO_ERROR;
 }
 
 status_t TrackSource::DeleteOverlayObject(const uint32_t overlay_id) {
-
+#ifndef CAMERA_HAL1_SUPPORT
   QMMF_DEBUG("%s: Enter track_id(%x)", __func__, TrackId());
   auto ret = overlay_.DeleteOverlayItem(overlay_id);
   if (ret != NO_ERROR) {
@@ -2035,11 +2087,13 @@ status_t TrackSource::DeleteOverlayObject(const uint32_t overlay_id) {
   }
   QMMF_DEBUG("%s: Exit track_id(%x)", __func__, TrackId());
   return ret;
+#endif
+  return NO_ERROR;
 }
 
 status_t TrackSource::GetOverlayObjectParams(const uint32_t overlay_id,
                                              OverlayParam &param) {
-
+#ifndef CAMERA_HAL1_SUPPORT
   QMMF_DEBUG("%s: Enter track_id(%x)", __func__, TrackId());
   auto ret = overlay_.GetOverlayParams(overlay_id, param);
   if (ret != NO_ERROR) {
@@ -2048,11 +2102,13 @@ status_t TrackSource::GetOverlayObjectParams(const uint32_t overlay_id,
   }
   QMMF_DEBUG("%s: Exit track_id(%x)", __func__, TrackId());
   return ret;
+#endif
+  return NO_ERROR;
 }
 
 status_t TrackSource::UpdateOverlayObjectParams(const uint32_t overlay_id,
                                                 OverlayParam *param) {
-
+#ifndef CAMERA_HAL1_SUPPORT
   QMMF_DEBUG("%s: Enter track_id(%x)", __func__, TrackId());
   auto ret = overlay_.UpdateOverlayParams(overlay_id, *param);
   if (ret != NO_ERROR) {
@@ -2061,10 +2117,12 @@ status_t TrackSource::UpdateOverlayObjectParams(const uint32_t overlay_id,
   }
   QMMF_DEBUG("%s: Exit track_id(%x)", __func__, TrackId());
   return ret;
+#endif
+  return NO_ERROR;
 }
 
 status_t TrackSource::SetOverlayObject(const uint32_t overlay_id) {
-
+#ifndef CAMERA_HAL1_SUPPORT
   QMMF_DEBUG("%s: Enter track_id(%x)", __func__, TrackId());
   auto ret = overlay_.EnableOverlayItem(overlay_id);
   if (ret != NO_ERROR) {
@@ -2074,10 +2132,12 @@ status_t TrackSource::SetOverlayObject(const uint32_t overlay_id) {
   ++active_overlays_;
   QMMF_DEBUG("%s: Exit track_id(%x)", __func__, TrackId());
   return ret;
+#endif
+  return NO_ERROR;
 }
 
 status_t TrackSource::RemoveOverlayObject(const uint32_t overlay_id) {
-
+#ifndef CAMERA_HAL1_SUPPORT
   QMMF_DEBUG("%s: Enter track_id(%x)", __func__, TrackId());
   auto ret = overlay_.DisableOverlayItem(overlay_id);
   if (ret != NO_ERROR) {
@@ -2087,6 +2147,8 @@ status_t TrackSource::RemoveOverlayObject(const uint32_t overlay_id) {
   --active_overlays_;
   QMMF_DEBUG("%s: Exit track_id(%x)", __func__, TrackId());
   return ret;
+#endif
+  return NO_ERROR;
 }
 
 void TrackSource::UpdateFrameRate(const float frame_rate) {
