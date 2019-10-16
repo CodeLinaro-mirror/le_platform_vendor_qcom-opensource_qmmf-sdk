@@ -116,6 +116,27 @@ CameraContext::~CameraContext() {
   QMMF_INFO("%s: Exit", __func__);
 }
 
+int32_t CameraContext::GetNumberOfCameras() {
+
+  CameraClientCallbacks camera_callbacks;
+  Camera3DeviceClient camera_device(camera_callbacks);
+
+  auto ret = camera_device.Initialize();
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s Unable to Initialize Camera3DeviceClient %d", __func__, ret);
+    return -1;
+  }
+
+  int32_t num_camera = camera_device.GetNumberOfCameras();
+  if (num_camera < 1) {
+    QMMF_ERROR("%s: Failed: number of cameras %d", __func__, num_camera);
+    return -1;
+  }
+  QMMF_INFO("%s:%d: Number of cameras: %d", __func__, __LINE__, num_camera);
+
+  return num_camera;
+}
+
 void CameraContext::SetFlushCb(FlushCb &cb){
   flush_cb_ = cb;
 }
