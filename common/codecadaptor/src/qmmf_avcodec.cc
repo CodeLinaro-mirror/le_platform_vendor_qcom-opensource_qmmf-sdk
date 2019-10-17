@@ -631,6 +631,31 @@ status_t AVCodec::ConfigureVideoEncoder(CodecParam& codec_param) {
   InitOMXParams(&vui_timing_info);
   vui_timing_info.bEnable = OMX_TRUE;
 
+#ifdef CAMERA_HAL1_SUPPORT
+  auto input_buf_format =
+    Common::FromVideoToQmmfFormat(codec_param.video_enc_param.format_type);
+
+  OMX_COLOR_FORMATTYPE input_omx_format;
+  switch (input_buf_format) {
+    case BufferFormat::kNV21:
+      input_omx_format = static_cast<OMX_COLOR_FORMATTYPE>
+        (QOMX_COLOR_FormatYVU420SemiPlanar);
+      break;
+    case BufferFormat::kNV12:
+      input_omx_format = static_cast<OMX_COLOR_FORMATTYPE>
+        (QOMX_COLOR_FORMATYUV420PackedSemiPlanar32m);
+      break;
+    default:
+      QMMF_ERROR("%s Format %d is not supported", __func__, input_buf_format);
+      return BAD_VALUE;
+  }
+
+  OMX_VIDEO_PARAM_PORTFORMATTYPE videoPortFmt;
+  InitOMXParams(&videoPortFmt);
+  videoPortFmt.nPortIndex = kPortIndexInput;
+  videoPortFmt.eColorFormat = input_omx_format;
+#endif
+
   switch (codec_param.video_enc_param.format_type) {
     case VideoFormat::kAVC:
       if (codec_param.video_enc_param.codec_param.avc.prepend_sps_pps_to_idr) {
@@ -701,6 +726,15 @@ status_t AVCodec::ConfigureVideoEncoder(CodecParam& codec_param) {
     QMMF_ERROR("%s: Failed to configure vui timing info", __func__);
     return ret;
   }
+
+#ifdef CAMERA_HAL1_SUPPORT
+  ret = omx_client_->SetParameter(OMX_IndexParamVideoPortFormat,
+                                  reinterpret_cast<OMX_PTR>(&videoPortFmt));
+  if (ret != OMX_ErrorNone) {
+    QMMF_ERROR("%s: Failed to configure input format", __func__);
+    return ret;
+  }
+#endif
 
   ret = SetPortParams(kPortIndexInput, width, height, frame_rate);
   if (ret != 0) {
