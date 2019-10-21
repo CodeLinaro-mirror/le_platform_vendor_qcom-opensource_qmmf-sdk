@@ -169,7 +169,7 @@ class TrackEncoder : public ICodecSource {
   // Encoded stream Dynamic FPS measurement
   uint32_t                   debug_fps_;
   uint32_t                   num_bytes_;
-  struct timeval             prevtv_;
+  struct timespec            prevtv_;
   uint32_t                   count_;
 
   std::mutex                 queue_lock_;

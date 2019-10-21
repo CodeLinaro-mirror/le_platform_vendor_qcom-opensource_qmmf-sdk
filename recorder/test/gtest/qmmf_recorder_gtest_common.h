@@ -271,6 +271,16 @@ enum AWbModes : uint8_t {
 static const int32_t MWBColorTemperatures[] = {0, 2300, 2800, 3200, 4000,
                                                4500, 5500, 6000, 6500};
 
+// As of now HDRModeHDR10 is only supported for QCS605 target.
+enum StreamHDRMode : uint8_t {
+  HDRModeNone = 0,
+  HDRModeHLG,
+  HDRModeHDR10,
+  HDRModeHDR10Plus,
+  HDRModePQ,
+  HDRModeMax
+};
+
 #endif
 
 typedef struct StreamDumpInfo {
@@ -309,7 +319,13 @@ typedef struct FogSceneDetectionParams {
                                  // light, range: 0.0 - 1000.0 lux index
   TriggerParams cct_trigger[4];  // [0]: low CCT, [1]: indoor/outdoor CCT, [2]:
                                  // outdoor/fog CCT, [3]: high CCT
+  TriggerParams drc_trigger[2];  // [0]: low DRC gain, [1] high DRC gain
 } FOG_SCENE_DETECTION_PARAMS;
+
+typedef struct CESceneDetectionParams {
+  TriggerParams gain_trigger[3];  // [0]: low gain, [1]: normal gain, [2]: high
+                                  // gain, range: 1.0 - 4096.0
+} CE_SCENE_DETECTION_PARAMS;
 
 typedef struct DeFogTable {
   uint8_t enable;
@@ -352,50 +368,96 @@ typedef struct DeFogTable {
   float cct_trigparam_start_range[2];
   float cct_trigparam_end_range[2];
   int cct_trigparam_fog_range[2];
+  float drc_trigparam_start_range[2];
+  float drc_trigparam_end_range[2];
+  int drc_trigparam_fog_range[2];
   FOG_SCENE_DETECTION_PARAMS trig_params;
+  uint8_t ce_en;
+  int32_t convergence_mode;
+  uint8_t guc_en;
+  uint8_t dcc_en;
+  float guc_str;
+  float dcc_dark_str;
+  float dcc_bright_str;
+  float ce_trigparam_start_range[2];
+  float ce_trigparam_end_range[2];
+  int ce_trigparam_fog_range[2];
+  CE_SCENE_DETECTION_PARAMS ce_trig_params;
 
   DeFogTable() {
     enable = 1;
     algo_type = 0;
     algo_decision_mode = 0;
-    strength = 1;
-    memset(strength_range, 0, sizeof(strength_range));
+    strength = 1.0;
     convergence_speed = 10;
-    memset(convergence_speed_range, 0, sizeof(convergence_speed_range));
     lp_color_comp_gain = 1.0;
-    memset(lp_color_comp_gain_range, 0.0, sizeof(lp_color_comp_gain_range));
     abc_en = 1;
     acc_en = 1;
     afsd_en = 1;
     afsd_2a_en = 1;
     defog_dark_thres = 10;
-    memset(defog_dark_thres_range, 0, sizeof(defog_dark_thres_range));
     defog_bright_thres = 40;
-    memset(defog_bright_thres_range, 0, sizeof(defog_bright_thres_range));
     abc_gain = 2.0;
-    memset(abc_gain_range, 0.0, sizeof(abc_gain_range));
     acc_max_dark_str = 2.0;
-    memset(acc_max_dark_str_range, 0.0, sizeof(acc_max_dark_str_range));
     acc_max_bright_str = 0.5;
-    memset(acc_max_bright_str_range, 0.0, sizeof(acc_max_bright_str_range));
     dark_limit = 255;
-    memset(dark_limit_range, 0, sizeof(dark_limit_range));
     bright_limit = 0;
-    memset(bright_limit_range, 0, sizeof(bright_limit_range));
     dark_preserve = 10;
-    memset(dark_preserve_range, 0, sizeof(dark_preserve_range));
     bright_preserve = 50;
-    memset(bright_preserve_range, 0, sizeof(bright_preserve_range));
-
-    memset(dnr_trigparam_start_range, 0.0, sizeof(dnr_trigparam_start_range));
-    memset(dnr_trigparam_end_range, 0.0, sizeof(dnr_trigparam_end_range));
-    memset(dnr_trigparam_fog_range, 0, sizeof(dnr_trigparam_fog_range));
-    memset(lux_trigparam_start_range, 0.0, sizeof(lux_trigparam_start_range));
-    memset(lux_trigparam_end_range, 0.0, sizeof(lux_trigparam_end_range));
-    memset(lux_trigparam_fog_range, 0, sizeof(lux_trigparam_fog_range));
-    memset(cct_trigparam_start_range, 0.0, sizeof(cct_trigparam_start_range));
-    memset(cct_trigparam_end_range, 0.0, sizeof(cct_trigparam_end_range));
-    memset(cct_trigparam_fog_range, 0, sizeof(cct_trigparam_fog_range));
+    const float dnr_params[] = {0.0, 1.0, 0, 1.5, 4.0, 100, 4.5, 8.0, 0};
+    const float lux_params[] = {0.0, 50.0,  0,     80.0, 450.0,
+                                100, 510.0, 900.0, 0};
+    const float cct_trigger[] = {0.0,    2000.0, 0,   2300.0,  4500.0,  0,
+                                 5000.0, 8500.0, 100, 10000.0, 20000.0, 0};
+    const float drc_trigger[] = {0.0, 1.0, 100, 2.0, 64.0, 100};
+    int32_t dnr_size = sizeof(dnr_params) / sizeof(dnr_params[0]);
+    for (int index = 0; index + 2 < dnr_size; index++) {
+      trig_params.dnr_trigger[index / 3].start = dnr_params[index];
+      ++index;
+      trig_params.dnr_trigger[index / 3].end = dnr_params[index];
+      ++index;
+      trig_params.dnr_trigger[index / 3].fog_p = (int)(dnr_params[index]);
+    }
+    int32_t lux_size = sizeof(lux_params) / sizeof(lux_params[0]);
+    for (int index = 0; index + 2 < lux_size; index++) {
+      trig_params.lux_trigger[index / 3].start = lux_params[index];
+      ++index;
+      trig_params.lux_trigger[index / 3].end = lux_params[index];
+      ++index;
+      trig_params.lux_trigger[index / 3].fog_p = (int)(lux_params[index]);
+    }
+    int32_t cct_size = sizeof(cct_trigger) / sizeof(cct_trigger[0]);
+    for (int index = 0; index + 2 < cct_size; index++) {
+      trig_params.cct_trigger[index / 3].start = cct_trigger[index];
+      ++index;
+      trig_params.cct_trigger[index / 3].end = cct_trigger[index];
+      ++index;
+      trig_params.cct_trigger[index / 3].fog_p = (int)(cct_trigger[index]);
+    }
+    int32_t drc_size = sizeof(lux_params) / sizeof(lux_params[0]);
+    for (int index = 0; index + 2 < drc_size; index++) {
+      trig_params.drc_trigger[index / 3].start = drc_trigger[index];
+      ++index;
+      trig_params.drc_trigger[index / 3].end = drc_trigger[index];
+      ++index;
+      trig_params.drc_trigger[index / 3].fog_p = (int)(drc_trigger[index]);
+    }
+    ce_en = 0;
+    convergence_mode = 1;
+    guc_en = 1;
+    dcc_en = 1;
+    guc_str = 1.0;
+    dcc_dark_str = 1.0;
+    dcc_bright_str = 1.0;
+    const float gain_params[] = {1.0, 2.0, 100, 4.0, 8.0, 80, 16.0, 4096.0, 0};
+    int32_t gain_size = sizeof(gain_params) / sizeof(gain_params[0]);
+    for (int index = 0; index + 2 < gain_size; index++) {
+      ce_trig_params.gain_trigger[index / 3].start = gain_params[index];
+      ++index;
+      ce_trig_params.gain_trigger[index / 3].end = gain_params[index];
+      ++index;
+      ce_trig_params.gain_trigger[index / 3].fog_p = (int)(gain_params[index]);
+    }
   }
 } DeFogTable;
 

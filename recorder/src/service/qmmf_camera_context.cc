@@ -87,6 +87,7 @@ CameraContext::CameraContext()
       snapshot_param_{0, 0, 0, BufferFormat::kBLOB},
       snapshot_type_(SnapshotMode::kVideo),
       new_snapshot_type_(SnapshotMode::kVideo),
+      raw_snapshot_format_(BufferFormat::kRAW10),
       jpeg_input_format_(BufferFormat::kUnsupported),
       new_jpeg_input_format_(BufferFormat::kUnsupported),
       postproc_frame_skip_{},
@@ -233,8 +234,9 @@ status_t CameraContext::CreateSnapshotStream(const SnapshotParam& param) {
   snapshot_param_ = param;
   stream_param_ = stream_param;
 
-  if (snapshot_type_ == SnapshotMode::kStillPlusRaw) {
-    stream_param.format = Common::FromQmmfToHalFormat(BufferFormat::kRAW10);
+  if (snapshot_type_ == SnapshotMode::kStillPlusRaw ||
+      snapshot_type_ == SnapshotMode::kVideoPlusRaw) {
+    stream_param.format = Common::FromQmmfToHalFormat(raw_snapshot_format_);
     Common::GetMaxSupportedCameraRes(static_meta_,
                                      stream_param.width,
                                      stream_param.height,
@@ -604,16 +606,18 @@ bool CameraContext::IsNeedReconfigSnapshotStream() {
 
   if (snapshot_type_ == new_snapshot_type_) {
     reconfiguration = false;
-  } else if (new_snapshot_type_ == SnapshotMode::kStillPlusRaw ||
-             snapshot_type_ == SnapshotMode::kStillPlusRaw) {
-    // only kStillPlusRaw requires pipe restart
+  } else if ((new_snapshot_type_ == SnapshotMode::kStillPlusRaw ||
+              snapshot_type_ == SnapshotMode::kStillPlusRaw) ||
+             (new_snapshot_type_ == SnapshotMode::kVideoPlusRaw ||
+              snapshot_type_ == SnapshotMode::kVideoPlusRaw)) {
+    // only kStillPlusRaw/kVideoPlusRaw requires pipe restart
     reconfiguration = true;
   } else {
     reconfiguration = false;
   }
 
   QMMF_VERBOSE("%s curr mode %d new mode %d need reconfiguration %d", __func__,
-    snapshot_type_, new_snapshot_type_, reconfiguration);
+               snapshot_type_, new_snapshot_type_, reconfiguration);
 
   return reconfiguration;
 }
@@ -706,7 +710,8 @@ status_t CameraContext::CaptureImage(const std::vector<CameraMetadata> &meta,
       uint32_t active_streamid_count = 0;
 
       if (snapshot_type_ == SnapshotMode::kVideo ||
-          snapshot_type_ == SnapshotMode::kContinuous) {
+          snapshot_type_ == SnapshotMode::kContinuous ||
+          snapshot_type_ == SnapshotMode::kVideoPlusRaw) {
 
         if (streaming_active_requests_.size() == 1) {
           if (port_paused_ == true) {
@@ -846,11 +851,28 @@ status_t CameraContext::ConfigImageCapture(const ImageConfigParam &config) {
   }
 
   if (config.Exists(QMMF_SNAPSHOT_TYPE)) {
-    SnapshotType type;
-    config.Fetch(QMMF_SNAPSHOT_TYPE, type);
+    SnapshotType snap_type;
+    config.Fetch(QMMF_SNAPSHOT_TYPE, snap_type);
 
     std::unique_lock<std::mutex> lock(capture_lock_);
-    new_snapshot_type_ = type.type;
+    if (snap_type.type == SnapshotMode::kStillPlusRaw ||
+        snap_type.type == SnapshotMode::kVideoPlusRaw) {
+      BufferFormat format = Common::FromImageToQmmfFormat(snap_type.raw_format);
+      if (format != BufferFormat::kRAW8 && format != BufferFormat::kRAW10 &&
+          format != BufferFormat::kRAW12 && format != BufferFormat::kRAW16) {
+        QMMF_ERROR("%s: Image format %d is not RAW format", __func__,
+                   snap_type.raw_format);
+        return BAD_VALUE;
+      }
+      int32_t hal_format = Common::FromQmmfToHalFormat(format);
+      bool supported = Common::ValidateStreamFormat(static_meta_, hal_format);
+      if (supported == false) {
+        QMMF_ERROR("%s: Format %d is not supported!", __func__, format);
+        return BAD_VALUE;
+      }
+      raw_snapshot_format_ = format;
+    }
+    new_snapshot_type_ = snap_type.type;
   }
 
   if (config.Exists(QMMF_IMAGE_THUMBNAIL)) {
