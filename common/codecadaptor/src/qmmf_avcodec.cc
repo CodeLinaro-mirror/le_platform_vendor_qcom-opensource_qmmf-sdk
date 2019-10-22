@@ -646,7 +646,8 @@ status_t AVCodec::ConfigureVideoEncoder(CodecParam& codec_param) {
         (QOMX_COLOR_FORMATYUV420PackedSemiPlanar32m);
       break;
     default:
-      QMMF_ERROR("%s Format %d is not supported", __func__, input_buf_format);
+      QMMF_ERROR("%s Format %d is not supported", __func__,
+        (int32_t) input_buf_format);
       return BAD_VALUE;
   }
 
@@ -1451,7 +1452,7 @@ status_t AVCodec::ConfigureAudioEncoder(CodecParam& codec_param) {
           break;
         default:
           QMMF_ERROR("%s() unsupported AAC format: %d", __func__,
-                     codec_param.audio_enc_param.codec_params.aac.format);
+            (int32_t) codec_param.audio_enc_param.codec_params.aac.format);
           return ::android::BAD_VALUE;
       }
       switch (codec_param.audio_enc_param.codec_params.aac.mode) {
@@ -1466,7 +1467,7 @@ status_t AVCodec::ConfigureAudioEncoder(CodecParam& codec_param) {
           break;
         default:
           QMMF_ERROR("%s() unsupported AAC mode: %d", __func__,
-                     codec_param.audio_enc_param.codec_params.aac.mode);
+            (int32_t) codec_param.audio_enc_param.codec_params.aac.mode);
           return ::android::BAD_VALUE;
       }
       result = omx_client_->SetParameter(OMX_IndexParamAudioAac,
@@ -1680,7 +1681,7 @@ status_t AVCodec::ConfigureAudioDecoder(CodecParam& codec_param) {
           break;
         default:
           QMMF_ERROR("%s() unsupported AAC format: %d", __func__,
-                     codec_param.audio_dec_param.codec_params.aac.format);
+            (int32_t) codec_param.audio_dec_param.codec_params.aac.format);
           return ::android::BAD_VALUE;
       }
       switch (codec_param.audio_dec_param.codec_params.aac.mode) {
@@ -1695,7 +1696,7 @@ status_t AVCodec::ConfigureAudioDecoder(CodecParam& codec_param) {
           break;
         default:
           QMMF_ERROR("%s() unsupported AAC mode: %d", __func__,
-                     codec_param.audio_dec_param.codec_params.aac.mode);
+            (int32_t) codec_param.audio_dec_param.codec_params.aac.mode);
           return ::android::BAD_VALUE;
       }
       result = omx_client_->SetParameter(OMX_IndexParamAudioAac,
@@ -2113,7 +2114,8 @@ status_t AVCodec::QmmftoOmxProfile(CodecParam& param) {
       break;
 
     default:
-      QMMF_ERROR("%s Unknown codec type(%d)", __func__, codec_format);
+      QMMF_ERROR("%s Unknown codec type(%d)", __func__,
+        (int32_t) codec_format);
       break;
   }
   return profile;
@@ -2239,7 +2241,8 @@ status_t AVCodec::QmmftoOmxLevel(CodecParam& param) {
         break;
 
     default:
-      QMMF_ERROR("%s Unknown codec type(%d)", __func__, codec_format);
+      QMMF_ERROR("%s Unknown codec type(%d)", __func__,
+        (int32_t) codec_format);
       break;
   }
   return level;
@@ -2367,7 +2370,8 @@ status_t AVCodec::ConfigureBitrate(CodecParam& param) {
       mode = param.video_enc_param.codec_param.hevc.ratecontrol_type;
       break;
     default:
-      QMMF_ERROR("%s Unknown codec type(%d)", __func__, codec_format);
+      QMMF_ERROR("%s Unknown codec type(%d)", __func__,
+        (int32_t) codec_format);
       return -1;
   }
 
@@ -3155,7 +3159,7 @@ status_t AVCodec::SetParameters(CodecParamType param_type, void *codec_param,
       ret = omx_client_->GetConfig(OMX_IndexConfigVideoFramerate, &framerate);
       if (ret != NO_ERROR) {
         QMMF_ERROR("%s: GetConfig for type(%d) failed!", __func__,
-            param_type);
+          (int32_t) param_type);
         return ret;
       }
       framerate.xEncodeFramerate = ((*fps) * (1 << 16));
@@ -3217,7 +3221,7 @@ status_t AVCodec::SetParameters(CodecParamType param_type, void *codec_param,
 
   if(ret != NO_ERROR) {
     QMMF_ERROR("%s Failed to set codec param of type(%d)", __func__,
-        param_type);
+      (int32_t) param_type);
     return ret;
   }
 

@@ -388,7 +388,7 @@ status_t TrackEncoder::Init(const shared_ptr<TrackSource>& track_source,
 
   QMMF_INFO("%s: track_id(%x) W(%d) H(%d) format_type(%d)", __func__,
       track_params.track_id, track_params.params.width,
-      track_params.params.height, track_params.params.format_type);
+      track_params.params.height, (int32_t) track_params.params.format_type);
   auto ret = 0;
   CodecMimeType mime_type =
       (track_params.params.format_type == VideoFormat::kJPEG)

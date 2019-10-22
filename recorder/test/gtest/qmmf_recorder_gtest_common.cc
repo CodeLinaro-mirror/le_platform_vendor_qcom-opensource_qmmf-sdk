@@ -551,7 +551,7 @@ bool GtestCommon::IsNRSupported() {
 void GtestCommon::RecorderCallbackHandler(EventType event_type,
                                           void *event_data,
                                           size_t event_data_size) {
-  TEST_INFO("%s Enter event: %d ", __func__, event_type);
+  TEST_INFO("%s Enter event: %d ", __func__, (int32_t) event_type);
   if (event_type == EventType::kCameraError &&
       event_data_size && event_data != nullptr) {
     RecorderErrorData *error_data = static_cast<RecorderErrorData *>(event_data);
@@ -909,7 +909,8 @@ status_t GtestCommon::QueueVideoFrame(VideoFormat format_type,
       }
       break;
     default:
-      TEST_ERROR("%s: Unsupported format type: %d", __func__, format_type);
+      TEST_ERROR("%s: Unsupported format type: %d", __func__,
+        (int32_t) format_type);
       return BAD_VALUE;
   }
 
@@ -2173,7 +2174,7 @@ status_t GtestCommon::DumpThumbnail(BufferDescriptor buffer,
 
   if (meta_data.format != BufferFormat::kBLOB) {
     TEST_INFO("%s: Skip Thumbnail bump. In_fmt: %d \n",
-        __func__, meta_data.format);
+        __func__, (int32_t) meta_data.format);
     return NO_INIT;
   }
 

@@ -145,8 +145,9 @@ class Common {
         break;
       default:
         /* Format not supported */
-        QMMF_ERROR("%s: error: unsupported format %d (0x%x)", __func__, format,
-            (unsigned int) format);
+        QMMF_ERROR("%s: error: unsupported format %d (0x%x)", __func__,
+          (int32_t) format,
+          (int32_t) format);
         return -1;
     }
   }
@@ -189,7 +190,7 @@ class Common {
       default:
         /* Format not supported */
         QMMF_ERROR("%s: error: unsupported format %d (0x%x)", __func__, format,
-            (unsigned int) format);
+          (int32_t) format);
         return BufferFormat::kUnsupported;
     }
   }
@@ -225,8 +226,9 @@ class Common {
         break;
       default:
         /* Format not supported */
-        QMMF_ERROR("%s: error: unsupported format %d (0x%x)", __func__, format,
-            (unsigned int) format);
+        QMMF_ERROR("%s: error: unsupported format %d (0x%x)", __func__,
+          (int32_t) format,
+          (int32_t) format);
         return BufferFormat::kUnsupported;
     }
   }
@@ -258,8 +260,9 @@ class Common {
         break;
       default:
         /* Format not supported */
-        QMMF_ERROR("%s: error: unsupported format %d (0x%x)", __func__, format,
-            (unsigned int) format);
+        QMMF_ERROR("%s: error: unsupported format %d (0x%x)", __func__,
+          (int32_t) format,
+          (int32_t) format);
         return BufferFormat::kUnsupported;
     }
   }
@@ -617,7 +620,8 @@ class Common {
         break;
 
       default:
-        QMMF_ERROR("%s: Format(%d) not supported!", __func__, format);
+        QMMF_ERROR("%s: Format(%d) not supported!", __func__,
+          (int32_t) format);
         return BAD_TYPE;
     }
     return is_supported;

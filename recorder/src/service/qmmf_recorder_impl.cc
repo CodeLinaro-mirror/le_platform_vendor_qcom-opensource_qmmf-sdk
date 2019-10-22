@@ -1451,7 +1451,7 @@ status_t RecorderImpl::CreateVideoTrack(const uint32_t client_id,
   QMMF_INFO("%s: num of tracks=%d", __func__, tracks_in_session.size());
 
   QMMF_INFO("%s: client_track_id(%d):service_track_id(%x):track_type(%d)",
-      __func__, track_id, service_track_id, track_info.type);
+      __func__, track_id, service_track_id, (int32_t) track_info.type);
 
   QMMF_DEBUG("%s: Exit client_id(%d):session_id(%d)", __func__,
       client_id, session_id);
@@ -1580,7 +1580,7 @@ status_t RecorderImpl::CreateVideoTrack(const uint32_t client_id,
   QMMF_INFO("%s: num of tracks=%d", __func__, tracks_in_session.size());
 
   QMMF_INFO("%s: client_track_id(%d):service_track_id(%x):track_type(%d)",
-      __func__, track_id, service_track_id, track_info.type);
+      __func__, track_id, service_track_id, (int32_t) track_info.type);
 
   QMMF_DEBUG("%s: Exit client_id(%d):session_id(%d)", __func__,
       client_id, session_id);
@@ -2488,7 +2488,8 @@ void RecorderImpl::ChangeSessionState(const uint32_t& session_id,
                                       const SessionState& state) {
 
   std::lock_guard<std::mutex> lock(client_session_lock_);
-  QMMF_INFO("%s: Session(%u): state = %d", __func__, session_id, state);
+  QMMF_INFO("%s: Session(%u): state = %d", __func__, session_id,
+    (int32_t) state);
   sessions_state_[session_id] = state;
 }
 

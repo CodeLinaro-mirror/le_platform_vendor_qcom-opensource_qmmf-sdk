@@ -362,7 +362,7 @@ RESIZER_STATUS C2DResizer::ValidateOutput(const uint32_t width,
       format != BufferFormat::kNV21 &&
       format != BufferFormat::kNV16 &&
       format != BufferFormat::kRGB) {
-    QMMF_ERROR("%s: Unsupported format: %d", __func__, format);
+    QMMF_ERROR("%s: Unsupported format: %d", __func__, (int32_t) format);
     return RESIZER_STATUS_ERROR;
   }
   return RESIZER_STATUS_OK;
@@ -426,7 +426,8 @@ bool C2DResizer::BufferFormatToC2D(StreamBuffer &buffer,
       c2d_color_format = C2D_COLOR_FORMAT_888_RGB;
       break;
     default:
-      QMMF_ERROR("%s: Unsupported format:%d", __func__, buffer.info.format);
+      QMMF_ERROR("%s: Unsupported format:%d", __func__,
+        (int32_t) buffer.info.format);
       return false;
   }
   return true;

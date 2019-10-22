@@ -116,10 +116,10 @@ RESIZER_STATUS NEONResizer::Draw(StreamBuffer& src_buffer,
   std::lock_guard<std::mutex> lock(lock_);
   neonresizer::Resn params;
   auto status = FillProcessParams(src_buffer, dst_buffer, params);
-  assert(status == NO_ERROR);
+  assert(status == RESIZER_STATUS_OK);
   auto ret = handle_.resn_process(&params);
   if (neonresizer::ResnStatus::kRESN_SUCCESS != ret) {
-    QMMF_ERROR("%s: Neon process error: %d", __func__, ret);
+    QMMF_ERROR("%s: Neon process error: %d", __func__, (int32_t) ret);
     return RESIZER_STATUS_ERROR;
   }
 
@@ -266,7 +266,7 @@ RESIZER_STATUS NEONResizer::ValidateOutput(const uint32_t width,
 
   if (format != BufferFormat::kNV21 &&
       format != BufferFormat::kNV12) {
-    QMMF_ERROR("%s: Unsupported format: %d", __func__, format);
+    QMMF_ERROR("%s: Unsupported format: %d", __func__, (int32_t) format);
     return RESIZER_STATUS_ERROR;
   }
 

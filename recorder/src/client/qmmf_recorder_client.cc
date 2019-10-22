@@ -1626,7 +1626,7 @@ void RecorderClient::NotifyVideoTrackEvent(uint32_t track_id,
                                            size_t event_data_size) {
   QMMF_DEBUG("%s Enter ", __func__);
   QMMF_VERBOSE("%s Track(%u): Received event type = %d", __func__, track_id,
-      event_type);
+    (int32_t) event_type);
 
   // Get the handle to track callbacks.
   std::unique_lock<std::mutex> l(track_cb_lock_);
@@ -1684,7 +1684,7 @@ void RecorderClient::NotifyAudioTrackEvent(uint32_t track_id,
                                            size_t event_data_size) {
   QMMF_DEBUG("%s Enter ", __func__);
   QMMF_VERBOSE("%s Track(%u): Received event type = %d", __func__, track_id,
-      event_type);
+    (int32_t) event_type);
 
   // Get the handle to track callbacks.
   std::unique_lock<std::mutex> l(track_cb_lock_);
