@@ -30,3 +30,6 @@ target_link_libraries(qmmf_overlay log binder pthread utils cutils dl C2D2 cairo
 
 # TODO remove this hack when camx issue with propagating c and cpp glags is solved
 target_link_libraries(qmmf_overlay ion)
+
+file(GLOB_RECURSE RGB_FILES ${CMAKE_CURRENT_LIST_DIR}/raw_image/*.rgba)
+install(FILES ${RGB_FILES} DESTINATION ${QMMF_DATA})

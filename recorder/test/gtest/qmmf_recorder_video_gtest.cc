@@ -3231,6 +3231,164 @@ TEST_F(VideoGtest, 1080pEncWithStaticImageOverlay) {
 }
 
 /*
+* 1080pEncWithStaticImageOverlayPlugin: This test will apply static image
+*                                       overlay ontop of 1080 video.
+* Api test sequence:
+*  - StartCamera
+*   - CreateSession
+*   - CreateVideoTrack
+*   - CreatePlugin (overlay)
+*   - StartVideoTrack
+*   - ConfigurePlugin
+*   loop Start {
+*   ------------------
+*    - ConfigurePlugin
+*   ------------------
+*   } loop End
+*   - StopSession
+*   - DeletePlugin
+*   - DeleteVideoTrack
+*   - DeleteSession
+*   - StopCamera
+*/
+TEST_F(VideoGtest, 1080pEncWithStaticImageOverlayPlugin) {
+  fprintf(stderr, "\n---------- Run Test %s.%s ------------\n",
+    test_info_->test_case_name(), test_info_->name());
+
+  auto ret = Init();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  VideoFormat format_type = VideoFormat::kAVC;
+  uint32_t width = 1920;
+  uint32_t height = 1080;
+
+  ret = recorder_.StartCamera(camera_id_, 30);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  SessionCb session_status_cb = CreateSessionStatusCb();
+  uint32_t session_id;
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  ASSERT_TRUE(session_id > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
+  VideoTrackCreateParam video_track_param { camera_id_, format_type, width,
+      height, 30 };
+  uint32_t video_track_id = 1;
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = { format_type, session_id, video_track_id, width,
+        height };
+    ret = dump_bitstream_.SetUp(dumpinfo);
+    ASSERT_TRUE(ret == NO_ERROR);
+  }
+
+  TrackCb video_track_cb;
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+    VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
+  };
+
+  video_track_cb.event_cb = [this] (uint32_t track_id, EventType event_type,
+    void *event_data, size_t event_data_size) -> void
+  { VideoTrackEventCb(track_id,
+      event_type, event_data, event_data_size);};
+
+  VideoExtraParam video_extra_param;
+  PostprocPlugin overlay;
+  SupportedPlugins all_plugins;
+  bool is_plg_found = false;
+  ret = recorder_.GetSupportedPlugins(&all_plugins);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  for (auto &plg : all_plugins) {
+    if (plg.name == "Overlay") {
+      recorder_.CreatePlugin(&overlay.uid, plg);
+      is_plg_found = true;
+      break;
+    }
+  }
+  ASSERT_TRUE(is_plg_found);
+  video_extra_param.Update(QMMF_POSTPROCESS_PLUGIN, overlay);
+
+  ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+      video_track_param, video_extra_param, video_track_cb);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  std::vector<uint32_t> track_ids;
+  track_ids.push_back(video_track_id);
+  sessions_.insert(std::make_pair(session_id, track_ids));
+
+  ret = recorder_.StartSession(session_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  Json::Value root;
+  Json::FastWriter writer;
+  auto& ovl_conf = root["QmmfAlgPlugin"]["Overlay"][0];
+  ovl_conf["ID"] = "Static Image 0";
+  ovl_conf["Overlay Type"] = "Static Image";
+  ovl_conf["Size X"] = 464;
+  ovl_conf["Size Y"] = 112;
+  ovl_conf["Source Rect Size X"] = 464;
+  ovl_conf["Source Rect Size Y"] = 112;
+  ovl_conf["Image Type"] = "File Path";
+  ovl_conf["File Path"] = OVERLAY_TEST_FILE;
+  ovl_conf["Item Position"] = "Bottom Right";
+  ovl_conf["Active"] = true;
+
+  for (uint32_t i = 1, location = 0; i <= iteration_count_; ++i, ++location) {
+    fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
+        test_info_->name(), i);
+
+    switch (location % 5) {
+      case 0:
+        ovl_conf["Item Position"] = "Top Left";
+        break;
+      case 1:
+        ovl_conf["Item Position"] = "Top Right";
+        break;
+      case 2:
+        ovl_conf["Item Position"] = "Center";
+        break;
+      case 3:
+        ovl_conf["Item Position"] = "Bottom Left";
+        break;
+      case 4:
+        ovl_conf["Item Position"] = "Bottom Right";
+        break;
+    }
+
+    ret = recorder_.ConfigPlugin(overlay.uid, writer.write(root));
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    sleep(record_duration_);
+  }
+
+  ret = recorder_.StopSession(session_id, false);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.DeleteSession(session_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.DeletePlugin(overlay.uid);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ClearSessions();
+
+  ret = recorder_.StopCamera(camera_id_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = DeInit();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  dump_bitstream_.CloseAll();
+  fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
+/*
 * 1080pEncWithDateAndTimeOverlay: This test applies date and time overlay type
 *                                 ontop of 1080 video.
 * Api test sequence:
@@ -3383,6 +3541,177 @@ TEST_F(VideoGtest, 1080pEncWithDateAndTimeOverlay) {
   ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.DeleteSession(session_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ClearSessions();
+
+  ret = recorder_.StopCamera(camera_id_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = DeInit();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  dump_bitstream_.CloseAll();
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
+
+/*
+* 1080pEncWithDateAndTimeOverlayPlugin: This test applies date and time overlay
+*                                       type ontop of 1080 video.
+* Api test sequence:
+*  - StartCamera
+*   - CreateSession
+*   - CreateVideoTrack
+*   - CreatePlugin (overlay)
+*   - StartVideoTrack
+*   - ConfigurePlugin
+*   loop Start {
+*   ------------------
+*    - ConfigurePlugin
+*   ------------------
+*   } loop End
+*   - StopSession
+*   - DeletePlugin
+*   - DeleteVideoTrack
+*   - DeleteSession
+*   - StopCamera
+*/
+TEST_F(VideoGtest, 1080pEncWithDateAndTimeOverlayPlugin) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  VideoFormat format_type = VideoFormat::kAVC;
+  uint32_t width  = 1920;
+  uint32_t height = 1080;
+
+  ret = recorder_.StartCamera(camera_id_, 30);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  SessionCb session_status_cb = CreateSessionStatusCb();
+  uint32_t session_id;
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  ASSERT_TRUE(session_id > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
+  VideoTrackCreateParam video_track_param{camera_id_, format_type,
+                                          width, height, 30};
+  uint32_t video_track_id = 1;
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = { format_type, session_id, video_track_id,
+                                width, height };
+    ret = dump_bitstream_.SetUp(dumpinfo);
+    ASSERT_TRUE(ret == NO_ERROR);
+  }
+
+  TrackCb video_track_cb;
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
+      };
+
+  video_track_cb.event_cb =
+      [this] (uint32_t track_id, EventType event_type,
+              void *event_data, size_t event_data_size) -> void
+      { VideoTrackEventCb(track_id,
+      event_type, event_data, event_data_size); };
+
+  VideoExtraParam video_extra_param;
+  PostprocPlugin overlay;
+  SupportedPlugins all_plugins;
+  bool is_plg_found = false;
+  ret = recorder_.GetSupportedPlugins(&all_plugins);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  for (auto &plg : all_plugins) {
+    if (plg.name == "Overlay") {
+      recorder_.CreatePlugin(&overlay.uid, plg);
+      is_plg_found = true;
+      break;
+    }
+  }
+  ASSERT_TRUE(is_plg_found);
+  video_extra_param.Update(QMMF_POSTPROCESS_PLUGIN, overlay);
+
+  ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                      video_track_param, video_extra_param,
+                                      video_track_cb);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  std::vector<uint32_t> track_ids;
+  track_ids.push_back(video_track_id);
+  sessions_.insert(std::make_pair(session_id, track_ids));
+
+  ret = recorder_.StartSession(session_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  Json::Value root;
+  Json::FastWriter writer;
+  auto& ovl_conf = root["QmmfAlgPlugin"]["Overlay"][0];
+  ovl_conf["ID"] = "Date Time 0";
+  ovl_conf["Overlay Type"] = "Date and Time";
+  ovl_conf["Active"] = true;
+
+  for (uint32_t i = 1, location = 0; i <= iteration_count_; ++i, ++location) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
+        test_info_->name(), i);
+
+    // Update different types of Time & Date formats along with text color
+    // and location on video.
+    switch(location % 5) {
+      case 0:
+        ovl_conf["Item Position"] = "Top Left";
+        ovl_conf["Time Format"] = "HHMMSS AMPM";
+        ovl_conf["Date Format"] = "MMDDYYYY";
+        ovl_conf["Color"] = kColorDarkGray;
+        break;
+      case 1:
+        ovl_conf["Item Position"] = "Top Right";
+        ovl_conf["Time Format"] = "HHMMSS 24HR";
+        ovl_conf["Date Format"] = "MMDDYYYY";
+        ovl_conf["Color"] = kColorYellow;
+        break;
+      case 2:
+        ovl_conf["Item Position"] = "Center";
+        ovl_conf["Time Format"] = "HHMM 24HR";
+        ovl_conf["Date Format"] = "YYYYMMDD";
+        ovl_conf["Color"] = kColorBlue;
+        break;
+      case 3:
+        ovl_conf["Item Position"] = "Bottom Left";
+        ovl_conf["Time Format"] = "HHMM AMPM";
+        ovl_conf["Date Format"] = "YYYYMMDD";
+        ovl_conf["Color"] = kColorWhilte;
+        break;
+      case 4:
+        ovl_conf["Item Position"] = "Bottom Right";
+        ovl_conf["Time Format"] = "HHMMSS AMPM";
+        ovl_conf["Date Format"] = "YYYYMMDD";
+        ovl_conf["Color"] = kColorOrange;
+        break;
+    }
+
+    ret = recorder_.ConfigPlugin(overlay.uid, writer.write(root));
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    sleep(record_duration_);
+  }
+
+  ret = recorder_.StopSession(session_id, false);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.DeleteSession(session_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.DeletePlugin(overlay.uid);
   ASSERT_TRUE(ret == NO_ERROR);
 
   ClearSessions();
@@ -3551,6 +3880,170 @@ TEST_F(VideoGtest, 1080pEncWithBoundingBoxOverlay) {
       test_info_->test_case_name(), test_info_->name());
 }
 
+
+/*
+* 1080pEncWithBoundingBoxOverlayPlugin: This test applies bounding box overlay
+*                                       type ontop of 1080 video.
+* Api test sequence:
+*  - StartCamera
+*   - CreateSession
+*   - CreateVideoTrack
+*   - CreatePlugin (overlay)
+*   - StartVideoTrack
+*   - ConfigurePlugin
+*   loop Start {
+*   ------------------
+*    - ConfigurePlugin
+*   ------------------
+*   } loop End
+*   - StopSession
+*   - DeletePlugin
+*   - DeleteVideoTrack
+*   - DeleteSession
+*   - StopCamera
+*/
+
+TEST_F(VideoGtest, 1080pEncWithBoundingBoxOverlayPlugin) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  VideoFormat format_type = VideoFormat::kAVC;
+  uint32_t width  = 1920;
+  uint32_t height = 1080;
+
+  ret = recorder_.StartCamera(camera_id_, 30);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  SessionCb session_status_cb = CreateSessionStatusCb();
+  uint32_t session_id;
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  ASSERT_TRUE(session_id > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
+  VideoTrackCreateParam video_track_param{camera_id_, format_type,
+                                          width, height, 30};
+  uint32_t video_track_id = 1;
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = { format_type, session_id, video_track_id,
+                                width, height };
+    ret = dump_bitstream_.SetUp(dumpinfo);
+    ASSERT_TRUE(ret == NO_ERROR);
+  }
+
+  TrackCb video_track_cb;
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
+      };
+
+  video_track_cb.event_cb =
+      [this] (uint32_t track_id, EventType event_type,
+              void *event_data, size_t event_data_size) -> void
+      { VideoTrackEventCb(track_id,
+      event_type, event_data, event_data_size); };
+
+  VideoExtraParam video_extra_param;
+  PostprocPlugin overlay;
+  SupportedPlugins all_plugins;
+  bool is_plg_found = false;
+  ret = recorder_.GetSupportedPlugins(&all_plugins);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  for (auto &plg : all_plugins) {
+    if (plg.name == "Overlay") {
+      recorder_.CreatePlugin(&overlay.uid, plg);
+      is_plg_found = true;
+      break;
+    }
+  }
+  ASSERT_TRUE(is_plg_found);
+  video_extra_param.Update(QMMF_POSTPROCESS_PLUGIN, overlay);
+
+  ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                   video_track_param, video_extra_param,
+                                   video_track_cb);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  std::vector<uint32_t> track_ids;
+  track_ids.push_back(video_track_id);
+  sessions_.insert(std::make_pair(session_id, track_ids));
+
+  ret = recorder_.StartSession(session_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  Json::Value root;
+  Json::FastWriter writer;
+  auto& ovl_conf = root["QmmfAlgPlugin"]["Overlay"][0];
+  ovl_conf["ID"] = "Bounding Box 0";
+  ovl_conf["Overlay Type"] = "Bounding Box";
+  ovl_conf["Active"] = true;
+  ovl_conf["Bounding Box Name"] = "TestBBox...";
+  ovl_conf["Color"] = kColorLightGreen;
+
+  uint32_t start_x  = 40;
+  uint32_t size_x  = 800;
+  uint32_t start_y  = 40;
+  uint32_t size_y  = 400;
+
+  ovl_conf["Start X"] = start_x;
+  ovl_conf["Size X"] = size_x;
+  ovl_conf["Start Y"] = start_y;
+  ovl_conf["Size Y"] = size_y;
+
+  ret = recorder_.ConfigPlugin(overlay.uid, writer.write(root));
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  for (uint32_t i = 1; i <= iteration_count_; ++i) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
+        test_info_->name(), i);
+
+    //Mimic moving bounding box.
+    for (uint32_t j = 0; j < 100; ++j) {
+      start_x = start_x + 8 + size_x < width ? start_x + 8 : 20;
+      size_x = start_x + 8 + size_x < width ? size_x + 8 : 200;
+      start_y = start_y + 2 + size_y < height ? start_y + 2 : 20;
+      size_y = start_y + 2 + size_y < height ? size_y + 2 : 100;
+      ovl_conf["Start X"] = start_x;
+      ovl_conf["Size X"] = size_x;
+      ovl_conf["Start Y"] = start_y;
+      ovl_conf["Size Y"] = size_y;
+
+      ret = recorder_.ConfigPlugin(overlay.uid, writer.write(root));
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      usleep(record_duration_ * 10000);
+    }
+  }
+
+  ret = recorder_.StopSession(session_id, false);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.DeleteSession(session_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.DeletePlugin(overlay.uid);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ClearSessions();
+
+  ret = recorder_.StopCamera(camera_id_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = DeInit();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  dump_bitstream_.CloseAll();
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
 /*
 * 4KEncWithBoundingBoxOverlay: This test applies bounding box overlay type
 *                              ontop of 4K video.
@@ -3688,6 +4181,168 @@ TEST_F(VideoGtest, 4KEncWithBoundingBoxOverlay) {
   ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.DeleteSession(session_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ClearSessions();
+
+  ret = recorder_.StopCamera(camera_id_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = DeInit();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  dump_bitstream_.CloseAll();
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+* 4KEncWithBoundingBoxOverlayPlugin: This test applies bounding box overlay type
+*                              ontop of 4K video.
+* Api test sequence:
+*  - StartCamera
+*   - CreateSession
+*   - CreateVideoTrack
+*   - CreatePlugin (overlay)
+*   - StartVideoTrack
+*   - ConfigurePlugin
+*   loop Start {
+*   ------------------
+*    - ConfigurePlugin (GetOverlayObjectParams)
+*    - ConfigurePlugin (UpdateOverlayObjectParams)
+*   ------------------
+*   } loop End
+*   - StopSession
+*   - DeletePlugin
+*   - DeleteVideoTrack
+*   - DeleteSession
+*   - StopCamera
+*/
+TEST_F(VideoGtest, 4KEncWithBoundingBoxOverlayPlugin) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  VideoFormat format_type = VideoFormat::kAVC;
+  uint32_t width  = 3840;
+  uint32_t height = 2160;
+  ret = recorder_.StartCamera(camera_id_, 30);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  SessionCb session_status_cb = CreateSessionStatusCb();
+  uint32_t session_id;
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  ASSERT_TRUE(session_id > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
+  VideoTrackCreateParam video_track_param{camera_id_, format_type,
+                                          width, height, 30};
+  uint32_t video_track_id = 1;
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = { format_type, session_id, video_track_id,
+                                width, height };
+    ret = dump_bitstream_.SetUp(dumpinfo);
+    ASSERT_TRUE(ret == NO_ERROR);
+  }
+
+  TrackCb video_track_cb;
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
+      };
+
+  video_track_cb.event_cb =
+      [this] (uint32_t track_id, EventType event_type,
+              void *event_data, size_t event_data_size) -> void
+      { VideoTrackEventCb(track_id,
+      event_type, event_data, event_data_size); };
+
+  VideoExtraParam video_extra_param;
+  PostprocPlugin overlay;
+  SupportedPlugins all_plugins;
+  bool is_plg_found = false;
+  ret = recorder_.GetSupportedPlugins(&all_plugins);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  for (auto &plg : all_plugins) {
+    if (plg.name == "Overlay") {
+      recorder_.CreatePlugin(&overlay.uid, plg);
+      is_plg_found = true;
+      break;
+    }
+  }
+  ASSERT_TRUE(is_plg_found);
+  video_extra_param.Update(QMMF_POSTPROCESS_PLUGIN, overlay);
+
+  ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                    video_track_param, video_extra_param,
+                                    video_track_cb);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  std::vector<uint32_t> track_ids;
+  track_ids.push_back(video_track_id);
+  sessions_.insert(std::make_pair(session_id, track_ids));
+
+  ret = recorder_.StartSession(session_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  Json::Value root;
+  Json::FastWriter writer;
+  auto& ovl_conf = root["QmmfAlgPlugin"]["Overlay"][0];
+  ovl_conf["ID"] = "Bounding Box 0";
+  ovl_conf["Overlay Type"] = "Bounding Box";
+  ovl_conf["Active"] = true;
+  ovl_conf["Bounding Box Name"] = "TestBBox...";
+  ovl_conf["Color"] = kColorLightGreen;
+
+  uint32_t start_x  = 40;
+  uint32_t size_x  = 800;
+  uint32_t start_y  = 40;
+  uint32_t size_y  = 400;
+
+  ovl_conf["Start X"] = start_x;
+  ovl_conf["Size X"] = size_x;
+  ovl_conf["Start Y"] = start_y;
+  ovl_conf["Size Y"] = size_y;
+
+  ret = recorder_.ConfigPlugin(overlay.uid, writer.write(root));
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  for (uint32_t i = 1; i <= iteration_count_; ++i) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
+        test_info_->name(), i);
+
+    //Mimic moving bounding box.
+    for (uint32_t j = 0; j < 100; ++j) {
+      start_x = start_x + 32 + size_x < width ? start_x + 32 : 20;
+      size_x = start_x + 32 + size_x < width ? size_x + 32 : 200;
+      start_y = start_y + 8 + size_y < height ? start_y + 8 : 20;
+      size_y = start_y + 8 + size_y < height ? size_y + 8 : 100;
+      ovl_conf["Start X"] = start_x;
+      ovl_conf["Size X"] = size_x;
+      ovl_conf["Start Y"] = start_y;
+      ovl_conf["Size Y"] = size_y;
+
+      ret = recorder_.ConfigPlugin(overlay.uid, writer.write(root));
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      usleep(record_duration_ * 10000);
+    }
+  }
+
+  ret = recorder_.StopSession(session_id, false);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.DeleteSession(session_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.DeletePlugin(overlay.uid);
   ASSERT_TRUE(ret == NO_ERROR);
 
   ClearSessions();
@@ -3857,6 +4512,173 @@ TEST_F(VideoGtest, 1080pEncWithUserTextOverlay) {
   ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.DeleteSession(session_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ClearSessions();
+
+  ret = recorder_.StopCamera(camera_id_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = DeInit();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  dump_bitstream_.CloseAll();
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+* 1080pEncWithUserTextOverlayPlugin: This test applies custom user text ontop of 1080
+*                              video.
+* Api test sequence:
+*  - StartCamera
+*   - CreateSession
+*   - CreateVideoTrack
+*   - CreatePlugin (overlay)
+*   - StartVideoTrack
+*   - ConfigurePlugin
+*   loop Start {
+*   ------------------
+*    - ConfigurePlugin
+*   ------------------
+*   } loop End
+*   - StopSession
+*   - DeletePlugin
+*   - DeleteVideoTrack
+*   - DeleteSession
+*   - StopCamera
+*/
+TEST_F(VideoGtest, 1080pEncWithUserTextOverlayPlugin) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  VideoFormat format_type = VideoFormat::kAVC;
+  uint32_t width  = 1920;
+  uint32_t height = 1080;
+
+  ret = recorder_.StartCamera(camera_id_, 30);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  SessionCb session_status_cb = CreateSessionStatusCb();
+  uint32_t session_id;
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  ASSERT_TRUE(session_id > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
+  VideoTrackCreateParam video_track_param{camera_id_, format_type,
+                                          width, height, 30};
+  uint32_t video_track_id = 1;
+
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = { format_type, session_id,
+                                video_track_id, width, height };
+    ret = dump_bitstream_.SetUp(dumpinfo);
+    ASSERT_TRUE(ret == NO_ERROR);
+  }
+
+  TrackCb video_track_cb;
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
+      };
+
+  video_track_cb.event_cb =
+      [this] (uint32_t track_id, EventType event_type,
+              void *event_data, size_t event_data_size) -> void
+      { VideoTrackEventCb(track_id,
+      event_type, event_data, event_data_size); };
+
+  VideoExtraParam video_extra_param;
+  PostprocPlugin overlay;
+  SupportedPlugins all_plugins;
+  bool is_plg_found = false;
+  ret = recorder_.GetSupportedPlugins(&all_plugins);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  for (auto &plg : all_plugins) {
+    if (plg.name == "Overlay") {
+      recorder_.CreatePlugin(&overlay.uid, plg);
+      is_plg_found = true;
+      break;
+    }
+  }
+  ASSERT_TRUE(is_plg_found);
+  video_extra_param.Update(QMMF_POSTPROCESS_PLUGIN, overlay);
+
+  ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                    video_track_param, video_extra_param,
+                                    video_track_cb);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  std::vector<uint32_t> track_ids;
+  track_ids.push_back(video_track_id);
+  sessions_.insert(std::make_pair(session_id, track_ids));
+
+  ret = recorder_.StartSession(session_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  Json::Value root;
+  Json::FastWriter writer;
+  auto& ovl_conf = root["QmmfAlgPlugin"]["Overlay"][0];
+  ovl_conf["ID"] = "User Text 0";
+  ovl_conf["Overlay Type"] = "Text";
+  ovl_conf["Active"] = true;
+  ovl_conf["User Text"] = "Simple User Text For Testing!!";
+
+  for (uint32_t i = 1, location = 0; i <= iteration_count_; ++i, ++location) {
+    fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
+        test_info_->name(), i);
+
+    // Update custom with text color and location on video.
+    switch (location % 5) {
+      case 0:
+        ovl_conf["Color"] = kColorLightBlue;
+        ovl_conf["User Text"] = "TopLeft:Simple User Text!!";
+        ovl_conf["Item Position"] = "Top Left";
+        break;
+      case 1:
+        ovl_conf["Color"] = kColorYellow;
+        ovl_conf["User Text"] = "TopRight:Simple User Text!!";
+        ovl_conf["Item Position"] = "Top Right";
+        break;
+      case 2:
+        ovl_conf["Color"] = kColorBlue;
+        ovl_conf["User Text"] = "Center:Simple User Text!!";
+        ovl_conf["Item Position"] = "Center";
+        break;
+      case 3:
+        ovl_conf["Color"] = kColorWhilte;
+        ovl_conf["User Text"] = "BottomLeft:Simple User Text!!";
+        ovl_conf["Item Position"] = "Bottom Left";
+        break;
+      case 4:
+        ovl_conf["Color"] = kColorOrange;
+        ovl_conf["User Text"] = "BottomRight:Simple User Text!!";
+        ovl_conf["Item Position"] = "Bottom Right";
+        break;
+    }
+
+    ret = recorder_.ConfigPlugin(overlay.uid, writer.write(root));
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    // Record video with overlay.
+    sleep(record_duration_);
+  }
+
+  ret = recorder_.StopSession(session_id, false);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.DeleteSession(session_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.DeletePlugin(overlay.uid);
   ASSERT_TRUE(ret == NO_ERROR);
 
   ClearSessions();
@@ -4239,6 +5061,172 @@ TEST_F(VideoGtest, 1080pEncWithStaticImageBlobOverlay) {
 }
 
 /*
+* 1080pEncWithStaticImageBlobOverlayPlugin test will apply static image blob
+*                                    overlay ontop of 1080 video.
+* Api test sequence:
+*  - StartCamera
+*   - CreateSession
+*   - CreateVideoTrack
+*   - CreatePlugin (overlay)
+*   - StartVideoTrack
+*   - ConfigurePlugin (overlay params)
+*   - ConfigurePlugin (Send blob data)
+*   loop Start {
+*   ------------------
+*    - ConfigurePlugin (update params)
+*   ------------------
+*   } loop End
+*   - StopSession
+*   - DeletePlugin
+*   - DeleteVideoTrack
+*   - DeleteSession
+*   - StopCamera
+*/
+TEST_F(VideoGtest, 1080pEncWithStaticImageBlobOverlayPlugin) {
+  fprintf(stderr,"\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(),test_info_->name());
+
+  auto ret = Init();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  VideoFormat format_type = VideoFormat::kAVC;
+  uint32_t width  = 1920;
+  uint32_t height = 1080;
+  ret = recorder_.StartCamera(camera_id_, 30);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  SessionCb session_status_cb = CreateSessionStatusCb();
+  uint32_t session_id;
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  ASSERT_TRUE(session_id > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
+  VideoTrackCreateParam video_track_param{camera_id_, format_type,
+                                          width, height, 30};
+  uint32_t video_track_id = 1;
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = { format_type, session_id, video_track_id,
+                                width, height };
+    ret = dump_bitstream_.SetUp(dumpinfo);
+    ASSERT_TRUE(ret == NO_ERROR);
+  }
+
+  TrackCb video_track_cb;
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+        VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
+      };
+
+  video_track_cb.event_cb =
+      [this] (uint32_t track_id, EventType event_type,
+              void *event_data, size_t event_data_size) -> void
+      { VideoTrackEventCb(track_id,
+      event_type, event_data, event_data_size); };
+
+  VideoExtraParam video_extra_param;
+  PostprocPlugin overlay;
+  SupportedPlugins all_plugins;
+  bool is_plg_found = false;
+  ret = recorder_.GetSupportedPlugins(&all_plugins);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  for (auto &plg : all_plugins) {
+    if (plg.name == "Overlay") {
+      recorder_.CreatePlugin(&overlay.uid, plg);
+      is_plg_found = true;
+      break;
+    }
+  }
+  ASSERT_TRUE(is_plg_found);
+  video_extra_param.Update(QMMF_POSTPROCESS_PLUGIN, overlay);
+
+  ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                    video_track_param, video_extra_param,
+                                    video_track_cb);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  std::vector<uint32_t> track_ids;
+  track_ids.push_back(video_track_id);
+  sessions_.insert(std::make_pair(session_id, track_ids));
+
+  ret = recorder_.StartSession(session_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  Json::Value root;
+  Json::FastWriter writer;
+  std::string id ("Static Image 0");
+  auto& ovl_conf = root["QmmfAlgPlugin"]["Overlay"][0];
+  ovl_conf["ID"] = id;
+  ovl_conf["Overlay Type"] = "Static Image";
+  ovl_conf["Size X"] = 464;
+  ovl_conf["Size Y"] = 109;
+  ovl_conf["Source Rect Size X"] = 464;
+  ovl_conf["Source Rect Size Y"] = 109;
+  ovl_conf["Image Type"] = "Blob Type";
+  ovl_conf["Active"] = true;
+
+  std::ifstream blob("/data/misc/qmmf/overlay_test_464_109.rgba",
+                      std::ios::binary);
+  std::istreambuf_iterator<char> file_beg(blob), eof;
+  std::vector<uint8_t> image_data(id.begin(), id.end());
+  image_data.push_back('\0');
+  image_data.insert(image_data.end(), file_beg, eof);
+
+  ret = recorder_.ConfigPlugin(overlay.uid, writer.write(root));
+  ASSERT_TRUE(ret == NO_ERROR);
+  ret = recorder_.ConfigPlugin(overlay.uid, int32_t(6), image_data);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  for (uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
+        test_info_->name(), i);
+
+    // Mimic moving Static Image blob type.
+    for (uint32_t j = 0; j < 100; ++j) {
+      uint32_t old_sx = ovl_conf["Start X"].asInt();
+      uint32_t old_sy = ovl_conf["Start Y"].asInt();
+      uint32_t old_w = ovl_conf["Size X"].asInt();
+      uint32_t old_h = ovl_conf["Size Y"].asInt();
+      ovl_conf["Start X"] = old_sx + old_w < width ? old_sx + 5 : 200;
+      ovl_conf["Start Y"] = old_sy + old_h < height ? old_sy + 2 : 20;
+      ovl_conf["Size X"] = old_sx + old_w < width ? old_w + 5 : 200;
+      ovl_conf["Size Y"] = old_sy + old_h  < height ? old_h + 2 : 100;
+
+      ret = recorder_.ConfigPlugin(overlay.uid, writer.write(root));
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      //record for record_durtation_ / 100 [s]
+      usleep(record_duration_ * 10000);
+    }
+  }
+
+  ret = recorder_.StopSession(session_id, false);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.DeleteSession(session_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.DeletePlugin(overlay.uid);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ClearSessions();
+
+  ret = recorder_.StopCamera(camera_id_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = DeInit();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  dump_bitstream_.CloseAll();
+  fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
+/*
 * 1080pEncWithStaticImageBlobUpdateBufferOverlay:This test will apply static
 *         image blob overlay ontop of 1080 video and it's content is updating.
 * Api test sequence:
@@ -4443,6 +5431,188 @@ TEST_F(VideoGtest, 1080pEncWithStaticImageBlobUpdateBufferOverlay) {
   dump_bitstream_.CloseAll();
   free(image_buffer);
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
+      test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+* 1080pEncWithStaticImageBlobUpdateBufferOverlayPlugin: This test will apply
+* static image blob overlay ontop of 1080 video and it's content is updating.
+* Api test sequence:
+* Api test sequence:
+*  - StartCamera
+*   - CreateSession
+*   - CreateVideoTrack
+*   - CreatePlugin (overlay)
+*   - StartVideoTrack
+*   - ConfigurePlugin (overlay params)
+*   - ConfigurePlugin (send blob)
+*   loop Start {
+*   ------------------
+*    - ConfigurePlugin (update params)
+*    - ConfigurePlugin (update blob)
+*   ------------------
+*   } loop End
+*   - StopSession
+*   - DeletePlugin
+*   - DeleteVideoTrack
+*   - DeleteSession
+*   - StopCamera
+*/
+TEST_F(VideoGtest, 1080pEncWithStaticImageBlobUpdateBufferOverlayPlugin) {
+  fprintf(stderr, "\n---------- Run Test %s.%s ------------\n",
+      test_info_->test_case_name(), test_info_->name());
+
+  auto ret = Init();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  VideoFormat format_type = VideoFormat::kAVC;
+  uint32_t width = 1920;
+  uint32_t height = 1080;
+  ret = recorder_.StartCamera(camera_id_, 30);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  SessionCb session_status_cb = CreateSessionStatusCb();
+  uint32_t session_id;
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  ASSERT_TRUE(session_id > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
+  VideoTrackCreateParam video_track_param { camera_id_, format_type, width,
+      height, 30 };
+  uint32_t video_track_id = 1;
+
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = { format_type, session_id, video_track_id, width,
+        height };
+    ret = dump_bitstream_.SetUp(dumpinfo);
+    ASSERT_TRUE(ret == NO_ERROR);
+  }
+
+  TrackCb video_track_cb;
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
+  };
+
+  video_track_cb.event_cb = [this] (uint32_t track_id, EventType event_type,
+      void *event_data, size_t event_data_size) -> void
+  { VideoTrackEventCb(track_id,
+      event_type, event_data, event_data_size);};
+
+  VideoExtraParam video_extra_param;
+  PostprocPlugin overlay;
+  SupportedPlugins all_plugins;
+  bool is_plg_found = false;
+  ret = recorder_.GetSupportedPlugins(&all_plugins);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  for (auto &plg : all_plugins) {
+    if (plg.name == "Overlay") {
+      recorder_.CreatePlugin(&overlay.uid, plg);
+      is_plg_found = true;
+    }
+  }
+  ASSERT_TRUE(is_plg_found);
+  video_extra_param.Update(QMMF_POSTPROCESS_PLUGIN, overlay);
+
+  ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+      video_track_param, video_extra_param, video_track_cb);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  std::vector<uint32_t> track_ids;
+  track_ids.push_back(video_track_id);
+  sessions_.insert(std::make_pair(session_id, track_ids));
+
+  ret = recorder_.StartSession(session_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  const std::string static_img_id("Static Image With Blob 0");
+  const int32_t image_width = 464;
+  const int32_t image_height = 112;
+  const uint32_t image_size = image_width * image_height * 4;
+  const uint32_t offset = static_img_id.length() + 1;
+
+  Json::Value root;
+  Json::FastWriter writer;
+  auto& ovl_conf = root["QmmfAlgPlugin"]["Overlay"][0];
+  ovl_conf["ID"] = static_img_id;
+  ovl_conf["Overlay Type"] = "Static Image";
+  ovl_conf["Size X"] = 464;
+  ovl_conf["Size Y"] = 112;
+  ovl_conf["Start X"] = 1200;
+  ovl_conf["Start Y"] = 800;
+  ovl_conf["Source Rect Size X"] = 464;
+  ovl_conf["Source Rect Size Y"] = 112;
+  ovl_conf["Image Type"] = "Blob Type";
+  ovl_conf["Active"] = true;
+
+  std::vector<uint8_t> image_data (image_size);
+  DrawOverlay(image_data.data(), image_width, image_height);
+
+  image_data.insert(image_data.begin(), '\0');
+  image_data.insert(image_data.begin(), static_img_id.begin(),
+    static_img_id.end());
+
+  ret = recorder_.ConfigPlugin(overlay.uid, writer.write(root));
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.ConfigPlugin(overlay.uid, int32_t(6), image_data);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  for (uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
+        test_info_->name(), i);
+
+    // Mimic movement and buffer update for static image blob type.
+    for (uint32_t j = 0; j < 100; ++j) {
+      uint32_t old_sx = ovl_conf["Start X"].asInt();
+      uint32_t old_sy = ovl_conf["Start Y"].asInt();
+      uint32_t old_w = ovl_conf["Size X"].asInt();
+      uint32_t old_h = ovl_conf["Size Y"].asInt();
+      ovl_conf["Start X"] = old_sx + old_w < width ? old_sx + 5 : 200;
+      ovl_conf["Start Y"] = old_sy + old_h < height ? old_sy + 2 : 20;
+      ovl_conf["Size X"] = old_sx + old_w < width ? old_w + 5 : 200;
+      ovl_conf["Size Y"] = old_sy + old_h  < height ? old_h + 2 : 100;
+
+      image_data.resize(image_size);
+      DrawOverlay(image_data.data(), image_width, image_height);
+
+      image_data.insert(image_data.begin(), '\0');
+      image_data.insert(image_data.begin(), static_img_id.begin(),
+          static_img_id.end());
+
+      ret = recorder_.ConfigPlugin(overlay.uid, writer.write(root));
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      ret = recorder_.ConfigPlugin(overlay.uid, int32_t(6), image_data);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      usleep(record_duration_ * 10000);
+    }
+  }
+  ret = recorder_.StopSession(session_id, false);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.DeleteSession(session_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.DeletePlugin(overlay.uid);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ClearSessions();
+
+  ret = recorder_.StopCamera(camera_id_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = DeInit();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  dump_bitstream_.CloseAll();
+  fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
 

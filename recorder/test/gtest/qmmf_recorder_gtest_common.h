@@ -54,6 +54,11 @@
 #include <qmmf-sdk/qmmf_recorder.h>
 #include <qmmf-sdk/qmmf_recorder_params.h>
 #include <qmmf-sdk/qmmf_recorder_extra_param_tags.h>
+
+#ifndef CAMERA_HAL1_SUPPORT
+#include <qmmf-alg/overlay_configuration.h>
+#endif
+
 #include "common/utils/qmmf_log.h"
 #include "qmmf_memory_interface.h"
 
