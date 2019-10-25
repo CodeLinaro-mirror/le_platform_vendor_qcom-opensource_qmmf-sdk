@@ -208,7 +208,8 @@ static void __data_cb(int32_t msg_type, const camera_memory_t *data,
     if (camera_context != nullptr) {
       auto port = camera_context->GetPortByType(CameraPortType::kPreview);
       if (!port) {
-        QMMF_ERROR("%s: Invalid port(%x)", __func__, CameraPortType::kPreview);
+        QMMF_ERROR("%s: Invalid port(%x)", __func__,
+          (int32_t) CameraPortType::kPreview);
         return;
       }
       port->StreamCallback(data, 0);
@@ -228,7 +229,8 @@ static void __data_cb(int32_t msg_type, const camera_memory_t *data,
     if (camera_context != nullptr) {
       auto port = camera_context->GetPortByType(CameraPortType::kVideo);
       if (!port) {
-        QMMF_ERROR("%s: Invalid port(%x)", __func__, CameraPortType::kVideo);
+        QMMF_ERROR("%s: Invalid port(%x)", __func__,
+          (int32_t) CameraPortType::kVideo);
         return;
       }
       port->StreamCallback(data, 0);
@@ -249,7 +251,8 @@ static void __data_cb_timestamp(nsecs_t timestamp, int32_t msg_type,
     if (camera_context != nullptr) {
       auto port = camera_context->GetPortByType(CameraPortType::kPreview);
       if (!port) {
-        QMMF_ERROR("%s: Invalid port(%x)", __func__, CameraPortType::kPreview);
+        QMMF_ERROR("%s: Invalid port(%x)", __func__,
+          (int32_t) CameraPortType::kPreview);
         return;
       }
       port->StreamCallback(data, (int64_t)timestamp);
@@ -269,7 +272,8 @@ static void __data_cb_timestamp(nsecs_t timestamp, int32_t msg_type,
     if (camera_context != nullptr) {
       auto port = camera_context->GetPortByType(CameraPortType::kVideo);
       if (!port) {
-        QMMF_ERROR("%s: Invalid port(%x)", __func__, CameraPortType::kVideo);
+        QMMF_ERROR("%s: Invalid port(%x)", __func__,
+          (int32_t) CameraPortType::kVideo);
         return;
       }
       port->StreamCallback(data, (int64_t)timestamp);
@@ -523,7 +527,7 @@ status_t CameraContext::CreateStream(const StreamParam& param,
   streams_params_.emplace(param.id, param);
 
   QMMF_INFO("%s: width = %d, height = %d, format = %d, fps = %f", __func__,
-    param.width, param.height, param.format, param.framerate);
+    param.width, param.height, (int32_t) param.format, param.framerate);
 
   return NO_ERROR;
 }
@@ -618,6 +622,8 @@ std::shared_ptr<CameraPort> CameraContext::GetFreePort() {
       return port;
     }
   }
+
+  return nullptr;
 }
 
 status_t CameraContext::ApplyParameters() {
@@ -1113,8 +1119,10 @@ status_t CameraContext::ReturnImageCaptureBuffer(const uint32_t camera_id,
 
 std::vector<int32_t>& CameraContext::GetSupportedFps() {
 
+  std::vector<int32_t> val;
   // Not supported
   assert(0);
+  return val;
 }
 
 status_t CameraContext::ReturnStreamBuffer(StreamBuffer buffer) {
@@ -1203,8 +1211,9 @@ const char *CameraContext::FromQmmfToHalFormat_hal1(
     break;
   default:
     /* Format not supported */
-    QMMF_ERROR("%s: error: unsupported format %d (0x%x)", __func__, format,
-      (unsigned int ) format);
+    QMMF_ERROR("%s: error: unsupported format %d (0x%x)", __func__,
+      (int32_t) format,
+      (int32_t) format);
     return nullptr;
   }
 }
@@ -1301,8 +1310,8 @@ bool CameraPort::IsConsumerConnected(sp<IBufferConsumer>& consumer) {
 status_t CameraPort::DeInit() {
 
   std::lock_guard < std::mutex > lock(state_lock_);
-  QMMF_VERBOSE("%s port type %d state %d ", __func__, GetPortType(),
-    port_state_);
+  QMMF_VERBOSE("%s port type %d state %d ", __func__, (int32_t) GetPortType(),
+    (int32_t) port_state_);
 
   assert(context_ != nullptr);
 
@@ -1340,7 +1349,7 @@ status_t CameraPort::PopulateMetaInfo(CameraBufferMetaData &info,
 
   if (MemAllocError::kAllocOk != ret) {
     QMMF_ERROR("%s: Error in GetStrideAndHeightFromHandle() : %d\n", __func__,
-               ret);
+      (int32_t) ret);
     return BAD_VALUE;
   }
 
@@ -1349,7 +1358,7 @@ status_t CameraPort::PopulateMetaInfo(CameraBufferMetaData &info,
                               static_cast<void*>(&alignedH));
   if (MemAllocError::kAllocOk != ret) {
     QMMF_ERROR("%s: Error in GetStrideAndHeightFromHandle() : %d\n", __func__,
-               ret);
+      (int32_t) ret);
     return BAD_VALUE;
   }
 
@@ -1479,7 +1488,7 @@ status_t CameraPort::PopulateMetaInfo(CameraBufferMetaData &info,
       return BAD_VALUE;
   }
 
-  QMMF_ERROR("%s: format: %d ", __func__, info.format);
+  QMMF_ERROR("%s: format: %d ", __func__, (int32_t) info.format);
   for (int i = 0; i < info.num_planes; i++) {
     QMMF_ERROR(
       "%s: plane[%d]: dim: %dx%d stride: %d scanline: %d size: %d offset: %d ",
@@ -1494,7 +1503,7 @@ status_t CameraPort::PopulateMetaInfo(CameraBufferMetaData &info,
 void CameraPort::NotifyBufferReturned(const StreamBuffer& buffer) {
 
   QMMF_VERBOSE("%s: StreamBuffer(0x%p) Cameback to Port:%d", __func__,
-    buffer.handle, GetPortType());
+    buffer.handle, (int32_t) GetPortType());
 
   munmap(buffer.data, buffer.size);
   context_->alloc_device_interface_->FreeBuffer(buffer.handle);
@@ -1558,8 +1567,8 @@ void CameraPort::StreamCallback(const void *data, int64_t timestamp) {
 status_t PreviewPort::Init(const StreamParam& param) {
 
   std::lock_guard < std::mutex > lock(state_lock_);
-  QMMF_VERBOSE("%s port type %d state %d ", __func__, GetPortType(),
-    port_state_);
+  QMMF_VERBOSE("%s port type %d state %d ", __func__, (int32_t) GetPortType(),
+    (int32_t) port_state_);
 
   track_id_ = param.id;
   port_frame_rate_ = param.framerate;
@@ -1585,8 +1594,8 @@ status_t PreviewPort::Init(const StreamParam& param) {
 status_t PreviewPort::Start() {
 
   std::lock_guard < std::mutex > lock(state_lock_);
-  QMMF_VERBOSE("%s port type %d state %d ", __func__, GetPortType(),
-    port_state_);
+  QMMF_VERBOSE("%s port type %d state %d ", __func__, (int32_t) GetPortType(),
+    (int32_t) port_state_);
 
   if (port_state_ != PortState::PORT_INITIALIZED) {
     // Port is already in started state.
@@ -1600,15 +1609,15 @@ status_t PreviewPort::Start() {
   port_state_ = PortState::PORT_STARTED;
 
   QMMF_INFO("%s: PortType(%x):Port(%p) Started Succussfully!", __func__,
-    GetPortType(), this);
+    (int32_t) GetPortType(), this);
   return NO_ERROR;
 }
 
 status_t PreviewPort::Stop() {
 
   std::lock_guard < std::mutex > lock(state_lock_);
-  QMMF_VERBOSE("%s port type %d state %d ", __func__, GetPortType(),
-    port_state_);
+  QMMF_VERBOSE("%s port type %d state %d ", __func__, (int32_t) GetPortType(),
+    (int32_t) port_state_);
 
   if (port_state_ != PortState::PORT_STARTED) {
     // Port is already in stopped state.
@@ -1620,15 +1629,15 @@ status_t PreviewPort::Stop() {
   port_state_ = PortState::PORT_INITIALIZED;
 
   QMMF_INFO("%s: PortType(%x):Port(%p) Stopped Succussfully!", __func__,
-    GetPortType(), this);
+    (int32_t) GetPortType(), this);
   return NO_ERROR;
 }
 
 status_t VideoPort::Init(const StreamParam& param) {
 
   std::lock_guard < std::mutex > lock(state_lock_);
-  QMMF_VERBOSE("%s port type %d state %d ", __func__, GetPortType(),
-    port_state_);
+  QMMF_VERBOSE("%s port type %d state %d ", __func__, (int32_t) GetPortType(),
+    (int32_t) port_state_);
 
   track_id_ = param.id;
   port_frame_rate_ = param.framerate;
@@ -1653,8 +1662,8 @@ status_t VideoPort::Init(const StreamParam& param) {
 status_t VideoPort::Start() {
 
   std::lock_guard < std::mutex > lock(state_lock_);
-  QMMF_VERBOSE("%s port type %d state %d ", __func__, GetPortType(),
-    port_state_);
+  QMMF_VERBOSE("%s port type %d state %d ", __func__, (int32_t) GetPortType(),
+    (int32_t) port_state_);
 
   if (port_state_ != PortState::PORT_INITIALIZED) {
     // Port is already in started state.
@@ -1668,15 +1677,15 @@ status_t VideoPort::Start() {
   port_state_ = PortState::PORT_STARTED;
 
   QMMF_INFO("%s: PortType(%x):Port(%p) Started Succussfully!", __func__,
-    GetPortType(), this);
+    (int32_t) GetPortType(), this);
   return NO_ERROR;
 }
 
 status_t VideoPort::Stop() {
 
   std::lock_guard < std::mutex > lock(state_lock_);
-  QMMF_VERBOSE("%s port type %d state %d ", __func__, GetPortType(),
-    port_state_);
+  QMMF_VERBOSE("%s port type %d state %d ", __func__, (int32_t) GetPortType(),
+    (int32_t) port_state_);
 
   if (port_state_ != PortState::PORT_STARTED) {
     // Port is already in stopped state.
@@ -1689,7 +1698,7 @@ status_t VideoPort::Stop() {
   port_state_ = PortState::PORT_INITIALIZED;
 
   QMMF_INFO("%s: PortType(%x):Port(%p) Stopped Succussfully!", __func__,
-    GetPortType(), this);
+    (int32_t) GetPortType(), this);
   return NO_ERROR;
 }
 }

@@ -537,7 +537,8 @@ status_t CameraRescalerMemPool::PopulateMetaInfo(CameraBufferMetaData &info,
       IAllocDevice::AllocDeviceAction::GetAlignedHeight,
       static_cast<void*>(&alignedH));
   if (MemAllocError::kAllocOk != ret) {
-    QMMF_ERROR("%s: Unable to query stride&scanline: %d\n", __func__, ret);
+    QMMF_ERROR("%s: Unable to query stride&scanline: %d\n", __func__,
+      (int32_t) ret);
     return BAD_VALUE;
   }
 
@@ -545,7 +546,8 @@ status_t CameraRescalerMemPool::PopulateMetaInfo(CameraBufferMetaData &info,
       IAllocDevice::AllocDeviceAction::GetAlignedWidth,
       static_cast<void*>(&alignedW));
   if (MemAllocError::kAllocOk != ret) {
-    QMMF_ERROR("%s: Unable to query stride&scanline: %d\n", __func__, ret);
+    QMMF_ERROR("%s: Unable to query stride&scanline: %d\n", __func__,
+      (int32_t) ret);
     return BAD_VALUE;
   }
 

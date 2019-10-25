@@ -475,8 +475,8 @@ bool CameraSource::ValidateSlaveTrackParam(
       master_track.params.height,
       slave_track.params.width,
       slave_track.params.height,
-      master_track.params.format_type,
-      slave_track.params.format_type);
+      (int32_t) master_track.params.format_type,
+      (int32_t) slave_track.params.format_type);
 
   if ((slave_track.params.format_type != VideoFormat::kHEVC) &&
       (slave_track.params.format_type != VideoFormat::kAVC) &&
@@ -537,8 +537,8 @@ bool CameraSource::CheckLinkedStream(
     master_track.params.height,
     slave_track.params.width,
     slave_track.params.height,
-    master_track.params.format_type,
-    slave_track.params.format_type);
+    (int32_t) master_track.params.format_type,
+    (int32_t) slave_track.params.format_type);
 
   if ((slave_track.params.format_type != VideoFormat::kHEVC) &&
       (slave_track.params.format_type != VideoFormat::kAVC) &&
@@ -1187,7 +1187,7 @@ void CameraSource::SnapshotCallback(uint32_t count, StreamBuffer& buffer) {
     break;
     default:
       QMMF_ERROR("%s format(%d) not supported", __func__,
-          buffer.info.format);
+        (int32_t) buffer.info.format);
       assert(0);
     break;
   }

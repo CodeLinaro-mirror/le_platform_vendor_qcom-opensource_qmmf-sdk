@@ -536,7 +536,7 @@ TEST_F(RecorderBaseGTest, GetNumberOfCameras) {
 
     for (auto camera : supported_cameras) {
       TEST_INFO("%s: camera_id %d camera_type %d ", __func__,
-          camera.id, camera.type);
+          camera.id, (int32_t) camera.type);
     }
 
     ret = recorder_.Disconnect();
