@@ -256,6 +256,7 @@ bool Camera3RequestHandler::ThreadLoop() {
 }
 
 void Camera3RequestHandler::ReprocLoop(Camera3RequestHandler *ctx) {
+  prctl(PR_SET_NAME, "ReprocThread", 0, 0, 0);
   while(ctx->run_worker_) {
     std::unique_lock<std::mutex> lock(ctx->worker_lock_);
     while (ctx->reproc_requests_.empty()) {
