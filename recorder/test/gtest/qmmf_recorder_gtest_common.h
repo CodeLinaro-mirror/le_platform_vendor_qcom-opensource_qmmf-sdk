@@ -32,6 +32,7 @@
 #include <fcntl.h>
 #include <dirent.h>
 #include <functional>
+#include <system/graphics.h>
 #include <gtest/gtest.h>
 #include <vector>
 #include <map>
@@ -55,6 +56,11 @@
 #include <qmmf-sdk/qmmf_recorder_extra_param_tags.h>
 #include "common/utils/qmmf_log.h"
 #include "qmmf_memory_interface.h"
+
+#ifdef __LIBGBM__
+#include <gbm_priv.h>
+#include <gbm.h>
+#endif
 
 #define DUMP_META_PATH "/data/misc/qmmf/param.dump"
 #define OVERLAY_TEST_FILE "/data/misc/qmmf/overlay_test.rgba"
@@ -85,7 +91,9 @@
 #ifdef QCAMERA3_TAG_LOCAL_COPY
 #include "common/utils/qmmf_common_utils.h"
 #else
+#ifndef CAMERA_HAL1_SUPPORT
 #include <QCamera3VendorTags.h>
+#endif
 #endif  // QCAMERA3_TAG_LOCAL_COPY
 
 //#define DEBUG
@@ -674,9 +682,15 @@ class GtestCommon : public ::testing::Test {
                                       const uint32_t width,
                                       const uint32_t height);
 
+#ifdef __LIBGBM__
+  static bool GetMaxSupportedCameraRes(const CameraMetadata& meta,
+                                      uint32_t &width, uint32_t &height,
+                                const int32_t format = GBM_FORMAT_RAW10);
+#else
   static bool GetMaxSupportedCameraRes(const CameraMetadata& meta,
                                       uint32_t &width, uint32_t &height,
                                 const int32_t format = HAL_PIXEL_FORMAT_RAW10);
+#endif
 
   static bool GetMinSupportedCameraRes(const CameraMetadata& meta,
                                         uint32_t &width,
@@ -707,6 +721,7 @@ class GtestCommon : public ::testing::Test {
 
   void DisplayVSyncHandler(int64_t time_stamp);
 
+#ifndef CAMERA_HAL1_SUPPORT
   status_t StartDisplay(DisplayType display_type,
                      uint32_t src_width, uint32_t src_height,
                      uint32_t dst_width, uint32_t dst_height);
@@ -715,6 +730,7 @@ class GtestCommon : public ::testing::Test {
 
   status_t PushFrameToDisplay(BufferDescriptor &buffer,
                               CameraBufferMetaData &meta_data);
+#endif
 
 #ifndef DISABLE_DISPLAY
   int32_t DequeueGfxSurfaceBuffer();
@@ -792,9 +808,10 @@ class GtestCommon : public ::testing::Test {
 #endif
 
   bool                  enable_sof_latency_;
-
+#ifndef CAMERA_HAL1_SUPPORT
 #ifdef QCAMERA3_TAG_LOCAL_COPY
   sp<VendorTagDescriptor> vendor_tag_desc_;
+#endif
 #endif
 
   struct TestEventWait {

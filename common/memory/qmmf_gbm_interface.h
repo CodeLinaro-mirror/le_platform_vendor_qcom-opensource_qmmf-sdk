@@ -31,6 +31,7 @@
 
 #include <gbm_priv.h>
 #include <mutex>
+#include <map>
 #include "qmmf_memory_interface.h"
 #include "common/utils/qmmf_log.h"
 
@@ -86,6 +87,9 @@ public:
                             int32_t height, int32_t format,
                             MemAllocFlags usage, uint32_t* stride) override;
 
+  MemAllocError ImportBuffer(IBufferHandle& handle,
+                             void* native_handle) override;
+
   MemAllocError FreeBuffer(IBufferHandle handle) override;
 
   MemAllocError Perform(const IBufferHandle& handle, AllocDeviceAction action,
@@ -109,6 +113,8 @@ private:
   gbm_device* gbm_device_;
 
   int gbm_fd_;
+
+  std::map<struct gbm_bo *, bool> imported_buffers_map_;
 
   static int32_t ref_count_;
   static GBMDevice* gbm_device_obj_;

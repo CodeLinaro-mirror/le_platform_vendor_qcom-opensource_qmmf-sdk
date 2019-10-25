@@ -50,6 +50,8 @@ class FakeCamera : public CameraInterface {
 
   ~FakeCamera();
 
+  static int32_t GetNumberOfCameras();
+
   status_t OpenCamera(const uint32_t camera_id, const float frame_rate,
                       const CameraExtraParam& extra_param,
                       const ResultCb &cb = nullptr,

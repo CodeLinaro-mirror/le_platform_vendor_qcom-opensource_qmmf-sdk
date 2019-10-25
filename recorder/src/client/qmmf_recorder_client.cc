@@ -40,6 +40,7 @@
 #include <binder/Parcel.h>
 #include <binder/ProcessState.h>
 #include <binder/IPCThreadState.h>
+#include <camera/VendorTagDescriptor.h>
 
 #include "common/utils/qmmf_tools.h"
 #include "recorder/src/client/qmmf_recorder_client.h"
@@ -50,6 +51,8 @@
 #ifdef LOG_LEVEL_KPI
 volatile uint32_t kpi_debug_level = BASE_KPI_FLAG;
 #endif
+
+uint32_t qmmf_log_level;
 
 namespace qmmf {
 
@@ -241,6 +244,7 @@ status_t RecorderClient::StartCamera(const uint32_t camera_id,
     return ret;
   }
 
+#ifndef CAMERA_HAL1_SUPPORT
   if (vendor_tag_desc_ == nullptr) {
     vendor_tag_desc_ = new VendorTagDescriptor();
     ret = GetVendorTagDescriptor(vendor_tag_desc_);
@@ -257,6 +261,7 @@ status_t RecorderClient::StartCamera(const uint32_t camera_id,
       return ret;
     }
   }
+#endif
   QMMF_DEBUG("%s Exit ", __func__);
   return ret;
 }

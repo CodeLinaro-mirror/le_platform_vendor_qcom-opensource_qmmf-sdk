@@ -189,6 +189,13 @@ MemAllocError Gralloc1Device::AllocBuffer(IBufferHandle& handle,
   return MemAllocError::kAllocOk;
 }
 
+MemAllocError Gralloc1Device::ImportBuffer(IBufferHandle& handle,
+                                           void* native_handle) {
+  QMMF_ERROR("%s: Not implemented", __func__);
+  assert(0);
+  return MemAllocError::kAllocOk;
+}
+
 MemAllocError Gralloc1Device::FreeBuffer(IBufferHandle handle) {
   if (nullptr != handle) {
     Gralloc1Buffer *b = static_cast<Gralloc1Buffer *>(handle);

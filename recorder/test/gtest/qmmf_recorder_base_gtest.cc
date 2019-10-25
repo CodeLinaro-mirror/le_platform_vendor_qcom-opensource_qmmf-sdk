@@ -450,7 +450,11 @@ TEST_F(RecorderBaseGTest, CancelCaptureImage) {
   if (static_meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
     entry = static_meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
     for (uint32_t i = 0 ; i < entry.count; i += 4) {
+#ifdef __LIBGBM__
+      if (GBM_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
+#else
       if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
+#endif
         if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
             entry.data.i32[i+3]) {
           if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])

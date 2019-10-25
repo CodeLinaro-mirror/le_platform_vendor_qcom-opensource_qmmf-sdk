@@ -88,6 +88,11 @@ FakeCamera::~FakeCamera() {
   }
 }
 
+int32_t FakeCamera::GetNumberOfCameras() {
+
+  return 1;
+}
+
 void FakeCamera::SetFlushCb(FlushCb &cb) {}
 
 status_t FakeCamera::OpenCamera(const uint32_t camera_id,

@@ -27,6 +27,9 @@ target_include_directories(qmmf_codec_adaptor
  PRIVATE ${TOP_DIRECTORY})
 
 target_include_directories(qmmf_codec_adaptor
+ PRIVATE ${WORKSPACE}/hardware/qcom/media/)
+
+target_include_directories(qmmf_codec_adaptor
  PRIVATE ${TOP_DIRECTORY}/common)
 
 target_include_directories(qmmf_codec_adaptor

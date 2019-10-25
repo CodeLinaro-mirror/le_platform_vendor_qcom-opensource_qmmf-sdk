@@ -53,11 +53,13 @@ add_subdirectory(recorder/src/service)
 
 add_subdirectory(recorder/test/gtest)
 
+if (NOT CAMERA_HAL1_SUPPORT)
 add_subdirectory(recorder/test/samples)
 
 add_subdirectory(recorder/test/videotimelapse)
 
 add_subdirectory(recorder/test/timelapse)
+endif()
 
 add_subdirectory(recorder/src/client)
 
@@ -83,31 +85,34 @@ add_subdirectory(system/src/client)
 
 add_subdirectory(common/memory)
 
+if (NOT CAMERA_HAL1_SUPPORT)
 add_subdirectory(common/audio/src/service)
 
 add_subdirectory(common/audio/test/samples)
 
 add_subdirectory(common/audio/src/client)
+endif()
 
 add_subdirectory(common/avqueue)
-
+if (NOT CAMERA_HAL1_SUPPORT)
 add_subdirectory(common/cameraadaptor/gtest)
 
 add_subdirectory(common/cameraadaptor)
-
+endif()
 add_subdirectory(common/codecadaptor/src)
 
 add_subdirectory(common/exif-generator)
 
 add_subdirectory(common/jpeg-encoder)
 
+if (NOT CAMERA_HAL1_SUPPORT)
 add_subdirectory(common/overlay/test)
 
 add_subdirectory(common/overlay)
 
-add_subdirectory(common/resizer-c2d)
-
 add_subdirectory(common/resizer-fastCV)
+endif()
+add_subdirectory(common/resizer-c2d)
 
 add_subdirectory(common/resizer-neon)
 

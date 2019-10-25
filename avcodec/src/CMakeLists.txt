@@ -30,6 +30,9 @@ target_include_directories(qmmf_av_codec
  PRIVATE ${TOP_DIRECTORY})
 
 target_include_directories(qmmf_av_codec
+ PRIVATE ${WORKSPACE}/hardware/qcom/media/)
+
+target_include_directories(qmmf_av_codec
  PRIVATE ${TOP_DIRECTORY}/common/memory)
 
 # TODO remove this hack when camx issue with propagating c and cpp glags is solved

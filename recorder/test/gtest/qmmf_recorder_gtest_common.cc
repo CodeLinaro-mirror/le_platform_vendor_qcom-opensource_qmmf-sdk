@@ -36,7 +36,9 @@
 
 #include "recorder/test/gtest/qmmf_recorder_gtest_common.h"
 
+#ifndef CAMERA_HAL1_SUPPORT
 using namespace qcamera;
+#endif
 
 const std::string GtestCommon::kQmmfFolderPath = "/data/misc/qmmf/";
 
@@ -499,6 +501,7 @@ int32_t GtestCommon::DeInit() {
 }
 
 void GtestCommon::InitSupportedVHDRModes() {
+#ifndef CAMERA_HAL1_SUPPORT
   camera_metadata_entry_t entry;
   if (static_info_.exists(QCAMERA3_AVAILABLE_VIDEO_HDR_MODES)) {
     entry = static_info_.find(QCAMERA3_AVAILABLE_VIDEO_HDR_MODES);
@@ -506,16 +509,19 @@ void GtestCommon::InitSupportedVHDRModes() {
       supported_hdr_modes_.push_back(entry.data.i32[i]);
     }
   }
+#endif
 }
 
 bool GtestCommon::IsVHDRSupported() {
   bool is_supported = false;
+#ifndef CAMERA_HAL1_SUPPORT
   for (const auto& mode : supported_hdr_modes_) {
     if (QCAMERA3_VIDEO_HDR_MODE_ON == mode) {
       is_supported = true;
       break;
     }
   }
+#endif
   return is_supported;
 }
 
@@ -655,7 +661,9 @@ void GtestCommon::VideoTrackYUVDataCb(uint32_t session_id, uint32_t track_id,
       QueueGfxSurfaceBuffer();
     }
 #endif
+#ifndef CAMERA_HAL1_SUPPORT
     PushFrameToDisplay(buffers[0], meta_buffers[0].cam_buffer_meta_data);
+#endif
   }
 
 
@@ -1206,7 +1214,11 @@ bool GtestCommon::ValidateResFromStreamConfigs(const CameraMetadata& meta,
   if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
     auto entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
     for (uint32_t i = 0 ; i < entry.count; i += 4) {
+#ifdef __LIBGBM__
+      if (GBM_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
+#else
       if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
+#endif
         if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
             entry.data.i32[i+3]) {
           if (width == static_cast<uint32_t>(entry.data.i32[i+1])
@@ -1241,9 +1253,15 @@ bool GtestCommon::GetMinResFromStreamConfigs(const CameraMetadata& meta,
   if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
     auto entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
     for (uint32_t i = 0; i < entry.count; i += 4) {
+#ifdef __LIBGBM__
+      if (GBM_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i] &&
+          ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
+            entry.data.i32[i+3]) {
+#else
       if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i] &&
           ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
             entry.data.i32[i+3]) {
+#endif
         if (width > static_cast<uint32_t>(entry.data.i32[i + 1]) &&
             height > static_cast<uint32_t>(entry.data.i32[i + 2])) {
           width = static_cast<uint32_t>(entry.data.i32[i + 1]);
@@ -1310,7 +1328,11 @@ bool GtestCommon::ValidateResFromJpegSizes(const CameraMetadata& meta,
   if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
     auto entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
     for (uint32_t i = 0 ; i < entry.count; i += 4) {
+#ifdef __LIBGBM__
+      if (GBM_FORMAT_BLOB == entry.data.i32[i]) {
+#else
       if (HAL_PIXEL_FORMAT_BLOB == entry.data.i32[i]) {
+#endif
         if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
             entry.data.i32[i+3]) {
           if (width == static_cast<uint32_t>(entry.data.i32[i+1])
@@ -1344,7 +1366,11 @@ bool GtestCommon::ValidateResFromRawSizes(const CameraMetadata& meta,
   if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
     auto entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
     for (uint32_t i = 0 ; i < entry.count; i += 4) {
+#ifdef __LIBGBM__
+      if (GBM_FORMAT_RAW10 == entry.data.i32[i]) {
+#else
       if (HAL_PIXEL_FORMAT_RAW10 == entry.data.i32[i]) {
+#endif
         if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
             entry.data.i32[i+3]) {
           if (width == static_cast<uint32_t>(entry.data.i32[i+1])
@@ -1396,9 +1422,15 @@ bool GtestCommon::GetMaxSupportedCameraRes(const CameraMetadata& meta,
   if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
     entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
     for (uint32_t i = 0; i < entry.count; i += 4) {
+#ifdef __LIBGBM__
+      if (GBM_FORMAT_RAW10 == entry.data.i32[i] &&
+          ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
+            entry.data.i32[i+3]) {
+#else
       if (HAL_PIXEL_FORMAT_RAW10 == entry.data.i32[i] &&
           ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
             entry.data.i32[i+3]) {
+#endif
         if (width < static_cast<uint32_t>(entry.data.i32[i + 1]) &&
             height < static_cast<uint32_t>(entry.data.i32[i + 2])) {
           width = static_cast<uint32_t>(entry.data.i32[i + 1]);
@@ -1414,8 +1446,12 @@ bool GtestCommon::GetMaxSupportedCameraRes(const CameraMetadata& meta,
     return false;
   }
 #else
+#ifdef __LIBGBM__
+  if (GBM_FORMAT_RAW10 == format || GBM_FORMAT_RAW16 == format) {
+#else
   if (HAL_PIXEL_FORMAT_RAW8  == format || HAL_PIXEL_FORMAT_RAW10 == format ||
       HAL_PIXEL_FORMAT_RAW12 == format || HAL_PIXEL_FORMAT_RAW16 == format) {
+#endif
     if (!meta.exists(ANDROID_SCALER_AVAILABLE_RAW_SIZES)) {
       QMMF_ERROR("%s: Metadata ANDROID_SCALER_AVAILABLE_RAW_SIZES"
                   " not available", __func__);
@@ -1489,7 +1525,7 @@ void GtestCommon::DisplayVSyncHandler(int64_t time_stamp) {
   TEST_DBG("%s: Enter", __func__);
   TEST_DBG("%s: Exit", __func__);
 }
-
+#ifndef CAMERA_HAL1_SUPPORT
 status_t GtestCommon::StartDisplay(DisplayType display_type,
                                      uint32_t src_width, uint32_t src_height,
                                      uint32_t dst_width, uint32_t dst_height) {
@@ -1602,6 +1638,7 @@ status_t GtestCommon::StopDisplay(DisplayType display_type) {
   TEST_INFO("%s: Exit", __func__);
   return res;
 }
+#endif
 
 status_t GtestCommon::SetCameraFocalLength(const float focal_length) {
   CameraMetadata meta;
@@ -2236,6 +2273,7 @@ status_t GtestCommon::DumpThumbnail(BufferDescriptor buffer,
   return NO_ERROR;
 }
 
+#ifndef CAMERA_HAL1_SUPPORT
 status_t GtestCommon::PushFrameToDisplay(BufferDescriptor &buffer,
                                            CameraBufferMetaData &meta_data) {
   TEST_DBG("%s: Enter", __func__);
@@ -2266,6 +2304,7 @@ status_t GtestCommon::PushFrameToDisplay(BufferDescriptor &buffer,
   TEST_DBG("%s: Exit", __func__);
   return NO_ERROR;
 }
+#endif
 
 #ifndef DISABLE_DISPLAY
 int32_t GtestCommon::DequeueGfxSurfaceBuffer() {
@@ -2330,7 +2369,7 @@ status_t GtestCommon::DrawOverlay(void *data, int32_t width, int32_t height) {
 
   TEST_DBG("%s: Enter", __func__);
   status_t ret = 0;
-
+#ifndef CAMERA_HAL1_SUPPORT
 #if USE_SKIA
   //Create Skia canvas outof ION memory.
   SkImageInfo imageInfo = SkImageInfo::Make(width, height,
@@ -2468,6 +2507,7 @@ status_t GtestCommon::DrawOverlay(void *data, int32_t width, int32_t height) {
 #endif
 
   TEST_DBG("%s: Exit", __func__);
+#endif
   return ret;
 }
 

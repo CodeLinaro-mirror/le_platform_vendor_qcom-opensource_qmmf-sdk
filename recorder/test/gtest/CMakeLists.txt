@@ -8,6 +8,7 @@ if (NOT RECORDER_GTEST_ENABLED)
   set(exclude EXCLUDE_FROM_ALL)
 endif()
 
+if (NOT CAMERA_HAL1_SUPPORT)
 add_executable(qmmf_recorder_gtest ${exclude}
 qmmf_recorder_base_gtest.cc
 qmmf_recorder_gtest_common.cc
@@ -17,6 +18,13 @@ qmmf_recorder_video_gtest.cc
 qmmf_recorder_video_snapshot_gtest.cc
 qmmf_recorder_360cam_gtest.cc
 )
+else()
+add_executable(qmmf_recorder_gtest ${exclude}
+qmmf_recorder_base_gtest.cc
+qmmf_recorder_hal1_gtest.cc
+qmmf_recorder_gtest_common.cc
+)
+endif()
 add_dependencies(qmmf_recorder_gtest qmmf_recorder_client qmmf_utils qmmf_av_queue)
 if (NOT DISABLE_DISPLAY_CLIENT)
 add_dependencies(qmmf_recorder_gtest qmmf_display_client)

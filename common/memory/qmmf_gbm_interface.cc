@@ -330,10 +330,33 @@ MemAllocError GBMDevice::AllocBuffer(IBufferHandle& handle, int32_t width,
   return MemAllocError::kAllocOk;
 }
 
+MemAllocError GBMDevice::ImportBuffer(IBufferHandle& handle,
+                                      void* native_handle) {
+  handle = new GBMBuffer;
+  GBMBuffer* gbm_hnd = static_cast<GBMBuffer*>(handle);
+  struct gbm_bo *bo = static_cast<struct gbm_bo *>(native_handle);
+
+  gbm_hnd->SetNativeHandle(bo);
+
+  if (imported_buffers_map_.count(bo)) {
+    imported_buffers_map_.at(bo) = true;
+  } else {
+    imported_buffers_map_.emplace(bo, true);
+  }
+
+  return MemAllocError::kAllocOk;
+}
+
 MemAllocError GBMDevice::FreeBuffer(IBufferHandle handle) {
   GBMBuffer *b = static_cast<GBMBuffer *>(handle);
   assert(b != nullptr);
-  gbm_bo_destroy(b->GetNativeHandle());
+  struct gbm_bo *bo = b->GetNativeHandle();
+
+  if (imported_buffers_map_.count(bo) && imported_buffers_map_.at(bo)) {
+    imported_buffers_map_.at(bo) = false;
+  } else {
+    gbm_bo_destroy(b->GetNativeHandle());
+  }
   delete handle;
   return MemAllocError::kAllocOk;
 }
