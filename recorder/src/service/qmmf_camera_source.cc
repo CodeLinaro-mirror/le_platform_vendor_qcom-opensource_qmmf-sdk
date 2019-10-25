@@ -1072,16 +1072,11 @@ status_t CameraSource::ParseThumb(uint8_t* vaddr, uint32_t size,
 
 status_t CameraSource::DetectCameras() {
 
-  CameraClientCallbacks camera_callbacks;
-  Camera3DeviceClient   camera_device(camera_callbacks);
-
-  auto ret = camera_device.Initialize();
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s Unable to Initialize Camera3DeviceClient %d", __func__, ret);
-    return BAD_VALUE;
+  if(!supported_cameras_.empty()) {
+    return NO_ERROR;
   }
 
-  int32_t num_camera = camera_device.GetNumberOfCameras();
+  int32_t num_camera = CameraContext::GetNumberOfCameras();
   if (num_camera < 1) {
     QMMF_ERROR("%s: Failed: number of cameras %d", __func__, num_camera);
     return BAD_VALUE;
@@ -1089,11 +1084,6 @@ status_t CameraSource::DetectCameras() {
 
   // Detect physical cameras.
   for (int32_t camera_id = 0; camera_id < num_camera; camera_id++) {
-    CameraMetadata static_meta;
-
-    ret = camera_device.GetCameraInfo(camera_id, &static_meta);
-    assert(ret == NO_ERROR);
-
     supported_cameras_.push_back(
         CameraCapability(camera_id, CameraType::kLiveSingle));
   }
