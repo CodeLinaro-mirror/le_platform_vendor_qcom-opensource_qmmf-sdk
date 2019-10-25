@@ -168,7 +168,7 @@ status_t CameraContext::CreateSnapshotStream(
   status_t ret = NO_ERROR;
 
   if (IsStreamParamsChanged(stream_param)) {
-    PauseActiveStreams();
+
     if (!snapshot_request_.streamIds.isEmpty()) {
       if (1 < snapshot_request_.streamIds.size()) {
         QMMF_ERROR("%s: Several non-zsl snapshot streams present!\n",
