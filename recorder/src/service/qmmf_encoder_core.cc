@@ -652,10 +652,10 @@ status_t TrackEncoder::ReturnBuffer(BufferDescriptor& codec_buffer,
   // When the encoder flush is in progress then it will return buffers
   // as is i.e. with timestamp and size 0. If that is the case then
   // it is not a valid buffer and should not be notified to the client
-  bool is_buffer_invalid = (codec_buffer.size == 0 ||
-                            codec_buffer.timestamp == 0);
+  bool is_buffer_invalid = (codec_buffer.size == 0);
 
-  if ((debug_fps_ & kDebugTrackFps) && !is_buffer_invalid) {
+  if ((debug_fps_ & kDebugTrackFps) && !is_buffer_invalid &&
+      codec_buffer.timestamp) {
     struct timespec tv = {0, 0};
     clock_gettime(CLOCK_MONOTONIC, &tv);
     uint64_t time_diff = (uint64_t)((tv.tv_sec * 1000000 + tv.tv_nsec / 1000) -
