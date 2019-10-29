@@ -50,8 +50,7 @@ Camera3RequestHandler::Camera3RequestHandler(Camera3Monitor &monitor)
       monitor_(monitor),
       monitor_id_(Camera3Monitor::INVALID_ID),
       batch_size_(1),
-      worker_(ReprocLoop, this),
-      run_worker_(true) {
+      run_worker_(false) {
   pthread_mutex_init(&lock_, NULL);
   pthread_cond_init(&requests_signal_, NULL);
   pthread_cond_init(&current_request_signal_, NULL);
@@ -73,7 +72,9 @@ Camera3RequestHandler::~Camera3RequestHandler() {
     run_worker_ = false;
     worker_signal_.Signal();
   }
-  worker_.join();
+  if (worker_.joinable()) {
+    worker_.join();
+  }
   pthread_cond_destroy(&pause_state_signal_);
   pthread_cond_destroy(&toggle_pause_signal_);
   pthread_mutex_destroy(&pause_lock_);
@@ -130,7 +131,18 @@ int32_t Camera3RequestHandler::QueueReprocRequestList(List<CaptureRequest> &requ
                                                 int64_t *lastFrameNumber) {
   pthread_mutex_lock(&lock_);
   std::unique_lock<std::mutex> lock(worker_lock_);
-
+  if (!run_worker_) {
+    run_worker_ = true;
+    try {
+      worker_ = std::thread([this]() -> void {
+          Camera3RequestHandler::ReprocLoop(this); });
+    } catch (const std::exception &e) {
+      QMMF_ERROR("%s: Unable to create worker thread exception: %s !",
+                 __func__, e.what());
+      run_worker_ = false;
+      return -EINTR;
+    }
+  }
   List<CaptureRequest>::iterator it = requests.begin();
   for (; it != requests.end(); ++it) {
     reproc_requests_.push_back(*it);
