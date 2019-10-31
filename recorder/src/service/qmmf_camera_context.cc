@@ -2710,8 +2710,12 @@ status_t CameraPort::Init() {
 
   bool is_ubwc_stream_enabled = IsUbwcValidForStream(params_.width,
                                                      params_.height);
+  // Passing encoder flags for all streams, in order to
+  // support linked or rescaled encoded streams from
+  // yuv streams.
+  cam_stream_params_.allocFlags.flags = IMemAllocUsage::kVideoEncoder;
+
   if (!params_.is_yuv_track) {
-    cam_stream_params_.allocFlags.flags = IMemAllocUsage::kVideoEncoder;
     cam_stream_params_.bufferCount =
         VIDEO_STREAM_BUFFER_COUNT + GetExtraBufferCount();
     if (is_ubwc_stream_enabled) {
