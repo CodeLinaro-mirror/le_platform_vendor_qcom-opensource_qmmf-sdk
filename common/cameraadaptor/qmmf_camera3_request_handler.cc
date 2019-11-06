@@ -74,12 +74,12 @@ Camera3RequestHandler::~Camera3RequestHandler() {
     worker_signal_.Signal();
   }
   worker_.join();
-  pthread_mutex_destroy(&lock_);
+  pthread_cond_destroy(&pause_state_signal_);
+  pthread_cond_destroy(&toggle_pause_signal_);
+  pthread_mutex_destroy(&pause_lock_);
   pthread_cond_destroy(&current_request_signal_);
   pthread_cond_destroy(&requests_signal_);
-  pthread_mutex_destroy(&pause_lock_);
-  pthread_cond_destroy(&toggle_pause_signal_);
-  pthread_cond_destroy(&pause_state_signal_);
+  pthread_mutex_destroy(&lock_);
 }
 
 int32_t Camera3RequestHandler::Initialize(camera3_device_t *device,
