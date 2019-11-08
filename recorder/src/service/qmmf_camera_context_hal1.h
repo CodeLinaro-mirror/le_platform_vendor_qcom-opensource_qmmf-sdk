@@ -131,6 +131,8 @@ class CameraContext : public CameraInterface {
 
   status_t ValidateCaptureConfig(const ImageConfigParam &config);
 
+  status_t SetFps(float fps);
+
   sp<IBufferProducer>      buffer_producer_impl_;
   std::mutex               buffer_lock_;
   void*                    camera_device_;
