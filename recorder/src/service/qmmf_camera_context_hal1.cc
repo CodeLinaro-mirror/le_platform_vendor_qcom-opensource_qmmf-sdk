@@ -793,6 +793,19 @@ status_t CameraContext::ApplyParameters() {
   return ret;
 }
 
+status_t CameraContext::SetFps(float fps) {
+
+  mParameters_.setPreviewFrameRate(fps);
+  std::string fps_range = "";
+  fps_range += std::to_string((int)(fps*1000.0f));
+  fps_range += ",";
+  fps_range += std::to_string((int)(fps*1000.0f));
+  mParameters_.set(CameraParameters::KEY_PREVIEW_FPS_RANGE, fps_range.c_str());
+  ApplyParameters();
+
+  return NO_ERROR;
+}
+
 status_t CameraContext::StartStream(const uint32_t track_id) {
 
   QMMF_INFO("Enter %s \n", __func__);
@@ -821,8 +834,7 @@ status_t CameraContext::StartStream(const uint32_t track_id) {
   }
 
   QMMF_INFO("%s Set fps - %f", __func__, max_fps);
-  mParameters_.setPreviewFrameRate(max_fps);
-  ApplyParameters();
+  SetFps(max_fps);
   ret = port->Start();
   assert(ret == NO_ERROR);
 
@@ -911,9 +923,7 @@ status_t CameraContext::StopStream(const uint32_t track_id) {
       }
 
       QMMF_INFO("%s Set fps - %f", __func__, max_fps);
-      mParameters_.setPreviewFrameRate(max_fps);
-
-      ApplyParameters();
+      SetFps(max_fps);
       ret = new_port->Start();
       assert(ret == NO_ERROR);
     }
@@ -925,20 +935,6 @@ status_t CameraContext::StopStream(const uint32_t track_id) {
     assert(ret == NO_ERROR);
     ret = port->DeInit();
     assert(ret == NO_ERROR);
-
-    // Get higher port fps
-    float max_fps = 0.0f;
-    for (auto iter : ports_) {
-      auto p = iter.second;
-      float framerate = p->GetPortFramerate();
-      if (max_fps < framerate) {
-        max_fps = framerate;
-      }
-    }
-
-    QMMF_INFO("%s Set fps - %f", __func__, max_fps);
-    mParameters_.setPreviewFrameRate(max_fps);
-    ApplyParameters();
   }
 
   QMMF_INFO("Exit %s \n", __func__);
