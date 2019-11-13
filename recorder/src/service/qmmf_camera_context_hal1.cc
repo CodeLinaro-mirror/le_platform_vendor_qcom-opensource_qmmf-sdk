@@ -1548,6 +1548,11 @@ void CameraPort::StreamCallback(const void *data, int64_t timestamp) {
     auto ret = PopulateMetaInfo(buffer.info, buffer.handle);
     assert(ret == NO_ERROR);
 
+    context_->alloc_device_interface_->Perform(
+        buffer.handle, IAllocDevice::AllocDeviceAction::GetMetaFd,
+        static_cast<void*>(&buffer.metafd)
+    );
+
     {
       std::unique_lock < std::mutex > lock(context_->buffer_lock_);
       buffer_count_++;
