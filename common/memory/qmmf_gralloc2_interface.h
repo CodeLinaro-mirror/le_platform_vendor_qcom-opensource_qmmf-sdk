@@ -58,7 +58,7 @@ class Gralloc2Device : public IAllocDevice {
                               MemAllocFlags usage, uint32_t* stride) override;
 
   MemAllocError ImportBuffer(IBufferHandle& handle,
-                             void* native_handle) override;
+                             void* buffer_handle) override;
 
   mem_alloc_error FreeBuffer(IBufferHandle handle) override;
 

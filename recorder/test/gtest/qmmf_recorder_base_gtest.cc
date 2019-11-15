@@ -435,7 +435,6 @@ TEST_F(RecorderBaseGTest, CancelCaptureImage) {
   image_param.image_quality = default_jpeg_quality_;
 
   std::vector<CameraMetadata> meta_array;
-  camera_metadata_entry_t entry;
   CameraMetadata meta;
 
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
@@ -445,27 +444,10 @@ TEST_F(RecorderBaseGTest, CancelCaptureImage) {
   ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  bool res_supported = false;
   // Check Supported Raw YUV snapshot resolutions.
-  if (static_meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-    entry = static_meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-    for (uint32_t i = 0 ; i < entry.count; i += 4) {
-#ifdef __LIBGBM__
-      if (GBM_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
-#else
-      if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
-#endif
-        if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-            entry.data.i32[i+3]) {
-          if (image_param.width == static_cast<uint32_t>(entry.data.i32[i+1])
-              && image_param.height ==
-                  static_cast<uint32_t>(entry.data.i32[i+2])) {
-            res_supported = true;
-          }
-        }
-      }
-    }
-  }
+  bool res_supported = GtestCommon::ValidateResFromProcessedSizes(static_meta,
+    image_param.width,
+    image_param.height);
   ASSERT_TRUE(res_supported != false);
 
   TEST_INFO("%s: Running Test(%s)", __func__,

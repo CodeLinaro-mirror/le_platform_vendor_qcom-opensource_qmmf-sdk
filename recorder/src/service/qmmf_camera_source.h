@@ -39,13 +39,11 @@
 #include <qmmf-sdk/qmmf_recorder_extra_param_tags.h>
 
 #include "common/utils/qmmf_condition.h"
-#ifndef CAMERA_HAL1_SUPPORT
-#include "common/cameraadaptor/qmmf_camera3_device_client.h"
-#endif
 #include "common/codecadaptor/src/qmmf_avcodec.h"
 #include "recorder/src/service/qmmf_recorder_common.h"
 #include "recorder/src/service/qmmf_camera_interface.h"
 #ifndef CAMERA_HAL1_SUPPORT
+#include "common/cameraadaptor/qmmf_camera3_device_client.h"
 #include "recorder/src/service/qmmf_camera_context.h"
 #else
 #include "recorder/src/service/qmmf_camera_context_hal1.h"
@@ -57,11 +55,9 @@ namespace qmmf {
 
 #ifndef CAMERA_HAL1_SUPPORT
 using namespace cameraadaptor;
-#endif
-using namespace android;
-#ifndef CAMERA_HAL1_SUPPORT
 using namespace overlay;
 #endif
+using namespace android;
 using namespace avcodec;
 
 namespace recorder {

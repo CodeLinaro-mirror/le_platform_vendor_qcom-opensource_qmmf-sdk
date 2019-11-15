@@ -42,9 +42,6 @@
 #include <string>
 
 #include <system/graphics.h>
-#ifndef __LIBGBM__
-#include <system/window.h>
-#endif
 #include <sys/mman.h>
 #include <sys/time.h>
 #include <camera/CameraMetadata.h>

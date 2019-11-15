@@ -26,7 +26,11 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+#ifdef __LIBGBM__
+#include <system/graphics.h>
+#else
 #include <hardware/gralloc.h>
+#endif
 #include <fcntl.h>
 
 #include "qmmf_gbm_interface.h"
@@ -331,10 +335,10 @@ MemAllocError GBMDevice::AllocBuffer(IBufferHandle& handle, int32_t width,
 }
 
 MemAllocError GBMDevice::ImportBuffer(IBufferHandle& handle,
-                                      void* native_handle) {
+                                      void* buffer_handle) {
   handle = new GBMBuffer;
   GBMBuffer* gbm_hnd = static_cast<GBMBuffer*>(handle);
-  struct gbm_bo *bo = static_cast<struct gbm_bo *>(native_handle);
+  struct gbm_bo *bo = static_cast<struct gbm_bo *>(buffer_handle);
 
   gbm_hnd->SetNativeHandle(bo);
 

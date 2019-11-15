@@ -33,9 +33,13 @@
 #include <grallocusage/GrallocUsageConversion.h>
 #include <libgralloc1/gralloc_priv.h>
 #elif TARGET_USES_GBM
-#include <gbm_priv.h>
 #ifdef __LIBGBM__
-typedef const struct gbm_bo* buffer_handle_t;
+#include <hardware/camera.h>
+#define GRALLOC_USAGE_PROTECTED                  0x00004000
+#define GRALLOC_USAGE_SW_READ_OFTEN              0x00000003
+#define GRALLOC_USAGE_SW_WRITE_OFTEN             0x00000030
+#define GRALLOC_USAGE_HW_FB                      0x00001000
+#define GRALLOC_USAGE_HW_CAMERA_ZSL              0x00060000
 #else
 #include <system/window.h>
 #endif
@@ -279,7 +283,7 @@ class IAllocDevice {
                                     uint32_t* stride) = 0;
 
   virtual MemAllocError ImportBuffer(IBufferHandle& handle,
-                                     void* native_handle) = 0;
+                                     void* buffer_handle) = 0;
 
   /** IAllocDevice::FreeBuffer
   * @handle - handle to the allocated buffer

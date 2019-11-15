@@ -359,7 +359,7 @@ struct CameraSlaveMode : DataTagBase {
 };
 
 struct SystemCache : DataTagBase {
-  /**< Add support for client to enable/disable system cache.
+  /**< Add support for client to enable/disable system cache. */
   /**< Default: True*/
   bool enable;
   SystemCache() :

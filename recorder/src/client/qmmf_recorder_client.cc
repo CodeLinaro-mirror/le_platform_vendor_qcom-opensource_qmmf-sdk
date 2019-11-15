@@ -76,8 +76,7 @@ RecorderClient::RecorderClient()
       death_notifier_(nullptr),
       ion_device_(-1),
       client_id_(0),
-      metadata_cb_(nullptr),
-      vendor_tag_desc_(nullptr) {
+      metadata_cb_(nullptr) {
 
   QMMF_GET_LOG_LEVEL();
   QMMF_KPI_GET_MASK();
@@ -209,10 +208,6 @@ status_t RecorderClient::Disconnect() {
   }
   client_id_ = 0;
 
-  // Clear global tag descriptor for the process
-  VendorTagDescriptor::clearGlobalVendorTagDescriptor();
-  vendor_tag_desc_ = nullptr;
-
   QMMF_DEBUG("%s Exit ", __func__);
   return ret;
 }
@@ -244,24 +239,6 @@ status_t RecorderClient::StartCamera(const uint32_t camera_id,
     return ret;
   }
 
-#ifndef CAMERA_HAL1_SUPPORT
-  if (vendor_tag_desc_ == nullptr) {
-    vendor_tag_desc_ = new VendorTagDescriptor();
-    ret = GetVendorTagDescriptor(vendor_tag_desc_);
-    if (0 != ret) {
-      QMMF_ERROR("%s: Unable to GetVendorTagDescriptor : %d\n", __func__, ret);
-      return ret;
-    }
-
-    // Set the global descriptor to use with camera metadata
-    ret = VendorTagDescriptor::setAsGlobalVendorTagDescriptor(vendor_tag_desc_);
-    if (0 != ret) {
-      QMMF_ERROR("%s: Unable to setAsGlobalVendorTagDescriptor : %d",
-          __func__, ret);
-      return ret;
-    }
-  }
-#endif
   QMMF_DEBUG("%s Exit ", __func__);
   return ret;
 }

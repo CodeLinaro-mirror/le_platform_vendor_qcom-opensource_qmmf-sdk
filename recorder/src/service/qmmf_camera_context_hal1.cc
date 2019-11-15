@@ -54,15 +54,11 @@
 #include "recorder/src/service/qmmf_recorder_utils.h"
 #include <gbm_priv.h>
 #include <gbm.h>
+#include <libstagefrighthw/QComOMXMetadata.h>
 
 namespace qmmf {
 
 namespace recorder {
-
-struct encoder_media_buffer_type {
-  int buffer_type;
-  struct gbm_bo *meta_handle;
-};
 
 #define PARAM_MAP_SIZE(MAP) (sizeof(MAP)/sizeof(MAP[0]))
 
