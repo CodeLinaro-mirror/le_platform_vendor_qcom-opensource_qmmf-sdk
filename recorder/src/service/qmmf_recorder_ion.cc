@@ -268,6 +268,7 @@ int32_t RecorderIon::Export(const BufferDescriptor& buffer,
   }
 
   bn_buffer->ion_fd = buffer.fd;
+  bn_buffer->ion_meta_fd = -1;
   bn_buffer->size = buffer.size;
   bn_buffer->timestamp = buffer.timestamp;
   bn_buffer->width = -1;

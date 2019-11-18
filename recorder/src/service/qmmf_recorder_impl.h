@@ -42,11 +42,9 @@
 #include <camera/CameraMetadata.h>
 
 #include "recorder/src/client/qmmf_recorder_service_intf.h"
-#ifndef CAMERA_HAL1_SUPPORT
 #include "recorder/src/service/qmmf_recorder_common.h"
 #include "recorder/src/service/qmmf_audio_source.h"
 #include "recorder/src/service/qmmf_audio_encoder_core.h"
-#endif
 #include "recorder/src/service/qmmf_camera_source.h"
 #include "recorder/src/service/qmmf_encoder_core.h"
 #include "recorder/src/service/qmmf_remote_cb.h"
@@ -380,10 +378,8 @@ class RecorderImpl {
 
   CameraSource*                 camera_source_;
   EncoderCore*                  encoder_core_;
-#ifndef CAMERA_HAL1_SUPPORT
   AudioSource*                  audio_source_;
   AudioEncoderCore*             audio_encoder_core_;
-#endif
   RemoteCallbackHandle          remote_cb_handle_;
 
   std::map<uint32_t, bool>      timelapse_mode_;
