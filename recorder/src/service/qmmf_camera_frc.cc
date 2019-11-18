@@ -282,6 +282,15 @@ void FrameRateController::OnFrameAvailable(StreamBuffer& buffer) {
       buffer_consumer_->GetProducerHandle()->NotifyBufferReturned(buffer);
       return;
     }
+    // Timestamp difference between the frames coming from camera are not
+    // exactly equidistant. Actual time from camera is actually SOF minus
+    // some line delta. After a certain point the difference between expected
+    // time stamp and frame time stamp will be more than the threshold.
+
+    auto timestamp_delta = expected_output_ts_ - buffer.timestamp;
+    if (timestamp_delta > 0) {
+      expected_output_ts_ -= timestamp_delta;
+    }
     // Increment the expected frame timestamp value.
     expected_output_ts_ += output_frame_interval_;
 
