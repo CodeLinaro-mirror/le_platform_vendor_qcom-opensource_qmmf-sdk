@@ -43,6 +43,8 @@ add_subdirectory(recorder/src/service)
 
 add_subdirectory(recorder/test/gtest)
 
+add_subdirectory(recorder/test/audio)
+
 if (NOT CAMERA_HAL1_SUPPORT)
 add_subdirectory(recorder/test/samples)
 
