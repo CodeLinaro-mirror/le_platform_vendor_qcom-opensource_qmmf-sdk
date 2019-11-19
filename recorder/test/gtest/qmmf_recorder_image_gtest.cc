@@ -1237,7 +1237,6 @@ TEST_F(RecorderImageGTest, 4KSnapshotWithSHDR) {
   image_param.image_quality = default_jpeg_quality_;
 
   std::vector<CameraMetadata> meta_array;
-  camera_metadata_entry_t entry;
   CameraMetadata meta;
 
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
@@ -1376,7 +1375,6 @@ TEST_F(RecorderImageGTest, 1080pSnapshotWithSHDR) {
   image_param.image_quality = default_jpeg_quality_;
 
   std::vector<CameraMetadata> meta_array;
-  camera_metadata_entry_t entry;
   CameraMetadata meta;
 
   ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);

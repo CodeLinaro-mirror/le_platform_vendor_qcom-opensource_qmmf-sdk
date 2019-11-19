@@ -40,8 +40,10 @@
 
 #include <ion/ion.h>
 #include <linux/dma-buf.h>
+#ifdef TARGET_USES_GBM
 #include <gbm.h>
 #include <gbm_priv.h>
+#endif
 
 #include "common/utils/qmmf_log.h"
 #include "recorder/src/client/qmmf_recorder_client_ion.h"
@@ -290,9 +292,6 @@ class RecorderClient {
   std::map<int32_t, gbm_bo*>        gbm_buffers_map_;
   std::mutex                        gbm_lock_;
 #endif
-
-  // VendorTagDescriptor
-  sp<VendorTagDescriptor>           vendor_tag_desc_;
 
   // Global mutex.
   std::mutex                        lock_;

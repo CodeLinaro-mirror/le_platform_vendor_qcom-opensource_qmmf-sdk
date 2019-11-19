@@ -54,15 +54,11 @@
 #include "recorder/src/service/qmmf_recorder_utils.h"
 #include <gbm_priv.h>
 #include <gbm.h>
+#include <libstagefrighthw/QComOMXMetadata.h>
 
 namespace qmmf {
 
 namespace recorder {
-
-struct encoder_media_buffer_type {
-  int buffer_type;
-  struct gbm_bo *meta_handle;
-};
 
 #define PARAM_MAP_SIZE(MAP) (sizeof(MAP)/sizeof(MAP[0]))
 
@@ -191,19 +187,19 @@ void CameraContext::SetFlushCb(FlushCb &cb) {
 /* Internal Helper Functions*/
 static void __notify_cb(int32_t msg_type, int32_t ext1, int32_t ext2,
   void *user) {
-  QMMF_INFO("%s\n", __FUNCTION__);
-  QMMF_INFO("msg_type %d, ext1 %d ext2 %d \n", msg_type, ext1, ext2);
+  QMMF_VERBOSE("%s\n", __FUNCTION__);
+  QMMF_VERBOSE("msg_type %d, ext1 %d ext2 %d \n", msg_type, ext1, ext2);
 }
 
 static void __data_cb(int32_t msg_type, const camera_memory_t *data,
   unsigned int index, camera_frame_metadata_t *metadata, void *user) {
   CameraContext *camera_context = (CameraContext *)user;
-  QMMF_INFO("%s\n", __FUNCTION__);
-  QMMF_INFO("msg_type 0x%x, data %p, metadata %p index %d \n", msg_type,
+  QMMF_VERBOSE("%s\n", __FUNCTION__);
+  QMMF_VERBOSE("msg_type 0x%x, data %p, metadata %p index %d \n", msg_type,
     (unsigned int * )data, (unsigned int * )metadata, index);
 
   if (msg_type & CAMERA_MSG_PREVIEW_FRAME) {
-    QMMF_INFO("%s:%d: CAMERA_MSG_PREVIEW_FRAME data size - %d", __func__,
+    QMMF_VERBOSE("%s:%d: CAMERA_MSG_PREVIEW_FRAME data size - %d", __func__,
       __LINE__, data->size);
     if (camera_context != nullptr) {
       auto port = camera_context->GetPortByType(CameraPortType::kPreview);
@@ -217,15 +213,15 @@ static void __data_cb(int32_t msg_type, const camera_memory_t *data,
   }
 
   if (msg_type & CAMERA_MSG_RAW_IMAGE) {
-    QMMF_INFO("%s:%d: CAMERA_MSG_RAW_IMAGE", __func__, __LINE__);
+    QMMF_VERBOSE("%s:%d: CAMERA_MSG_RAW_IMAGE", __func__, __LINE__);
   }
 
   if (msg_type & CAMERA_MSG_POSTVIEW_FRAME) {
-    QMMF_INFO("%s:%d: CAMERA_MSG_POSTVIEW_FRAME", __func__, __LINE__);
+    QMMF_VERBOSE("%s:%d: CAMERA_MSG_POSTVIEW_FRAME", __func__, __LINE__);
   }
 
   if (msg_type & CAMERA_MSG_VIDEO_FRAME) {
-    QMMF_INFO("%s:%d: CAMERA_MSG_VIDEO_FRAME", __func__, __LINE__);
+    QMMF_VERBOSE("%s:%d: CAMERA_MSG_VIDEO_FRAME", __func__, __LINE__);
     if (camera_context != nullptr) {
       auto port = camera_context->GetPortByType(CameraPortType::kVideo);
       if (!port) {
@@ -241,12 +237,12 @@ static void __data_cb(int32_t msg_type, const camera_memory_t *data,
 static void __data_cb_timestamp(nsecs_t timestamp, int32_t msg_type,
   const camera_memory_t *data, unsigned int index, void *user) {
   CameraContext *camera_context = (CameraContext *)user;
-  QMMF_INFO("%s\n", __FUNCTION__);
-  QMMF_INFO("timestamp %ld msg_type 0x%x, data %p, index %d \n",
+  QMMF_VERBOSE("%s\n", __FUNCTION__);
+  QMMF_VERBOSE("timestamp %ld msg_type 0x%x, data %p, index %d \n",
     (long )timestamp, msg_type, (unsigned int * )data, index);
 
   if (msg_type & CAMERA_MSG_PREVIEW_FRAME) {
-    QMMF_INFO("%s:%d: CAMERA_MSG_PREVIEW_FRAME data size - %d", __func__,
+    QMMF_VERBOSE("%s:%d: CAMERA_MSG_PREVIEW_FRAME data size - %d", __func__,
       __LINE__, data->size);
     if (camera_context != nullptr) {
       auto port = camera_context->GetPortByType(CameraPortType::kPreview);
@@ -260,15 +256,15 @@ static void __data_cb_timestamp(nsecs_t timestamp, int32_t msg_type,
   }
 
   if (msg_type & CAMERA_MSG_RAW_IMAGE) {
-    QMMF_INFO("%s:%d: CAMERA_MSG_RAW_IMAGE", __func__, __LINE__);
+    QMMF_VERBOSE("%s:%d: CAMERA_MSG_RAW_IMAGE", __func__, __LINE__);
   }
 
   if (msg_type & CAMERA_MSG_POSTVIEW_FRAME) {
-    QMMF_INFO("%s:%d: CAMERA_MSG_POSTVIEW_FRAME", __func__, __LINE__);
+    QMMF_VERBOSE("%s:%d: CAMERA_MSG_POSTVIEW_FRAME", __func__, __LINE__);
   }
 
   if (msg_type & CAMERA_MSG_VIDEO_FRAME) {
-    QMMF_INFO("%s:%d: CAMERA_MSG_VIDEO_FRAME", __func__, __LINE__);
+    QMMF_VERBOSE("%s:%d: CAMERA_MSG_VIDEO_FRAME", __func__, __LINE__);
     if (camera_context != nullptr) {
       auto port = camera_context->GetPortByType(CameraPortType::kVideo);
       if (!port) {
@@ -282,26 +278,26 @@ static void __data_cb_timestamp(nsecs_t timestamp, int32_t msg_type,
 }
 
 static void __put_memory(camera_memory_t *data) {
-  QMMF_INFO("E %s data :%p \n", __FUNCTION__, (unsigned int * )data);
+  QMMF_VERBOSE("E %s data :%p \n", __FUNCTION__, (unsigned int * )data);
   if (!data)
     return;
   free(data);
   data = NULL;
-  QMMF_INFO("X %s\n", __FUNCTION__);
+  QMMF_VERBOSE("X %s\n", __FUNCTION__);
 }
 
 static void __put_memory_heap(camera_memory_t *data) {
-  QMMF_INFO("E %s data :%p \n", __FUNCTION__, (unsigned int * )data);
+  QMMF_VERBOSE("E %s data :%p \n", __FUNCTION__, (unsigned int * )data);
   if (!data)
     return;
   free(data->data);
   free(data);
   data = NULL;
-  QMMF_INFO("X %s\n", __FUNCTION__);
+  QMMF_VERBOSE("X %s\n", __FUNCTION__);
 }
 
 static void * mapfd(int fd, size_t size) {
-  QMMF_INFO("E %s fd %d size %d\n", __FUNCTION__, fd, (int )size);
+  QMMF_VERBOSE("E %s fd %d size %d\n", __FUNCTION__, fd, (int )size);
   int offset = 0;
   void* base = NULL;
   if (size == 0) {
@@ -321,7 +317,7 @@ static void * mapfd(int fd, size_t size) {
     }
     // if it didn't work, let mmap() fail.
   }
-  QMMF_INFO("calling mmap\n");
+  QMMF_VERBOSE("calling mmap\n");
   base = (uint8_t*)mmap(0, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd,
     offset);
   if (base == MAP_FAILED) {
@@ -329,36 +325,36 @@ static void * mapfd(int fd, size_t size) {
     close(fd);
     return NULL;
   }
-  QMMF_INFO("mmap success base %p\n", (int * )base);
+  QMMF_VERBOSE("mmap success base %p\n", (int * )base);
   return base;
 }
 
 static camera_memory_t* __get_memory(int fd, size_t buf_size, uint32_t num_bufs,
   void *user) {
   camera_memory_t * handle = NULL;
-  QMMF_INFO("%s fd:%d buffsize: %d num_bufs %d\n", __FUNCTION__, fd,
+  QMMF_VERBOSE("%s fd:%d buffsize: %d num_bufs %d\n", __FUNCTION__, fd,
     (int )buf_size, num_bufs);
 
   handle = (camera_memory_t *)malloc(sizeof(camera_memory_t));
 
   if (fd == -1) {
-    QMMF_INFO("buffer size: %d\n", (int )(buf_size * num_bufs));
+    QMMF_VERBOSE("buffer size: %d\n", (int )(buf_size * num_bufs));
     handle->data = (void *)malloc(buf_size * num_bufs);
     handle->release = __put_memory_heap;
     handle->handle = NULL;
   } else {
     const size_t pagesize = getpagesize();
-    QMMF_INFO("pagesize: %d\n", (int )pagesize);
+    QMMF_VERBOSE("pagesize: %d\n", (int )pagesize);
     buf_size = ((buf_size + pagesize - 1) & ~(pagesize - 1));
-    QMMF_INFO("new buf_size: %d caling mapfd\n", buf_size);
+    QMMF_VERBOSE("new buf_size: %d caling mapfd\n", buf_size);
     handle->data = mapfd(dup(fd), buf_size);
-    QMMF_INFO("after mapfd: %p\n", (int * )handle->data);
+    QMMF_VERBOSE("after mapfd: %p\n", (int * )handle->data);
     handle->release = __put_memory;
   }
 
   handle->size = buf_size * num_bufs;
   handle->handle = NULL;
-  QMMF_INFO("%s handle :%p \n", __FUNCTION__, (unsigned int * )handle);
+  QMMF_VERBOSE("%s handle :%p \n", __FUNCTION__, (unsigned int * )handle);
   return handle;
 }
 
@@ -610,7 +606,7 @@ std::shared_ptr<CameraPort> CameraContext::GetPortByType(
   assert(ports_.count((uint32_t )port_type) > 0);
   auto port = ports_[(uint32_t)port_type];
 
-  QMMF_INFO("%s: Found port for track_id(%x)", __func__, (int32_t )port_type);
+  QMMF_VERBOSE("%s: Found port for track_id(%x)", __func__, (int32_t )port_type);
   return port;
 }
 
@@ -1324,12 +1320,12 @@ status_t CameraPort::DeInit() {
 
   QMMF_DEBUG("%s: CameraPort(0x%p) deinitialized successfully! ", __func__,
     this);
-  QMMF_INFO("%s: Exit consumers_ size - %d", __func__, consumers_.size());
+  QMMF_VERBOSE("%s: Exit consumers_ size - %d", __func__, consumers_.size());
   return NO_ERROR;
 }
 
 status_t CameraPort::release_frame(const void *opaque) {
-  QMMF_INFO("E %s \n", __func__);
+  QMMF_VERBOSE("E %s \n", __func__);
   if (GetPortType() == CameraPortType::kPreview) {
     ((camera_device_t *)context_->camera_device_)->ops->release_preview_frame(
       (camera_device_t *)context_->camera_device_, opaque);
@@ -1488,9 +1484,9 @@ status_t CameraPort::PopulateMetaInfo(CameraBufferMetaData &info,
       return BAD_VALUE;
   }
 
-  QMMF_ERROR("%s: format: %d ", __func__, (int32_t) info.format);
+  QMMF_DEBUG("%s: format: %d ", __func__, (int32_t) info.format);
   for (int i = 0; i < info.num_planes; i++) {
-    QMMF_ERROR(
+    QMMF_DEBUG(
       "%s: plane[%d]: dim: %dx%d stride: %d scanline: %d size: %d offset: %d ",
       __func__, i, info.plane_info[i].width, info.plane_info[i].height,
       info.plane_info[i].stride, info.plane_info[i].scanline,
@@ -1528,9 +1524,9 @@ void CameraPort::StreamCallback(const void *data, int64_t timestamp) {
   if ((buffer_producer_impl_->GetNumConsumer() > 0)
     && (getPortState() == PortState::PORT_STARTED)) {
     if (GetPortType() == CameraPortType::kPreview) {
-      QMMF_INFO("%s:%d: CAMERA_MSG_PREVIEW_FRAME", __func__, __LINE__);
+      QMMF_DEBUG("%s:%d: CAMERA_MSG_PREVIEW_FRAME", __func__, __LINE__);
     } else if (GetPortType() == CameraPortType::kVideo) {
-      QMMF_INFO("%s:%d: CAMERA_MSG_VIDEO_FRAME", __func__, __LINE__);
+      QMMF_DEBUG("%s:%d: CAMERA_MSG_VIDEO_FRAME", __func__, __LINE__);
     }
 
     encoder_media_buffer_type *packet = reinterpret_cast< encoder_media_buffer_type *>(data_mem->data);
@@ -1554,7 +1550,7 @@ void CameraPort::StreamCallback(const void *data, int64_t timestamp) {
       buffer_map_.emplace(fd, data_mem->data);
     }
 
-    QMMF_INFO("%s: NotifyBuffer!, timestamp = %llu\n", __func__,
+    QMMF_DEBUG("%s: NotifyBuffer!, timestamp = %llu\n", __func__,
       buffer.timestamp);
     buffer_producer_impl_->NotifyBuffer(buffer);
   } else {

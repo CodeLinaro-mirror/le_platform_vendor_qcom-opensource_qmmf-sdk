@@ -550,7 +550,7 @@ status_t AVCodec::RegisterOutputBuffers(vector<BufferDescriptor>& list) {
       struct VideoDecoderOutputMetaData param;
       param.pHandle =
 #ifdef __LIBGBM__
-          const_cast<gbm_bo*>(static_cast<buffer_handle_t>(malloc(sizeof(struct gbm_bo))));
+          static_cast<gbm_bo*>(malloc(sizeof(struct private_handle_t)));
 #else
           static_cast<buffer_handle_t>(malloc(sizeof(struct private_handle_t)));
 #endif
@@ -2421,10 +2421,14 @@ status_t AVCodec::ConfigureBitrate(CodecParam& param) {
     return ret;
   }
 
-#ifndef CAMERA_HAL1_SUPPORT
+#ifndef ENCODER_MAX_BITRATE_NOT_SUPPORTED
   bitrate_type.eControlRate = control_rate;
 #else
-  bitrate_type.eControlRate = OMX_Video_ControlRateDisable;
+  // Disable control rate since max bitrate is not supported by apq8009
+  if(mode == VideoRateControlType::kMaxBitrate ||
+     mode == VideoRateControlType::kMaxBitrateSkipFrames) {
+    bitrate_type.eControlRate = OMX_Video_ControlRateDisable;
+  }
 #endif
   bitrate_type.nTargetBitrate = bitrate;
 
@@ -3617,7 +3621,7 @@ OMX_BUFFERHEADERTYPE *AVCodec::GetInputBufferHdr(BufferDescriptor& buffer) {
         MetadataBufferType::kMetadataBufferTypeGrallocSource;
 
 #ifdef __LIBGBM__
-    media_buffer->meta_handle = const_cast<gbm_bo*>(reinterpret_cast<buffer_handle_t>(buffer.data));
+    media_buffer->meta_handle = reinterpret_cast<gbm_bo*>(buffer.data);
 #else
     media_buffer->meta_handle = reinterpret_cast<buffer_handle_t>(buffer.data);
 #endif
