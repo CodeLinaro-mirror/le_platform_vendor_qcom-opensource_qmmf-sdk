@@ -241,7 +241,11 @@ class Common {
       case VideoFormat::kAVC:
       case VideoFormat::kHEVC:
       case VideoFormat::kYUV:
+#ifndef CAMERA_HAL1_SUPPORT
         return BufferFormat::kNV21;
+#else
+        return BufferFormat::kNV12;
+#endif
         break;
       case VideoFormat::kRGB:
         return BufferFormat::kRGB;
