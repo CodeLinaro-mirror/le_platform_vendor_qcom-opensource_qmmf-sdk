@@ -49,3 +49,15 @@ endif()
 
 # TODO remove this hack when camx issue with propagating c and cpp glags is solved
 target_link_libraries(qmmf-server ion)
+
+if (TARGET_BOARD_PLATFORM STREQUAL "apq8009")
+    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/service/qmmf-server-cam-arch-v1.service DESTINATION ${QMMF_SYSTEMD_DIR} RENAME qmmf-server.service)
+elseif (TARGET_BOARD_PLATFORM STREQUAL "apq8053")
+    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/service/qmmf-server-cam-arch-v1.service DESTINATION ${QMMF_SYSTEMD_DIR} RENAME qmmf-server.service)
+elseif (TARGET_BOARD_PLATFORM STREQUAL "qcs605")
+    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/service/qmmf-server-cam-arch-v2.service DESTINATION ${QMMF_SYSTEMD_DIR} RENAME qmmf-server.service)
+elseif (TARGET_BOARD_PLATFORM STREQUAL "sdmsteppe")
+    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/service/qmmf-server-cam-arch-v2-usrgrp.service DESTINATION ${QMMF_SYSTEMD_DIR} RENAME qmmf-server.service)
+else()
+    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/service/qmmf-server-base.service DESTINATION ${QMMF_SYSTEMD_DIR} RENAME qmmf-server.service)
+endif()
