@@ -120,10 +120,10 @@ class Common {
       case BufferFormat::kNV12UBWC:
       case BufferFormat::kNV12:
       case BufferFormat::kNV12Encodable:
-        return HAL_PIXEL_FORMAT_YCbCr_420_888;
+        return HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
         break;
       case BufferFormat::kNV21:
-        return HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
+        return HAL_PIXEL_FORMAT_YCbCr_420_888;
         break;
       case BufferFormat::kNV16:
         return HAL_PIXEL_FORMAT_YCbCr_422_888;
@@ -163,10 +163,10 @@ class Common {
       case HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS_UBWC:
         return BufferFormat::kNV12UBWC;
         break;
-      case HAL_PIXEL_FORMAT_YCbCr_420_888:
+      case HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED:
         return BufferFormat::kNV12;
         break;
-      case HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED:
+      case HAL_PIXEL_FORMAT_YCbCr_420_888:
         return BufferFormat::kNV21;
         break;
       case HAL_PIXEL_FORMAT_YCbCr_422_888:
@@ -241,11 +241,7 @@ class Common {
       case VideoFormat::kAVC:
       case VideoFormat::kHEVC:
       case VideoFormat::kYUV:
-#ifndef CAMERA_HAL1_SUPPORT
-        return BufferFormat::kNV21;
-#else
         return BufferFormat::kNV12;
-#endif
         break;
       case VideoFormat::kRGB:
         return BufferFormat::kRGB;

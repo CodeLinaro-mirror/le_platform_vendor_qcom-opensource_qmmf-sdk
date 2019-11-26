@@ -2755,7 +2755,6 @@ status_t CameraPort::Init() {
     }
   } else {
     cam_stream_params_.bufferCount = PREVIEW_STREAM_BUFFER_COUNT;
-    cam_stream_params_.format = HAL_PIXEL_FORMAT_YCbCr_420_888;
     cam_stream_params_.is_pp_enabled = false;
   }
 

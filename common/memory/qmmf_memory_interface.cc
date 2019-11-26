@@ -39,16 +39,21 @@
 #include "qmmf_memory_interface.h"
 #include "common/utils/qmmf_log.h"
 
-const int IMemAllocUsage::kHwCameraZsl = (1 << 0);
+const int IMemAllocUsage::kHwCameraZsl      = (1 << 0);
 const int IMemAllocUsage::kPrivateAllocUbwc = (1 << 1);
 const int IMemAllocUsage::kPrivateIommUHeap = (1 << 2);
-const int IMemAllocUsage::kPrivateMmHeap = (1 << 3);
-const int IMemAllocUsage::kPrivateUncached = (1 << 4);
-const int IMemAllocUsage::kProtected = (1 << 5);
-const int IMemAllocUsage::kSwReadOften = (1 << 6);
-const int IMemAllocUsage::kSwWriteOften = (1 << 7);
-const int IMemAllocUsage::kHwFb = (1 << 8);
-const int IMemAllocUsage::kVideoEncoder = (1 << 9);
+const int IMemAllocUsage::kPrivateMmHeap    = (1 << 3);
+const int IMemAllocUsage::kPrivateUncached  = (1 << 4);
+const int IMemAllocUsage::kProtected        = (1 << 5);
+const int IMemAllocUsage::kSwReadOften      = (1 << 6);
+const int IMemAllocUsage::kSwWriteOften     = (1 << 7);
+const int IMemAllocUsage::kVideoEncoder     = (1 << 8);
+const int IMemAllocUsage::kHwFb             = (1 << 9);
+const int IMemAllocUsage::kHwTexture        = (1 << 10);
+const int IMemAllocUsage::kHwRender         = (1 << 11);
+const int IMemAllocUsage::kHwComposer       = (1 << 12);
+const int IMemAllocUsage::kHwCameraRead     = (1 << 13);
+const int IMemAllocUsage::kHwCameraWrite    = (1 << 14);
 
 IAllocDevice *AllocDeviceFactory::CreateAllocDevice() {
 #ifdef TARGET_USES_GRALLOC1

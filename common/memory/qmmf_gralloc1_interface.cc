@@ -32,17 +32,21 @@
 using namespace qmmf;
 
 const std::unordered_map<int32_t, int32_t> Gralloc1Usage::usage_flag_map_ = {
-    {IMemAllocUsage::kHwCameraZsl, GRALLOC_USAGE_HW_CAMERA_ZSL},
+    {IMemAllocUsage::kHwCameraZsl,      GRALLOC_USAGE_HW_CAMERA_ZSL},
     {IMemAllocUsage::kPrivateAllocUbwc, GRALLOC_USAGE_PRIVATE_ALLOC_UBWC},
     {IMemAllocUsage::kPrivateIommUHeap, GRALLOC_USAGE_PRIVATE_IOMMU_HEAP},
-    {IMemAllocUsage::kPrivateMmHeap, GRALLOC_USAGE_PRIVATE_MM_HEAP},
-    {IMemAllocUsage::kPrivateUncached, GRALLOC_USAGE_PRIVATE_UNCACHED},
-    {IMemAllocUsage::kProtected, GRALLOC_USAGE_PROTECTED},
-    {IMemAllocUsage::kSwReadOften, GRALLOC_USAGE_SW_READ_OFTEN},
-    {IMemAllocUsage::kSwWriteOften, GRALLOC_USAGE_SW_WRITE_OFTEN},
-    {IMemAllocUsage::kHwFb, GRALLOC_USAGE_HW_FB},
-    {IMemAllocUsage::kVideoEncoder,
-     private_handle_t::PRIV_FLAGS_VIDEO_ENCODER}};
+    {IMemAllocUsage::kPrivateMmHeap,    GRALLOC_USAGE_PRIVATE_MM_HEAP},
+    {IMemAllocUsage::kPrivateUncached,  GRALLOC_USAGE_PRIVATE_UNCACHED},
+    {IMemAllocUsage::kProtected,        GRALLOC_USAGE_PROTECTED},
+    {IMemAllocUsage::kSwReadOften,      GRALLOC_USAGE_SW_READ_OFTEN},
+    {IMemAllocUsage::kSwWriteOften,     GRALLOC_USAGE_SW_WRITE_OFTEN},
+    {IMemAllocUsage::kVideoEncoder,     GRALLOC_USAGE_HW_VIDEO_ENCODER},
+    {IMemAllocUsage::kHwFb,             GRALLOC_USAGE_HW_FB},
+    {IMemAllocUsage::kHwTexture,        GRALLOC_USAGE_HW_TEXTURE},
+    {IMemAllocUsage::kHwRender,         GRALLOC_USAGE_HW_RENDER},
+    {IMemAllocUsage::kHwComposer,       GRALLOC_USAGE_HW_COMPOSER},
+    {IMemAllocUsage::kHwCameraRead,     GRALLOC_USAGE_HW_CAMERA_READ},
+    {IMemAllocUsage::kHwCameraWrite,    GRALLOC_USAGE_HW_CAMERA_WRITE}};
 
 int32_t Gralloc1Usage::ToLocal(int32_t common) const {
   int32_t local_usage = 0;

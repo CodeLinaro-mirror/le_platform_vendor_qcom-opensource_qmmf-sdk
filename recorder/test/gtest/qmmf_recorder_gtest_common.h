@@ -60,7 +60,6 @@
 #endif
 
 #include "common/utils/qmmf_log.h"
-#include "qmmf_memory_interface.h"
 
 #ifdef __LIBGBM__
 #include <gbm_priv.h>

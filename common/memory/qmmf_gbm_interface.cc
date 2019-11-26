@@ -44,13 +44,19 @@ const std::unordered_map<int32_t, int32_t> GBMUsage::usage_flag_map_ = {
   // TODO: keep this map updated with GBM enhancements
   {IMemAllocUsage::kHwCameraZsl,      0},
   {IMemAllocUsage::kPrivateAllocUbwc, GBM_BO_USAGE_UBWC_ALIGNED_QTI},
-  {IMemAllocUsage::kPrivateIommUHeap, 0},
-  {IMemAllocUsage::kPrivateMmHeap,    0},
+  {IMemAllocUsage::kPrivateIommUHeap, GBM_BO_ALLOC_IOMMU_HEAP_QTI},
+  {IMemAllocUsage::kPrivateMmHeap,    GBM_BO_ALLOC_MM_HEAP_QTI},
   {IMemAllocUsage::kPrivateUncached,  GBM_BO_USAGE_UNCACHED_QTI},
   {IMemAllocUsage::kProtected,        GBM_BO_USAGE_PROTECTED_QTI},
-  {IMemAllocUsage::kSwReadOften,      0},
-  {IMemAllocUsage::kSwWriteOften,     0},
-  {IMemAllocUsage::kVideoEncoder,     GBM_BO_USAGE_VIDEO_ENCODER_QTI}};
+  {IMemAllocUsage::kSwReadOften,      GBM_BO_USAGE_CPU_READ_QTI},
+  {IMemAllocUsage::kSwWriteOften,     GBM_BO_USAGE_CPU_WRITE_QTI},
+  {IMemAllocUsage::kVideoEncoder,     GBM_BO_USAGE_VIDEO_ENCODER_QTI},
+  {IMemAllocUsage::kHwFb,             0},
+  {IMemAllocUsage::kHwTexture,        0},
+  {IMemAllocUsage::kHwRender,         GBM_BO_USAGE_HW_RENDERING_QTI},
+  {IMemAllocUsage::kHwComposer,       GBM_BO_USAGE_HW_COMPOSER_QTI},
+  {IMemAllocUsage::kHwCameraRead,     GBM_BO_USAGE_CAMERA_READ_QTI},
+  {IMemAllocUsage::kHwCameraWrite,    GBM_BO_USAGE_CAMERA_WRITE_QTI}};
 
 const std::unordered_map<int32_t, int32_t> GBMUsage::gralloc_usage_flag_map_ = {
   //TODO: remove when repacking to buffer_handle_t is no longer needed
@@ -60,8 +66,13 @@ const std::unordered_map<int32_t, int32_t> GBMUsage::gralloc_usage_flag_map_ = {
   {IMemAllocUsage::kProtected,        GRALLOC_USAGE_PROTECTED},
   {IMemAllocUsage::kSwReadOften,      GRALLOC_USAGE_SW_READ_OFTEN},
   {IMemAllocUsage::kSwWriteOften,     GRALLOC_USAGE_SW_WRITE_OFTEN},
+  {IMemAllocUsage::kVideoEncoder,     GRALLOC_USAGE_HW_VIDEO_ENCODER},
   {IMemAllocUsage::kHwFb,             GRALLOC_USAGE_HW_FB},
-  {IMemAllocUsage::kVideoEncoder,     private_handle_t::PRIV_FLAGS_VIDEO_ENCODER}};
+  {IMemAllocUsage::kHwTexture,        GRALLOC_USAGE_HW_TEXTURE},
+  {IMemAllocUsage::kHwRender,         GRALLOC_USAGE_HW_RENDER},
+  {IMemAllocUsage::kHwComposer,       GRALLOC_USAGE_HW_COMPOSER},
+  {IMemAllocUsage::kHwCameraRead,     GRALLOC_USAGE_HW_CAMERA_READ},
+  {IMemAllocUsage::kHwCameraWrite,    GRALLOC_USAGE_HW_CAMERA_WRITE}};
 
 GBMDevice* GBMDevice::gbm_device_obj_ = nullptr;
 int32_t GBMDevice::ref_count_ = 0;
@@ -161,7 +172,7 @@ const std::unordered_map<uint32_t, uint32_t> GBMBuffer::to_gbm_ = {
   {HAL_PIXEL_FORMAT_YCbCr_420_888,           GBM_FORMAT_YCbCr_420_888},
   {HAL_PIXEL_FORMAT_YCbCr_422_SP,            GBM_FORMAT_YCbCr_422_SP},
   {HAL_PIXEL_FORMAT_YCbCr_422_I,             0},
-  {HAL_PIXEL_FORMAT_YCrCb_420_SP,            0},
+  {HAL_PIXEL_FORMAT_YCrCb_420_SP,            GBM_FORMAT_YCrCb_420_SP},
   {HAL_PIXEL_FORMAT_YV12,                    0},
   {HAL_PIXEL_FORMAT_YCbCr_422_888,           0},
 
@@ -189,6 +200,7 @@ const std::unordered_map<int32_t, int32_t> GBMBuffer::from_gbm_ = {
 
   {GBM_FORMAT_YCbCr_422_SP,             HAL_PIXEL_FORMAT_YCbCr_422_SP},
   {GBM_FORMAT_YCbCr_420_888,            HAL_PIXEL_FORMAT_YCbCr_420_888},
+  {GBM_FORMAT_YCrCb_420_SP,             HAL_PIXEL_FORMAT_YCrCb_420_SP},
 
   {GBM_FORMAT_NV21_ZSL,                 HAL_PIXEL_FORMAT_NV21_ZSL},
 };
