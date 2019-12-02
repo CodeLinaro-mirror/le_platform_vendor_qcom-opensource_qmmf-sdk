@@ -151,7 +151,7 @@ struct BnBuffer {
   void FromParcel(const Parcel& parcel, bool readFileDescriptor) {
     if (readFileDescriptor) {
       uint32_t num_fds = parcel.readUint32();
-      if (num_fds = 1) {
+      if (num_fds == 1) {
         ion_fd = dup(parcel.readFileDescriptor());
         ion_meta_fd = -1;
       } else {
