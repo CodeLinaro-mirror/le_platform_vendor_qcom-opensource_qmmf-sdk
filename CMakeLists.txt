@@ -43,6 +43,8 @@ add_subdirectory(recorder/src/service)
 
 add_subdirectory(recorder/test/gtest)
 
+add_subdirectory(recorder/test/audio)
+
 if (NOT CAMERA_HAL1_SUPPORT)
 add_subdirectory(recorder/test/samples)
 
@@ -68,14 +70,6 @@ add_subdirectory(avcodec/test/sample)
 add_subdirectory(avcodec/src)
 
 add_subdirectory(common/memory)
-
-if (NOT CAMERA_HAL1_SUPPORT)
-add_subdirectory(common/audio/src/service)
-
-add_subdirectory(common/audio/test/samples)
-
-add_subdirectory(common/audio/src/client)
-endif()
 
 add_subdirectory(common/avqueue)
 if (NOT CAMERA_HAL1_SUPPORT)

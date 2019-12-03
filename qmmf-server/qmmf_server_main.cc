@@ -38,9 +38,6 @@
 
 #include "common/utils/qmmf_log.h"
 #include "recorder/src/service/qmmf_recorder_service.h"
-#ifndef DISABLE_AUDIO_SERVICE
-#include "common/audio/src/service/qmmf_audio_service.h"
-#endif
 #ifndef DISABLE_DISPLAY
 #include "display/src/service/qmmf_display_service.h"
 #endif
@@ -53,9 +50,6 @@
 
 using namespace android;
 using namespace qmmf;
-#ifndef DISABLE_AUDIO_SERVICE
-using namespace qmmf::common::audio;
-#endif
 using namespace recorder;
 #ifndef DISABLE_DISPLAY
 using namespace qmmf::display;
@@ -75,15 +69,6 @@ int32_t main(int32_t argc, char **argv) {
 
 #ifdef ANDROID_O_OR_ABOVE
   ProcessState::initWithDriver("/dev/vndbinder");
-#endif
-
-#ifndef DISABLE_AUDIO_SERVICE
-  // Add audio service.
-  defaultServiceManager()->addService(String16(QMMF_AUDIO_SERVICE_NAME),
-          new qmmf::common::audio::AudioService(), false);
-  INFO("Service(%s) Added successfully!", QMMF_AUDIO_SERVICE_NAME);
-#else
-  INFO("Audio Service disabled, continuing..");
 #endif
 
   //Add Recorder service.

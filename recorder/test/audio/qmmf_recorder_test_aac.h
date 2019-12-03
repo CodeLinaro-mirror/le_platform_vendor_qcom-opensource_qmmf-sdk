@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016,2019, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -29,62 +29,57 @@
 
 #pragma once
 
-#include <iomanip>
-#include <map>
-#include <queue>
-#include <sstream>
+#include <cstdint>
+#include <fstream>
+#include <iostream>
+#include <mutex>
 #include <string>
-#include <vector>
 
-#include <ion/ion.h>
-#include <linux/dma-buf.h>
-#include <linux/msm_ion.h>
+#include "include/qmmf-sdk/qmmf_buffer.h"
+#include "include/qmmf-sdk/qmmf_recorder_params.h"
 
-#include "recorder/src/service/qmmf_recorder_common.h"
-
-namespace qmmf {
-namespace recorder {
-
-class RecorderIon
+class RecorderTestAac
 {
  public:
-  RecorderIon();
-  ~RecorderIon();
+  RecorderTestAac();
+  ~RecorderTestAac();
 
-  int32_t Allocate(const int32_t number, const int32_t size);
-  int32_t Deallocate();
+  int32_t Configure(const ::std::string& filename_prefix,
+                    const uint32_t track_id,
+                    const ::qmmf::recorder::AudioTrackCreateParam& params);
 
-  int32_t GetList(::std::vector<BufferDescriptor>* buffers);
-  int32_t GetList(::std::queue<BufferDescriptor>* buffers);
+  int32_t Open();
+  void Close();
 
-  int32_t Import(const BnBuffer& bn_buffer, BufferDescriptor* buffer);
-  int32_t Export(const BufferDescriptor& buffer, BnBuffer* bn_buffer);
+  int32_t Write(const ::qmmf::BufferDescriptor& buffer);
 
  private:
-  struct RecorderIonBuffer {
-    void* data;
-    int32_t map_fd;
-    ::std::string ToString() const {
-      ::std::stringstream stream;
-      stream << "data[" << data << "] ";
-      stream << "map_fd[" << map_fd << "]] ";
-      return stream.str();
-    }
+  struct __attribute__((packed)) AacRawHeader {
+    uint64_t sync : 12;
+    uint64_t id : 1;
+    uint64_t layer : 2;
+    uint64_t crc : 1;
+    uint64_t profile : 2;
+    uint64_t sample_rate : 4;
+    uint64_t private_bit : 1;
+    uint64_t channels : 3;
+    uint64_t original : 1;
+    uint64_t home : 1;
+    uint64_t copyright_id : 1;
+    uint64_t copyright_start : 1;
+    uint64_t frame_length : 13;
+    uint64_t fullness : 11;
+    uint64_t raw_data : 2;
   };
 
-  typedef ::std::map<int32_t, RecorderIonBuffer> RecorderIonBufferMap;
-
-  RecorderIonBufferMap ion_buffer_map_;
-  int32_t ion_device_;
-  int32_t buffer_size_;
-  int32_t request_size_;
+  ::std::mutex lock_;
+  ::std::string filename_;
+  ::std::ofstream output_;
+  ::qmmf::recorder::AudioTrackCreateParam params_;
 
   // disable copy, assignment, and move
-  RecorderIon(const RecorderIon&) = delete;
-  RecorderIon(RecorderIon&&) = delete;
-  RecorderIon& operator=(const RecorderIon&) = delete;
-  RecorderIon& operator=(const RecorderIon&&) = delete;
+  RecorderTestAac(const RecorderTestAac&) = delete;
+  RecorderTestAac(RecorderTestAac&&) = delete;
+  RecorderTestAac& operator=(const RecorderTestAac&) = delete;
+  RecorderTestAac& operator=(const RecorderTestAac&&) = delete;
 };
-
-}; // namespace recorder
-}; // namespace qmmf

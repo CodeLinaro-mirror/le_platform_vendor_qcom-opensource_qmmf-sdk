@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016,2019, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -34,32 +34,27 @@
 #include <iomanip>
 #include <ios>
 #include <iostream>
+#include <mutex>
 #include <sstream>
 #include <string>
 
-#include "common/audio/inc/qmmf_audio_definitions.h"
+#include "include/qmmf-sdk/qmmf_buffer.h"
+#include "include/qmmf-sdk/qmmf_recorder_params.h"
 
-namespace qmmf_test {
-namespace common {
-namespace audio {
-
-class AudioTestWav
+class RecorderTestWav
 {
  public:
-  static const int32_t kEOF;
-
-  AudioTestWav();
-  ~AudioTestWav();
+  RecorderTestWav();
+  ~RecorderTestWav();
 
   int32_t Configure(const ::std::string& filename_prefix,
-                    const ::qmmf::common::audio::AudioEndPointType type,
-                    ::qmmf::common::audio::AudioMetadata *metadata);
+                    const uint32_t track_id,
+                    const ::qmmf::recorder::AudioTrackCreateParam& params);
 
   int32_t Open();
   void Close();
 
-  int32_t Read(::qmmf::common::audio::AudioBuffer* buffer);
-  int32_t Write(const ::qmmf::common::audio::AudioBuffer& buffer);
+  int32_t Write(const ::qmmf::BufferDescriptor& buffer);
 
  private:
   struct __attribute__((packed)) WavRiffHeader {
@@ -111,6 +106,21 @@ class AudioTestWav
     }
   };
 
+  struct __attribute__((packed)) WavFactHeader {
+    uint32_t fact_id;
+    uint32_t fact_size;
+    uint32_t sample_length;
+
+    ::std::string ToString() const {
+      ::std::stringstream stream;
+      stream << "fact_id[" << ::std::setbase(16) << fact_id
+             << ::std::setbase(10) << "] ";
+      stream << "fact_size[" << fact_size << "] ";
+      stream << "sample_length[" << sample_length << "] ";
+      return stream.str();
+    }
+  };
+
   struct __attribute__((packed)) WavDataHeader {
     uint32_t data_id;
     uint32_t data_size;
@@ -124,7 +134,7 @@ class AudioTestWav
     }
   };
 
-  struct __attribute__((packed)) WavHeader {
+  struct __attribute__((packed)) WavPCMHeader {
     WavRiffHeader riff_header;
     WavChunkHeader chunk_header;
     WavChunkFormat chunk_format;
@@ -140,22 +150,37 @@ class AudioTestWav
     }
   };
 
-  ::qmmf::common::audio::AudioEndPointType type_;
+  struct __attribute__((packed)) WavG711Header {
+    WavRiffHeader riff_header;
+    WavChunkHeader chunk_header;
+    WavChunkFormat chunk_format;
+    WavFactHeader fact_header;
+    WavDataHeader data_header;
+
+    ::std::string ToString() const {
+      ::std::stringstream stream;
+      stream << "riff_header[" << riff_header.ToString() << "] ";
+      stream << "chunk_header[" << chunk_header.ToString() << "] ";
+      stream << "chunk_format[" << chunk_format.ToString() << "] ";
+      stream << "fact_header[" << fact_header.ToString() << "] ";
+      stream << "data_header[" << data_header.ToString() << "] ";
+      return stream.str();
+    }
+  };
+
+  void WritePCMHeader();
+  void WriteG711Header();
+
+  ::std::mutex lock_;
   ::std::string filename_;
-  WavHeader header_;
   ::std::ofstream output_;
-  ::std::ifstream input_;
-  ::std::streampos input_start_position_;
-  int32_t input_data_size_;
   int32_t current_data_size_;
+  bool close_requested_;
+  ::qmmf::recorder::AudioTrackCreateParam params_;
 
   // disable copy, assignment, and move
-  AudioTestWav(const AudioTestWav&) = delete;
-  AudioTestWav(AudioTestWav&&) = delete;
-  AudioTestWav& operator=(const AudioTestWav&) = delete;
-  AudioTestWav& operator=(const AudioTestWav&&) = delete;
+  RecorderTestWav(const RecorderTestWav&) = delete;
+  RecorderTestWav(RecorderTestWav&&) = delete;
+  RecorderTestWav& operator=(const RecorderTestWav&) = delete;
+  RecorderTestWav& operator=(const RecorderTestWav&&) = delete;
 };
-
-}; // namespace audio
-}; // namespace common
-}; // namespace qmmf_test

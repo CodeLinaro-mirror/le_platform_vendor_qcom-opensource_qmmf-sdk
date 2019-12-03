@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016,2019, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -29,57 +29,39 @@
 
 #pragma once
 
-#include <iomanip>
-#include <map>
-#include <sstream>
+#include <cstdint>
+#include <fstream>
+#include <iostream>
+#include <mutex>
 #include <string>
-#include <ion/ion.h>
-#include <linux/dma-buf.h>
-#include <linux/msm_ion.h>
 
-#include "common/audio/inc/qmmf_audio_definitions.h"
-#include "common/audio/src/service/qmmf_audio_common.h"
+#include "include/qmmf-sdk/qmmf_buffer.h"
+#include "include/qmmf-sdk/qmmf_recorder_params.h"
 
-namespace qmmf {
-namespace common {
-namespace audio {
-
-class AudioIon
+class RecorderTestAmr
 {
  public:
-  AudioIon();
-  ~AudioIon();
+  RecorderTestAmr();
+  ~RecorderTestAmr();
 
-  int32_t Associate(const AudioHandle audio_handle, AudioBuffer* buffer);
-  int32_t Release(const AudioHandle audio_handle);
+  int32_t Configure(const ::std::string& filename_prefix,
+                    const uint32_t track_id,
+                    const ::qmmf::recorder::AudioTrackCreateParam& params);
+
+  int32_t Open();
+  void Close();
+
+  int32_t Write(const ::qmmf::BufferDescriptor& buffer);
 
  private:
-  struct AudioIonBuffer {
-    void *data;
-    int32_t capacity;
-    int32_t map_fd;
-    ::std::string ToString() const {
-      ::std::stringstream stream;
-      stream << "data[" << data << "] ";
-      stream << "capacity[" << capacity << "] ";
-      stream << "map_fd[" << map_fd << "] ";
-      return stream.str();
-    }
-  };
-
-  typedef ::std::map<int32_t, AudioIonBuffer> AudioIonBufferMap;
-  typedef ::std::map<AudioHandle, AudioIonBufferMap> AudioIonClientMap;
-
-  AudioIonClientMap client_map_;
-  int32_t ion_device_;
+  ::std::mutex lock_;
+  ::std::string filename_;
+  ::std::ofstream output_;
+  ::qmmf::recorder::AudioTrackCreateParam params_;
 
   // disable copy, assignment, and move
-  AudioIon(const AudioIon&) = delete;
-  AudioIon(AudioIon&&) = delete;
-  AudioIon& operator=(const AudioIon&) = delete;
-  AudioIon& operator=(const AudioIon&&) = delete;
+  RecorderTestAmr(const RecorderTestAmr&) = delete;
+  RecorderTestAmr(RecorderTestAmr&&) = delete;
+  RecorderTestAmr& operator=(const RecorderTestAmr&) = delete;
+  RecorderTestAmr& operator=(const RecorderTestAmr&&) = delete;
 };
-
-}; // namespace audio
-}; // namespace common
-}; // namespace qmmf

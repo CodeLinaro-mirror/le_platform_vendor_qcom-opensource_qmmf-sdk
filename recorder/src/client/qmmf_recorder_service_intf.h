@@ -127,8 +127,14 @@ struct BnBuffer {
 
   void ToParcel(Parcel* parcel, bool writeFileDescriptor) const {
     if (writeFileDescriptor) {
-      parcel->writeFileDescriptor(ion_fd);
-      parcel->writeFileDescriptor(ion_meta_fd);
+      if (ion_meta_fd == -1) {
+        parcel->writeUint32(1);
+        parcel->writeFileDescriptor(ion_fd);
+      } else {
+        parcel->writeUint32(2);
+        parcel->writeFileDescriptor(ion_fd);
+        parcel->writeFileDescriptor(ion_meta_fd);
+      }
     } else {
       parcel->writeUint32(ion_fd);
       parcel->writeUint32(ion_meta_fd);
@@ -144,8 +150,14 @@ struct BnBuffer {
 
   void FromParcel(const Parcel& parcel, bool readFileDescriptor) {
     if (readFileDescriptor) {
-      ion_fd = dup(parcel.readFileDescriptor());
-      ion_meta_fd = dup(parcel.readFileDescriptor());
+      uint32_t num_fds = parcel.readUint32();
+      if (num_fds = 1) {
+        ion_fd = dup(parcel.readFileDescriptor());
+        ion_meta_fd = -1;
+      } else {
+        ion_fd = dup(parcel.readFileDescriptor());
+        ion_meta_fd = dup(parcel.readFileDescriptor());
+      }
     } else {
       ion_fd = parcel.readUint32();
       ion_meta_fd = parcel.readUint32();

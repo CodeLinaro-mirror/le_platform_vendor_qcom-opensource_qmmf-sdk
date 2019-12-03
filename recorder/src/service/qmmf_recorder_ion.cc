@@ -45,7 +45,6 @@
 
 #include <linux/msm_ion.h>
 
-#include "common/audio/inc/qmmf_audio_definitions.h"
 #include "common/utils/qmmf_log.h"
 #include "common/utils/qmmf_tools.h"
 #include "recorder/src/service/qmmf_recorder_common.h"
@@ -53,7 +52,6 @@
 namespace qmmf {
 namespace recorder {
 
-using ::qmmf::common::audio::AudioBuffer;
 using ::std::map;
 using ::std::queue;
 using ::std::vector;
@@ -185,7 +183,7 @@ int32_t RecorderIon::Deallocate() {
   return 0;
 }
 
-int32_t RecorderIon::GetList(vector<AudioBuffer>* buffers) {
+int32_t RecorderIon::GetList(vector<BufferDescriptor>* buffers) {
   QMMF_DEBUG("%s() TRACE", __func__);
 
   if (ion_buffer_map_.empty()) {
@@ -194,12 +192,13 @@ int32_t RecorderIon::GetList(vector<AudioBuffer>* buffers) {
   }
 
   for (RecorderIonBufferMap::value_type& buffer_value : ion_buffer_map_) {
-    AudioBuffer buffer = { buffer_value.second.data,
-                           buffer_value.second.map_fd,
-                           buffer_value.second.map_fd,
-                           request_size_, 0, 0, 0 };
+    BufferDescriptor buffer = { buffer_value.second.data,
+      buffer_value.second.map_fd,
+      static_cast<uint32_t>(buffer_value.second.map_fd), 0U,
+      static_cast<uint32_t>(request_size_), 0U, 0U, 0U };
 
-    QMMF_VERBOSE("%s() OUTPARAM: audio_buffer[%s]", __func__,
+
+    QMMF_VERBOSE("%s() OUTPARAM: buffer[%s]", __func__,
                  buffer.ToString().c_str());
     buffers->push_back(buffer);
   }
@@ -221,7 +220,7 @@ int32_t RecorderIon::GetList(queue<BufferDescriptor>* buffers) {
       static_cast<uint32_t>(buffer_value.second.map_fd), 0U,
       static_cast<uint32_t>(request_size_), 0U, 0U, 0U };
 
-    QMMF_VERBOSE("%s() OUTPARAM: codec_buffer[%s]", __func__,
+    QMMF_VERBOSE("%s() OUTPARAM: buffer[%s]", __func__,
                  buffer.ToString().c_str());
     buffers->push(buffer);
   }
@@ -230,7 +229,7 @@ int32_t RecorderIon::GetList(queue<BufferDescriptor>* buffers) {
 }
 
 int32_t RecorderIon::Import(const BnBuffer& bn_buffer,
-                            AudioBuffer* audio_buffer) {
+                            BufferDescriptor* buffer) {
   QMMF_DEBUG("%s() TRACE", __func__);
   QMMF_VERBOSE("%s INPARAM: bn_buffer[%s]", __func__,
                bn_buffer.ToString().c_str());
@@ -243,147 +242,40 @@ int32_t RecorderIon::Import(const BnBuffer& bn_buffer,
     return -EINVAL;
   }
 
-  audio_buffer->data = ion_buffer_iterator->second.data;
-  audio_buffer->ion_fd = -1;
-  audio_buffer->buffer_id = bn_buffer.buffer_id;
-  audio_buffer->capacity = bn_buffer.capacity;
-  audio_buffer->size = bn_buffer.size;
-  audio_buffer->timestamp = bn_buffer.timestamp;
-  audio_buffer->flags = bn_buffer.flag;
+  buffer->data = ion_buffer_iterator->second.data;
+  buffer->fd = bn_buffer.buffer_id;
+  buffer->capacity = request_size_;
+  buffer->size = bn_buffer.size;
+  buffer->timestamp = bn_buffer.timestamp;
+  buffer->flag = bn_buffer.flag;
 
-  QMMF_VERBOSE("%s() OUTPARAM: audio_buffer[%s]", __func__,
-               audio_buffer->ToString().c_str());
+  QMMF_VERBOSE("%s() OUTPARAM: buffer[%s]", __func__,
+               buffer->ToString().c_str());
   return 0;
 }
 
-int32_t RecorderIon::Export(const AudioBuffer& audio_buffer,
+int32_t RecorderIon::Export(const BufferDescriptor& buffer,
                             BnBuffer* bn_buffer) {
   QMMF_DEBUG("%s() TRACE", __func__);
-  QMMF_VERBOSE("%s INPARAM: audio_buffer[%s]", __func__,
-               audio_buffer.ToString().c_str());
+  QMMF_VERBOSE("%s INPARAM: buffer[%s]", __func__,
+               buffer.ToString().c_str());
 
   RecorderIonBufferMap::iterator ion_buffer_iterator =
-      ion_buffer_map_.find(audio_buffer.buffer_id);
+      ion_buffer_map_.find(buffer.fd);
   if (ion_buffer_iterator == ion_buffer_map_.end()) {
-    QMMF_ERROR("%s() no ion buffer for key[%d]", __func__,
-               audio_buffer.buffer_id);
+    QMMF_ERROR("%s() no ion buffer for key[%d]", __func__, buffer.fd);
     return -EINVAL;
   }
 
-  bn_buffer->ion_fd = ion_buffer_iterator->second.map_fd;
-  bn_buffer->size = audio_buffer.size;
-  bn_buffer->timestamp = audio_buffer.timestamp;
-  bn_buffer->width = 0;
-  bn_buffer->height = 0;
-  bn_buffer->buffer_id = audio_buffer.buffer_id;
-  bn_buffer->flag = audio_buffer.flags;
-  bn_buffer->capacity = audio_buffer.capacity;
-
-  QMMF_VERBOSE("%s() OUTPARAM: bn_buffer[%s]", __func__,
-               bn_buffer->ToString().c_str());
-  return 0;
-}
-
-int32_t RecorderIon::Import(const BufferDescriptor& stream_buffer,
-                            AudioBuffer* audio_buffer) {
-  QMMF_DEBUG("%s() TRACE", __func__);
-  QMMF_VERBOSE("%s INPARAM: stream_buffer[%s]", __func__,
-               stream_buffer.ToString().c_str());
-
-  RecorderIonBufferMap::iterator ion_buffer_iterator =
-      ion_buffer_map_.find(stream_buffer.fd);
-  if (ion_buffer_iterator == ion_buffer_map_.end()) {
-    QMMF_ERROR("%s() no ion buffer for key[%d]", __func__,
-               stream_buffer.fd);
-    return -EINVAL;
-  }
-
-  audio_buffer->data = ion_buffer_iterator->second.data;
-  audio_buffer->ion_fd = -1;
-  audio_buffer->buffer_id = stream_buffer.fd;
-  audio_buffer->capacity = request_size_;
-  audio_buffer->size = stream_buffer.size;
-  audio_buffer->timestamp = stream_buffer.timestamp;
-  audio_buffer->flags = stream_buffer.flag;
-
-  QMMF_VERBOSE("%s() OUTPARAM: audio_buffer[%s]", __func__,
-               audio_buffer->ToString().c_str());
-  return 0;
-}
-
-int32_t RecorderIon::Export(const AudioBuffer& audio_buffer,
-                            BufferDescriptor* stream_buffer) {
-  QMMF_DEBUG("%s() TRACE", __func__);
-  QMMF_VERBOSE("%s INPARAM: audio_buffer[%s]", __func__,
-               audio_buffer.ToString().c_str());
-
-  RecorderIonBufferMap::iterator ion_buffer_iterator =
-      ion_buffer_map_.find(audio_buffer.buffer_id);
-  if (ion_buffer_iterator == ion_buffer_map_.end()) {
-    QMMF_ERROR("%s() no ion buffer for key[%d]", __func__,
-               audio_buffer.buffer_id);
-    return -EINVAL;
-  }
-
-  stream_buffer->data = ion_buffer_iterator->second.data;
-  stream_buffer->fd = audio_buffer.buffer_id;
-  stream_buffer->size = audio_buffer.size;
-  stream_buffer->timestamp = audio_buffer.timestamp;
-  stream_buffer->flag = audio_buffer.flags;
-
-  QMMF_VERBOSE("%s() OUTPARAM: stream_buffer[%s]", __func__,
-               stream_buffer->ToString().c_str());
-  return 0;
-}
-
-int32_t RecorderIon::Import(const BnBuffer& bn_buffer,
-                            BufferDescriptor* codec_buffer) {
-  QMMF_DEBUG("%s() TRACE", __func__);
-  QMMF_VERBOSE("%s INPARAM: bn_buffer[%s]", __func__,
-               bn_buffer.ToString().c_str());
-
-  RecorderIonBufferMap::iterator ion_buffer_iterator =
-      ion_buffer_map_.find(bn_buffer.buffer_id);
-  if (ion_buffer_iterator == ion_buffer_map_.end()) {
-    QMMF_ERROR("%s() no ion buffer for key[%d]", __func__,
-               bn_buffer.buffer_id);
-    return -EINVAL;
-  }
-
-  codec_buffer->data = ion_buffer_iterator->second.data;
-  codec_buffer->fd = bn_buffer.buffer_id;
-  codec_buffer->capacity = request_size_;
-  codec_buffer->size = bn_buffer.size;
-  codec_buffer->timestamp = bn_buffer.timestamp;
-  codec_buffer->flag = bn_buffer.flag;
-
-  QMMF_VERBOSE("%s() OUTPARAM: codec_buffer[%s]", __func__,
-               codec_buffer->ToString().c_str());
-  return 0;
-}
-
-int32_t RecorderIon::Export(const BufferDescriptor& codec_buffer,
-                            BnBuffer* bn_buffer) {
-  QMMF_DEBUG("%s() TRACE", __func__);
-  QMMF_VERBOSE("%s INPARAM: codec_buffer[%s]", __func__,
-               codec_buffer.ToString().c_str());
-
-  RecorderIonBufferMap::iterator ion_buffer_iterator =
-      ion_buffer_map_.find(codec_buffer.fd);
-  if (ion_buffer_iterator == ion_buffer_map_.end()) {
-    QMMF_ERROR("%s() no ion buffer for key[%d]", __func__,
-               codec_buffer.fd);
-    return -EINVAL;
-  }
-
-  bn_buffer->ion_fd = codec_buffer.fd;
-  bn_buffer->size = codec_buffer.size;
-  bn_buffer->timestamp = codec_buffer.timestamp;
+  bn_buffer->ion_fd = buffer.fd;
+  bn_buffer->ion_meta_fd = -1;
+  bn_buffer->size = buffer.size;
+  bn_buffer->timestamp = buffer.timestamp;
   bn_buffer->width = -1;
   bn_buffer->height = -1;
-  bn_buffer->buffer_id = codec_buffer.fd;
-  bn_buffer->flag = codec_buffer.flag;
-  bn_buffer->capacity = codec_buffer.capacity;
+  bn_buffer->buffer_id = buffer.fd;
+  bn_buffer->flag = buffer.flag;
+  bn_buffer->capacity = buffer.capacity;
 
   QMMF_VERBOSE("%s() OUTPARAM: bn_buffer[%s]", __func__,
                bn_buffer->ToString().c_str());

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -29,40 +29,39 @@
 
 #pragma once
 
-#include <vector>
+#include <cstdint>
+#include <fstream>
+#include <iostream>
+#include <mutex>
+#include <string>
 
-#include <mm-audio/qahw_api/inc/qahw_api.h>
-#include <mm-audio/qahw_api/inc/qahw_defs.h>
+#include "include/qmmf-sdk/qmmf_buffer.h"
+#include "include/qmmf-sdk/qmmf_recorder_params.h"
 
-#include "common/audio/inc/qmmf_audio_definitions.h"
-
-namespace qmmf {
-namespace common {
-namespace audio {
-
-class IAudioBackend {
+class RecorderTestMpegh
+{
  public:
-  virtual ~IAudioBackend() {}
+  RecorderTestMpegh();
+  ~RecorderTestMpegh();
 
-  virtual int32_t Open(const qahw_module_handle_t * const modules[],
-                       const ::std::vector<DeviceId>& devices,
-                       const AudioMetadata& metadata) = 0;
-  virtual int32_t Close() = 0;
+  int32_t Configure(const ::std::string& filename_prefix,
+                    const uint32_t track_id,
+                    const ::qmmf::recorder::AudioTrackCreateParam& params);
 
-  virtual int32_t Start() = 0;
-  virtual int32_t Stop() = 0;
-  virtual int32_t Pause() = 0;
-  virtual int32_t Resume() = 0;
+  int32_t Open();
+  void Close();
 
-  virtual int32_t SendBuffers(const ::std::vector<AudioBuffer>& buffers) = 0;
+  int32_t Write(const ::qmmf::BufferDescriptor& buffer);
 
-  virtual int32_t GetLatency(int32_t* latency) = 0;
-  virtual int32_t GetBufferSize(int32_t* buffer_size) = 0;
-  virtual int32_t SetParam(const AudioParamType type,
-                           const AudioParamData& data) = 0;
-  virtual int32_t GetRenderedPosition(uint32_t* frames, uint64_t* time) = 0;
+ private:
+  ::std::mutex lock_;
+  ::std::string filename_;
+  ::std::ofstream output_;
+  ::qmmf::recorder::AudioTrackCreateParam params_;
+
+  // disable copy, assignment, and move
+  RecorderTestMpegh(const RecorderTestMpegh&) = delete;
+  RecorderTestMpegh(RecorderTestMpegh&&) = delete;
+  RecorderTestMpegh& operator=(const RecorderTestMpegh&) = delete;
+  RecorderTestMpegh& operator=(const RecorderTestMpegh&&) = delete;
 };
-
-}; // namespace audio
-}; // namespace common
-}; // namespace qmmf
