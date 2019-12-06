@@ -44,7 +44,7 @@
 #define QCAMERA3_SENSORMODE_FPS_DEFAULT_INDEX (0x0)
 #define FORCE_SENSORMODE_ENABLE               (1 << 24)
 #define FORCE_SENSORMODE_INDEX(idx)           ((idx + 1) << 16)
-#define EIS_ENABLE                            (0xF040)
+#define EIS_ENABLE                            (0xF200)
 #endif
 
 // Convenience macros for transitioning to the error state
