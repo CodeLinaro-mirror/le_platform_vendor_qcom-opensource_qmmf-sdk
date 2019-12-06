@@ -293,6 +293,9 @@ class RecorderClient {
   std::mutex                        gbm_lock_;
 #endif
 
+  // VendorTagDescriptor
+  sp<VendorTagDescriptor>           vendor_tag_desc_;
+
   // Global mutex.
   std::mutex                        lock_;
 };
