@@ -163,6 +163,9 @@ CameraContext::~CameraContext() {
     AllocDeviceFactory::DestroyAllocDevice(alloc_device_interface_);
     alloc_device_interface_ = nullptr;
   }
+  if(camera_id_ != -1) {
+    CloseCamera(camera_id_);
+  }
 }
 
 int32_t CameraContext::GetNumberOfCameras() {
@@ -498,6 +501,7 @@ status_t CameraContext::CloseCamera(const uint32_t camera_id) {
     QMMF_ERROR("%s:%d: failed: %d ", __func__, __LINE__, ret);
     return BAD_VALUE;
   }
+  camera_id_ = -1;
 
   QMMF_INFO("%s: CameraContext(%u) Closed Successfully!", __func__, camera_id_);
   return NO_ERROR;
