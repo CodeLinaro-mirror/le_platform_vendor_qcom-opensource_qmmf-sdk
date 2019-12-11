@@ -1308,15 +1308,17 @@ void RecorderClient::ImportBuffer(int32_t fd, int32_t metafd,
   gbm_buffers_map_.emplace(fd, bo);
 }
 
-void RecorderClient::ReleaseBuffer(int32_t fd) {
+void RecorderClient::ReleaseBuffer(int32_t& fd) {
 
   std::lock_guard<std::mutex> lock(gbm_lock_);
   if (gbm_buffers_map_.count(fd) == 0) {
+    // Already released or never imported.
     return;
   }
 
   gbm_bo_destroy(gbm_buffers_map_[fd]);
   gbm_buffers_map_.erase(fd);
+  fd = -1;
 }
 #endif
 
@@ -1343,12 +1345,10 @@ status_t RecorderClient::UnmapBuffer(BufferInfo& info) {
 
   QMMF_DEBUG("%s Enter ", __func__);
   assert(ion_device_ > 0);
-  int32_t result = 0;
 
   if (info.vaddr != nullptr) {
     SyncEnd(info.ion_fd);
-    result = munmap(info.vaddr, info.size);
-    if (result < 0) {
+    if (munmap(info.vaddr, info.size) < 0) {
       QMMF_ERROR("%s() unable to unmap buffer[%d]: %d[%s]", __func__,
                  info.ion_fd, errno, strerror(errno));
       return errno;
@@ -1357,14 +1357,12 @@ status_t RecorderClient::UnmapBuffer(BufferInfo& info) {
 
 #ifdef TARGET_USES_GBM
     ReleaseBuffer(info.ion_fd);
-#else
-    result = close(info.ion_fd);
-    if (result < 0) {
+#endif
+    if ((info.ion_fd != -1) && (close(info.ion_fd) < 0)) {
       QMMF_ERROR("%s() error closing shared fd[%d]: %d[%s]", __func__,
                  info.ion_fd, errno, strerror(errno));
       return errno;
     }
-#endif
     info.ion_fd = -1;
   }
 
