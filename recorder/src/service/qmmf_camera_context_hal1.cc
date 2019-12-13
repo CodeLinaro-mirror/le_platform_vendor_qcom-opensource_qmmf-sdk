@@ -148,6 +148,21 @@ const CameraContext::QmmfCameraMap<uint8_t> CameraContext::TRUE_FALSE_MAP[] = {
 };
 
 
+class FDdata {
+public:
+  camera_memory_t *camera_memory;
+  CameraContext *context;
+  bool isInUse;
+
+  FDdata(camera_memory_t *cm, CameraContext *ctx, bool use) {
+    camera_memory = cm;
+    context = ctx;
+    isInUse = use;
+  }
+};
+std::map<uint32_t, FDdata*> g_allocated_fd_buffer_list_;
+std::mutex                  g_allocated_fd_lock_;
+
 CameraContext::CameraContext() :
   camera_id_(-1),
   result_cb_(nullptr),
@@ -162,6 +177,18 @@ CameraContext::~CameraContext() {
   if (nullptr != alloc_device_interface_) {
     AllocDeviceFactory::DestroyAllocDevice(alloc_device_interface_);
     alloc_device_interface_ = nullptr;
+  }
+  {
+    std::unique_lock < std::mutex > lock(g_allocated_fd_lock_);
+    for (auto iter : g_allocated_fd_buffer_list_) {
+      int fd = iter.first;
+      FDdata* fd_data = iter.second;
+      if (fd_data->context == this) {
+        QMMF_ERROR("%s: HAL1 buffers are not freed", __func__);
+        delete fd_data;
+        g_allocated_fd_buffer_list_.erase(fd);
+      }
+    }
   }
   if(camera_id_ != -1) {
     CloseCamera(camera_id_);
@@ -299,6 +326,27 @@ static void __put_memory(camera_memory_t *data) {
   QMMF_VERBOSE("E %s data :%p \n", __FUNCTION__, (unsigned int * )data);
   if (!data)
     return;
+
+  {
+    std::unique_lock < std::mutex > lock(g_allocated_fd_lock_);
+    for (auto iter : g_allocated_fd_buffer_list_) {
+      int fd = iter.first;
+      FDdata* fd_data = iter.second;
+      if (fd_data->isInUse) {
+        if (nullptr != fd_data->context->error_cb_) {
+          RecorderErrorData data {};
+          data.camera_id = fd_data->context->camera_id_;
+          data.error_code = REMAP_ALL_BUFFERS;
+          fd_data->context->error_cb_(data);
+        }
+      }
+      if (fd_data->camera_memory == data) {
+        delete fd_data;
+        g_allocated_fd_buffer_list_.erase(fd);
+      }
+    }
+  }
+
   if (data->data && data->size)
     munmap(data->data, data->size);
   free(data);
@@ -354,6 +402,7 @@ static camera_memory_t* __get_memory(int fd, size_t buf_size, uint32_t num_bufs,
   QMMF_VERBOSE("%s fd:%d buffsize: %d num_bufs %d\n", __FUNCTION__, fd,
     (int )buf_size, num_bufs);
 
+  CameraContext *camera_context = (CameraContext *)user;
   handle = (camera_memory_t *)malloc(sizeof(camera_memory_t));
 
   if (fd == -1) {
@@ -368,6 +417,15 @@ static camera_memory_t* __get_memory(int fd, size_t buf_size, uint32_t num_bufs,
     handle->data = mapfd(fd, buf_size);
     QMMF_VERBOSE("after mapfd: %p\n", (int * )handle->data);
     handle->release = __put_memory;
+
+    {
+      std::unique_lock < std::mutex > lock(g_allocated_fd_lock_);
+      assert(g_allocated_fd_buffer_list_.count(fd) == 0);
+      if (g_allocated_fd_buffer_list_.count(fd) == 0) {
+        FDdata *fd_data = new FDdata(handle, camera_context, false);
+        g_allocated_fd_buffer_list_.emplace(fd, fd_data);
+      }
+    }
   }
 
   handle->size = buf_size * num_bufs;
@@ -1704,6 +1762,15 @@ void CameraPort::StreamCallback(const void *data, int64_t timestamp) {
     struct gbm_bo *bo = packet->meta_handle;
     int fd = gbm_bo_get_fd(bo);
     void* base = static_cast< uint8_t *>(mmap(0, bo->size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0));
+
+    {
+      std::unique_lock < std::mutex > lock(g_allocated_fd_lock_);
+      assert(g_allocated_fd_buffer_list_.count(fd) > 0);
+      if (g_allocated_fd_buffer_list_.count(fd) > 0) {
+        FDdata *fd_data = g_allocated_fd_buffer_list_.at(fd);
+        fd_data->isInUse = true;
+      }
+    }
 
     StreamBuffer buffer { };
     buffer.fd = fd;
