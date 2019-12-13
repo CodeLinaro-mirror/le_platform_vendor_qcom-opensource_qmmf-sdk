@@ -1603,7 +1603,7 @@ status_t RecorderImpl::DeleteVideoTrack(const uint32_t client_id,
   auto& tracks_in_session = session_track_map[session_id];
 
   auto& track_info = tracks_in_session[track_id];
-  uint32_t& service_track_id = track_info.track_id;
+  uint32_t service_track_id = track_info.track_id;
   client_session_lock_.unlock();
 
   assert(track_info.type == TrackType::kVideo);

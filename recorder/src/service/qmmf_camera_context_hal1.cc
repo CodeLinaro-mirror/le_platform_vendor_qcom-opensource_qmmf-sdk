@@ -153,7 +153,8 @@ CameraContext::CameraContext() :
   result_cb_(nullptr),
   error_cb_(nullptr),
   libptr_(nullptr),
-  camera_device_(nullptr) {
+  camera_device_(nullptr),
+  snapshot_frame_id_(0) {
   alloc_device_interface_ = AllocDeviceFactory::CreateAllocDevice();
 }
 
@@ -161,6 +162,9 @@ CameraContext::~CameraContext() {
   if (nullptr != alloc_device_interface_) {
     AllocDeviceFactory::DestroyAllocDevice(alloc_device_interface_);
     alloc_device_interface_ = nullptr;
+  }
+  if(camera_id_ != -1) {
+    CloseCamera(camera_id_);
   }
 }
 
@@ -220,6 +224,13 @@ static void __data_cb(int32_t msg_type, const camera_memory_t *data,
     QMMF_VERBOSE("%s:%d: CAMERA_MSG_POSTVIEW_FRAME", __func__, __LINE__);
   }
 
+  if (msg_type & CAMERA_MSG_COMPRESSED_IMAGE) {
+    QMMF_VERBOSE("%s:%d: CAMERA_MSG_COMPRESSED_IMAGE", __func__, __LINE__);
+    if (camera_context != nullptr) {
+      camera_context->SnapshotCallback(data);
+    }
+  }
+
   if (msg_type & CAMERA_MSG_VIDEO_FRAME) {
     QMMF_VERBOSE("%s:%d: CAMERA_MSG_VIDEO_FRAME", __func__, __LINE__);
     if (camera_context != nullptr) {
@@ -263,6 +274,13 @@ static void __data_cb_timestamp(nsecs_t timestamp, int32_t msg_type,
     QMMF_VERBOSE("%s:%d: CAMERA_MSG_POSTVIEW_FRAME", __func__, __LINE__);
   }
 
+  if (msg_type & CAMERA_MSG_COMPRESSED_IMAGE) {
+    QMMF_VERBOSE("%s:%d: CAMERA_MSG_COMPRESSED_IMAGE", __func__, __LINE__);
+    if (camera_context != nullptr) {
+      camera_context->SnapshotCallback(data, (int64_t)timestamp);
+    }
+  }
+
   if (msg_type & CAMERA_MSG_VIDEO_FRAME) {
     QMMF_VERBOSE("%s:%d: CAMERA_MSG_VIDEO_FRAME", __func__, __LINE__);
     if (camera_context != nullptr) {
@@ -281,8 +299,9 @@ static void __put_memory(camera_memory_t *data) {
   QMMF_VERBOSE("E %s data :%p \n", __FUNCTION__, (unsigned int * )data);
   if (!data)
     return;
+  if (data->data && data->size)
+    munmap(data->data, data->size);
   free(data);
-  data = NULL;
   QMMF_VERBOSE("X %s\n", __FUNCTION__);
 }
 
@@ -290,9 +309,9 @@ static void __put_memory_heap(camera_memory_t *data) {
   QMMF_VERBOSE("E %s data :%p \n", __FUNCTION__, (unsigned int * )data);
   if (!data)
     return;
-  free(data->data);
+  if (data->data)
+    free(data->data);
   free(data);
-  data = NULL;
   QMMF_VERBOSE("X %s\n", __FUNCTION__);
 }
 
@@ -341,13 +360,12 @@ static camera_memory_t* __get_memory(int fd, size_t buf_size, uint32_t num_bufs,
     QMMF_VERBOSE("buffer size: %d\n", (int )(buf_size * num_bufs));
     handle->data = (void *)malloc(buf_size * num_bufs);
     handle->release = __put_memory_heap;
-    handle->handle = NULL;
   } else {
     const size_t pagesize = getpagesize();
     QMMF_VERBOSE("pagesize: %d\n", (int )pagesize);
     buf_size = ((buf_size + pagesize - 1) & ~(pagesize - 1));
     QMMF_VERBOSE("new buf_size: %d caling mapfd\n", buf_size);
-    handle->data = mapfd(dup(fd), buf_size);
+    handle->data = mapfd(fd, buf_size);
     QMMF_VERBOSE("after mapfd: %p\n", (int * )handle->data);
     handle->release = __put_memory;
   }
@@ -371,10 +389,10 @@ status_t CameraContext::camera_device_open(int id) {
     return BAD_VALUE;
   }
 
-  char Id = '0' + id;
-  QMMF_INFO("%s:%d: camera id %c", __func__, __LINE__, Id);
+  char Id[] = {'0' + id, '\0'};
+  QMMF_INFO("%s:%d: camera id %s", __func__, __LINE__, Id);
 
-  rc = module->methods->open(module, &Id, (hw_device_t **)&camera_device_);
+  rc = module->methods->open(module, Id, (hw_device_t **)&camera_device_);
   if (rc < 0 || camera_device_ == NULL) {
     QMMF_ERROR("Could not open camera rc %d camera_device_ %p", rc, camera_device_);
     return BAD_VALUE;
@@ -444,14 +462,14 @@ status_t CameraContext::OpenCamera(const uint32_t camera_id,
     //CAMERA_MSG_ZOOM             | // notifyCallback
     CAMERA_MSG_PREVIEW_FRAME | // dataCallback
     CAMERA_MSG_VIDEO_FRAME | // data_timestamp_callback
-    //CAMERA_MSG_POSTVIEW_FRAME   | // dataCallback
-    //CAMERA_MSG_RAW_IMAGE        | // dataCallback
-    //CAMERA_MSG_COMPRESSED_IMAGE | // dataCallback
-    //CAMERA_MSG_RAW_IMAGE_NOTIFY | // dataCallback
+    CAMERA_MSG_POSTVIEW_FRAME   | // dataCallback
+    CAMERA_MSG_RAW_IMAGE        | // dataCallback
+    CAMERA_MSG_COMPRESSED_IMAGE | // dataCallback
+    CAMERA_MSG_RAW_IMAGE_NOTIFY | // dataCallback
     CAMERA_MSG_PREVIEW_METADATA | // dataCallback
     //CAMERA_MSG_FOCUS_MOVE       | // notifyCallback
     //CAMERA_MSG_STATS_DATA       |
-    //CAMERA_MSG_META_DATA        |
+    CAMERA_MSG_META_DATA        |
     CAMERA_MSG_ERROR;
 
   ((camera_device_t *)camera_device_)->ops->enable_msg_type((camera_device_t *)camera_device_, msg_type);
@@ -483,6 +501,7 @@ status_t CameraContext::CloseCamera(const uint32_t camera_id) {
     QMMF_ERROR("%s:%d: failed: %d ", __func__, __LINE__, ret);
     return BAD_VALUE;
   }
+  camera_id_ = -1;
 
   QMMF_INFO("%s: CameraContext(%u) Closed Successfully!", __func__, camera_id_);
   return NO_ERROR;
@@ -495,20 +514,107 @@ status_t CameraContext::WaitAecToConverge(const uint32_t timeout) {
 
 status_t CameraContext::SetUpCapture(const SnapshotParam& param,
   const uint32_t num_images) {
+
+  QMMF_INFO("%s: Enter num_images - %d", __func__, num_images);
+
+  QMMF_DEBUG("%s Enter ", __func__);
+  if (snapshot_type_ != SnapshotMode::kZsl) {
+    std::unique_lock<std::mutex> lock(capture_lock_);
+
+    snapshot_param_ = param;
+    snapshot_type_ = new_snapshot_type_;
+
+    if (snapshot_type_ == SnapshotMode::kContinuous) {
+      sequence_cnt_ = 1;
+    } else {
+      sequence_cnt_ = num_images;
+    }
+
+    if(param.format == BufferFormat::kBLOB) {
+      mParameters_.setPictureFormat(CameraParameters::PIXEL_FORMAT_JPEG);
+    } else if(param.format == BufferFormat::kNV12 ||
+              param.format == BufferFormat::kNV21) {
+      mParameters_.setPictureFormat(CameraParameters::PIXEL_FORMAT_YUV420SP);
+    }
+    mParameters_.setPictureSize(param.width, param.height);
+    ApplyParameters();
+  }
+
+  QMMF_INFO("%s: Exit", __func__);
+
   return NO_ERROR;
 }
 
 status_t CameraContext::CaptureImage(const std::vector<CameraMetadata> &meta,
   const StreamSnapshotCb& cb) {
+
+  QMMF_INFO("%s: Enter", __func__);
+  int32_t ret = NO_ERROR;
+  client_snapshot_cb_ = cb;
+  capture_cnt_ = 0;
+  if (snapshot_type_ != SnapshotMode::kZsl) {
+    int64_t last_frame_number;
+    for (uint32_t i = 0; i < sequence_cnt_; i++) {
+      QMMF_INFO("%s: HAL take picture", __func__);
+      ((camera_device_t *)camera_device_)->
+          ops->take_picture((camera_device_t *)camera_device_);
+    }
+  }
+
+  QMMF_INFO("%s: Exit", __func__);
+
+  return NO_ERROR;
+}
+
+status_t CameraContext::ValidateCaptureConfig(const ImageConfigParam &config) {
+  if (config.Exists(QMMF_EXIF) && config.Exists(QMMF_IMAGE_THUMBNAIL)) {
+    ImageExif exif;
+    config.Fetch(QMMF_EXIF, exif, 0);
+    if (exif.enable == false) {
+      QMMF_ERROR("%s: Unsupported configuration EXIF(disabled) + thumbnail !",
+          __func__);
+      return INVALID_OPERATION;
+    }
+  }
   return NO_ERROR;
 }
 
 status_t CameraContext::ConfigImageCapture(const ImageConfigParam &config) {
 
+
+  QMMF_INFO("%s: Enter", __func__);
+
+  if (ValidateCaptureConfig(config)) {
+    QMMF_ERROR("%s: Invalid Capture configuration", __func__);
+    return INVALID_OPERATION;
+  }
+
+  if (config.Exists(QMMF_SNAPSHOT_TYPE)) {
+    SnapshotType type;
+    config.Fetch(QMMF_SNAPSHOT_TYPE, type);
+
+    if ((type.type == SnapshotMode::kStillPlusRaw) ||
+        (type.type == SnapshotMode::kVideoPlusRaw)) {
+      BufferFormat format = Common::FromImageToQmmfFormat(type.raw_format);
+      if (format != BufferFormat::kRAW8 && format != BufferFormat::kRAW10 &&
+          format != BufferFormat::kRAW12 && format != BufferFormat::kRAW16) {
+        QMMF_ERROR("%s: Image format %d is not RAW format", __func__,
+            type.raw_format);
+        return BAD_VALUE;
+      }
+    }
+    new_snapshot_type_ = type.type;
+  }
+
+
+  QMMF_INFO("%s: Exit", __func__);
+
   return NO_ERROR;
 }
 
 status_t CameraContext::CancelCaptureImage() {
+
+  // todo wait until image capture is done
 
   return NO_ERROR;
 }
@@ -918,7 +1024,7 @@ status_t CameraContext::GetCameraParam(CameraMetadata &meta) {
 
 status_t CameraContext::GetDefaultCaptureParam(CameraMetadata &meta) {
 
-  meta.append(metadata_);
+  GetCameraParam(meta);
   return NO_ERROR;
 }
 
@@ -1109,6 +1215,33 @@ status_t CameraContext::GetCameraCharacteristics(CameraMetadata &meta) {
 
 status_t CameraContext::ReturnImageCaptureBuffer(const uint32_t camera_id,
   const int32_t buffer_id) {
+  QMMF_DEBUG("%s: Enter", __func__);
+  if (snapshot_buffer_list_.find(buffer_id) == snapshot_buffer_list_.end()) {
+    QMMF_ERROR("%s: buffer_id(%u) is not valid!!", __func__, buffer_id);
+    return BAD_VALUE;
+  }
+
+  if (snapshot_hal_buff_list_.find(buffer_id) ==
+      snapshot_hal_buff_list_.end()) {
+    QMMF_ERROR("%s: buffer_id(%u) is not valid!!", __func__, buffer_id);
+    return BAD_VALUE;
+  }
+
+  StreamBuffer buffer = snapshot_buffer_list_.find(buffer_id)->second;
+  assert(buffer.fd == buffer_id);
+
+  const camera_memory_t *data = snapshot_hal_buff_list_.find(buffer_id)->second;
+
+  QMMF_VERBOSE("%s: SnapshotBuffer(0x%p) fd: %d", __func__, buffer.handle,
+      buffer.fd);
+
+  munmap(buffer.data, buffer.size);
+  alloc_device_interface_->FreeBuffer(buffer.handle);
+
+  snapshot_buffer_list_.erase(buffer_id);
+
+  ((camera_device_t *)camera_device_)->ops->release_snapshot_frame(
+    (camera_device_t *)camera_device_, data);
 
   return NO_ERROR;
 }
@@ -1119,6 +1252,203 @@ std::vector<int32_t>& CameraContext::GetSupportedFps() {
   // Not supported
   assert(0);
   return val;
+}
+
+status_t CameraContext::PopulateMetaInfo(CameraBufferMetaData &info,
+                                      IBufferHandle &handle,
+                                      uint32_t width,
+                                      uint32_t height) {
+  int alignedW, alignedH;
+  auto ret = alloc_device_interface_->Perform(handle,
+                              IAllocDevice::AllocDeviceAction::GetAlignedWidth,
+                              static_cast<void*>(&alignedW));
+
+  if (MemAllocError::kAllocOk != ret) {
+    QMMF_ERROR("%s: Error in GetStrideAndHeightFromHandle() : %d\n", __func__,
+      (int32_t) ret);
+    return BAD_VALUE;
+  }
+
+  ret = alloc_device_interface_->Perform(handle,
+                              IAllocDevice::AllocDeviceAction::GetAlignedHeight,
+                              static_cast<void*>(&alignedH));
+  if (MemAllocError::kAllocOk != ret) {
+    QMMF_ERROR("%s: Error in GetStrideAndHeightFromHandle() : %d\n", __func__,
+      (int32_t) ret);
+    return BAD_VALUE;
+  }
+
+  QMMF_DEBUG("%s: format(0x%x)", __func__, handle->GetFormat());
+
+  switch (handle->GetFormat()) {
+    case HAL_PIXEL_FORMAT_BLOB:
+      info.format = BufferFormat::kBLOB;
+      info.num_planes = 1;
+      info.plane_info[0].width = width;
+      info.plane_info[0].height = height;
+      info.plane_info[0].stride = alignedW;
+      info.plane_info[0].scanline = alignedH;
+      info.plane_info[0].size = alignedW * alignedH;
+      info.plane_info[0].offset = 0;
+      break;
+    case HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS:
+    case HAL_PIXEL_FORMAT_NV12_ENCODEABLE:
+    case HAL_PIXEL_FORMAT_YCbCr_420_888:
+    case HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED:
+      info.format = BufferFormat::kNV12;
+      info.num_planes = 2;
+      info.plane_info[0].width = width;
+      info.plane_info[0].height = height;
+      info.plane_info[0].stride = alignedW;
+      info.plane_info[0].scanline = alignedH;
+      info.plane_info[0].size = alignedW * alignedH;
+      info.plane_info[0].offset = 0;
+      info.plane_info[1].width = width;
+      info.plane_info[1].height = height / 2;
+      info.plane_info[1].stride = alignedW;
+      info.plane_info[1].scanline = alignedH/2;
+      info.plane_info[1].size = alignedW * (alignedH / 2);
+      info.plane_info[1].offset = alignedW * alignedH;
+      break;
+    case HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS_UBWC:
+      info.format = BufferFormat::kNV12UBWC;
+      info.num_planes = 2;
+      info.plane_info[0].width = width;
+      info.plane_info[0].height = height;
+      info.plane_info[0].stride = alignedW;
+      info.plane_info[0].scanline = alignedH;
+      info.plane_info[0].size = alignedW * alignedH;
+      info.plane_info[0].offset = 0;
+      info.plane_info[1].width = width;
+      info.plane_info[1].height = height / 2;
+      info.plane_info[1].stride = alignedW;
+      info.plane_info[1].scanline = alignedH/2;
+      info.plane_info[1].size = alignedW * (alignedH / 2);
+      info.plane_info[1].offset = alignedW * alignedH;
+      break;
+    case HAL_PIXEL_FORMAT_YCbCr_422_888:
+    case HAL_PIXEL_FORMAT_YCbCr_422_SP:
+      info.format = BufferFormat::kNV16;
+      info.num_planes = 2;
+      info.plane_info[0].width = width;
+      info.plane_info[0].height = height;
+      info.plane_info[0].stride = alignedW;
+      info.plane_info[0].scanline = alignedH;
+      info.plane_info[0].size = alignedW * alignedH;
+      info.plane_info[0].offset = 0;
+      info.plane_info[1].width = width;
+      info.plane_info[1].height = height;
+      info.plane_info[1].stride = alignedW;
+      info.plane_info[1].scanline = alignedH;
+      info.plane_info[1].size = alignedW * alignedH;
+      info.plane_info[1].offset = alignedW * alignedH;
+      break;
+    case HAL_PIXEL_FORMAT_NV21_ZSL:
+      info.format = BufferFormat::kNV21;
+      info.num_planes = 2;
+      info.plane_info[0].width = width;
+      info.plane_info[0].height = height;
+      info.plane_info[0].stride = alignedW;
+      info.plane_info[0].scanline = alignedH;
+      info.plane_info[0].size = alignedW * alignedH;
+      info.plane_info[0].offset = 0;
+      info.plane_info[1].width = width;
+      info.plane_info[1].height = height/2;
+      info.plane_info[1].stride = alignedW;
+      info.plane_info[1].scanline = alignedH/2;
+      info.plane_info[1].size = alignedW * (alignedH / 2);
+      info.plane_info[1].offset = alignedW * alignedH;
+      break;
+    case HAL_PIXEL_FORMAT_RAW8:
+      info.format = BufferFormat::kRAW8;
+      info.num_planes = 1;
+      info.plane_info[0].width = width;
+      info.plane_info[0].height = height;
+      info.plane_info[0].stride = alignedW;
+      info.plane_info[0].scanline = alignedH;
+      info.plane_info[0].size = alignedW * alignedH;
+      info.plane_info[0].offset = 0;
+      break;
+    case HAL_PIXEL_FORMAT_RAW10:
+      info.format = BufferFormat::kRAW10;
+      info.num_planes = 1;
+      info.plane_info[0].width = width;
+      info.plane_info[0].height = height;
+      info.plane_info[0].stride = alignedW;
+      info.plane_info[0].scanline = alignedH;
+      info.plane_info[0].size = alignedW * alignedH;
+      info.plane_info[0].offset = 0;
+      break;
+    case HAL_PIXEL_FORMAT_RAW12:
+      info.format = BufferFormat::kRAW12;
+      info.num_planes = 1;
+      info.plane_info[0].width = width;
+      info.plane_info[0].height = height;
+      info.plane_info[0].stride = alignedW;
+      info.plane_info[0].scanline = alignedH;
+      info.plane_info[0].size = alignedW * alignedH;
+      info.plane_info[0].offset = 0;
+      break;
+    case HAL_PIXEL_FORMAT_RAW16:
+      info.format = BufferFormat::kRAW16;
+      info.num_planes = 1;
+      info.plane_info[0].width = width;
+      info.plane_info[0].height = height;
+      info.plane_info[0].stride = alignedW;
+      info.plane_info[0].scanline = alignedH;
+      info.plane_info[0].size = alignedW * alignedH;
+      info.plane_info[0].offset = 0;
+      break;
+    default:
+      QMMF_ERROR("%s: Unsupported format: %d\n", __func__, handle->GetFormat());
+      return BAD_VALUE;
+  }
+
+  QMMF_DEBUG("%s: format: %d ", __func__, (int32_t) info.format);
+  for (int i = 0; i < info.num_planes; i++) {
+    QMMF_DEBUG(
+      "%s: plane[%d]: dim: %dx%d stride: %d scanline: %d size: %d offset: %d ",
+      __func__, i, info.plane_info[i].width, info.plane_info[i].height,
+      info.plane_info[i].stride, info.plane_info[i].scanline,
+      info.plane_info[i].size, info.plane_info[i].offset);
+  }
+
+  return NO_ERROR;
+}
+
+status_t CameraContext::SnapshotCallback(const camera_memory_t *data,
+  int64_t timestamp) {
+  QMMF_DEBUG("%s: data: %p handle: %p size: %d", __func__, data->data,
+      data->handle, data->size);
+
+  //struct gbm_bo *bo = reinterpret_cast< struct gbm_bo *>(data->data);
+  struct gbm_bo *bo = reinterpret_cast< struct gbm_bo *>(data->handle);
+
+  int fd = gbm_bo_get_fd(bo);
+  void* base = (uint8_t*)mmap(0, data->size, PROT_READ | PROT_WRITE, MAP_SHARED, fd,0);
+
+  // todo: fix me when camera HAL1 fix format in GBM buffer
+  QMMF_DEBUG("%s: GBM format: %x", __func__, bo->format);
+  bo->format = GBM_FORMAT_BLOB;
+
+  StreamBuffer buffer { };
+  buffer.fd = fd;
+  buffer.data = base;
+  buffer.size = data->size;
+  buffer.frame_number = ++snapshot_frame_id_;
+  buffer.timestamp = timestamp;
+  buffer.camera_id = camera_id_;
+  alloc_device_interface_->ImportBuffer(buffer.handle, bo);
+  auto ret = PopulateMetaInfo(buffer.info, buffer.handle, data->size, 1);
+  assert(ret == NO_ERROR);
+
+  snapshot_buffer_list_.insert(std::make_pair(buffer.fd, buffer));
+  snapshot_hal_buff_list_.insert(std::make_pair(buffer.fd, data));
+
+  assert(client_snapshot_cb_ != nullptr);
+  client_snapshot_cb_(snapshot_frame_id_, buffer);
+
+  return NO_ERROR;
 }
 
 status_t CameraContext::ReturnStreamBuffer(StreamBuffer buffer) {
@@ -1336,166 +1666,6 @@ status_t CameraPort::release_frame(const void *opaque) {
   return NO_ERROR;
 }
 
-status_t CameraPort::PopulateMetaInfo(CameraBufferMetaData &info,
-                                      IBufferHandle &handle) {
-  int alignedW, alignedH;
-  auto ret = context_->alloc_device_interface_->Perform(handle,
-                              IAllocDevice::AllocDeviceAction::GetAlignedWidth,
-                              static_cast<void*>(&alignedW));
-
-  if (MemAllocError::kAllocOk != ret) {
-    QMMF_ERROR("%s: Error in GetStrideAndHeightFromHandle() : %d\n", __func__,
-      (int32_t) ret);
-    return BAD_VALUE;
-  }
-
-  ret = context_->alloc_device_interface_->Perform(handle,
-                              IAllocDevice::AllocDeviceAction::GetAlignedHeight,
-                              static_cast<void*>(&alignedH));
-  if (MemAllocError::kAllocOk != ret) {
-    QMMF_ERROR("%s: Error in GetStrideAndHeightFromHandle() : %d\n", __func__,
-      (int32_t) ret);
-    return BAD_VALUE;
-  }
-
-  QMMF_DEBUG("%s: format(0x%x)", __func__, handle->GetFormat());
-
-  switch (handle->GetFormat()) {
-    case HAL_PIXEL_FORMAT_BLOB:
-      info.format = BufferFormat::kBLOB;
-      info.num_planes = 1;
-      info.plane_info[0].width = width_;
-      info.plane_info[0].height = height_;
-      info.plane_info[0].stride = alignedW;
-      info.plane_info[0].scanline = alignedH;
-      info.plane_info[0].size = alignedW * alignedH;
-      info.plane_info[0].offset = 0;
-      break;
-    case HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS:
-    case HAL_PIXEL_FORMAT_NV12_ENCODEABLE:
-    case HAL_PIXEL_FORMAT_YCbCr_420_888:
-    case HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED:
-      info.format = BufferFormat::kNV12;
-      info.num_planes = 2;
-      info.plane_info[0].width = width_;
-      info.plane_info[0].height = height_;
-      info.plane_info[0].stride = alignedW;
-      info.plane_info[0].scanline = alignedH;
-      info.plane_info[0].size = alignedW * alignedH;
-      info.plane_info[0].offset = 0;
-      info.plane_info[1].width = width_;
-      info.plane_info[1].height = height_ / 2;
-      info.plane_info[1].stride = alignedW;
-      info.plane_info[1].scanline = alignedH/2;
-      info.plane_info[1].size = alignedW * (alignedH / 2);
-      info.plane_info[1].offset = alignedW * alignedH;
-      break;
-    case HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS_UBWC:
-      info.format = BufferFormat::kNV12UBWC;
-      info.num_planes = 2;
-      info.plane_info[0].width = width_;
-      info.plane_info[0].height = height_;
-      info.plane_info[0].stride = alignedW;
-      info.plane_info[0].scanline = alignedH;
-      info.plane_info[0].size = alignedW * alignedH;
-      info.plane_info[0].offset = 0;
-      info.plane_info[1].width = width_;
-      info.plane_info[1].height = height_ / 2;
-      info.plane_info[1].stride = alignedW;
-      info.plane_info[1].scanline = alignedH/2;
-      info.plane_info[1].size = alignedW * (alignedH / 2);
-      info.plane_info[1].offset = alignedW * alignedH;
-      break;
-    case HAL_PIXEL_FORMAT_YCbCr_422_888:
-    case HAL_PIXEL_FORMAT_YCbCr_422_SP:
-      info.format = BufferFormat::kNV16;
-      info.num_planes = 2;
-      info.plane_info[0].width = width_;
-      info.plane_info[0].height = height_;
-      info.plane_info[0].stride = alignedW;
-      info.plane_info[0].scanline = alignedH;
-      info.plane_info[0].size = alignedW * alignedH;
-      info.plane_info[0].offset = 0;
-      info.plane_info[1].width = width_;
-      info.plane_info[1].height = height_;
-      info.plane_info[1].stride = alignedW;
-      info.plane_info[1].scanline = alignedH;
-      info.plane_info[1].size = alignedW * alignedH;
-      info.plane_info[1].offset = alignedW * alignedH;
-      break;
-    case HAL_PIXEL_FORMAT_NV21_ZSL:
-      info.format = BufferFormat::kNV21;
-      info.num_planes = 2;
-      info.plane_info[0].width = width_;
-      info.plane_info[0].height = height_;
-      info.plane_info[0].stride = alignedW;
-      info.plane_info[0].scanline = alignedH;
-      info.plane_info[0].size = alignedW * alignedH;
-      info.plane_info[0].offset = 0;
-      info.plane_info[1].width = width_;
-      info.plane_info[1].height = height_/2;
-      info.plane_info[1].stride = alignedW;
-      info.plane_info[1].scanline = alignedH/2;
-      info.plane_info[1].size = alignedW * (alignedH / 2);
-      info.plane_info[1].offset = alignedW * alignedH;
-      break;
-    case HAL_PIXEL_FORMAT_RAW8:
-      info.format = BufferFormat::kRAW8;
-      info.num_planes = 1;
-      info.plane_info[0].width = width_;
-      info.plane_info[0].height = height_;
-      info.plane_info[0].stride = alignedW;
-      info.plane_info[0].scanline = alignedH;
-      info.plane_info[0].size = alignedW * alignedH;
-      info.plane_info[0].offset = 0;
-      break;
-    case HAL_PIXEL_FORMAT_RAW10:
-      info.format = BufferFormat::kRAW10;
-      info.num_planes = 1;
-      info.plane_info[0].width = width_;
-      info.plane_info[0].height = height_;
-      info.plane_info[0].stride = alignedW;
-      info.plane_info[0].scanline = alignedH;
-      info.plane_info[0].size = alignedW * alignedH;
-      info.plane_info[0].offset = 0;
-      break;
-    case HAL_PIXEL_FORMAT_RAW12:
-      info.format = BufferFormat::kRAW12;
-      info.num_planes = 1;
-      info.plane_info[0].width = width_;
-      info.plane_info[0].height = height_;
-      info.plane_info[0].stride = alignedW;
-      info.plane_info[0].scanline = alignedH;
-      info.plane_info[0].size = alignedW * alignedH;
-      info.plane_info[0].offset = 0;
-      break;
-    case HAL_PIXEL_FORMAT_RAW16:
-      info.format = BufferFormat::kRAW16;
-      info.num_planes = 1;
-      info.plane_info[0].width = width_;
-      info.plane_info[0].height = height_;
-      info.plane_info[0].stride = alignedW;
-      info.plane_info[0].scanline = alignedH;
-      info.plane_info[0].size = alignedW * alignedH;
-      info.plane_info[0].offset = 0;
-      break;
-    default:
-      QMMF_ERROR("%s: Unsupported format: %d\n", __func__, handle->GetFormat());
-      return BAD_VALUE;
-  }
-
-  QMMF_DEBUG("%s: format: %d ", __func__, (int32_t) info.format);
-  for (int i = 0; i < info.num_planes; i++) {
-    QMMF_DEBUG(
-      "%s: plane[%d]: dim: %dx%d stride: %d scanline: %d size: %d offset: %d ",
-      __func__, i, info.plane_info[i].width, info.plane_info[i].height,
-      info.plane_info[i].stride, info.plane_info[i].scanline,
-      info.plane_info[i].size, info.plane_info[i].offset);
-  }
-
-  return NO_ERROR;
-}
-
 void CameraPort::NotifyBufferReturned(const StreamBuffer& buffer) {
 
   QMMF_VERBOSE("%s: StreamBuffer(0x%p) Cameback to Port:%d", __func__,
@@ -1541,7 +1711,8 @@ void CameraPort::StreamCallback(const void *data, int64_t timestamp) {
     buffer.frame_number = ++frame_number_;
     buffer.timestamp = timestamp;
     context_->alloc_device_interface_->ImportBuffer(buffer.handle, bo);
-    auto ret = PopulateMetaInfo(buffer.info, buffer.handle);
+    auto ret =
+        context_->PopulateMetaInfo(buffer.info, buffer.handle, width_, height_);
     assert(ret == NO_ERROR);
 
     context_->alloc_device_interface_->Perform(
@@ -1582,7 +1753,7 @@ status_t PreviewPort::Init(const StreamParam& param) {
   context_->mParameters_.setPreviewFormat(
     context_->FromQmmfToHalFormat_hal1(param.format));
 
-  context_->mParameters_.set("recording-hint", "true");
+  context_->mParameters_.set("recording-hint", "false");
   context_->mParameters_.set("store-meta-data-in-buffers", "true");
   ((camera_device_t *)context_->camera_device_)->ops->store_meta_data_in_buffers((camera_device_t *)context_->camera_device_, true);
 

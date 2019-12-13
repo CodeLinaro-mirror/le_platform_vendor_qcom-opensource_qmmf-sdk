@@ -1097,3 +1097,1171 @@ TEST_F(RecorderHal1GTest, SessionWithTwo1080pYUVAndLinked1080pYUV) {
   fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
     test_info_->test_case_name(), test_info_->name());
 }
+
+/*
+* SessionWith720pYUVAndSnapshotVGA: Test one 720p YUV track and b2b VGA snapshot
+*
+* Api test sequence:
+*  - StartCamera
+*   loop Start {
+*   ------------------
+*   - CaptureImage - JPEG
+*   ------------------
+*   } loop End
+*  - StopCamera
+*/
+TEST_F(RecorderHal1GTest, SessionWith720pYUVAndSnapshotVGA) {
+  fprintf(stderr, "\n---------- Run Test %s.%s ------------\n",
+    test_info_->test_case_name(), test_info_->name());
+
+  auto ret = Init();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.StartCamera(camera_id_, 30);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  uint32_t video_track_id_yuv1 = 1;
+  int32_t pending_count = 0;
+
+  std::vector<std::pair<uint32_t, uint32_t>> test_res = {
+    {640, 480} };
+
+  SessionCb session_status_cb = CreateSessionStatusCb();
+
+  uint32_t session_id;
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  ASSERT_TRUE(session_id > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  for (auto& res : test_res) {
+    uint32_t width = res.first;
+    uint32_t height = res.second;
+    QMMF_INFO("Test dim: %dx%d", width, height);
+
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo1 = { VideoFormat::kYUV, session_id,
+        video_track_id_yuv1, 1280, 720 };
+      ret = dump_bitstream_.SetUp(dumpinfo1);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
+    /************************ Create Track 1 ****************************/
+
+    VideoTrackCreateParam video_track_param {
+      camera_id_, VideoFormat::kYUV, 1280, 720, 30 };
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+        std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+          VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers); };
+
+    video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
+                                  void *event_data, size_t event_data_size) {
+        VideoTrackEventCb(track_id, event_type, event_data, event_data_size); };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_yuv1,
+      video_track_param, video_track_cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    std::vector<uint32_t> track_ids;
+    track_ids.push_back(video_track_id_yuv1);
+
+    /************************ Start Session ***********************************/
+
+    ret = recorder_.StartSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    sleep(5);
+
+    ImageParam image_param{};
+    image_param.width         = width;
+    image_param.height        = height;
+    image_param.image_format  = ImageFormat::kJPEG;
+    image_param.image_quality = default_jpeg_quality_;
+
+    std::vector<CameraMetadata> meta_array;
+    camera_metadata_entry_t entry;
+    CameraMetadata meta;
+
+    ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    CameraMetadata static_meta;
+    ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    meta_array.push_back(meta);
+
+    ASSERT_TRUE (ValidateResFromProcessedSizes(static_meta, image_param.width,
+        image_param.height) != false);
+
+    ImageCaptureCb cb = [&] (uint32_t camera_id, uint32_t image_count,
+                                BufferDescriptor buffer,
+                                MetaData meta_data) -> void
+        { SnapshotCb(camera_id, image_count, buffer, meta_data);
+          pending_count--; };
+
+    ImageConfigParam image_config;
+    ImageExif exif;
+    exif.enable = false;
+    image_config.Update(QMMF_EXIF, exif);
+
+    ret = recorder_.ConfigImageCapture(camera_id_, image_config);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    for (uint32_t i = 1; i <= iteration_count_; i++) {
+      fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
+      TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
+        test_info_->name(), i);
+
+      pending_count++;
+      ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array, cb);
+      ASSERT_TRUE(ret == NO_ERROR);
+      sleep(5);
+    }
+
+    ret = recorder_.CancelCaptureImage(camera_id_);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    // Check if all snapshot are done
+    assert(pending_count == 0);
+
+    sleep(1);
+
+    /************************ Stop Session ************************************/
+
+    ret = recorder_.StopSession(session_id, false);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_yuv1);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+
+    dump_bitstream_.CloseAll();
+  }
+
+  ret = recorder_.DeleteSession(session_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ClearSessions();
+
+  ret = recorder_.StopCamera(camera_id_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = DeInit();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
+    test_info_->test_case_name(), test_info_->name());
+}
+
+
+/*
+* SessionWith720pYUVAndSnapshot720p: Test one 720p YUV track and b2b 720p snapshot
+*
+* Api test sequence:
+*  - StartCamera
+*   loop Start {
+*   ------------------
+*   - CaptureImage - JPEG
+*   ------------------
+*   } loop End
+*  - StopCamera
+*/
+TEST_F(RecorderHal1GTest, SessionWith720pYUVAndSnapshot720p) {
+  fprintf(stderr, "\n---------- Run Test %s.%s ------------\n",
+    test_info_->test_case_name(), test_info_->name());
+
+  auto ret = Init();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.StartCamera(camera_id_, 30);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  uint32_t video_track_id_yuv1 = 1;
+  int32_t pending_count = 0;
+
+  std::vector<std::pair<uint32_t, uint32_t>> test_res = {
+    {1280, 720} };
+
+  SessionCb session_status_cb = CreateSessionStatusCb();
+
+  uint32_t session_id;
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  ASSERT_TRUE(session_id > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  for (auto& res : test_res) {
+    uint32_t width = res.first;
+    uint32_t height = res.second;
+    QMMF_INFO("Test dim: %dx%d", width, height);
+
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo1 = { VideoFormat::kYUV, session_id,
+        video_track_id_yuv1, width, height };
+      ret = dump_bitstream_.SetUp(dumpinfo1);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
+    /************************ Create Track 1 ****************************/
+
+    VideoTrackCreateParam video_track_param {
+      camera_id_, VideoFormat::kYUV, width, height, 30 };
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+        std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+          VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers); };
+
+    video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
+                                  void *event_data, size_t event_data_size) {
+        VideoTrackEventCb(track_id, event_type, event_data, event_data_size); };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_yuv1,
+      video_track_param, video_track_cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    std::vector<uint32_t> track_ids;
+    track_ids.push_back(video_track_id_yuv1);
+
+    /************************ Start Session ***********************************/
+
+    ret = recorder_.StartSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    sleep(5);
+
+    ImageParam image_param{};
+    image_param.width         = width;
+    image_param.height        = height;
+    image_param.image_format  = ImageFormat::kJPEG;
+    image_param.image_quality = default_jpeg_quality_;
+
+    std::vector<CameraMetadata> meta_array;
+    camera_metadata_entry_t entry;
+    CameraMetadata meta;
+
+    ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    CameraMetadata static_meta;
+    ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    meta_array.push_back(meta);
+
+    ASSERT_TRUE (ValidateResFromProcessedSizes(static_meta, image_param.width,
+        image_param.height) != false);
+
+    ImageCaptureCb cb = [&] (uint32_t camera_id, uint32_t image_count,
+                                BufferDescriptor buffer,
+                                MetaData meta_data) -> void
+        { SnapshotCb(camera_id, image_count, buffer, meta_data);
+          pending_count--; };
+
+    ImageConfigParam image_config;
+    ImageExif exif;
+    exif.enable = false;
+    image_config.Update(QMMF_EXIF, exif);
+
+    ret = recorder_.ConfigImageCapture(camera_id_, image_config);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    for (uint32_t i = 1; i <= iteration_count_; i++) {
+      fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
+      TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
+        test_info_->name(), i);
+
+      pending_count++;
+      ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array, cb);
+      ASSERT_TRUE(ret == NO_ERROR);
+      sleep(5);
+    }
+
+    ret = recorder_.CancelCaptureImage(camera_id_);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    // Check if all snapshot are done
+    assert(pending_count == 0);
+
+    sleep(1);
+
+    /************************ Stop Session ************************************/
+
+    ret = recorder_.StopSession(session_id, false);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_yuv1);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+
+    dump_bitstream_.CloseAll();
+  }
+
+  ret = recorder_.DeleteSession(session_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ClearSessions();
+
+  ret = recorder_.StopCamera(camera_id_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = DeInit();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
+    test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+* SessionWithTwo720pYUVAndSnapshot720p: Test two YUV 720p tracks and b2b 720p snapshot
+*
+* Api test sequence:
+*  - StartCamera
+*   loop Start {
+*   ------------------
+*   - CaptureImage - JPEG
+*   ------------------
+*   } loop End
+*  - StopCamera
+*/
+TEST_F(RecorderHal1GTest, SessionWithTwo720pYUVAndSnapshot720p) {
+  fprintf(stderr, "\n---------- Run Test %s.%s ------------\n",
+    test_info_->test_case_name(), test_info_->name());
+
+  auto ret = Init();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.StartCamera(camera_id_, 30);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  uint32_t video_track_id_yuv1 = 1;
+  uint32_t video_track_id_yuv2 = 2;
+  int32_t pending_count = 0;
+
+  std::vector<std::pair<uint32_t, uint32_t>> test_res = {
+    {1280, 720} };
+
+  SessionCb session_status_cb = CreateSessionStatusCb();
+
+  uint32_t session_id;
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  ASSERT_TRUE(session_id > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  for (auto& res : test_res) {
+    uint32_t width = res.first;
+    uint32_t height = res.second;
+    QMMF_INFO("Test dim: %dx%d", width, height);
+
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo1 = { VideoFormat::kYUV, session_id,
+        video_track_id_yuv1, width, height };
+      ret = dump_bitstream_.SetUp(dumpinfo1);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      StreamDumpInfo dumpinfo2 = { VideoFormat::kYUV, session_id,
+        video_track_id_yuv2, width, height };
+      ret = dump_bitstream_.SetUp(dumpinfo2);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
+    /************************ Create Track 1 ****************************/
+
+    VideoTrackCreateParam video_track_param {
+      camera_id_, VideoFormat::kYUV, width, height, 30 };
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+        std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+          VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers); };
+
+    video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
+                                  void *event_data, size_t event_data_size) {
+        VideoTrackEventCb(track_id, event_type, event_data, event_data_size); };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_yuv1,
+      video_track_param, video_track_cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    std::vector<uint32_t> track_ids;
+    track_ids.push_back(video_track_id_yuv1);
+
+    /************************ Create Track 2 ****************************/
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_yuv2,
+      video_track_param, video_track_cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    track_ids.push_back(video_track_id_yuv2);
+    sessions_.insert(std::make_pair(session_id, track_ids));
+
+    /************************ Start Session ***********************************/
+
+    ret = recorder_.StartSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    sleep(5);
+
+    ImageParam image_param{};
+    image_param.width         = width;
+    image_param.height        = height;
+    image_param.image_format  = ImageFormat::kJPEG;
+    image_param.image_quality = default_jpeg_quality_;
+
+    std::vector<CameraMetadata> meta_array;
+    camera_metadata_entry_t entry;
+    CameraMetadata meta;
+
+    ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    CameraMetadata static_meta;
+    ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    meta_array.push_back(meta);
+
+    ASSERT_TRUE (ValidateResFromProcessedSizes(static_meta, image_param.width,
+        image_param.height) != false);
+
+    ImageCaptureCb cb = [&] (uint32_t camera_id, uint32_t image_count,
+                                BufferDescriptor buffer,
+                                MetaData meta_data) -> void
+        { SnapshotCb(camera_id, image_count, buffer, meta_data);
+          pending_count--; };
+
+    ImageConfigParam image_config;
+    ImageExif exif;
+    exif.enable = false;
+    image_config.Update(QMMF_EXIF, exif);
+
+    ret = recorder_.ConfigImageCapture(camera_id_, image_config);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    for (uint32_t i = 1; i <= iteration_count_; i++) {
+      fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
+      TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
+        test_info_->name(), i);
+
+      pending_count++;
+      ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array, cb);
+      ASSERT_TRUE(ret == NO_ERROR);
+      sleep(5);
+    }
+
+    ret = recorder_.CancelCaptureImage(camera_id_);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    // Check if all snapshot are done
+    assert(pending_count == 0);
+
+    sleep(1);
+
+    /************************ Stop Session ************************************/
+
+    ret = recorder_.StopSession(session_id, false);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_yuv1);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_yuv2);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    dump_bitstream_.CloseAll();
+  }
+
+  ret = recorder_.DeleteSession(session_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ClearSessions();
+
+  ret = recorder_.StopCamera(camera_id_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = DeInit();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
+    test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+* SessionWithTwoVGAYUVAndSnapshotVGA: Test two YUV VGA tracks and b2b VGA snapshot
+*
+* Api test sequence:
+*  - StartCamera
+*   loop Start {
+*   ------------------
+*   - CaptureImage - JPEG
+*   ------------------
+*   } loop End
+*  - StopCamera
+*/
+TEST_F(RecorderHal1GTest, SessionWithTwoVGAYUVAndSnapshotVGA) {
+  fprintf(stderr, "\n---------- Run Test %s.%s ------------\n",
+    test_info_->test_case_name(), test_info_->name());
+
+  auto ret = Init();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.StartCamera(camera_id_, 30);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  uint32_t video_track_id_yuv1 = 1;
+  uint32_t video_track_id_yuv2 = 2;
+  int32_t pending_count = 0;
+
+  std::vector<std::pair<uint32_t, uint32_t>> test_res = {
+    {640, 480} };
+
+  SessionCb session_status_cb = CreateSessionStatusCb();
+
+  uint32_t session_id;
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  ASSERT_TRUE(session_id > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  for (auto& res : test_res) {
+    uint32_t width = res.first;
+    uint32_t height = res.second;
+    QMMF_INFO("Test dim: %dx%d", width, height);
+
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo1 = { VideoFormat::kYUV, session_id,
+        video_track_id_yuv1, width, height };
+      ret = dump_bitstream_.SetUp(dumpinfo1);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      StreamDumpInfo dumpinfo2 = { VideoFormat::kYUV, session_id,
+        video_track_id_yuv2, width, height };
+      ret = dump_bitstream_.SetUp(dumpinfo2);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
+    /************************ Create Track 1 ****************************/
+
+    VideoTrackCreateParam video_track_param {
+      camera_id_, VideoFormat::kYUV, width, height, 30 };
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+        std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+          VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers); };
+
+    video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
+                                  void *event_data, size_t event_data_size) {
+        VideoTrackEventCb(track_id, event_type, event_data, event_data_size); };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_yuv1,
+      video_track_param, video_track_cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    std::vector<uint32_t> track_ids;
+    track_ids.push_back(video_track_id_yuv1);
+
+    /************************ Create Track 2 ****************************/
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_yuv2,
+      video_track_param, video_track_cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    track_ids.push_back(video_track_id_yuv2);
+    sessions_.insert(std::make_pair(session_id, track_ids));
+
+    /************************ Start Session ***********************************/
+
+    ret = recorder_.StartSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    sleep(5);
+
+    ImageParam image_param{};
+    image_param.width         = width;
+    image_param.height        = height;
+    image_param.image_format  = ImageFormat::kJPEG;
+    image_param.image_quality = default_jpeg_quality_;
+
+    std::vector<CameraMetadata> meta_array;
+    camera_metadata_entry_t entry;
+    CameraMetadata meta;
+
+    ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    CameraMetadata static_meta;
+    ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    meta_array.push_back(meta);
+
+    ASSERT_TRUE (ValidateResFromProcessedSizes(static_meta, image_param.width,
+        image_param.height) != false);
+
+    ImageCaptureCb cb = [&] (uint32_t camera_id, uint32_t image_count,
+                                BufferDescriptor buffer,
+                                MetaData meta_data) -> void
+        { SnapshotCb(camera_id, image_count, buffer, meta_data);
+          pending_count--; };
+
+    ImageConfigParam image_config;
+    ImageExif exif;
+    exif.enable = false;
+    image_config.Update(QMMF_EXIF, exif);
+
+    ret = recorder_.ConfigImageCapture(camera_id_, image_config);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    for (uint32_t i = 1; i <= iteration_count_; i++) {
+      fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
+      TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
+        test_info_->name(), i);
+
+      pending_count++;
+      ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array, cb);
+      ASSERT_TRUE(ret == NO_ERROR);
+      sleep(5);
+    }
+
+    ret = recorder_.CancelCaptureImage(camera_id_);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    // Check if all snapshot are done
+    assert(pending_count == 0);
+
+    sleep(1);
+
+    /************************ Stop Session ************************************/
+
+    ret = recorder_.StopSession(session_id, false);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_yuv1);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_yuv2);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    dump_bitstream_.CloseAll();
+  }
+
+  ret = recorder_.DeleteSession(session_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ClearSessions();
+
+  ret = recorder_.StopCamera(camera_id_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = DeInit();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
+    test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+* SessionWithYUVTrackAndToggleSnapshotRes: Test one video tracks and toggle
+*                                          snapshot resolutions while streaming.
+*
+* Api test sequence:
+*  - StartCamera
+*   loop Start {
+*   ------------------
+*   - CaptureImage - JPEG
+*   ------------------
+*   } loop End
+*  - StopCamera
+*/
+TEST_F(RecorderHal1GTest, SessionWithYUVTrackAndToggleSnapshotRes) {
+  fprintf(stderr, "\n---------- Run Test %s.%s ------------\n",
+    test_info_->test_case_name(), test_info_->name());
+
+  auto ret = Init();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.StartCamera(camera_id_, 30);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  uint32_t video_track_id_yuv1 = 1;
+  int32_t pending_count = 0;
+
+  std::vector<std::pair<uint32_t, uint32_t>> test_res = {
+    {640, 480},
+    {1280, 720} };
+
+  SessionCb session_status_cb = CreateSessionStatusCb();
+
+  uint32_t session_id;
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  ASSERT_TRUE(session_id > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo1 = { VideoFormat::kYUV, session_id,
+      video_track_id_yuv1, 720, 480 };
+    ret = dump_bitstream_.SetUp(dumpinfo1);
+    ASSERT_TRUE(ret == NO_ERROR);
+  }
+
+  /************************ Create Track 1 ****************************/
+
+  VideoTrackCreateParam video_track_param {
+    camera_id_, VideoFormat::kYUV, 720, 480, 30 };
+
+  TrackCb video_track_cb;
+  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+      std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+        VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers); };
+
+  video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
+                                void *event_data, size_t event_data_size) {
+      VideoTrackEventCb(track_id, event_type, event_data, event_data_size); };
+
+  ret = recorder_.CreateVideoTrack(session_id, video_track_id_yuv1,
+    video_track_param, video_track_cb);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  std::vector<uint32_t> track_ids;
+  track_ids.push_back(video_track_id_yuv1);
+
+  /************************ Start Session ***********************************/
+
+  ret = recorder_.StartSession(session_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  sleep(5);
+
+  ImageParam image_param{};
+  image_param.image_format  = ImageFormat::kJPEG;
+  image_param.image_quality = default_jpeg_quality_;
+
+  std::vector<CameraMetadata> meta_array;
+  camera_metadata_entry_t entry;
+  CameraMetadata meta;
+
+  ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  CameraMetadata static_meta;
+  ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  meta_array.push_back(meta);
+
+  ImageCaptureCb cb = [&] (uint32_t camera_id, uint32_t image_count,
+                              BufferDescriptor buffer,
+                              MetaData meta_data) -> void
+      { SnapshotCb(camera_id, image_count, buffer, meta_data);
+        pending_count--; };
+
+  ImageConfigParam image_config;
+  ImageExif exif;
+  exif.enable = false;
+  image_config.Update(QMMF_EXIF, exif);
+
+  ret = recorder_.ConfigImageCapture(camera_id_, image_config);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  for (uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
+      test_info_->name(), i);
+
+    for (auto& res : test_res) {
+      image_param.width  = res.first;
+      image_param.height = res.second;
+      QMMF_INFO("Test dim: %dx%d", res.first, res.second);
+
+      ASSERT_TRUE (ValidateResFromProcessedSizes(static_meta, image_param.width,
+          image_param.height) != false);
+
+      pending_count++;
+      ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array, cb);
+      ASSERT_TRUE(ret == NO_ERROR);
+      sleep(5);
+
+      pending_count++;
+      ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array, cb);
+      ASSERT_TRUE(ret == NO_ERROR);
+      sleep(5);
+    }
+  }
+
+  ret = recorder_.CancelCaptureImage(camera_id_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  // Check if all snapshot are done
+  assert(pending_count == 0);
+
+  sleep(1);
+
+  /************************ Stop Session ************************************/
+
+  ret = recorder_.StopSession(session_id, false);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.DeleteVideoTrack(session_id, video_track_id_yuv1);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+
+  dump_bitstream_.CloseAll();
+
+  ret = recorder_.DeleteSession(session_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ClearSessions();
+
+  ret = recorder_.StopCamera(camera_id_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = DeInit();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
+    test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+* SessionWithYUVTrackAndSnapshot: Test one video tracks and snapshot with
+*                                 multiple resolutions.
+* Api test sequence:
+*  - StartCamera
+*   loop Start {
+*   ------------------
+*   - CaptureImage - JPEG
+*   ------------------
+*   } loop End
+*  - StopCamera
+*/
+TEST_F(RecorderHal1GTest, SessionWithYUVTrackAndSnapshot) {
+  fprintf(stderr, "\n---------- Run Test %s.%s ------------\n",
+    test_info_->test_case_name(), test_info_->name());
+
+  auto ret = Init();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.StartCamera(camera_id_, 30);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  uint32_t video_track_id_yuv1 = 1;
+  int32_t pending_count = 0;
+
+  std::vector<std::pair<uint32_t, uint32_t>> test_res = {
+    {640, 480},
+    {720, 480},
+    {1280, 720} };
+
+  SessionCb session_status_cb = CreateSessionStatusCb();
+
+  uint32_t session_id;
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  ASSERT_TRUE(session_id > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  for (auto& res : test_res) {
+    uint32_t width = res.first;
+    uint32_t height = res.second;
+    QMMF_INFO("Test dim: %dx%d", width, height);
+
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo1 = { VideoFormat::kYUV, session_id,
+        video_track_id_yuv1, width, height };
+      ret = dump_bitstream_.SetUp(dumpinfo1);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
+    /************************ Create Track 1 ****************************/
+
+    VideoTrackCreateParam video_track_param {
+      camera_id_, VideoFormat::kYUV, width, height, 30 };
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+        std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+          VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers); };
+
+    video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
+                                  void *event_data, size_t event_data_size) {
+        VideoTrackEventCb(track_id, event_type, event_data, event_data_size); };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_yuv1,
+      video_track_param, video_track_cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    std::vector<uint32_t> track_ids;
+    track_ids.push_back(video_track_id_yuv1);
+
+    /************************ Start Session ***********************************/
+
+    ret = recorder_.StartSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    sleep(5);
+
+    ImageParam image_param{};
+    image_param.width         = width;
+    image_param.height        = height;
+    image_param.image_format  = ImageFormat::kJPEG;
+    image_param.image_quality = default_jpeg_quality_;
+
+    std::vector<CameraMetadata> meta_array;
+    camera_metadata_entry_t entry;
+    CameraMetadata meta;
+
+    ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    CameraMetadata static_meta;
+    ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    meta_array.push_back(meta);
+
+    ASSERT_TRUE (ValidateResFromProcessedSizes(static_meta, image_param.width,
+        image_param.height) != false);
+
+    ImageCaptureCb cb = [&] (uint32_t camera_id, uint32_t image_count,
+                                BufferDescriptor buffer,
+                                MetaData meta_data) -> void
+        { SnapshotCb(camera_id, image_count, buffer, meta_data);
+          pending_count--; };
+
+    ImageConfigParam image_config;
+    ImageExif exif;
+    exif.enable = false;
+    image_config.Update(QMMF_EXIF, exif);
+
+    ret = recorder_.ConfigImageCapture(camera_id_, image_config);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    for (uint32_t i = 1; i <= iteration_count_; i++) {
+      fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
+      TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
+        test_info_->name(), i);
+
+      pending_count++;
+      ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array, cb);
+      ASSERT_TRUE(ret == NO_ERROR);
+      sleep(5);
+    }
+
+    ret = recorder_.CancelCaptureImage(camera_id_);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    // Check if all snapshot are done
+    assert(pending_count == 0);
+
+    sleep(1);
+
+    /************************ Stop Session ************************************/
+
+    ret = recorder_.StopSession(session_id, false);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_yuv1);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+
+    dump_bitstream_.CloseAll();
+  }
+
+  ret = recorder_.DeleteSession(session_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ClearSessions();
+
+  ret = recorder_.StopCamera(camera_id_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = DeInit();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
+    test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+* SessionWithTwoYUVTracksAndSnapshot: Test two video tracks and snapshot with
+*                                     multiple resolutions.
+*
+* Api test sequence:
+*  - StartCamera
+*   loop Start {
+*   ------------------
+*   - CaptureImage - JPEG
+*   ------------------
+*   } loop End
+*  - StopCamera
+*/
+TEST_F(RecorderHal1GTest, SessionWithTwoYUVTracksAndSnapshot) {
+  fprintf(stderr, "\n---------- Run Test %s.%s ------------\n",
+    test_info_->test_case_name(), test_info_->name());
+
+  auto ret = Init();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.StartCamera(camera_id_, 30);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  uint32_t video_track_id_yuv1 = 1;
+  uint32_t video_track_id_yuv2 = 2;
+  int32_t pending_count = 0;
+
+  std::vector<std::pair<uint32_t, uint32_t>> test_res = {
+    {640, 480},
+    {720, 480},
+    {1280, 720} };
+
+  SessionCb session_status_cb = CreateSessionStatusCb();
+
+  uint32_t session_id;
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  ASSERT_TRUE(session_id > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  for (auto& res : test_res) {
+    uint32_t width = res.first;
+    uint32_t height = res.second;
+    QMMF_INFO("Test dim: %dx%d", width, height);
+
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo1 = { VideoFormat::kYUV, session_id,
+        video_track_id_yuv1, width, height };
+      ret = dump_bitstream_.SetUp(dumpinfo1);
+      ASSERT_TRUE(ret == NO_ERROR);
+
+      StreamDumpInfo dumpinfo2 = { VideoFormat::kYUV, session_id,
+        video_track_id_yuv2, width, height };
+      ret = dump_bitstream_.SetUp(dumpinfo2);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
+    /************************ Create Track 1 ****************************/
+
+    VideoTrackCreateParam video_track_param {
+      camera_id_, VideoFormat::kYUV, width, height, 30 };
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+        std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+          VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers); };
+
+    video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
+                                  void *event_data, size_t event_data_size) {
+        VideoTrackEventCb(track_id, event_type, event_data, event_data_size); };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_yuv1,
+      video_track_param, video_track_cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    std::vector<uint32_t> track_ids;
+    track_ids.push_back(video_track_id_yuv1);
+
+    /************************ Create Track 2 ****************************/
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_yuv2,
+      video_track_param, video_track_cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    track_ids.push_back(video_track_id_yuv2);
+    sessions_.insert(std::make_pair(session_id, track_ids));
+
+    /************************ Start Session ***********************************/
+
+    ret = recorder_.StartSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    sleep(5);
+
+    ImageParam image_param{};
+    image_param.width         = width;
+    image_param.height        = height;
+    image_param.image_format  = ImageFormat::kJPEG;
+    image_param.image_quality = default_jpeg_quality_;
+
+    std::vector<CameraMetadata> meta_array;
+    camera_metadata_entry_t entry;
+    CameraMetadata meta;
+
+    ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    CameraMetadata static_meta;
+    ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    meta_array.push_back(meta);
+
+    ASSERT_TRUE (ValidateResFromProcessedSizes(static_meta, image_param.width,
+        image_param.height) != false);
+
+    ImageCaptureCb cb = [&] (uint32_t camera_id, uint32_t image_count,
+                                BufferDescriptor buffer,
+                                MetaData meta_data) -> void
+        { SnapshotCb(camera_id, image_count, buffer, meta_data);
+          pending_count--; };
+
+    ImageConfigParam image_config;
+    ImageExif exif;
+    exif.enable = false;
+    image_config.Update(QMMF_EXIF, exif);
+
+    ret = recorder_.ConfigImageCapture(camera_id_, image_config);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    for (uint32_t i = 1; i <= iteration_count_; i++) {
+      fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
+      TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
+        test_info_->name(), i);
+
+      pending_count++;
+      ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array, cb);
+      ASSERT_TRUE(ret == NO_ERROR);
+      sleep(5);
+    }
+
+    ret = recorder_.CancelCaptureImage(camera_id_);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    // Check if all snapshot are done
+    assert(pending_count == 0);
+
+    sleep(1);
+
+    /************************ Stop Session ************************************/
+
+    ret = recorder_.StopSession(session_id, false);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_yuv1);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_yuv2);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    dump_bitstream_.CloseAll();
+  }
+
+  ret = recorder_.DeleteSession(session_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ClearSessions();
+
+  ret = recorder_.StopCamera(camera_id_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = DeInit();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
+    test_info_->test_case_name(), test_info_->name());
+}

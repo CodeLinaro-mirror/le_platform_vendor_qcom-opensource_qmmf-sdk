@@ -112,6 +112,11 @@ class CameraContext : public CameraInterface {
 
   std::vector<int32_t>& GetSupportedFps() override;
 
+  status_t PopulateMetaInfo(CameraBufferMetaData &info, IBufferHandle &handle,
+                            uint32_t width, uint32_t height);
+
+  status_t SnapshotCallback(const camera_memory_t *data, int64_t timestamp = 0);
+
   status_t ReturnStreamBuffer(StreamBuffer buffer);
 
   const char *FromQmmfToHalFormat_hal1(const BufferFormat &format);
@@ -124,6 +129,8 @@ class CameraContext : public CameraInterface {
 
   status_t ApplyParameters();
 
+  status_t ValidateCaptureConfig(const ImageConfigParam &config);
+
   sp<IBufferProducer>      buffer_producer_impl_;
   std::mutex               buffer_lock_;
   void*                    camera_device_;
@@ -134,6 +141,8 @@ private:
 
   friend class PreviewPort;
   friend class VideoPort;
+
+  uint32_t                 sequence_cnt_;
 
   uint32_t                 camera_id_;
   ResultCb                 result_cb_;
@@ -179,6 +188,19 @@ private:
   status_t ParsePair(const char *str, int *first, int *second, char delim,
                      char **endptr = NULL);
   status_t ParseList(const char *list, std::vector<std::string> &sizes);
+
+  // Maps of buffer Id and Buffer.
+  std::map<uint32_t, StreamBuffer> snapshot_buffer_list_;
+  std::map<uint32_t, const camera_memory_t *> snapshot_hal_buff_list_;
+  uint32_t                         snapshot_frame_id_;
+
+
+  SnapshotMode                  snapshot_type_;
+  SnapshotMode                  new_snapshot_type_;
+  std::mutex                    capture_lock_;
+  SnapshotParam                 snapshot_param_;
+  StreamSnapshotCb              client_snapshot_cb_;
+  uint32_t                      capture_cnt_;
 };
 
 enum class CameraPortType {
@@ -214,8 +236,6 @@ public:
   void StreamCallback(const void *data, int64_t timestamp);
 
   status_t release_frame(const void *opaque);
-
-  status_t PopulateMetaInfo(CameraBufferMetaData &info, IBufferHandle &handle);
 
   QCondition             wait_for_buffer_;
   int32_t                buffer_count_;
