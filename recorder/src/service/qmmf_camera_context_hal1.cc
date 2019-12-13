@@ -1239,6 +1239,7 @@ status_t CameraContext::ReturnImageCaptureBuffer(const uint32_t camera_id,
   alloc_device_interface_->FreeBuffer(buffer.handle);
 
   snapshot_buffer_list_.erase(buffer_id);
+  snapshot_hal_buff_list_.erase(buffer_id);
 
   ((camera_device_t *)camera_device_)->ops->release_snapshot_frame(
     (camera_device_t *)camera_device_, data);
