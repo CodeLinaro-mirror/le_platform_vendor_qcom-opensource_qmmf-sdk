@@ -1751,6 +1751,7 @@ status_t PreviewPort::Init(const StreamParam& param) {
 
   context_->mParameters_.set("recording-hint", "false");
   context_->mParameters_.set("store-meta-data-in-buffers", "true");
+  context_->mParameters_.set("zsl", "on");
   ((camera_device_t *)context_->camera_device_)->ops->store_meta_data_in_buffers((camera_device_t *)context_->camera_device_, true);
 
   assert(context_ != nullptr);
@@ -1819,6 +1820,7 @@ status_t VideoPort::Init(const StreamParam& param) {
 
   context_->mParameters_.set("recording-hint", "true");
   context_->mParameters_.set("store-meta-data-in-buffers", "true");
+  context_->mParameters_.set("zsl", "off");
   ((camera_device_t *)context_->camera_device_)->ops->store_meta_data_in_buffers((camera_device_t *)context_->camera_device_, true);
 
   assert(context_ != nullptr);
