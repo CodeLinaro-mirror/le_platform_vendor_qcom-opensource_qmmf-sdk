@@ -41,6 +41,8 @@
 
 #define FPS_TIME_INTERVAL 3000000
 
+#define REMAP_ALL_BUFFERS 0x55555555
+
 //#define NO_FRAME_PROCESS
 
 // Enable DUMP_BITSTREAM to enable encoded data at TrackEncoder layer.
