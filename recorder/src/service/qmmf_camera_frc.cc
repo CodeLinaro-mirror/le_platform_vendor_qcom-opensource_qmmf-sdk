@@ -45,6 +45,7 @@ namespace recorder {
 #define FRC_FRAME_RATE_TIMEBASE      1000000000.0f // 1 second
 #define FRC_FPS_MEASUREMENT_INTERVAL 3000000000    // 3 seconds
 #define FRC_THRESHOLD                0.5f          // 50% skip/repeat threshold
+#define FRC_TS_DELTA                 0.01f         // 1% Delta
 
 // Property to enable FRC debugging.
 #define FRC_DEBUG_PROPERTY       "persist.qmmf.rec.frc.debug"
@@ -284,11 +285,16 @@ void FrameRateController::OnFrameAvailable(StreamBuffer& buffer) {
     }
     // Timestamp difference between the frames coming from camera are not
     // exactly equidistant. Actual time from camera is actually SOF minus
-    // some line delta. After a certain point the difference between expected
+    // line delta. After a certain point the difference between expected
     // time stamp and frame time stamp will be more than the threshold.
 
     auto timestamp_delta = expected_output_ts_ - buffer.timestamp;
-    if (timestamp_delta > 0) {
+
+    // We are considering here only early frame arrival by 1% time
+    // stamp delta.
+    if (timestamp_delta > 0 &&
+        (timestamp_delta <
+         (std::llround(FRC_TS_DELTA * output_frame_interval_)))) {
       expected_output_ts_ -= timestamp_delta;
     }
     // Increment the expected frame timestamp value.
