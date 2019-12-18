@@ -1451,6 +1451,22 @@ void RecorderClient::ServiceDeathHandler() {
 void RecorderClient::NotifyRecorderEvent(EventType event_type, void *event_data,
                                          size_t event_data_size) {
   QMMF_DEBUG("%s Enter ", __func__);
+
+  RecorderErrorData *errdata = (RecorderErrorData *)event_data;
+  if (errdata != nullptr && errdata->error_code == REMAP_ALL_BUFFERS) {
+    for (auto& iter : track_buffers_map_) {
+      uint32_t track_id = iter.first;
+      for (auto& pair : track_buffers_map_[track_id]) {
+        auto& buffer_info = pair.second;
+        auto ret = UnmapBuffer(buffer_info);
+        if (NO_ERROR != ret) {
+          QMMF_ERROR("%s Failed to unmap buffer!", __func__);
+        }
+      }
+      track_buffers_map_.erase(track_id);
+    }
+  }
+
   if (recorder_cb_.event_cb != nullptr) {
     recorder_cb_.event_cb(event_type, event_data, event_data_size);
   }
@@ -2602,6 +2618,15 @@ class BpRecorderServiceCallback: public BpInterface<IRecorderServiceCallback> {
       memset(blob.data(), 0x0, event_data_size);
       memcpy(blob.data(), event_data, event_data_size);
     }
+
+    RecorderErrorData *errdata = (RecorderErrorData *)event_data;
+    if (errdata != nullptr && errdata->error_code == REMAP_ALL_BUFFERS) {
+      for (auto& iter : track_buffers_map_) {
+        uint32_t track_id = iter.first;
+        track_buffers_map_.erase(track_id);
+      }
+    }
+
     remote()->transact(
         uint32_t(RECORDER_SERVICE_CB_CMDS::RECORDER_NOTIFY_EVENT),
         data, &reply, IBinder::FLAG_ONEWAY);

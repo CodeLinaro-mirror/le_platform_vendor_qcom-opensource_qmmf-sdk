@@ -137,6 +137,10 @@ class CameraContext : public CameraInterface {
 
   IAllocDevice*            alloc_device_interface_;
 
+  uint32_t                 camera_id_;
+  ResultCb                 result_cb_;
+  ErrorCb                  error_cb_;
+
 private:
 
   friend class PreviewPort;
@@ -144,9 +148,6 @@ private:
 
   uint32_t                 sequence_cnt_;
 
-  uint32_t                 camera_id_;
-  ResultCb                 result_cb_;
-  ErrorCb                  error_cb_;
   FlushCb                  flush_cb_;
 
   CameraMetadata           metadata_;
@@ -193,7 +194,6 @@ private:
   std::map<uint32_t, StreamBuffer> snapshot_buffer_list_;
   std::map<uint32_t, const camera_memory_t *> snapshot_hal_buff_list_;
   uint32_t                         snapshot_frame_id_;
-
 
   SnapshotMode                  snapshot_type_;
   SnapshotMode                  new_snapshot_type_;
