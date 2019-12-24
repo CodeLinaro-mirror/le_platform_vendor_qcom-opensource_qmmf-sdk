@@ -175,8 +175,15 @@ status_t CameraContext::CreateSnapshotStream(const SnapshotParam& param) {
                                     IMemAllocUsage::kSwReadOften;
   stream_param.cb           = GetStreamCb(param);
 
-  // For kNV12Encodable buffer format, set the encoder usage flag.
-  if (param.format == BufferFormat::kNV12Encodable) {
+  // Camx supports HAL_PIXEL_FORMAT_YCbCr_420_888  format.
+  // Differentiation between NV21 vs NV12 is dependant on kSwReadOften flag.
+  if (param.format == BufferFormat::kNV12) {
+    stream_param.allocFlags.flags &= ~IMemAllocUsage::kSwReadOften;
+  }
+
+  // For kNV12Encodable, NV12 buffer format, set the encoder usage flag.
+  if (param.format == BufferFormat::kNV12Encodable ||
+      param.format == BufferFormat::kNV12) {
     stream_param.allocFlags.flags |= IMemAllocUsage::kVideoEncoder;
   }
 
