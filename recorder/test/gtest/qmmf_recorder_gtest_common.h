@@ -576,6 +576,10 @@ class GtestCommon : public ::testing::Test {
                            std::vector<BufferDescriptor> buffers,
                            std::vector<MetaData> meta_buffers);
 
+  void VideoTrackRawDataCb(uint32_t session_id, uint32_t track_id,
+                           std::vector<BufferDescriptor> buffers,
+                           std::vector<MetaData> meta_buffers);
+
   void VideoTrackEncDataCb(uint32_t session_id, uint32_t track_id,
                               std::vector<BufferDescriptor> &buffers,
                               std::vector<MetaData> &meta_buffers);

@@ -32,6 +32,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <camera/CameraMetadata.h>
+#include <ios>
 #include <random>
 
 #include "recorder/test/gtest/qmmf_recorder_gtest_common.h"
@@ -39,6 +40,10 @@
 #ifndef CAMERA_HAL1_SUPPORT
 using namespace qcamera;
 #endif
+
+using ::std::ios;
+using ::std::ofstream;
+using ::std::streampos;
 
 const std::string GtestCommon::kQmmfFolderPath = "/data/misc/qmmf/";
 
@@ -695,6 +700,72 @@ void GtestCommon::VideoTrackEventCb(uint32_t track_id,
                                     size_t event_data_size) {
     TEST_DBG("%s: Enter", __func__);
     TEST_DBG("%s: Exit", __func__);
+}
+
+void GtestCommon::VideoTrackRawDataCb(uint32_t session_id, uint32_t track_id,
+                                      std::vector<BufferDescriptor> buffers,
+                                      std::vector<MetaData> meta_buffers) {
+  TEST_DBG("%s: Enter track_id: %d", __func__, track_id);
+  if (is_dump_raw_enabled_) {
+    static uint32_t fcounter = 0;
+    ++fcounter;
+
+    if (fcounter == dump_yuv_freq_) {
+      std::string file_path("/data/misc/qmmf/gtest_track_");
+      std::string ext_str;
+      file_path += std::to_string(track_id) + "_";
+      file_path += std::to_string(buffers[0].timestamp);
+      file_path += ".";
+      switch (meta_buffers[0].cam_buffer_meta_data.format) {
+        case BufferFormat::kRAW8:
+          ext_str = "raw8";
+          break;
+        case BufferFormat::kRAW10:
+          ext_str = "raw10";
+          break;
+        case BufferFormat::kRAW12:
+          ext_str = "raw12";
+          break;
+        case BufferFormat::kRAW16:
+          ext_str = "raw16";
+          break;
+        default:
+          ext_str = "raw";
+          break;
+      }
+      file_path += ext_str;
+      streampos before, after;
+      ofstream out_file(file_path.c_str(), ios::out | ios::binary |
+                        ios::trunc);
+      if (!out_file.is_open()) {
+        TEST_DBG("%s: error opening file[%s]", __func__, filename.c_str());
+        goto FAIL;
+      }
+
+      before = out_file.tellp();
+      out_file.write(reinterpret_cast<const char *>(buffers[0].data),
+                     buffers[0].size);
+      after = out_file.tellp();
+      if (buffers[0].size != (after - before)) {
+        TEST_ERROR("%s: Bad Write error (%d):(%s)\n", __func__, errno,
+                   strerror(errno));
+        goto FAIL;
+      }
+      TEST_INFO("%s: Buffer(0x%p) Size(%u) Stored@(%s)\n", __func__,
+                buffers[0].data, (after - before), file_path.c_str());
+
+    FAIL:
+      if (out_file.is_open()) {
+        out_file.close();
+      }
+
+      fcounter = 0;
+    }
+  }
+  auto ret = recorder_.ReturnTrackBuffer(session_id, track_id, buffers);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  TEST_DBG("%s: Exit", __func__);
 }
 
 void GtestCommon::SnapshotCb(uint32_t camera_id,
