@@ -406,9 +406,7 @@ class TrackSource : public ICodecSource {
 
   uint32_t CalculateEncodesPerFrame();
 
-#ifdef ENABLE_FRAME_DUMP
-  status_t DumpYUV(StreamBuffer& buffer);
-#endif
+  void DumpYUV(StreamBuffer& buffer);
 
   void ReturnBufferToProducer(StreamBuffer& buffer);
 
@@ -496,6 +494,7 @@ class TrackSource : public ICodecSource {
   int32_t rotation_;
   uint64_t wait_duration_;
   static const uint32_t kWaitNumFrames_;
+  uint32_t yuv_dump_freq_;
   /// @endcond
 };
 

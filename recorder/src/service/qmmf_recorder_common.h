@@ -39,11 +39,6 @@
 
 #define FRAME_DUMP_PATH        "/data/misc/qmmf"
 
-// Enable ENABLE_FRAME_DUMP to dump YUV frame at TrackSource level. it will
-// Start dumping every 100th frame for all active tracks, and file name
-// Would be track_(track_id)_(timestamp).yuv
-//#define ENABLE_FRAME_DUMP
-
 #define FPS_TIME_INTERVAL 3000000
 
 //#define NO_FRAME_PROCESS

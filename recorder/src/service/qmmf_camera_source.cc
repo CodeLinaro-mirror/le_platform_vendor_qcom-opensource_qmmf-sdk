@@ -1251,6 +1251,10 @@ TrackSource::TrackSource(const VideoTrackParams& params,
       num_consumers_(0),
       rotation_(0) {
   QMMF_GET_LOG_LEVEL();
+  char prop[PROPERTY_VALUE_MAX];
+  memset(prop, 0, sizeof(prop));
+  property_get("persist.qmmf.yuv.dump.freq", prop, "0");
+  yuv_dump_freq_ = atoi(prop);
 
   BufferConsumerImpl<TrackSource> *impl;
   impl = new BufferConsumerImpl<TrackSource>(this);
@@ -1927,9 +1931,9 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
     overlay_.ApplyOverlay(overlay_buf);
   }
 #endif
-#ifdef ENABLE_FRAME_DUMP
-  DumpYUV(buffer);
-#endif
+  if (yuv_dump_freq_ > 0) {
+    DumpYUV(buffer);
+  }
 
   {
     std::lock_guard<std::mutex> lk(consumer_lock_);
@@ -2254,13 +2258,12 @@ void TrackSource::NotifyBufferReturned(StreamBuffer& buffer) {
   ReturnBufferToProducer(buffer);
 }
 
-#ifdef ENABLE_FRAME_DUMP
-status_t TrackSource::DumpYUV(StreamBuffer& buffer) {
+void TrackSource::DumpYUV(StreamBuffer& buffer) {
 
   static uint32_t id;
   ++id;
-  // Dump every 100th frame.
-  if (id == 100) {
+
+  if (id == yuv_dump_freq_) {
 
     void *buf_vaaddr = mmap(nullptr, buffer.size, PROT_READ  | PROT_WRITE,
                             MAP_SHARED, buffer.fd, 0);
@@ -2302,7 +2305,6 @@ FAIL:
     id = 0;
   }
 }
-#endif
 
 }; //namespace recorder
 
