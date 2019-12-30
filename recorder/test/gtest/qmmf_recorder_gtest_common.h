@@ -245,6 +245,8 @@ struct FaceInfo {
 #define PROP_SENSOR_CONFIG_FILE     "persist.qmmf.sensor.mode.file"
 // Prop to measure SOF latency
 #define PROP_MEASURE_SOF_LATENCY    "persist.qmmf.rec.gtest.sof.ts"
+// Prop to set Auto Focus mode
+#define PROP_AF_MODE                "persist.qmmf.rec.gtest.af.mode"
 
 #ifndef MAX
 #define MAX(a,b) ((a) > (b) ? (a) : (b))
@@ -817,6 +819,7 @@ class GtestCommon : public ::testing::Test {
 #endif
 
   bool                  enable_sof_latency_;
+  uint8_t               af_mode_;
 #ifndef CAMERA_HAL1_SUPPORT
 #ifdef QCAMERA3_TAG_LOCAL_COPY
   sp<VendorTagDescriptor> vendor_tag_desc_;

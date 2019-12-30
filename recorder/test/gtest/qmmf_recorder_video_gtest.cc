@@ -15417,4 +15417,177 @@ TEST_F(VideoGtest, SessionWithThreeConcurrentCam1080pEncAndMaxRawStream) {
           test_info_->test_case_name(), test_info_->name());
 }
 
+/*
+* SessionWith1080pEncTrackWithAFModeSet: This test will test session with 1080p
+*                                        h264 track with AF mode set.
+* API test sequence:
+*  - StartCamera
+*   loop Start {
+*   ------------------
+*   - CreateSession
+*   - CreateVideoTrack
+*   - StartSession
+*   - Set AF Mode
+*   - StopSession
+*   - DeleteVideoTrack
+*   - DeleteSession
+*   ------------------
+*   } loop End
+*  - StopCamera
+*/
+TEST_F(VideoGtest, SessionWith1080pEncTrackWithAFModeSet) {
+  fprintf(stderr, "\n---------- Run Test %s.%s ------------\n",
+          test_info_->test_case_name(), test_info_->name());
+
+  auto ret = Init();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  VideoFormat format_type = VideoFormat::kAVC;
+  uint32_t width = 1920;
+  uint32_t height = 1080;
+  bool check_af_mode = false;
+
+  CameraResultCb result_cb = [&](uint32_t camera_id,
+                                 const CameraMetadata &result) {
+    if (result.exists(ANDROID_CONTROL_AF_MODE)) {
+      static bool is_first_time = true;
+      if (is_first_time) {
+        fprintf(stderr, "Current AF Mode in the beginning: %u \n",
+                result.find(ANDROID_CONTROL_AF_MODE).data.i32[0]);
+        is_first_time = false;
+      }
+      if (check_af_mode) {
+        fprintf(stderr, "Current AF Mode after setting : %u \n",
+                result.find(ANDROID_CONTROL_AF_MODE).data.i32[0]);
+        check_af_mode = false;
+      }
+    }
+  };
+  CameraExtraParam empty_extra_params;
+  ret = recorder_.StartCamera(camera_id_, 30, empty_extra_params, result_cb);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  for (uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
+              test_info_->name(), i);
+
+    SessionCb session_status_cb = CreateSessionStatusCb();
+    uint32_t session_id;
+    ret = recorder_.CreateSession(session_status_cb, &session_id);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
+    VideoTrackCreateParam video_track_param{camera_id_, format_type, width,
+                                            height, 30};
+    uint32_t video_track_id = 1;
+
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo = {format_type, session_id, video_track_id, width,
+                                 height};
+      ret = dump_bitstream_.SetUp(dumpinfo);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&, session_id](
+        uint32_t track_id, std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
+    };
+
+    video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
+                                  void *event_data, size_t event_data_size) {
+      VideoTrackEventCb(track_id, event_type, event_data, event_data_size);
+    };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                     video_track_param, video_track_cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    std::vector<uint32_t> track_ids;
+    track_ids.push_back(video_track_id);
+    sessions_.insert(std::make_pair(session_id, track_ids));
+
+    ret = recorder_.StartSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+    sleep(record_duration_ / 2);
+
+    CameraMetadata meta;
+    ret = recorder_.GetCameraParam(camera_id_, meta);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    if (meta.exists(ANDROID_CONTROL_AF_MODE)) {
+      uint8_t mode;
+
+      //        |ANDROID Tag|                        |AF Mode Value|
+      // ANDROID_CONTROL_AF_MODE_OFF                : 0
+      // ANDROID_CONTROL_AF_MODE_AUTO               : 1
+      // ANDROID_CONTROL_AF_MODE_MACRO              : 2
+      // ANDROID_CONTROL_AF_MODE_CONTINUOUS_VIDEO   : 3
+      // ANDROID_CONTROL_AF_MODE_CONTINUOUS_PICTURE : 4
+      // ANDROID_CONTROL_AF_MODE_EDOF               : 5
+
+      switch (af_mode_) {
+        case 0:
+          mode = ANDROID_CONTROL_AF_MODE_OFF;
+          fprintf(stderr, "Setting ANDROID_CONTROL_AF_MODE_OFF  Mode \n");
+          break;
+        case 1:
+          mode = ANDROID_CONTROL_AF_MODE_AUTO;
+          fprintf(stderr, "Setting ANDROID_CONTROL_AF_MODE_AUTO  Mode \n");
+          break;
+        case 2:
+          mode = ANDROID_CONTROL_AF_MODE_MACRO;
+          fprintf(stderr, "Setting ANDROID_CONTROL_AF_MODE_MACRO  Mode \n");
+          break;
+        case 3:
+          mode = ANDROID_CONTROL_AF_MODE_CONTINUOUS_VIDEO;
+          fprintf(stderr,
+                  "Setting ANDROID_CONTROL_AF_MODE_CONTINUOUS_VIDEO  Mode \n");
+          break;
+        case 4:
+          mode = ANDROID_CONTROL_AF_MODE_CONTINUOUS_PICTURE;
+          fprintf(stderr,
+              "Setting ANDROID_CONTROL_AF_MODE_CONTINUOUS_PICTURE  Mode \n");
+          break;
+        case 5:
+          mode = ANDROID_CONTROL_AF_MODE_EDOF;
+          fprintf(stderr, "Setting ANDROID_CONTROL_AF_MODE_EDOF  Mode \n");
+          break;
+        default:
+          fprintf(stderr, "AF mode value not supported. Please use value 0-5");
+          ASSERT_TRUE(0);
+      }
+      meta.update(ANDROID_CONTROL_AF_MODE, &mode, 1);
+      ret = recorder_.SetCameraParam(camera_id_, meta);
+      ASSERT_TRUE(ret == NO_ERROR);
+      sleep(1);
+      check_af_mode = true;
+    } else {
+      fprintf(stderr, "ANDROID_CONTROL_AF_MODE does not exist.");
+      ASSERT_TRUE(0);
+    }
+
+    sleep(record_duration_ / 2);
+    ret = recorder_.StopSession(session_id, false);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    dump_bitstream_.CloseAll();
+  }
+  ret = recorder_.StopCamera(camera_id_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = DeInit();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
+}
+
 #endif

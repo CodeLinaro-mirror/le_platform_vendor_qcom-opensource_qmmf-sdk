@@ -472,6 +472,8 @@ void GtestCommon::SetUp() {
   sensor_mode_file_name_ = std::string(prop_val);
   property_get(PROP_MEASURE_SOF_LATENCY, prop_val, "0");
   enable_sof_latency_ = (atoi(prop_val) == 0) ? false : true;
+  property_get(PROP_AF_MODE, prop_val, "0");
+  af_mode_ = atoi(prop_val);
 
   display_started_ = false;
 #ifndef DISABLE_DISPLAY
