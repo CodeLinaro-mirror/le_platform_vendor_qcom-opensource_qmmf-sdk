@@ -6697,4 +6697,103 @@ TEST_F(RecorderPostprocessVideoGTest,
   fprintf(stderr,"---------- Test Completed %s.%s ----------\n",
       test_info_->test_case_name(), test_info_->name());
 }
+
+/*
+* SessionWith1080pEncWithSHDR: This test will verify single session containing
+* This test will verify single session containing 1080p AVC track with
+* SHDR enabled. Only for hardware supporting SHDR.
+* API test sequence:
+*   - StartCamera
+*   - CreateSession
+*   - CreateVideoTrack (Add ExtraParam for SHDR)
+*   - StartSession
+*   - StopSession
+*   - DeleteVideoTrack
+*   - DeleteSession
+*  -  StopCamera
+*/
+TEST_F(RecorderPostprocessVideoGTest, SessionWith1080pEncWithSHDR) {
+  fprintf(stderr, "\n---------- Run Test %s.%s ------------\n",
+          test_info_->test_case_name(), test_info_->name());
+
+  auto ret = Init();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  VideoFormat format_type = VideoFormat::kAVC;
+  uint32_t width = 1920;
+  uint32_t height = 1080;
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  SessionCb session_status_cb = CreateSessionStatusCb();
+  uint32_t session_id;
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  ASSERT_TRUE(session_id > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  VideoTrackCreateParam video_track_param{camera_id_, format_type, width,
+                                          height, 30};
+  uint32_t video_track_id = 1;
+
+  // Setting Enable HDR Extra Param
+  VideoExtraParam extra_param;
+  VideoHDRMode vid_hdr_mode;
+  vid_hdr_mode.enable = true;
+  extra_param.Update(QMMF_VIDEO_HDR_MODE, vid_hdr_mode);
+
+  if (dump_bitstream_.IsEnabled()) {
+    StreamDumpInfo dumpinfo = {format_type, session_id, video_track_id, width,
+                               height};
+    ret = dump_bitstream_.SetUp(dumpinfo);
+    ASSERT_TRUE(ret == NO_ERROR);
+  }
+
+  TrackCb video_track_cb;
+  video_track_cb.data_cb = [&, session_id](
+      uint32_t track_id, std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+    VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
+  };
+
+  video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
+                                void *event_data, size_t event_data_size) {
+    VideoTrackEventCb(track_id, event_type, event_data, event_data_size);
+  };
+
+  ret =
+      recorder_.CreateVideoTrack(session_id, video_track_id, video_track_param,
+                                 extra_param, video_track_cb);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  std::vector<uint32_t> track_ids;
+  track_ids.push_back(video_track_id);
+  sessions_.insert(std::make_pair(session_id, track_ids));
+
+  ret = recorder_.StartSession(session_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  sleep(record_duration_);
+
+  ret = recorder_.StopSession(session_id, false);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.DeleteSession(session_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ClearSessions();
+
+  ret = recorder_.StopCamera(camera_id_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = DeInit();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  dump_bitstream_.CloseAll();
+  fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
+}
+
 #endif
