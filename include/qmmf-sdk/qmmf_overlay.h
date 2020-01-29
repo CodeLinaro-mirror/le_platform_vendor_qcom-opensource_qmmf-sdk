@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, 2018-2019, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016, 2018-2020 The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -43,6 +43,28 @@ namespace qmmf {
 namespace overlay {
 
 #define MAX_STRING_LENGTH 128
+
+#if USE_SKIA
+static const uint32_t kColorRed        = 0xFFFF0000;
+static const uint32_t kColorLightGray  = 0xFFCCCCCC;
+static const uint32_t kColorDarkGray   = 0x202020FF;
+static const uint32_t kColorYellow     = 0xFFFF00FF;
+static const uint32_t kColorBlue       = 0x0000CCFF;
+static const uint32_t kColorWhilte     = 0xFFFFFFFF;
+static const uint32_t kColorOrange     = 0xFF8000FF;
+static const uint32_t kColorLightGreen = 0x33CC00FF;
+static const uint32_t kColorLightBlue  = 0x189BF2FF;
+#elif USE_CAIRO
+static const uint32_t kColorRed        = 0xFF0000FF;
+static const uint32_t kColorLightGray  = 0xCCCCCCFF;
+static const uint32_t kColorDarkGray   = 0x202020FF;
+static const uint32_t kColorYellow     = 0xFFFF00FF;
+static const uint32_t kColorBlue       = 0x0000CCFF;
+static const uint32_t kColorWhilte     = 0xFFFFFFFF;
+static const uint32_t kColorOrange     = 0xFF8000FF;
+static const uint32_t kColorLightGreen = 0x33CC00FF;
+static const uint32_t kColorLightBlue  = 0x189BF2FF;
+#endif
 
 enum class OverlayType {
   kDateType,
