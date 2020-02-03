@@ -784,13 +784,37 @@ status_t CameraSource::StopTrackSource(const uint32_t track_id,
 }
 
 status_t CameraSource::PauseTrackSource(const uint32_t track_id) {
-  // Not Implemented
-  return NO_ERROR;
+
+  QMMF_KPI_DETAIL();
+  if (!IsTrackIdValid(track_id)) {
+    QMMF_ERROR("%s: Track(%x) does not exist !!", __func__, track_id);
+    return BAD_VALUE;
+  }
+  auto const& track = track_sources_[track_id];
+
+  auto ret = track->PauseTrack();
+  assert(ret == NO_ERROR);
+
+  QMMF_VERBOSE("%s: TrackSource id(%x) Paused Succesffuly!", __func__,
+      track_id);
+  return ret;
 }
 
 status_t CameraSource::ResumeTrackSource(const uint32_t track_id) {
-  // Not Implemented
-  return NO_ERROR;
+
+  QMMF_KPI_DETAIL();
+  if (!IsTrackIdValid(track_id)) {
+    QMMF_ERROR("%s: Track(%x) does not exist !!", __func__, track_id);
+    return BAD_VALUE;
+  }
+  auto const& track = track_sources_[track_id];
+
+  auto ret = track->ResumeTrack();
+  assert(ret == NO_ERROR);
+
+  QMMF_VERBOSE("%s: TrackSource id(%x) Resumed Succesffuly!", __func__,
+      track_id);
+  return ret;
 }
 
 status_t CameraSource::ReturnTrackBuffer(const uint32_t track_id,
@@ -1230,6 +1254,7 @@ TrackSource::TrackSource(const VideoTrackParams& params,
                          const std::shared_ptr<CameraInterface>& camera_intf)
     : track_params_(params),
       is_stop_(false),
+      is_paused_(false),
       eos_acked_(false),
       is_idle_(true),
 #ifndef CAMERA_HAL1_SUPPORT
@@ -1546,6 +1571,8 @@ status_t TrackSource::StopTrack(bool is_force_cleanup) {
   status_t ret;
 
   QMMF_DEBUG("%s: Enter track_id(%x)", __func__, TrackId());
+  is_paused_ = false;
+
   std::lock_guard<std::mutex> lock(lock_);
   {
     std::lock_guard<std::mutex> lock(stop_lock_);
@@ -1663,6 +1690,42 @@ status_t TrackSource::StopTrack(bool is_force_cleanup) {
   return NO_ERROR;
 }
 
+status_t TrackSource::PauseTrack() {
+
+  QMMF_DEBUG("%s: Enter track_id(%x)", __func__, TrackId());
+
+  std::lock_guard<std::mutex> lock(lock_);
+  is_paused_ = true;
+
+  assert(camera_interface_.get() != nullptr);
+  status_t ret = NO_ERROR;
+  ret = camera_interface_->PauseStream(TrackId());
+  assert(ret == NO_ERROR);
+
+  std::lock_guard<std::mutex> idle_lock(idle_lock_);
+  is_idle_ = true;
+
+  return NO_ERROR;
+}
+
+status_t TrackSource::ResumeTrack() {
+
+  QMMF_DEBUG("%s: Enter track_id(%x)", __func__, TrackId());
+
+  std::lock_guard<std::mutex> lock(lock_);
+  is_paused_ = false;
+
+  assert(camera_interface_.get() != nullptr);
+  status_t ret = NO_ERROR;
+  ret = camera_interface_->ResumeStream(TrackId());
+  assert(ret == NO_ERROR);
+
+  std::lock_guard<std::mutex> idle_lock(idle_lock_);
+  is_idle_ = false;
+
+  return NO_ERROR;
+}
+
 status_t TrackSource::NotifyPortEvent(PortEventType event_type,
                                       void* event_data) {
 
@@ -1770,6 +1833,9 @@ status_t TrackSource::GetBuffer(BufferDescriptor& buffer,
       QMMF_DEBUG("%s: track_id(%x) Wait for bufferr!!", __func__,
           TrackId());
       auto ret = wait_for_frame_.WaitFor(lock, wait_time);
+      if (ret != 0 && IsPaused()) {
+        continue;
+      }
       if (ret != 0) {
           QMMF_ERROR("%s: track_id(%x) Buffer Timed out happend! No buffers"
               "from Camera",  __func__, TrackId());
@@ -1881,6 +1947,11 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
   ReturnBufferToProducer(buffer);
   return;
 #endif
+
+  if(IsPaused()) {
+    ReturnBufferToProducer(buffer);
+    return;
+  }
 
   {
     std::lock_guard<std::mutex> lock(eos_lock_);
@@ -2060,6 +2131,11 @@ bool TrackSource::IsStop() {
   std::lock_guard<std::mutex> lock(stop_lock_);
   QMMF_VERBOSE("%s: Exit track_id(%x)", __func__, TrackId());
   return is_stop_;
+}
+
+bool TrackSource::IsPaused() {
+
+  return is_paused_;
 }
 
 void TrackSource::ClearInputQueue() {

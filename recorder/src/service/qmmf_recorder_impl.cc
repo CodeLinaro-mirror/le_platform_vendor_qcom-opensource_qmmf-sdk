@@ -586,7 +586,12 @@ status_t RecorderImpl::StartSession(const uint32_t client_id,
     return BAD_VALUE;
   }
 
-  if (IsSessionActive(session_id)) {
+  if (IsSessionPaused(session_id)) {
+    QMMF_WARN("%s: Client(%u): Session(%u) is paused, resuming!", __func__,
+        client_id, session_id);
+    ResumeSession(client_id, session_id);
+    return NO_ERROR;
+  } else if (IsSessionActive(session_id)) {
     QMMF_WARN("%s: Client(%u): Session(%u) is already started!", __func__,
         client_id, session_id);
     return NO_ERROR;
@@ -877,11 +882,6 @@ status_t RecorderImpl::PauseSession(const uint32_t client_id,
             service_track_id);
         break;
       }
-      if ( (track_info.format.video == VideoFormat::kHEVC) ||
-           (track_info.format.video == VideoFormat::kAVC) ||
-           (track_info.format.video == VideoFormat::kJPEG)) {
-        //TODO: Add logic to stop TrackEncoder
-      }
     }
     else if (track_info.type == TrackType::kAudio) {
 
@@ -907,6 +907,7 @@ status_t RecorderImpl::PauseSession(const uint32_t client_id,
         }
       }
     }
+    ++track;
   }
   if (ret == NO_ERROR) {
     QMMF_INFO("%s: client_id(%d):session_id(%d) with num tracks(%d) Paused"
@@ -970,11 +971,6 @@ status_t RecorderImpl::ResumeSession(const uint32_t client_id,
             __func__, client_id, session_id, client_track_id,
             service_track_id);
         break;
-      }
-      if ( (track_info.format.video == VideoFormat::kHEVC) ||
-           (track_info.format.video == VideoFormat::kAVC) ||
-           (track_info.format.video == VideoFormat::kJPEG)) {
-        //TODO: Add logic to resume TrackEncoder
       }
     }
     else if (track_info.type == TrackType::kAudio) {

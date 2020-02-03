@@ -285,6 +285,16 @@ status_t FakeCamera::StopStream(const uint32_t track_id) {
   return NO_ERROR;
 }
 
+status_t FakeCamera::PauseStream(const uint32_t track_id) {
+
+  return NO_ERROR;
+}
+
+status_t FakeCamera::ResumeStream(const uint32_t track_id) {
+
+  return NO_ERROR;
+}
+
 status_t FakeCamera::SetCameraParam(const CameraMetadata &meta) {
 
   metadata_.append(meta);
