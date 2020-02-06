@@ -868,6 +868,7 @@ void AudioPulseClient::Thread() {
   size_t b_length;
   void* b_data;
   int result;
+  uint64_t tracking_clock;
 
   char adjust_string[PROPERTY_VALUE_MAX];
   property_get(kTSAdjustName.c_str(), adjust_string, "0");
@@ -1001,12 +1002,22 @@ void AudioPulseClient::Thread() {
       pa_threaded_mainloop_unlock(pa_mainloop_);
 
       // return timestamped buffer to client
-      struct timespec tv;
-      clock_gettime(CLOCK_BOOTTIME, &tv);
-      int64_t boottime = (int64_t)(tv.tv_sec) * 1000000 +
-                         (int64_t)(tv.tv_nsec) / 1000;
-      QMMF_VERBOSE("%s() current boot time[%lld]", __func__, boottime);
-      buffer.timestamp = boottime + adjustment_timestamp;
+      if (first_buffer_read) {
+        struct timespec tv;
+        clock_gettime(CLOCK_BOOTTIME, &tv);
+        int64_t boottime = (int64_t)(tv.tv_sec) * 1000000 +
+                           (int64_t)(tv.tv_nsec) / 1000;
+        QMMF_VERBOSE("%s() adding current boot time[%lld] to timestamp adjustment",
+                     __func__, boottime);
+        adjustment_timestamp += boottime;
+        QMMF_VERBOSE("%s() final timestamp adjustment[%lld]", __func__,
+                     adjustment_timestamp);
+        tracking_clock = 0;
+        first_buffer_read = false;
+      } else {
+        tracking_clock += pa_bytes_to_usec(buffer.size, &pa_sample_spec_);
+      }
+      buffer.timestamp = tracking_clock + adjustment_timestamp;
 
       if (stop_received) {
         QMMF_DEBUG("%s() setting EOS flag", __func__);
