@@ -151,6 +151,9 @@ int32_t Overlay::CreateOverlayItem(OverlayParam& param, uint32_t* overlay_id) {
     case OverlayType::kPrivacyMask:
       overlayItem = new OverlayItemPrivacyMask(ion_device_);
       break;
+    case OverlayType::kPose:
+      overlayItem = new OverlayItemPose(ion_device_);
+      break;
     default:
       OVDBG_ERROR("%s: OverlayType(%d) not supported!", __func__,
            param.type);
@@ -635,12 +638,12 @@ bool Overlay::IsOverlayItemValid(uint32_t overlay_id) {
   return valid;
 }
 
-OverlayItem::OverlayItem(int32_t ion_device)
+OverlayItem::OverlayItem(int32_t ion_device, OverlayType type)
     :x_(0), y_(0), width_(0), height_(0),
      c2dsurface_id_(-1), gpu_addr_(nullptr),
      vaddr_(nullptr), ion_fd_(0), size_(0),
      dirty_(false), ion_device_(ion_device),
-     is_active_(false) {
+     type_(type), is_active_(false) {
   OVDBG_VERBOSE("%s:Enter ", __func__);
   location_type_ = OverlayLocationType::kBottomLeft;
 #if USE_CAIRO
@@ -772,13 +775,6 @@ void OverlayItem::ClearSurface() {
   assert(CAIRO_STATUS_SUCCESS == cairo_status(cr_context_));
   cairo_surface_mark_dirty(cr_surface_);
 #endif
-}
-
-OverlayItemStaticImage::OverlayItemStaticImage(int32_t ion_device)
-    :OverlayItem(ion_device), image_path_() {
-  OVDBG_VERBOSE("%s: Enter", __func__);
-  type_ = OverlayType::kStaticImage;
-  OVDBG_VERBOSE("%s: Exit", __func__);
 }
 
 OverlayItemStaticImage::~OverlayItemStaticImage() {
@@ -1139,12 +1135,11 @@ ERROR:
 }
 
 OverlayItemDateAndTime::OverlayItemDateAndTime(int32_t ion_device)
-    :OverlayItem(ion_device) {
+    : OverlayItem(ion_device, OverlayType::kDateType) {
   OVDBG_VERBOSE("%s:Enter ", __func__);
   memset(&date_time_type_, 0x0, sizeof date_time_type_);
   date_time_type_.time_format = OverlayTimeFormatType::kHHMM_24HR;
   date_time_type_.date_format = OverlayDateFormatType::kMMDDYYYY;
-  type_                       = OverlayType::kDateType;
   OVDBG_VERBOSE("%s:Exit", __func__);
 }
 
@@ -1233,6 +1228,7 @@ int32_t OverlayItemDateAndTime::UpdateAndDraw() {
   double x_date, x_time, y_date, y_time;
   x_date = x_time = y_date = y_time = 0.0;
 
+  SyncStart(ion_fd_);
 #if USE_CAIRO
   // Clear the privous drawn contents.
   ClearSurface();
@@ -1324,9 +1320,8 @@ int32_t OverlayItemDateAndTime::UpdateAndDraw() {
   y_date = DATETIME_TEXT_BUF_HEIGHT - DATETIME_PIXEL_SIZE;
   canvas_->drawText(dateText.c_str(), dateText.size(), x_date, y_date, paint);
   canvas_->flush();
-  usleep(10000);
 #endif
-
+  SyncEnd(ion_fd_);
   MarkDirty(true);
   OVDBG_VERBOSE("%s: Exit", __func__);
   return ret;
@@ -1502,13 +1497,6 @@ ERROR:
   return ret;
 }
 
-OverlayItemBoundingBox::OverlayItemBoundingBox(int32_t ion_device)
-    :OverlayItem(ion_device), bbox_name_(), text_height_(0) {
-  OVDBG_INFO("%s: Enter", __func__);
-  type_ = OverlayType::kBoundingBox;
-  OVDBG_INFO("%s: Exit", __func__);
-}
-
 OverlayItemBoundingBox::~OverlayItemBoundingBox() {
   OVDBG_INFO("%s: Enter", __func__);
   bbox_name_.clear();
@@ -1615,6 +1603,7 @@ int32_t OverlayItemBoundingBox::UpdateAndDraw() {
   //  ----------
 
 
+  SyncStart(ion_fd_);
 #if USE_CAIRO
   OVDBG_INFO("%s: Draw bounding box and text!", __func__);
   ClearSurface();
@@ -1672,7 +1661,6 @@ int32_t OverlayItemBoundingBox::UpdateAndDraw() {
   assert(CAIRO_STATUS_SUCCESS == cairo_status(cr_context_));
 
   cairo_surface_flush (cr_surface_);
-  usleep(9000);
 #elif USE_SKIA
   if (width_ > 0 && height_ > 0) {
 
@@ -1708,9 +1696,9 @@ int32_t OverlayItemBoundingBox::UpdateAndDraw() {
     canvas_->drawRect(SkRect::MakeXYWH(xBBox, yBBox, boxWidth, boxHeight),
                       paintBox);
     canvas_->flush();
-    usleep(3000);
   }
 #endif
+  SyncEnd(ion_fd_);
   MarkDirty(false);
   OVDBG_VERBOSE("%s: Exit", __func__);
   return ret;
@@ -1949,13 +1937,6 @@ ERROR:
   return ret;
 }
 
-OverlayItemText::OverlayItemText(int32_t ion_device)
-    :OverlayItem(ion_device), text_() {
-  OVDBG_VERBOSE("%s:Enter ", __func__);
-  type_ = OverlayType::kUserText;
-  OVDBG_VERBOSE("%s:Exit ", __func__);
-}
-
 OverlayItemText::~OverlayItemText() {
   OVDBG_VERBOSE("%s:Enter ", __func__);
   text_.clear();
@@ -1996,6 +1977,7 @@ int32_t OverlayItemText::UpdateAndDraw() {
   if(!dirty_)
     return ret;
 
+  SyncStart(ion_fd_);
 #if USE_CAIRO
   ClearSurface();
   cairo_select_font_face(cr_context_, "@cairo:Georgia", CAIRO_FONT_SLANT_NORMAL,
@@ -2061,8 +2043,8 @@ int32_t OverlayItemText::UpdateAndDraw() {
   SkString skText(text_.string(), text_.length());
   canvas_->drawText(skText.c_str(), skText.size(), x, y, paint);
   canvas_->flush();
-  usleep(1000);
 #endif
+  SyncEnd(ion_fd_);
   dirty_ = false;
   OVDBG_VERBOSE("%s: Exit", __func__);
   return ret;
@@ -2240,19 +2222,6 @@ ERROR:
   return ret;
 }
 
-
-OverlayItemPrivacyMask::OverlayItemPrivacyMask(int32_t ion_device)
-    :OverlayItem(ion_device) {
-  OVDBG_VERBOSE("%s: Enter", __func__);
-  type_ = OverlayType::kPrivacyMask;
-  OVDBG_VERBOSE("%s: Exit", __func__);
-}
-
-OverlayItemPrivacyMask::~OverlayItemPrivacyMask() {
-  OVDBG_VERBOSE("%s: Enter", __func__);
-  OVDBG_VERBOSE("%s: Exit", __func__);
-}
-
 int32_t OverlayItemPrivacyMask::Init(OverlayParam& param) {
 
   OVDBG_VERBOSE("%s: Enter", __func__);
@@ -2288,6 +2257,7 @@ int32_t OverlayItemPrivacyMask::UpdateAndDraw() {
     OVDBG_DEBUG("%s: Item is not dirty! Don't draw!", __func__);
     return ret;
   }
+  SyncStart(ion_fd_);
 #if USE_CAIRO
   ClearSurface();
   RGBAValues mask_color;
@@ -2299,7 +2269,6 @@ int32_t OverlayItemPrivacyMask::UpdateAndDraw() {
   cairo_paint(cr_context_);
   assert(CAIRO_STATUS_SUCCESS == cairo_status(cr_context_));
   cairo_surface_flush (cr_surface_);
-  usleep(35000);
 #elif USE_SKIA
   //Create Skia canvas outof ION memory.
   SkPaint paintBox;
@@ -2321,8 +2290,8 @@ int32_t OverlayItemPrivacyMask::UpdateAndDraw() {
   OVDBG_VERBOSE(" x_ %d y_ %d width_ %d height_ %d",x_,y_,width_,height_);
   canvas_->drawRect(SkRect::MakeXYWH(0,0, width_, height_), paintBox);
   canvas_->flush();
-  usleep(30000);
 #endif
+  SyncEnd(ion_fd_);
   // Don't paint until params gets updated by app(UpdateParameters).
   MarkDirty(false);
   return OK;
@@ -2454,6 +2423,233 @@ int32_t OverlayItemPrivacyMask::CreateSurface() {
   OVDBG_VERBOSE("%s: Exit", __func__);
   return ret;
 
+ERROR:
+  close(ion_fd_);
+  ion_fd_ = -1;
+  return ret;
+}
+
+int32_t OverlayItemPose::Init(OverlayParam& param) {
+
+  OVDBG_VERBOSE("%s: Enter", __func__);
+  if ((param.dst_rect.width <= 0) || (param.dst_rect.height <= 0)) {
+    return BAD_VALUE;
+  }
+  if (param.dst_rect.start_x < 0 || param.dst_rect.start_y < 0) {
+    return BAD_VALUE;
+  }
+
+  x_          = param.dst_rect.start_x;
+  y_          = param.dst_rect.start_y;
+  width_      = param.dst_rect.width;
+  height_     = param.dst_rect.height;
+  pose_color_ = param.color;
+  pose_       = param.pose;
+
+  float scaled_width  = static_cast<float>(width_) / DOWNSCALE_FACTOR;
+  float scaled_height = static_cast<float>(height_) / DOWNSCALE_FACTOR;
+
+  float aspect_ratio = scaled_width / scaled_height;
+
+  OVDBG_INFO("%s: Pose(W:%dxH:%d), aspect_ratio(%f), scaled(W:%fxH:%f)",
+      __func__, param.dst_rect.width, param.dst_rect.height,
+      aspect_ratio, scaled_width, scaled_height);
+
+  int32_t width = static_cast<int32_t>(round(scaled_width));
+  width = ROUND_TO(width, 16); // Round to multiple of 16.
+  width = width > kPoseBufWidth ? width : kPoseBufWidth;
+  int32_t height = (static_cast<int32_t>(width/aspect_ratio + 15)>> 4) << 4;
+  height = height > kPoseBufHeight ? height : kPoseBufHeight;
+
+  buffer_width_  = width;
+  buffer_height_ = height;
+
+  downscale_ratio_ = (float)width_ / (float)buffer_width_;
+
+  OVDBG_INFO("%s: Offscreen buffer:(%dx%d)",__func__, buffer_width_,
+      buffer_height_);
+
+  auto ret = CreateSurface();
+  if (ret != 0) {
+    OVDBG_ERROR("%s: CreateSurface failed!", __func__);
+    return NO_INIT;
+  }
+
+  OVDBG_VERBOSE("%s: Exit", __func__);
+  return ret;
+}
+
+int32_t OverlayItemPose::UpdateAndDraw() {
+
+  OVDBG_VERBOSE("%s: Enter ", __func__);
+  int32_t ret = 0;
+
+  if(!dirty_) {
+    OVDBG_DEBUG("%s: Item is not dirty! Don't draw!", __func__);
+    return ret;
+  }
+
+  SyncStart(ion_fd_);
+#if USE_CAIRO
+  OVDBG_INFO("%s: Draw pose!", __func__);
+  ClearSurface();
+
+  RGBAValues bbox_color;
+  memset(&bbox_color, 0x0, sizeof bbox_color);
+  ExtractColorValues(pose_color_, &bbox_color);
+  cairo_set_source_rgba (cr_context_, bbox_color.red, bbox_color.green,
+                         bbox_color.blue, bbox_color.alpha);
+  cairo_set_line_width (cr_context_, kLineWidth);
+
+  // draw key points
+  for (int i = 0; i < kKeyPointsCount; i++) {
+    if (pose_.points[i].x >= 0 && pose_.points[i].y >= 0) {
+      cairo_arc (cr_context_,
+        (uint32_t)((float) pose_.points[i].x / downscale_ratio_),
+        (uint32_t)((float) pose_.points[i].y / downscale_ratio_),
+        kDotRadius, 0, 2 * M_PI);
+      cairo_fill (cr_context_);
+    }
+  }
+
+  // draw links
+  for (int i = 0; i < sizeof(PoseChain) / sizeof(PoseChain[0]); i++) {
+    if (pose_.points[PoseChain[i][0]].x >= 0 &&
+        pose_.points[PoseChain[i][0]].y >= 0 &&
+        pose_.points[PoseChain[i][1]].x >= 0 &&
+        pose_.points[PoseChain[i][1]].y >= 0) {
+      cairo_move_to (cr_context_,
+        (uint32_t)((float) pose_.points[PoseChain[i][0]].x / downscale_ratio_),
+        (uint32_t)((float) pose_.points[PoseChain[i][0]].y / downscale_ratio_));
+      cairo_line_to (cr_context_,
+        (uint32_t)((float) pose_.points[PoseChain[i][1]].x / downscale_ratio_),
+        (uint32_t)((float) pose_.points[PoseChain[i][1]].y / downscale_ratio_));
+      cairo_stroke (cr_context_);
+    }
+  }
+
+  cairo_surface_flush (cr_surface_);
+#endif
+  SyncEnd(ion_fd_);
+
+  MarkDirty(false);
+  OVDBG_VERBOSE("%s: Exit", __func__);
+  return ret;
+}
+
+void OverlayItemPose::GetDrawInfo(uint32_t targetWidth,
+                                         uint32_t targetHeight,
+                                         std::vector<DrawInfo>& draw_infos) {
+  OVDBG_VERBOSE("%s: Enter", __func__);
+  DrawInfo draw_info_bbox;
+  memset(&draw_info_bbox, 0x0, sizeof(DrawInfo));
+  draw_info_bbox.x = x_;
+  draw_info_bbox.y = y_;
+  draw_info_bbox.width = width_;
+  draw_info_bbox.height = height_;
+  draw_info_bbox.c2dSurfaceId = c2dsurface_id_;
+  draw_infos.push_back(draw_info_bbox);
+  OVDBG_VERBOSE("%s: Exit", __func__);
+}
+
+void OverlayItemPose::GetParameters(OverlayParam& param) {
+  OVDBG_VERBOSE("%s:Enter ",__func__);
+  param.type             = OverlayType::kPose;
+  param.location         = OverlayLocationType::kNone;
+  param.color            = pose_color_;
+  param.dst_rect.start_x = x_;
+  param.dst_rect.start_y = y_;
+  param.dst_rect.width   = width_;
+  param.dst_rect.height  = height_;
+  OVDBG_VERBOSE("%s:Exit ",__func__);
+}
+
+int32_t OverlayItemPose::UpdateParameters(OverlayParam& param) {
+
+  OVDBG_VERBOSE("%s:Enter ",__func__);
+  int32_t ret = 0;
+
+  if((param.dst_rect.width <= 0) || (param.dst_rect.height <= 0)) {
+      return BAD_VALUE;
+  }
+
+  if(param.dst_rect.start_x < 0 || param.dst_rect.start_y < 0) {
+      return BAD_VALUE;
+  }
+
+  x_          = param.dst_rect.start_x;
+  y_          = param.dst_rect.start_y;
+  width_      = param.dst_rect.width;
+  height_     = param.dst_rect.height;
+
+  pose_color_ = param.color;
+  pose_ = param.pose;
+  MarkDirty(true);
+
+  OVDBG_VERBOSE("%s:Exit ",__func__);
+  return ret;
+}
+
+int32_t OverlayItemPose::CreateSurface() {
+
+  OVDBG_VERBOSE("%s: Enter", __func__);
+  int32_t size = buffer_width_ * buffer_height_ * 4;
+
+  IonMemInfo mem_info;
+  memset(&mem_info, 0x0, sizeof(IonMemInfo));
+  auto ret = AllocateIonMemory(mem_info, size);
+  if(0 != ret) {
+    OVDBG_ERROR("%s:AllocateIonMemory failed",__func__);
+    return ret;
+  }
+  OVDBG_DEBUG("%s: Ion memory allocated fd(%d)", __func__, mem_info.fd);
+
+#if USE_CAIRO
+  cr_surface_ = cairo_image_surface_create_for_data(static_cast<unsigned char*>
+                                                    (mem_info.vaddr),
+                                                    CAIRO_FORMAT_ARGB32,
+                                                    buffer_width_,
+                                                    buffer_height_,
+                                                    buffer_width_ * 4);
+  assert (cr_surface_ != nullptr);
+
+  cr_context_ = cairo_create (cr_surface_);
+  assert (cr_context_ != nullptr);
+#endif
+
+  //Setup c2d.
+  ret = c2dMapAddr(mem_info.fd, mem_info.vaddr, mem_info.size, 0,
+                   KGSL_USER_MEM_TYPE_ION, &gpu_addr_);
+  if(ret != C2D_STATUS_OK) {
+    OVDBG_ERROR("%s: c2dMapAddr failed!", __func__);
+    goto ERROR;
+  }
+
+  C2D_RGB_SURFACE_DEF c2dSurfaceDef;
+#if USE_CAIRO
+  c2dSurfaceDef.format = C2D_COLOR_FORMAT_8888_ARGB;
+#endif
+  c2dSurfaceDef.width  = buffer_width_;
+  c2dSurfaceDef.height = buffer_height_;
+  c2dSurfaceDef.buffer = mem_info.vaddr;
+  c2dSurfaceDef.phys   = gpu_addr_;
+  c2dSurfaceDef.stride = buffer_width_ * 4;
+
+  //Create source c2d surface.
+  ret = c2dCreateSurface(&c2dsurface_id_, C2D_SOURCE,
+                         (C2D_SURFACE_TYPE)(C2D_SURFACE_RGB_HOST
+                         |C2D_SURFACE_WITH_PHYS), &c2dSurfaceDef);
+  if(ret != C2D_STATUS_OK) {
+    OVDBG_ERROR("%s: c2dCreateSurface failed!", __func__);
+    goto ERROR;
+  }
+
+  ion_fd_      = mem_info.fd;
+  vaddr_       = mem_info.vaddr;
+  size_        = mem_info.size;
+
+  OVDBG_VERBOSE("%s: Exit", __func__);
+  return ret;
 ERROR:
   close(ion_fd_);
   ion_fd_ = -1;

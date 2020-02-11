@@ -71,7 +71,8 @@ enum class OverlayType {
   kUserText,
   kStaticImage,
   kBoundingBox,
-  kPrivacyMask
+  kPrivacyMask,
+  kPose
 };
 
 enum class OverlayLocationType {
@@ -123,6 +124,51 @@ struct OverlayImageInfo {
   bool buffer_updated;
 };
 
+enum OverlayKeyPoints {
+  kNose = 0,
+  kLeftEye,
+  kRightEye,
+  kLeftEar,
+  kRightEar,
+  kLeftShoulder,
+  kRightShoulder,
+  kLeftElbow,
+  kRightElbow,
+  kLeftWrist,
+  kRightWrist,
+  kLeftHip,
+  kRightHip,
+  kLeftKnee,
+  kRightKnee,
+  kLeftAnkle,
+  kRightAnkle,
+  kKeyPointsCount
+};
+
+static OverlayKeyPoints PoseChain [][2] {
+  {kLeftShoulder,  kRightShoulder},
+  {kLeftShoulder,  kLeftElbow},
+  {kLeftShoulder,  kLeftHip},
+  {kRightShoulder, kRightElbow},
+  {kRightShoulder, kRightHip},
+  {kLeftElbow,     kLeftWrist},
+  {kRightElbow,    kRightWrist},
+  {kLeftHip,       kRightHip},
+  {kLeftHip,       kLeftKnee},
+  {kRightHip,      kRightKnee},
+  {kLeftKnee,      kLeftAnkle},
+  {kRightKnee,     kRightAnkle}
+};
+
+struct OverlayKeyPoint {
+  int32_t x;
+  int32_t y;
+};
+
+struct OverlayPose {
+  struct OverlayKeyPoint points[OverlayKeyPoints::kKeyPointsCount];
+};
+
 struct OverlayParam {
   OverlayType type;
   OverlayLocationType location;
@@ -133,6 +179,7 @@ struct OverlayParam {
     char user_text[MAX_STRING_LENGTH];
     OverlayImageInfo image_info;
     BoundingBox bounding_box;
+    OverlayPose pose;
   };
 };
 
