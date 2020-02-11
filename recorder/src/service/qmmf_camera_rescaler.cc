@@ -522,6 +522,9 @@ status_t CameraRescalerMemPool::GetBufferLocked(StreamBuffer* buffer) {
       return ret;
     }
     buffer->fd = buffer->handle->GetFD();
+    alloc_device_interface_->Perform(buffer->handle,
+       IAllocDevice::AllocDeviceAction::GetMetaFd,
+       static_cast<void*>(&buffer->metafd));
     buffer->size = buffer->handle->GetSize();
     ++pending_buffer_count_;
   }

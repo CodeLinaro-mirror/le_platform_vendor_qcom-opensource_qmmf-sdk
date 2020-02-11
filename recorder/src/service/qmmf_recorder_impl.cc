@@ -1440,6 +1440,68 @@ status_t RecorderImpl::CreateVideoTrack(const uint32_t client_id,
   return NO_ERROR;
 }
 
+uint32_t RecorderImpl::FindSuitableIdForLinkedTrack(
+    const VideoTrackCreateParam& params) {
+  bool is_suitable_track_found = false;
+  uint32_t selected_track_id = -1;
+  auto client_ids = GetCameraClients(params.camera_id);
+  for (auto const& id : client_ids) {
+    if (IsCameraValid(id, params.camera_id)) {
+      auto& main_session_track_map = client_session_map_[id];
+      for (auto const& track_map : main_session_track_map) {
+        // Try to find a track with same resolution
+        for (auto const& track : track_map.second) {
+          TrackInfo tr = track.second;
+          if (tr.format.video != params.format_type) {
+            continue;
+          }
+          std::shared_ptr<TrackSource> track_source =
+              camera_source_->GetTrackSource(tr.track_id);
+          VideoTrackParams tr_params = track_source->getParams();
+
+          if (params.width == tr_params.params.width &&
+              params.height == tr_params.params.height) {
+            selected_track_id = tr.track_id;
+            is_suitable_track_found = true;
+            break;
+          }
+        }
+        // Try to find a track with bigger resolution
+        if(!is_suitable_track_found) {
+          uint32_t selected_width = 0;
+          uint32_t selected_height = 0;
+          for (auto const& track : track_map.second) {
+            TrackInfo tr = track.second;
+            if (tr.format.video != params.format_type) {
+              continue;
+            }
+            std::shared_ptr<TrackSource> track_source =
+                camera_source_->GetTrackSource(tr.track_id);
+            VideoTrackParams tr_params = track_source->getParams();
+
+            if (params.width <= tr_params.params.width &&
+                params.height <= tr_params.params.height) {
+              // Select the lowest possible resolution from the all running
+              // tracks has resolution bigger than requested track.
+              if ((selected_width == 0 ||
+                  tr_params.params.width < selected_width) ||
+                  (selected_height == 0 ||
+                  tr_params.params.height < selected_height)) {
+                selected_track_id = tr.track_id;
+                is_suitable_track_found = true;
+                selected_width = tr_params.params.width;
+                selected_height = tr_params.params.height;
+              }
+            }
+          }
+        }
+      }
+      break;
+    }
+  }
+  return selected_track_id;
+}
+
 status_t RecorderImpl::CreateVideoTrack(const uint32_t client_id,
                                         const uint32_t session_id,
                                         const uint32_t track_id,
@@ -1492,6 +1554,23 @@ status_t RecorderImpl::CreateVideoTrack(const uint32_t client_id,
     source_track.source_track_id = source_track_id;
 
     video_params.extra_param.Update(QMMF_SOURCE_VIDEO_TRACK_ID, source_track);
+  } else if (video_params.extra_param.Exists(
+      QMMF_USE_LINKED_TRACK_IN_SLAVE_MODE)) {
+    LinkedTrackInSlaveMode linked_track_slave_mode;
+    video_params.extra_param.Fetch(QMMF_USE_LINKED_TRACK_IN_SLAVE_MODE,
+        linked_track_slave_mode);
+    if (linked_track_slave_mode.enable) {
+      uint32_t selected_track_id = FindSuitableIdForLinkedTrack(params);
+      if (selected_track_id != -1) {
+        SourceVideoTrack source_track;
+        source_track.source_track_id = selected_track_id;
+        video_params.extra_param.Update(QMMF_SOURCE_VIDEO_TRACK_ID,
+            source_track);
+      } else {
+        QMMF_ERROR("%s: No suitable track found for linked stream!", __func__);
+        return BAD_VALUE;
+      }
+    }
   }
 
   // Create Camera track first.

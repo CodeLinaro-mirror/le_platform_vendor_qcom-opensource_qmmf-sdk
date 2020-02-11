@@ -312,6 +312,9 @@ class RecorderImpl {
   // Camera Flush Callback Handler
   void CameraFlushCb(const uint32_t camera_id);
 
+  // Get suitable trackid for linked stream
+  uint32_t FindSuitableIdForLinkedTrack(const VideoTrackCreateParam& params);
+
 /// @cond PRIVATE
  private:
   enum class ClientState {

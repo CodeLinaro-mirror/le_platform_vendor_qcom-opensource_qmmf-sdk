@@ -1730,8 +1730,10 @@ status_t TrackSource::PauseTrack() {
 
   assert(camera_interface_.get() != nullptr);
   status_t ret = NO_ERROR;
-  ret = camera_interface_->PauseStream(TrackId());
-  assert(ret == NO_ERROR);
+  if (slave_track_source_ == false) {
+    ret = camera_interface_->PauseStream(TrackId());
+    assert(ret == NO_ERROR);
+  }
 
   std::lock_guard<std::mutex> idle_lock(idle_lock_);
   is_idle_ = true;

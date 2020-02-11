@@ -60,6 +60,7 @@ enum ParamTag {
   QMMF_PARTIAL_METADATA,
   QMMF_CAMERA_SLAVE_MODE,
   QMMF_CPU_CACHE,
+  QMMF_USE_LINKED_TRACK_IN_SLAVE_MODE,
 };
 
 enum class RotationFlags {
@@ -365,6 +366,16 @@ struct SystemCache : DataTagBase {
   SystemCache() :
     DataTagBase(QMMF_CPU_CACHE),
     enable(true) {
+  }
+};
+
+struct LinkedTrackInSlaveMode : DataTagBase {
+  /**< Add support for client to enable/disable linked track in slave mode. */
+  /**< Default: True*/
+  bool enable;
+  LinkedTrackInSlaveMode() :
+    DataTagBase(QMMF_USE_LINKED_TRACK_IN_SLAVE_MODE),
+    enable(false) {
   }
 };
 
