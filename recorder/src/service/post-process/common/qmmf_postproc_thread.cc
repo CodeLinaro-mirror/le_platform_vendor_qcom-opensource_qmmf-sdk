@@ -68,7 +68,7 @@ int32_t PostProcThread::Run(const std::string &name) {
   } else {
     name_ = name;
   }
-
+  prctl(PR_SET_NAME, name_.c_str(), 0, 0, 0);
   QMMF_INFO("%s: Thread %s is running\n", __func__, name_.c_str());
 
 exit:

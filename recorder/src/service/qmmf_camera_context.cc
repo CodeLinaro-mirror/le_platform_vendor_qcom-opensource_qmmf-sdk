@@ -638,7 +638,9 @@ status_t CameraContext::SetUpCapture(const SnapshotParam& param,
                            (postproc_enable_ != new_postproc_enable) ||
                            IsNeedReconfigSnapshotStream() ||
                            (new_postproc_enable && restart_pipe_) ||
-                           (jpeg_input_format_ != new_jpeg_input_format_);
+                           (jpeg_input_format_ != new_jpeg_input_format_) ||
+                           (snapshot_param_.format != param.format);
+
       QMMF_DEBUG("%s: reconfigure_needed=%d", __func__, reconfigure_needed);
       snapshot_param_ = param;
       postproc_enable_ = new_postproc_enable;
