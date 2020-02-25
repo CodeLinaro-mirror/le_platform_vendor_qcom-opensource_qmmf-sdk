@@ -507,6 +507,19 @@ status_t Recorder::DeleteOverlayObject(const uint32_t track_id,
   return ret;
 }
 
+status_t Recorder::DeleteOverlayObjects(const uint32_t track_id) {
+  QMMF_INFO("%s: Enter", __func__);
+  assert(recorder_client_ != NULL);
+
+  auto ret = recorder_client_->DeleteOverlayObjects(track_id);
+  if (NO_ERROR != ret) {
+    QMMF_ERROR("%s: DeleteOverlayObjects failed!", __func__);
+  }
+
+  QMMF_INFO("%s: Exit", __func__);
+  return ret;
+}
+
 status_t Recorder::GetOverlayObjectParams(const uint32_t track_id,
                                           const uint32_t overlay_id,
                                           OverlayParam &param) {
@@ -535,6 +548,20 @@ status_t Recorder::UpdateOverlayObjectParams(const uint32_t track_id,
                                                          param);
   if (NO_ERROR != ret) {
     QMMF_ERROR("%s: UpdateOverlayObjectParams failed!", __func__);
+  }
+
+  QMMF_DEBUG("%s: Exit", __func__);
+  return ret;
+}
+
+status_t Recorder::ProcessOverlayObjects(
+    const uint32_t track_id, const std::vector<OverlayParam> &overlay_list) {
+  QMMF_DEBUG("%s: Enter", __func__);
+  assert(recorder_client_ != NULL);
+
+  auto ret = recorder_client_->ProcessOverlayObjects(track_id, overlay_list);
+  if (NO_ERROR != ret) {
+    QMMF_ERROR("%s: ProcessOverlayObjects failed!", __func__);
   }
 
   QMMF_DEBUG("%s: Exit", __func__);

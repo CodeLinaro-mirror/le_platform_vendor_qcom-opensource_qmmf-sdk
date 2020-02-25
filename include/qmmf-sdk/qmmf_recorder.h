@@ -364,6 +364,9 @@ class Recorder {
   status_t DeleteOverlayObject(const uint32_t track_id,
                                const uint32_t overlay_id);
 
+  /// Overlay group of objects associated with the track can be deleted.
+  status_t DeleteOverlayObjects(const uint32_t track_id);
+
   /// @brief Overlay object's parameters can be queried after creation, it is
   /// recommended to call get parameters first before setting any new
   /// parameters using Api updateOverlayObject.
@@ -380,6 +383,9 @@ class Recorder {
   status_t UpdateOverlayObjectParams(const uint32_t track_id,
                                      const uint32_t overlay_id,
                                      const overlay::OverlayParam &param);
+
+  status_t ProcessOverlayObjects(const uint32_t track_id,
+      const std::vector<overlay::OverlayParam> &overlay_list);
 
   /// Overlay Object can be set and removed per track at runtime
   status_t SetOverlay(const uint32_t track_id, const uint32_t overlay_id);

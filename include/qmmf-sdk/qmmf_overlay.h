@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, 2018, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016, 2018-2020 The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -35,6 +35,7 @@
 #include <sys/types.h>
 #include <map>
 #include <mutex>
+#include <vector>
 
 namespace qmmf {
 
@@ -42,6 +43,28 @@ namespace qmmf {
 namespace overlay {
 
 #define MAX_STRING_LENGTH 128
+
+#if USE_SKIA
+static const uint32_t kColorRed        = 0xFFFF0000;
+static const uint32_t kColorLightGray  = 0xFFCCCCCC;
+static const uint32_t kColorDarkGray   = 0x202020FF;
+static const uint32_t kColorYellow     = 0xFFFF00FF;
+static const uint32_t kColorBlue       = 0x0000CCFF;
+static const uint32_t kColorWhilte     = 0xFFFFFFFF;
+static const uint32_t kColorOrange     = 0xFF8000FF;
+static const uint32_t kColorLightGreen = 0x33CC00FF;
+static const uint32_t kColorLightBlue  = 0x189BF2FF;
+#elif USE_CAIRO
+static const uint32_t kColorRed        = 0xFF0000FF;
+static const uint32_t kColorLightGray  = 0xCCCCCCFF;
+static const uint32_t kColorDarkGray   = 0x202020FF;
+static const uint32_t kColorYellow     = 0xFFFF00FF;
+static const uint32_t kColorBlue       = 0x0000CCFF;
+static const uint32_t kColorWhilte     = 0xFFFFFFFF;
+static const uint32_t kColorOrange     = 0xFF8000FF;
+static const uint32_t kColorLightGreen = 0x33CC00FF;
+static const uint32_t kColorLightBlue  = 0x189BF2FF;
+#endif
 
 enum class OverlayType {
   kDateType,
@@ -127,6 +150,12 @@ struct OverlayTargetBuffer {
   uint32_t  frame_len;
 };
 
+struct OverlayParamInfo {
+  uint32_t *id;
+  OverlayParam param;
+  bool is_active;
+};
+
 class OverlayItem;
 
 // This class provides facility to embed different
@@ -155,6 +184,11 @@ class Overlay {
   /// Overlay item can be deleted at any point of time after creation.
   int32_t DeleteOverlayItem(uint32_t overlay_id);
 
+  // Overlay item can be deleted at any point of time after creation.
+  /// Overlay item can be deleted at any point of time after creation.
+  int32_t DeleteOverlayItems();
+
+
   // Overlay item's parameters can be queried using this Api, it is recommended
   // to call get parameters first before setting new parameters using Api
   // updateOverlayItem.
@@ -177,6 +211,12 @@ class Overlay {
   // Provide input YUV buffer to apply overlay.
   /// Provide input YUV buffer to apply overlay.
   int32_t ApplyOverlay(const OverlayTargetBuffer& buffer);
+
+  // Process a batch of overlay requests
+  // The overlay items are specified as vector and processed
+  // This method creates and enables specified overlay items,
+  // updates specified overlay items, disables inactive overlay items.
+  int32_t ProcessOverlayItems(const std::vector<OverlayParam>& overlay_list);
 
  private:
 

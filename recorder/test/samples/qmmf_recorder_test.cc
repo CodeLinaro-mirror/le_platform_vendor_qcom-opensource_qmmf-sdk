@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -95,18 +95,6 @@ static const int32_t kHistogramColorChannels = 4;
 // As per Venus supported range [0-4]
 static const int32_t kMinLTRCount = 0;
 static const int32_t kMaxLTRCount = 4;
-
-#if USE_SKIA
-static const uint32_t kColorLightGray  = 0xFFCCCCCC;
-static const uint32_t kColorRed        = 0xFFFF0000;
-static const uint32_t kColorLightGreen = 0xFF33CC00;
-static const uint32_t kColorLightBlue  = 0xFF189BF2;
-#elif USE_CAIRO
-static const uint32_t kColorLightGray  = 0xCCCCCCFF;
-static const uint32_t kColorRed        = 0xFF0000FF;
-static const uint32_t kColorLightGreen = 0x33CC00FF;
-static const uint32_t kColorLightBlue  = 0x189BF2FF;
-#endif
 
 RecorderTest::RecorderTest() :
             camera_id_(0),

@@ -110,7 +110,7 @@ struct RGBAValues {
 };
 
 struct C2dObjects {
-  C2D_OBJECT objects[MAX_OVERLAYS];
+  C2D_OBJECT objects[MAX_OVERLAYS*2];
 };
 
 //Base class for all types of overlays.
@@ -125,7 +125,7 @@ class OverlayItem {
   virtual int32_t UpdateAndDraw() = 0;
 
   virtual void GetDrawInfo(uint32_t target_width, uint32_t target_height,
-                           DrawInfo* draw_info) = 0 ;
+                           std::vector<DrawInfo>& draw_infos) = 0 ;
 
   virtual void GetParameters(OverlayParam& param) = 0;
 
@@ -187,7 +187,7 @@ class OverlayItemStaticImage : public OverlayItem {
   int32_t UpdateAndDraw() override;
 
   void GetDrawInfo(uint32_t target_width, uint32_t target_height,
-      DrawInfo* draw_info) override;
+      std::vector<DrawInfo>& draw_infos) override;
 
   void GetParameters(OverlayParam& param) override;
 
@@ -230,7 +230,7 @@ class OverlayItemDateAndTime: public OverlayItem {
   int32_t UpdateAndDraw() override;
 
   void GetDrawInfo(uint32_t target_width, uint32_t target_height,
-                   DrawInfo* draw_info) override;
+                   std::vector<DrawInfo>& draw_infos) override;
 
   void GetParameters(OverlayParam& param) override;
 
@@ -246,8 +246,8 @@ class OverlayItemDateAndTime: public OverlayItem {
 #endif
 };
 
-#define BOUNDING_BOX_BUF_WIDTH     480
-#define BOUNDING_BOX_BUF_HEIGHT    270
+#define BOUNDING_BOX_BUF_WIDTH     240
+#define BOUNDING_BOX_BUF_HEIGHT    320
 #define BOUNDING_BOX_STROKE_WIDTH  4
 #define BOUNDING_BOX_TEXT_LIMIT    20
 #define BOUNDING_BOX_TEXT_SIZE     25
@@ -265,7 +265,7 @@ class OverlayItemBoundingBox: public OverlayItem {
   int32_t UpdateAndDraw() override;
 
   void GetDrawInfo(uint32_t target_width, uint32_t target_height,
-                   DrawInfo* draw_info) override;
+                   std::vector<DrawInfo>& draw_infos) override;
 
   void GetParameters(OverlayParam& param) override;
 
@@ -273,6 +273,7 @@ class OverlayItemBoundingBox: public OverlayItem {
  private:
 
   int32_t CreateSurface();
+  void ClearTextSurface();
 
   uint32_t    bbox_color_;
 #if USE_SKIA
@@ -282,6 +283,19 @@ class OverlayItemBoundingBox: public OverlayItem {
   uint32_t          text_height_   = 0;
   int32_t           buffer_width_  = 0;
   int32_t           buffer_height_ = 0;
+
+#if USE_CAIRO
+  int32_t           text_y_;
+  uint32_t          text_width_;
+  uint32_t          text_c2dsurface_id_;
+  void *            text_gpu_addr_;
+  void *            text_vaddr_;
+  int32_t           text_ion_fd_;
+  uint32_t          text_size_;
+  uint32_t          box_stroke_width_;
+  cairo_surface_t*       text_cr_surface_;
+  cairo_t*               text_cr_context_;
+#endif
 };
 
 #define TEXT_BUF_WIDTH              480
@@ -301,7 +315,7 @@ class OverlayItemText: public OverlayItem {
   int32_t UpdateAndDraw() override;
 
   void GetDrawInfo(uint32_t target_width, uint32_t target_height,
-                   DrawInfo* draw_info) override;
+                   std::vector<DrawInfo>& draw_infos) override;
 
   void GetParameters(OverlayParam& param) override;
 
@@ -333,7 +347,7 @@ class OverlayItemPrivacyMask: public OverlayItem {
   int32_t UpdateAndDraw() override;
 
   void GetDrawInfo(uint32_t target_width, uint32_t target_height,
-                   DrawInfo * draw_info) override;
+                   std::vector<DrawInfo>& draw_infos) override;
 
   void GetParameters(OverlayParam& param) override;
 
