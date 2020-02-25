@@ -101,6 +101,10 @@ class MultiCameraManager : public CameraInterface {
 
   status_t StopStream(const uint32_t track_id) override;
 
+  status_t PauseStream(const uint32_t track_id) override;
+
+  status_t ResumeStream(const uint32_t track_id) override;
+
   status_t SetCameraParam(const CameraMetadata &meta) override;
 
   status_t GetCameraParam(CameraMetadata &meta) override;

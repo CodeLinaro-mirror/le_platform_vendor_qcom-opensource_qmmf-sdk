@@ -237,10 +237,10 @@ class RecorderClient {
   };
 
   struct BufferInfo {
-    uint32_t ion_fd;      // Transferred ION Id.
-    uint32_t ion_meta_fd; // Transferred ION metadata Id.
-    size_t   size;        // Buffer length/size.
-    void*    vaddr;       // Memory mapped buffer.
+    int32_t ion_fd;      // Transferred ION Id.
+    int32_t ion_meta_fd; // Transferred ION metadata Id.
+    size_t  size;        // Buffer length/size.
+    void*   vaddr;       // Memory mapped buffer.
   };
 
   // Map <buffer index, buffer info>
@@ -248,7 +248,7 @@ class RecorderClient {
 
 #ifdef TARGET_USES_GBM
   void ImportBuffer(int32_t fd, int32_t metafd, const MetaData& meta);
-  void ReleaseBuffer(int32_t fd);
+  void ReleaseBuffer(int32_t& fd);
 #endif
 
   status_t MapBuffer(BufferInfo& info);

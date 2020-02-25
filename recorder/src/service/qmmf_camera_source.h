@@ -304,6 +304,12 @@ class TrackSource : public ICodecSource {
   /// Unlink track source with consumer and stops additional processing
   status_t StopTrack(bool is_force_cleanup = false);
 
+  /// Pause track source
+  status_t PauseTrack();
+
+  /// Resume track source
+  status_t ResumeTrack();
+
   // Methods of IInputCodecSource
   // This method to provide input buffer to Encoder.
   /// Provide input buffer to Encoder
@@ -333,6 +339,9 @@ class TrackSource : public ICodecSource {
 
   /// Return true if current state is different then running
   bool IsStop();
+
+  /// Return true if current state is different then running
+  bool IsPaused();
 
   /// Return buffers to producer
   void ClearInputQueue();
@@ -432,6 +441,7 @@ class TrackSource : public ICodecSource {
   VideoTrackParams         track_params_;
   sp<IBufferConsumer>      buffer_consumer_impl_;
   bool                     is_stop_;
+  std::atomic<bool>        is_paused_;
   std::mutex               stop_lock_;
   bool                     eos_acked_;
   std::mutex               eos_lock_;

@@ -624,6 +624,16 @@ status_t MultiCameraManager::StopStream(const uint32_t track_id) {
   return ret;
 }
 
+status_t MultiCameraManager::PauseStream(const uint32_t track_id) {
+
+  return NO_ERROR;
+}
+
+status_t MultiCameraManager::ResumeStream(const uint32_t track_id) {
+
+  return NO_ERROR;
+}
+
 status_t MultiCameraManager::SetCameraParam(const CameraMetadata &meta) {
 
   size_t ctx_idx = 0;
