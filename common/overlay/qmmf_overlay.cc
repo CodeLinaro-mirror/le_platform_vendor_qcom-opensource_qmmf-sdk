@@ -421,7 +421,6 @@ int32_t Overlay::ApplyOverlay(const OverlayTargetBuffer& buffer) {
       }
     }
   }
-
   C2dObjects c2d_objects;
   memset(&c2d_objects, 0x0, sizeof c2d_objects);
   // Iterate all updated overlayItems, and get coordinates.
@@ -435,6 +434,15 @@ int32_t Overlay::ApplyOverlay(const OverlayTargetBuffer& buffer) {
       c2d_objects.objects[obj_idx].surface_id  = draw_info.c2dSurfaceId;
       c2d_objects.objects[obj_idx].config_mask = C2D_ALPHA_BLEND_SRC_ATOP
                                            |C2D_TARGET_RECT_BIT;
+      if (draw_info.in_width) {
+        c2d_objects.objects[obj_idx].config_mask        |= C2D_SOURCE_RECT_BIT;
+        c2d_objects.objects[obj_idx].source_rect.x       = draw_info.in_x << 16;
+        c2d_objects.objects[obj_idx].source_rect.y       = draw_info.in_y << 16;
+        c2d_objects.objects[obj_idx].source_rect.width   =
+            draw_info.in_width << 16;
+        c2d_objects.objects[obj_idx].source_rect.height  =
+            draw_info.in_height << 16;
+      }
       c2d_objects.objects[obj_idx].target_rect.x       = draw_info.x << 16;
       c2d_objects.objects[obj_idx].target_rect.y       = draw_info.y << 16;
       c2d_objects.objects[obj_idx].target_rect.width   = draw_info.width << 16;
@@ -831,6 +839,18 @@ void OverlayItemStaticImage::GetDrawInfo(uint32_t targetWidth,
   draw_info->y            = y;
   draw_info->c2dSurfaceId = c2dsurface_id_;
 
+  if (width_ != crop_rect_width_ || height_ != crop_rect_height_) {
+    draw_info->in_width = crop_rect_width_;
+    draw_info->in_height = crop_rect_height_;
+    draw_info->in_x = crop_rect_x_;
+    draw_info->in_y = crop_rect_y_;
+  } else {
+    draw_info->in_width = 0;
+    draw_info->in_height = 0;
+    draw_info->in_x = 0;
+    draw_info->in_y = 0;
+  }
+
   OVDBG_VERBOSE("%s: Exit", __func__);
 }
 
@@ -996,11 +1016,11 @@ int32_t OverlayItemStaticImage::CreateSurface() {
 
   C2D_RGB_SURFACE_DEF c2dSurfaceDef;
   c2dSurfaceDef.format = C2D_FORMAT_SWAP_ENDIANNESS| C2D_COLOR_FORMAT_8888_RGBA;
-  c2dSurfaceDef.width  = width_;
-  c2dSurfaceDef.height = height_;
+  c2dSurfaceDef.width  = image_width_;
+  c2dSurfaceDef.height = image_height_;
   c2dSurfaceDef.buffer = mem_info.vaddr;
   c2dSurfaceDef.phys   = gpu_addr_;
-  c2dSurfaceDef.stride = width_ * 4;
+  c2dSurfaceDef.stride = image_width_ * 4;
 
   //Create source c2d surface.
   ret = c2dCreateSurface(&c2dsurface_id_, C2D_SOURCE,
