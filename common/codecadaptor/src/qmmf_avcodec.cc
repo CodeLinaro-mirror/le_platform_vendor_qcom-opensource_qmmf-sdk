@@ -3466,13 +3466,8 @@ void AVCodec::DeliverInput() {
       thread_stop = true;
     }
 
-    if (format_type_ == CodecType::kVideoEncoder) {
-      buf_header->nFilledLen = stream_buffer.size;
-      buf_header->nTimeStamp = stream_buffer.timestamp / 1000;
-    } else {
-      buf_header->nFilledLen = stream_buffer.size;
-      buf_header->nTimeStamp = stream_buffer.timestamp;
-    }
+    buf_header->nFilledLen = stream_buffer.size;
+    buf_header->nTimeStamp = stream_buffer.timestamp;
 
     if (format_type_ == CodecType::kVideoEncoder)
       QMMF_VERBOSE("%s: ETB buffer ts[%lld]", __func__, stream_buffer.timestamp);
