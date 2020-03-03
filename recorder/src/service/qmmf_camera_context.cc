@@ -536,6 +536,9 @@ status_t CameraContext::CloseCamera(const uint32_t camera_id) {
 
 bool CameraContext::IsPostProcNeeded(const SnapshotParam& param,
                                      const uint32_t sequence_cnt) {
+#ifdef DISABLE_POSTPROC_FOR_BURST
+  return false;
+#else
   if (((sequence_cnt > 1) && (param.format == BufferFormat::kBLOB)) ||
       !capture_plugins_.empty() ||
       (!exif_en_ && (param.format == BufferFormat::kBLOB)) ||
@@ -544,6 +547,7 @@ bool CameraContext::IsPostProcNeeded(const SnapshotParam& param,
   } else {
     return false;
   }
+#endif
 }
 
 void CameraContext::ReprocessCaptureCallback(StreamBuffer buffer) {
