@@ -151,8 +151,8 @@ int32_t Overlay::CreateOverlayItem(OverlayParam& param, uint32_t* overlay_id) {
     case OverlayType::kPrivacyMask:
       overlayItem = new OverlayItemPrivacyMask(ion_device_);
       break;
-    case OverlayType::kPose:
-      overlayItem = new OverlayItemPose(ion_device_);
+    case OverlayType::kGraph:
+      overlayItem = new OverlayItemGraph(ion_device_);
       break;
     default:
       OVDBG_ERROR("%s: OverlayType(%d) not supported!", __func__,
@@ -2429,37 +2429,55 @@ ERROR:
   return ret;
 }
 
-int32_t OverlayItemPose::Init(OverlayParam& param) {
+int32_t OverlayItemGraph::Init(OverlayParam& param) {
 
   OVDBG_VERBOSE("%s: Enter", __func__);
-  if ((param.dst_rect.width <= 0) || (param.dst_rect.height <= 0)) {
-    return BAD_VALUE;
-  }
-  if (param.dst_rect.start_x < 0 || param.dst_rect.start_y < 0) {
+
+  if (param.dst_rect.width <= 0 || param.dst_rect.height <= 0) {
+    OVDBG_ERROR("%s: failed: dim: %dx%d", __func__,
+      param.dst_rect.width, param.dst_rect.height);
     return BAD_VALUE;
   }
 
-  x_          = param.dst_rect.start_x;
-  y_          = param.dst_rect.start_y;
-  width_      = param.dst_rect.width;
-  height_     = param.dst_rect.height;
-  pose_color_ = param.color;
-  pose_       = param.pose;
+  if (param.dst_rect.start_x < 0 || param.dst_rect.start_y < 0) {
+    OVDBG_ERROR("%s: failed: x/y: %dx%d", __func__,
+      param.dst_rect.start_x, param.dst_rect.start_y);
+    return BAD_VALUE;
+  }
+
+  if (param.graph.points_count > OVERLAY_GRAPH_NODES_MAX_COUNT) {
+    OVDBG_ERROR("%s: failed: points_count %d", __func__,
+        param.graph.points_count);
+    return BAD_VALUE;
+  }
+
+  if (param.graph.chain_count > OVERLAY_GRAPH_CHAIN_MAX_COUNT) {
+    OVDBG_ERROR("%s: failed: chain_count %d", __func__,
+        param.graph.chain_count);
+    return BAD_VALUE;
+  }
+
+  x_           = param.dst_rect.start_x;
+  y_           = param.dst_rect.start_y;
+  width_       = param.dst_rect.width;
+  height_      = param.dst_rect.height;
+  graph_color_ = param.color;
+  graph_       = param.graph;
 
   float scaled_width  = static_cast<float>(width_) / DOWNSCALE_FACTOR;
   float scaled_height = static_cast<float>(height_) / DOWNSCALE_FACTOR;
 
   float aspect_ratio = scaled_width / scaled_height;
 
-  OVDBG_INFO("%s: Pose(W:%dxH:%d), aspect_ratio(%f), scaled(W:%fxH:%f)",
+  OVDBG_INFO("%s: Graph(W:%dxH:%d), aspect_ratio(%f), scaled(W:%fxH:%f)",
       __func__, param.dst_rect.width, param.dst_rect.height,
       aspect_ratio, scaled_width, scaled_height);
 
   int32_t width = static_cast<int32_t>(round(scaled_width));
   width = ROUND_TO(width, 16); // Round to multiple of 16.
-  width = width > kPoseBufWidth ? width : kPoseBufWidth;
+  width = width > kGraphBufWidth ? width : kGraphBufWidth;
   int32_t height = (static_cast<int32_t>(width/aspect_ratio + 15)>> 4) << 4;
-  height = height > kPoseBufHeight ? height : kPoseBufHeight;
+  height = height > kGraphBufHeight ? height : kGraphBufHeight;
 
   buffer_width_  = width;
   buffer_height_ = height;
@@ -2479,7 +2497,7 @@ int32_t OverlayItemPose::Init(OverlayParam& param) {
   return ret;
 }
 
-int32_t OverlayItemPose::UpdateAndDraw() {
+int32_t OverlayItemGraph::UpdateAndDraw() {
 
   OVDBG_VERBOSE("%s: Enter ", __func__);
   int32_t ret = 0;
@@ -2491,41 +2509,36 @@ int32_t OverlayItemPose::UpdateAndDraw() {
 
   SyncStart(ion_fd_);
 #if USE_CAIRO
-  OVDBG_INFO("%s: Draw pose!", __func__);
+  OVDBG_INFO("%s: Draw graph!", __func__);
   ClearSurface();
 
   RGBAValues bbox_color;
   memset(&bbox_color, 0x0, sizeof bbox_color);
-  ExtractColorValues(pose_color_, &bbox_color);
+  ExtractColorValues(graph_color_, &bbox_color);
   cairo_set_source_rgba (cr_context_, bbox_color.red, bbox_color.green,
                          bbox_color.blue, bbox_color.alpha);
   cairo_set_line_width (cr_context_, kLineWidth);
 
   // draw key points
-  for (int i = 0; i < kKeyPointsCount; i++) {
-    if (pose_.points[i].x >= 0 && pose_.points[i].y >= 0) {
+  for (int i = 0; i < graph_.points_count; i++) {
+    if (graph_.points[i].x >= 0 && graph_.points[i].y >= 0) {
       cairo_arc (cr_context_,
-        (uint32_t)((float) pose_.points[i].x / downscale_ratio_),
-        (uint32_t)((float) pose_.points[i].y / downscale_ratio_),
+        (uint32_t)((float) graph_.points[i].x / downscale_ratio_),
+        (uint32_t)((float) graph_.points[i].y / downscale_ratio_),
         kDotRadius, 0, 2 * M_PI);
       cairo_fill (cr_context_);
     }
   }
 
   // draw links
-  for (int i = 0; i < sizeof(PoseChain) / sizeof(PoseChain[0]); i++) {
-    if (pose_.points[PoseChain[i][0]].x >= 0 &&
-        pose_.points[PoseChain[i][0]].y >= 0 &&
-        pose_.points[PoseChain[i][1]].x >= 0 &&
-        pose_.points[PoseChain[i][1]].y >= 0) {
-      cairo_move_to (cr_context_,
-        (uint32_t)((float) pose_.points[PoseChain[i][0]].x / downscale_ratio_),
-        (uint32_t)((float) pose_.points[PoseChain[i][0]].y / downscale_ratio_));
-      cairo_line_to (cr_context_,
-        (uint32_t)((float) pose_.points[PoseChain[i][1]].x / downscale_ratio_),
-        (uint32_t)((float) pose_.points[PoseChain[i][1]].y / downscale_ratio_));
-      cairo_stroke (cr_context_);
-    }
+  for (int i = 0; i < graph_.chain_count; i++) {
+    cairo_move_to (cr_context_,
+      (uint32_t)((float) graph_.points[graph_.chain[i][0]].x / downscale_ratio_),
+      (uint32_t)((float) graph_.points[graph_.chain[i][0]].y / downscale_ratio_));
+    cairo_line_to (cr_context_,
+      (uint32_t)((float) graph_.points[graph_.chain[i][1]].x / downscale_ratio_),
+      (uint32_t)((float) graph_.points[graph_.chain[i][1]].y / downscale_ratio_));
+    cairo_stroke (cr_context_);
   }
 
   cairo_surface_flush (cr_surface_);
@@ -2537,7 +2550,7 @@ int32_t OverlayItemPose::UpdateAndDraw() {
   return ret;
 }
 
-void OverlayItemPose::GetDrawInfo(uint32_t targetWidth,
+void OverlayItemGraph::GetDrawInfo(uint32_t targetWidth,
                                          uint32_t targetHeight,
                                          std::vector<DrawInfo>& draw_infos) {
   OVDBG_VERBOSE("%s: Enter", __func__);
@@ -2552,11 +2565,11 @@ void OverlayItemPose::GetDrawInfo(uint32_t targetWidth,
   OVDBG_VERBOSE("%s: Exit", __func__);
 }
 
-void OverlayItemPose::GetParameters(OverlayParam& param) {
+void OverlayItemGraph::GetParameters(OverlayParam& param) {
   OVDBG_VERBOSE("%s:Enter ",__func__);
-  param.type             = OverlayType::kPose;
+  param.type             = OverlayType::kGraph;
   param.location         = OverlayLocationType::kNone;
-  param.color            = pose_color_;
+  param.color            = graph_color_;
   param.dst_rect.start_x = x_;
   param.dst_rect.start_y = y_;
   param.dst_rect.width   = width_;
@@ -2564,33 +2577,48 @@ void OverlayItemPose::GetParameters(OverlayParam& param) {
   OVDBG_VERBOSE("%s:Exit ",__func__);
 }
 
-int32_t OverlayItemPose::UpdateParameters(OverlayParam& param) {
+int32_t OverlayItemGraph::UpdateParameters(OverlayParam& param) {
 
   OVDBG_VERBOSE("%s:Enter ",__func__);
   int32_t ret = 0;
 
-  if((param.dst_rect.width <= 0) || (param.dst_rect.height <= 0)) {
-      return BAD_VALUE;
+  if (param.dst_rect.width <= 0 || param.dst_rect.height <= 0) {
+    OVDBG_ERROR("%s: failed: dim: %dx%d", __func__,
+      param.dst_rect.width, param.dst_rect.height);
+    return BAD_VALUE;
   }
 
-  if(param.dst_rect.start_x < 0 || param.dst_rect.start_y < 0) {
-      return BAD_VALUE;
+  if (param.dst_rect.start_x < 0 || param.dst_rect.start_y < 0) {
+    OVDBG_ERROR("%s: failed: x/y: %dx%d", __func__,
+      param.dst_rect.start_x, param.dst_rect.start_y);
+    return BAD_VALUE;
   }
 
-  x_          = param.dst_rect.start_x;
-  y_          = param.dst_rect.start_y;
-  width_      = param.dst_rect.width;
-  height_     = param.dst_rect.height;
+  if (param.graph.points_count > OVERLAY_GRAPH_NODES_MAX_COUNT) {
+    OVDBG_ERROR("%s: failed: points_count %d", __func__,
+        param.graph.points_count);
+    return BAD_VALUE;
+  }
 
-  pose_color_ = param.color;
-  pose_ = param.pose;
+  if (param.graph.chain_count > OVERLAY_GRAPH_CHAIN_MAX_COUNT) {
+    OVDBG_ERROR("%s: failed: chain_count %d", __func__,
+        param.graph.chain_count);
+    return BAD_VALUE;
+  }
+
+  x_           = param.dst_rect.start_x;
+  y_           = param.dst_rect.start_y;
+  width_       = param.dst_rect.width;
+  height_      = param.dst_rect.height;
+  graph_color_ = param.color;
+  graph_       = param.graph;
   MarkDirty(true);
 
   OVDBG_VERBOSE("%s:Exit ",__func__);
   return ret;
 }
 
-int32_t OverlayItemPose::CreateSurface() {
+int32_t OverlayItemGraph::CreateSurface() {
 
   OVDBG_VERBOSE("%s: Enter", __func__);
   int32_t size = buffer_width_ * buffer_height_ * 4;

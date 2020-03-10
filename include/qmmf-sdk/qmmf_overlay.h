@@ -66,13 +66,16 @@ static const uint32_t kColorLightGreen = 0x33CC00FF;
 static const uint32_t kColorLightBlue  = 0x189BF2FF;
 #endif
 
+#define OVERLAY_GRAPH_NODES_MAX_COUNT 20
+#define OVERLAY_GRAPH_CHAIN_MAX_COUNT 40
+
 enum class OverlayType {
   kDateType,
   kUserText,
   kStaticImage,
   kBoundingBox,
   kPrivacyMask,
-  kPose
+  kGraph
 };
 
 enum class OverlayLocationType {
@@ -124,49 +127,16 @@ struct OverlayImageInfo {
   bool buffer_updated;
 };
 
-enum OverlayKeyPoints {
-  kNose = 0,
-  kLeftEye,
-  kRightEye,
-  kLeftEar,
-  kRightEar,
-  kLeftShoulder,
-  kRightShoulder,
-  kLeftElbow,
-  kRightElbow,
-  kLeftWrist,
-  kRightWrist,
-  kLeftHip,
-  kRightHip,
-  kLeftKnee,
-  kRightKnee,
-  kLeftAnkle,
-  kRightAnkle,
-  kKeyPointsCount
-};
-
-static OverlayKeyPoints PoseChain [][2] {
-  {kLeftShoulder,  kRightShoulder},
-  {kLeftShoulder,  kLeftElbow},
-  {kLeftShoulder,  kLeftHip},
-  {kRightShoulder, kRightElbow},
-  {kRightShoulder, kRightHip},
-  {kLeftElbow,     kLeftWrist},
-  {kRightElbow,    kRightWrist},
-  {kLeftHip,       kRightHip},
-  {kLeftHip,       kLeftKnee},
-  {kRightHip,      kRightKnee},
-  {kLeftKnee,      kLeftAnkle},
-  {kRightKnee,     kRightAnkle}
-};
-
 struct OverlayKeyPoint {
   int32_t x;
   int32_t y;
 };
 
-struct OverlayPose {
-  struct OverlayKeyPoint points[OverlayKeyPoints::kKeyPointsCount];
+struct OverlayGraph {
+  uint32_t points_count;
+  struct OverlayKeyPoint points[OVERLAY_GRAPH_NODES_MAX_COUNT];
+  uint32_t chain_count;
+  int32_t chain[OVERLAY_GRAPH_CHAIN_MAX_COUNT][2];
 };
 
 struct OverlayParam {
@@ -179,7 +149,7 @@ struct OverlayParam {
     char user_text[MAX_STRING_LENGTH];
     OverlayImageInfo image_info;
     BoundingBox bounding_box;
-    OverlayPose pose;
+    OverlayGraph graph;
   };
 };
 

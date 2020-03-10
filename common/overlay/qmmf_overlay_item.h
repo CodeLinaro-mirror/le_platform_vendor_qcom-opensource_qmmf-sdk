@@ -370,14 +370,14 @@ class OverlayItemPrivacyMask: public OverlayItem {
   uint32_t    mask_color_;
 };
 
-class OverlayItemPose : public OverlayItem {
+class OverlayItemGraph : public OverlayItem {
  public:
 
-  OverlayItemPose(int32_t ion_device)
-                         : OverlayItem(ion_device, OverlayType::kPose) {};
+  OverlayItemGraph(int32_t ion_device)
+                         : OverlayItem(ion_device, OverlayType::kGraph) {};
 
 
-  virtual ~OverlayItemPose() {};
+  virtual ~OverlayItemGraph() {};
 
   int32_t Init(OverlayParam& param) override;
 
@@ -396,14 +396,14 @@ class OverlayItemPose : public OverlayItem {
 
   static const int  kDotRadius = 3;
   static const int  kLineWidth = 2;
-  static const int  kPoseBufWidth = 480;
-  static const int  kPoseBufHeight = 270;
+  static const int  kGraphBufWidth = 480;
+  static const int  kGraphBufHeight = 270;
 
-  uint32_t          pose_color_;
+  uint32_t          graph_color_;
   int32_t           buffer_width_  = 0;
   int32_t           buffer_height_ = 0;
   float             downscale_ratio_;
-  OverlayPose       pose_;
+  OverlayGraph      graph_;
 };
 
 
