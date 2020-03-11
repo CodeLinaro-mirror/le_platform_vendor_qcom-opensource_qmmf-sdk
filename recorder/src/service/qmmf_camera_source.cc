@@ -1981,11 +1981,6 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
   return;
 #endif
 
-  if(IsPaused()) {
-    ReturnBufferToProducer(buffer);
-    return;
-  }
-
   {
     std::lock_guard<std::mutex> lock(eos_lock_);
     if (eos_acked_ && IsStop()) {
@@ -2049,6 +2044,11 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
       }
       buffer_producer_impl_->NotifyBuffer(buffer);
     }
+  }
+
+  if(IsPaused()) {
+    ReturnBufferToProducer(buffer);
+    return;
   }
 
   // If format type is YUV or BAYER then give callback from this point, do not
