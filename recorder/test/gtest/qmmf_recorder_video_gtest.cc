@@ -15406,7 +15406,11 @@ TEST_F(VideoGtest,
     ASSERT_TRUE(ret == NO_ERROR);
 
     // Let session run for time record_duration_
-    sleep(record_duration_);
+    sleep(record_duration_ / 3);
+
+    EnableZoom(zoom_value_);
+
+    sleep(record_duration_ / 3);
 
     ret = recorder_.StopSession(session_id, false);
     ASSERT_TRUE(ret == NO_ERROR);
@@ -15597,7 +15601,11 @@ TEST_F(VideoGtest,
     ASSERT_TRUE(ret == NO_ERROR);
 
     // Let session run for time record_duration_
-    sleep(record_duration_);
+    sleep(record_duration_ / 3);
+
+    EnableZoom(zoom_value_);
+
+    sleep(record_duration_ / 3);
 
 
     ret = recorder_.StopSession(session_id, false);

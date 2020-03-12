@@ -230,6 +230,8 @@ struct FaceInfo {
 #define PROP_MEASURE_SOF_LATENCY    "persist.qmmf.rec.gtest.sof.ts"
 // Prop to enable 10 bit support
 #define PROP_ENABLE_10_BIT          "persist.qmmf.rec.gtest.10bit.on"
+// Prop to set zoom value
+#define PROP_ZOOM_VALUE             "persist.qmmf.rec.gtest.zoom.val"
 
 #ifndef MAX
 #define MAX(a,b) ((a) > (b) ? (a) : (b))
@@ -747,6 +749,8 @@ class GtestCommon : public ::testing::Test {
 
   void ClearSurface();
 
+  void EnableZoom(float zoom);
+
   status_t FillCropMetadata(CameraMetadata& meta, int32_t sensor_mode_w,
                             int32_t sensor_mode_h, int32_t crop_x,
                             int32_t crop_y, int32_t crop_w, int32_t crop_h);
@@ -830,6 +834,7 @@ class GtestCommon : public ::testing::Test {
   bool                  is_apply_overlay_;
   bool                  is_frame_debug_enabled_;
   std::string           sensor_mode_file_name_;
+  float                 zoom_value_;
 
 #ifndef DISABLE_DISPLAY
   bool                  use_display_;

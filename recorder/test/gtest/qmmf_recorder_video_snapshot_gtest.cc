@@ -12257,7 +12257,11 @@ TEST_F(RecorderVideoSnapshotGTest,
     ASSERT_TRUE(ret == NO_ERROR);
 
     // Let session run for time record_duration_
-    sleep(record_duration_);
+    sleep(record_duration_ / 3);
+
+    EnableZoom(zoom_value_);
+
+    sleep(record_duration_ / 3);
 
     // JPEG: 8MP
     ImageParam image_param{};
@@ -12480,7 +12484,11 @@ TEST_F(RecorderVideoSnapshotGTest,
     ASSERT_TRUE(ret == NO_ERROR);
 
     // Let session run for time record_duration_
-    sleep(record_duration_);
+    sleep(record_duration_ / 3);
+
+    EnableZoom(zoom_value_);
+
+    sleep(record_duration_ / 3);
 
     // JPEG: 8MP 3840X2160
     ImageParam image_param{};
