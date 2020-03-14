@@ -116,7 +116,7 @@ struct C2dObjects {
 //Base class for all types of overlays.
 class OverlayItem {
  public:
-  OverlayItem(int32_t ion_device);
+  OverlayItem(int32_t ion_device, OverlayType type);
 
   virtual ~OverlayItem();
 
@@ -178,7 +178,9 @@ class OverlayItem {
 class OverlayItemStaticImage : public OverlayItem {
 
  public:
-  OverlayItemStaticImage(int32_t ion_device);
+  OverlayItemStaticImage(int32_t ion_device)
+                           : OverlayItem(ion_device, OverlayType::kStaticImage),
+                             image_path_() {};
 
   virtual ~OverlayItemStaticImage();
 
@@ -256,7 +258,10 @@ class OverlayItemDateAndTime: public OverlayItem {
 
 class OverlayItemBoundingBox: public OverlayItem {
  public:
-  OverlayItemBoundingBox(int32_t ion_device);
+  OverlayItemBoundingBox(int32_t ion_device)
+                           : OverlayItem(ion_device, OverlayType::kBoundingBox),
+                             bbox_name_(),
+                             text_height_(0) {};
 
   virtual ~OverlayItemBoundingBox();
 
@@ -306,7 +311,10 @@ class OverlayItemBoundingBox: public OverlayItem {
 
 class OverlayItemText: public OverlayItem {
  public:
-  OverlayItemText(int32_t ion_device);
+
+  OverlayItemText(int32_t ion_device)
+                             : OverlayItem(ion_device, OverlayType::kUserText),
+                               text_() {};
 
   virtual ~OverlayItemText();
 
@@ -338,9 +346,10 @@ class OverlayItemText: public OverlayItem {
 class OverlayItemPrivacyMask: public OverlayItem {
  public:
 
-  OverlayItemPrivacyMask(int32_t ion_device);
+  OverlayItemPrivacyMask(int32_t ion_device)
+                       : OverlayItem(ion_device, OverlayType::kPrivacyMask) {};
 
-  virtual ~OverlayItemPrivacyMask();
+  virtual ~OverlayItemPrivacyMask() {};
 
   int32_t Init(OverlayParam& param) override;
 
@@ -360,6 +369,43 @@ class OverlayItemPrivacyMask: public OverlayItem {
 #endif
   uint32_t    mask_color_;
 };
+
+class OverlayItemGraph : public OverlayItem {
+ public:
+
+  OverlayItemGraph(int32_t ion_device)
+                         : OverlayItem(ion_device, OverlayType::kGraph) {};
+
+
+  virtual ~OverlayItemGraph() {};
+
+  int32_t Init(OverlayParam& param) override;
+
+  int32_t UpdateAndDraw() override;
+
+  void GetDrawInfo(uint32_t target_width, uint32_t target_height,
+                   std::vector<DrawInfo>& draw_infos) override;
+
+  void GetParameters(OverlayParam& param) override;
+
+  int32_t UpdateParameters(OverlayParam& param) override;
+
+ private:
+
+  int32_t CreateSurface();
+
+  static const int  kDotRadius = 3;
+  static const int  kLineWidth = 2;
+  static const int  kGraphBufWidth = 480;
+  static const int  kGraphBufHeight = 270;
+
+  uint32_t          graph_color_;
+  int32_t           buffer_width_  = 0;
+  int32_t           buffer_height_ = 0;
+  float             downscale_ratio_;
+  OverlayGraph      graph_;
+};
+
 
 }; // namespace overlay
 }; // namespace qmmf

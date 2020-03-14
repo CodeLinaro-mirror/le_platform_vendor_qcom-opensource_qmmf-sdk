@@ -66,12 +66,16 @@ static const uint32_t kColorLightGreen = 0x33CC00FF;
 static const uint32_t kColorLightBlue  = 0x189BF2FF;
 #endif
 
+#define OVERLAY_GRAPH_NODES_MAX_COUNT 20
+#define OVERLAY_GRAPH_CHAIN_MAX_COUNT 40
+
 enum class OverlayType {
   kDateType,
   kUserText,
   kStaticImage,
   kBoundingBox,
-  kPrivacyMask
+  kPrivacyMask,
+  kGraph
 };
 
 enum class OverlayLocationType {
@@ -123,6 +127,18 @@ struct OverlayImageInfo {
   bool buffer_updated;
 };
 
+struct OverlayKeyPoint {
+  int32_t x;
+  int32_t y;
+};
+
+struct OverlayGraph {
+  uint32_t points_count;
+  struct OverlayKeyPoint points[OVERLAY_GRAPH_NODES_MAX_COUNT];
+  uint32_t chain_count;
+  int32_t chain[OVERLAY_GRAPH_CHAIN_MAX_COUNT][2];
+};
+
 struct OverlayParam {
   OverlayType type;
   OverlayLocationType location;
@@ -133,6 +149,7 @@ struct OverlayParam {
     char user_text[MAX_STRING_LENGTH];
     OverlayImageInfo image_info;
     BoundingBox bounding_box;
+    OverlayGraph graph;
   };
 };
 
