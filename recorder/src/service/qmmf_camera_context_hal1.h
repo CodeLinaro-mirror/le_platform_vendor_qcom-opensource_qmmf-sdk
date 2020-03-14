@@ -60,7 +60,7 @@ class CameraContext : public CameraInterface {
 
   status_t HAL_load();
   status_t HAL_unload();
-  status_t camera_device_open(int id);
+  status_t camera_device_open(uint8_t id);
   status_t close_camera_device();
   status_t set_callbacks();
   char* get_parameters();
@@ -98,6 +98,10 @@ class CameraContext : public CameraInterface {
   status_t StartStream(const uint32_t track_id) override;
 
   status_t StopStream(const uint32_t track_id) override;
+
+  status_t PauseStream(const uint32_t track_id) override;
+
+  status_t ResumeStream(const uint32_t track_id) override;
 
   status_t SetCameraParam(const CameraMetadata &meta) override;
 
@@ -166,7 +170,7 @@ private:
   template <class mapType> uint32_t lookupAttr(const mapType *arr, size_t len,
     const char *name);
   template <class mapType> const char *lookupNameByValue(const mapType *arr,
-    size_t len, int value);
+    size_t len, int32_t value);
 
   template <typename valueType> struct QmmfCameraMap {
       const char *const desc;
@@ -188,8 +192,8 @@ private:
     SCENE_MODES_MAP[];
   static const QmmfCameraMap<uint8_t> TRUE_FALSE_MAP[];
 
-  status_t ParsePair(const char *str, int *first, int *second, char delim,
-                     char **endptr = NULL);
+  status_t ParsePair(const char *str, uint32_t *first, uint32_t *second,
+                     char delim, char **endptr = NULL);
   status_t ParseList(const char *list, std::vector<std::string> &sizes);
 
   // Maps of buffer Id and Buffer.
