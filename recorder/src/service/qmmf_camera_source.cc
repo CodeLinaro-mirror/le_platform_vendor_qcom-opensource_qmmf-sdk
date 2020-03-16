@@ -1730,8 +1730,10 @@ status_t TrackSource::PauseTrack() {
 
   assert(camera_interface_.get() != nullptr);
   status_t ret = NO_ERROR;
-  ret = camera_interface_->PauseStream(TrackId());
-  assert(ret == NO_ERROR);
+  if (slave_track_source_ == false) {
+    ret = camera_interface_->PauseStream(TrackId());
+    assert(ret == NO_ERROR);
+  }
 
   std::lock_guard<std::mutex> idle_lock(idle_lock_);
   is_idle_ = true;
@@ -1979,11 +1981,6 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
   return;
 #endif
 
-  if(IsPaused()) {
-    ReturnBufferToProducer(buffer);
-    return;
-  }
-
   {
     std::lock_guard<std::mutex> lock(eos_lock_);
     if (eos_acked_ && IsStop()) {
@@ -2047,6 +2044,11 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
       }
       buffer_producer_impl_->NotifyBuffer(buffer);
     }
+  }
+
+  if(IsPaused()) {
+    ReturnBufferToProducer(buffer);
+    return;
   }
 
   // If format type is YUV or BAYER then give callback from this point, do not
