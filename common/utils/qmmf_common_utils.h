@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -120,10 +120,10 @@ class Common {
       case BufferFormat::kNV12UBWC:
       case BufferFormat::kNV12:
       case BufferFormat::kNV12Encodable:
-        return HAL_PIXEL_FORMAT_YCbCr_420_888;
+        return HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
         break;
       case BufferFormat::kNV21:
-        return HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
+        return HAL_PIXEL_FORMAT_YCbCr_420_888;
         break;
       case BufferFormat::kNV16:
         return HAL_PIXEL_FORMAT_YCbCr_422_888;
@@ -163,10 +163,10 @@ class Common {
       case HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS_UBWC:
         return BufferFormat::kNV12UBWC;
         break;
-      case HAL_PIXEL_FORMAT_YCbCr_420_888:
+      case HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED:
         return BufferFormat::kNV12;
         break;
-      case HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED:
+      case HAL_PIXEL_FORMAT_YCbCr_420_888:
         return BufferFormat::kNV21;
         break;
       case HAL_PIXEL_FORMAT_YCbCr_422_888:
@@ -218,6 +218,9 @@ class Common {
       case ImageFormat::kBayerRDI12BIT:
         return BufferFormat::kRAW12;
         break;
+      case ImageFormat::kBayerRDI16BIT:
+        return BufferFormat::kRAW16;
+        break;
       case ImageFormat::kNV12Encodable:
         return BufferFormat::kNV12Encodable;
         break;
@@ -241,11 +244,7 @@ class Common {
       case VideoFormat::kAVC:
       case VideoFormat::kHEVC:
       case VideoFormat::kYUV:
-#ifndef CAMERA_HAL1_SUPPORT
-        return BufferFormat::kNV21;
-#else
         return BufferFormat::kNV12;
-#endif
         break;
       case VideoFormat::kRGB:
         return BufferFormat::kRGB;
@@ -552,11 +551,16 @@ class Common {
     if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
       auto entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
       for (uint32_t i = 0 ; i < entry.count; i += 4) {
-        if (HAL_PIXEL_FORMAT_RAW10 == entry.data.i32[i]) {
+        if (HAL_PIXEL_FORMAT_RAW8 == entry.data.i32[i] ||
+            HAL_PIXEL_FORMAT_RAW10 == entry.data.i32[i] ||
+            HAL_PIXEL_FORMAT_RAW12 == entry.data.i32[i] ||
+            HAL_PIXEL_FORMAT_RAW16 == entry.data.i32[i] ) {
           if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
               entry.data.i32[i+3]) {
-            if (width == static_cast<uint32_t>(entry.data.i32[i+1])
-                && height == static_cast<uint32_t>(entry.data.i32[i+2])) {
+            uint32_t w = static_cast<uint32_t>(entry.data.i32[i+1]);
+            uint32_t h = static_cast<uint32_t>(entry.data.i32[i+2]);
+            QMMF_DEBUG("%s: Supported width: %d, height: %d", __func__, w, h);
+            if (width == w && height == h) {
               is_supported = true;
               break;
             }

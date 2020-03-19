@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -604,7 +604,9 @@ status_t CameraContext::SetUpCapture(const SnapshotParam& param,
                            (postproc_enable_ != new_postproc_enable) ||
                            IsNeedReconfigSnapshotStream() ||
                            (new_postproc_enable && restart_pipe_) ||
-                           (jpeg_input_format_ != new_jpeg_input_format_);
+                           (jpeg_input_format_ != new_jpeg_input_format_) ||
+                           (snapshot_param_.format != param.format);
+
       QMMF_DEBUG("%s: reconfigure_needed=%d", __func__, reconfigure_needed);
 
       if ((postproc_enable_ && !new_postproc_enable) || reconfigure_needed) {
@@ -1208,6 +1210,36 @@ status_t CameraContext::StopStream(const uint32_t track_id) {
   }
 
   auto ret = port->Stop();
+  assert(ret == NO_ERROR);
+  QMMF_DEBUG("%s: Exit", __func__);
+  return NO_ERROR;
+}
+
+status_t CameraContext::PauseStream(const uint32_t track_id) {
+
+  QMMF_DEBUG("%s: Enter", __func__);
+  auto port = GetPort(track_id);
+  if (!port) {
+    QMMF_ERROR("%s: Invalid track_id(%x)", __func__, track_id);
+    return BAD_VALUE;
+  }
+
+  auto ret = port->Pause();
+  assert(ret == NO_ERROR);
+  QMMF_DEBUG("%s: Exit", __func__);
+  return NO_ERROR;
+}
+
+status_t CameraContext::ResumeStream(const uint32_t track_id) {
+
+  QMMF_DEBUG("%s: Enter", __func__);
+  auto port = GetPort(track_id);
+  if (!port) {
+    QMMF_ERROR("%s: Invalid track_id(%x)", __func__, track_id);
+    return BAD_VALUE;
+  }
+
+  auto ret = port->Resume();
   assert(ret == NO_ERROR);
   QMMF_DEBUG("%s: Exit", __func__);
   return NO_ERROR;
@@ -2710,8 +2742,12 @@ status_t CameraPort::Init() {
 
   bool is_ubwc_stream_enabled = IsUbwcValidForStream(params_.width,
                                                      params_.height);
+  // Passing encoder flags for all streams, in order to
+  // support linked or rescaled encoded streams from
+  // yuv streams.
+  cam_stream_params_.allocFlags.flags = IMemAllocUsage::kVideoEncoder;
+
   if (!params_.is_yuv_track) {
-    cam_stream_params_.allocFlags.flags = IMemAllocUsage::kVideoEncoder;
     cam_stream_params_.bufferCount =
         VIDEO_STREAM_BUFFER_COUNT + GetExtraBufferCount();
     if (is_ubwc_stream_enabled) {
@@ -2719,7 +2755,6 @@ status_t CameraPort::Init() {
     }
   } else {
     cam_stream_params_.bufferCount = PREVIEW_STREAM_BUFFER_COUNT;
-    cam_stream_params_.format = HAL_PIXEL_FORMAT_YCbCr_420_888;
     cam_stream_params_.is_pp_enabled = false;
   }
 

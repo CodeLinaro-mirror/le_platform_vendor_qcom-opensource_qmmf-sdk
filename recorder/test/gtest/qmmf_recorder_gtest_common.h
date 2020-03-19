@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -60,7 +60,6 @@
 #endif
 
 #include "common/utils/qmmf_log.h"
-#include "qmmf_memory_interface.h"
 
 #ifdef __LIBGBM__
 #include <gbm_priv.h>
@@ -128,27 +127,6 @@ using ::qmmf::display::SurfaceFormat;
 static const uint32_t kZslWidth      = 3840;
 static const uint32_t kZslHeight     = 2160;
 static const uint32_t kZslQDepth     = 10;
-
-#if USE_SKIA
-static const uint32_t kColorRed        = 0xFFFF0000;
-static const uint32_t kColorDarkGray   = 0x202020FF;
-static const uint32_t kColorYellow     = 0xFFFF00FF;
-static const uint32_t kColorBlue       = 0x0000CCFF;
-static const uint32_t kColorWhilte     = 0xFFFFFFFF;
-static const uint32_t kColorOrange     = 0xFF8000FF;
-static const uint32_t kColorLightGreen = 0x33CC00FF;
-static const uint32_t kColorLightBlue  = 0x189BF2FF;
-#elif USE_CAIRO
-static const uint32_t kColorRed        = 0xFF0000FF;
-static const uint32_t kColorDarkGray   = 0x202020FF;
-static const uint32_t kColorYellow     = 0xFFFF00FF;
-static const uint32_t kColorBlue       = 0x0000CCFF;
-static const uint32_t kColorWhilte     = 0xFFFFFFFF;
-static const uint32_t kColorOrange     = 0xFF8000FF;
-static const uint32_t kColorLightGreen = 0x33CC00FF;
-static const uint32_t kColorLightBlue  = 0x189BF2FF;
-#endif
-
 
 #define TEXT_SIZE                 40
 #define DATETIME_PIXEL_SIZE       30

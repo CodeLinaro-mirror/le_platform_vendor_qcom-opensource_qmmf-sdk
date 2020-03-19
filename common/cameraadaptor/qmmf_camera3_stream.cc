@@ -751,12 +751,22 @@ int32_t Camera3Stream::GetBufferLocked(camera3_stream_buffer *streamBuffer) {
       buf_width = camera3_stream::width;
       buf_height = camera3_stream::height;
     }
+    MemAllocFlags memusage =
+        AllocUsageFactory::GetAllocUsage().ToCommon(camera3_stream::usage);
+
+    // Remove the CPU read/write flags set by CamX since they are confusing GBM
+    // when UBWC flag is set which causes the allocated buffer to be plain NV12.
+    if (memusage.flags & IMemAllocUsage::kPrivateAllocUbwc) {
+      memusage.flags &= ~(IMemAllocUsage::kHwCameraRead |
+          IMemAllocUsage::kHwCameraWrite);
+    }
+
     MemAllocError ret = mem_alloc_interface_->AllocBuffer(
         handle,
         buf_width,
         buf_height,
         camera3_stream::format,
-        AllocUsageFactory::GetAllocUsage().ToCommon(camera3_stream::usage),
+        memusage,
         &current_buffer_stride_);
     if (MemAllocError::kAllocOk != ret) {
       return -ENOMEM;

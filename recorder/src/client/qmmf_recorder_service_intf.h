@@ -91,8 +91,10 @@ enum QMMF_RECORDER_SERVICE_CMDS {
   RECORDER_GET_CAMERA_CHARACTERISTICS,
   RECORDER_CREATE_OVERLAYOBJECT,
   RECORDER_DELETE_OVERLAYOBJECT,
+  RECORDER_DELETE_OVERLAYOBJECTS,
   RECORDER_GET_OVERLAYOBJECT_PARAMS,
   RECORDER_UPDATE_OVERLAYOBJECT_PARAMS,
+  RECORDER_PROCESS_OVERLAYOBJECTS,
   RECORDER_SET_OVERLAYOBJECT,
   RECORDER_REMOVE_OVERLAYOBJECT,
   RECORDER_CREATE_MULTICAMERA,
@@ -317,6 +319,9 @@ class IRecorderService : public IInterface {
                                        const uint32_t track_id,
                                        const uint32_t overlay_id) = 0;
 
+  virtual status_t DeleteOverlayObjects(const uint32_t client_id,
+                                        const uint32_t track_id) = 0;
+
   virtual status_t GetOverlayObjectParams(const uint32_t client_id,
                                           const uint32_t track_id,
                                           const uint32_t overlay_id,
@@ -326,6 +331,10 @@ class IRecorderService : public IInterface {
                                              const uint32_t track_id,
                                              const uint32_t overlay_id,
                                              OverlayParam *param) = 0;
+
+  virtual status_t ProcessOverlayObjects(
+      const uint32_t client_id, const uint32_t track_id,
+      const std::vector<OverlayParam> &overlay_list) = 0;
 
   virtual status_t SetOverlayObject(const uint32_t client_id,
                                     const uint32_t track_id,

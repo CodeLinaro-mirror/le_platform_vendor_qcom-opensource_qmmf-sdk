@@ -586,7 +586,12 @@ status_t RecorderImpl::StartSession(const uint32_t client_id,
     return BAD_VALUE;
   }
 
-  if (IsSessionActive(session_id)) {
+  if (IsSessionPaused(session_id)) {
+    QMMF_WARN("%s: Client(%u): Session(%u) is paused, resuming!", __func__,
+        client_id, session_id);
+    ResumeSession(client_id, session_id);
+    return NO_ERROR;
+  } else if (IsSessionActive(session_id)) {
     QMMF_WARN("%s: Client(%u): Session(%u) is already started!", __func__,
         client_id, session_id);
     return NO_ERROR;
@@ -877,11 +882,6 @@ status_t RecorderImpl::PauseSession(const uint32_t client_id,
             service_track_id);
         break;
       }
-      if ( (track_info.format.video == VideoFormat::kHEVC) ||
-           (track_info.format.video == VideoFormat::kAVC) ||
-           (track_info.format.video == VideoFormat::kJPEG)) {
-        //TODO: Add logic to stop TrackEncoder
-      }
     }
     else if (track_info.type == TrackType::kAudio) {
 
@@ -907,6 +907,7 @@ status_t RecorderImpl::PauseSession(const uint32_t client_id,
         }
       }
     }
+    ++track;
   }
   if (ret == NO_ERROR) {
     QMMF_INFO("%s: client_id(%d):session_id(%d) with num tracks(%d) Paused"
@@ -970,11 +971,6 @@ status_t RecorderImpl::ResumeSession(const uint32_t client_id,
             __func__, client_id, session_id, client_track_id,
             service_track_id);
         break;
-      }
-      if ( (track_info.format.video == VideoFormat::kHEVC) ||
-           (track_info.format.video == VideoFormat::kAVC) ||
-           (track_info.format.video == VideoFormat::kJPEG)) {
-        //TODO: Add logic to resume TrackEncoder
       }
     }
     else if (track_info.type == TrackType::kAudio) {
@@ -1444,6 +1440,68 @@ status_t RecorderImpl::CreateVideoTrack(const uint32_t client_id,
   return NO_ERROR;
 }
 
+uint32_t RecorderImpl::FindSuitableIdForLinkedTrack(
+    const VideoTrackCreateParam& params) {
+  bool is_suitable_track_found = false;
+  uint32_t selected_track_id = -1;
+  auto client_ids = GetCameraClients(params.camera_id);
+  for (auto const& id : client_ids) {
+    if (IsCameraValid(id, params.camera_id)) {
+      auto& main_session_track_map = client_session_map_[id];
+      for (auto const& track_map : main_session_track_map) {
+        // Try to find a track with same resolution
+        for (auto const& track : track_map.second) {
+          TrackInfo tr = track.second;
+          if (tr.format.video != params.format_type) {
+            continue;
+          }
+          std::shared_ptr<TrackSource> track_source =
+              camera_source_->GetTrackSource(tr.track_id);
+          VideoTrackParams tr_params = track_source->getParams();
+
+          if (params.width == tr_params.params.width &&
+              params.height == tr_params.params.height) {
+            selected_track_id = tr.track_id;
+            is_suitable_track_found = true;
+            break;
+          }
+        }
+        // Try to find a track with bigger resolution
+        if(!is_suitable_track_found) {
+          uint32_t selected_width = 0;
+          uint32_t selected_height = 0;
+          for (auto const& track : track_map.second) {
+            TrackInfo tr = track.second;
+            if (tr.format.video != params.format_type) {
+              continue;
+            }
+            std::shared_ptr<TrackSource> track_source =
+                camera_source_->GetTrackSource(tr.track_id);
+            VideoTrackParams tr_params = track_source->getParams();
+
+            if (params.width <= tr_params.params.width &&
+                params.height <= tr_params.params.height) {
+              // Select the lowest possible resolution from the all running
+              // tracks has resolution bigger than requested track.
+              if ((selected_width == 0 ||
+                  tr_params.params.width < selected_width) ||
+                  (selected_height == 0 ||
+                  tr_params.params.height < selected_height)) {
+                selected_track_id = tr.track_id;
+                is_suitable_track_found = true;
+                selected_width = tr_params.params.width;
+                selected_height = tr_params.params.height;
+              }
+            }
+          }
+        }
+      }
+      break;
+    }
+  }
+  return selected_track_id;
+}
+
 status_t RecorderImpl::CreateVideoTrack(const uint32_t client_id,
                                         const uint32_t session_id,
                                         const uint32_t track_id,
@@ -1496,6 +1554,23 @@ status_t RecorderImpl::CreateVideoTrack(const uint32_t client_id,
     source_track.source_track_id = source_track_id;
 
     video_params.extra_param.Update(QMMF_SOURCE_VIDEO_TRACK_ID, source_track);
+  } else if (video_params.extra_param.Exists(
+      QMMF_USE_LINKED_TRACK_IN_SLAVE_MODE)) {
+    LinkedTrackInSlaveMode linked_track_slave_mode;
+    video_params.extra_param.Fetch(QMMF_USE_LINKED_TRACK_IN_SLAVE_MODE,
+        linked_track_slave_mode);
+    if (linked_track_slave_mode.enable) {
+      uint32_t selected_track_id = FindSuitableIdForLinkedTrack(params);
+      if (selected_track_id != -1) {
+        SourceVideoTrack source_track;
+        source_track.source_track_id = selected_track_id;
+        video_params.extra_param.Update(QMMF_SOURCE_VIDEO_TRACK_ID,
+            source_track);
+      } else {
+        QMMF_ERROR("%s: No suitable track found for linked stream!", __func__);
+        return BAD_VALUE;
+      }
+    }
   }
 
   // Create Camera track first.
@@ -2114,6 +2189,34 @@ status_t RecorderImpl::DeleteOverlayObject(const uint32_t client_id,
   return NO_ERROR;
 }
 
+status_t RecorderImpl::DeleteOverlayObjects(const uint32_t client_id,
+                                            const uint32_t track_id) {
+  QMMF_VERBOSE("%s: Enter", __func__);
+
+  if (!IsClientValid(client_id)) {
+    QMMF_ERROR("%s: Client(%u) is not connected!", __func__, client_id);
+    return BAD_VALUE;
+  }
+
+  if (!IsTrackValid(client_id, track_id)) {
+    QMMF_ERROR("%s: Client(%d): Track(%d) does not exist!", __func__, client_id,
+               track_id);
+    return BAD_VALUE;
+  }
+
+  uint32_t service_track_id = GetServiceTrackId(client_id, track_id);
+  assert(service_track_id > 0);
+
+  assert(camera_source_ != NULL);
+  auto ret = camera_source_->DeleteOverlayObjects(service_track_id);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s: DeleteOverlayObjects failed!", __func__);
+    return ret;
+  }
+  QMMF_VERBOSE("%s: Exit", __func__);
+  return NO_ERROR;
+}
+
 status_t RecorderImpl::GetOverlayObjectParams(const uint32_t client_id,
                                               const uint32_t track_id,
                                               const uint32_t overlay_id,
@@ -2172,6 +2275,36 @@ status_t RecorderImpl::UpdateOverlayObjectParams(const uint32_t client_id,
                                                        overlay_id, param);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: UpdateOverlayObjectParams failed!", __func__);
+    return ret;
+  }
+  QMMF_VERBOSE("%s: Exit", __func__);
+  return NO_ERROR;
+}
+
+status_t RecorderImpl::ProcessOverlayObjects(
+    const uint32_t client_id, const uint32_t track_id,
+    const std::vector<OverlayParam>& overlay_list) {
+  QMMF_VERBOSE("%s: Enter", __func__);
+
+  if (!IsClientValid(client_id)) {
+    QMMF_ERROR("%s: Client(%u) is not connected!", __func__, client_id);
+    return BAD_VALUE;
+  }
+
+  if (!IsTrackValid(client_id, track_id)) {
+    QMMF_ERROR("%s: Client(%d): Track(%d) does not exist!", __func__, client_id,
+               track_id);
+    return BAD_VALUE;
+  }
+
+  uint32_t service_track_id = GetServiceTrackId(client_id, track_id);
+  assert(service_track_id > 0);
+
+  assert(camera_source_ != NULL);
+  auto ret =
+      camera_source_->ProcessOverlayObjects(service_track_id, overlay_list);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s: failed!", __func__);
     return ret;
   }
   QMMF_VERBOSE("%s: Exit", __func__);

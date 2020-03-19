@@ -163,6 +163,9 @@ class RecorderClient {
   status_t DeleteOverlayObject(const uint32_t track_id,
                                const uint32_t overlay_id);
 
+  status_t DeleteOverlayObjects(const uint32_t track_id);
+
+
   status_t GetOverlayObjectParams(const uint32_t track_id,
                                   const uint32_t overlay_id,
                                   OverlayParam &param);
@@ -170,6 +173,9 @@ class RecorderClient {
   status_t UpdateOverlayObjectParams(const uint32_t track_id,
                                      const uint32_t overlay_id,
                                      const OverlayParam &param);
+
+  status_t ProcessOverlayObjects(const uint32_t track_id,
+                                 const std::vector<OverlayParam> &overlay_list);
 
   status_t SetOverlay(const uint32_t track_id, const uint32_t overlay_id);
 
@@ -231,10 +237,10 @@ class RecorderClient {
   };
 
   struct BufferInfo {
-    uint32_t ion_fd;      // Transferred ION Id.
-    uint32_t ion_meta_fd; // Transferred ION metadata Id.
-    size_t   size;        // Buffer length/size.
-    void*    vaddr;       // Memory mapped buffer.
+    int32_t ion_fd;      // Transferred ION Id.
+    int32_t ion_meta_fd; // Transferred ION metadata Id.
+    size_t  size;        // Buffer length/size.
+    void*   vaddr;       // Memory mapped buffer.
   };
 
   // Map <buffer index, buffer info>
@@ -242,7 +248,7 @@ class RecorderClient {
 
 #ifdef TARGET_USES_GBM
   void ImportBuffer(int32_t fd, int32_t metafd, const MetaData& meta);
-  void ReleaseBuffer(int32_t fd);
+  void ReleaseBuffer(int32_t& fd);
 #endif
 
   status_t MapBuffer(BufferInfo& info);

@@ -48,6 +48,12 @@
 #define HAL_PIXEL_FORMAT_RAW8                    0x123
 #define HAL_PIXEL_FORMAT_NV12_ENCODEABLE         0x102
 #define HAL_PIXEL_FORMAT_NV21_ZSL                0x113
+#define GRALLOC_USAGE_HW_TEXTURE                 0x00000100
+#define GRALLOC_USAGE_HW_RENDER                  0x00000200
+#define GRALLOC_USAGE_HW_COMPOSER                0x00000800
+#define GRALLOC_USAGE_HW_VIDEO_ENCODER           0x00010000
+#define GRALLOC_USAGE_HW_CAMERA_WRITE            0x00020000
+#define GRALLOC_USAGE_HW_CAMERA_READ             0x00040000
 #define GRALLOC_USAGE_PRIVATE_ALLOC_UBWC         0x10000000
 #define GRALLOC_USAGE_PRIVATE_UNCACHED           0x02000000
 #define HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS      0x7FA30C04
@@ -163,8 +169,13 @@ class IMemAllocUsage {
   static const int kProtected;
   static const int kSwReadOften;
   static const int kSwWriteOften;
-  static const int kHwFb;
   static const int kVideoEncoder;
+  static const int kHwFb;
+  static const int kHwTexture;
+  static const int kHwRender;
+  static const int kHwComposer;
+  static const int kHwCameraRead;
+  static const int kHwCameraWrite;
 
   /** IMemAllocUsage::ToLocal
   *

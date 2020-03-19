@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -516,6 +516,7 @@ enum class ImageFormat {
   kBayerRDI8BIT,
   kBayerRDI10BIT,
   kBayerRDI12BIT,
+  kBayerRDI16BIT,
   kNV12Encodable,
 };
 

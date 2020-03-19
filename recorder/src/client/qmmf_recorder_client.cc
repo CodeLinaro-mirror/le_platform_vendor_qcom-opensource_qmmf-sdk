@@ -1129,6 +1129,23 @@ status_t RecorderClient::DeleteOverlayObject(const uint32_t track_id,
   return ret;
 }
 
+status_t RecorderClient::DeleteOverlayObjects(const uint32_t track_id) {
+
+  QMMF_DEBUG("%s Enter ", __func__);
+  std::lock_guard<std::mutex> lock(lock_);
+  if (!CheckServiceStatus()) {
+    return NO_INIT;
+  }
+  assert(client_id_ > 0);
+  auto ret = recorder_service_->DeleteOverlayObjects(client_id_, track_id);
+  if (NO_ERROR != ret) {
+    QMMF_ERROR("%s DeleteOverlayObjects failed!", __func__);
+  }
+  QMMF_DEBUG("%s Exit ", __func__);
+  return ret;
+}
+
+
 status_t RecorderClient::GetOverlayObjectParams(const uint32_t track_id,
                                                 const uint32_t overlay_id,
                                                 OverlayParam &param) {
@@ -1162,6 +1179,23 @@ status_t RecorderClient::UpdateOverlayObjectParams(const uint32_t track_id,
       overlay_id, const_cast<OverlayParam*>(&param));
   if (NO_ERROR != ret) {
       QMMF_ERROR("%s UpdateOverlayObjectParams failed!", __func__);
+  }
+  QMMF_DEBUG("%s Exit ", __func__);
+  return ret;
+}
+
+status_t RecorderClient::ProcessOverlayObjects(
+    const uint32_t track_id, const std::vector<OverlayParam>& overlay_list) {
+  QMMF_DEBUG("%s Enter ", __func__);
+  std::lock_guard<std::mutex> lock(lock_);
+  if (!CheckServiceStatus()) {
+    return NO_INIT;
+  }
+  assert(client_id_ > 0);
+  auto ret = recorder_service_->ProcessOverlayObjects(client_id_, track_id,
+                                                      overlay_list);
+  if (NO_ERROR != ret) {
+    QMMF_ERROR("%s ProcessOverlayObjects failed!", __func__);
   }
   QMMF_DEBUG("%s Exit ", __func__);
   return ret;
@@ -1308,15 +1342,17 @@ void RecorderClient::ImportBuffer(int32_t fd, int32_t metafd,
   gbm_buffers_map_.emplace(fd, bo);
 }
 
-void RecorderClient::ReleaseBuffer(int32_t fd) {
+void RecorderClient::ReleaseBuffer(int32_t& fd) {
 
   std::lock_guard<std::mutex> lock(gbm_lock_);
   if (gbm_buffers_map_.count(fd) == 0) {
+    // Already released or never imported.
     return;
   }
 
   gbm_bo_destroy(gbm_buffers_map_[fd]);
   gbm_buffers_map_.erase(fd);
+  fd = -1;
 }
 #endif
 
@@ -1343,12 +1379,10 @@ status_t RecorderClient::UnmapBuffer(BufferInfo& info) {
 
   QMMF_DEBUG("%s Enter ", __func__);
   assert(ion_device_ > 0);
-  int32_t result = 0;
 
   if (info.vaddr != nullptr) {
     SyncEnd(info.ion_fd);
-    result = munmap(info.vaddr, info.size);
-    if (result < 0) {
+    if (munmap(info.vaddr, info.size) < 0) {
       QMMF_ERROR("%s() unable to unmap buffer[%d]: %d[%s]", __func__,
                  info.ion_fd, errno, strerror(errno));
       return errno;
@@ -1357,14 +1391,12 @@ status_t RecorderClient::UnmapBuffer(BufferInfo& info) {
 
 #ifdef TARGET_USES_GBM
     ReleaseBuffer(info.ion_fd);
-#else
-    result = close(info.ion_fd);
-    if (result < 0) {
+#endif
+    if ((info.ion_fd != -1) && (close(info.ion_fd) < 0)) {
       QMMF_ERROR("%s() error closing shared fd[%d]: %d[%s]", __func__,
                  info.ion_fd, errno, strerror(errno));
       return errno;
     }
-#endif
     info.ion_fd = -1;
   }
 
@@ -2384,6 +2416,18 @@ class BpRecorderService: public BpInterface<IRecorderService> {
     return reply.readInt32();
   }
 
+  status_t DeleteOverlayObjects(const uint32_t client_id,
+                                const uint32_t track_id) {
+    Parcel data, reply;
+    data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
+    data.writeUint32(client_id);
+    data.writeUint32(track_id);
+    remote()->transact(
+        uint32_t(QMMF_RECORDER_SERVICE_CMDS::RECORDER_DELETE_OVERLAYOBJECTS),
+        data, &reply);
+    return reply.readInt32();
+  }
+
   status_t GetOverlayObjectParams(const uint32_t client_id,
                                   const uint32_t track_id,
                                   const uint32_t overlay_id,
@@ -2439,6 +2483,39 @@ class BpRecorderService: public BpInterface<IRecorderService> {
     blob.release();
     image_blob.release();
     return reply.readInt32();
+  }
+
+  status_t ProcessOverlayObjects(
+      const uint32_t client_id, const uint32_t track_id,
+      const std::vector<OverlayParam>& overlay_list) {
+    Parcel data, reply;
+
+    data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
+    data.writeUint32(client_id);
+    data.writeUint32(track_id);
+    uint32_t list_size = overlay_list.size();
+    QMMF_VERBOSE("%s: info_size:%u\n", __func__, list_size);
+    data.writeUint32(list_size);
+    for (uint32_t i = 0; i < list_size; i++) {
+      uint32_t size = sizeof(OverlayParam);
+      data.writeUint32(size);
+      android::Parcel::WritableBlob param_blob;
+      data.writeBlob(size, false, &param_blob);
+      memset(param_blob.data(), 0x0, size);
+      OverlayParam* overlay_param_ptr =
+          const_cast<OverlayParam*>(&(overlay_list[i]));
+      memcpy(param_blob.data(), reinterpret_cast<void*>(overlay_param_ptr),
+             size);
+      QMMF_VERBOSE("%s:w:%u h:%u\n", __func__, overlay_list[i].dst_rect.width,
+                   overlay_list[i].dst_rect.height);
+    }
+
+    remote()->transact(
+        uint32_t(QMMF_RECORDER_SERVICE_CMDS::RECORDER_PROCESS_OVERLAYOBJECTS),
+        data, &reply);
+
+    return reply.readInt32();
+    ;
   }
 
   status_t SetOverlayObject(const uint32_t client_id,

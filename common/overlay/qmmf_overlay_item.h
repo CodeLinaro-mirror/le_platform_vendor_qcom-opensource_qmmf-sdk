@@ -96,6 +96,10 @@ struct DrawInfo {
     uint32_t x;
     uint32_t y;
     uint32_t c2dSurfaceId;
+    uint32_t in_width;
+    uint32_t in_height;
+    uint32_t in_x;
+    uint32_t in_y;
 };
 
 struct RGBAValues {
@@ -106,13 +110,13 @@ struct RGBAValues {
 };
 
 struct C2dObjects {
-  C2D_OBJECT objects[MAX_OVERLAYS];
+  C2D_OBJECT objects[MAX_OVERLAYS*2];
 };
 
 //Base class for all types of overlays.
 class OverlayItem {
  public:
-  OverlayItem(int32_t ion_device);
+  OverlayItem(int32_t ion_device, OverlayType type);
 
   virtual ~OverlayItem();
 
@@ -121,7 +125,7 @@ class OverlayItem {
   virtual int32_t UpdateAndDraw() = 0;
 
   virtual void GetDrawInfo(uint32_t target_width, uint32_t target_height,
-                           DrawInfo* draw_info) = 0 ;
+                           std::vector<DrawInfo>& draw_infos) = 0 ;
 
   virtual void GetParameters(OverlayParam& param) = 0;
 
@@ -174,7 +178,9 @@ class OverlayItem {
 class OverlayItemStaticImage : public OverlayItem {
 
  public:
-  OverlayItemStaticImage(int32_t ion_device);
+  OverlayItemStaticImage(int32_t ion_device)
+                           : OverlayItem(ion_device, OverlayType::kStaticImage),
+                             image_path_() {};
 
   virtual ~OverlayItemStaticImage();
 
@@ -183,7 +189,7 @@ class OverlayItemStaticImage : public OverlayItem {
   int32_t UpdateAndDraw() override;
 
   void GetDrawInfo(uint32_t target_width, uint32_t target_height,
-      DrawInfo* draw_info) override;
+      std::vector<DrawInfo>& draw_infos) override;
 
   void GetParameters(OverlayParam& param) override;
 
@@ -226,7 +232,7 @@ class OverlayItemDateAndTime: public OverlayItem {
   int32_t UpdateAndDraw() override;
 
   void GetDrawInfo(uint32_t target_width, uint32_t target_height,
-                   DrawInfo* draw_info) override;
+                   std::vector<DrawInfo>& draw_infos) override;
 
   void GetParameters(OverlayParam& param) override;
 
@@ -242,8 +248,8 @@ class OverlayItemDateAndTime: public OverlayItem {
 #endif
 };
 
-#define BOUNDING_BOX_BUF_WIDTH     480
-#define BOUNDING_BOX_BUF_HEIGHT    270
+#define BOUNDING_BOX_BUF_WIDTH     240
+#define BOUNDING_BOX_BUF_HEIGHT    320
 #define BOUNDING_BOX_STROKE_WIDTH  4
 #define BOUNDING_BOX_TEXT_LIMIT    20
 #define BOUNDING_BOX_TEXT_SIZE     25
@@ -252,7 +258,10 @@ class OverlayItemDateAndTime: public OverlayItem {
 
 class OverlayItemBoundingBox: public OverlayItem {
  public:
-  OverlayItemBoundingBox(int32_t ion_device);
+  OverlayItemBoundingBox(int32_t ion_device)
+                           : OverlayItem(ion_device, OverlayType::kBoundingBox),
+                             bbox_name_(),
+                             text_height_(0) {};
 
   virtual ~OverlayItemBoundingBox();
 
@@ -261,7 +270,7 @@ class OverlayItemBoundingBox: public OverlayItem {
   int32_t UpdateAndDraw() override;
 
   void GetDrawInfo(uint32_t target_width, uint32_t target_height,
-                   DrawInfo* draw_info) override;
+                   std::vector<DrawInfo>& draw_infos) override;
 
   void GetParameters(OverlayParam& param) override;
 
@@ -269,6 +278,7 @@ class OverlayItemBoundingBox: public OverlayItem {
  private:
 
   int32_t CreateSurface();
+  void ClearTextSurface();
 
   uint32_t    bbox_color_;
 #if USE_SKIA
@@ -278,6 +288,19 @@ class OverlayItemBoundingBox: public OverlayItem {
   uint32_t          text_height_   = 0;
   int32_t           buffer_width_  = 0;
   int32_t           buffer_height_ = 0;
+
+#if USE_CAIRO
+  int32_t           text_y_;
+  uint32_t          text_width_;
+  uint32_t          text_c2dsurface_id_;
+  void *            text_gpu_addr_;
+  void *            text_vaddr_;
+  int32_t           text_ion_fd_;
+  uint32_t          text_size_;
+  uint32_t          box_stroke_width_;
+  cairo_surface_t*       text_cr_surface_;
+  cairo_t*               text_cr_context_;
+#endif
 };
 
 #define TEXT_BUF_WIDTH              480
@@ -288,7 +311,10 @@ class OverlayItemBoundingBox: public OverlayItem {
 
 class OverlayItemText: public OverlayItem {
  public:
-  OverlayItemText(int32_t ion_device);
+
+  OverlayItemText(int32_t ion_device)
+                             : OverlayItem(ion_device, OverlayType::kUserText),
+                               text_() {};
 
   virtual ~OverlayItemText();
 
@@ -297,7 +323,7 @@ class OverlayItemText: public OverlayItem {
   int32_t UpdateAndDraw() override;
 
   void GetDrawInfo(uint32_t target_width, uint32_t target_height,
-                   DrawInfo* draw_info) override;
+                   std::vector<DrawInfo>& draw_infos) override;
 
   void GetParameters(OverlayParam& param) override;
 
@@ -320,16 +346,17 @@ class OverlayItemText: public OverlayItem {
 class OverlayItemPrivacyMask: public OverlayItem {
  public:
 
-  OverlayItemPrivacyMask(int32_t ion_device);
+  OverlayItemPrivacyMask(int32_t ion_device)
+                       : OverlayItem(ion_device, OverlayType::kPrivacyMask) {};
 
-  virtual ~OverlayItemPrivacyMask();
+  virtual ~OverlayItemPrivacyMask() {};
 
   int32_t Init(OverlayParam& param) override;
 
   int32_t UpdateAndDraw() override;
 
   void GetDrawInfo(uint32_t target_width, uint32_t target_height,
-                   DrawInfo * draw_info) override;
+                   std::vector<DrawInfo>& draw_infos) override;
 
   void GetParameters(OverlayParam& param) override;
 
@@ -342,6 +369,43 @@ class OverlayItemPrivacyMask: public OverlayItem {
 #endif
   uint32_t    mask_color_;
 };
+
+class OverlayItemGraph : public OverlayItem {
+ public:
+
+  OverlayItemGraph(int32_t ion_device)
+                         : OverlayItem(ion_device, OverlayType::kGraph) {};
+
+
+  virtual ~OverlayItemGraph() {};
+
+  int32_t Init(OverlayParam& param) override;
+
+  int32_t UpdateAndDraw() override;
+
+  void GetDrawInfo(uint32_t target_width, uint32_t target_height,
+                   std::vector<DrawInfo>& draw_infos) override;
+
+  void GetParameters(OverlayParam& param) override;
+
+  int32_t UpdateParameters(OverlayParam& param) override;
+
+ private:
+
+  int32_t CreateSurface();
+
+  static const int  kDotRadius = 3;
+  static const int  kLineWidth = 2;
+  static const int  kGraphBufWidth = 480;
+  static const int  kGraphBufHeight = 270;
+
+  uint32_t          graph_color_;
+  int32_t           buffer_width_  = 0;
+  int32_t           buffer_height_ = 0;
+  float             downscale_ratio_;
+  OverlayGraph      graph_;
+};
+
 
 }; // namespace overlay
 }; // namespace qmmf
