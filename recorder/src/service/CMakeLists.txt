@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.1)
 project(qmmf_recorder_service)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DHFR_THRESHOLD=30 -DAEC_WAIT_TIMEOUT=500000000")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-c++11-narrowing")
 
 if (NOT RECORDER_SERVICE_ENABLED)
   set(exclude EXCLUDE_FROM_ALL)

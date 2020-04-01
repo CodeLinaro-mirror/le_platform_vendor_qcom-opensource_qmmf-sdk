@@ -74,7 +74,7 @@ template<class mapType> uint32_t CameraContext::lookupAttr(const mapType *arr,
 }
 
 template<class mapType> const char *CameraContext::lookupNameByValue(
-  const mapType *arr, size_t len, int value) {
+  const mapType *arr, size_t len, int32_t value) {
   for (size_t i = 0; i < len; i++) {
     if (arr[i].val == value) {
       return arr[i].desc;
@@ -181,7 +181,7 @@ CameraContext::~CameraContext() {
   {
     std::unique_lock < std::mutex > lock(g_allocated_fd_lock_);
     for (auto iter : g_allocated_fd_buffer_list_) {
-      int fd = iter.first;
+      int32_t fd = iter.first;
       FDdata* fd_data = iter.second;
       if (fd_data->context == this) {
         QMMF_ERROR("%s: HAL1 buffers are not freed", __func__);
@@ -198,14 +198,14 @@ CameraContext::~CameraContext() {
 int32_t CameraContext::GetNumberOfCameras() {
 
   camera_module_t * camera_module;
-  int rc = hw_get_module(CAMERA_HARDWARE_MODULE_ID,
+  uint32_t rc = hw_get_module(CAMERA_HARDWARE_MODULE_ID,
     (const hw_module_t **)&camera_module);
   if (rc < 0 || camera_module == NULL) {
     QMMF_ERROR("hw_get_module failed rc %d camera_module_ %p", rc,
       camera_module);
     return -1;
   }
-  int num_cam = camera_module->get_number_of_cameras();
+  uint8_t num_cam = camera_module->get_number_of_cameras();
   QMMF_INFO("%s:%d: Number of cameras: %d", __func__, __LINE__, num_cam);
 
   return num_cam;
@@ -223,11 +223,11 @@ static void __notify_cb(int32_t msg_type, int32_t ext1, int32_t ext2,
 }
 
 static void __data_cb(int32_t msg_type, const camera_memory_t *data,
-  unsigned int index, camera_frame_metadata_t *metadata, void *user) {
+  uint32_t index, camera_frame_metadata_t *metadata, void *user) {
   CameraContext *camera_context = (CameraContext *)user;
   QMMF_VERBOSE("%s\n", __FUNCTION__);
   QMMF_VERBOSE("msg_type 0x%x, data %p, metadata %p index %d \n", msg_type,
-    (unsigned int * )data, (unsigned int * )metadata, index);
+    (uint32_t * )data, (uint32_t * )metadata, index);
 
   if (msg_type & CAMERA_MSG_PREVIEW_FRAME) {
     QMMF_VERBOSE("%s:%d: CAMERA_MSG_PREVIEW_FRAME data size - %d", __func__,
@@ -273,11 +273,11 @@ static void __data_cb(int32_t msg_type, const camera_memory_t *data,
 }
 
 static void __data_cb_timestamp(nsecs_t timestamp, int32_t msg_type,
-  const camera_memory_t *data, unsigned int index, void *user) {
+  const camera_memory_t *data, uint32_t index, void *user) {
   CameraContext *camera_context = (CameraContext *)user;
   QMMF_VERBOSE("%s\n", __FUNCTION__);
   QMMF_VERBOSE("timestamp %ld msg_type 0x%x, data %p, index %d \n",
-    (long )timestamp, msg_type, (unsigned int * )data, index);
+    (uint32_t )timestamp, msg_type, (uint32_t * )data, index);
 
   if (msg_type & CAMERA_MSG_PREVIEW_FRAME) {
     QMMF_VERBOSE("%s:%d: CAMERA_MSG_PREVIEW_FRAME data size - %d", __func__,
@@ -323,14 +323,14 @@ static void __data_cb_timestamp(nsecs_t timestamp, int32_t msg_type,
 }
 
 static void __put_memory(camera_memory_t *data) {
-  QMMF_VERBOSE("E %s data :%p \n", __FUNCTION__, (unsigned int * )data);
+  QMMF_VERBOSE("E %s data :%p \n", __FUNCTION__, (uint32_t * )data);
   if (!data)
     return;
 
   {
     std::unique_lock < std::mutex > lock(g_allocated_fd_lock_);
     for (auto iter : g_allocated_fd_buffer_list_) {
-      int fd = iter.first;
+      int32_t fd = iter.first;
       FDdata* fd_data = iter.second;
       if (fd_data->isInUse) {
         if (nullptr != fd_data->context->error_cb_) {
@@ -354,7 +354,7 @@ static void __put_memory(camera_memory_t *data) {
 }
 
 static void __put_memory_heap(camera_memory_t *data) {
-  QMMF_VERBOSE("E %s data :%p \n", __FUNCTION__, (unsigned int * )data);
+  QMMF_VERBOSE("E %s data :%p \n", __FUNCTION__, (uint32_t * )data);
   if (!data)
     return;
   if (data->data)
@@ -363,9 +363,9 @@ static void __put_memory_heap(camera_memory_t *data) {
   QMMF_VERBOSE("X %s\n", __FUNCTION__);
 }
 
-static void * mapfd(int fd, size_t size) {
-  QMMF_VERBOSE("E %s fd %d size %d\n", __FUNCTION__, fd, (int )size);
-  int offset = 0;
+static void * mapfd(int32_t fd, size_t size) {
+  QMMF_VERBOSE("E %s fd %d size %d\n", __FUNCTION__, fd, (uint32_t )size);
+  uint32_t offset = 0;
   void* base = NULL;
   if (size == 0) {
     // try to figure out the size automatically
@@ -373,7 +373,7 @@ static void * mapfd(int fd, size_t size) {
     // first try the PMEM ioctl
     QMMF_INFO("first try the PMEM ioctl\n");
     pmem_region reg;
-    int err = ioctl(fd, PMEM_GET_TOTAL_SIZE, &reg);
+    int32_t err = ioctl(fd, PMEM_GET_TOTAL_SIZE, &reg);
     if (err == 0)
     size = reg.len;
 #endif
@@ -430,16 +430,16 @@ static camera_memory_t* __get_memory(int fd, size_t buf_size, uint32_t num_bufs,
 
   handle->size = buf_size * num_bufs;
   handle->handle = NULL;
-  QMMF_VERBOSE("%s handle :%p \n", __FUNCTION__, (unsigned int * )handle);
+  QMMF_VERBOSE("%s handle :%p \n", __FUNCTION__, (uint32_t * )handle);
   return handle;
 }
 
-status_t CameraContext::camera_device_open(int id) {
+status_t CameraContext::camera_device_open(uint8_t id) {
   QMMF_INFO("In %s \n", __func__);
 
   hw_module_t * module;
 
-  int rc = hw_get_module(CAMERA_HARDWARE_MODULE_ID,
+  uint32_t rc = hw_get_module(CAMERA_HARDWARE_MODULE_ID,
     (const hw_module_t **)&module);
   if (rc < 0 || module == NULL) {
     QMMF_ERROR("Could not load camera HAL module rc %d module %p", rc,
@@ -462,7 +462,7 @@ status_t CameraContext::camera_device_open(int id) {
 status_t CameraContext::close_camera_device() {
 
   QMMF_INFO("In %sn", __func__);
-  int ret = ((hw_device_t *)camera_device_)->close((hw_device_t *)camera_device_);
+  uint32_t ret = ((hw_device_t *)camera_device_)->close((hw_device_t *)camera_device_);
   QMMF_INFO("X %s ret = %d\n", __func__, ret);
   return NO_ERROR;
 }
@@ -941,6 +941,20 @@ status_t CameraContext::StopStream(const uint32_t track_id) {
   return NO_ERROR;
 }
 
+status_t CameraContext::PauseStream(const uint32_t /* track_id */) {
+
+  // todo wait until image capture is done
+
+  return NO_ERROR;
+}
+
+status_t CameraContext::ResumeStream(const uint32_t /* track_id */) {
+
+  // todo wait until image capture is done
+
+  return NO_ERROR;
+}
+
 status_t CameraContext::SetCameraParam(const CameraMetadata &meta) {
 
   if (meta.exists(ANDROID_CONTROL_AWB_MODE)) {
@@ -1121,10 +1135,10 @@ status_t CameraContext::GetCameraCharacteristics(CameraMetadata &meta) {
   if (!metadata_.exists(ANDROID_SCALER_AVAILABLE_RAW_SIZES)) {
     const char *p = mParameters_.get(KEY_QTI_RAW_PICUTRE_SIZE);
     if (p) {
-      int32_t available_raw_sizes[2];
+      uint32_t available_raw_sizes[2];
       ParsePair(p, &available_raw_sizes[0], &available_raw_sizes[1], 'x');
-      metadata_.update(ANDROID_SCALER_AVAILABLE_RAW_SIZES, available_raw_sizes,
-        2);
+      metadata_.update(ANDROID_SCALER_AVAILABLE_RAW_SIZES,
+                       reinterpret_cast<int32_t *>(available_raw_sizes), 2);
     } else {
       QMMF_ERROR("failed: raw capture not supported ");
     }
@@ -1313,7 +1327,7 @@ status_t CameraContext::PopulateMetaInfo(CameraBufferMetaData &info,
                                       IBufferHandle &handle,
                                       uint32_t width,
                                       uint32_t height) {
-  int alignedW, alignedH;
+  uint32_t alignedW, alignedH;
   auto ret = alloc_device_interface_->Perform(handle,
                               IAllocDevice::AllocDeviceAction::GetAlignedWidth,
                               static_cast<void*>(&alignedW));
@@ -1479,7 +1493,7 @@ status_t CameraContext::SnapshotCallback(const camera_memory_t *data,
   //struct gbm_bo *bo = reinterpret_cast< struct gbm_bo *>(data->data);
   struct gbm_bo *bo = reinterpret_cast< struct gbm_bo *>(data->handle);
 
-  int fd = gbm_bo_get_fd(bo);
+  int32_t fd = gbm_bo_get_fd(bo);
   void* base = (uint8_t*)mmap(0, data->size, PROT_READ | PROT_WRITE, MAP_SHARED, fd,0);
 
   // todo: fix me when camera HAL1 fix format in GBM buffer
@@ -1515,12 +1529,12 @@ status_t CameraContext::ReturnStreamBuffer(StreamBuffer buffer) {
   return NO_ERROR;
 }
 
-status_t CameraContext::ParsePair(const char *str, int *first, int *second,
-                                  char delim, char **endptr)
+status_t CameraContext::ParsePair(const char *str, uint32_t *first,
+                                  uint32_t *second, char delim, char **endptr)
 {
     // Find the first integer.
     char *end;
-    int w = (int)strtol(str, &end, 10);
+    uint32_t w = (uint32_t)strtol(str, &end, 10);
     // If a delimeter does not immediately follow, give up.
     if (*end != delim) {
         ALOGE("Cannot find delimeter (%c) in str=%s", delim, str);
@@ -1528,7 +1542,7 @@ status_t CameraContext::ParsePair(const char *str, int *first, int *second,
     }
 
     // Find the second integer, immediately after the delimeter.
-    int h = (int)strtol(end+1, &end, 10);
+    uint32_t h = (uint32_t)strtol(end+1, &end, 10);
 
     *first = w;
     *second = h;
@@ -1756,7 +1770,7 @@ void CameraPort::StreamCallback(const void *data, int64_t timestamp) {
 
     encoder_media_buffer_type *packet = reinterpret_cast< encoder_media_buffer_type *>(data_mem->data);
     struct gbm_bo *bo = packet->meta_handle;
-    int fd = gbm_bo_get_fd(bo);
+    int32_t fd = gbm_bo_get_fd(bo);
     void* base = static_cast< uint8_t *>(mmap(0, bo->size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0));
 
     {

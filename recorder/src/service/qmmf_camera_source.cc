@@ -2223,7 +2223,7 @@ status_t TrackSource::DeleteOverlayObject(const uint32_t overlay_id) {
 }
 
 status_t TrackSource::DeleteOverlayObjects() {
-
+#ifndef CAMERA_HAL1_SUPPORT
   QMMF_DEBUG("%s: Enter track_id(%x)", __func__, TrackId());
   auto ret = overlay_.DeleteOverlayItems();
   if (ret != NO_ERROR) {
@@ -2232,6 +2232,8 @@ status_t TrackSource::DeleteOverlayObjects() {
   }
   QMMF_DEBUG("%s: Exit track_id(%x)", __func__, TrackId());
   return ret;
+#endif
+  return NO_ERROR;
 }
 
 status_t TrackSource::GetOverlayObjectParams(const uint32_t overlay_id,
@@ -2265,7 +2267,7 @@ status_t TrackSource::UpdateOverlayObjectParams(const uint32_t overlay_id,
 }
 
 status_t TrackSource::ProcessOverlayObjects(const std::vector<OverlayParam> &overlay_list) {
-
+#ifndef CAMERA_HAL1_SUPPORT
   QMMF_DEBUG("%s: Enter track_id(%x)", __func__, TrackId());
   auto ret = overlay_.ProcessOverlayItems(overlay_list);
   if (ret != NO_ERROR) {
@@ -2276,6 +2278,8 @@ status_t TrackSource::ProcessOverlayObjects(const std::vector<OverlayParam> &ove
 
   QMMF_DEBUG("%s: Exit track_id(%x)", __func__, TrackId());
   return ret;
+#endif
+  return NO_ERROR;
 }
 
 
