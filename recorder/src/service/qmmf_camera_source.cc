@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -41,7 +41,6 @@
 
 
 #ifndef CAMERA_HAL1_SUPPORT
-#include "recorder/src/service/qmmf_multicamera_manager.h"
 #include "recorder/src/service/post-process/factory/qmmf_postproc_factory.h"
 #endif
 #include "recorder/src/service/qmmf_camera_source.h"
@@ -141,45 +140,28 @@ status_t CameraSource::StartCamera(const uint32_t camera_id,
 
   QMMF_INFO("%s: Camera Id(%u) to open!", __func__, camera_id);
   QMMF_KPI_DETAIL();
-  bool is_virtual_camera_id = false;
-
-#ifndef CAMERA_HAL1_SUPPORT
-  is_virtual_camera_id = (kVirtualCameraIdOffset <= camera_id);
-#else
-  is_virtual_camera_id = false;//(kVirtualCameraIdOffset <= camera_id);
-#endif
   std::shared_ptr<CameraInterface> camera;
 
-  if (is_virtual_camera_id) {
-    if (camera_map_.count(camera_id) == 0) {
-      QMMF_ERROR("%s: Invalid Virtual Camera Id(%u)!", __func__, camera_id);
-      return BAD_VALUE;
-    }
-    camera = camera_map_[camera_id];
-  } else {
-    if (camera_map_.count(camera_id) != 0) {
-      QMMF_ERROR("%s: Camera Id(%u) is already open!", __func__, camera_id);
-      return BAD_VALUE;
-    }
-    camera = std::make_shared<CameraContext>();
-    if (!camera.get()) {
-      QMMF_ERROR("%s: Can't Instantiate CameraDevice(%d)!!",
-          __func__, camera_id);
-      return NO_MEMORY;
-    }
-
-    // Add contexts to map when in regular camera case.
-    camera_map_.emplace(camera_id, camera);
+  if (camera_map_.count(camera_id) != 0) {
+    QMMF_ERROR("%s: Camera Id(%u) is already open!", __func__, camera_id);
+    return BAD_VALUE;
   }
+  camera = std::make_shared<CameraContext>();
+  if (!camera.get()) {
+    QMMF_ERROR("%s: Can't Instantiate CameraDevice(%d)!!",
+        __func__, camera_id);
+    return NO_MEMORY;
+  }
+
+  // Add contexts to map when in regular camera case.
+  camera_map_.emplace(camera_id, camera);
 
   auto ret = camera->OpenCamera(camera_id, frame_rate, extra_param, cb, errcb);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: OpenCamera(%d) Failed!", __func__, camera_id);
-    if (!is_virtual_camera_id) {
-      camera = nullptr;
-      if (camera_map_.count(camera_id) != 0) {
-        camera_map_.erase(camera_id);
-      }
+    camera = nullptr;
+    if (camera_map_.count(camera_id) != 0) {
+      camera_map_.erase(camera_id);
     }
     return ret;
   }
@@ -208,61 +190,6 @@ status_t CameraSource::StopCamera(const uint32_t camera_id) {
   QMMF_INFO("%s: Camera(%d) successfully closed!", __func__, camera_id);
 
   return NO_ERROR;
-}
-
-status_t CameraSource::CreateMultiCamera(const std::vector<uint32_t> camera_ids,
-                                         uint32_t *virtual_camera_id) {
-
-#ifndef CAMERA_HAL1_SUPPORT
-  QMMF_INFO("%s: Enter ", __func__);
-  QMMF_KPI_DETAIL();
-  std::shared_ptr<CameraInterface> multi_camera = std::make_shared<MultiCameraManager>();
-  if (!multi_camera.get()) {
-    QMMF_ERROR("%s: Can't Instantiate MultiCameraDevice!!", __func__);
-    return NO_MEMORY;
-  }
-
-  MultiCameraManager *camera_mgr =
-      static_cast<MultiCameraManager*>(multi_camera.get());
-
-  auto ret = camera_mgr->CreateMultiCamera(camera_ids, virtual_camera_id);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: CreateMultiCamera Failed!", __func__);
-    multi_camera = nullptr;
-    return NO_INIT;
-  }
-  // Adds only virtual cameras. Virtual camera is a camera used
-  // for 360 camera case.
-  camera_map_.insert(std::make_pair(*virtual_camera_id, multi_camera));
-  QMMF_INFO("%s: Exit ", __func__);
-#endif
-  return NO_ERROR;
-}
-
-status_t CameraSource::ConfigureMultiCamera(const uint32_t virtual_camera_id,
-                                            const MultiCameraConfigType type,
-                                            const void *param,
-                                            const uint32_t param_size) {
-
-  status_t ret = NO_ERROR;
-#ifndef CAMERA_HAL1_SUPPORT
-  if ((kVirtualCameraIdOffset > virtual_camera_id) ||
-      (camera_map_.end() == camera_map_.find(virtual_camera_id))) {
-    QMMF_ERROR("%s: Invalid Virtual Camera Id(%u)!", __func__,
-        virtual_camera_id);
-    return BAD_VALUE;
-  }
-
-  std::shared_ptr<CameraInterface> multi_camera;
-  assert(camera_map_.find(virtual_camera_id) != camera_map_.end());
-  multi_camera = camera_map_.find(virtual_camera_id)->second;
-  MultiCameraManager *camera_mgr =
-      static_cast<MultiCameraManager*>(multi_camera.get());
-
-  ret = camera_mgr->ConfigureMultiCamera(virtual_camera_id, type,
-                                         param, param_size);
-#endif
-  return ret;
 }
 
 status_t CameraSource::GetNumberOfCameras(SupportedCameras &cameras) {

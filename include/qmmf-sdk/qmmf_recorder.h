@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -393,23 +393,6 @@ class Recorder {
   /// Overlay object can be dynamically removed
   status_t RemoveOverlay(const uint32_t track_id, const uint32_t overlay_id);
 
-  /// @brief Creates a virtual camera by bundling the given camera IDs and
-  /// mapping them to a virtual ID.
-  ///
-  /// This API must be called before calling ConfigureMultiCamera and
-  /// StartCamera in order to work with the virtual camera. The virtual
-  /// camera ID is set by the underlying layers.
-  status_t CreateMultiCamera(const std::vector<uint32_t> camera_ids,
-                             uint32_t *virtual_camera_id);
-
-  /// @brief Configure a virtual camera with the given ID.
-  ///
-  /// This API must be called after CreateMultiCamera but before calling
-  /// StartCamera.
-  status_t ConfigureMultiCamera(const uint32_t virtual_camera_id,
-                                const MultiCameraConfigType type,
-                                const void *param,
-                                const uint32_t param_size);
  private:
   RecorderClient* recorder_client_;
 

@@ -18,7 +18,6 @@ ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_remote_cb.cc
 ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_camera_source.cc
 ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_camera_context.cc
 ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_fake_camera.cc
-${CMAKE_CURRENT_SOURCE_DIR}/qmmf_multicamera_manager.cc
 ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_encoder_core.cc
 ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_audio_pulse_client.cc
 ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_audio_source.cc
@@ -33,7 +32,6 @@ ${CMAKE_CURRENT_SOURCE_DIR}/post-process/pipe/qmmf_postproc_pipe.cc
 ${CMAKE_CURRENT_SOURCE_DIR}/post-process/common/qmmf_postproc_thread.cc
 ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_camera_rescaler.cc
 ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_camera_frc.cc
-${multicam}
 ${jpeg}
 )
 else()
@@ -52,7 +50,6 @@ ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_audio_encoded_track_source.cc
 ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_audio_encoder_core.cc
 ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_camera_rescaler.cc
 ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_camera_frc.cc
-${multicam}
 ${jpeg}
 )
 endif()

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -100,13 +100,6 @@ enum class MetaParamType {
   kCamBufMetaData     = (1 << 1),
   kVideoFrameType     = (1 << 2),
   kCamMetaFrameNumber = (1 << 3)
-};
-
-/// @brief MultiCameraConfigType is used to determine the type and purpose
-/// of created MultiCamera.
-enum class MultiCameraConfigType {
-  k360Stitch,
-  kSideBySide,
 };
 
 /// @brief This struct is used to report different types of meta data associated

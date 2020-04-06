@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -734,39 +734,6 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
         data.readUint32(&overlay_id);
         ret = RemoveOverlayObject(client_id, track_id, overlay_id);
         reply->writeInt32(ret);
-        return NO_ERROR;
-      }
-      break;
-      case RECORDER_CREATE_MULTICAMERA: {
-        uint32_t client_id, vector_size;
-        data.readUint32(&client_id);
-        data.readUint32(&vector_size);
-        std::vector<uint32_t> camera_ids;
-        for (uint32_t i = 0; i < vector_size; ++i) {
-          camera_ids.push_back(data.readUint32());
-        }
-        uint32_t virtual_camera_id;
-        ret = CreateMultiCamera(client_id, camera_ids, &virtual_camera_id);
-        QMMF_INFO("%s: virtual_camera_id=%d", __func__,
-            virtual_camera_id);
-        reply->writeUint32(virtual_camera_id);
-        reply->writeInt32(ret);
-        return NO_ERROR;
-      }
-      break;
-      case RECORDER_CONFIGURE_MULTICAMERA: {
-        uint32_t client_id, virtual_camera_id, config_type, param_size;
-        data.readUint32(&client_id);
-        data.readUint32(&virtual_camera_id);
-        data.readUint32(&config_type);
-        data.readUint32(&param_size);
-        android::Parcel::ReadableBlob blob;
-        data.readBlob(param_size, &blob);
-        void* param = const_cast<void*>(blob.data());
-        ret = ConfigureMultiCamera(client_id, virtual_camera_id,
-            static_cast<MultiCameraConfigType>(config_type), param, param_size);
-        blob.release();
-        reply->writeUint32(ret);
         return NO_ERROR;
       }
       break;
@@ -1736,51 +1703,6 @@ status_t RecorderService::RemoveOverlayObject(const uint32_t client_id,
   auto ret = recorder_->RemoveOverlayObject(client_id, track_id, overlay_id);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: RemoveOverlayObject failed!", __func__);
-    return ret;
-  }
-  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
-  return NO_ERROR;
-}
-
-status_t RecorderService::CreateMultiCamera(const uint32_t client_id,
-                                            const std::vector<uint32_t>
-                                            camera_ids,
-                                            uint32_t *virtual_camera_id) {
-
-  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
-
-  if (!IsRecorderInitialized()) {
-    QMMF_ERROR("%s: Recorder not initialized!", __func__);
-    return NO_INIT;
-  }
-
-  auto ret = recorder_->CreateMultiCamera(client_id, camera_ids,
-                                          virtual_camera_id);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: CreateMultiCamera failed!", __func__);
-    return ret;
-  }
-  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
-  return NO_ERROR;
-}
-
-status_t RecorderService::ConfigureMultiCamera(const uint32_t client_id,
-                                               const uint32_t virtual_camera_id,
-                                               const MultiCameraConfigType type,
-                                               const void *param,
-                                               const uint32_t param_size) {
-
-  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
-
-  if (!IsRecorderInitialized()) {
-    QMMF_ERROR("%s: Recorder not initialized!", __func__);
-    return NO_INIT;
-  }
-
-  auto ret = recorder_->ConfigureMultiCamera(client_id, virtual_camera_id, type,
-                                             param, param_size);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: ConfigureMultiCamera failed!", __func__);
     return ret;
   }
   QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);

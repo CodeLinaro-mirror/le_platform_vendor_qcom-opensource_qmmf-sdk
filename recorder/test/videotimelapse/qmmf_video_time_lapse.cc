@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -78,8 +78,7 @@ TimeLapse::TimeLapse(const TimeLapseParams &params)
       ion_device_(-1),
       snapshot_count_(0),
       atomic_stop_(false),
-      video_encode_(true),
-      multicam_mode_(false) {
+      video_encode_(true) {
   ALOGD_IF(TIMELAPSE_DEBUG, "%s: Enter ", __func__);
 
   ion_device_ = open("/dev/ion", O_RDONLY);
@@ -120,40 +119,6 @@ int32_t TimeLapse::Start() {
   if (NO_ERROR != ret) {
     ALOGE("%s: Connect Failed", __func__);
     return ret;
-  }
-
-  TimeLapseType time_lapse_type =
-      static_cast<TimeLapseType>(params_.time_lapse_type);
-
-  switch (time_lapse_type) {
-    case TimeLapseType::kVideoTimeLapse:
-      multicam_mode_ = false;
-      break;
-    case TimeLapseType::kPhotoTimeLapse:
-      multicam_mode_ = false;
-      video_encode_ = false;
-      break;
-    case TimeLapseType::kStitchedVideoTimeLapse:
-      multicam_type_ = MultiCameraConfigType::k360Stitch;
-      multicam_mode_ = true;
-      break;
-    case TimeLapseType::kStitchedPhotoTimeLapse:
-      multicam_type_ = MultiCameraConfigType::k360Stitch;
-      multicam_mode_ = true;
-      video_encode_ = false;
-      break;
-    case TimeLapseType::kSideBySideVideoTimeLapse:
-      multicam_type_ = MultiCameraConfigType::kSideBySide;
-      multicam_mode_ = true;
-      break;
-    case TimeLapseType::kSideBySidePhotoTimeLapse:
-      multicam_type_ = MultiCameraConfigType::kSideBySide;
-      multicam_mode_ = true;
-      video_encode_ = false;
-      break;
-    default:
-      multicam_mode_ = false;
-      break;
   }
 
   if (params_.time_lapse_interval <= kThresholdTime) {
@@ -357,41 +322,11 @@ int32_t TimeLapse::StartCamera() {
   ALOGD_IF(TIMELAPSE_DEBUG, "%s: Enter", __func__);
   int32_t ret;
 
-  if (multicam_mode_ == false) {
-
-    ret = recorder_.StartCamera(params_.camera_id, 30);
-    cam_id_ = params_.camera_id;
-    if (NO_ERROR != ret) {
-      ALOGE("%s: StartCamera Failed", __func__);
-      return ret;
-    }
-  } else {
-
-    uint32_t multicam_id;
-    multicam_id = 0;
-
-    std::vector<uint32_t> camera_ids;
-    camera_ids.push_back(params_.camera_id);
-    camera_ids.push_back(params_.camera_id_2);
-
-    ret = recorder_.CreateMultiCamera(camera_ids, &multicam_id);
-    if (NO_ERROR != ret) {
-      ALOGE("%s: CreateMultiCamera Failed", __func__);
-      return ret;
-    }
-    cam_id_ = multicam_id;
-
-    ret = recorder_.ConfigureMultiCamera(cam_id_, multicam_type_, nullptr, 0);
-    if (NO_ERROR != ret) {
-      ALOGE("%s: ConfigureMultiCamera Failed", __func__);
-      return ret;
-    }
-
-    ret = recorder_.StartCamera(cam_id_, 30);
-    if (NO_ERROR != ret) {
-      ALOGE("%s: StartCamera Failed", __func__);
-      return ret;
-    }
+  ret = recorder_.StartCamera(params_.camera_id, 30);
+  cam_id_ = params_.camera_id;
+  if (NO_ERROR != ret) {
+    ALOGE("%s: StartCamera Failed", __func__);
+    return ret;
   }
 
   if (!ResolutionSupported(params_.width, params_.height)) {
@@ -554,15 +489,9 @@ int32_t TimeLapse::CreateLPMTrack() {
   property_get(PROP_DUAL_CAMERA_ID, prop_val, "2");
   dual_camera_id = atoi(prop_val);
 
-  if (multicam_mode_ == true || cam_id_ == dual_camera_id) {
-    VideoTrackCreateParam video_track_param1 {cam_id_, VideoFormat::kYUV,
-                                              2*kLPMTrackHeight, kLPMTrackHeight, 30};
-    video_track_param = video_track_param1;
-  } else {
-    VideoTrackCreateParam video_track_param2 {cam_id_, VideoFormat::kYUV,
-                                             kLPMTrackWidth, kLPMTrackHeight, 30};
-    video_track_param = video_track_param2;
-  }
+  VideoTrackCreateParam video_track_param2 {cam_id_, VideoFormat::kYUV,
+                                           kLPMTrackWidth, kLPMTrackHeight, 30};
+  video_track_param = video_track_param2;
 
   TrackCb video_track_cb;
   video_track_cb.data_cb = {[&](uint32_t track_id,

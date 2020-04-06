@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -88,16 +88,6 @@ class CameraSource {
 
   /// Close Camera.
   status_t StopCamera(const uint32_t camera_id);
-
-  /// Add multiple Cameras
-  status_t CreateMultiCamera(const std::vector<uint32_t> camera_ids,
-                             uint32_t *virtual_camera_id);
-
-  /// Configure multiple Cameras
-  status_t ConfigureMultiCamera(const uint32_t virtual_camera_id,
-                                const MultiCameraConfigType type,
-                                const void *param,
-                                const uint32_t param_size);
 
   /// Get number of supported Cameras.
   status_t GetNumberOfCameras(SupportedCameras &cameras);

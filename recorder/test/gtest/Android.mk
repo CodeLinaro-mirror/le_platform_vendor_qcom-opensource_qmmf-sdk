@@ -25,7 +25,6 @@ LOCAL_SRC_FILES += qmmf_recorder_image_gtest.cc
 LOCAL_SRC_FILES += qmmf_recorder_video_gtest.cc
 LOCAL_SRC_FILES += qmmf_recorder_postprocessing_video_gtest.cc
 LOCAL_SRC_FILES += qmmf_recorder_video_snapshot_gtest.cc
-LOCAL_SRC_FILES += qmmf_recorder_360cam_gtest.cc
 
 LOCAL_SHARED_LIBRARIES += libqmmf_recorder_client libqmmf_av_queue libqmmf_memory_interface
 ifneq ($(DISABLE_DISPLAY),1)

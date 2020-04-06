@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -219,7 +219,6 @@ class TimeLapse {
   android::CameraMetadata static_info_;
   TimeLapseParams params_;
   TimeLapseMode time_lapse_mode_;
-  qmmf::recorder::MultiCameraConfigType multicam_type_;
   std::thread time_lapse_thread_;
   uint32_t session_id_;
   uint32_t cam_id_;
@@ -236,7 +235,6 @@ class TimeLapse {
   std::future<int32_t> snapshot_buffer_returnerd_future_;
   bool video_encode_;
   bool is_dump_yuv_snapshot_enabled_;
-  bool multicam_mode_;
   std::queue<qmmf::BufferDescriptor> yuv_sanpshot_queue_;
   std::vector<qmmf::BufferDescriptor> input_buffer_list_;
   std::vector<qmmf::BufferDescriptor> output_buffer_list_;

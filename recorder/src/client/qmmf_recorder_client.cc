@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, 2019, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016, 2020, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -1232,49 +1232,6 @@ status_t RecorderClient::RemoveOverlay(const uint32_t track_id,
                                                     overlay_id);
   if (NO_ERROR != ret) {
     QMMF_ERROR("%s RemoveOverlay failed!", __func__);
-  }
-  QMMF_DEBUG("%s Exit ", __func__);
-  return ret;
-}
-
-status_t RecorderClient::CreateMultiCamera(const std::vector<uint32_t>
-                                           camera_ids,
-                                           uint32_t *virtual_camera_id) {
-
-  QMMF_DEBUG("%s Enter ", __func__);
-  QMMF_KPI_DETAIL();
-
-  std::lock_guard<std::mutex> lock(lock_);
-  if (!CheckServiceStatus()) {
-    return NO_INIT;
-  }
-  assert(client_id_ > 0);
-  auto ret = recorder_service_->CreateMultiCamera(client_id_, camera_ids,
-                                                  virtual_camera_id);
-  if (NO_ERROR != ret) {
-    QMMF_ERROR("%s CreateMultiCamera failed!", __func__);
-  }
-  QMMF_DEBUG("%s Exit ", __func__);
-  return ret;
-}
-
-status_t RecorderClient::ConfigureMultiCamera(const uint32_t virtual_camera_id,
-                                              const MultiCameraConfigType type,
-                                              const void *param,
-                                              const uint32_t param_size) {
-
-  QMMF_DEBUG("%s Enter ", __func__);
-
-  std::lock_guard<std::mutex> lock(lock_);
-  if (!CheckServiceStatus()) {
-    return NO_INIT;
-  }
-  assert(client_id_ > 0);
-  auto ret = recorder_service_->ConfigureMultiCamera(client_id_,
-                                                     virtual_camera_id, type,
-                                                     param, param_size);
-  if (NO_ERROR != ret) {
-    QMMF_ERROR("%s ConfigureMultiCamera failed!", __func__);
   }
   QMMF_DEBUG("%s Exit ", __func__);
   return ret;
@@ -2541,43 +2498,6 @@ class BpRecorderService: public BpInterface<IRecorderService> {
     data.writeUint32(overlay_id);
     remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
                        RECORDER_REMOVE_OVERLAYOBJECT), data, &reply);
-    return reply.readInt32();
-  }
-
-  status_t CreateMultiCamera(const uint32_t client_id,
-                             const std::vector<uint32_t> camera_ids,
-                             uint32_t *virtual_camera_id) {
-    Parcel data, reply;
-    data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
-    data.writeUint32(client_id);
-    uint32_t vector_size = camera_ids.size();
-    data.writeUint32(vector_size);
-    for (uint8_t i = 0; i < vector_size; ++i) {
-      data.writeUint32(camera_ids[i]);
-    }
-    remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
-                                RECORDER_CREATE_MULTICAMERA), data, &reply);
-    *virtual_camera_id = reply.readUint32();
-    return reply.readInt32();;
-  }
-
-  status_t ConfigureMultiCamera(const uint32_t client_id,
-                                const uint32_t virtual_camera_id,
-                                const MultiCameraConfigType type,
-                                const void *param,
-                                const uint32_t param_size) {
-    Parcel data, reply;
-    data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
-    data.writeUint32(client_id);
-    data.writeUint32(virtual_camera_id);
-    data.writeUint32(static_cast<uint32_t>(type));
-    data.writeUint32(param_size);
-    android::Parcel::WritableBlob blob;
-    data.writeBlob(param_size, false, &blob);
-    memcpy(blob.data(), param, param_size);
-    remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
-                                RECORDER_CONFIGURE_MULTICAMERA), data, &reply);
-    blob.release();
     return reply.readInt32();
   }
 
