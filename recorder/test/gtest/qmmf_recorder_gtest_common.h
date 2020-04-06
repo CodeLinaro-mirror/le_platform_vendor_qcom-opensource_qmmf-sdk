@@ -55,10 +55,6 @@
 #include <qmmf-sdk/qmmf_recorder_params.h>
 #include <qmmf-sdk/qmmf_recorder_extra_param_tags.h>
 
-#ifndef CAMERA_HAL1_SUPPORT
-#include <qmmf-alg/overlay_configuration.h>
-#endif
-
 #include "common/utils/qmmf_log.h"
 
 #ifdef __LIBGBM__
@@ -67,7 +63,6 @@
 #endif
 
 #define DUMP_META_PATH "/data/misc/qmmf/param.dump"
-#define OVERLAY_TEST_FILE "/data/misc/qmmf/overlay_test.rgba"
 
 #ifdef USE_SURFACEFLINGER
 #include <sys/mman.h>
@@ -112,7 +107,6 @@
 
 using namespace qmmf;
 using namespace recorder;
-using namespace overlay;
 using namespace android;
 using ::qmmf::display::DisplayEventType;
 using ::qmmf::display::DisplayType;
@@ -215,8 +209,6 @@ struct FaceInfo {
 #define PROP_TOGGLE_DISPLAY_USAGE   "persist.qmmf.rec.gtest.display"
 // Prop to set video timelapse interval
 #define PROP_TIMELAPSE_INTERVAL     "persist.qmmf.rec.gtest.tlapse"
-// Prop to enable/disable overlay usage
-#define PROP_TOGGLE_OVERLAY_USAGE   "persist.qmmf.rec.gtest.overlay"
 // Prop to enable debugging frames
 #define PROP_FRAME_DEBUG            "persist.qmmf.rec.gtest.frm.dbg"
 // Prop to set force sensor mode config file
@@ -628,13 +620,6 @@ class GtestCommon : public ::testing::Test {
 
   bool VendorTagExistsInMeta(const CameraMetadata& meta, const String8& name,
                              const String8& section, uint32_t* tag_id);
-
-  void CreatePrivacyMaskOverlay(const uint32_t& video_track_id,
-                                const int32_t& width, const int32_t& height,
-                                uint32_t* mask_id);
-
-  void DestroyPrivacyMaskOverlay (const uint32_t& video_track_id,
-                                  const uint32_t& mask_id);
 #endif
 
   Recorder              recorder_;
@@ -685,8 +670,6 @@ class GtestCommon : public ::testing::Test {
                                         uint32_t &width,
                                         uint32_t &height);
 
-  status_t DrawOverlay(void *data, int32_t width, int32_t height);
-
   void ExtractColorValues(uint32_t hex_color, RGBAValues* color);
 
   void ClearSurface();
@@ -731,7 +714,6 @@ class GtestCommon : public ::testing::Test {
   bool face_bbox_active_;
   uint32_t face_track_id_;
   struct FaceInfo face_info_;
-  std::mutex face_overlay_lock_;
 #if USE_SKIA
   SkCanvas*            canvas_;
 #elif USE_CAIRO
@@ -774,7 +756,6 @@ class GtestCommon : public ::testing::Test {
   bool                  camera_error_;
   float                 eis_h_margin_;
   float                 eis_v_margin_;
-  bool                  is_apply_overlay_;
   float                 timelapse_interval_;
   bool                  is_frame_debug_enabled_;
   std::string           sensor_mode_file_name_;

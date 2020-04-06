@@ -824,160 +824,6 @@ status_t CameraSource::EnableFrameRepeat(const uint32_t track_id,
   return NO_ERROR;
 }
 
-status_t CameraSource::CreateOverlayObject(const uint32_t track_id,
-                                           OverlayParam *param,
-                                           uint32_t *overlay_id) {
-
-#ifndef CAMERA_HAL1_SUPPORT
-  if (!IsTrackIdValid(track_id)) {
-    QMMF_ERROR("%s: Track(%x) does not exist !!", __func__, track_id);
-    return BAD_VALUE;
-  }
-  auto const& track = track_sources_[track_id];
-
-  auto ret = track->CreateOverlayObject(param, overlay_id);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: CreateOverlayObject failed!", __func__);
-    return BAD_VALUE;
-  }
-  return ret;
-#endif
-  return NO_ERROR;
-}
-
-status_t CameraSource::DeleteOverlayObject(const uint32_t track_id,
-                                           const uint32_t overlay_id) {
-
-#ifndef CAMERA_HAL1_SUPPORT
-  if (!IsTrackIdValid(track_id)) {
-    QMMF_ERROR("%s: Track(%x) does not exist !!", __func__, track_id);
-    return BAD_VALUE;
-  }
-  auto const& track = track_sources_[track_id];
-
-  auto ret = track->DeleteOverlayObject(overlay_id);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: DeleteOverlayObject failed!", __func__);
-    return BAD_VALUE;
-  }
-  return ret;
-#endif
-  return NO_ERROR;
-}
-
-status_t CameraSource::DeleteOverlayObjects(const uint32_t track_id) {
-  if (!IsTrackIdValid(track_id)) {
-    QMMF_ERROR("%s: Track(%x) does not exist !!", __func__, track_id);
-    return BAD_VALUE;
-  }
-  auto const& track = track_sources_[track_id];
-
-  auto ret = track->DeleteOverlayObjects();
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: DeleteOverlayObjects failed!", __func__);
-    return BAD_VALUE;
-  }
-  return ret;
-}
-
-status_t CameraSource::GetOverlayObjectParams(const uint32_t track_id,
-                                              const uint32_t overlay_id,
-                                              OverlayParam &param) {
-
-#ifndef CAMERA_HAL1_SUPPORT
-  if (!IsTrackIdValid(track_id)) {
-    QMMF_ERROR("%s: Track(%x) does not exist !!", __func__, track_id);
-    return BAD_VALUE;
-  }
-  auto const& track = track_sources_[track_id];
-
-  auto ret = track->GetOverlayObjectParams(overlay_id, param);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: GetOverlayObjectParams failed!", __func__);
-    return BAD_VALUE;
-  }
-  return ret;
-#endif
-  return NO_ERROR;
-}
-
-status_t CameraSource::UpdateOverlayObjectParams(const uint32_t track_id,
-                                                 const uint32_t overlay_id,
-                                                 OverlayParam *param) {
-
-#ifndef CAMERA_HAL1_SUPPORT
-  if (!IsTrackIdValid(track_id)) {
-    QMMF_ERROR("%s: Track(%x) does not exist !!", __func__, track_id);
-    return BAD_VALUE;
-  }
-  auto const& track = track_sources_[track_id];
-
-  auto ret = track->UpdateOverlayObjectParams(overlay_id, param);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: UpdateOverlayObjectParams failed!", __func__);
-    return BAD_VALUE;
-  }
-  return ret;
-#endif
-  return NO_ERROR;
-}
-
-status_t CameraSource::ProcessOverlayObjects(
-    const uint32_t track_id, const std::vector<OverlayParam>& overlay_list) {
-  if (!IsTrackIdValid(track_id)) {
-    QMMF_ERROR("%s: Track(%x) does not exist !!", __func__, track_id);
-    return BAD_VALUE;
-  }
-  auto const& track = track_sources_[track_id];
-
-  auto ret = track->ProcessOverlayObjects(overlay_list);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: failed!", __func__);
-    return BAD_VALUE;
-  }
-  return ret;
-}
-
-status_t CameraSource::SetOverlayObject(const uint32_t track_id,
-                                        const uint32_t overlay_id) {
-
-#ifndef CAMERA_HAL1_SUPPORT
-  if (!IsTrackIdValid(track_id)) {
-    QMMF_ERROR("%s: Track(%x) does not exist !!", __func__, track_id);
-    return BAD_VALUE;
-  }
-  auto const& track = track_sources_[track_id];
-
-  auto ret = track->SetOverlayObject(overlay_id);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: SetOverlayObject failed!", __func__);
-    return BAD_VALUE;
-  }
-  return ret;
-#endif
-  return NO_ERROR;
-}
-
-status_t CameraSource::RemoveOverlayObject(const uint32_t track_id,
-                                           const uint32_t overlay_id) {
-
-#ifndef CAMERA_HAL1_SUPPORT
-  if (!IsTrackIdValid(track_id)) {
-    QMMF_ERROR("%s: Track(%x) does not exist !!", __func__, track_id);
-    return BAD_VALUE;
-  }
-  auto const& track = track_sources_[track_id];
-
-  auto ret = track->RemoveOverlayObject(overlay_id);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: RemoveOverlayObject failed!", __func__);
-    return BAD_VALUE;
-  }
-  return ret;
-#endif
-  return NO_ERROR;
-}
-
 const shared_ptr<TrackSource>& CameraSource::GetTrackSource(uint32_t track_id) {
 
   assert(track_sources_.count(track_id) != 0);
@@ -1215,9 +1061,6 @@ TrackSource::TrackSource(const VideoTrackParams& params,
       is_paused_(false),
       eos_acked_(false),
       is_idle_(true),
-#ifndef CAMERA_HAL1_SUPPORT
-      active_overlays_(0),
-#endif
       input_count_(0),
       count_(0),
       pending_encodes_per_frame_ratio_(0.0),
@@ -1368,14 +1211,6 @@ status_t TrackSource::InitCopy(shared_ptr<TrackSource> master_track_source,
   } else {
     rescaler_ = rescaler;
   }
-#ifndef DISABLE_OVERLAY
-  result = overlay_.Init(TargetBufferFormat::kYUVNV12);
-  if (result != 0) {
-    QMMF_ERROR("%s: Failed to initialize overlay for copy track(%x)", __func__,
-        TrackId());
-    return result;
-  }
-#endif
 
   QMMF_DEBUG("%s: Exit track_id(%x)", __func__, TrackId());
   return result;
@@ -1435,12 +1270,6 @@ status_t TrackSource::Init() {
   QMMF_INFO("%s: TrackSource(0x%p)(%dx%d) and Camera Device Stream "
       " Created Succesffuly for track_id(%x)",  __func__, this,
       track_params_.params.width, track_params_.params.height, TrackId());
-
-#ifndef DISABLE_OVERLAY
-  //TODO: Add mechanism to query the stream format from adaptor.
-  ret = overlay_.Init(TargetBufferFormat::kYUVNV12);
-  assert(ret == NO_ERROR);
-#endif
 
   QMMF_DEBUG("%s Exit track_id(%x)", __func__, TrackId());
   return ret;
@@ -1935,28 +1764,6 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
       buffer.fd);
   QMMF_VERBOSE("%s: track_id(%x) size = %d", __func__, TrackId(),
       buffer.size);
-
-#ifndef CAMERA_HAL1_SUPPORT
-  if (active_overlays_ > 0) {
-    OverlayTargetBuffer overlay_buf;
-
-    overlay_buf.width  = buffer.info.plane_info[0].width;
-    overlay_buf.height = buffer.info.plane_info[0].height;
-    overlay_buf.ion_fd = buffer.fd;
-
-    if (buffer.info.format == BufferFormat::kNV12) {
-      overlay_buf.format    = TargetBufferFormat::kYUVNV12;
-      overlay_buf.frame_len = buffer.size;
-    } else if (buffer.info.format == BufferFormat::kNV12UBWC) {
-      overlay_buf.format    = TargetBufferFormat::kYUVNV12UBWC;
-      overlay_buf.frame_len = VENUS_BUFFER_SIZE(COLOR_FMT_NV12_UBWC,
-                                                overlay_buf.width,
-                                                overlay_buf.height);
-    }
-
-    overlay_.ApplyOverlay(overlay_buf);
-  }
-#endif
   if (yuv_dump_freq_ > 0) {
     DumpYUV(buffer);
   }
@@ -2114,130 +1921,6 @@ void TrackSource::ClearInputQueue() {
   }
   frames_received_.Clear();
   QMMF_DEBUG("%s: Exit track_id(%x)", __func__, TrackId());
-}
-
-status_t TrackSource::CreateOverlayObject(OverlayParam *param,
-                                          uint32_t *overlay_id) {
-#ifndef CAMERA_HAL1_SUPPORT
-  QMMF_DEBUG("%s: Enter track_id(%x)", __func__, TrackId());
-  uint32_t id;
-  auto ret = overlay_.CreateOverlayItem(*param, &id);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: createOverlayItem failed!", __func__);
-    return BAD_VALUE;
-  }
-  *overlay_id = id;
-  QMMF_INFO("%s: OverlayItem of type(%d) created! id(%d)", __func__,
-      param->type, id);
-  QMMF_DEBUG("%s: Exit track_id(%x)", __func__, TrackId());
-  return ret;
-#endif
-  return NO_ERROR;
-}
-
-status_t TrackSource::DeleteOverlayObject(const uint32_t overlay_id) {
-#ifndef CAMERA_HAL1_SUPPORT
-  QMMF_DEBUG("%s: Enter track_id(%x)", __func__, TrackId());
-  auto ret = overlay_.DeleteOverlayItem(overlay_id);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: deleteOverlayItem failed!", __func__);
-    return BAD_VALUE;
-  }
-  QMMF_DEBUG("%s: Exit track_id(%x)", __func__, TrackId());
-  return ret;
-#endif
-  return NO_ERROR;
-}
-
-status_t TrackSource::DeleteOverlayObjects() {
-#ifndef CAMERA_HAL1_SUPPORT
-  QMMF_DEBUG("%s: Enter track_id(%x)", __func__, TrackId());
-  auto ret = overlay_.DeleteOverlayItems();
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: DeleteOverlayItems failed!", __func__);
-    return BAD_VALUE;
-  }
-  QMMF_DEBUG("%s: Exit track_id(%x)", __func__, TrackId());
-  return ret;
-#endif
-  return NO_ERROR;
-}
-
-status_t TrackSource::GetOverlayObjectParams(const uint32_t overlay_id,
-                                             OverlayParam &param) {
-#ifndef CAMERA_HAL1_SUPPORT
-  QMMF_DEBUG("%s: Enter track_id(%x)", __func__, TrackId());
-  auto ret = overlay_.GetOverlayParams(overlay_id, param);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: getOverlayItemParams failed!", __func__);
-    return BAD_VALUE;
-  }
-  QMMF_DEBUG("%s: Exit track_id(%x)", __func__, TrackId());
-  return ret;
-#endif
-  return NO_ERROR;
-}
-
-status_t TrackSource::UpdateOverlayObjectParams(const uint32_t overlay_id,
-                                                OverlayParam *param) {
-#ifndef CAMERA_HAL1_SUPPORT
-  QMMF_DEBUG("%s: Enter track_id(%x)", __func__, TrackId());
-  auto ret = overlay_.UpdateOverlayParams(overlay_id, *param);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: updateOverlayParams failed!", __func__);
-    return BAD_VALUE;
-  }
-  QMMF_DEBUG("%s: Exit track_id(%x)", __func__, TrackId());
-  return ret;
-#endif
-  return NO_ERROR;
-}
-
-status_t TrackSource::ProcessOverlayObjects(const std::vector<OverlayParam> &overlay_list) {
-#ifndef CAMERA_HAL1_SUPPORT
-  QMMF_DEBUG("%s: Enter track_id(%x)", __func__, TrackId());
-  auto ret = overlay_.ProcessOverlayItems(overlay_list);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: ProcessOverlayItems failed!", __func__);
-    return BAD_VALUE;
-  }
-  active_overlays_ = overlay_list.size();
-
-  QMMF_DEBUG("%s: Exit track_id(%x)", __func__, TrackId());
-  return ret;
-#endif
-  return NO_ERROR;
-}
-
-
-status_t TrackSource::SetOverlayObject(const uint32_t overlay_id) {
-#ifndef CAMERA_HAL1_SUPPORT
-  QMMF_DEBUG("%s: Enter track_id(%x)", __func__, TrackId());
-  auto ret = overlay_.EnableOverlayItem(overlay_id);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: enableOverlayItem failed!", __func__);
-    return BAD_VALUE;
-  }
-  ++active_overlays_;
-  QMMF_DEBUG("%s: Exit track_id(%x)", __func__, TrackId());
-  return ret;
-#endif
-  return NO_ERROR;
-}
-
-status_t TrackSource::RemoveOverlayObject(const uint32_t overlay_id) {
-#ifndef CAMERA_HAL1_SUPPORT
-  QMMF_DEBUG("%s: Enter track_id(%x)", __func__, TrackId());
-  auto ret = overlay_.DisableOverlayItem(overlay_id);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: disableOverlayItem failed!", __func__);
-    return BAD_VALUE;
-  }
-  --active_overlays_;
-  QMMF_DEBUG("%s: Exit track_id(%x)", __func__, TrackId());
-  return ret;
-#endif
-  return NO_ERROR;
 }
 
 void TrackSource::UpdateFrameRate(const float frame_rate) {

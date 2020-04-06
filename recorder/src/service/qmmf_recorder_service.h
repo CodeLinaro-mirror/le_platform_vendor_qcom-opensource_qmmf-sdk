@@ -201,39 +201,6 @@ class RecorderService : public BnInterface<IRecorderService> {
                                     const uint32_t camera_id,
                                     CameraMetadata &meta) override;
 
-  status_t CreateOverlayObject(const uint32_t client_id,
-                               const uint32_t track_id, OverlayParam *param,
-                               uint32_t *overlay_id) override;
-
-  status_t DeleteOverlayObject(const uint32_t client_id,
-                               const uint32_t track_id,
-                               const uint32_t overlay_id) override;
-
-  status_t DeleteOverlayObjects(const uint32_t client_id,
-                               const uint32_t track_id) override;
-
-  status_t GetOverlayObjectParams(const uint32_t client_id,
-                                  const uint32_t track_id,
-                                  const uint32_t overlay_id,
-                                  OverlayParam &param) override;
-
-  status_t UpdateOverlayObjectParams(const uint32_t client_id,
-                                     const uint32_t track_id,
-                                     const uint32_t overlay_id,
-                                     OverlayParam *param) override;
-
-  status_t ProcessOverlayObjects(
-      const uint32_t client_id, const uint32_t track_id,
-      const std::vector<OverlayParam> &overlay_list) override;
-
-  status_t SetOverlayObject(const uint32_t client_id,
-                            const uint32_t track_id,
-                            const uint32_t overlay_id) override;
-
-  status_t RemoveOverlayObject(const uint32_t client_id,
-                               const uint32_t track_id,
-                               const uint32_t overlay_id) override;
-
   void ClientDeathHandler(const uint32_t client_id);
 
   bool IsRecorderInitialized();

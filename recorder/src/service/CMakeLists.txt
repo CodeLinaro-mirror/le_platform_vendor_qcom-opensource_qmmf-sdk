@@ -60,7 +60,6 @@ add_dependencies(
   qmmf_codec_adaptor
   qmmf_camera_adaptor
   qmmf_exif_generator
-  qmmf_overlay
   qmmf_common_resizer_neon
   qmmf_common_resizer_c2d
   qmmf_common_resizer_fastcv
@@ -124,7 +123,7 @@ if (NOT CAMERA_HAL1_SUPPORT)
 target_link_libraries(qmmf_recorder_service dl jsoncpp log utils cutils binder
   pthread pulse camera_client camera_metadata hardware qmmf_recorder_client
   qmmf_utils qmmf_camera_adaptor qmmf_codec_adaptor
-  qmmf_overlay qmmf_exif_generator qmmf_common_resizer_neon
+  qmmf_exif_generator qmmf_common_resizer_neon
   qmmf_common_resizer_c2d qmmf_common_resizer_fastcv qmmf_camera_hal_reproc
   qmmf_postproc_test qmmf_postproc_frame_skip qmmf_postproc_algo)
 else()

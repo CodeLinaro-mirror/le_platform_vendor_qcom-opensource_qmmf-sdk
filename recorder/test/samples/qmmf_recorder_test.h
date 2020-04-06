@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -65,8 +65,6 @@
 // Enable this define to dump YUV data from YUV track
 #define DUMP_YUV_FRAMES
 
-#define OVERLAY_TEST_FILE "/data/misc/qmmf/overlay_test.rgba"
-
 //#define DEBUG
 //Logging related defines
 #define TEST_INFO(fmt, args...)  ALOGD(fmt, ##args)
@@ -123,7 +121,6 @@ if (kpi_debug_mask & KPI_ONLY) { \
 
 using namespace qmmf;
 using namespace recorder;
-using namespace overlay;
 using namespace android;
 using namespace qcamera;
 using ::qmmf::display::DisplayEventType;
@@ -511,10 +508,6 @@ class RecorderTest {
 
   status_t DeleteSession();
 
-  status_t EnableOverlay();
-
-  status_t DisableOverlay();
-
   status_t HandleAWBROIRequest();
 
   void GetMaxResolutionTrack(TrackInfo &);
@@ -708,12 +701,6 @@ class TestTrack {
   // Clean up file.
   status_t CleanUp();
 
-  status_t EnableOverlay();
-
-  status_t DisableOverlay();
-
-  status_t DrawOverlay(void *data, int32_t width, int32_t height);
-
   void ExtractColorValues(uint32_t hex_color, RGBAValues* color);
 
   void DisplayCallbackHandler(DisplayEventType event_type, void *event_data,
@@ -744,9 +731,6 @@ class TestTrack {
   int32_t display_param_;
 
   TrackInfo track_info_;
-
-  // One track can have multiple overlay objects.
-  std::vector<uint32_t> overlay_ids_;
 
   RecorderTest* recorder_test_;
 
@@ -822,8 +806,6 @@ public:
         SET_DYNAMIC_CAMERA_PARAM_CMD                    = '~',
         PAUSE_SESSION_CMD                               = 'P',
         RESUME_SESSION_CMD                              = 'R',
-        ENABLE_OVERLAY_CMD                              = 'O',
-        DISABLE_OVERLAY_CMD                             = 'L',
         DELETE_SESSION_CMD                              = 'D',
         NOISE_REDUCTION_CMD                             = 'N',
         VIDEO_HDR_CMD                                   = 'H',

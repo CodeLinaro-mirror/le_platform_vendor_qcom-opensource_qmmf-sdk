@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -464,8 +464,6 @@ void GtestCommon::SetUp() {
   timelapse_interval_ = atof(prop_val);
   property_get(PROP_TOGGLE_DISPLAY_USAGE, prop_val, "1");
   use_display_ = (atoi(prop_val) == 0) ? false : true;
-  property_get(PROP_TOGGLE_OVERLAY_USAGE, prop_val, "0");
-  is_apply_overlay_ = (atoi(prop_val) == 0) ? false : true;
   property_get(PROP_FRAME_DEBUG, prop_val, "0");
   is_frame_debug_enabled_ = (atoi(prop_val) == 0) ? false : true;
   property_get(PROP_SENSOR_CONFIG_FILE, prop_val, "");
@@ -1208,70 +1206,6 @@ void GtestCommon::ParseFaceInfo(const android::CameraMetadata &res,
       TEST_INFO("No face detected");
     }
   }
-}
-
-void GtestCommon::ApplyFaceOveralyOnStream(struct FaceInfo &info) {
-  face_overlay_lock_.lock();
-  if (face_bbox_active_) {
-    uint32_t i;
-    int ret;
-    uint32_t last_num = face_bbox_id_.size();
-    uint32_t cur_num = info.face_rect.size();
-    OverlayParam object_params;
-
-    for(i = 0; i < std::min(last_num, cur_num); i++) {
-      ret = GtestCommon::recorder_.GetOverlayObjectParams(face_track_id_,
-          face_bbox_id_[i], object_params);
-      ASSERT_TRUE(ret == 0);
-      object_params.dst_rect.start_x = info.face_rect[i].left;
-      object_params.dst_rect.width = info.face_rect[i].width;
-      if (object_params.dst_rect.width <= 0) {
-        TEST_INFO("invalid width(%d)", object_params.dst_rect.width);
-        object_params.dst_rect.width = 1;
-      }
-      object_params.dst_rect.start_y = info.face_rect[i].top;
-      object_params.dst_rect.height = info.face_rect[i].height;
-      if (object_params.dst_rect.height <= 0) {
-        TEST_INFO("invalid width(%d)", object_params.dst_rect.height);
-        object_params.dst_rect.height = 1;
-      }
-      ret = GtestCommon::recorder_.UpdateOverlayObjectParams(face_track_id_,
-          face_bbox_id_[i], object_params);
-      ASSERT_TRUE(ret == 0);
-      ret = GtestCommon::recorder_.SetOverlay(face_track_id_, face_bbox_id_[i]);
-      ASSERT_TRUE(ret == 0);
-    }
-
-    if (last_num > cur_num) {
-      for(i = cur_num; i < last_num; i++) {
-        ret = GtestCommon::recorder_.RemoveOverlay(face_track_id_,
-                                                     face_bbox_id_[i]);
-        ASSERT_TRUE(ret == 0);
-      }
-    } else if (last_num < cur_num) {
-      for (i = last_num; i < cur_num; i++) {
-        // Create BoundingBox type overlay.
-        std::string bb_text("Face");
-        uint32_t bbox_id;
-        object_params = {};
-        object_params.type  = OverlayType::kBoundingBox;
-        object_params.color = kColorLightGreen;
-        object_params.dst_rect.start_x = info.face_rect[i].left;
-        object_params.dst_rect.start_y = info.face_rect[i].top;
-        object_params.dst_rect.width   = info.face_rect[i].width;
-        object_params.dst_rect.height  = info.face_rect[i].height;
-        bb_text.copy(object_params.bounding_box.box_name, bb_text.length());
-        ret = recorder_.CreateOverlayObject(face_track_id_,
-                 object_params, &bbox_id);
-        ASSERT_TRUE(ret == 0);
-        face_bbox_id_.push_back(bbox_id);
-        ret = GtestCommon::recorder_.SetOverlay(face_track_id_, bbox_id);
-        ASSERT_TRUE(ret == 0);
-      }
-    }
-  }
-  face_overlay_lock_.unlock();
-  info.face_rect.clear();
 }
 
 /** ValidateResFromStreamConfigs
@@ -2178,64 +2112,6 @@ bool GtestCommon::VendorTagExistsInMeta(const CameraMetadata& meta,
   TEST_DBG("%s: Exit", __func__);
   return is_available;
 }
-
-void GtestCommon::CreatePrivacyMaskOverlay (const uint32_t& video_track_id,
-                                              const int32_t& width,
-                                              const int32_t& height,
-                                              uint32_t* mask_id) {
-  // Create BoundingBox type overlay.
-  OverlayParam object_params{};
-  object_params.type  = OverlayType::kPrivacyMask;
-  object_params.color = 0xFF9933FF; //Fill mask with color.
-  // Dummy coordinates for test purpose.
-  object_params.dst_rect.start_x = 20;
-  object_params.dst_rect.start_y = 40;
-  object_params.dst_rect.width   = width/8;
-  object_params.dst_rect.height  = height/8;
-
-  auto ret = recorder_.CreateOverlayObject(video_track_id, object_params,
-                                           mask_id);
-  ASSERT_TRUE(ret == 0);
-  ret = recorder_.SetOverlay(video_track_id, *mask_id);
-  ASSERT_TRUE(ret == 0);
-
-  ret = recorder_.GetOverlayObjectParams(video_track_id, *mask_id,
-                                             object_params);
-  ASSERT_TRUE(ret == 0);
-
-  object_params.dst_rect.start_x = (object_params.dst_rect.start_x +
-    object_params.dst_rect.width < width) ? object_params.dst_rect.start_x + 20
-                                          : 20;
-
-  object_params.dst_rect.width = (object_params.dst_rect.start_x +
-    object_params.dst_rect.width < width) ? object_params.dst_rect.width + 50
-                                          : width/8;
-
-  object_params.dst_rect.start_y = (object_params.dst_rect.start_y +
-    object_params.dst_rect.height < height) ? object_params.dst_rect.start_y +
-                                              10 : 40;
-
-  object_params.dst_rect.height = (object_params.dst_rect.start_y +
-    object_params.dst_rect.height < height) ? object_params.dst_rect.height +
-                                          50 : height/8;
-
-  ret = recorder_.UpdateOverlayObjectParams(video_track_id, *mask_id,
-                                                object_params);
-  ASSERT_TRUE(ret == 0);
-
-}
-
-void GtestCommon::DestroyPrivacyMaskOverlay (const uint32_t& video_track_id,
-                                               const uint32_t& mask_id) {
-
-  // Remove overlay object from video track.
-  auto ret = recorder_.RemoveOverlay(video_track_id, mask_id);
-  ASSERT_TRUE(ret == 0);
-
-  // Delete overlay object.
-  ret = recorder_.DeleteOverlayObject(video_track_id, mask_id);
-  ASSERT_TRUE(ret == 0);
-}
 #endif
 status_t GtestCommon::DumpThumbnail(BufferDescriptor buffer,
                                     const CameraBufferMetaData& meta_data,
@@ -2438,152 +2314,6 @@ int32_t GtestCommon::QueueGfxSurfaceBuffer() {
   return 0;
 }
 #endif
-
-status_t GtestCommon::DrawOverlay(void *data, int32_t width, int32_t height) {
-
-  TEST_DBG("%s: Enter", __func__);
-  status_t ret = 0;
-#ifndef CAMERA_HAL1_SUPPORT
-#if USE_SKIA
-  //Create Skia canvas outof ION memory.
-  SkImageInfo imageInfo = SkImageInfo::Make(width, height,
-      kRGBA_8888_SkColorType, kPremul_SkAlphaType);
-
-#ifdef QCAMERA3_TAG_LOCAL_COPY
-  canvas_ = (SkCanvas::MakeRasterDirect(imageInfo,
-      static_cast<unsigned char*>(data), width *4)).release();
-#else
-  canvas_ = SkCanvas::NewRasterDirect(imageInfo,
-      static_cast<unsigned char*>(data), width *4);
-#endif
-
-#elif USE_CAIRO
-  cr_surface_ = cairo_image_surface_create_for_data(static_cast<unsigned char*>
-                                                    (data),
-                                                    CAIRO_FORMAT_ARGB32, width,
-                                                    height, width * 4);
-  EXPECT_TRUE(cr_surface_ != nullptr);
-
-  cr_context_ = cairo_create (cr_surface_);
-  EXPECT_TRUE(cr_context_ != nullptr);
-#endif
-
-  struct timeval tv;
-  time_t now_time;
-  struct tm *time;
-  char date_buf[40];
-  char time_buf[40];
-
-  gettimeofday(&tv, NULL);
-  now_time = tv.tv_sec;
-  time = localtime(&now_time);
-
-  strftime(date_buf, sizeof date_buf, "%Y/%m/%d", time);
-  strftime(time_buf, sizeof time_buf, "%H:%M:%S", time);
-
-  TEST_INFO("%s: date:time (%s:%s)", __func__, date_buf, time_buf);
-
-  double x_date, y_date;
-  x_date = y_date = 0.0;
-
-#if USE_SKIA
-  canvas_->clear(SK_AlphaOPAQUE);
-
-  int32_t date_len = strlen(date_buf);
-  int32_t time_len = strlen(time_buf);
-
-  SkPaint paint;
-  paint.setColor(kColorRed);
-  paint.setTextSize(SkIntToScalar(DATETIME_PIXEL_SIZE));
-  paint.setAntiAlias(true);
-  paint.setTextScaleX(1);
-
-  SkString date_text(date_buf, date_len);
-  canvas_->drawText(date_text.c_str(), date_text.size(), x_date, y_date, paint);
-
-  SkString time_text(time_buf, time_len);
-  int32_t per_char_size = DATETIME_TEXT_BUF_WIDTH/date_text.size();
-  float x_time = (DATETIME_TEXT_BUF_WIDTH - (time_text.size() * per_char_size));
-  x_time = x_time > 0 ? (x_time) : 0;
-  float y_time = DATETIME_TEXT_BUF_HEIGHT - DATETIME_PIXEL_SIZE/2;
-  canvas_->drawText(time_text.c_str(), time_text.size(), x_time, y_time, paint);
-  canvas_->flush();
-  usleep(1000);
-
-#elif USE_CAIRO
-  ClearSurface();
-  cairo_select_font_face(cr_context_, "@cairo:Serif", CAIRO_FONT_SLANT_ITALIC,
-                          CAIRO_FONT_WEIGHT_BOLD);
-  cairo_set_font_size (cr_context_, DATETIME_PIXEL_SIZE);
-  cairo_set_antialias (cr_context_, CAIRO_ANTIALIAS_BEST);
-  EXPECT_TRUE(CAIRO_STATUS_SUCCESS == cairo_status(cr_context_));
-
-  cairo_font_extents_t font_extent;
-  cairo_font_extents (cr_context_, &font_extent);
-  TEST_DBG("%s: ascent=%f, descent=%f, height=%f, max_x_advance=%f,"
-      " max_y_advance = %f", __func__, font_extent.ascent, font_extent.descent,
-       font_extent.height, font_extent.max_x_advance,
-       font_extent.max_y_advance);
-
-  cairo_text_extents_t date_text_extents;
-  cairo_text_extents (cr_context_, date_buf, &date_text_extents);
-
-  TEST_DBG("%s: Date: te.x_bearing=%f, te.y_bearing=%f, te.width=%f,"
-      " te.height=%f, te.x_advance=%f, te.y_advance=%f", __func__,
-      date_text_extents.x_bearing, date_text_extents.y_bearing,
-      date_text_extents.width, date_text_extents.height,
-      date_text_extents.x_advance, date_text_extents.y_advance);
-
-  cairo_font_options_t *options;
-  options = cairo_font_options_create ();
-  cairo_font_options_set_antialias (options, CAIRO_ANTIALIAS_DEFAULT);
-  cairo_set_font_options (cr_context_, options);
-  cairo_font_options_destroy (options);
-
-  //(0,0) is at topleft corner of draw buffer.
-  y_date = height/2.0; // height is buffer height.
-  y_date = std::max(y_date, date_text_extents.height - (font_extent.descent/2.0));
-  cairo_move_to (cr_context_, x_date, y_date);
-
-  // Draw date.
-  RGBAValues text_color{};
-  ExtractColorValues(kColorRed, &text_color);
-  cairo_set_source_rgba (cr_context_, text_color.red, text_color.green,
-                         text_color.blue, text_color.alpha);
-
-  cairo_show_text (cr_context_, date_buf);
-  EXPECT_TRUE(CAIRO_STATUS_SUCCESS == cairo_status(cr_context_));
-
-  cairo_text_extents_t time_text_extents;
-  cairo_text_extents (cr_context_, time_buf, &time_text_extents);
-  TEST_DBG("%s: Time: te.x_bearing=%f, te.y_bearing=%f, te.width=%f,"
-    " te.height=%f, te.x_advance=%f, te.y_advance=%f", __func__,
-    time_text_extents.x_bearing, time_text_extents.y_bearing,
-    time_text_extents.width, time_text_extents.height,
-    time_text_extents.x_advance, time_text_extents.y_advance);
-  // Calculate the x_time to draw the time text extact middle of buffer.
-  // Use x_width which usally few pixel less than the width of the actual
-  // drawn text.
-  double x_time = (width - time_text_extents.width)/2.0; // width_ is buffer width.
-  double y_time = y_date + (date_text_extents.height - (font_extent.descent/2));
-  cairo_move_to (cr_context_, x_time, y_time);
-  cairo_show_text (cr_context_, time_buf);
-  EXPECT_TRUE(CAIRO_STATUS_SUCCESS == cairo_status(cr_context_));
-
-  cairo_surface_flush(cr_surface_);
-
-  if (cr_surface_) {
-    cairo_surface_destroy(cr_surface_);
-  }
-  if (cr_context_) {
-    cairo_destroy(cr_context_);
-  }
-#endif
-
-  TEST_DBG("%s: Exit", __func__);
-#endif
-  return ret;
-}
 
 void GtestCommon::ExtractColorValues(uint32_t hex_color, RGBAValues* color) {
 
