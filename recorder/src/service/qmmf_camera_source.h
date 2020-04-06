@@ -218,10 +218,6 @@ class CameraSource {
 
   SnapshotCb client_snapshot_cb_;
 
-#ifndef CAMERA_HAL1_SUPPORT
-  std::shared_ptr<PostProcFactory> factory_;
-#endif
-
   SupportedCameras supported_cameras_;
 
   // Not allowed

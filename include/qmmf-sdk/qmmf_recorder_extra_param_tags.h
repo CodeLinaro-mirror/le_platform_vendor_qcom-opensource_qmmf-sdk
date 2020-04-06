@@ -40,9 +40,7 @@ namespace qmmf {
 namespace recorder {
 
 enum ParamTag {
-  QMMF_POSTPROCESS_PLUGIN = (1 << 16),
-  QMMF_POSTPROCESS_FRAME_SKIP,
-  QMMF_JPEG_CAPTURE_SETUP,
+  QMMF_JPEG_CAPTURE_SETUP = (1 << 16),
   QMMF_SOURCE_VIDEO_TRACK_ID,
   QMMF_VIDEO_TIMELAPSE_INTERVAL,
   QMMF_IMAGE_THUMBNAIL,
@@ -98,26 +96,6 @@ enum class SlaveMode {
   kMaster,
   /**< Camera Slave mode */
   kSlave,
-};
-
-struct PostprocPlugin : DataTagBase {
-  /**< Unique id of the plugin. */
-  uint32_t uid;     // Default: 0
-
-  PostprocPlugin()
-    : DataTagBase(QMMF_POSTPROCESS_PLUGIN),
-      uid(0) {}
-};
-
-struct PostprocFrameSkip : DataTagBase {
-  /**< Number of skip frames for each sent frame */
-  uint32_t frame_skip;     // Default: 0 means no skip
-  uint32_t source_framerate;
-
-  PostprocFrameSkip()
-    : DataTagBase(QMMF_POSTPROCESS_FRAME_SKIP),
-      frame_skip(0),
-      source_framerate(30) {}
 };
 
 struct HighQualityCaptureSetup : DataTagBase {

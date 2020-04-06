@@ -17,19 +17,12 @@ ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_recorder_ion.cc
 ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_remote_cb.cc
 ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_camera_source.cc
 ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_camera_context.cc
-${CMAKE_CURRENT_SOURCE_DIR}/qmmf_fake_camera.cc
 ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_encoder_core.cc
 ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_audio_pulse_client.cc
 ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_audio_source.cc
 ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_audio_raw_track_source.cc
 ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_audio_encoded_track_source.cc
 ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_audio_encoder_core.cc
-${CMAKE_CURRENT_SOURCE_DIR}/qmmf_camera_reprocess_impl.cc
-${CMAKE_CURRENT_SOURCE_DIR}/post-process/factory/qmmf_postproc_factory.cc
-${CMAKE_CURRENT_SOURCE_DIR}/post-process/node/qmmf_postproc_node.cc
-${CMAKE_CURRENT_SOURCE_DIR}/post-process/memory/qmmf_postproc_memory_pool.cc
-${CMAKE_CURRENT_SOURCE_DIR}/post-process/pipe/qmmf_postproc_pipe.cc
-${CMAKE_CURRENT_SOURCE_DIR}/post-process/common/qmmf_postproc_thread.cc
 ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_camera_rescaler.cc
 ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_camera_frc.cc
 ${jpeg}
@@ -86,10 +79,6 @@ if (NOT DISABLE_PP_JPEG)
 add_dependencies(qmmf_recorder_service qmmf_common_jpeg_encoder qmmf_jpeg)
 endif()
 
-if (NOT CAMERA_HAL1_SUPPORT)
-add_subdirectory(post-process)
-endif()
-
 target_include_directories(qmmf_recorder_service
  PRIVATE ${TOP_DIRECTORY})
 
@@ -104,9 +93,6 @@ target_include_directories(qmmf_recorder_service
 
 target_include_directories(qmmf_recorder_service
  PRIVATE ${WORKSPACE}/frameworks/av/include)
-
- target_include_directories(qmmf_recorder_service
- PRIVATE ${TOP_DIRECTORY}/recorder/src/service/post-process)
 
 target_include_directories(qmmf_recorder_service
  PRIVATE $<BUILD_INTERFACE:${KERNEL_INCDIR}/usr/include>)
@@ -124,8 +110,7 @@ target_link_libraries(qmmf_recorder_service dl jsoncpp log utils cutils binder
   pthread pulse camera_client camera_metadata hardware qmmf_recorder_client
   qmmf_utils qmmf_camera_adaptor qmmf_codec_adaptor
   qmmf_exif_generator qmmf_common_resizer_neon
-  qmmf_common_resizer_c2d qmmf_common_resizer_fastcv qmmf_camera_hal_reproc
-  qmmf_postproc_test qmmf_postproc_frame_skip qmmf_postproc_algo)
+  qmmf_common_resizer_c2d qmmf_common_resizer_fastcv)
 else()
 target_link_libraries(qmmf_recorder_service dl jsoncpp log utils cutils binder
   pthread pulse camera_client camera_metadata hardware qmmf_recorder_client

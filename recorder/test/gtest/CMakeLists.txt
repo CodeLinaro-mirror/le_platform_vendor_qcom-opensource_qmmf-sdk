@@ -13,7 +13,6 @@ add_executable(qmmf_recorder_gtest ${exclude}
 qmmf_recorder_base_gtest.cc
 qmmf_recorder_gtest_common.cc
 qmmf_recorder_image_gtest.cc
-qmmf_recorder_postprocessing_video_gtest.cc
 qmmf_recorder_video_gtest.cc
 qmmf_recorder_video_snapshot_gtest.cc
 )

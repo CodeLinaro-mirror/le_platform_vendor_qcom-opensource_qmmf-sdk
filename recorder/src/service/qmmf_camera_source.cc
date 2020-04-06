@@ -39,10 +39,6 @@
 #include <hardware/camera3.h>
 #endif
 
-
-#ifndef CAMERA_HAL1_SUPPORT
-#include "recorder/src/service/post-process/factory/qmmf_postproc_factory.h"
-#endif
 #include "recorder/src/service/qmmf_camera_source.h"
 #include "recorder/src/service/qmmf_recorder_common.h"
 #include "recorder/src/service/qmmf_recorder_utils.h"
@@ -83,9 +79,6 @@ CameraSource::CameraSource() {
   QMMF_KPI_GET_MASK();
   QMMF_KPI_DETAIL();
   QMMF_INFO("%s: Enter", __func__);
-#ifndef CAMERA_HAL1_SUPPORT
-  factory_ = PostProcFactory::getInstance();
-#endif
   DetectCameras();
   QMMF_INFO("%s: Exit", __func__);
 }
@@ -95,10 +88,6 @@ CameraSource::~CameraSource() {
   QMMF_KPI_DETAIL();
   QMMF_INFO("%s: Enter", __func__);
   camera_map_.clear();
-#ifndef CAMERA_HAL1_SUPPORT
-  PostProcFactory::releaseInstance();
-  factory_ = nullptr;
-#endif
   instance_ = nullptr;
   QMMF_INFO("%s: Exit (0x%p)", __func__, this);
 }
@@ -206,14 +195,6 @@ status_t CameraSource::GetSupportedPlugins(SupportedPlugins *plugins) {
 
   QMMF_DEBUG("%s: Enter", __func__);
 
-#ifndef CAMERA_HAL1_SUPPORT
-  auto ret = factory_->GetSupportedPlugins(plugins);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: GetSupportedPlugins Failed!", __func__);
-    return ret;
-  }
-#endif
-
   QMMF_DEBUG("%s: Exit", __func__);
   return NO_ERROR;
 }
@@ -222,13 +203,6 @@ status_t CameraSource::CreatePlugin(uint32_t *uid, const PluginInfo &plugin) {
 
   QMMF_DEBUG("%s: Enter", __func__);
 
-#ifndef CAMERA_HAL1_SUPPORT
-  auto ret = factory_->CreatePlugin(*uid, plugin);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: CreatePlugin Failed!", __func__);
-    return ret;
-  }
-#endif
 
   QMMF_DEBUG("%s: Exit", __func__);
   return NO_ERROR;
@@ -238,14 +212,6 @@ status_t CameraSource::DeletePlugin(const uint32_t &uid) {
 
   QMMF_DEBUG("%s: Enter", __func__);
 
-#ifndef CAMERA_HAL1_SUPPORT
-  auto ret = factory_->DeletePlugin(uid);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: DeletePlugin Failed!", __func__);
-    return ret;
-  }
-#endif
-
   QMMF_DEBUG("%s: Exit", __func__);
   return NO_ERROR;
 }
@@ -254,14 +220,6 @@ status_t CameraSource::ConfigPlugin(const uint32_t &uid,
                                     const std::string &json_config) {
 
   QMMF_DEBUG("%s: Enter", __func__);
-
-#ifndef CAMERA_HAL1_SUPPORT
-  auto ret = factory_->ConfigPlugin(uid, json_config);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: ConfigPlugin Failed!", __func__);
-    return ret;
-  }
-#endif
 
   QMMF_DEBUG("%s: Exit", __func__);
   return NO_ERROR;
@@ -273,13 +231,6 @@ status_t CameraSource::ConfigPlugin(const uint32_t &uid,
 
   QMMF_DEBUG("%s: Enter", __func__);
 
-#ifndef CAMERA_HAL1_SUPPORT
-  auto ret = factory_->ConfigPlugin(uid, type, blob_config);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: ConfigPlugin Failed!", __func__);
-    return ret;
-  }
-#endif
 
   QMMF_DEBUG("%s: Exit", __func__);
   return NO_ERROR;
@@ -289,14 +240,6 @@ status_t CameraSource::GetPluginConfig(const uint32_t &uid,
                                        std::string &json_config) {
 
   QMMF_DEBUG("%s: Enter", __func__);
-
-#ifndef CAMERA_HAL1_SUPPORT
-  auto ret = factory_->GetPluginConfig(uid, json_config);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: ConfigPlugin Failed!", __func__);
-    return ret;
-  }
-#endif
 
   QMMF_DEBUG("%s: Exit", __func__);
   return NO_ERROR;
