@@ -42,6 +42,7 @@
 #include <assert.h>
 #include <sys/time.h>
 #include <chrono>
+#include <vector>
 #include <math.h>
 #if USE_SKIA
 #include <SkSurface.h>
@@ -59,6 +60,7 @@ namespace qmmf {
 namespace overlay {
 
 using namespace android;
+using namespace std;
 
 #define ROUND_TO(val, round_to) ((val + round_to - 1) & ~(round_to - 1))
 
@@ -1978,6 +1980,16 @@ int32_t OverlayItemText::UpdateAndDraw() {
     return ret;
 
   SyncStart(ion_fd_);
+
+ // Split the Text based on new line character.
+  string input(text_.string());
+  vector < string > res;
+  stringstream ss(input); // Turn the string into a stream.
+  string tok;
+  while (getline(ss, tok, '\n')) {
+    OVDBG_INFO("%s: UserText:: Substring: %s", __func__, tok.c_str());
+    res.push_back(tok);
+  }
 #if USE_CAIRO
   ClearSurface();
   cairo_select_font_face(cr_context_, "@cairo:Georgia", CAIRO_FONT_SLANT_NORMAL,
@@ -2010,9 +2022,7 @@ int32_t OverlayItemText::UpdateAndDraw() {
 
   //(0,0) is at topleft corner of draw buffer.
   double x_text = 0.0;
-  double y_text = text_extents.height + (font_extent.descent/2.0);
-  OVDBG_VERBOSE("%s: x_text=%f, y_text=%f", __func__, x_text, y_text);
-  cairo_move_to (cr_context_, x_text, y_text);
+  double y_text = 0.0;
 
   // Draw Text.
   RGBAValues text_color;
@@ -2020,9 +2030,13 @@ int32_t OverlayItemText::UpdateAndDraw() {
   ExtractColorValues(text_color_, &text_color);
   cairo_set_source_rgba (cr_context_, text_color.red, text_color.green,
                          text_color.blue, text_color.alpha);
-
-  cairo_show_text (cr_context_, text_.string());
-  assert(CAIRO_STATUS_SUCCESS == cairo_status(cr_context_));
+  for (string substr: res) {
+    y_text += text_extents.height + (font_extent.descent/2.0);
+    OVDBG_VERBOSE("%s: x_text=%f, y_text=%f", __func__, x_text, y_text);
+    cairo_move_to (cr_context_, x_text, y_text);
+    cairo_show_text (cr_context_, substr.c_str());
+    assert(CAIRO_STATUS_SUCCESS == cairo_status(cr_context_));
+  }
   cairo_surface_flush(cr_surface_);
 
 #elif USE_SKIA
@@ -2039,9 +2053,13 @@ int32_t OverlayItemText::UpdateAndDraw() {
   paint.setAntiAlias(true);
 
   int32_t x = 0;
-  int32_t y = TEXT_BUF_HEIGHT - TEXT_SIZE/2;
-  SkString skText(text_.string(), text_.length());
-  canvas_->drawText(skText.c_str(), skText.size(), x, y, paint);
+  int32_t y = 0;
+  for (string substr: res) {
+    // This op is required to maintain proper gap between 2 lines.
+    y += paint.getTextSize() * 1.2f;
+    SkString skText(substr.c_str(), substr.length());
+    canvas_->drawText(skText.c_str(), skText.size(), x, y, paint);
+  }
   canvas_->flush();
 #endif
   SyncEnd(ion_fd_);
