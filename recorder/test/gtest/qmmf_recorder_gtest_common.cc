@@ -462,8 +462,6 @@ void GtestCommon::SetUp() {
   eis_v_margin_ = atof(prop_val);
   property_get(PROP_TIMELAPSE_INTERVAL, prop_val, "2.0");
   timelapse_interval_ = atof(prop_val);
-  property_get(PROP_TOGGLE_DISPLAY_USAGE, prop_val, "1");
-  use_display_ = (atoi(prop_val) == 0) ? false : true;
   property_get(PROP_FRAME_DEBUG, prop_val, "0");
   is_frame_debug_enabled_ = (atoi(prop_val) == 0) ? false : true;
   property_get(PROP_SENSOR_CONFIG_FILE, prop_val, "");
@@ -472,11 +470,6 @@ void GtestCommon::SetUp() {
   enable_sof_latency_ = (atoi(prop_val) == 0) ? false : true;
   property_get(PROP_AF_MODE, prop_val, "0");
   af_mode_ = atoi(prop_val);
-
-  display_started_ = false;
-#ifndef DISABLE_DISPLAY
-  enable_gfx_ = false;
-#endif
 
 #ifdef QCAMERA3_TAG_LOCAL_COPY
   vendor_tag_desc_ = nullptr;
@@ -657,18 +650,6 @@ void GtestCommon::VideoTrackYUVDataCb(uint32_t session_id, uint32_t track_id,
         fclose(file);
       }
     }
-  }
-
-  if (display_ && use_display_) {
-#ifndef DISABLE_DISPLAY
-    if (enable_gfx_) {
-      DequeueGfxSurfaceBuffer();
-      QueueGfxSurfaceBuffer();
-    }
-#endif
-#ifndef CAMERA_HAL1_SUPPORT
-    PushFrameToDisplay(buffers[0], meta_buffers[0].cam_buffer_meta_data);
-#endif
   }
 
 
@@ -1522,132 +1503,6 @@ bool GtestCommon::GetMinSupportedCameraRes(const CameraMetadata& meta,
   return found;
 }
 
-void GtestCommon::DisplayCallbackHandler(DisplayEventType event_type,
-                                           void *event_data,
-                                           size_t event_data_size) {
-  TEST_DBG("%s Enter ", __func__);
-  TEST_DBG("%s Exit ", __func__);
-}
-
-void GtestCommon::DisplayVSyncHandler(int64_t time_stamp) {
-  TEST_DBG("%s: Enter", __func__);
-  TEST_DBG("%s: Exit", __func__);
-}
-#ifndef CAMERA_HAL1_SUPPORT
-status_t GtestCommon::StartDisplay(DisplayType display_type,
-                                     uint32_t src_width, uint32_t src_height,
-                                     uint32_t dst_width, uint32_t dst_height) {
-  TEST_INFO("%s: Enter", __func__);
-  int32_t res = 0;
-  DisplayCb display_status_cb;
-  display_ = new Display();
-  EXPECT_TRUE(display_ != nullptr);
-
-  res = display_->Connect();
-  EXPECT_TRUE(res == 0);
-
-  display_status_cb.EventCb = [&](DisplayEventType event_type, void *event_data,
-                                  size_t event_data_size) {
-    DisplayCallbackHandler(event_type, event_data, event_data_size);
-  };
-
-  display_status_cb.VSyncCb = [&](int64_t time_stamp) {
-    DisplayVSyncHandler(time_stamp);
-  };
-
-  res = display_->CreateDisplay(display_type, display_status_cb);
-  EXPECT_TRUE(res == 0);
-
-  memset(&surface_config_, 0x0, sizeof surface_config_);
-
-  surface_config_.width = src_width;
-  surface_config_.height = src_height;
-  surface_config_.format = SurfaceFormat::kFormatYCbCr420SemiPlanarVenus;
-  surface_config_.buffer_count = 1;
-  surface_config_.cache = 0;
-  surface_config_.use_buffer = 1;
-  surface_config_.z_order = 1;
-  res = display_->CreateSurface(surface_config_, &surface_id_);
-  EXPECT_TRUE(res == 0);
-
-  display_started_ = 1;
-
-  surface_param_.src_rect = {0.0, 0.0, (float)src_width, (float)src_height};
-  surface_param_.dst_rect = {0.0, 0.0, (float)dst_width, (float)dst_height};
-  surface_param_.surface_blending = SurfaceBlending::kBlendingCoverage;
-  surface_param_.surface_flags.cursor = 0;
-  surface_param_.frame_rate = 30;
-  surface_param_.solid_fill_color = 0;
-  surface_param_.surface_transform.rotation = 0.0f;
-  surface_param_.surface_transform.flip_horizontal = 0;
-  surface_param_.surface_transform.flip_vertical = 0;
-#ifndef DISABLE_DISPLAY
-  if (enable_gfx_) {
-    memset(&gfx_surface_config_, 0x0, sizeof gfx_surface_config_);
-    gfx_surface_config_.width = 352;
-    gfx_surface_config_.height = 288;
-    gfx_surface_config_.format = SurfaceFormat::kFormatBGRA8888;
-    gfx_surface_config_.buffer_count = 4;
-    gfx_surface_config_.cache = 0;
-    gfx_surface_config_.use_buffer = 0;
-    gfx_surface_config_.z_order = 2;
-    auto ret = display_->CreateSurface(gfx_surface_config_, &gfx_surface_id_);
-    if (ret != 0) {
-      TEST_ERROR("%s: CreateSurface Failed!!", __func__);
-    }
-
-    gfx_surface_param_.src_rect = {0.0, 0.0, static_cast<float>(352),
-                                   static_cast<float>(288)};
-    gfx_surface_param_.dst_rect = {0.0, 0.0, static_cast<float>(352),
-                                   static_cast<float>(288)};
-    gfx_surface_param_.surface_blending = SurfaceBlending::kBlendingCoverage;
-    gfx_surface_param_.surface_flags.cursor = 0;
-    gfx_surface_param_.frame_rate = 30;
-    gfx_surface_param_.solid_fill_color = 0;
-    gfx_surface_param_.surface_transform.rotation = 0.0f;
-    gfx_surface_param_.surface_transform.flip_horizontal = 0;
-    gfx_surface_param_.surface_transform.flip_vertical = 0;
-  }
-#endif
-  TEST_INFO("%s: Exit", __func__);
-  return res;
-}
-
-status_t GtestCommon::StopDisplay(DisplayType display_type) {
-  TEST_INFO("%s: Enter", __func__);
-  int32_t res = 0;
-
-  if (display_started_ == 1) {
-    display_started_ = 0;
-    res = display_->DestroySurface(surface_id_);
-    if (res != 0) {
-      TEST_ERROR("%s DestroySurface Failed!!", __func__);
-    }
-#ifndef DISABLE_DISPLAY
-    if (enable_gfx_) {
-      res = display_->DestroySurface(gfx_surface_id_);
-      if (res != 0) {
-        TEST_ERROR("%s  DestroyGfxSurface Failed!!", __func__);
-      }
-    }
-#endif
-    res = display_->DestroyDisplay(display_type);
-    if (res != 0) {
-      TEST_ERROR("%s DestroyDisplay Failed!!", __func__);
-    }
-    res = display_->Disconnect();
-
-    if (display_ != nullptr) {
-      TEST_INFO("%s: DELETE display_:%p", __func__, display_);
-      delete display_;
-      display_ = nullptr;
-    }
-  }
-  TEST_INFO("%s: Exit", __func__);
-  return res;
-}
-#endif
-
 status_t GtestCommon::SetCameraFocalLength(const float focal_length) {
   CameraMetadata meta;
   auto ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
@@ -2222,98 +2077,6 @@ status_t GtestCommon::DumpThumbnail(BufferDescriptor buffer,
 
   return NO_ERROR;
 }
-
-#ifndef CAMERA_HAL1_SUPPORT
-status_t GtestCommon::PushFrameToDisplay(BufferDescriptor &buffer,
-                                           CameraBufferMetaData &meta_data) {
-  TEST_DBG("%s: Enter", __func__);
-  if (display_started_) {
-    int32_t ret;
-    surface_buffer_.plane_info[0].ion_fd = buffer.fd;
-    surface_buffer_.buf_id = buffer.fd;
-    surface_buffer_.format = SurfaceFormat::kFormatYCbCr420SemiPlanarVenus;
-    surface_buffer_.plane_info[0].stride = meta_data.plane_info[0].stride;
-    surface_buffer_.plane_info[0].size = buffer.size;
-    surface_buffer_.plane_info[0].width = meta_data.plane_info[0].width;
-    surface_buffer_.plane_info[0].height = meta_data.plane_info[0].height;
-    surface_buffer_.plane_info[0].offset = 0;
-    surface_buffer_.plane_info[0].buf = buffer.data;
-
-    ret = display_->QueueSurfaceBuffer(surface_id_, surface_buffer_,
-                                       surface_param_);
-    if (ret != 0) {
-      TEST_ERROR("%s QueueSurfaceBuffer Failed!!", __func__);
-      return ret;
-    }
-
-    ret = display_->DequeueSurfaceBuffer(surface_id_, surface_buffer_);
-    if (ret != 0) {
-      TEST_ERROR("%s DequeueSurfaceBuffer Failed!!", __func__);
-    }
-  }
-  TEST_DBG("%s: Exit", __func__);
-  return NO_ERROR;
-}
-#endif
-
-#ifndef DISABLE_DISPLAY
-int32_t GtestCommon::DequeueGfxSurfaceBuffer() {
-  TEST_DBG("%s: Enter", __func__);
-  auto ret = 0;
-
-  memset(&gfx_surface_buffer_, 0x0, sizeof gfx_surface_buffer_);
-
-  gfx_surface_buffer_.format = SurfaceFormat::kFormatBGRA8888;
-  gfx_surface_buffer_.acquire_fence = 0;
-  gfx_surface_buffer_.release_fence = 0;
-
-  ret = display_->DequeueSurfaceBuffer(gfx_surface_id_, gfx_surface_buffer_);
-  if (ret != 0) {
-    TEST_ERROR("%s: DequeueSurfaceBuffer Failed!!", __func__);
-  }
-  gfx_file = fopen("/data/misc/qmmf/Images/fasimo_352x288_bgra_8888.rgb", "r");
-  if (!gfx_file) {
-    TEST_ERROR("%s: Unable to open file", __func__);
-    return -1;
-  }
-  int32_t offset = 0;
-  for (uint32_t i = 0; i < gfx_surface_buffer_.plane_info[0].height; i++) {
-    fread((uint8_t *)gfx_surface_buffer_.plane_info[0].buf +
-              gfx_surface_buffer_.plane_info[0].offset + offset,
-          sizeof(uint8_t), gfx_surface_buffer_.plane_info[0].width * 4,
-          gfx_file);
-    offset += ((gfx_surface_buffer_.plane_info[0].width +
-                ((gfx_surface_buffer_.plane_info[0].width % 64) ?
-                (64 - (gfx_surface_buffer_.plane_info[0].width % 64)): 0)) *4);
-  }
-  fclose(gfx_file);
-
-  TEST_DBG("%s: Exit", __func__);
-  return 0;
-}
-
-int32_t GtestCommon::QueueGfxSurfaceBuffer() {
-  TEST_DBG("%s: Enter", __func__);
-
-  memset(&gfx_surface_param_, 0x0, sizeof gfx_surface_param_);
-
-  gfx_surface_param_.src_rect = {0.0, 0.0, 352.0, 288.0};
-  gfx_surface_param_.dst_rect = {0.0, 0.0, 352.0, 288.0};
-  gfx_surface_param_.surface_blending = SurfaceBlending::kBlendingCoverage;
-  gfx_surface_param_.surface_flags.cursor = 0;
-  gfx_surface_param_.frame_rate = 30;
-  gfx_surface_param_.solid_fill_color = 0;
-
-  auto ret = display_->QueueSurfaceBuffer(gfx_surface_id_, gfx_surface_buffer_,
-                                          gfx_surface_param_);
-  if (ret != 0) {
-    TEST_ERROR("%s: QueueSurfaceBuffer Failed!!", __func__);
-  }
-
-  TEST_DBG("%s: Exit", __func__);
-  return 0;
-}
-#endif
 
 void GtestCommon::ExtractColorValues(uint32_t hex_color, RGBAValues* color) {
 

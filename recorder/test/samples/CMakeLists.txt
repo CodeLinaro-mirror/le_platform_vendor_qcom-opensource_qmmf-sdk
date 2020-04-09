@@ -15,7 +15,6 @@ qmmf_recorder_test_aac.cc
 qmmf_recorder_test_amr.cc
 qmmf_recorder_test_mpegh.cc)
 add_dependencies(qmmf_recorder_test qmmf_recorder_client qmmf_utils)
-add_dependencies(qmmf_recorder_test qmmf_display_client)
 
 target_include_directories(qmmf_recorder_test
  PRIVATE ${TOP_DIRECTORY})
@@ -25,4 +24,3 @@ target_include_directories(qmmf_recorder_test
 
 install(TARGETS qmmf_recorder_test DESTINATION bin OPTIONAL)
 target_link_libraries(qmmf_recorder_test log cutils utils cairo camera_metadata camera_client gtest gtest_main qmmf_utils qmmf_recorder_client)
-target_link_libraries(qmmf_recorder_test qmmf_display_client)

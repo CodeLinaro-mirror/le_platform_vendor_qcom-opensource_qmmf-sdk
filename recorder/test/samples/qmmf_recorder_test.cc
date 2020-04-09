@@ -109,7 +109,6 @@ RecorderTest::RecorderTest() :
             camera_error_(false) {
   TEST_INFO("%s: Enter", __func__);
   static_info_.clear();
-  use_display = 0;
 #ifdef CAM_ARCH_V2
   vendor_tag_desc_ = nullptr;
 #endif
@@ -3361,34 +3360,6 @@ status_t RecorderTest::Session1080pYUVTrackWithDisplay() {
   tracks.push_back(yuv_1080p_track);
   sessions_.insert(std::make_pair(session_id, tracks));
 
-  use_display = 1;
-  TEST_INFO("%s: Exit", __func__);
-  return ret;
-}
-
-status_t RecorderTest::ToggleDisplayState() {
-  TEST_INFO("%s: Enter", __func__);
-
-  auto ret = 0;
-  session_iter_ it = sessions_.begin();
-  if (it == sessions_.end()) {
-    TEST_ERROR("%s: There are no active sessions", __func__);
-    return -EPERM;
-  }
-
-  for (auto track : it->second) {
-    TrackType type = track->GetTrackType();
-    if (type == TrackType::kVideoYUV) {
-      if (use_display == 1) {
-        ret = track->ToggleDisplayState();
-        assert(ret == 0);
-      } else {
-        TEST_ERROR("%s: Display not used", __func__);
-      }
-      break;
-    }
-  }
-
   TEST_INFO("%s: Exit", __func__);
   return ret;
 }
@@ -3441,12 +3412,6 @@ status_t RecorderTest::StartSession() {
         || (type == TrackType::kVideoHEVC)
         || (type == TrackType::kVideoPreview) ) {
       session_enabled_ = true;
-      if (use_display == 1) {
-        auto ret = track->StartDisplay(DisplayType::kPrimary);
-        if(ret != 0) {
-          ALOGE("%s StartDisplay Failed!!", __func__);
-        }
-      }
     }
   }
   uint32_t session_id = it->first;
@@ -3467,12 +3432,6 @@ status_t RecorderTest::StopSession() {
   assert(result == NO_ERROR);
 
   for (auto track : it->second) {
-    if (use_display == 1) {
-      auto ret = track->StopDisplay(DisplayType::kPrimary);
-      if(ret != 0) {
-        ALOGE("%s StopDisplay Failed!!", __func__);
-      }
-    }
     track->CleanUp();
     TrackType type = track->GetTrackType();
     if ( (type == TrackType::kVideoYUV)
@@ -3857,7 +3816,6 @@ status_t RecorderTest::DeleteSession() {
   // Once all tracks are deleted successfully delete session.
   ret = recorder_.DeleteSession(session_id);
   sessions_.erase(it);
-  use_display = 0;
   ltr_count_ = 0;
 
   TEST_INFO("%s: Exit", __func__);
@@ -5800,8 +5758,6 @@ void CheckKPITime::ParseCameraMetaData(const CameraMetadata& metadata) {
 TestTrack::TestTrack(RecorderTest* recorder_test)
     : recorder_test_(recorder_test),
       num_yuv_frames_(0) {
-  display_started_ = false;
-  display_param_ = 0;
   TEST_DBG("%s: Enter", __func__);
   track_info_ = {};
   TEST_DBG("%s: Exit", __func__);
@@ -6270,7 +6226,6 @@ void TestTrack::TrackDataCB(uint32_t track_id, std::vector<BufferDescriptor>
               num_yuv_frames_ = 0;
             }
           }
-          PushFrameToDisplay(buffers[i], cam_buf_meta);
         }
       }
     break;
@@ -6297,175 +6252,6 @@ void TestTrack::TrackDataCB(uint32_t track_id, std::vector<BufferDescriptor>
                                                         track_id, buffers);
   assert(ret == 0);
   TEST_DBG("%s: Exit", __func__);
-}
-void TestTrack::DisplayCallbackHandler(DisplayEventType event_type,
-    void *event_data, size_t event_data_size) {
-  TEST_DBG("%s Enter ", __func__);
-  TEST_DBG("%s Exit ", __func__);
-}
-
-void TestTrack::DisplayVSyncHandler(int64_t time_stamp) {
-  TEST_DBG("%s: Enter", __func__);
-  TEST_DBG("%s: Exit", __func__);
-}
-
-status_t TestTrack::StartDisplay(DisplayType display_type) {
-  TEST_INFO("%s: Enter", __func__);
-  int32_t res = 0;
-  SurfaceConfig surface_config{};
-  DisplayCb  display_status_cb;
-
-  display_= new Display();
-  assert(display_ != nullptr);
-
-  res = display_->Connect();
-  assert(res == 0);
-
-  display_status_cb.EventCb = [&] ( DisplayEventType event_type,
-      void *event_data, size_t event_data_size) { DisplayCallbackHandler
-      (event_type, event_data, event_data_size); };
-
-  display_status_cb.VSyncCb = [&] ( int64_t time_stamp)
-      { DisplayVSyncHandler(time_stamp); };
-
-  res = display_->CreateDisplay(display_type, display_status_cb);
-  assert(res == 0);
-
-  surface_config.width = track_info_.width;
-  surface_config.height = track_info_.height;
-  surface_config.format = SurfaceFormat::kFormatYCbCr420SemiPlanarVenus;
-  surface_config.buffer_count = 1;
-  surface_config.cache = 0;
-  surface_config.use_buffer = 1;
-  surface_config.z_order = 1;
-  res = display_->CreateSurface(surface_config, &surface_id_);
-  assert(res == 0);
-
-  display_started_ = 1;
-
-  display_param_type_ = qmmf::display::DisplayParamType::kDisplayState;
-  display_param_ = 1;
-  auto ret = display_->SetDisplayParam(display_param_type_,
-                                       (void *)(&display_param_), sizeof(int));
-
-  if (ret != 0) {
-    TEST_ERROR("%s SetDisplayParam Failed!!", __func__);
-  }
-
-  surface_param_.src_rect = { 0.0, 0.0, (float)track_info_.width,
-      (float)track_info_.height };
-  surface_param_.dst_rect = { 0.0, 0.0, (float)track_info_.width,
-      (float)track_info_.height };
-  surface_param_.surface_blending =
-      SurfaceBlending::kBlendingCoverage;
-  surface_param_.surface_flags.cursor = 0;
-  surface_param_.frame_rate = track_info_.fps;
-  surface_param_.solid_fill_color = 0;
-  surface_param_.surface_transform.rotation = 0.0f;
-  surface_param_.surface_transform.flip_horizontal = 0;
-  surface_param_.surface_transform.flip_vertical = 0;
-
-  TEST_INFO("%s: Exit", __func__);
-  return res;
-}
-
-status_t TestTrack::StopDisplay(DisplayType display_type) {
-  TEST_INFO("%s: Enter", __func__);
-  int32_t res = 0;
-
-  if (display_started_ == 1) {
-    display_started_ = 0;
-    res = display_->DestroySurface(surface_id_);
-    if (res != 0) {
-      TEST_ERROR("%s DestroySurface Failed!!", __func__);
-    }
-
-    res = display_->DestroyDisplay(display_type);
-    if (res != 0) {
-      TEST_ERROR("%s DestroyDisplay Failed!!", __func__);
-    }
-    res = display_->Disconnect();
-
-    if (display_ != nullptr) {
-      TEST_INFO("%s: DELETE display_:%p", __func__, display_);
-      delete display_;
-      display_ = nullptr;
-    }
-  }
-  TEST_INFO("%s: Exit", __func__);
-  return res;
-}
-
-status_t TestTrack::PushFrameToDisplay(BufferDescriptor& buffer,
-                                       CameraBufferMetaData& meta_data) {
-  if (display_started_ == 1) {
-    display_param_type_ = qmmf::display::DisplayParamType::kDisplayState;
-    auto ret = display_->GetDisplayParam(display_param_type_,
-                                         (void *) (&display_param_),
-                                         sizeof(int));
-
-    if (ret != 0) {
-      TEST_ERROR("%s GetDisplayParam Failed!!", __func__);
-      return ret;
-    }
-    QMMF_INFO("%s display param value %d display_started %d ", __func__,
-              display_param_, display_started_);
-  }
-
-  if (display_started_ == 1 && display_param_ == 1) {
-    int32_t ret;
-    surface_buffer_.plane_info[0].ion_fd = buffer.fd;
-    surface_buffer_.buf_id = buffer.fd;
-    surface_buffer_.format = SurfaceFormat::kFormatYCbCr420SemiPlanarVenus;
-    surface_buffer_.plane_info[0].stride = meta_data.plane_info[0].stride;
-    surface_buffer_.plane_info[0].size = buffer.size;
-    surface_buffer_.plane_info[0].width = meta_data.plane_info[0].width;
-    surface_buffer_.plane_info[0].height = meta_data.plane_info[0].height;
-    surface_buffer_.plane_info[0].offset = 0;
-    surface_buffer_.plane_info[0].buf = buffer.data;
-
-    ret = display_->QueueSurfaceBuffer(surface_id_, surface_buffer_,
-        surface_param_);
-    if (ret != 0) {
-      TEST_ERROR("%s QueueSurfaceBuffer Failed!!", __func__);
-      return ret;
-    }
-
-    ret = display_->DequeueSurfaceBuffer(surface_id_, surface_buffer_);
-    if (ret != 0) {
-      TEST_ERROR("%s DequeueSurfaceBuffer Failed!!", __func__);
-    }
-  }
-  return NO_ERROR;
-}
-
-status_t TestTrack::ToggleDisplayState() {
-  TEST_INFO("%s: Enter", __func__);
-
-  auto ret = 0;
-  if (display_started_ == 0) {
-    TEST_WARN("%s: Display not started, cannot toggle state", __func__);
-    return ret;
-  }
-  assert(display_ != nullptr);
-
-  display_param_type_ = qmmf::display::DisplayParamType::kDisplayState;
-  if (display_param_ == 1) {
-    display_param_ = 0;
-  } else if (display_param_ == 0) {
-    display_param_ = 1;
-  }
-
-  ret = display_->SetDisplayParam(display_param_type_,
-                                  (void *)(&display_param_),
-                                  sizeof(int));
-  if (ret != 0) {
-    TEST_ERROR("%s: SetDisplayParam Failed!!", __func__);
-    return ret;
-  }
-
-  TEST_INFO("%s: Exit", __func__);
-  return ret;
 }
 
 status_t DumpBitStream::SetUp(const StreamDumpInfo& dumpinfo) {
@@ -6620,12 +6406,8 @@ void CmdMenu::PrintMenu() {
       CmdMenu::CREATE_PCMAS_AUD_SESSION_CMD);
   printf("   %c. Create Session: (MPEGH 4ch,16,48KHz)\n",
       CmdMenu::CREATE_MPEGH_AUD_SESSION_CMD);
-  printf("   %c. Create Session: (1080p YUV with Display)\n",
-      CmdMenu::CREATE_YUV_SESSION_DISPLAY_CMD);
   printf("   %c. Create Session: (1080p YUV with Preview)\n",
       CmdMenu::CREATE_YUV_SESSION_PREVIEW_CMD);
-  printf("   %c. Toggle Display State\n",
-      CmdMenu::TOGGLE_DISPLAY_STATE);
   printf("   %c. Start Session\n", CmdMenu::START_SESSION_CMD);
   printf("   %c. Stop Session\n", CmdMenu::STOP_SESSION_CMD);
   printf("   %c. Take Snapshot\n", CmdMenu::TAKE_SNAPSHOT_CMD);
@@ -6831,14 +6613,6 @@ int main(int argc,char *argv[]) {
       break;
       case CmdMenu::CREATE_RDI_SESSION_CMD: {
           test_context.SessionRDITrack();
-      }
-      break;
-      case CmdMenu::CREATE_YUV_SESSION_DISPLAY_CMD: {
-        test_context.Session1080pYUVTrackWithDisplay();
-      }
-      break;
-      case CmdMenu::TOGGLE_DISPLAY_STATE: {
-        test_context.ToggleDisplayState();
       }
       break;
       case CmdMenu::CREATE_YUV_SESSION_PREVIEW_CMD: {

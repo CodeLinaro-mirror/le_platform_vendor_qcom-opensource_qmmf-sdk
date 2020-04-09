@@ -72,9 +72,6 @@ endif()
 if (NOT DISABLE_RESCALER_COLORSPACE)
 add_dependencies(qdMetaData)
 endif()
-if (NOT DISABLE_DISPLAY)
-add_dependencies(qmmf_recorder_service qmmf_display_client)
-endif()
 if (NOT DISABLE_PP_JPEG)
 add_dependencies(qmmf_recorder_service qmmf_common_jpeg_encoder qmmf_jpeg)
 endif()
@@ -87,9 +84,6 @@ target_include_directories(qmmf_recorder_service
 
 target_include_directories(qmmf_recorder_service
  PRIVATE ${WORKSPACE}/hardware/libhardware/include)
-
-target_include_directories(qmmf_recorder_service
- PRIVATE ${WORKSPACE}/display/display-hal/libgralloc)
 
 target_include_directories(qmmf_recorder_service
  PRIVATE ${WORKSPACE}/frameworks/av/include)
@@ -116,9 +110,6 @@ target_link_libraries(qmmf_recorder_service dl jsoncpp log utils cutils binder
   pthread pulse camera_client camera_metadata hardware qmmf_recorder_client
   qmmf_utils qmmf_codec_adaptor qmmf_exif_generator qmmf_memory_interface
   qmmf_common_resizer_neon qmmf_common_resizer_c2d)
-endif()
-if (NOT DISABLE_DISPLAY)
-target_link_libraries(qmmf_recorder_service qmmf_display_client)
 endif()
 if (NOT DISABLE_PP_JPEG)
 target_link_libraries(qmmf_recorder_service qmmf_common_jpeg_encoder qmmf_jpeg)

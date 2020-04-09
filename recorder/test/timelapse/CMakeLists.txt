@@ -8,7 +8,7 @@ if (NOT RECORDER_TIMELAPSE_ENABLED)
 endif()
 
 add_executable(qmmf_recorder_timelapse ${exclude} qmmf_time_lapse.cc qmmf_time_lapse_main.cc)
-add_dependencies(qmmf_recorder_timelapse qmmf_recorder_client qmmf_utils qmmf_display_client)
+add_dependencies(qmmf_recorder_timelapse qmmf_recorder_client qmmf_utils)
 
 target_include_directories(qmmf_recorder_timelapse
  PRIVATE ${TOP_DIRECTORY})
@@ -20,6 +20,6 @@ target_include_directories(qmmf_recorder_timelapse
  PRIVATE ${TOP_DIRECTORY}/common/memory)
 
 install(TARGETS qmmf_recorder_timelapse DESTINATION bin OPTIONAL)
-target_link_libraries(qmmf_recorder_timelapse log cutils utils camera_client camera_metadata qmmf_recorder_client qmmf_utils qmmf_display_client)
+target_link_libraries(qmmf_recorder_timelapse log cutils utils camera_client camera_metadata qmmf_recorder_client qmmf_utils)
 
 endif()

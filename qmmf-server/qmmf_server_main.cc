@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, 2018, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016, 2020, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -38,9 +38,6 @@
 
 #include "common/utils/qmmf_log.h"
 #include "recorder/src/service/qmmf_recorder_service.h"
-#ifndef DISABLE_DISPLAY
-#include "display/src/service/qmmf_display_service.h"
-#endif
 
 /**
  * Property to indicate completion of QMMF services initialization.
@@ -51,9 +48,6 @@
 using namespace android;
 using namespace qmmf;
 using namespace recorder;
-#ifndef DISABLE_DISPLAY
-using namespace qmmf::display;
-#endif
 
 #define INFO(...) \
   do { \
@@ -75,15 +69,6 @@ int32_t main(int32_t argc, char **argv) {
   defaultServiceManager()->addService(String16(QMMF_RECORDER_SERVICE_NAME),
                   new qmmf::recorder::RecorderService(), false);
   INFO("Service(%s) Added successfully!", QMMF_RECORDER_SERVICE_NAME);
-
-#ifndef DISABLE_DISPLAY
-  //Add Display service.
-  defaultServiceManager()->addService(String16(QMMF_DISPLAY_SERVICE_NAME),
-                  new qmmf::display::DisplayService(), false);
-  INFO("Service(%s) Added successfully!", QMMF_DISPLAY_SERVICE_NAME);
-#else
-  INFO("Display Service disabled, continuing..");
-#endif
 
   android::ProcessState::self()->startThreadPool();
   android::ProcessState::self()->giveThreadPoolName();

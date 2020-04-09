@@ -49,8 +49,6 @@
 //#include <system/graphics.h>
 
 #include <qmmf-sdk/qmmf_queue.h>
-#include <qmmf-sdk/qmmf_display.h>
-#include <qmmf-sdk/qmmf_display_params.h>
 #include <qmmf-sdk/qmmf_recorder.h>
 #include <qmmf-sdk/qmmf_recorder_params.h>
 #include <qmmf-sdk/qmmf_recorder_extra_param_tags.h>
@@ -108,15 +106,6 @@
 using namespace qmmf;
 using namespace recorder;
 using namespace android;
-using ::qmmf::display::DisplayEventType;
-using ::qmmf::display::DisplayType;
-using ::qmmf::display::Display;
-using ::qmmf::display::DisplayCb;
-using ::qmmf::display::SurfaceBuffer;
-using ::qmmf::display::SurfaceParam;
-using ::qmmf::display::SurfaceConfig;
-using ::qmmf::display::SurfaceBlending;
-using ::qmmf::display::SurfaceFormat;
 
 static const uint32_t kZslWidth      = 3840;
 static const uint32_t kZslHeight     = 2160;
@@ -688,28 +677,6 @@ class GtestCommon : public ::testing::Test {
     return session_status_cb;
   }
 
-  void DisplayCallbackHandler(DisplayEventType event_type, void *event_data,
-                              size_t event_data_size);
-
-  void DisplayVSyncHandler(int64_t time_stamp);
-
-#ifndef CAMERA_HAL1_SUPPORT
-  status_t StartDisplay(DisplayType display_type,
-                     uint32_t src_width, uint32_t src_height,
-                     uint32_t dst_width, uint32_t dst_height);
-
-  status_t StopDisplay(DisplayType display_type);
-
-  status_t PushFrameToDisplay(BufferDescriptor &buffer,
-                              CameraBufferMetaData &meta_data);
-#endif
-
-#ifndef DISABLE_DISPLAY
-  int32_t DequeueGfxSurfaceBuffer();
-
-  int32_t QueueGfxSurfaceBuffer();
-#endif
-
   std::vector<uint32_t> face_bbox_id_;
   bool face_bbox_active_;
   uint32_t face_track_id_;
@@ -760,22 +727,7 @@ class GtestCommon : public ::testing::Test {
   bool                  is_frame_debug_enabled_;
   std::string           sensor_mode_file_name_;
 
-  bool                  use_display_;
-  bool                  display_started_;
-  Display               *display_;
   uint32_t              surface_id_;
-  SurfaceParam          surface_param_;
-  SurfaceBuffer         surface_buffer_;
-  SurfaceConfig         surface_config_;
-
-#ifndef DISABLE_DISPLAY
-  FILE                  *gfx_file;
-  bool                  enable_gfx_;
-  uint32_t              gfx_surface_id_;
-  SurfaceParam          gfx_surface_param_;
-  SurfaceBuffer         gfx_surface_buffer_;
-  SurfaceConfig         gfx_surface_config_;
-#endif
 
   bool                  enable_sof_latency_;
   uint8_t               af_mode_;

@@ -26,9 +26,6 @@ LOCAL_SRC_FILES += qmmf_recorder_video_gtest.cc
 LOCAL_SRC_FILES += qmmf_recorder_video_snapshot_gtest.cc
 
 LOCAL_SHARED_LIBRARIES += libqmmf_recorder_client libqmmf_av_queue libqmmf_memory_interface
-ifneq ($(DISABLE_DISPLAY),1)
-LOCAL_SHARED_LIBRARIES += libqmmf_display_client
-endif
 LOCAL_SHARED_LIBRARIES += libcamera_client libskia
 
 LOCAL_SHARED_LIBRARIES += $(LIB_JSONCPP)

@@ -10,9 +10,6 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DHFR_THRESHOLD=30 -DAEC_WAIT_TIMEOUT=50
 
 add_executable(qmmf-server ${exclude} qmmf_server_main.cc)
 add_dependencies(qmmf-server qmmf_recorder_service)
-if(NOT DISABLE_DISPLAY)
-add_dependencies(qmmf-server qmmf_display_service)
-endif()
 
 target_include_directories(qmmf-server
  PRIVATE ${TOP_DIRECTORY})
@@ -35,9 +32,6 @@ target_include_directories(qmmf-server
 
 install(TARGETS qmmf-server DESTINATION bin OPTIONAL)
 target_link_libraries(qmmf-server log cutils utils binder qmmf_recorder_service)
-if(NOT DISABLE_DISPLAY)
-target_link_libraries(qmmf-server qmmf_display_service)
-endif()
 
 # TODO remove this hack when camx issue with propagating c and cpp glags is solved
 target_link_libraries(qmmf-server ion)

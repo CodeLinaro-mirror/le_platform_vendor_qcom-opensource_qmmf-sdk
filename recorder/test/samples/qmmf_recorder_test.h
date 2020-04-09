@@ -43,8 +43,6 @@
 #include <linux/input.h>
 #include <qmmf-sdk/qmmf_buffer.h>
 #include <qmmf-sdk/qmmf_codec.h>
-#include <qmmf-sdk/qmmf_display.h>
-#include <qmmf-sdk/qmmf_display_params.h>
 
 #include "common/utils/qmmf_condition.h"
 #include "recorder/test/samples/qmmf_recorder_test_wav.h"
@@ -123,15 +121,6 @@ using namespace qmmf;
 using namespace recorder;
 using namespace android;
 using namespace qcamera;
-using ::qmmf::display::DisplayEventType;
-using ::qmmf::display::DisplayType;
-using ::qmmf::display::Display;
-using ::qmmf::display::DisplayCb;
-using ::qmmf::display::SurfaceBuffer;
-using ::qmmf::display::SurfaceParam;
-using ::qmmf::display::SurfaceConfig;
-using ::qmmf::display::SurfaceBlending;
-using ::qmmf::display::SurfaceFormat;
 
 #define AEC_SETTLE_INTERVAL 2
 #define MAX_NUM_CAMERAS 3
@@ -454,8 +443,6 @@ class RecorderTest {
 
   status_t Session1080pYUVTrackWithPreview();
 
-  status_t ToggleDisplayState();
-
   status_t CreateAudioPCMTrack();
 
   status_t CreateAudio2PCMTrack();
@@ -650,7 +637,6 @@ class RecorderTest {
   SnapshotType snapshot_choice_;
 
   uint32_t current_session_id_;
-  bool use_display;
   bool dump_aec_awb_stats_;
   bool dump_histogram_stats_;
 
@@ -703,17 +689,6 @@ class TestTrack {
 
   void ExtractColorValues(uint32_t hex_color, RGBAValues* color);
 
-  void DisplayCallbackHandler(DisplayEventType event_type, void *event_data,
-      size_t event_data_size);
-
-  void DisplayVSyncHandler(int64_t time_stamp);
-
-  status_t StartDisplay(DisplayType display_type);
-
-  status_t StopDisplay(DisplayType display_type);
-
-  status_t ToggleDisplayState();
-
   const TrackInfo& GetTrackHandle(){return track_info_;}
 
  private:
@@ -723,12 +698,6 @@ class TestTrack {
 
   void TrackDataCB(uint32_t track_id, std::vector<BufferDescriptor> buffers,
                    std::vector<MetaData> meta_buffers);
-
-  status_t PushFrameToDisplay(BufferDescriptor& buffer,
-                              CameraBufferMetaData& meta_data);
-
-  qmmf::display::DisplayParamType display_param_type_;
-  int32_t display_param_;
 
   TrackInfo track_info_;
 
@@ -741,11 +710,7 @@ class TestTrack {
 
   uint32_t num_yuv_frames_;
 
-  Display*   display_;
-  bool display_started_;
   uint32_t   surface_id_;
-  SurfaceParam surface_param_;
-  SurfaceBuffer surface_buffer_;
 
   DumpBitStream dump_bitstream_;
 #if USE_SKIA
@@ -796,9 +761,7 @@ public:
         CREATE_PCMAS_AUD_SESSION_CMD                    = 'u',
         CREATE_MPEGH_AUD_SESSION_CMD                    = 'v',
         CREATE_RDI_SESSION_CMD                          = 'r',
-        CREATE_YUV_SESSION_DISPLAY_CMD                  = 'Z',
         CREATE_YUV_SESSION_PREVIEW_CMD                  = 'Y',
-        TOGGLE_DISPLAY_STATE                            = 'w',
         START_SESSION_CMD                               = 'A',
         STOP_SESSION_CMD                                = 'B',
         TAKE_SNAPSHOT_CMD                               = 'S',

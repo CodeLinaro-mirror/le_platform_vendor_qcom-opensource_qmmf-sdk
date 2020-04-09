@@ -24,9 +24,6 @@ qmmf_recorder_gtest_common.cc
 )
 endif()
 add_dependencies(qmmf_recorder_gtest qmmf_recorder_client qmmf_utils qmmf_av_queue)
-if (NOT DISABLE_DISPLAY_CLIENT)
-add_dependencies(qmmf_recorder_gtest qmmf_display_client)
-endif()
 
 target_include_directories(qmmf_recorder_gtest
  PRIVATE ${TOP_DIRECTORY})
@@ -45,6 +42,3 @@ install(TARGETS qmmf_recorder_gtest DESTINATION bin OPTIONAL)
 install(FILES imx577_sensor_mode_config.json DESTINATION ${QMMF_DATA})
 
 target_link_libraries(qmmf_recorder_gtest log cutils utils cairo gtest gtest_main camera_client camera_metadata qmmf_recorder_client qmmf_av_queue jsoncpp)
-if (NOT DISABLE_DISPLAY_CLIENT)
-target_link_libraries(qmmf_recorder_gtest qmmf_display_client)
-endif()

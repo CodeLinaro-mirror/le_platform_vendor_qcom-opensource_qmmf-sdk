@@ -55,14 +55,6 @@ endif()
 
 add_subdirectory(recorder/src/client)
 
-add_subdirectory(display/test/gtest)
-
-add_subdirectory(display/test/samples)
-
-add_subdirectory(display/src/service)
-
-add_subdirectory(display/src/client)
-
 add_subdirectory(avcodec/test/gtest)
 
 add_subdirectory(avcodec/test/sample)

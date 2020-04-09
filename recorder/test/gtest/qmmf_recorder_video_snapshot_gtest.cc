@@ -465,15 +465,6 @@ TEST_F(RecorderVideoSnapshotGTest, TogglePreviewVideoAndZSL) {
     /************************** Run Preview **********************************/
     TEST_INFO("%s: Preview ", __func__);
 
-#ifndef DISABLE_DISPLAY
-    if (use_display_) {
-      ret = StartDisplay(DisplayType::kPrimary, 864, 480, 480, 360);
-      if (ret != 0) {
-        TEST_ERROR("%s: StartDisplay Failed!!", __func__);
-      }
-    }
-#endif
-
     ret = recorder_.StartSession(session_id);
     ASSERT_TRUE(ret == NO_ERROR);
 
@@ -481,15 +472,6 @@ TEST_F(RecorderVideoSnapshotGTest, TogglePreviewVideoAndZSL) {
 
     ret = recorder_.StopSession(session_id, false);
     ASSERT_TRUE(ret == NO_ERROR);
-
-#ifndef DISABLE_DISPLAY
-    if (use_display_) {
-      ret = StopDisplay(DisplayType::kPrimary);
-      if (ret != 0) {
-        TEST_ERROR("%s: StopDisplay Failed!!", __func__);
-      }
-    }
-#endif
 
     ret = recorder_.DeleteVideoTrack(session_id, preview_track_id);
     ASSERT_TRUE(ret == NO_ERROR);
@@ -586,15 +568,6 @@ TEST_F(RecorderVideoSnapshotGTest, TogglePreviewVideoAndZSL) {
     /********************* Run Video Recording *******************************/
     TEST_INFO("%s: Video ", __func__);
 
-#ifndef DISABLE_DISPLAY
-    if (use_display_) {
-      ret = StartDisplay(DisplayType::kPrimary, 864, 480, 480, 360);
-      if (ret != 0) {
-        TEST_ERROR("%s: StartDisplay Failed!!", __func__);
-      }
-    }
-#endif
-
     ret = recorder_.StartSession(session_id);
     ASSERT_TRUE(ret == NO_ERROR);
 
@@ -602,15 +575,6 @@ TEST_F(RecorderVideoSnapshotGTest, TogglePreviewVideoAndZSL) {
 
     ret = recorder_.StopSession(session_id, false);
     ASSERT_TRUE(ret == NO_ERROR);
-
-#ifndef DISABLE_DISPLAY
-    if (use_display_) {
-      ret = StopDisplay(DisplayType::kPrimary);
-      if (ret != 0) {
-        TEST_ERROR("%s: StopDisplay Failed!!", __func__);
-      }
-    }
-#endif
 
     ret = recorder_.DeleteVideoTrack(session_id, video_preview_track_id);
     ASSERT_TRUE(ret == NO_ERROR);
@@ -636,15 +600,6 @@ TEST_F(RecorderVideoSnapshotGTest, TogglePreviewVideoAndZSL) {
 
     /************************** Run Preview **********************************/
     TEST_INFO("%s: Preview ", __func__);
-
-#ifndef DISABLE_DISPLAY
-    if (use_display_) {
-      ret = StartDisplay(DisplayType::kPrimary, 864, 480, 480, 360);
-      if (ret != 0) {
-        TEST_ERROR("%s: StartDisplay Failed!!", __func__);
-      }
-    }
-#endif
 
     ret = recorder_.StartSession(session_id);
     ASSERT_TRUE(ret == NO_ERROR);
@@ -721,15 +676,6 @@ TEST_F(RecorderVideoSnapshotGTest, TogglePreviewVideoAndZSL) {
 
     ret = recorder_.StopSession(session_id, false);
     ASSERT_TRUE(ret == NO_ERROR);
-
-#ifndef DISABLE_DISPLAY
-    if (use_display_) {
-      ret = StopDisplay(DisplayType::kPrimary);
-      if (ret != 0) {
-        TEST_ERROR("%s: StopDisplay Failed!!", __func__);
-      }
-    }
-#endif
 
     ret = recorder_.DeleteVideoTrack(session_id, preview_track_id);
     ASSERT_TRUE(ret == NO_ERROR);
