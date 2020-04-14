@@ -40,7 +40,6 @@
 
 #include "qmmf-sdk/qmmf_recorder_params.h"
 #include "qmmf-sdk/qmmf_recorder_extra_param.h"
-#include "qmmf-sdk/qmmf_overlay.h"
 
 namespace qmmf {
 namespace recorder {
@@ -349,49 +348,6 @@ class Recorder {
   /// static camerametadata params.
   status_t GetCameraCharacteristics(const uint32_t camera_id,
                                     android::CameraMetadata &meta);
-
-  /// @brief Create overlay object of type
-  /// static image, date/time, bounding box,
-  /// simple text, and privacy mask.
-  ///
-  /// This Api returns the object id which
-  /// can be use for configuration change at runtime.
-  status_t CreateOverlayObject(const uint32_t track_id,
-                               const overlay::OverlayParam &param,
-                               uint32_t *overlay_id);
-
-  /// Overlay object can be deleted at any point after creation.
-  status_t DeleteOverlayObject(const uint32_t track_id,
-                               const uint32_t overlay_id);
-
-  /// Overlay group of objects associated with the track can be deleted.
-  status_t DeleteOverlayObjects(const uint32_t track_id);
-
-  /// @brief Overlay object's parameters can be queried after creation, it is
-  /// recommended to call get parameters first before setting any new
-  /// parameters using Api updateOverlayObject.
-  status_t GetOverlayObjectParams(const uint32_t track_id,
-                                  const uint32_t overlay_id,
-                                  overlay::OverlayParam &param);
-
-  /// @brief Overlay object's configuration can
-  /// be updated at run time using this Api.
-  /// Client has to provide overlay Id and updated parameters.
-  ///
-  /// It is recommended to call getOverlayObjectParams first to get current
-  /// parameters then update them using this Api.
-  status_t UpdateOverlayObjectParams(const uint32_t track_id,
-                                     const uint32_t overlay_id,
-                                     const overlay::OverlayParam &param);
-
-  status_t ProcessOverlayObjects(const uint32_t track_id,
-      const std::vector<overlay::OverlayParam> &overlay_list);
-
-  /// Overlay Object can be set and removed per track at runtime
-  status_t SetOverlay(const uint32_t track_id, const uint32_t overlay_id);
-
-  /// Overlay object can be dynamically removed
-  status_t RemoveOverlay(const uint32_t track_id, const uint32_t overlay_id);
 
  private:
   RecorderClient* recorder_client_;
