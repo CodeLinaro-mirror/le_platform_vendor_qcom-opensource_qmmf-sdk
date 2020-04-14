@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2020 The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -28,7 +28,7 @@
  */
 #define LOG_TAG "RecorderHal1GTest"
 
-#include "recorder/test/gtest/qmmf_recorder_hal1_gtest.h"
+#include "recorder/test/gtest/qmmf_hal1_gtest.h"
 
 static const std::string gtest_type = "hal1_gtest";
 

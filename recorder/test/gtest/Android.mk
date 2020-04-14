@@ -19,11 +19,8 @@ LOCAL_C_INCLUDES += $(TOP)/system/core/base/include
 LOCAL_C_INCLUDES += $(CAMERA_HAL_PATH)/QCamera2/HAL3
 LOCAL_C_INCLUDES += $(TOP)/external/skia/include/core/
 
-LOCAL_SRC_FILES := qmmf_recorder_gtest_common.cc
-LOCAL_SRC_FILES += qmmf_recorder_base_gtest.cc
-LOCAL_SRC_FILES += qmmf_recorder_image_gtest.cc
-LOCAL_SRC_FILES += qmmf_recorder_video_gtest.cc
-LOCAL_SRC_FILES += qmmf_recorder_video_snapshot_gtest.cc
+LOCAL_SRC_FILES := qmmf_gtest_common.cc
+LOCAL_SRC_FILES += qmmf_gtest.cc
 
 LOCAL_SHARED_LIBRARIES += libqmmf_recorder_client libqmmf_av_queue libqmmf_memory_interface
 LOCAL_SHARED_LIBRARIES += libcamera_client libskia
@@ -37,17 +34,5 @@ LOCAL_VENDOR_MODULE := false
 endif
 
 include $(BUILD_NATIVE_TEST)
-
-include $(CLEAR_VARS)
-
-LOCAL_MODULE := imx577_sensor_mode_config.json
-
-LOCAL_MODULE_CLASS  := ETC
-
-LOCAL_SRC_FILES     := $(LOCAL_MODULE)
-
-LOCAL_MODULE_PATH   := $(TARGET_OUT_DATA)/misc/qmmf
-
-include $(BUILD_PREBUILT)
 
 endif
