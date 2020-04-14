@@ -74,11 +74,10 @@ add_subdirectory(common/exif-generator)
 
 add_subdirectory(common/jpeg-encoder)
 
-if (NOT CAMERA_HAL1_SUPPORT)
 add_subdirectory(common/overlay)
 
 add_subdirectory(common/resizer-fastCV)
-endif()
+
 add_subdirectory(common/resizer-c2d)
 
 add_subdirectory(common/resizer-neon)
