@@ -35,7 +35,7 @@
 #include <ios>
 #include <random>
 
-#include "recorder/test/gtest/qmmf_recorder_gtest_common.h"
+#include "recorder/test/gtest/qmmf_gtest_common.h"
 
 #ifndef CAMERA_HAL1_SUPPORT
 using namespace qcamera;
@@ -470,6 +470,141 @@ void GtestCommon::SetUp() {
   enable_sof_latency_ = (atoi(prop_val) == 0) ? false : true;
   property_get(PROP_AF_MODE, prop_val, "0");
   af_mode_ = atoi(prop_val);
+  property_get(PROP_CAMERA_FPS, prop_val, DEFAULT_CAMERA_FPS);
+  camera_fps_ = atof(prop_val);
+  property_get(PROP_EIS, prop_val, "0");
+  is_eis_on_ = (atoi(prop_val) == 0) ? false : true;
+  property_get(PROP_SHDR, prop_val, "0");
+  is_shdr_on_ = (atoi(prop_val) == 0) ? false : true;
+  property_get(PROP_SNAPSHOT_STREAM_ON, prop_val, "0");
+  is_snap_stream_on_ = (atoi(prop_val) == 0) ? false : true;
+
+  // Read First Video Stream Params
+  VideoStreamInfo stream { };
+  property_get(PROP_FIRST_STREAM_WIDTH, prop_val, DEFAULT_FIRST_STREAM_WIDTH);
+  stream.width = atoi(prop_val);
+
+  property_get(PROP_FIRST_STREAM_HEIGHT, prop_val,
+               DEFAULT_FIRST_STREAM_HEIGHT);
+  stream.height = atoi(prop_val);
+
+  property_get(PROP_FIRST_STREAM_FPS, prop_val, DEFAULT_FIRST_STREAM_FPS);
+  stream.fps = atof(prop_val);
+
+  stream.source_stream_id = 0; // First Stream, Linked ID should be 0.
+
+  property_get(PROP_FIRST_STREAM_FORMAT, prop_val,
+               DEFAULT_FIRST_STREAM_FORMAT);
+  SetVideoStreamFormat(prop_val, stream.format);
+
+  // Insert first stream into Map. Taking stream ID as 1.
+  stream_info_map_.emplace(kFirstStreamID, stream);
+
+  // Read Second Video Stream Params
+  property_get(PROP_SECOND_STREAM_WIDTH, prop_val,
+               DEFAULT_SECOND_STREAM_WIDTH);
+  stream.width = atoi(prop_val);
+
+  property_get(PROP_SECOND_STREAM_HEIGHT, prop_val,
+               DEFAULT_SECOND_STREAM_HEIGHT);
+  stream.height = atoi(prop_val);
+
+  property_get(PROP_SECOND_STREAM_FPS, prop_val, DEFAULT_SECOND_STREAM_FPS);
+  stream.fps = atof(prop_val);
+
+  property_get(PROP_SECOND_STREAM_SOURCE_ID, prop_val, "0");
+  stream.source_stream_id = atoi(prop_val);
+
+  property_get(PROP_SECOND_STREAM_FORMAT, prop_val,
+               DEFAULT_SECOND_STREAM_FORMAT);
+  SetVideoStreamFormat(prop_val, stream.format);
+
+  // Insert Second stream into Map. Taking stream ID as 2.
+  stream_info_map_.emplace(kSecondStreamID, stream);
+
+  // Read Third Video Stream Params
+  property_get(PROP_THIRD_STREAM_WIDTH, prop_val, DEFAULT_THIRD_STREAM_WIDTH);
+  stream.width = atoi(prop_val);
+
+  property_get(PROP_THIRD_STREAM_HEIGHT, prop_val,
+               DEFAULT_THIRD_STREAM_HEIGHT);
+  stream.height = atoi(prop_val);
+
+  property_get(PROP_THIRD_STREAM_FPS, prop_val, DEFAULT_THIRD_STREAM_FPS);
+  stream.fps = atof(prop_val);
+
+  property_get(PROP_THIRD_STREAM_SOURCE_ID, prop_val, "0");
+  stream.source_stream_id = atoi(prop_val);
+
+  property_get(PROP_THIRD_STREAM_FORMAT, prop_val,
+               DEFAULT_THIRD_STREAM_FORMAT);
+  SetVideoStreamFormat(prop_val, stream.format);
+
+  // Insert Third stream into Map. Taking stream ID as 3.
+  stream_info_map_.emplace(kThirdStreamID, stream);
+
+  // Read Fourth Video Stream Params
+  property_get(PROP_FOURTH_STREAM_WIDTH, prop_val, DEFAULT_FOURTH_STREAM_WIDTH);
+  stream.width = atoi(prop_val);
+
+  property_get(PROP_FOURTH_STREAM_HEIGHT, prop_val,
+               DEFAULT_FOURTH_STREAM_HEIGHT);
+  stream.height = atoi(prop_val);
+
+  property_get(PROP_FOURTH_STREAM_FPS, prop_val, DEFAULT_FOURTH_STREAM_FPS);
+  stream.fps = atof(prop_val);
+
+  property_get(PROP_FOURTH_STREAM_SOURCE_ID, prop_val, "0");
+  stream.source_stream_id = atoi(prop_val);
+
+  property_get(PROP_FOURTH_STREAM_FORMAT, prop_val,
+               DEFAULT_FOURTH_STREAM_FORMAT);
+  SetVideoStreamFormat(prop_val, stream.format);
+
+  // Insert Fourth stream into Map. Taking stream ID as 4.
+  stream_info_map_.emplace(kFourthStreamID, stream);
+
+  // Read Fifth Video Stream Params
+  property_get(PROP_FIFTH_STREAM_WIDTH, prop_val, DEFAULT_FIFTH_STREAM_WIDTH);
+  stream.width = atoi(prop_val);
+
+  property_get(PROP_FIFTH_STREAM_HEIGHT, prop_val,
+               DEFAULT_FIFTH_STREAM_HEIGHT);
+  stream.height = atoi(prop_val);
+
+  property_get(PROP_FIFTH_STREAM_FPS, prop_val, DEFAULT_FIFTH_STREAM_FPS);
+  stream.fps = atof(prop_val);
+
+  property_get(PROP_FIFTH_STREAM_SOURCE_ID, prop_val, "0");
+  stream.source_stream_id = atoi(prop_val);
+
+  property_get(PROP_FIFTH_STREAM_FORMAT, prop_val,
+               DEFAULT_FIFTH_STREAM_FORMAT);
+  SetVideoStreamFormat(prop_val, stream.format);
+
+  // Insert Fifth stream into Map. Taking stream ID as 5.
+  stream_info_map_.emplace(kFifthStreamID, stream);
+
+  // Read JPEG Snapshot Stream
+  property_get(PROP_SNAPSHOT_STREAM_WIDTH, prop_val,
+               DEFAULT_SNAPSHOT_STREAM_WIDTH);
+  snap_width_ = atoi(prop_val);
+
+  property_get(PROP_SNAPSHOT_STREAM_HEIGHT, prop_val,
+               DEFAULT_SNAPSHOT_STREAM_HEIGHT);
+  snap_height_ = atoi(prop_val);
+
+  property_get(PROP_SNAPSHOT_STREAM_FORMAT, prop_val,
+               DEFAULT_SNAPSHOT_STREAM_FORMAT);
+  SetSnapShotStreamFormat(prop_val);
+
+  property_get(PROP_NUM_SNAPSHOT, prop_val,
+               DEFAULT_SNAPSHOT_COUNT);
+  snap_count_ = atoi(prop_val);
+
+  property_get(PROP_SNAPSHOT_MODE, prop_val,
+               DEFAULT_PROP_SNAPSHOT_MODE);
+  SetSnapshotMode(prop_val);
 
 #ifdef QCAMERA3_TAG_LOCAL_COPY
   vendor_tag_desc_ = nullptr;
@@ -477,6 +612,143 @@ void GtestCommon::SetUp() {
 
   TEST_INFO("%s Exit ", __func__);
 }
+
+void GtestCommon::SetSnapshotMode(char prop[]) {
+  std::string value = prop;
+  if (value == "Video") {
+    snap_mode_ = SnapshotMode::kVideo;
+  } else if (value == "Still") {
+    snap_mode_ = SnapshotMode::kStill;
+  } else if (value == "StillPlusRaw") {
+    snap_mode_ = SnapshotMode::kStillPlusRaw;
+  } else if (value == "Continuous") {
+    snap_mode_ = SnapshotMode::kContinuous;
+  } else if (value == "Zsl") {
+    snap_mode_ = SnapshotMode::kZsl;
+  } else if (value == "VideoPlusRaw") {
+    snap_mode_ = SnapshotMode::kVideoPlusRaw;
+  }
+}
+
+std::string GtestCommon::GetSnapshotMode() {
+  if (snap_mode_ == SnapshotMode::kVideo) {
+    return "Video";
+  } else if (snap_mode_ == SnapshotMode::kStill) {
+    return "Still";
+  } else if (snap_mode_ == SnapshotMode::kStillPlusRaw) {
+    return "StillPlusRaw";
+  } else if (snap_mode_ == SnapshotMode::kContinuous) {
+    return "Continuous";
+  } else if (snap_mode_ == SnapshotMode::kZsl) {
+    return "ZSL";
+  } else if (snap_mode_ == SnapshotMode::kVideoPlusRaw) {
+    return "VideoPlusRaw";
+  } else {
+    return "Invalid Mode";
+  }
+}
+
+void GtestCommon::SetSnapShotStreamFormat(char prop[]) {
+  std::string value = prop;
+  if (value == "JPEG") {
+    snap_format_ = ImageFormat::kJPEG;
+  } else if (value == "NV12") {
+    snap_format_ = ImageFormat::kNV12;
+  } else if (value == "NV21") {
+    snap_format_ = ImageFormat::kNV21;
+  } else if (value == "RAW8") {
+    snap_format_ = ImageFormat::kBayerRDI8BIT;
+  } else if (value == "RAW10") {
+    snap_format_ = ImageFormat::kBayerRDI10BIT;
+  } else if (value == "RAW12") {
+    snap_format_ = ImageFormat::kBayerRDI12BIT;
+  } else if (value == "RAW16") {
+    snap_format_ = ImageFormat::kBayerRDI16BIT;
+  }
+}
+
+void GtestCommon::SetVideoStreamFormat(char prop[], VideoFormat &format) {
+  std::string value = prop;
+  if (value == "AVC") {
+    format = VideoFormat::kAVC;
+  } else if (value == "HEVC") {
+    format = VideoFormat::kHEVC;
+  } else if (value == "YUV") {
+    format = VideoFormat::kYUV;
+  } else if (value == "RGB") {
+    format = VideoFormat::kRGB;
+  } else if (value == "RAW8") {
+    format = VideoFormat::kBayerRDI8BIT;
+  } else if (value == "RAW10") {
+    format = VideoFormat::kBayerRDI10BIT;
+  } else if (value == "RAW`12") {
+    format = VideoFormat::kBayerRDI12BIT;
+  }
+}
+
+void GtestCommon::PrintStreamInfo(uint32_t num) {
+
+  std::cout << "\n############################################################"
+      << std::endl;
+  for (uint32_t i = kFirstStreamID; i <= num; i++) {
+    auto stream = stream_info_map_[i];
+    std::cout << "Video Stream Info:" << i << " Width:"
+        << stream.width << " Height:" << stream.height << " FPS:"
+        << stream.fps << " Source Stream ID:" << stream.source_stream_id
+        << " Format: " << GetVideoStreamFormat(stream.format) << std::endl;
+  }
+  if (is_snap_stream_on_) {
+    std::cout << "Snapshot Stream Info:" << " Width:" << snap_width_
+        << " Height:" << snap_height_ << " Format:"
+        << GetSnapshotStreamFormat() << " Mode:" <<
+        GetSnapshotMode() << std::endl;
+  }
+}
+
+std::string GtestCommon::GetVideoStreamFormat(VideoFormat &fmt) {
+  if (fmt == VideoFormat::kAVC) {
+    return "AVC";
+  } else if (fmt == VideoFormat::kHEVC) {
+    return "HEVC";
+  } else if (fmt == VideoFormat::kYUV) {
+    return "YUV";
+  } else if (fmt == VideoFormat::kRGB) {
+    return "RGB";
+  } else if (fmt == VideoFormat::kRGB) {
+    return "RGB";
+  } else if (fmt == VideoFormat::kBayerRDI8BIT) {
+    return "RAW8";
+  } else if (fmt == VideoFormat::kBayerRDI10BIT) {
+    return "RAW10";
+  } else if (fmt == VideoFormat::kBayerRDI12BIT) {
+    return "RAW12";
+  } else if (fmt == VideoFormat::kBayerIdeal) {
+    return "RAWIDEAL";
+  } else {
+    return "Invalid Video Format";
+  }
+}
+
+std::string GtestCommon::GetSnapshotStreamFormat() {
+  if (snap_format_ == ImageFormat::kJPEG) {
+    return "JPEG";
+  } else if (snap_format_ == ImageFormat::kNV12) {
+    return "NV12";
+  } else if (snap_format_ == ImageFormat::kNV21) {
+    return "NV21";
+  } else if (snap_format_ == ImageFormat::kBayerRDI8BIT) {
+    return "RAW8";
+  } else if (snap_format_ == ImageFormat::kBayerRDI10BIT) {
+    return "RAW10";
+  } else if (snap_format_ == ImageFormat::kBayerRDI12BIT) {
+    return "RAW12";
+  } else if (snap_format_ == ImageFormat::kBayerRDI16BIT) {
+    return "RAW16";
+  } else {
+    return "Invalid Snapshot Format";
+  }
+}
+
 
 void GtestCommon::TearDown() {
 
@@ -2141,4 +2413,87 @@ status_t GtestCommon::FillCropMetadata(CameraMetadata& meta,
   }
 
   return NO_ERROR;
+}
+
+void GtestCommon::ConfigureAndTakeSnapshot() {
+
+  bool res_supported = false;
+
+  std::vector<CameraMetadata> meta_array;
+  CameraMetadata meta;
+
+  auto ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  CameraMetadata static_meta;
+  ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  // Configure Snapshot Mode
+  ImageConfigParam image_config;
+  SnapshotType snapshot_type;
+  snapshot_type.type = snap_mode_;
+  snapshot_type.raw_format = snap_format_;
+  image_config.Update(QMMF_SNAPSHOT_TYPE, snapshot_type);
+
+  ret = recorder_.ConfigImageCapture(camera_id_, image_config);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  // Configure Snapshot Stream
+  ImageParam image_param{};
+  image_param.image_format = snap_format_;
+
+  if (snap_format_ == ImageFormat::kJPEG) {
+    image_param.width = snap_width_;
+    image_param.height = snap_height_;
+    image_param.image_quality = default_jpeg_quality_;
+
+    res_supported = GtestCommon::ValidateResFromJpegSizes(
+        static_meta, image_param.width, image_param.height);
+    ASSERT_TRUE(res_supported != false);
+  } else if (snap_format_ == ImageFormat::kBayerRDI8BIT ||
+             snap_format_ == ImageFormat::kBayerRDI10BIT ||
+             snap_format_ == ImageFormat::kBayerRDI12BIT ||
+             snap_format_ == ImageFormat::kBayerRDI16BIT) {
+    // Configure max resolution for Bayer Snapshot.
+    GtestCommon::GetMaxSupportedCameraRes(static_meta, image_param.width,
+                                          image_param.height);
+
+    TEST_INFO("%s: Supported Max Capture W(%d):H(%d)", __func__,
+              image_param.width, image_param.height);
+    ASSERT_TRUE(image_param.width > 0 && image_param.height > 0);
+
+  } else if (snap_format_ == ImageFormat::kNV12 ||
+             snap_format_ == ImageFormat::kNV21) {
+    image_param.width = snap_width_;
+    image_param.height = snap_height_;
+    res_supported = GtestCommon::ValidateResFromStreamConfigs(
+        static_meta, image_param.width, image_param.height);
+    ASSERT_TRUE(res_supported != false);
+  }
+  meta_array.push_back(meta);
+
+  ImageCaptureCb cb = [&](uint32_t camera_id, uint32_t image_count,
+                          BufferDescriptor buffer,
+                          MetaData meta_data) -> void {
+    SnapshotCb(camera_id, image_count, buffer, meta_data);
+  };
+
+  for (uint32_t i = 0; i < snap_count_; i++) {
+    ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array, cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    if (snap_mode_ == SnapshotMode::kContinuous) {
+      // Continuous Snapshot requires only one call to CaptureImage()
+      sleep(record_duration_ / 2);
+      break;
+    }
+    // Take Snapshot with every 5 sec.
+    sleep(5);
+  }
+
+  ret = recorder_.CancelCaptureImage(camera_id_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  sleep(1);
 }

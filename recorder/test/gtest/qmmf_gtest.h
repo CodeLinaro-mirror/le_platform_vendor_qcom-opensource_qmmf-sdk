@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2019, The Linux Foundation. All rights reserved.
+* Copyright (c) 2018,2020 The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -28,12 +28,13 @@
 */
 
 #pragma once
-#include "recorder/test/gtest/qmmf_recorder_gtest_common.h"
 
-class RecorderHal1GTest : public GtestCommon  {
+#include "qmmf_gtest_common.h"
+
+class VideoGtest : public GtestCommon  {
  public:
-  RecorderHal1GTest() {}
+  VideoGtest() {}
 
-  ~RecorderHal1GTest() {}
-
+  ~VideoGtest() {}
 };
+
