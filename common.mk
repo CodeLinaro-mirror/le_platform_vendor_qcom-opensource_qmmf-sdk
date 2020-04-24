@@ -148,3 +148,8 @@ MEDIA_HAL_PATH := $(TOP)/hardware/qcom/media
 DISPLAY_HAL_PATH := $(TOP)/hardware/qcom/display
 LIB_JSONCPP := libjsoncpp_vendor
 endif
+
+# Disable PostProc path for Burst Capture and use direct BLOB request
+ifeq ($(TARGET_BOARD_PLATFORM),qcs605)
+LOCAL_CFLAGS += -DDISABLE_POSTPROC_FOR_BURST
+endif #DISABLE_POSTPROC_FOR_BURST
