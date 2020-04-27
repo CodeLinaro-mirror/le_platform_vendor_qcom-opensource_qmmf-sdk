@@ -416,7 +416,6 @@ class TrackSource : public ICodecSource {
 
   uint32_t num_consumers_;
 
-  int32_t rotation_;
   uint64_t wait_duration_;
   static const uint32_t kWaitNumFrames_;
   uint32_t yuv_dump_freq_;

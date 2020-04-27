@@ -76,6 +76,7 @@ enum class VideoFormat {
   kHEVC,
   kAVC,
   kYUV,
+  kYUVUBWC,
   kJPEG,
   kBayerRDI8BIT,
   kBayerRDI10BIT,
