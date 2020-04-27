@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -188,6 +188,7 @@ struct VideoTrackCreateParamInternal : public VideoTrackCreateParam {
         JPEGParamsInternal(codec_param.jpeg).ToParcel(parcel);
         break;
       case VideoFormat::kYUV:
+      case VideoFormat::kYUVUBWC:
       case VideoFormat::kRGB:
       case VideoFormat::kBayerRDI8BIT:
       case VideoFormat::kBayerRDI10BIT:
@@ -223,6 +224,7 @@ struct VideoTrackCreateParamInternal : public VideoTrackCreateParam {
         codec_param.jpeg = JPEGParamsInternal().FromParcel(parcel);
         break;
       case VideoFormat::kYUV:
+      case VideoFormat::kYUVUBWC:
       case VideoFormat::kRGB:
       case VideoFormat::kBayerRDI8BIT:
       case VideoFormat::kBayerRDI10BIT:

@@ -92,14 +92,10 @@ CameraContext::CameraContext()
       restart_pipe_(true),
       reconfig_pipe_(false),
       port_paused_(false),
-      camera_parameters_{},
-      is_ubwc_enabled_(false) {
+      camera_parameters_{} {
 
-  char prop[PROPERTY_VALUE_MAX];
-  memset(prop, 0, sizeof(prop));
-  property_get("persist.qmmf.ubwcstream.enable", prop, "0");
-  is_ubwc_enabled_ = (atoi(prop) == 0) ? false : true;
-  QMMF_INFO("%s: Value of UBWC property: %d", __func__, is_ubwc_enabled_);
+  QMMF_INFO("%s: Enter", __func__);
+  QMMF_INFO("%s: Exit", __func__);
 }
 
 CameraContext::~CameraContext() {
@@ -2484,33 +2480,23 @@ status_t CameraPort::Init() {
   cam_stream_params_.rotation =
       static_cast<camera3_stream_rotation_t> (params_.rotation);
 
-  bool is_ubwc_stream_enabled = IsUbwcValidForStream(params_.width,
-                                                     params_.height);
-  // Passing encoder flags for all streams, in order to
-  // support linked or rescaled encoded streams from
-  // yuv streams.
-  cam_stream_params_.allocFlags.flags = IMemAllocUsage::kVideoEncoder;
+  cam_stream_params_.allocFlags.flags =
+      static_cast<bool>(params_.flags & StreamFlags::kEncoded) ?
+          IMemAllocUsage::kVideoEncoder : 0;
 
-  if (params_.stream_flags & static_cast<uint32_t>(StreamFlags::kEncoded)) {
-    cam_stream_params_.bufferCount =
-        VIDEO_STREAM_BUFFER_COUNT + GetExtraBufferCount();
-    if (is_ubwc_stream_enabled) {
-      cam_stream_params_.allocFlags.flags |= IMemAllocUsage::kPrivateAllocUbwc;
-    }
-  } else {
-    cam_stream_params_.bufferCount = PREVIEW_STREAM_BUFFER_COUNT;
-  }
+  cam_stream_params_.allocFlags.flags |=
+      (params_.format != BufferFormat::kNV12UBWC) ?
+          (IMemAllocUsage::kSwReadOften | IMemAllocUsage::kSwWriteOften) :
+          IMemAllocUsage::kPrivateAllocUbwc;
 
-  if (params_.stream_flags & static_cast<uint32_t>(StreamFlags::kCached)) {
-    if (is_ubwc_stream_enabled) {
-      QMMF_WARN("%s:CPU Caching is not applicable when UBWC is on", __func__);
-    } else {
-      cam_stream_params_.allocFlags.flags |=
-          IMemAllocUsage::kSwReadOften | IMemAllocUsage::kSwWriteOften;
-    }
-  } else {
-    cam_stream_params_.allocFlags.flags |= IMemAllocUsage::kPrivateUncached;
-  }
+  cam_stream_params_.allocFlags.flags |=
+      static_cast<bool>(params_.flags & StreamFlags::kUncashed) ?
+          IMemAllocUsage::kPrivateUncached : 0;
+
+  cam_stream_params_.bufferCount =
+      static_cast<bool>(params_.flags & StreamFlags::kEncoded) ?
+          VIDEO_STREAM_BUFFER_COUNT + GetExtraBufferCount() :
+          PREVIEW_STREAM_BUFFER_COUNT;
 
   cam_stream_params_.cb = [&] (StreamBuffer buffer) { StreamCallback(buffer); };
 
@@ -2726,7 +2712,7 @@ void CameraPort::StreamCallback(StreamBuffer buffer) {
 
   bool skip_frame = false;
 
-  if (params_.stream_flags & static_cast<uint32_t>(StreamFlags::kWaitAEC)) {
+  if (static_cast<bool>(params_.flags & StreamFlags::kIAEC)) {
     // Get auto exposure data and check if initial AE has converged.
     std::lock_guard<std::mutex> lock(aec_lock_);
     if (!aec_converged_) {
@@ -2775,25 +2761,6 @@ uint32_t CameraPort::GetExtraBufferCount() {
   QMMF_DEBUG("%s: Number of extra buffers added: %u", __func__,
              extra_buffer_count);
   return extra_buffer_count;
-}
-
-bool CameraPort::IsUbwcValidForStream(uint32_t width, uint32_t height) {
-  bool is_ubwc_valid_for_track = false;
-
-  if (context_->is_ubwc_enabled_) {
-    if ((width / height == 2) && (width >= (2 * MIN_UBWC_WIDTH))) {
-      // If dual camera case and supported resolution
-      // TODO: Use org.codeaurora.qcamera3.logicalCameraType tag
-      //       to detect dual camera.
-      is_ubwc_valid_for_track = true;
-    } else if (width >= MIN_UBWC_WIDTH && height >= MIN_UBWC_HEIGHT) {
-      // If single camera case and supported resolution
-      is_ubwc_valid_for_track = true;
-    }
-  }
-  QMMF_DEBUG("%s: UBWC status for this track: %d", __func__,
-             is_ubwc_valid_for_track);
-  return is_ubwc_valid_for_track;
 }
 
 ZslPort::ZslPort(const StreamParam& param,

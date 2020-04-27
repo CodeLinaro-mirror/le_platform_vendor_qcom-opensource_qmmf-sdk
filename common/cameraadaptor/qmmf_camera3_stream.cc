@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  * Not a Contribution.
  */
 
@@ -19,17 +19,18 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "RecorderCamera3Stream"
-
 #include "qmmf_camera3_utils.h"
 #include "qmmf_camera3_monitor.h"
 #include "qmmf_camera3_stream.h"
 #include "qmmf_memory_interface.h"
 #include "recorder/src/service/qmmf_recorder_common.h"
 
+#include <media/msm_media_info.h>
+
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
-#undef LOG_TAG
+
 #define LOG_TAG "Camera3Stream"
+
 namespace qmmf {
 
 namespace cameraadaptor {
@@ -512,14 +513,19 @@ int32_t Camera3Stream::PopulateMetaInfo(CameraBufferMetaData &info,
       info.plane_info[0].height = height;
       info.plane_info[0].stride = alignedW;
       info.plane_info[0].scanline = alignedH;
-      info.plane_info[0].size = alignedW * alignedH;
+      info.plane_info[0].size = MSM_MEDIA_ALIGN((alignedW * alignedH), 4096) +
+          MSM_MEDIA_ALIGN((VENUS_Y_META_STRIDE(COLOR_FMT_NV12_UBWC, width) *
+          VENUS_Y_META_SCANLINES(COLOR_FMT_NV12_UBWC, height)), 4096);
       info.plane_info[0].offset = 0;
       info.plane_info[1].width = width;
       info.plane_info[1].height = height/2;
       info.plane_info[1].stride = alignedW;
       info.plane_info[1].scanline = alignedH/2;
-      info.plane_info[1].size = alignedW * (alignedH / 2);
-      info.plane_info[1].offset = alignedW * alignedH;
+      info.plane_info[1].size = MSM_MEDIA_ALIGN((alignedW * alignedH / 2), 4096) +
+          MSM_MEDIA_ALIGN((VENUS_UV_META_STRIDE(COLOR_FMT_NV12_UBWC, width) *
+          VENUS_UV_META_SCANLINES(COLOR_FMT_NV12_UBWC, height)), 4096);
+      info.plane_info[1].offset =
+          info.plane_info[0].offset + info.plane_info[0].size;
       break;
     case HAL_PIXEL_FORMAT_YCbCr_422_888:
     case HAL_PIXEL_FORMAT_YCbCr_422_SP:
