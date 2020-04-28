@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -113,6 +113,22 @@ struct C2dObjects {
   C2D_OBJECT objects[MAX_OVERLAYS*2];
 };
 
+class OverlaySurface {
+ public:
+  OverlaySurface () : width_(0), height_(0), gpu_addr_(nullptr),
+     vaddr_(nullptr), ion_fd_(0), size_(0) {
+      c2dsurface_id_ = -1;
+     }
+
+  uint32_t               width_;
+  uint32_t               height_;
+  void *                 gpu_addr_;
+  void *                 vaddr_;
+  int32_t                ion_fd_;
+  uint32_t               size_;
+  uint32_t               c2dsurface_id_;
+};
+
 //Base class for all types of overlays.
 class OverlayItem {
  public:
@@ -149,6 +165,13 @@ class OverlayItem {
 
   int32_t AllocateIonMemory(IonMemInfo& mem_info, uint32_t size);
 
+  void FreeIonMemory(void *&vaddr, int32_t &ion_fd, uint32_t size);
+
+  int32_t MapOverlaySurface(OverlaySurface &surface, IonMemInfo &mem_info,
+                            int32_t format);
+
+  void UnMapOverlaySurface(OverlaySurface &surface);
+
   void ExtractColorValues(uint32_t hex_color, RGBAValues* color);
 
   void ClearSurface();
@@ -156,17 +179,13 @@ class OverlayItem {
   int32_t                x_;
   int32_t                y_;
   uint32_t               width_;
-  time_t                 prev_time_;
   uint32_t               height_;
-  uint32_t               c2dsurface_id_;
-  void *                 gpu_addr_;
-  void *                 vaddr_;
-  int32_t                ion_fd_;
-  uint32_t               size_;
+  OverlaySurface         surface_;
   OverlayLocationType    location_type_;
   bool                   dirty_;
   int32_t                ion_device_;
   OverlayType            type_;
+  time_t                 prev_time_;
 #if USE_CAIRO
   cairo_surface_t*       cr_surface_;
   cairo_t*               cr_context_;
@@ -203,8 +222,6 @@ class OverlayItemStaticImage : public OverlayItem {
   OverlayImageType image_type_;
   char *   image_buffer_;
   uint32_t image_size_;
-  uint32_t image_width_;
-  uint32_t image_height_;
   uint32_t crop_rect_x_;
   uint32_t crop_rect_y_;
   uint32_t crop_rect_width_;
@@ -286,20 +303,12 @@ class OverlayItemBoundingBox: public OverlayItem {
 #endif
   android::String8  bbox_name_;
   uint32_t          text_height_   = 0;
-  int32_t           buffer_width_  = 0;
-  int32_t           buffer_height_ = 0;
 
 #if USE_CAIRO
-  int32_t           text_y_;
-  uint32_t          text_width_;
-  uint32_t          text_c2dsurface_id_;
-  void *            text_gpu_addr_;
-  void *            text_vaddr_;
-  int32_t           text_ion_fd_;
-  uint32_t          text_size_;
+  OverlaySurface    text_surface_;
   uint32_t          box_stroke_width_;
-  cairo_surface_t*       text_cr_surface_;
-  cairo_t*               text_cr_context_;
+  cairo_surface_t*  text_cr_surface_;
+  cairo_t*          text_cr_context_;
 #endif
 };
 
@@ -400,8 +409,6 @@ class OverlayItemGraph : public OverlayItem {
   static const int  kGraphBufHeight = 270;
 
   uint32_t          graph_color_;
-  int32_t           buffer_width_  = 0;
-  int32_t           buffer_height_ = 0;
   float             downscale_ratio_;
   OverlayGraph      graph_;
 };
