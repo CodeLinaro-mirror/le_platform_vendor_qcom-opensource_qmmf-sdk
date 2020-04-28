@@ -36,6 +36,7 @@
 #include <map>
 #include <mutex>
 #include <vector>
+#include <memory>
 
 namespace qmmf {
 
@@ -174,6 +175,7 @@ struct OverlayParamInfo {
 };
 
 class OverlayItem;
+class OpenClKernel;
 
 // This class provides facility to embed different
 // Kinds of overlay on top of Camera stream buffers.
@@ -244,6 +246,7 @@ class Overlay {
   std::map <uint32_t, OverlayItem* > overlay_items_;
 
   uint32_t     target_c2dsurface_id_;
+  std::shared_ptr<OpenClKernel> blit_instance_;
   int32_t      ion_device_;
   uint32_t     id_;
   std::mutex   lock_;
