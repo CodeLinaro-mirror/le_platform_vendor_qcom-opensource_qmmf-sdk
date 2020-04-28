@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -84,15 +84,25 @@ Overlay::~Overlay() {
     OVDBG_INFO("%s: Destroyed c2d Target Surface", __func__);
   }
 
-  if (ion_device_)
+  if (ion_device_ != -1) {
     ion_close(ion_device_);
+    ion_device_ = -1;
+  }
 
   OVDBG_INFO("%s: Exit ",__func__);
 }
 
 int32_t Overlay::Init(const TargetBufferFormat& format) {
 
-  OVDBG_VERBOSE("%s:Enter",__func__);
+  OVDBG_VERBOSE("%s:Enter", __func__);
+  int32_t ret = 0;
+
+  ion_device_ = ion_open();
+  if (ion_device_ < 0) {
+    OVDBG_ERROR("%s: Ion dev open failed %s\n", __func__, strerror(errno));
+    return -1;
+  }
+
   uint32_t c2dColotFormat = GetC2dColorFormat(format);
   // Create dummy C2D surface, it is required to Initialize
   // C2D driver before calling any c2d Apis.
@@ -111,22 +121,16 @@ int32_t Overlay::Init(const TargetBufferFormat& format) {
     1 * 4,
   };
 
-  auto ret = c2dCreateSurface(&target_c2dsurface_id_, C2D_TARGET,
-                              (C2D_SURFACE_TYPE)(C2D_SURFACE_YUV_HOST
-                              |C2D_SURFACE_WITH_PHYS
-                              |C2D_SURFACE_WITH_PHYS_DUMMY),
-                               &surface_def);
-  if(ret != C2D_STATUS_OK) {
+  ret = c2dCreateSurface(&target_c2dsurface_id_, C2D_TARGET,
+                         (C2D_SURFACE_TYPE)(C2D_SURFACE_YUV_HOST |
+                           C2D_SURFACE_WITH_PHYS |
+                           C2D_SURFACE_WITH_PHYS_DUMMY),
+                         &surface_def);
+  if (ret != C2D_STATUS_OK) {
+    ion_close(ion_device_);
+    ion_device_ = -1;
     OVDBG_ERROR("%s: c2dCreateSurface failed!",__func__);
     return ret;
-  }
-
-  ion_device_ = ion_open();
-  if (ion_device_ < 0) {
-    OVDBG_ERROR("%s: Ion dev open failed %s\n", __func__,strerror(errno));
-    c2dDestroySurface(target_c2dsurface_id_);
-    target_c2dsurface_id_ = 0;
-    return -1;
   }
 
   OVDBG_VERBOSE("%s: Exit",__func__);
@@ -641,46 +645,25 @@ bool Overlay::IsOverlayItemValid(uint32_t overlay_id) {
 }
 
 OverlayItem::OverlayItem(int32_t ion_device, OverlayType type)
-    :x_(0), y_(0), width_(0), height_(0),
-     c2dsurface_id_(-1), gpu_addr_(nullptr),
-     vaddr_(nullptr), ion_fd_(0), size_(0),
-     dirty_(false), ion_device_(ion_device),
-     type_(type), is_active_(false) {
+    : surface_(), location_type_(OverlayLocationType::kBottomLeft),
+      dirty_(false), ion_device_(ion_device), type_(type), is_active_(false) {
+
   OVDBG_VERBOSE("%s:Enter ", __func__);
-  location_type_ = OverlayLocationType::kBottomLeft;
+
 #if USE_CAIRO
   cr_surface_ = nullptr;
   cr_context_ = nullptr;
 #endif
+
+
   OVDBG_VERBOSE("%s:Exit ", __func__);
 }
 
 OverlayItem::~OverlayItem() {
 
-  //Unmap overlay gpu address.
-  if(gpu_addr_) {
-    c2dUnMapAddr(gpu_addr_);
-    gpu_addr_ = nullptr;
-    OVDBG_INFO("%s: Unmapped GPU address type(%d)", __func__, type_);
-  }
-  if(vaddr_) {
-    if(ion_fd_)
-      SyncEnd(ion_fd_);
-    munmap(vaddr_, size_);
-    vaddr_ = nullptr;
-  }
-  //Destroy source overlay surface.
-  if(c2dsurface_id_) {
-    c2dDestroySurface(c2dsurface_id_);
-    c2dsurface_id_ = -1;
-    OVDBG_INFO("%s: Destroyed c2d Surface type(%d)",__func__, type_);
-  }
-  //Free overlay ION memory.
-  if(ion_fd_) {
-    close(ion_fd_);
-    ion_fd_ = -1;
-    OVDBG_INFO("%s: Destroyed ION buffer type(%d)",__func__, type_);
-  }
+  UnMapOverlaySurface(surface_);
+  FreeIonMemory(surface_.vaddr_, surface_.ion_fd_, surface_.size_);
+
 #if USE_CAIRO
   if (cr_surface_) {
     cairo_surface_destroy(cr_surface_);
@@ -713,7 +696,7 @@ int32_t OverlayItem::AllocateIonMemory(IonMemInfo& mem_info, uint32_t size) {
   ret = ion_alloc_fd(ion_device_, size, 0, heap_id_mask, flags, &map_fd);
   if (ret) {
     OVDBG_ERROR("%s:ION allocation failed\n", __func__);
-    goto ION_ALLOC_FAILED;
+    return -1;
   }
 
   data = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, map_fd, 0);
@@ -730,18 +713,78 @@ int32_t OverlayItem::AllocateIonMemory(IonMemInfo& mem_info, uint32_t size) {
   return ret;
 
 ION_MAP_FAILED:
-  if (data) {
-    if(map_fd)
-      SyncEnd(map_fd);
-    munmap(data, size);
-    data = nullptr;
-  }
   close(map_fd);
-
-ION_ALLOC_FAILED:
-  ion_close(ion_device_);
-
   return -1;
+}
+
+void OverlayItem::FreeIonMemory(void *&vaddr, int32_t &ion_fd, uint32_t size) {
+  if (vaddr) {
+    if (ion_fd != -1) SyncEnd(ion_fd);
+    munmap(vaddr, size);
+    vaddr = nullptr;
+  }
+
+  if (ion_fd != -1) {
+    close(ion_fd);
+    ion_fd = -1;
+  }
+}
+
+int32_t OverlayItem::MapOverlaySurface(OverlaySurface &surface,
+    IonMemInfo &mem_info, int32_t format) {
+
+  OVDBG_VERBOSE("%s:Enter ", __func__);
+
+  int32_t ret = 0;
+
+  ret = c2dMapAddr(mem_info.fd, mem_info.vaddr, mem_info.size, 0,
+                   KGSL_USER_MEM_TYPE_ION, &surface.gpu_addr_);
+  if (ret != C2D_STATUS_OK) {
+    OVDBG_ERROR("%s: c2dMapAddr failed!",__func__);
+    return -1;
+  }
+
+  C2D_RGB_SURFACE_DEF c2dSurfaceDef;
+  c2dSurfaceDef.format = format;
+  c2dSurfaceDef.width  = surface.width_;
+  c2dSurfaceDef.height = surface.height_;
+  c2dSurfaceDef.buffer = mem_info.vaddr;
+  c2dSurfaceDef.phys   = surface.gpu_addr_;
+  c2dSurfaceDef.stride = surface.width_ * 4;
+
+  // Create source c2d surface.
+  ret = c2dCreateSurface(&surface.c2dsurface_id_, C2D_SOURCE,
+                         (C2D_SURFACE_TYPE)(C2D_SURFACE_RGB_HOST |
+                          C2D_SURFACE_WITH_PHYS), &c2dSurfaceDef);
+  if (ret != C2D_STATUS_OK) {
+    OVDBG_ERROR("%s: c2dCreateSurface failed!",__func__);
+    c2dUnMapAddr(surface.gpu_addr_);
+    surface.gpu_addr_ = nullptr;
+    return -1;
+  }
+
+  surface.ion_fd_ = mem_info.fd;
+  surface.vaddr_  = mem_info.vaddr;
+  surface.size_   = mem_info.size;
+
+  OVDBG_VERBOSE("%s: Exit ", __func__);
+
+  return 0;
+}
+
+void OverlayItem::UnMapOverlaySurface(OverlaySurface &surface) {
+
+  if (surface.gpu_addr_) {
+    c2dUnMapAddr(surface.gpu_addr_);
+    surface.gpu_addr_ = nullptr;
+    OVDBG_INFO("%s: Unmapped text GPU address for type(%d)", __func__, type_);
+  }
+
+  if (surface.c2dsurface_id_) {
+    c2dDestroySurface(surface.c2dsurface_id_);
+    surface.c2dsurface_id_ = -1;
+    OVDBG_INFO("%s: Destroyed c2d text Surface for type(%d)", __func__, type_);
+  }
 }
 
 void OverlayItem::ExtractColorValues(uint32_t hex_color, RGBAValues* color) {
@@ -786,30 +829,8 @@ OverlayItemStaticImage::~OverlayItemStaticImage() {
 }
 
 void OverlayItemStaticImage::DestroySurface() {
-  //Unmap overlay gpu address.
-  if(gpu_addr_) {
-    c2dUnMapAddr(gpu_addr_);
-    gpu_addr_ = nullptr;
-    OVDBG_INFO("%s: Unmapped GPU address type(%d)", __func__, type_);
-  }
-  if(vaddr_) {
-    if(ion_fd_)
-      SyncEnd(ion_fd_);
-    munmap(vaddr_, size_);
-    vaddr_ = nullptr;
-  }
-  //Destroy source overlay surface.
-  if(c2dsurface_id_) {
-    c2dDestroySurface(c2dsurface_id_);
-    c2dsurface_id_ = -1;
-    OVDBG_INFO("%s: Destroyed c2d Surface type(%d)",__func__, type_);
-  }
-  //Free overlay ION memory.
-  if(ion_fd_) {
-    close(ion_fd_);
-    ion_fd_ = -1;
-    OVDBG_INFO("%s: Destroyed ION buffer type(%d)",__func__, type_);
-  }
+  UnMapOverlaySurface(surface_);
+  FreeIonMemory(surface_.vaddr_, surface_.ion_fd_, surface_.size_);
 }
 
 int32_t OverlayItemStaticImage::Init(OverlayParam& param) {
@@ -835,13 +856,13 @@ int32_t OverlayItemStaticImage::Init(OverlayParam& param) {
         strlen(param.image_info.image_location) + 1);
   } else if (param.image_info.image_type == OverlayImageType::kBlobType) {
 
-    image_buffer_  = param.image_info.image_buffer;
-    image_size_    = param.image_info.image_size;
-    image_width_   = param.image_info.source_rect.width;
-    image_height_  = param.image_info.source_rect.height;
+    image_buffer_    = param.image_info.image_buffer;
+    image_size_      = param.image_info.image_size;
+    surface_.width_  = param.image_info.source_rect.width;
+    surface_.height_ = param.image_info.source_rect.height;
     OVDBG_VERBOSE("%s: image blob  image_buffer_::0x%p  image_size_::%u "
-        "image_width_::%u image_height_::%u ",
-        __func__, image_buffer_, image_size_, image_width_, image_height_);
+        "image_width_::%u image_height_::%u ", __func__, image_buffer_,
+            image_size_, surface_.width_, surface_.height_);
 
     char prop_val[PROPERTY_VALUE_MAX];
     property_get(PROP_DUMP_BLOB_IMAGE, prop_val, "0");
@@ -879,7 +900,7 @@ int32_t OverlayItemStaticImage::UpdateAndDraw() {
   // Never marked as dirty.
   std::lock_guard<std::mutex> lock(update_param_lock_);
   if (blob_buffer_updated_) {
-    c2dSurfaceUpdated(c2dsurface_id_, nullptr);
+    c2dSurfaceUpdated(surface_.c2dsurface_id_, nullptr);
   }
   return OK;
 }
@@ -931,7 +952,7 @@ void OverlayItemStaticImage::GetDrawInfo(uint32_t targetWidth,
   }
   draw_info.x            = x;
   draw_info.y            = y;
-  draw_info.c2dSurfaceId = c2dsurface_id_;
+  draw_info.c2dSurfaceId = surface_.c2dsurface_id_;
 
   if (width_ != crop_rect_width_ || height_ != crop_rect_height_) {
     draw_info.in_width = crop_rect_width_;
@@ -987,13 +1008,13 @@ int32_t OverlayItemStaticImage::UpdateParameters(OverlayParam& param) {
 
   if (image_type_ == OverlayImageType::kBlobType) {
 
-    image_buffer_  = param.image_info.image_buffer;
-    image_width_   = param.image_info.source_rect.width;
-    image_height_  = param.image_info.source_rect.height;
+    image_buffer_    = param.image_info.image_buffer;
+    image_size_      = param.image_info.image_size;
+    surface_.width_  = param.image_info.source_rect.width;
+    surface_.height_ = param.image_info.source_rect.height;
     OVDBG_DEBUG("%s: updated image blob  image_buffer_::0x%p image_size_::%u "
-        "image_width_::%u image_height_::%u ",
-        __func__, image_buffer_, param.image_info.image_size,
-        image_width_, image_height_);
+        "image_width_::%u image_height_::%u ", __func__, image_buffer_,
+        param.image_info.image_size, surface_.width_, surface_.height_);
 
     crop_rect_x_      = param.image_info.source_rect.start_x;
     crop_rect_y_      = param.image_info.source_rect.start_y;
@@ -1032,7 +1053,7 @@ int32_t OverlayItemStaticImage::UpdateParameters(OverlayParam& param) {
       OVDBG_DEBUG("%s: updated image_size_:: %u param.image_info.image_size:: %u ",
           __func__, image_size_, param.image_info.image_size);
       uint32_t size = param.image_info.image_size;
-      uint32_t* pixels = static_cast<uint32_t*>(vaddr_);
+      uint32_t* pixels = static_cast<uint32_t*>(surface_.vaddr_);
       memcpy(pixels, image_buffer_, size);
       blob_buffer_updated_ = param.image_info.buffer_updated;
       MarkDirty(true);
@@ -1057,6 +1078,7 @@ int32_t OverlayItemStaticImage::CreateSurface() {
 
   OVDBG_VERBOSE("%s:Enter ",__func__);
   int32_t   ret = 0;
+  int32_t  format;
   uint32_t size;
   IonMemInfo mem_info;
   memset(&mem_info, 0x0, sizeof(IonMemInfo));
@@ -1101,38 +1123,18 @@ int32_t OverlayItemStaticImage::CreateSurface() {
     memcpy(pixels, image_buffer_, size);
   }
 
-  //Map ARGB ION buffer to GPU.
-  ret = c2dMapAddr(mem_info.fd, mem_info.vaddr, mem_info.size, 0,
-                   KGSL_USER_MEM_TYPE_ION, &gpu_addr_);
-  if(ret != C2D_STATUS_OK) {
-    OVDBG_ERROR("%s: c2dMapAddr failed!",__func__);
+  format = C2D_FORMAT_SWAP_ENDIANNESS | C2D_COLOR_FORMAT_8888_RGBA;
+  ret = MapOverlaySurface(surface_, mem_info, format);
+  if (0 != ret) {
+    OVDBG_ERROR("%s: Map failed!",__func__);
     goto ERROR;
   }
 
-  C2D_RGB_SURFACE_DEF c2dSurfaceDef;
-  c2dSurfaceDef.format = C2D_FORMAT_SWAP_ENDIANNESS| C2D_COLOR_FORMAT_8888_RGBA;
-  c2dSurfaceDef.width  = image_width_;
-  c2dSurfaceDef.height = image_height_;
-  c2dSurfaceDef.buffer = mem_info.vaddr;
-  c2dSurfaceDef.phys   = gpu_addr_;
-  c2dSurfaceDef.stride = image_width_ * 4;
-
-  //Create source c2d surface.
-  ret = c2dCreateSurface(&c2dsurface_id_, C2D_SOURCE,
-                         (C2D_SURFACE_TYPE)(C2D_SURFACE_RGB_HOST
-                         |C2D_SURFACE_WITH_PHYS), &c2dSurfaceDef);
-  if(ret != C2D_STATUS_OK) {
-    OVDBG_ERROR("%s: c2dCreateSurface failed!",__func__);
-    goto ERROR;
-  }
-  ion_fd_      = mem_info.fd;
-  vaddr_       = mem_info.vaddr;
-  size_        = mem_info.size;
   OVDBG_VERBOSE("%s: Exit ",__func__);
   return ret;
 ERROR:
-  close(ion_fd_);
-  ion_fd_ = -1;
+  close(surface_.ion_fd_);
+  surface_.ion_fd_ = -1;
   return ret;
 }
 
@@ -1167,6 +1169,10 @@ int32_t OverlayItemDateAndTime::Init(OverlayParam& param) {
     width_  = DATETIME_TEXT_BUF_WIDTH;
     height_ = DATETIME_TEXT_BUF_HEIGHT;
   }
+
+  surface_.width_  = width_;
+  surface_.height_ = height_;
+
   auto ret = CreateSurface();
   if(ret != 0) {
     OVDBG_ERROR("%s: createLogoSurface failed!", __func__);
@@ -1230,7 +1236,7 @@ int32_t OverlayItemDateAndTime::UpdateAndDraw() {
   double x_date, x_time, y_date, y_time;
   x_date = x_time = y_date = y_time = 0.0;
 
-  SyncStart(ion_fd_);
+  SyncStart(surface_.ion_fd_);
 #if USE_CAIRO
   // Clear the privous drawn contents.
   ClearSurface();
@@ -1323,7 +1329,7 @@ int32_t OverlayItemDateAndTime::UpdateAndDraw() {
   canvas_->drawText(dateText.c_str(), dateText.size(), x_date, y_date, paint);
   canvas_->flush();
 #endif
-  SyncEnd(ion_fd_);
+  SyncEnd(surface_.ion_fd_);
   MarkDirty(true);
   OVDBG_VERBOSE("%s: Exit", __func__);
   return ret;
@@ -1377,7 +1383,7 @@ void OverlayItemDateAndTime::GetDrawInfo(uint32_t targetWidth,
   }
   draw_info.x            = x;
   draw_info.y            = y;
-  draw_info.c2dSurfaceId = c2dsurface_id_;
+  draw_info.c2dSurfaceId = surface_.c2dsurface_id_;
   draw_infos.push_back(draw_info);
   OVDBG_VERBOSE("%s:Exit ",__func__);
 }
@@ -1408,6 +1414,9 @@ int32_t OverlayItemDateAndTime::UpdateParameters(OverlayParam& param) {
   width_         = param.dst_rect.width;
   height_        = param.dst_rect.height;
 
+  surface_.width_  = width_;
+  surface_.height_ = height_;
+
   date_time_type_.date_format = param.date_time.date_format;
   date_time_type_.time_format = param.date_time.time_format;
   OVDBG_VERBOSE("%s:Exit ",__func__);
@@ -1418,6 +1427,7 @@ int32_t OverlayItemDateAndTime::CreateSurface() {
 
   OVDBG_VERBOSE("%s: Enter", __func__);
   int32_t ret = 0;
+  int32_t format;
   int32_t size = width_ * height_ * 4;
   IonMemInfo mem_info;
   memset(&mem_info, 0x0, sizeof(IonMemInfo));
@@ -1432,8 +1442,10 @@ int32_t OverlayItemDateAndTime::CreateSurface() {
 #if USE_CAIRO
   cr_surface_ = cairo_image_surface_create_for_data(static_cast<unsigned char*>
                                                     (mem_info.vaddr),
-                                                    CAIRO_FORMAT_ARGB32, width_,
-                                                    height_, width_ * 4);
+                                                    CAIRO_FORMAT_ARGB32,
+                                                    surface_.width_,
+                                                    surface_.height_,
+                                                    surface_.width_ * 4);
   assert (cr_surface_ != nullptr);
 
   cr_context_ = cairo_create (cr_surface_);
@@ -1459,43 +1471,22 @@ int32_t OverlayItemDateAndTime::CreateSurface() {
   //Draw system time on Skia canvas.
   UpdateAndDraw();
 
-  //Setup c2d.
-  ret = c2dMapAddr(mem_info.fd, mem_info.vaddr, mem_info.size,
-                     0, KGSL_USER_MEM_TYPE_ION, &gpu_addr_);
-  if(ret != C2D_STATUS_OK) {
-    OVDBG_ERROR("%s: c2dMapAddr failed!",__func__);
-    goto ERROR;
-  }
-
-  C2D_RGB_SURFACE_DEF c2dSurfaceDef;
 #if USE_CAIRO
-  c2dSurfaceDef.format = C2D_COLOR_FORMAT_8888_ARGB;
+  format = C2D_COLOR_FORMAT_8888_ARGB;
 #elif USE_SKIA
-  c2dSurfaceDef.format = C2D_FORMAT_SWAP_ENDIANNESS| C2D_COLOR_FORMAT_8888_RGBA;
+  format = C2D_FORMAT_SWAP_ENDIANNESS | C2D_COLOR_FORMAT_8888_RGBA;
 #endif
-  c2dSurfaceDef.width  = width_;
-  c2dSurfaceDef.height = height_;
-  c2dSurfaceDef.buffer = mem_info.vaddr;
-  c2dSurfaceDef.phys   = gpu_addr_;
-  c2dSurfaceDef.stride = width_ * 4;
-
-  //Create source c2d surface.
-  ret = c2dCreateSurface(&c2dsurface_id_, C2D_SOURCE,
-                         (C2D_SURFACE_TYPE)(C2D_SURFACE_RGB_HOST
-                         |C2D_SURFACE_WITH_PHYS), &c2dSurfaceDef);
-  if(ret != C2D_STATUS_OK) {
-    OVDBG_ERROR("%s: c2dCreateSurface failed!",__func__);
+  ret = MapOverlaySurface(surface_, mem_info, format);
+  if (0 != ret) {
+    OVDBG_ERROR("%s: Map failed!",__func__);
     goto ERROR;
   }
 
-  ion_fd_      = mem_info.fd;
-  vaddr_       = mem_info.vaddr;
-  size_        = mem_info.size;
   OVDBG_VERBOSE("%s: Exit", __func__);
   return ret;
 ERROR:
-  close(ion_fd_);
-  ion_fd_ = -1;
+  close(surface_.ion_fd_);
+  surface_.ion_fd_ = -1;
   return ret;
 }
 
@@ -1503,29 +1494,9 @@ OverlayItemBoundingBox::~OverlayItemBoundingBox() {
   OVDBG_INFO("%s: Enter", __func__);
   bbox_name_.clear();
 #if USE_CAIRO
-  // Unmap overlay gpu address.
-  if (text_gpu_addr_) {
-    c2dUnMapAddr(text_gpu_addr_);
-    text_gpu_addr_ = nullptr;
-    OVDBG_INFO("%s: Unmapped text GPU address for type(%d)", __func__, type_);
-  }
-  if (text_vaddr_) {
-    if (text_ion_fd_) SyncEnd(text_ion_fd_);
-    munmap(text_vaddr_, text_size_);
-    text_vaddr_ = nullptr;
-  }
-  // Destroy source overlay surface.
-  if (text_c2dsurface_id_) {
-    c2dDestroySurface(text_c2dsurface_id_);
-    text_c2dsurface_id_ = -1;
-    OVDBG_INFO("%s: Destroyed c2d text Surface for type(%d)", __func__, type_);
-  }
-  // Free overlay ION memory.
-  if (text_ion_fd_) {
-    close(text_ion_fd_);
-    text_ion_fd_ = -1;
-    OVDBG_INFO("%s: Destroyed text ION buffer for type(%d)", __func__, type_);
-  }
+  UnMapOverlaySurface(text_surface_);
+  FreeIonMemory(text_surface_.vaddr_, text_surface_.ion_fd_,
+      text_surface_.size_);
 
   if (text_cr_surface_) {
     cairo_surface_destroy(text_cr_surface_);
@@ -1553,8 +1524,8 @@ int32_t OverlayItemBoundingBox::Init(OverlayParam& param) {
   height_     = param.dst_rect.height;
   bbox_color_ = param.color;
 #if USE_CAIRO
-  text_width_ = 320;
-  text_height_ = 80;
+  text_surface_.width_ = 320;
+  text_surface_.height_ = 80;
   box_stroke_width_ = BOUNDING_BOX_STROKE_WIDTH;
 
   char prop_val[PROPERTY_VALUE_MAX];
@@ -1564,16 +1535,17 @@ int32_t OverlayItemBoundingBox::Init(OverlayParam& param) {
       box_stroke_width_;
 #endif
 
-  buffer_width_ = BOUNDING_BOX_BUF_WIDTH;
-  buffer_height_ = BOUNDING_BOX_BUF_HEIGHT;
+  surface_.width_  = BOUNDING_BOX_BUF_WIDTH;
+  surface_.height_ = BOUNDING_BOX_BUF_HEIGHT;
 
-  OVDBG_INFO("%s: Offscreen buffer:(%dx%d)",__func__, buffer_width_,
-      buffer_height_);
+  OVDBG_INFO("%s: Offscreen buffer:(%dx%d)",__func__, surface_.width_,
+      surface_.height_);
 
   int32_t textLen = strlen(param.bounding_box.box_name);
 
   int32_t textLimit = std::min(textLen + 1, BOUNDING_BOX_TEXT_LIMIT);
   bbox_name_.setTo(param.bounding_box.box_name, textLimit);
+
   auto ret = CreateSurface();
   if (ret != 0) {
     OVDBG_ERROR("%s: CreateSurface failed!", __func__);
@@ -1605,7 +1577,7 @@ int32_t OverlayItemBoundingBox::UpdateAndDraw() {
   //  ----------
 
 
-  SyncStart(ion_fd_);
+  SyncStart(surface_.ion_fd_);
 #if USE_CAIRO
   OVDBG_INFO("%s: Draw bounding box and text!", __func__);
   ClearSurface();
@@ -1657,8 +1629,7 @@ int32_t OverlayItemBoundingBox::UpdateAndDraw() {
   cairo_set_line_width (cr_context_, box_stroke_width_);
   cairo_set_source_rgba (cr_context_, bbox_color.red, bbox_color.green,
                          bbox_color.blue, bbox_color.alpha);
-  cairo_rectangle (cr_context_, 0, 0, buffer_width_,
-                   buffer_height_);
+  cairo_rectangle (cr_context_, 0, 0, surface_.width_, surface_.height_);
   cairo_stroke (cr_context_);
   assert(CAIRO_STATUS_SUCCESS == cairo_status(cr_context_));
 
@@ -1694,13 +1665,13 @@ int32_t OverlayItemBoundingBox::UpdateAndDraw() {
     yBBox = yText > 0 ? BOUNDING_BOX_TEXT_SIZE : 0;
     int32_t boxWidth  = BOUNDING_BOX_BUF_WIDTH;
     int32_t boxHeight = BOUNDING_BOX_BUF_HEIGHT - yBBox;
-    text_height_ = yText;
+    text_surface_.height_ = yText;
     canvas_->drawRect(SkRect::MakeXYWH(xBBox, yBBox, boxWidth, boxHeight),
                       paintBox);
     canvas_->flush();
   }
 #endif
-  SyncEnd(ion_fd_);
+  SyncEnd(surface_.ion_fd_);
   MarkDirty(false);
   OVDBG_VERBOSE("%s: Exit", __func__);
   return ret;
@@ -1716,16 +1687,16 @@ void OverlayItemBoundingBox::GetDrawInfo(uint32_t targetWidth,
   draw_info_bbox.y = y_;
   draw_info_bbox.width = width_;
   draw_info_bbox.height = height_;
-  draw_info_bbox.c2dSurfaceId = c2dsurface_id_;
+  draw_info_bbox.c2dSurfaceId = surface_.c2dsurface_id_;
   draw_infos.push_back(draw_info_bbox);
 #if USE_CAIRO
   DrawInfo draw_info_text;
   memset(&draw_info_text, 0x0, sizeof(DrawInfo));
   draw_info_text.x = x_ + box_stroke_width_+ 4;
-  draw_info_text.y = y_ + (box_stroke_width_/2);
-  draw_info_text.width = targetWidth * TEXT_TARGET_WIDTH_PERCENT/100;
-  draw_info_text.height = targetHeight * TEXT_TARGET_HEIGHT_PERCENT/100;
-  draw_info_text.c2dSurfaceId = text_c2dsurface_id_;
+  draw_info_text.y = y_ + (box_stroke_width_ / 2);
+  draw_info_text.width = targetWidth * TEXT_TARGET_WIDTH_PERCENT / 100;
+  draw_info_text.height = targetHeight * TEXT_TARGET_HEIGHT_PERCENT / 100;
+  draw_info_text.c2dSurfaceId = text_surface_.c2dsurface_id_;
   draw_infos.push_back(draw_info_text);
 #endif
   OVDBG_VERBOSE("%s: Exit", __func__);
@@ -1807,7 +1778,8 @@ int32_t OverlayItemBoundingBox::UpdateParameters(OverlayParam& param) {
 int32_t OverlayItemBoundingBox::CreateSurface() {
 
   OVDBG_VERBOSE("%s: Enter", __func__);
-  int32_t size = buffer_width_ * buffer_height_ * 4;
+  int32_t size = surface_.width_ * surface_.height_ * 4;
+  int32_t format;
 
   IonMemInfo mem_info;
   memset(&mem_info, 0x0, sizeof(IonMemInfo));
@@ -1822,9 +1794,9 @@ int32_t OverlayItemBoundingBox::CreateSurface() {
   cr_surface_ = cairo_image_surface_create_for_data(static_cast<unsigned char*>
                                                     (mem_info.vaddr),
                                                     CAIRO_FORMAT_ARGB32,
-                                                    buffer_width_,
-                                                    buffer_height_,
-                                                    buffer_width_ * 4);
+                                                    surface_.width_,
+                                                    surface_.height_,
+                                                    surface_.width_ * 4);
   assert (cr_surface_ != nullptr);
 
   cr_context_ = cairo_create (cr_surface_);
@@ -1847,42 +1819,21 @@ int32_t OverlayItemBoundingBox::CreateSurface() {
     goto ERROR;
   }
 #endif
-  //Setup c2d.
-  ret = c2dMapAddr(mem_info.fd, mem_info.vaddr, mem_info.size, 0,
-                   KGSL_USER_MEM_TYPE_ION, &gpu_addr_);
-  if(ret != C2D_STATUS_OK) {
-    OVDBG_ERROR("%s: c2dMapAddr failed!", __func__);
-    goto ERROR;
-  }
 
-  C2D_RGB_SURFACE_DEF c2dSurfaceDef;
 #if USE_CAIRO
-  c2dSurfaceDef.format = C2D_COLOR_FORMAT_8888_ARGB;
+  format = C2D_COLOR_FORMAT_8888_ARGB;
 #elif USE_SKIA
-  c2dSurfaceDef.format = C2D_FORMAT_SWAP_ENDIANNESS| C2D_COLOR_FORMAT_8888_RGBA;
+  format = C2D_FORMAT_SWAP_ENDIANNESS | C2D_COLOR_FORMAT_8888_RGBA;
 #endif
-  c2dSurfaceDef.width  = buffer_width_;
-  c2dSurfaceDef.height = buffer_height_;
-  c2dSurfaceDef.buffer = mem_info.vaddr;
-  c2dSurfaceDef.phys   = gpu_addr_;
-  c2dSurfaceDef.stride = buffer_width_ * 4;
-
-  //Create source c2d surface.
-  ret = c2dCreateSurface(&c2dsurface_id_, C2D_SOURCE,
-                         (C2D_SURFACE_TYPE)(C2D_SURFACE_RGB_HOST
-                         |C2D_SURFACE_WITH_PHYS), &c2dSurfaceDef);
-  if(ret != C2D_STATUS_OK) {
-    OVDBG_ERROR("%s: c2dCreateSurface failed!", __func__);
+  ret = MapOverlaySurface(surface_, mem_info, format);
+  if (0 != ret) {
+    OVDBG_ERROR("%s: Map failed!",__func__);
     goto ERROR;
   }
-
-  ion_fd_      = mem_info.fd;
-  vaddr_       = mem_info.vaddr;
-  size_        = mem_info.size;
 
 #if USE_CAIRO
   // Setup text surface
-  size = text_width_ * text_height_ * 4;
+  size = text_surface_.width_ * text_surface_.height_ * 4;
   memset(&mem_info, 0x0, sizeof(IonMemInfo));
   ret = AllocateIonMemory(mem_info, size);
   if (0 != ret) {
@@ -1893,48 +1844,28 @@ int32_t OverlayItemBoundingBox::CreateSurface() {
 
   text_cr_surface_ = cairo_image_surface_create_for_data(
       static_cast<unsigned char*>(mem_info.vaddr), CAIRO_FORMAT_ARGB32,
-      text_width_, text_height_, text_width_ * 4);
+      text_surface_.width_, text_surface_.height_, text_surface_.width_ * 4);
   assert(text_cr_surface_ != nullptr);
   text_cr_context_ = cairo_create(text_cr_surface_);
   assert(text_cr_context_ != nullptr);
-  // Setup c2d for text
-  ret = c2dMapAddr(mem_info.fd, mem_info.vaddr, mem_info.size, 0,
-                   KGSL_USER_MEM_TYPE_ION, &text_gpu_addr_);
-  if (ret != C2D_STATUS_OK) {
-    OVDBG_ERROR("%s: c2dMapAddr failed!", __func__);
+
+  format = C2D_COLOR_FORMAT_8888_ARGB;
+  ret = MapOverlaySurface(text_surface_, mem_info, format);
+  if (0 != ret) {
+    OVDBG_ERROR("%s: Map failed!",__func__);
     goto ERROR;
   }
 
-  memset(&c2dSurfaceDef, 0x0, sizeof(C2D_RGB_SURFACE_DEF));
-  c2dSurfaceDef.format = C2D_COLOR_FORMAT_8888_ARGB;
-  c2dSurfaceDef.width = text_width_;
-  c2dSurfaceDef.height = text_height_;
-  c2dSurfaceDef.buffer = mem_info.vaddr;
-  c2dSurfaceDef.phys = text_gpu_addr_;
-  c2dSurfaceDef.stride = text_width_ * 4;
-
-  // Create source c2d surface.
-  ret = c2dCreateSurface(
-      &text_c2dsurface_id_, C2D_SOURCE,
-      (C2D_SURFACE_TYPE)(C2D_SURFACE_RGB_HOST | C2D_SURFACE_WITH_PHYS),
-      &c2dSurfaceDef);
-  if (ret != C2D_STATUS_OK) {
-    OVDBG_ERROR("%s: c2dCreateSurface failed!", __func__);
-    goto ERROR;
-  }
-
-  text_ion_fd_ = mem_info.fd;
-  text_vaddr_ = mem_info.vaddr;
-  text_size_ = mem_info.size;
 #endif
+
   OVDBG_VERBOSE("%s: Exit", __func__);
   return ret;
 ERROR:
-  close(ion_fd_);
-  ion_fd_ = -1;
+  close(surface_.ion_fd_);
+  surface_.ion_fd_ = -1;
 #if USE_CAIRO
-  close(text_ion_fd_);
-  text_ion_fd_ = -1;
+  close(text_surface_.ion_fd_);
+  text_surface_.ion_fd_ = -1;
 #endif
   return ret;
 }
@@ -1962,6 +1893,10 @@ int32_t OverlayItemText::Init(OverlayParam& param) {
     width_  = TEXT_BUF_WIDTH;
     height_ = TEXT_BUF_HEIGHT;
   }
+
+  surface_.width_  = width_;
+  surface_.height_ = height_;
+
   auto ret = CreateSurface();
   if(ret != 0) {
     OVDBG_ERROR("%s: CreateSurface failed!", __func__);
@@ -1979,9 +1914,9 @@ int32_t OverlayItemText::UpdateAndDraw() {
   if(!dirty_)
     return ret;
 
-  SyncStart(ion_fd_);
+  SyncStart(surface_.ion_fd_);
 
- // Split the Text based on new line character.
+  // Split the Text based on new line character.
   string input(text_.string());
   vector < string > res;
   stringstream ss(input); // Turn the string into a stream.
@@ -1990,6 +1925,7 @@ int32_t OverlayItemText::UpdateAndDraw() {
     OVDBG_INFO("%s: UserText:: Substring: %s", __func__, tok.c_str());
     res.push_back(tok);
   }
+
 #if USE_CAIRO
   ClearSurface();
   cairo_select_font_face(cr_context_, "@cairo:Georgia", CAIRO_FONT_SLANT_NORMAL,
@@ -2062,7 +1998,7 @@ int32_t OverlayItemText::UpdateAndDraw() {
   }
   canvas_->flush();
 #endif
-  SyncEnd(ion_fd_);
+  SyncEnd(surface_.ion_fd_);
   dirty_ = false;
   OVDBG_VERBOSE("%s: Exit", __func__);
   return ret;
@@ -2117,7 +2053,7 @@ void OverlayItemText::GetDrawInfo(uint32_t targetWidth,
   }
   draw_info.x            = x;
   draw_info.y            = y;
-  draw_info.c2dSurfaceId = c2dsurface_id_;
+  draw_info.c2dSurfaceId = surface_.c2dsurface_id_;
   draw_infos.push_back(draw_info);
 
   OVDBG_VERBOSE("%s: Exit", __func__);
@@ -2148,6 +2084,10 @@ int32_t OverlayItemText::UpdateParameters(OverlayParam& param) {
   y_             = param.dst_rect.start_y;
   width_         = param.dst_rect.width;
   height_        = param.dst_rect.height;
+
+  surface_.width_  = width_;
+  surface_.height_ = height_;
+
   text_.clear();
   text_.setTo(param.user_text, strlen(param.user_text) + 1);
   MarkDirty(true);
@@ -2159,6 +2099,7 @@ int32_t OverlayItemText::CreateSurface() {
 
   OVDBG_VERBOSE("%s: Enter", __func__);
   int32_t size = width_ * height_ * 4;
+  int32_t format;
   IonMemInfo mem_info;
   memset(&mem_info, 0x0, sizeof(IonMemInfo));
 
@@ -2171,8 +2112,10 @@ int32_t OverlayItemText::CreateSurface() {
 #if USE_CAIRO
   cr_surface_ = cairo_image_surface_create_for_data(static_cast<unsigned char*>
                                                     (mem_info.vaddr),
-                                                    CAIRO_FORMAT_ARGB32, width_,
-                                                    height_, width_ * 4);
+                                                    CAIRO_FORMAT_ARGB32,
+                                                    surface_.width_,
+                                                    surface_.height_,
+                                                    surface_.width_ * 4);
   assert (cr_surface_ != nullptr);
 
   cr_context_ = cairo_create (cr_surface_);
@@ -2198,45 +2141,23 @@ int32_t OverlayItemText::CreateSurface() {
   //Draw system time on Skia canvas.
   UpdateAndDraw();
 
-  //Setup c2d.
-  ret = c2dMapAddr(mem_info.fd, mem_info.vaddr, mem_info.size, 0,
-                   KGSL_USER_MEM_TYPE_ION, &gpu_addr_);
-  if(ret != C2D_STATUS_OK) {
-    OVDBG_ERROR("%s: c2dMapAddr failed!",__func__);
-    goto ERROR;
-  }
-
-  C2D_RGB_SURFACE_DEF c2dSurfaceDef;
 #if USE_CAIRO
-  c2dSurfaceDef.format = C2D_COLOR_FORMAT_8888_ARGB;
+  format = C2D_COLOR_FORMAT_8888_ARGB;
 #elif USE_SKIA
-  c2dSurfaceDef.format = C2D_FORMAT_SWAP_ENDIANNESS| C2D_COLOR_FORMAT_8888_RGBA;
+  format = C2D_FORMAT_SWAP_ENDIANNESS | C2D_COLOR_FORMAT_8888_RGBA;
 #endif
-  c2dSurfaceDef.width  = width_;
-  c2dSurfaceDef.height = height_;
-  c2dSurfaceDef.buffer = mem_info.vaddr;
-  c2dSurfaceDef.phys   = gpu_addr_;
-  c2dSurfaceDef.stride = width_ * 4;
-
-  //Create source c2d surface.
-  ret = c2dCreateSurface(&c2dsurface_id_, C2D_SOURCE,
-                         (C2D_SURFACE_TYPE)(C2D_SURFACE_RGB_HOST
-                         |C2D_SURFACE_WITH_PHYS), &c2dSurfaceDef);
-  if(ret != C2D_STATUS_OK) {
-    OVDBG_ERROR("%s: c2dCreateSurface failed!",__func__);
+  ret = MapOverlaySurface(surface_, mem_info, format);
+  if (0 != ret) {
+    OVDBG_ERROR("%s: Map failed!",__func__);
     goto ERROR;
   }
-
-  ion_fd_       = mem_info.fd;
-  vaddr_        = mem_info.vaddr;
-  size_         = mem_info.size;
 
   OVDBG_INFO("%s: Exit", __func__);
   return ret;
 
 ERROR:
-  close(ion_fd_);
-  ion_fd_ = -1;
+  close(surface_.ion_fd_);
+  surface_.ion_fd_ = -1;
   return ret;
 }
 
@@ -2257,6 +2178,9 @@ int32_t OverlayItemPrivacyMask::Init(OverlayParam& param) {
   height_     = param.dst_rect.height;
   mask_color_ = param.color;
 
+  surface_.width_  = PMASK_BOX_BUF_WIDTH;
+  surface_.height_ = PMASK_BOX_BUF_HEIGHT;
+
   auto ret = CreateSurface();
   if(ret != 0) {
     OVDBG_ERROR("%s: CreateSurface failed!", __func__);
@@ -2275,7 +2199,7 @@ int32_t OverlayItemPrivacyMask::UpdateAndDraw() {
     OVDBG_DEBUG("%s: Item is not dirty! Don't draw!", __func__);
     return ret;
   }
-  SyncStart(ion_fd_);
+  SyncStart(surface_.ion_fd_);
 #if USE_CAIRO
   ClearSurface();
   RGBAValues mask_color;
@@ -2305,11 +2229,12 @@ int32_t OverlayItemPrivacyMask::UpdateAndDraw() {
 #else
   paintBox.setMaskFilter(SkBlurMaskFilter::Create(kNormal_SkBlurStyle,5.0f, 0));
 #endif
-  OVDBG_VERBOSE(" x_ %d y_ %d width_ %d height_ %d",x_,y_,width_,height_);
-  canvas_->drawRect(SkRect::MakeXYWH(0,0, width_, height_), paintBox);
+  OVDBG_VERBOSE("x %d y %d width %d height %d", x_, y_, width_, height_);
+  canvas_->drawRect(SkRect::MakeXYWH(0, 0, width_, height_),
+      paintBox);
   canvas_->flush();
 #endif
-  SyncEnd(ion_fd_);
+  SyncEnd(surface_.ion_fd_);
   // Don't paint until params gets updated by app(UpdateParameters).
   MarkDirty(false);
   return OK;
@@ -2326,7 +2251,7 @@ void OverlayItemPrivacyMask::GetDrawInfo(uint32_t targetWidth,
   draw_info.y            = y_;
   draw_info.width        = width_;
   draw_info.height       = height_;
-  draw_info.c2dSurfaceId = c2dsurface_id_;
+  draw_info.c2dSurfaceId = surface_.c2dsurface_id_;
   draw_infos.push_back(draw_info);
   OVDBG_VERBOSE("%s: Exit", __func__);
 }
@@ -2371,7 +2296,8 @@ int32_t OverlayItemPrivacyMask::CreateSurface() {
 
   OVDBG_VERBOSE("%s: Enter", __func__);
 
-  int32_t size = PMASK_BOX_BUF_WIDTH * PMASK_BOX_BUF_HEIGHT * 4;
+  int32_t size = surface_.width_ * surface_.height_ * 4;
+  int32_t format;
   IonMemInfo mem_info;
   memset(&mem_info, 0x0, sizeof(IonMemInfo));
 
@@ -2385,65 +2311,44 @@ int32_t OverlayItemPrivacyMask::CreateSurface() {
   cr_surface_ = cairo_image_surface_create_for_data(static_cast<unsigned char*>
                                                     (mem_info.vaddr),
                                                     CAIRO_FORMAT_ARGB32,
-                                                    PMASK_BOX_BUF_WIDTH,
-                                                    PMASK_BOX_BUF_HEIGHT,
-                                                    PMASK_BOX_BUF_WIDTH * 4);
+                                                    surface_.width_,
+                                                    surface_.height_,
+                                                    surface_.width_ * 4);
   assert (cr_surface_ != nullptr);
 
   cr_context_ = cairo_create (cr_surface_);
   assert (cr_context_ != nullptr);
 #elif USE_SKIA
   //Create Skia canvas outof ION memory.
-  SkImageInfo imageInfo = SkImageInfo::Make(PMASK_BOX_BUF_WIDTH,
-      PMASK_BOX_BUF_HEIGHT, kRGBA_8888_SkColorType, kPremul_SkAlphaType);
+  SkImageInfo imageInfo = SkImageInfo::Make(surface_.width_,
+      surface_.heght_, kRGBA_8888_SkColorType, kPremul_SkAlphaType);
 
 #ifdef ANDROID_O_OR_ABOVE
   canvas_ = (SkCanvas::MakeRasterDirect(imageInfo, mem_info.vaddr,
-                                      PMASK_BOX_BUF_WIDTH *4)).release();
+                                      surface_.width_ *4)).release();
 #else
   canvas_ = SkCanvas::NewRasterDirect(imageInfo, mem_info.vaddr,
-                                      PMASK_BOX_BUF_WIDTH *4);
+                                      surface_.width_ *4);
 #endif
   if(!canvas_) {
     OVDBG_ERROR("%s: Skia Creation failed!!", __func__);
     goto ERROR;
   }
 #endif
-  //Setup c2d.
-  ret = c2dMapAddr(mem_info.fd, mem_info.vaddr, mem_info.size, 0,
-                   KGSL_USER_MEM_TYPE_ION, &gpu_addr_);
-  if(ret != C2D_STATUS_OK) {
-    OVDBG_ERROR("%s: c2dMapAddr failed!", __func__);
+
+  format = C2D_COLOR_FORMAT_8888_ARGB;
+  ret = MapOverlaySurface(surface_, mem_info, format);
+  if (0 != ret) {
+    OVDBG_ERROR("%s: Map failed!",__func__);
     goto ERROR;
   }
-
-  C2D_RGB_SURFACE_DEF c2dSurfaceDef;
-  c2dSurfaceDef.format = C2D_COLOR_FORMAT_8888_ARGB;
-  c2dSurfaceDef.width  = PMASK_BOX_BUF_WIDTH;
-  c2dSurfaceDef.height = PMASK_BOX_BUF_HEIGHT;
-  c2dSurfaceDef.buffer = mem_info.vaddr;
-  c2dSurfaceDef.phys   = gpu_addr_;
-  c2dSurfaceDef.stride = PMASK_BOX_BUF_WIDTH *4;
-
-  //Create source c2d surface.
-  ret = c2dCreateSurface(&c2dsurface_id_, C2D_SOURCE,
-                         (C2D_SURFACE_TYPE)(C2D_SURFACE_RGB_HOST
-                         |C2D_SURFACE_WITH_PHYS), &c2dSurfaceDef);
-  if(ret != C2D_STATUS_OK) {
-    OVDBG_ERROR("%s: c2dCreateSurface failed!", __func__);
-    goto ERROR;
-   }
-
-  ion_fd_      = mem_info.fd;
-  vaddr_       = mem_info.vaddr;
-  size_        = mem_info.size;
 
   OVDBG_VERBOSE("%s: Exit", __func__);
   return ret;
 
 ERROR:
-  close(ion_fd_);
-  ion_fd_ = -1;
+  close(surface_.ion_fd_);
+  surface_.ion_fd_ = -1;
   return ret;
 }
 
@@ -2497,13 +2402,13 @@ int32_t OverlayItemGraph::Init(OverlayParam& param) {
   int32_t height = (static_cast<int32_t>(width/aspect_ratio + 15)>> 4) << 4;
   height = height > kGraphBufHeight ? height : kGraphBufHeight;
 
-  buffer_width_  = width;
-  buffer_height_ = height;
+  surface_.width_  = width;
+  surface_.height_ = height;
 
-  downscale_ratio_ = (float)width_ / (float)buffer_width_;
+  downscale_ratio_ = (float)width_ / (float)surface_.width_;
 
-  OVDBG_INFO("%s: Offscreen buffer:(%dx%d)",__func__, buffer_width_,
-      buffer_height_);
+  OVDBG_INFO("%s: Offscreen buffer:(%dx%d)",__func__, surface_.width_,
+      surface_.height_);
 
   auto ret = CreateSurface();
   if (ret != 0) {
@@ -2525,7 +2430,7 @@ int32_t OverlayItemGraph::UpdateAndDraw() {
     return ret;
   }
 
-  SyncStart(ion_fd_);
+  SyncStart(surface_.ion_fd_);
 #if USE_CAIRO
   OVDBG_INFO("%s: Draw graph!", __func__);
   ClearSurface();
@@ -2561,7 +2466,7 @@ int32_t OverlayItemGraph::UpdateAndDraw() {
 
   cairo_surface_flush (cr_surface_);
 #endif
-  SyncEnd(ion_fd_);
+  SyncEnd(surface_.ion_fd_);
 
   MarkDirty(false);
   OVDBG_VERBOSE("%s: Exit", __func__);
@@ -2578,7 +2483,7 @@ void OverlayItemGraph::GetDrawInfo(uint32_t targetWidth,
   draw_info_bbox.y = y_;
   draw_info_bbox.width = width_;
   draw_info_bbox.height = height_;
-  draw_info_bbox.c2dSurfaceId = c2dsurface_id_;
+  draw_info_bbox.c2dSurfaceId = surface_.c2dsurface_id_;
   draw_infos.push_back(draw_info_bbox);
   OVDBG_VERBOSE("%s: Exit", __func__);
 }
@@ -2639,7 +2544,8 @@ int32_t OverlayItemGraph::UpdateParameters(OverlayParam& param) {
 int32_t OverlayItemGraph::CreateSurface() {
 
   OVDBG_VERBOSE("%s: Enter", __func__);
-  int32_t size = buffer_width_ * buffer_height_ * 4;
+  int32_t size = surface_.width_ * surface_.height_ * 4;
+  int32_t format;
 
   IonMemInfo mem_info;
   memset(&mem_info, 0x0, sizeof(IonMemInfo));
@@ -2654,51 +2560,29 @@ int32_t OverlayItemGraph::CreateSurface() {
   cr_surface_ = cairo_image_surface_create_for_data(static_cast<unsigned char*>
                                                     (mem_info.vaddr),
                                                     CAIRO_FORMAT_ARGB32,
-                                                    buffer_width_,
-                                                    buffer_height_,
-                                                    buffer_width_ * 4);
+                                                    surface_.width_,
+                                                    surface_.height_,
+                                                    surface_.width_ * 4);
   assert (cr_surface_ != nullptr);
 
   cr_context_ = cairo_create (cr_surface_);
   assert (cr_context_ != nullptr);
 #endif
 
-  //Setup c2d.
-  ret = c2dMapAddr(mem_info.fd, mem_info.vaddr, mem_info.size, 0,
-                   KGSL_USER_MEM_TYPE_ION, &gpu_addr_);
-  if(ret != C2D_STATUS_OK) {
-    OVDBG_ERROR("%s: c2dMapAddr failed!", __func__);
-    goto ERROR;
-  }
-
-  C2D_RGB_SURFACE_DEF c2dSurfaceDef;
 #if USE_CAIRO
-  c2dSurfaceDef.format = C2D_COLOR_FORMAT_8888_ARGB;
+  format = C2D_COLOR_FORMAT_8888_ARGB;
 #endif
-  c2dSurfaceDef.width  = buffer_width_;
-  c2dSurfaceDef.height = buffer_height_;
-  c2dSurfaceDef.buffer = mem_info.vaddr;
-  c2dSurfaceDef.phys   = gpu_addr_;
-  c2dSurfaceDef.stride = buffer_width_ * 4;
-
-  //Create source c2d surface.
-  ret = c2dCreateSurface(&c2dsurface_id_, C2D_SOURCE,
-                         (C2D_SURFACE_TYPE)(C2D_SURFACE_RGB_HOST
-                         |C2D_SURFACE_WITH_PHYS), &c2dSurfaceDef);
-  if(ret != C2D_STATUS_OK) {
-    OVDBG_ERROR("%s: c2dCreateSurface failed!", __func__);
+  ret = MapOverlaySurface(surface_, mem_info, format);
+  if (0 != ret) {
+    OVDBG_ERROR("%s: Map failed!",__func__);
     goto ERROR;
   }
-
-  ion_fd_      = mem_info.fd;
-  vaddr_       = mem_info.vaddr;
-  size_        = mem_info.size;
 
   OVDBG_VERBOSE("%s: Exit", __func__);
   return ret;
 ERROR:
-  close(ion_fd_);
-  ion_fd_ = -1;
+  close(surface_.ion_fd_);
+  surface_.ion_fd_ = -1;
   return ret;
 }
 
