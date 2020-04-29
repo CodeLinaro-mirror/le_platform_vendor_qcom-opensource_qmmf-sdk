@@ -676,7 +676,7 @@ void GtestCommon::SetVideoStreamFormat(char prop[], VideoFormat &format) {
   } else if (value == "HEVC") {
     format = VideoFormat::kHEVC;
   } else if (value == "YUV") {
-    format = VideoFormat::kYUV;
+    format = VideoFormat::kNV12;
   } else if (value == "RGB") {
     format = VideoFormat::kRGB;
   } else if (value == "RAW8") {
@@ -712,7 +712,7 @@ std::string GtestCommon::GetVideoStreamFormat(VideoFormat &fmt) {
     return "AVC";
   } else if (fmt == VideoFormat::kHEVC) {
     return "HEVC";
-  } else if (fmt == VideoFormat::kYUV) {
+  } else if (fmt == VideoFormat::kNV12) {
     return "YUV";
   } else if (fmt == VideoFormat::kRGB) {
     return "RGB";

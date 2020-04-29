@@ -332,7 +332,7 @@ struct VideoTrackCreateParam {
   VQZipInfo vqzip_params;
 
   VideoTrackCreateParam(uint32_t cam_id = 0,
-                        VideoFormat fmt = VideoFormat::kYUV, uint32_t w = 3840,
+                        VideoFormat fmt = VideoFormat::kNV12, uint32_t w = 3840,
                         uint32_t h = 2160, float frm_rate = 30) {
     camera_id = cam_id;
     width = w;

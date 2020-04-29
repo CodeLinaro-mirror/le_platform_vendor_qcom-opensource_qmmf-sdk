@@ -206,7 +206,7 @@ TEST_F(RecorderHal1GTest, SessionWith480pYUVTrack) {
 
     /************************ Create Preview Track ****************************/
 
-    VideoTrackCreateParam video_track_param { camera_id_, VideoFormat::kYUV,
+    VideoTrackCreateParam video_track_param { camera_id_, VideoFormat::kNV12,
       width, height, frame_rate };
 
     TrackCb video_track_cb;
@@ -601,7 +601,7 @@ TEST_F(RecorderHal1GTest, SessionWith480pAVCAnd480pAVCAndLinked480pAVC) {
 
     //video_track_param.width = 640;
     //video_track_param.height = 480;
-    //video_track_param.format_type = VideoFormat::kYUV;
+    //video_track_param.format_type = VideoFormat::kNV12;
 
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
@@ -703,7 +703,7 @@ TEST_F(RecorderHal1GTest, SessionWith480pYUVand1080pYUVTracks) {
 
     /************************ Create Preview Track ****************************/
 
-    VideoTrackCreateParam video_track_param { camera_id_, VideoFormat::kYUV,
+    VideoTrackCreateParam video_track_param { camera_id_, VideoFormat::kNV12,
       width, height, 10 };
 
     TrackCb video_track_cb;
@@ -726,7 +726,7 @@ TEST_F(RecorderHal1GTest, SessionWith480pYUVand1080pYUVTracks) {
 
     /************************ Create Preview Track ****************************/
 
-    VideoTrackCreateParam video_track_param2 { camera_id_, VideoFormat::kYUV,
+    VideoTrackCreateParam video_track_param2 { camera_id_, VideoFormat::kNV12,
       1920, 1080, frame_rate };
 
     TrackCb video_track_cb2;
@@ -837,12 +837,12 @@ TEST_F(RecorderHal1GTest, SessionWith1080pYUVCopy480YUVAndLinked480YUV) {
   ASSERT_TRUE(ret == NO_ERROR);
 
   if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo1 = { VideoFormat::kYUV, session_id,
+    StreamDumpInfo dumpinfo1 = { VideoFormat::kNV12, session_id,
       video_track_id_1080p_yuv, 1920, 1080 };
     ret = dump_bitstream_.SetUp(dumpinfo1);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    StreamDumpInfo dumpinfo2 = { VideoFormat::kYUV, session_id,
+    StreamDumpInfo dumpinfo2 = { VideoFormat::kNV12, session_id,
       video_track_id_480p_yuv, 640, 480 };
     ret = dump_bitstream_.SetUp(dumpinfo2);
     ASSERT_TRUE(ret == NO_ERROR);
@@ -853,7 +853,7 @@ TEST_F(RecorderHal1GTest, SessionWith1080pYUVCopy480YUVAndLinked480YUV) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
       test_info_->name(), i);
 
-    VideoTrackCreateParam video_track_param { camera_id_, VideoFormat::kYUV,
+    VideoTrackCreateParam video_track_param { camera_id_, VideoFormat::kNV12,
       1920, 1080, 30 };
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
@@ -898,7 +898,7 @@ TEST_F(RecorderHal1GTest, SessionWith1080pYUVCopy480YUVAndLinked480YUV) {
 
     video_track_param.width = 640;
     video_track_param.height = 480;
-    video_track_param.format_type = VideoFormat::kYUV;
+    video_track_param.format_type = VideoFormat::kNV12;
 
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
@@ -992,17 +992,17 @@ TEST_F(RecorderHal1GTest, SessionWithTwo1080pYUVAndLinked1080pYUV) {
   ASSERT_TRUE(ret == NO_ERROR);
 
   if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo1 = { VideoFormat::kYUV, session_id,
+    StreamDumpInfo dumpinfo1 = { VideoFormat::kNV12, session_id,
       video_track_id_1080p_yuv2, 1920, 1080 };
     ret = dump_bitstream_.SetUp(dumpinfo1);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    StreamDumpInfo dumpinfo2 = { VideoFormat::kYUV, session_id,
+    StreamDumpInfo dumpinfo2 = { VideoFormat::kNV12, session_id,
       video_track_id_1080p_yuv2, 1920, 1080 };
     ret = dump_bitstream_.SetUp(dumpinfo2);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    StreamDumpInfo dumpinfo3 = { VideoFormat::kYUV, session_id,
+    StreamDumpInfo dumpinfo3 = { VideoFormat::kNV12, session_id,
       video_track_id_1080p_yuv_linked, 1920, 1080 };
     ret = dump_bitstream_.SetUp(dumpinfo2);
     ASSERT_TRUE(ret == NO_ERROR);
@@ -1016,7 +1016,7 @@ TEST_F(RecorderHal1GTest, SessionWithTwo1080pYUVAndLinked1080pYUV) {
     /************************ Create 1080p Track 1 ****************************/
 
     VideoTrackCreateParam video_track_param {
-      camera_id_, VideoFormat::kYUV, 1920, 1080, 30 };
+      camera_id_, VideoFormat::kNV12, 1920, 1080, 30 };
 
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
@@ -1139,7 +1139,7 @@ TEST_F(RecorderHal1GTest, SessionWith720pYUVAndSnapshotVGA) {
     QMMF_INFO("Test dim: %dx%d", width, height);
 
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo1 = { VideoFormat::kYUV, session_id,
+      StreamDumpInfo dumpinfo1 = { VideoFormat::kNV12, session_id,
         video_track_id_yuv1, 1280, 720 };
       ret = dump_bitstream_.SetUp(dumpinfo1);
       ASSERT_TRUE(ret == NO_ERROR);
@@ -1148,7 +1148,7 @@ TEST_F(RecorderHal1GTest, SessionWith720pYUVAndSnapshotVGA) {
     /************************ Create Track 1 ****************************/
 
     VideoTrackCreateParam video_track_param {
-      camera_id_, VideoFormat::kYUV, 1280, 720, 30 };
+      camera_id_, VideoFormat::kNV12, 1280, 720, 30 };
 
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
@@ -1298,7 +1298,7 @@ TEST_F(RecorderHal1GTest, SessionWith720pYUVAndSnapshot720p) {
     QMMF_INFO("Test dim: %dx%d", width, height);
 
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo1 = { VideoFormat::kYUV, session_id,
+      StreamDumpInfo dumpinfo1 = { VideoFormat::kNV12, session_id,
         video_track_id_yuv1, width, height };
       ret = dump_bitstream_.SetUp(dumpinfo1);
       ASSERT_TRUE(ret == NO_ERROR);
@@ -1307,7 +1307,7 @@ TEST_F(RecorderHal1GTest, SessionWith720pYUVAndSnapshot720p) {
     /************************ Create Track 1 ****************************/
 
     VideoTrackCreateParam video_track_param {
-      camera_id_, VideoFormat::kYUV, width, height, 30 };
+      camera_id_, VideoFormat::kNV12, width, height, 30 };
 
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
@@ -1457,12 +1457,12 @@ TEST_F(RecorderHal1GTest, SessionWithTwo720pYUVAndSnapshot720p) {
     QMMF_INFO("Test dim: %dx%d", width, height);
 
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo1 = { VideoFormat::kYUV, session_id,
+      StreamDumpInfo dumpinfo1 = { VideoFormat::kNV12, session_id,
         video_track_id_yuv1, width, height };
       ret = dump_bitstream_.SetUp(dumpinfo1);
       ASSERT_TRUE(ret == NO_ERROR);
 
-      StreamDumpInfo dumpinfo2 = { VideoFormat::kYUV, session_id,
+      StreamDumpInfo dumpinfo2 = { VideoFormat::kNV12, session_id,
         video_track_id_yuv2, width, height };
       ret = dump_bitstream_.SetUp(dumpinfo2);
       ASSERT_TRUE(ret == NO_ERROR);
@@ -1471,7 +1471,7 @@ TEST_F(RecorderHal1GTest, SessionWithTwo720pYUVAndSnapshot720p) {
     /************************ Create Track 1 ****************************/
 
     VideoTrackCreateParam video_track_param {
-      camera_id_, VideoFormat::kYUV, width, height, 30 };
+      camera_id_, VideoFormat::kNV12, width, height, 30 };
 
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
@@ -1632,12 +1632,12 @@ TEST_F(RecorderHal1GTest, SessionWithTwoVGAYUVAndSnapshotVGA) {
     QMMF_INFO("Test dim: %dx%d", width, height);
 
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo1 = { VideoFormat::kYUV, session_id,
+      StreamDumpInfo dumpinfo1 = { VideoFormat::kNV12, session_id,
         video_track_id_yuv1, width, height };
       ret = dump_bitstream_.SetUp(dumpinfo1);
       ASSERT_TRUE(ret == NO_ERROR);
 
-      StreamDumpInfo dumpinfo2 = { VideoFormat::kYUV, session_id,
+      StreamDumpInfo dumpinfo2 = { VideoFormat::kNV12, session_id,
         video_track_id_yuv2, width, height };
       ret = dump_bitstream_.SetUp(dumpinfo2);
       ASSERT_TRUE(ret == NO_ERROR);
@@ -1646,7 +1646,7 @@ TEST_F(RecorderHal1GTest, SessionWithTwoVGAYUVAndSnapshotVGA) {
     /************************ Create Track 1 ****************************/
 
     VideoTrackCreateParam video_track_param {
-      camera_id_, VideoFormat::kYUV, width, height, 30 };
+      camera_id_, VideoFormat::kNV12, width, height, 30 };
 
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
@@ -1803,7 +1803,7 @@ TEST_F(RecorderHal1GTest, SessionWithYUVTrackAndToggleSnapshotRes) {
   ASSERT_TRUE(ret == NO_ERROR);
 
   if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo1 = { VideoFormat::kYUV, session_id,
+    StreamDumpInfo dumpinfo1 = { VideoFormat::kNV12, session_id,
       video_track_id_yuv1, 720, 480 };
     ret = dump_bitstream_.SetUp(dumpinfo1);
     ASSERT_TRUE(ret == NO_ERROR);
@@ -1812,7 +1812,7 @@ TEST_F(RecorderHal1GTest, SessionWithYUVTrackAndToggleSnapshotRes) {
   /************************ Create Track 1 ****************************/
 
   VideoTrackCreateParam video_track_param {
-    camera_id_, VideoFormat::kYUV, 720, 480, 30 };
+    camera_id_, VideoFormat::kNV12, 720, 480, 30 };
 
   TrackCb video_track_cb;
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
@@ -1971,7 +1971,7 @@ TEST_F(RecorderHal1GTest, SessionWithYUVTrackAndSnapshot) {
     QMMF_INFO("Test dim: %dx%d", width, height);
 
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo1 = { VideoFormat::kYUV, session_id,
+      StreamDumpInfo dumpinfo1 = { VideoFormat::kNV12, session_id,
         video_track_id_yuv1, width, height };
       ret = dump_bitstream_.SetUp(dumpinfo1);
       ASSERT_TRUE(ret == NO_ERROR);
@@ -1980,7 +1980,7 @@ TEST_F(RecorderHal1GTest, SessionWithYUVTrackAndSnapshot) {
     /************************ Create Track 1 ****************************/
 
     VideoTrackCreateParam video_track_param {
-      camera_id_, VideoFormat::kYUV, width, height, 30 };
+      camera_id_, VideoFormat::kNV12, width, height, 30 };
 
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
@@ -2133,12 +2133,12 @@ TEST_F(RecorderHal1GTest, SessionWithTwoYUVTracksAndSnapshot) {
     QMMF_INFO("Test dim: %dx%d", width, height);
 
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo1 = { VideoFormat::kYUV, session_id,
+      StreamDumpInfo dumpinfo1 = { VideoFormat::kNV12, session_id,
         video_track_id_yuv1, width, height };
       ret = dump_bitstream_.SetUp(dumpinfo1);
       ASSERT_TRUE(ret == NO_ERROR);
 
-      StreamDumpInfo dumpinfo2 = { VideoFormat::kYUV, session_id,
+      StreamDumpInfo dumpinfo2 = { VideoFormat::kNV12, session_id,
         video_track_id_yuv2, width, height };
       ret = dump_bitstream_.SetUp(dumpinfo2);
       ASSERT_TRUE(ret == NO_ERROR);
@@ -2147,7 +2147,7 @@ TEST_F(RecorderHal1GTest, SessionWithTwoYUVTracksAndSnapshot) {
     /************************ Create Track 1 ****************************/
 
     VideoTrackCreateParam video_track_param {
-      camera_id_, VideoFormat::kYUV, width, height, 30 };
+      camera_id_, VideoFormat::kNV12, width, height, 30 };
 
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,

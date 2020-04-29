@@ -245,10 +245,10 @@ class Common {
       case VideoFormat::kHEVC:
         return BufferFormat::kNV12UBWC;
         break;
-      case VideoFormat::kYUV:
+      case VideoFormat::kNV12:
         return BufferFormat::kNV12;
         break;
-      case VideoFormat::kYUVUBWC:
+      case VideoFormat::kNV12UBWC:
         return BufferFormat::kNV12UBWC;
         break;
       case VideoFormat::kRGB:

@@ -196,7 +196,7 @@ TEST_F(VideoGtest, SessionWithSingleStream) {
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      if (format == VideoFormat::kYUV) {
+      if (format == VideoFormat::kNV12) {
         VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
       } else {
         VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
@@ -350,7 +350,7 @@ TEST_F(VideoGtest, SessionWithTwoStream) {
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      if (stream_1_format == VideoFormat::kYUV) {
+      if (stream_1_format == VideoFormat::kNV12) {
         VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
       } else {
         VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
@@ -376,7 +376,7 @@ TEST_F(VideoGtest, SessionWithTwoStream) {
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      if (stream_2_format == VideoFormat::kYUV) {
+      if (stream_2_format == VideoFormat::kNV12) {
         VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
       } else {
         VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
@@ -557,7 +557,7 @@ TEST_F(VideoGtest, SessionWithThreeStream) {
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      if (stream_1_format == VideoFormat::kYUV) {
+      if (stream_1_format == VideoFormat::kNV12) {
         VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
       } else {
         VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
@@ -583,7 +583,7 @@ TEST_F(VideoGtest, SessionWithThreeStream) {
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      if (stream_2_format == VideoFormat::kYUV) {
+      if (stream_2_format == VideoFormat::kNV12) {
         VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
       } else {
         VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
@@ -615,7 +615,7 @@ TEST_F(VideoGtest, SessionWithThreeStream) {
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      if (stream_3_format == VideoFormat::kYUV) {
+      if (stream_3_format == VideoFormat::kNV12) {
         VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
       } else {
         VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
@@ -816,7 +816,7 @@ TEST_F(VideoGtest, SessionWithFourStream) {
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      if (stream_1_format == VideoFormat::kYUV) {
+      if (stream_1_format == VideoFormat::kNV12) {
         VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
       } else {
         VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
@@ -842,7 +842,7 @@ TEST_F(VideoGtest, SessionWithFourStream) {
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      if (stream_2_format == VideoFormat::kYUV) {
+      if (stream_2_format == VideoFormat::kNV12) {
         VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
       } else {
         VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
@@ -874,7 +874,7 @@ TEST_F(VideoGtest, SessionWithFourStream) {
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      if (stream_3_format == VideoFormat::kYUV) {
+      if (stream_3_format == VideoFormat::kNV12) {
         VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
       } else {
         VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
@@ -906,7 +906,7 @@ TEST_F(VideoGtest, SessionWithFourStream) {
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      if (stream_4_format == VideoFormat::kYUV) {
+      if (stream_4_format == VideoFormat::kNV12) {
         VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
       } else {
         VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
@@ -1127,7 +1127,7 @@ TEST_F(VideoGtest, SessionWithFiveStream) {
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      if (stream_1_format == VideoFormat::kYUV) {
+      if (stream_1_format == VideoFormat::kNV12) {
         VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
       } else {
         VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
@@ -1153,7 +1153,7 @@ TEST_F(VideoGtest, SessionWithFiveStream) {
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      if (stream_2_format == VideoFormat::kYUV) {
+      if (stream_2_format == VideoFormat::kNV12) {
         VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
       } else {
         VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
@@ -1185,7 +1185,7 @@ TEST_F(VideoGtest, SessionWithFiveStream) {
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      if (stream_3_format == VideoFormat::kYUV) {
+      if (stream_3_format == VideoFormat::kNV12) {
         VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
       } else {
         VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
@@ -1217,7 +1217,7 @@ TEST_F(VideoGtest, SessionWithFiveStream) {
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      if (stream_4_format == VideoFormat::kYUV) {
+      if (stream_4_format == VideoFormat::kNV12) {
         VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
       } else {
         VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
@@ -1249,7 +1249,7 @@ TEST_F(VideoGtest, SessionWithFiveStream) {
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      if (stream_5_format == VideoFormat::kYUV) {
+      if (stream_5_format == VideoFormat::kNV12) {
         VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
       } else {
         VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
@@ -1812,7 +1812,7 @@ TEST_F(VideoGtest, SessionWithSingleStreamSlavemode) {
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      if (format == VideoFormat::kYUV) {
+      if (format == VideoFormat::kNV12) {
         VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
       } else {
         VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
@@ -1909,7 +1909,7 @@ TEST_F(VideoGtest, SessionWith1080pYUVTrackMatchCameraMetaData) {
   ret = recorder_.CreateSession(session_status_cb, &session_id);
   ASSERT_TRUE(session_id > 0);
   ASSERT_TRUE(ret == NO_ERROR);
-  VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kYUV, 1920,
+  VideoTrackCreateParam video_track_param{camera_id_, VideoFormat::kNV12, 1920,
                                           1080, 30};
 
   uint32_t video_track_id = 1;
@@ -2047,7 +2047,7 @@ TEST_F(VideoGtest, SessionWithSingleStreamWithCamIDOne) {
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      if (format == VideoFormat::kYUV) {
+      if (format == VideoFormat::kNV12) {
         VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
       } else {
         VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
@@ -2202,7 +2202,7 @@ TEST_F(VideoGtest, SessionWithTwoStreamWithCamIDOne) {
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      if (stream_1_format == VideoFormat::kYUV) {
+      if (stream_1_format == VideoFormat::kNV12) {
         VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
       } else {
         VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
@@ -2228,7 +2228,7 @@ TEST_F(VideoGtest, SessionWithTwoStreamWithCamIDOne) {
     video_track_cb.data_cb = [&, session_id](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-      if (stream_2_format == VideoFormat::kYUV) {
+      if (stream_2_format == VideoFormat::kNV12) {
         VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
       } else {
         VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);

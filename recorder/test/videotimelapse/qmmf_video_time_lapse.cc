@@ -489,7 +489,7 @@ int32_t TimeLapse::CreateLPMTrack() {
   property_get(PROP_DUAL_CAMERA_ID, prop_val, "2");
   dual_camera_id = atoi(prop_val);
 
-  VideoTrackCreateParam video_track_param2 {cam_id_, VideoFormat::kYUV,
+  VideoTrackCreateParam video_track_param2 {cam_id_, VideoFormat::kNV12,
                                            kLPMTrackWidth, kLPMTrackHeight, 30};
   video_track_param = video_track_param2;
 
