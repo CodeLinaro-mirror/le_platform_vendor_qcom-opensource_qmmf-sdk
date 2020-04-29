@@ -2888,9 +2888,14 @@ int32_t OverlayItemPrivacyMask::Init(OverlayParam& param) {
   width_      = param.dst_rect.width;
   height_     = param.dst_rect.height;
   mask_color_ = param.color;
+  config_     = param.privacy_mask;
 
-  surface_.width_  = PMASK_BOX_BUF_WIDTH;
-  surface_.height_ = PMASK_BOX_BUF_HEIGHT;
+  surface_.width_  = std::min(width_, kMaskBoxBufWidth);
+  surface_.height_ = (surface_.width_ * height_) / width_;
+  surface_.height_ = ROUND_TO(surface_.height_, 2);
+
+  OVDBG_INFO("%s: Offscreen buffer:(%dx%d)",__func__, surface_.width_,
+    surface_.height_);
 
   auto ret = CreateSurface();
   if(ret != 0) {
@@ -2915,12 +2920,58 @@ int32_t OverlayItemPrivacyMask::UpdateAndDraw() {
   ClearSurface();
   RGBAValues mask_color;
   ExtractColorValues(mask_color_, &mask_color);
+  cairo_set_source_rgba(cr_context_, mask_color.red, mask_color.green,
+                        mask_color.blue, mask_color.alpha);
+  switch (config_.type) {
+    case OverlayPrivacyMaskType::kRectangle: {
+      uint32_t x = (config_.rectangle.start_x * surface_.width_) / width_;
+      uint32_t y = (config_.rectangle.start_y * surface_.width_) / width_;
+      uint32_t w = (config_.rectangle.width * surface_.width_) / width_;
+      uint32_t h = (config_.rectangle.height * surface_.width_) / width_;
+      cairo_rectangle(cr_context_, x, y, w, h);
+      cairo_fill(cr_context_);
+    }
+      break;
 
-  // Paint entire rectangle with color.
-  cairo_set_source_rgba (cr_context_, mask_color.red, mask_color.green,
-                         mask_color.blue, mask_color.alpha);
-  cairo_paint(cr_context_);
+    case OverlayPrivacyMaskType::kInverseRectangle: {
+      uint32_t x = (config_.rectangle.start_x * surface_.width_) / width_;
+      uint32_t y = (config_.rectangle.start_y * surface_.width_) / width_;
+      uint32_t w = (config_.rectangle.width * surface_.width_) / width_;
+      uint32_t h = (config_.rectangle.height * surface_.width_) / width_;
+      cairo_rectangle(cr_context_, 0, 0, surface_.width_, surface_.height_);
+      cairo_rectangle(cr_context_, x, y, w, h);
+      cairo_set_fill_rule(cr_context_, CAIRO_FILL_RULE_EVEN_ODD);
+      cairo_fill(cr_context_);
+    }
+      break;
+
+    case OverlayPrivacyMaskType::kCircle: {
+      uint32_t cx = (config_.circle.center_x * surface_.width_) / width_;
+      uint32_t cy = (config_.circle.center_y * surface_.height_) / height_;
+      uint32_t rad = (config_.circle.radius * surface_.width_) / width_;
+      cairo_arc(cr_context_, cx, cy, rad, 0, 2 * M_PI);
+      cairo_fill(cr_context_);
+    }
+      break;
+
+    case OverlayPrivacyMaskType::kInverseCircle: {
+      uint32_t cx = (config_.circle.center_x * surface_.width_) / width_;
+      uint32_t cy = (config_.circle.center_y * surface_.height_) / height_;
+      uint32_t rad = (config_.circle.radius * surface_.width_) / width_;
+      cairo_arc(cr_context_, cx, cy, rad, 0, 2 * M_PI);
+      cairo_rectangle(cr_context_, 0, 0, surface_.width_, surface_.height_);
+      cairo_set_fill_rule(cr_context_, CAIRO_FILL_RULE_EVEN_ODD);
+      cairo_fill(cr_context_);
+    }
+      break;
+
+    default:
+      OVDBG_DEBUG("%s: Unsupported privacy mask type %d", __func__,
+          config_.type);
+      return -1;
+  }
   assert(CAIRO_STATUS_SUCCESS == cairo_status(cr_context_));
+
   cairo_surface_flush (cr_surface_);
 #elif USE_SKIA
   //Create Skia canvas outof ION memory.
@@ -3001,6 +3052,15 @@ int32_t OverlayItemPrivacyMask::UpdateParameters(OverlayParam& param) {
   width_      = param.dst_rect.width;
   height_     = param.dst_rect.height;
   mask_color_ = param.color;
+  config_     = param.privacy_mask;
+
+  surface_.width_  = kMaskBoxBufWidth;
+  surface_.height_ = (surface_.width_ * height_) / width_;
+  surface_.height_ = ROUND_TO(surface_.height_, 2);
+
+  OVDBG_INFO("%s: Offscreen buffer:(%dx%d)",__func__, surface_.width_,
+    surface_.height_);
+
 
   // Mark dirty, updated contents would be re-painted in next paint cycle.
   MarkDirty(true);
