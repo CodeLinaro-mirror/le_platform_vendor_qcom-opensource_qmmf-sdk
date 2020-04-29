@@ -1121,7 +1121,7 @@ void RecorderClient::ImportBuffer(int32_t fd, int32_t metafd,
   }
 
   uint32_t width = 0, height = 0, format = 0;
-  if (meta.meta_flag && static_cast<uint32_t>(MetaParamType::kCamBufMetaData)) {
+  if (meta.meta_flag & static_cast<uint32_t>(MetaParamType::kCamBufMetaData)) {
     auto& bufdata = meta.cam_buffer_meta_data;
     width = bufdata.plane_info[0].width;
     height = bufdata.plane_info[0].height;
