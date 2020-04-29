@@ -119,6 +119,12 @@ struct OverlayRect {
   int32_t height;
 };
 
+struct Overlaycircle {
+  int32_t center_x;
+  int32_t center_y;
+  int32_t radius;
+};
+
 struct OverlayImageInfo {
   OverlayImageType image_type;
   char image_location[MAX_STRING_LENGTH];
@@ -131,6 +137,21 @@ struct OverlayImageInfo {
 struct OverlayKeyPoint {
   int32_t x;
   int32_t y;
+};
+
+enum class OverlayPrivacyMaskType {
+  kRectangle,
+  kInverseRectangle,
+  kCircle,
+  kInverseCircle,
+};
+
+struct OverlayPrivacyMask {
+  OverlayPrivacyMaskType type;
+  union {
+    Overlaycircle circle;
+    OverlayRect rectangle;
+  };
 };
 
 struct OverlayGraph {
@@ -150,6 +171,7 @@ struct OverlayParam {
     char user_text[MAX_STRING_LENGTH];
     OverlayImageInfo image_info;
     BoundingBox bounding_box;
+    OverlayPrivacyMask privacy_mask;
     OverlayGraph graph;
   };
 };

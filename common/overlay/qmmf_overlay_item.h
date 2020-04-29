@@ -471,9 +471,6 @@ class OverlayItemText: public OverlayItem {
 
 };
 
-#define PMASK_BOX_BUF_WIDTH     240
-#define PMASK_BOX_BUF_HEIGHT    135
-
 class OverlayItemPrivacyMask: public OverlayItem {
  public:
 
@@ -495,11 +492,15 @@ class OverlayItemPrivacyMask: public OverlayItem {
   int32_t UpdateParameters(OverlayParam& param) override;
 
  private:
+
+  static const uint32_t kMaskBoxBufWidth = 1920;
+
   int32_t CreateSurface();
 #if USE_SKIA
   SkCanvas*   canvas_;
 #endif
   uint32_t    mask_color_;
+  OverlayPrivacyMask config_;
 };
 
 class OverlayItemGraph : public OverlayItem {
