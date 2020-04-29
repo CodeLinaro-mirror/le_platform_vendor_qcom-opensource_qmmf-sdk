@@ -368,13 +368,13 @@ bool CameraSource::ValidateSlaveTrackParam(
 
   if ((slave_track.params.format_type != VideoFormat::kHEVC) &&
       (slave_track.params.format_type != VideoFormat::kAVC) &&
-      (slave_track.params.format_type != VideoFormat::kYUV) &&
-      (slave_track.params.format_type != VideoFormat::kYUVUBWC) &&
+      (slave_track.params.format_type != VideoFormat::kNV12) &&
+      (slave_track.params.format_type != VideoFormat::kNV12UBWC) &&
       (slave_track.params.format_type != VideoFormat::kRGB) &&
       (master_track.params.format_type != VideoFormat::kHEVC) &&
       (master_track.params.format_type != VideoFormat::kAVC) &&
-      (master_track.params.format_type != VideoFormat::kYUV) &&
-      (master_track.params.format_type != VideoFormat::kYUVUBWC) &&
+      (master_track.params.format_type != VideoFormat::kNV12) &&
+      (master_track.params.format_type != VideoFormat::kNV12UBWC) &&
       (master_track.params.format_type != VideoFormat::kRGB)) {
     QMMF_ERROR("%s Invalid format:", __func__);
     return false;
@@ -393,10 +393,10 @@ VideoFormat CameraSource::GetYUVFormatType(VideoFormat format_type) {
   switch (format_type) {
     case VideoFormat::kHEVC:
     case VideoFormat::kAVC:
-      format_type = VideoFormat::kYUVUBWC;
+      format_type = VideoFormat::kNV12UBWC;
       break;
-    case VideoFormat::kYUV:
-    case VideoFormat::kYUVUBWC:
+    case VideoFormat::kNV12:
+    case VideoFormat::kNV12UBWC:
     case VideoFormat::kRGB:
     case VideoFormat::kJPEG:
     case VideoFormat::kBayerRDI8BIT:
@@ -433,13 +433,13 @@ bool CameraSource::CheckLinkedStream(
 
   if ((slave_track.params.format_type != VideoFormat::kHEVC) &&
       (slave_track.params.format_type != VideoFormat::kAVC) &&
-      (slave_track.params.format_type != VideoFormat::kYUV) &&
-      (slave_track.params.format_type != VideoFormat::kYUVUBWC) &&
+      (slave_track.params.format_type != VideoFormat::kNV12) &&
+      (slave_track.params.format_type != VideoFormat::kNV12UBWC) &&
       (slave_track.params.format_type != VideoFormat::kRGB) &&
       (master_track.params.format_type != VideoFormat::kHEVC) &&
       (master_track.params.format_type != VideoFormat::kAVC) &&
-      (master_track.params.format_type != VideoFormat::kYUV) &&
-      (master_track.params.format_type != VideoFormat::kYUVUBWC) &&
+      (master_track.params.format_type != VideoFormat::kNV12) &&
+      (master_track.params.format_type != VideoFormat::kNV12UBWC) &&
       (master_track.params.format_type != VideoFormat::kRGB)) {
     QMMF_ERROR("%s Invalid format:", __func__);
     return false;
@@ -1270,8 +1270,8 @@ status_t TrackSource::StopTrack(bool is_force_cleanup) {
   //    returned.
 
   if (track_params_.params.format_type == VideoFormat::kRGB ||
-      track_params_.params.format_type == VideoFormat::kYUV ||
-      track_params_.params.format_type == VideoFormat::kYUVUBWC ||
+      track_params_.params.format_type == VideoFormat::kNV12 ||
+      track_params_.params.format_type == VideoFormat::kNV12UBWC ||
       track_params_.params.format_type == VideoFormat::kBayerRDI8BIT ||
       track_params_.params.format_type == VideoFormat::kBayerRDI10BIT ||
       track_params_.params.format_type == VideoFormat::kBayerRDI12BIT ||
@@ -1671,8 +1671,8 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
 
   // If format type is YUV or BAYER then give callback from this point, do not
   // feed buffer to Encoder.
-  if (track_params_.params.format_type == VideoFormat::kYUV ||
-      track_params_.params.format_type == VideoFormat::kYUVUBWC ||
+  if (track_params_.params.format_type == VideoFormat::kNV12 ||
+      track_params_.params.format_type == VideoFormat::kNV12UBWC ||
       track_params_.params.format_type == VideoFormat::kRGB ||
       track_params_.params.format_type == VideoFormat::kBayerRDI8BIT ||
       track_params_.params.format_type == VideoFormat::kBayerRDI10BIT ||

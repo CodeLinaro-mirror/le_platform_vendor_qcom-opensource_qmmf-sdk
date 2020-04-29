@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -255,7 +255,7 @@ uint32_t session_id;
 recorder.CreateSession(session_status_cb, &session_id);
 
 VideoTrackCreateParam video_track_param {
-  camera_id, VideoFormat::kYUV, 1920, 1080, 30
+  camera_id, VideoFormat::kNV12, 1920, 1080, 30
 };
 
 uint32_t video_track_id       = 1;
@@ -794,7 +794,7 @@ extra_param2.Update(QMMF_SOURCE_VIDEO_TRACK_ID, surface_video_copy2);
 
 video_track_param.width   = 1280;
 video_track_param.height  = 720;
-video_track_param.format_type = VideoFormat::kYUV;
+video_track_param.format_type = VideoFormat::kNV12;
 
 video_track_cb.data_cb = [&](uint32_t track_id,
                                  std::vector<BufferDescriptor> buffers,
@@ -1140,7 +1140,7 @@ session_status_cb.event_cb = [&](EventType event_type, void *event_data,
 uint32_t session_id;
 recorder.CreateSession(session_status_cb, &session_id);
 
-VideoTrackCreateParam preview_track_param{camera_id, VideoFormat::kYUV,
+VideoTrackCreateParam preview_track_param{camera_id, VideoFormat::kNV12,
                                         1920,
                                         1080,
                                         30};
@@ -1285,7 +1285,7 @@ preview_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
 uint32_t preview_track_id = 1;
 
 VideoTrackCreateParam preview_track_param {
-  camera_id, VideoFormat::kYUV, 640, 480, 30
+  camera_id, VideoFormat::kNV12, 640, 480, 30
 };
 preview_track_param.low_power_mode = true;
 
@@ -1560,7 +1560,7 @@ preview_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
 uint32_t preview_track_id = 1;
 
 VideoTrackCreateParam preview_track_param {
-  camera_id, VideoFormat::kYUV, 640, 480, 30
+  camera_id, VideoFormat::kNV12, 640, 480, 30
 };
 
 preview_track_param.low_power_mode = true;
