@@ -244,6 +244,8 @@ struct FaceInfo {
 #define PROP_EIS                    "persist.qmmf.gtest.eis"
 // Prop to set SHDR
 #define PROP_SHDR                   "persist.qmmf.gtest.shdr"
+// Prop to set LDC
+#define PROP_LDC                    "persist.qmmf.gtest.ldc"
 // Prop to enable Snapshot Stream
 #define PROP_SNAPSHOT_STREAM_ON     "persist.qmmf.snapshot.stream.on"
 // Prop to set number of snpshot in a test
@@ -616,6 +618,8 @@ class GtestCommon : public ::testing::Test {
 
   std::string GetSnapshotMode();
 
+  void SetCameraExtraParam(CameraExtraParam &param);
+
   void InitSupportedVHDRModes();
   bool IsVHDRSupported();
   void InitSupportedNRModes();
@@ -841,6 +845,7 @@ class GtestCommon : public ::testing::Test {
   float                 camera_fps_;
   bool                  is_eis_on_;
   bool                  is_shdr_on_;
+  bool                  is_ldc_on_;
 
   bool                  is_snap_stream_on_;
   uint32_t              snap_width_;

@@ -478,6 +478,8 @@ void GtestCommon::SetUp() {
   is_shdr_on_ = (atoi(prop_val) == 0) ? false : true;
   property_get(PROP_SNAPSHOT_STREAM_ON, prop_val, "0");
   is_snap_stream_on_ = (atoi(prop_val) == 0) ? false : true;
+  property_get(PROP_LDC, prop_val, "0");
+  is_ldc_on_ = (atoi(prop_val) == 0) ? false : true;
 
   // Read First Video Stream Params
   VideoStreamInfo stream { };
@@ -2496,4 +2498,29 @@ void GtestCommon::ConfigureAndTakeSnapshot() {
   ASSERT_TRUE(ret == NO_ERROR);
 
   sleep(1);
+}
+
+void GtestCommon::SetCameraExtraParam(CameraExtraParam &param) {
+  if (is_eis_on_) {
+    // Enable EIS
+    EISSetup eis_mode;
+    eis_mode.enable = true;
+    param.Update(QMMF_EIS, eis_mode);
+  }
+  if (is_shdr_on_) {
+    // Enable HDR
+    VideoHDRMode vid_hdr_mode;
+    vid_hdr_mode.enable = true;
+    param.Update(QMMF_VIDEO_HDR_MODE, vid_hdr_mode);
+  }
+  if (is_ldc_on_) {
+    // Enable LDc
+    LDCMode ldc_mode;
+    ldc_mode.enable = true;
+    param.Update(QMMF_LDC, ldc_mode);
+  }
+
+  std::cout << "EIS is :" << (is_eis_on_ ? "On" : "Off") << " SHDR is :"
+      << (is_shdr_on_ ? "On" : "Off") << " LDC is :" <<
+      (is_ldc_on_ ? "On" : "Off") << std::endl;
 }

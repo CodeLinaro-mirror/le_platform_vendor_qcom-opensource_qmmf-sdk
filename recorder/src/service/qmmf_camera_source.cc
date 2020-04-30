@@ -1173,8 +1173,9 @@ status_t TrackSource::Init() {
   param.width          = track_params_.params.width;
   param.height         = track_params_.params.height;
   param.framerate      = track_params_.params.frame_rate;
-  if (track_params_.params.format_type == VideoFormat::kYUV) {
-    param.is_yuv_track = true;
+  if (track_params_.params.format_type == VideoFormat::kAVC
+      || track_params_.params.format_type == VideoFormat::kHEVC) {
+    param.stream_flags |= static_cast<uint32_t> (StreamFlags::kEncoded);
   }
   param.format =
       Common::FromVideoToQmmfFormat(track_params_.params.format_type);
@@ -1184,9 +1185,11 @@ status_t TrackSource::Init() {
     if (entry_count == 1) {
       SystemCache mode;
       track_params_.extra_param.Fetch(QMMF_CPU_CACHE, mode, 0);
-      param.is_caching_enabled = mode.enable;
+      if (!mode.enable) {
+        param.stream_flags &= ~(static_cast<uint32_t>(StreamFlags::kCached));
+      }
       QMMF_INFO("%s: Caching value is: %d", __func__,
-                param.is_caching_enabled);
+                mode.enable);
     } else {
       QMMF_ERROR("%s: Invalid Caching mode received", __func__);
       return BAD_VALUE;
@@ -1196,9 +1199,9 @@ status_t TrackSource::Init() {
   if (track_params_.extra_param.Exists(QMMF_VIDEO_WAIT_AEC_MODE)) {
     VideoWaitAECMode wait_aec;
     track_params_.extra_param.Fetch(QMMF_VIDEO_WAIT_AEC_MODE, wait_aec);
-    param.wait_aec_mode = wait_aec.enable;
-  } else {
-    param.wait_aec_mode = false;
+    if (wait_aec.enable) {
+      param.stream_flags |= static_cast<uint32_t>(StreamFlags::kWaitAEC);
+    }
   }
 
   param.rotation = rotation_;
