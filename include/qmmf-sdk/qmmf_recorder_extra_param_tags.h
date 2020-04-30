@@ -56,6 +56,7 @@ enum ParamTag {
   QMMF_CAMERA_SLAVE_MODE,
   QMMF_CPU_CACHE,
   QMMF_USE_LINKED_TRACK_IN_SLAVE_MODE,
+  QMMF_LDC,
 };
 
 enum class RotationFlags {
@@ -266,6 +267,16 @@ struct LinkedTrackInSlaveMode : DataTagBase {
   LinkedTrackInSlaveMode() :
     DataTagBase(QMMF_USE_LINKED_TRACK_IN_SLAVE_MODE),
     enable(false) {
+  }
+};
+
+struct LDCMode : DataTagBase {
+  /**< Add support for client to enable/disable */
+  /**< LDC (Lens Distortion Correction). */
+  /**< Default: False */
+  bool enable;
+  LDCMode() :
+    DataTagBase(QMMF_LDC), enable(false) {
   }
 };
 

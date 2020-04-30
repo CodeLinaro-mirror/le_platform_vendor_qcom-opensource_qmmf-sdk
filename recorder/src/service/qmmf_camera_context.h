@@ -72,20 +72,16 @@ struct AECData {
 };
 
 struct CameraParameters {
-  bool is_zzhdr_enabled;
-  int32_t force_sensor_mode;
-  bool is_eis_enabled;
   bool is_partial_metadata_enabled;
   int32_t frame_rate;
   size_t batch_size;
+  uint32_t cam_feature_flags;
 
   CameraParameters()
-    : is_zzhdr_enabled(false),
-      force_sensor_mode(-1),
-      is_eis_enabled(false),
-      is_partial_metadata_enabled(false),
+    : is_partial_metadata_enabled(false),
       frame_rate(30),
-      batch_size(1) {}
+      batch_size(1),
+      cam_feature_flags(static_cast<uint32_t>(CamFeatureFlag::kNone)) {}
 };
 
 // This class deals with Camera3DeviceClient, and exposes simple Apis to create

@@ -73,21 +73,8 @@ TEST_F(VideoGtest, SessionWithSingleStream) {
   PrintStreamInfo(kFirstStreamID);
 
   CameraExtraParam camera_extra_param;
-  if (is_eis_on_) {
-    // Enable EIS
-    EISSetup eis_mode;
-    eis_mode.enable = true;
-    camera_extra_param.Update(QMMF_EIS, eis_mode);
-  }
-  if (is_shdr_on_) {
-    // Enable HDR
-    VideoHDRMode vid_hdr_mode;
-    vid_hdr_mode.enable = true;
-    camera_extra_param.Update(QMMF_VIDEO_HDR_MODE, vid_hdr_mode);
-  }
 
-  std::cout << "EIS is :" << (is_eis_on_ ? "On" : "Off")
-            << " SHDR is :" << (is_shdr_on_ ? "On" : "Off") << std::endl;
+  SetCameraExtraParam(camera_extra_param);
 
   ret = recorder_.StartCamera(camera_id_, camera_fps_, camera_extra_param);
   ASSERT_TRUE(ret == NO_ERROR);
@@ -230,21 +217,8 @@ TEST_F(VideoGtest, SessionWithTwoStream) {
   PrintStreamInfo(kSecondStreamID);
 
   CameraExtraParam camera_extra_param;
-  if (is_eis_on_) {
-    // Enable EIS
-    EISSetup eis_mode;
-    eis_mode.enable = true;
-    camera_extra_param.Update(QMMF_EIS, eis_mode);
-  }
-  if (is_shdr_on_) {
-    // Enable HDR
-    VideoHDRMode vid_hdr_mode;
-    vid_hdr_mode.enable = true;
-    camera_extra_param.Update(QMMF_VIDEO_HDR_MODE, vid_hdr_mode);
-  }
 
-  std::cout << "EIS is :" << (is_eis_on_ ? "On" : "Off")
-            << " SHDR is :" << (is_shdr_on_ ? "On" : "Off") << std::endl;
+  SetCameraExtraParam(camera_extra_param);
 
   ret = recorder_.StartCamera(camera_id_, camera_fps_, camera_extra_param);
   ASSERT_TRUE(ret == NO_ERROR);
@@ -442,21 +416,8 @@ TEST_F(VideoGtest, SessionWithThreeStream) {
   PrintStreamInfo(kThirdStreamID);
 
   CameraExtraParam camera_extra_param;
-  if (is_eis_on_) {
-    // Enable EIS
-    EISSetup eis_mode;
-    eis_mode.enable = true;
-    camera_extra_param.Update(QMMF_EIS, eis_mode);
-  }
-  if (is_shdr_on_) {
-    // Enable HDR
-    VideoHDRMode vid_hdr_mode;
-    vid_hdr_mode.enable = true;
-    camera_extra_param.Update(QMMF_VIDEO_HDR_MODE, vid_hdr_mode);
-  }
 
-  std::cout << "EIS is :" << (is_eis_on_ ? "On" : "Off")
-            << " SHDR is :" << (is_shdr_on_ ? "On" : "Off") << std::endl;
+  SetCameraExtraParam(camera_extra_param);
 
   ret = recorder_.StartCamera(camera_id_, camera_fps_, camera_extra_param);
   ASSERT_TRUE(ret == NO_ERROR);
@@ -706,21 +667,8 @@ TEST_F(VideoGtest, SessionWithFourStream) {
   PrintStreamInfo(kFourthStreamID);
 
   CameraExtraParam camera_extra_param;
-  if (is_eis_on_) {
-    // Enable EIS
-    EISSetup eis_mode;
-    eis_mode.enable = true;
-    camera_extra_param.Update(QMMF_EIS, eis_mode);
-  }
-  if (is_shdr_on_) {
-    // Enable HDR
-    VideoHDRMode vid_hdr_mode;
-    vid_hdr_mode.enable = true;
-    camera_extra_param.Update(QMMF_VIDEO_HDR_MODE, vid_hdr_mode);
-  }
 
-  std::cout << "EIS is :" << (is_eis_on_ ? "On" : "Off")
-            << " SHDR is :" << (is_shdr_on_ ? "On" : "Off") << std::endl;
+  SetCameraExtraParam(camera_extra_param);
 
   ret = recorder_.StartCamera(camera_id_, camera_fps_, camera_extra_param);
   ASSERT_TRUE(ret == NO_ERROR);
@@ -1022,21 +970,8 @@ TEST_F(VideoGtest, SessionWithFiveStream) {
   PrintStreamInfo(kFifthStreamID);
 
   CameraExtraParam camera_extra_param;
-  if (is_eis_on_) {
-    // Enable EIS
-    EISSetup eis_mode;
-    eis_mode.enable = true;
-    camera_extra_param.Update(QMMF_EIS, eis_mode);
-  }
-  if (is_shdr_on_) {
-    // Enable HDR
-    VideoHDRMode vid_hdr_mode;
-    vid_hdr_mode.enable = true;
-    camera_extra_param.Update(QMMF_VIDEO_HDR_MODE, vid_hdr_mode);
-  }
 
-  std::cout << "EIS is :" << (is_eis_on_ ? "On" : "Off")
-            << " SHDR is :" << (is_shdr_on_ ? "On" : "Off") << std::endl;
+  SetCameraExtraParam(camera_extra_param);
 
   ret = recorder_.StartCamera(camera_id_, camera_fps_, camera_extra_param);
   ASSERT_TRUE(ret == NO_ERROR);
@@ -1989,21 +1924,8 @@ TEST_F(VideoGtest, SessionWithSingleStreamWithCamIDOne) {
   PrintStreamInfo(kFirstStreamID);
 
   CameraExtraParam camera_extra_param;
-  if (is_eis_on_) {
-    // Enable EIS
-    EISSetup eis_mode;
-    eis_mode.enable = true;
-    camera_extra_param.Update(QMMF_EIS, eis_mode);
-  }
-  if (is_shdr_on_) {
-    // Enable HDR
-    VideoHDRMode vid_hdr_mode;
-    vid_hdr_mode.enable = true;
-    camera_extra_param.Update(QMMF_VIDEO_HDR_MODE, vid_hdr_mode);
-  }
 
-  std::cout << "EIS is :" << (is_eis_on_ ? "On" : "Off")
-            << " SHDR is :" << (is_shdr_on_ ? "On" : "Off") << std::endl;
+  SetCameraExtraParam(camera_extra_param);
 
   ret = recorder_.StartCamera(camera_id_, camera_fps_, camera_extra_param);
   ASSERT_TRUE(ret == NO_ERROR);
@@ -2147,21 +2069,8 @@ TEST_F(VideoGtest, SessionWithTwoStreamWithCamIDOne) {
   PrintStreamInfo(kSecondStreamID);
 
   CameraExtraParam camera_extra_param;
-  if (is_eis_on_) {
-    // Enable EIS
-    EISSetup eis_mode;
-    eis_mode.enable = true;
-    camera_extra_param.Update(QMMF_EIS, eis_mode);
-  }
-  if (is_shdr_on_) {
-    // Enable HDR
-    VideoHDRMode vid_hdr_mode;
-    vid_hdr_mode.enable = true;
-    camera_extra_param.Update(QMMF_VIDEO_HDR_MODE, vid_hdr_mode);
-  }
 
-  std::cout << "EIS is :" << (is_eis_on_ ? "On" : "Off")
-            << " SHDR is :" << (is_shdr_on_ ? "On" : "Off") << std::endl;
+  SetCameraExtraParam(camera_extra_param);
 
   ret = recorder_.StartCamera(camera_id_, camera_fps_, camera_extra_param);
   ASSERT_TRUE(ret == NO_ERROR);

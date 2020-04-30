@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  * Not a Contribution.
  */
 
@@ -43,8 +43,8 @@
 #define QCAMERA3_SENSORMODE_ZZHDR_OPMODE      (0xF002)
 #define QCAMERA3_SENSORMODE_FPS_DEFAULT_INDEX (0x0)
 #define FORCE_SENSORMODE_ENABLE               (1 << 24)
-#define FORCE_SENSORMODE_INDEX(idx)           ((idx + 1) << 16)
 #define EIS_ENABLE                            (0xF200)
+#define LDC_ENABLE                            (0xF800)
 #endif
 
 // Convenience macros for transitioning to the error state
@@ -90,9 +90,7 @@ Camera3DeviceClient::Camera3DeviceClient(CameraClientCallbacks clientCb)
       is_hfr_supported_(false),
       is_raw_only_(false),
       hfr_mode_enabled_(false),
-      is_zzhdr_enabled_(false),
-      is_eis_enabled_(false),
-      force_sensor_mode_(-1),
+      cam_feature_flags_(static_cast<uint32_t>(CamFeatureFlag::kNone)),
       fps_sensormode_index_(0),
       prepare_handler_(),
       input_stream_{} {
@@ -395,30 +393,21 @@ int32_t Camera3DeviceClient::ConfigureStreams(const StreamConfiguration& stream_
   is_raw_only_ = stream_config.is_raw_only;
   batch_size_ = stream_config.batch_size;
 
-  bool is_pp_enabled = true;
-
   if (stream_config.params) {
-    is_pp_enabled = stream_config.params->is_pp_enabled;
-    is_zzhdr_enabled_ = stream_config.params->is_zzhdr_enabled;
-    if (stream_config.params->force_sensor_mode >= 0) {
-      force_sensor_mode_ = stream_config.params->force_sensor_mode;
-    }
-    if (stream_config.params->is_eis_enabled) {
-      is_eis_enabled_ = stream_config.params->is_eis_enabled;
-    }
+    cam_feature_flags_ |= stream_config.params->cam_feature_flags;
   }
 
 #ifdef USE_FPS_IDX
   fps_sensormode_index_ = stream_config.fps_sensormode_index;
 #endif
-  bool res = ConfigureStreamsLocked(is_pp_enabled);
+  bool res = ConfigureStreamsLocked();
 
   pthread_mutex_unlock(&lock_);
 
   return res;
 }
 
-int32_t Camera3DeviceClient::ConfigureStreamsLocked(bool is_pp_enabled) {
+int32_t Camera3DeviceClient::ConfigureStreamsLocked() {
   status_t res;
 
   if (state_ != STATE_NOT_CONFIGURED && state_ != STATE_CONFIGURED) {
@@ -434,7 +423,7 @@ int32_t Camera3DeviceClient::ConfigureStreamsLocked(bool is_pp_enabled) {
   camera3_stream_configuration config;
   memset(&config, 0, sizeof(config));
 
-  config.operation_mode = GetOpMode(is_pp_enabled);
+  config.operation_mode = GetOpMode();
 
   QMMF_INFO("%s: operation_mode: 0x%x \n", __func__, config.operation_mode);
 
@@ -581,16 +570,11 @@ int32_t Camera3DeviceClient::DeleteStream(int streamId, bool cache) {
     }
 
     streams_.removeItem(streamId);
-    if (streams_.isEmpty() && (force_sensor_mode_ >= 0)) {
-      QMMF_INFO("%s: Disabling force_sensor_mode and returning to auto_mode\n",
-                 __func__);
-      force_sensor_mode_ = -1;
+
+    if (streams_.isEmpty()) {
+      cam_feature_flags_ = static_cast<uint32_t>(CamFeatureFlag::kNone);
     }
 
-    if (streams_.isEmpty() && is_eis_enabled_) {
-      QMMF_INFO("%s: Disable EIS\n", __func__);
-      is_eis_enabled_ = false;
-    }
     res = stream->Close();
     if (0 != res) {
       QMMF_ERROR("%s: Can't close deleted stream %d\n", __func__, streamId);
@@ -707,6 +691,8 @@ exit:
 
 int32_t Camera3DeviceClient::CreateStream(
     const CameraStreamParameters &outputConfiguration) {
+  QMMF_DEBUG("%s: QMMF Camera Flags: %x\n", __func__,
+      outputConfiguration.cam_feature_flags);
   int32_t res = 0;
   Camera3Stream *newStream = NULL;
   int32_t blobBufferSize = 0;
@@ -776,7 +762,7 @@ int32_t Camera3DeviceClient::CreateStream(
 
   // Continue captures if active at start
   if (wasActive) {
-    res = ConfigureStreamsLocked(outputConfiguration.is_pp_enabled);
+    res = ConfigureStreamsLocked();
     if (0 != res) {
       QMMF_ERROR("%s: Can't reconfigure device for new stream %d: %s (%d)",
                  __func__, next_stream_id_, strerror(-res), res);
@@ -2093,7 +2079,7 @@ void Camera3DeviceClient::torchModeStatusChange(
   // TODO: No implementation yet
 }
 
-uint32_t Camera3DeviceClient::GetOpMode(bool is_pp_enabled) {
+uint32_t Camera3DeviceClient::GetOpMode() {
   QMMF_DEBUG("%s: Enter: \n", __func__);
 
   uint32_t operation_mode = 0;
@@ -2101,8 +2087,6 @@ uint32_t Camera3DeviceClient::GetOpMode(bool is_pp_enabled) {
 #ifndef DISABLE_OP_MODES
   if (is_raw_only_) {
     operation_mode = QCAMERA3_VENDOR_STREAM_CONFIGURATION_RAW_ONLY_MODE;
-  } else if (!is_pp_enabled) {
-    operation_mode = QCAMERA3_VENDOR_STREAM_CONFIGURATION_PP_DISABLED_MODE;
   } else {
     operation_mode = CAMERA3_STREAM_CONFIGURATION_NORMAL_MODE;
   }
@@ -2110,7 +2094,7 @@ uint32_t Camera3DeviceClient::GetOpMode(bool is_pp_enabled) {
   operation_mode = CAMERA3_STREAM_CONFIGURATION_NORMAL_MODE;
 
   // Handle ZZHDR Mode
-  if (is_zzhdr_enabled_ == true) {
+  if (cam_feature_flags_ & static_cast<uint32_t>(CamFeatureFlag::kHDR)) {
     operation_mode |= QCAMERA3_SENSORMODE_ZZHDR_OPMODE;
   }
   // Handle HFR Mode
@@ -2118,8 +2102,12 @@ uint32_t Camera3DeviceClient::GetOpMode(bool is_pp_enabled) {
     operation_mode |= CAMERA3_STREAM_CONFIGURATION_CONSTRAINED_HIGH_SPEED_MODE;
   }
   // Handle EIS mode
-  if (is_eis_enabled_) {
+  if (cam_feature_flags_ & static_cast<uint32_t>(CamFeatureFlag::kEIS)) {
     operation_mode |= EIS_ENABLE;
+  }
+  // Handle LDC mode
+  if (cam_feature_flags_ & static_cast<uint32_t>(CamFeatureFlag::kLDC)) {
+    operation_mode |= LDC_ENABLE;
   }
   /*
    * Below two features are mutually exclusive:
@@ -2127,9 +2115,10 @@ uint32_t Camera3DeviceClient::GetOpMode(bool is_pp_enabled) {
    * 2. Default 60 fps usecase, in which OpMode is index of 60fps
    *    in sensor mode table
    */
-  if (force_sensor_mode_ >= 0) {
-    operation_mode |=
-        (FORCE_SENSORMODE_INDEX(force_sensor_mode_) | FORCE_SENSORMODE_ENABLE);
+  if (cam_feature_flags_ &
+      static_cast<uint32_t>(CamFeatureFlag::kForceSensorMode)) {
+    operation_mode |= ((FORCE_SENSOR_MODE_MASK & cam_feature_flags_)
+        | FORCE_SENSORMODE_ENABLE);
     QMMF_INFO("%s: Force_sensor_mode OpMode is set to 0x%x \n", __func__,
               operation_mode);
 
