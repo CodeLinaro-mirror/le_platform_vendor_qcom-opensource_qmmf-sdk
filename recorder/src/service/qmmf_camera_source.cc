@@ -483,7 +483,6 @@ status_t CameraSource::CreateTrackSource(const uint32_t track_id,
   auto const& camera = camera_map_[camera_id];
 
   status_t ret = NO_ERROR;
-  int32_t port_track_id = -1;
   bool copy_stream_mode = false;
   bool linked_mode = false;
   VideoTrackParams source_track_params {};
@@ -498,28 +497,9 @@ status_t CameraSource::CreateTrackSource(const uint32_t track_id,
 
     if (ValidateSlaveTrackParam(track_params, track->getParams())) {
       linked_mode = CheckLinkedStream(track_params, track->getParams());
-      if (track->IsSlaveTrack()) {
-        int32_t master_track_id = track->GetMasterTrackId();
-        for (size_t i = 0; i < track_sources_.size(); i++) {
-          assert(track_sources_.count(master_track_id) != 0);
-          track = track_sources_[master_track_id];
-
-          if (track->IsSlaveTrack()) {
-            master_track_id = track->GetMasterTrackId();
-            continue;
-          } else {
-            port_track_id = track->GetCameraPortId();
-            break;
-          }
-        }
-      } else {
-        port_track_id = source_track_id;
-      }
-      if (port_track_id != -1) {
-        copy_stream_mode = true;
-        source_track_params = track->getParams();
-        QMMF_INFO("%s: Copy stream should be create.", __func__);
-      }
+      copy_stream_mode = true;
+      source_track_params = track->getParams();
+      QMMF_INFO("%s: Copy stream should be create.", __func__);
     } else {
       QMMF_ERROR("%s: Copy stream validation failed.", __func__);
     }
@@ -539,43 +519,33 @@ status_t CameraSource::CreateTrackSource(const uint32_t track_id,
   if (copy_stream_mode) {
     std::shared_ptr<CameraRescaler> rescaler;
     if (linked_mode == false) {
-      if (rescalers_.count(source_track_id) == 0 ||
-         (port_track_id == source_track_id)) {
-        rescaler = std::make_shared<CameraRescaler>();
-        auto format =
-            Common::FromVideoToQmmfFormat(track_params.params.format_type);
-        ret = rescaler->Init(track_params.params.width,
-                             track_params.params.height,
-                             format,
-                             source_track_params.params.frame_rate,
-                             track_params.params.frame_rate);
-        if (ret != NO_ERROR) {
-          rescaler = nullptr;
-          QMMF_ERROR("%s: Rescaler Init Failed", __func__);
-          return BAD_VALUE;
-        }
-        rescaler->Configure(GetRescalerConfig(track_params));
-        rescalers_.emplace(track_id, rescaler);
-      } else {
-        QMMF_ERROR("%s: GET Copy TrackSource Instance trackId: %x",
-            __func__, track_id);
-        rescaler = rescalers_.at(source_track_id);
+      rescaler = std::make_shared<CameraRescaler>();
+      auto format =
+          Common::FromVideoToQmmfFormat(track_params.params.format_type);
+      ret = rescaler->Init(track_params.params.width,
+                           track_params.params.height,
+                           format,
+                           source_track_params.params.frame_rate,
+                           track_params.params.frame_rate);
+      if (ret != NO_ERROR) {
+        rescaler = nullptr;
+        QMMF_ERROR("%s: Rescaler Init Failed", __func__);
+        return BAD_VALUE;
       }
-
-      assert(track_sources_.count(port_track_id) != 0);
-      master_track = track_sources_[port_track_id];
-    } else {
-      assert(track_sources_.count(source_track_id) != 0);
-      master_track = track_sources_[source_track_id];
+      rescaler->Configure(GetRescalerConfig(track_params));
+      rescalers_.emplace(track_id, rescaler);
     }
 
+    assert(track_sources_.count(source_track_id) != 0);
+    master_track = track_sources_[source_track_id];
     assert(master_track.get() != nullptr);
-    ret = track_source->InitCopy(
-        master_track, rescaler, port_track_id, source_track_id);
+
+    ret = track_source->InitCopy(master_track, rescaler);
     if (ret != NO_ERROR) {
-      QMMF_ERROR("%s: track_id(%x) CopyTrackSource Init failed!",
-          __func__, track_id);
+      QMMF_ERROR("%s: track_id(%x) TrackSource InitCopy failed!", __func__,
+         track_id);
       rescalers_.erase(track_id);
+      goto FAIL;
     }
   } else {
     if (track_params.params.format_type == VideoFormat::kRGB) {
@@ -583,13 +553,13 @@ status_t CameraSource::CreateTrackSource(const uint32_t track_id,
       goto FAIL;
     }
     ret = track_source->Init();
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s: track_id(%x) TrackSource Init failed!", __func__,
+          track_id);
+      goto FAIL;
+    }
   }
 
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: track_id(%x) TrackSource Init failed!", __func__,
-        track_id);
-    goto FAIL;
-  }
   track_sources_.emplace(track_id, track_source);
 
   QMMF_DEBUG("%s: Exit", __func__);
@@ -1013,7 +983,6 @@ TrackSource::TrackSource(const VideoTrackParams& params,
       fsc_(nullptr),
       frc_(nullptr),
       rescaler_(nullptr),
-      connected_tocamera_port_(true),
       slave_track_source_(false),
       time_lapse_mode_(false),
       time_stamp_(0),
@@ -1118,35 +1087,14 @@ status_t TrackSource::RemoveConsumer(sp<IBufferConsumer>& consumer) {
   return NO_ERROR;
 }
 
-int32_t TrackSource::GetMasterTrackId() {
-  if (slave_track_source_) {
-    return track_id_master_;
-  } else {
-    return TrackId();
-  }
-}
-
-int32_t TrackSource::GetCameraPortId() {
-  if (slave_track_source_) {
-    return port_track_id_;
-  } else {
-    return TrackId();
-  }
-}
-
 status_t TrackSource::InitCopy(shared_ptr<TrackSource> master_track_source,
-                               const std::shared_ptr<CameraRescaler>& rescaler,
-                               int32_t port_track_id,
-                               int32_t track_id_master) {
+                               const std::shared_ptr<CameraRescaler>& rescaler) {
 
   QMMF_DEBUG("%s: Enter track_id(%x)", __func__, TrackId());
   status_t result = 0;
   assert(master_track_source.get() != nullptr);
   master_track_ = master_track_source;
 
-  connected_tocamera_port_ = (port_track_id == track_id_master);
-  track_id_master_ = track_id_master;
-  port_track_id_ = port_track_id;
   slave_track_source_ = true;
 
   if (rescaler.get() == nullptr) {
@@ -1163,7 +1111,6 @@ status_t TrackSource::Init() {
 
   QMMF_DEBUG("%s Enter track_id(%x)", __func__, TrackId());
 
-  connected_tocamera_port_ = true;
   slave_track_source_ = false;
   rescaler_ = nullptr;
   master_track_ = nullptr;

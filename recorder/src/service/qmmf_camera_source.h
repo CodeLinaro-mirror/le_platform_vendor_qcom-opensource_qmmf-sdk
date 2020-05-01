@@ -310,21 +310,10 @@ class TrackSource : public ICodecSource {
 
   /// Sets source track and enable track duplication
   status_t InitCopy(std::shared_ptr<TrackSource> track_source,
-                    const std::shared_ptr<CameraRescaler>& rescaler,
-                    int32_t port_track_id,
-                    int32_t track_id_master);
-
-  /// Return connected Camera port
-  bool IsConnectedToCameraPort() { return connected_tocamera_port_;};
+                    const std::shared_ptr<CameraRescaler>& rescaler);
 
   /// Return if the source of this track is another track
   bool IsSlaveTrack() {return slave_track_source_; };
-
-  /// Return master Track ID
-  int32_t GetMasterTrackId();
-
-  /// Return port Track ID
-  int32_t GetCameraPortId();
 
   /// Add track source Consumer
   status_t AddConsumer(const sp<IBufferConsumer>& consumer);
@@ -412,11 +401,7 @@ class TrackSource : public ICodecSource {
   std::shared_ptr<FrameRateController> frc_;
   std::shared_ptr<CameraRescaler>  rescaler_;
 
-  bool  connected_tocamera_port_;
   bool  slave_track_source_;
-
-  int32_t track_id_master_;
-  int32_t port_track_id_;
 
   sp<IBufferProducer>    buffer_producer_impl_;
   std::mutex             consumer_lock_;
