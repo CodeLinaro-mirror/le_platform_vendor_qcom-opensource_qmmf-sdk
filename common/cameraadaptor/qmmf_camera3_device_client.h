@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  * Not a Contribution.
  */
 
@@ -152,7 +152,7 @@ class Camera3DeviceClient : public camera3_callback_ops,
   int32_t ConfigureStreams(const StreamConfiguration& stream_config
                            = StreamConfiguration());
 
-  int32_t ConfigureStreamsLocked(bool is_pp_enabled = true);
+  int32_t ConfigureStreamsLocked();
 
   void SetErrorState(const char *fmt, ...);
   void SetErrorStateV(const char *fmt, va_list args);
@@ -187,7 +187,7 @@ class Camera3DeviceClient : public camera3_callback_ops,
   int32_t GenerateCaptureRequestLocked(const CameraMetadata &request,
                                        CaptureRequest &captureRequest);
 
-  uint32_t GetOpMode(bool is_pp_enabled = true);
+  uint32_t GetOpMode();
 
   pthread_mutex_t pending_requests_lock_;
   PendingRequestVector pending_requests_vector_;
@@ -241,10 +241,7 @@ class Camera3DeviceClient : public camera3_callback_ops,
   bool is_hfr_supported_;
   bool is_raw_only_;
   bool hfr_mode_enabled_;
-  bool is_zzhdr_enabled_;
-  bool is_eis_enabled_;
-
-  int32_t force_sensor_mode_;
+  uint32_t cam_feature_flags_;
   uint32_t fps_sensormode_index_;
   Camera3PrepareHandler prepare_handler_;
   Camera3InputStream input_stream_;

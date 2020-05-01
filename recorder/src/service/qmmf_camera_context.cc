@@ -300,7 +300,8 @@ status_t CameraContext::OpenCamera(const uint32_t camera_id,
       extra_param.Fetch(QMMF_VIDEO_HDR_MODE, vid_hdr_mode, 0);
       if (vid_hdr_mode.enable == true) {
         QMMF_INFO("%s: HDR is ON..", __func__);
-        camera_parameters_.is_zzhdr_enabled = true;
+        camera_parameters_.cam_feature_flags |=
+            static_cast<uint32_t>(CamFeatureFlag::kHDR);
       }
     } else {
       QMMF_ERROR("%s: Invalid hdr mode received", __func__);
@@ -314,8 +315,9 @@ status_t CameraContext::OpenCamera(const uint32_t camera_id,
       ForceSensorMode force_sensor_mode;
       extra_param.Fetch(QMMF_FORCE_SENSOR_MODE, force_sensor_mode, 0);
       if (force_sensor_mode.mode >= 0) {
-        camera_parameters_.force_sensor_mode =
-          force_sensor_mode.mode;
+        camera_parameters_.cam_feature_flags |=
+            (FORCE_SENSOR_MODE_DATA(force_sensor_mode.mode) |
+            static_cast<uint32_t>(CamFeatureFlag::kForceSensorMode));
         QMMF_INFO("%s: Force sensor mode(%d) received",
                   __func__, force_sensor_mode.mode);
       } else {
@@ -336,10 +338,27 @@ status_t CameraContext::OpenCamera(const uint32_t camera_id,
       extra_param.Fetch(QMMF_EIS, eis_mode, 0);
       if (eis_mode.enable == true) {
         QMMF_INFO("%s: EIS is ON..", __func__);
-        camera_parameters_.is_eis_enabled = true;
+        camera_parameters_.cam_feature_flags |=
+            static_cast<uint32_t>(CamFeatureFlag::kEIS);
       }
     } else {
       QMMF_ERROR("%s: Invalid EIS mode received", __func__);
+      return BAD_VALUE;
+    }
+  }
+
+  if (extra_param.Exists(QMMF_LDC)) {
+    size_t entry_count = extra_param.EntryCount(QMMF_LDC);
+    if (entry_count == 1) {
+      LDCMode ldc_mode;
+      extra_param.Fetch(QMMF_LDC, ldc_mode, 0);
+      if (ldc_mode.enable == true) {
+        QMMF_INFO("%s: LDC is ON..", __func__);
+        camera_parameters_.cam_feature_flags |=
+            static_cast<uint32_t>(CamFeatureFlag::kLDC);
+      }
+    } else {
+      QMMF_ERROR("%s: Invalid LDC mode received", __func__);
       return BAD_VALUE;
     }
   }
@@ -2472,7 +2491,7 @@ status_t CameraPort::Init() {
   // yuv streams.
   cam_stream_params_.allocFlags.flags = IMemAllocUsage::kVideoEncoder;
 
-  if (!params_.is_yuv_track) {
+  if (params_.stream_flags & static_cast<uint32_t>(StreamFlags::kEncoded)) {
     cam_stream_params_.bufferCount =
         VIDEO_STREAM_BUFFER_COUNT + GetExtraBufferCount();
     if (is_ubwc_stream_enabled) {
@@ -2480,10 +2499,9 @@ status_t CameraPort::Init() {
     }
   } else {
     cam_stream_params_.bufferCount = PREVIEW_STREAM_BUFFER_COUNT;
-    cam_stream_params_.is_pp_enabled = false;
   }
 
-  if (params_.is_caching_enabled) {
+  if (params_.stream_flags & static_cast<uint32_t>(StreamFlags::kCached)) {
     if (is_ubwc_stream_enabled) {
       QMMF_WARN("%s:CPU Caching is not applicable when UBWC is on", __func__);
     } else {
@@ -2498,9 +2516,7 @@ status_t CameraPort::Init() {
 
   assert(context_ != nullptr);
 
-  cam_stream_params_.is_zzhdr_enabled = camera_parameters_.is_zzhdr_enabled;
-  cam_stream_params_.force_sensor_mode = camera_parameters_.force_sensor_mode;
-  cam_stream_params_.is_eis_enabled = camera_parameters_.is_eis_enabled;
+  cam_stream_params_.cam_feature_flags = camera_parameters_.cam_feature_flags;
 
 
   int32_t stream_id;
@@ -2710,7 +2726,7 @@ void CameraPort::StreamCallback(StreamBuffer buffer) {
 
   bool skip_frame = false;
 
-  if (params_.wait_aec_mode) {
+  if (params_.stream_flags & static_cast<uint32_t>(StreamFlags::kWaitAEC)) {
     // Get auto exposure data and check if initial AE has converged.
     std::lock_guard<std::mutex> lock(aec_lock_);
     if (!aec_converged_) {

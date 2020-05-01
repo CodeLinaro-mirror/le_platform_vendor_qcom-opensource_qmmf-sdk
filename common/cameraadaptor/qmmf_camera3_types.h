@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  * Not a Contribution.
  */
 
@@ -39,6 +39,17 @@ namespace cameraadaptor {
 // from the same context of this callback.
 typedef std::function<void(StreamBuffer buffer)> StreamCallback;
 
+enum class CamFeatureFlag : uint32_t {
+  kNone = 0,                   /// No Feature is on.
+  kEIS = 1 << 0,               /// EIS is on.
+  kHDR = 1 << 1,               /// HDR is on.
+  kLDC = 1 << 2,               /// LDC is on.
+  kForceSensorMode = 1 << 3,   /// Force Sensor Mode is on.
+};
+
+#define FORCE_SENSOR_MODE_MASK      (0x00FF0000)
+#define FORCE_SENSOR_MODE_DATA(idx) ((idx + 1) << 16)
+
 struct CameraStreamParameters {
   uint32_t width;
   uint32_t height;
@@ -48,15 +59,12 @@ struct CameraStreamParameters {
   MemAllocFlags allocFlags;
   uint32_t bufferCount;
   StreamCallback cb;
-  bool is_pp_enabled;
-  bool is_zzhdr_enabled;
-  bool is_eis_enabled;
-  int32_t force_sensor_mode;
+  uint32_t cam_feature_flags;
   CameraStreamParameters() :
         width(0), height(0), format(-1), data_space(HAL_DATASPACE_UNKNOWN),
         rotation(CAMERA3_STREAM_ROTATION_0), allocFlags(), bufferCount(0),
-        cb(nullptr), is_pp_enabled(true), is_zzhdr_enabled(false),
-        is_eis_enabled(false), force_sensor_mode(-1) {}
+        cb(nullptr),
+        cam_feature_flags(static_cast<uint32_t>(CamFeatureFlag::kNone)) {}
 };
 
 struct StreamConfiguration {
