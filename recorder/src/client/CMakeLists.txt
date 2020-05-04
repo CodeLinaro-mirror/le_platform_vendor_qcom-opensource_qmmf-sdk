@@ -13,6 +13,8 @@ else()
     ${TOP_DIRECTORY}/include/qmmf-sdk/qmmf_recorder_extra_param_tags.h
     ${TOP_DIRECTORY}/include/qmmf-sdk/qmmf_device.h
     ${TOP_DIRECTORY}/include/qmmf-sdk/qmmf_codec.h
+    ${TOP_DIRECTORY}/include/qmmf-sdk/qmmf_buffer.h
+    ${TOP_DIRECTORY}/include/qmmf-sdk/qmmf_avcodec_params.h
     ${TOP_DIRECTORY}/include/qmmf-sdk/qmmf_overlay.h
     DESTINATION include/qmmf-sdk)
 endif()
