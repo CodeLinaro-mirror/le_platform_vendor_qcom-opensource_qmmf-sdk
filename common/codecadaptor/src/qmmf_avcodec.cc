@@ -3467,7 +3467,8 @@ void AVCodec::DeliverInput() {
     }
 
     buf_header->nFilledLen = stream_buffer.size;
-    buf_header->nTimeStamp = stream_buffer.timestamp;
+    /// Encoder is expecting timestamps of input YUV buffer in micro sec.
+    buf_header->nTimeStamp = stream_buffer.timestamp / 1000;
 
     if (format_type_ == CodecType::kVideoEncoder)
       QMMF_VERBOSE("%s: ETB buffer ts[%lld]", __func__, stream_buffer.timestamp);
@@ -4279,7 +4280,9 @@ OMX_ERRORTYPE AVCodec::OnFillBufferDone(
 
   codec_buffer.data = buf_header->pBuffer;
   codec_buffer.size = buf_header->nFilledLen;
-  codec_buffer.timestamp = buf_header->nTimeStamp;
+  /// At input port we have provided timestamps in micro seconds.
+  /// Mulitplying again by 1000 to get the timestamps in nano sec.
+  codec_buffer.timestamp = buf_header->nTimeStamp * 1000;
   codec_buffer.offset = buf_header->nOffset;
 
   if (buf_header->nFlags & QOMX_VIDEO_PictureTypeIDR)
