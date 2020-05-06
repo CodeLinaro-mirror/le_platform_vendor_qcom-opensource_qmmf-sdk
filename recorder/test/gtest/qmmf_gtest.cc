@@ -34,6 +34,88 @@
 using namespace qcamera;
 
 /*
+* ConnectToService: This test case will test Connect/Disconnect API.
+* API test sequence:
+*   loop Start {
+*   ------------------
+*  - Connect
+*  - Disconnect
+*   ------------------
+*   } loop End
+*/
+TEST_F(VideoGtest, ConnectToService) {
+  std::cout << "\n---------- Run Test ----------"
+            << test_info_->test_case_name() << "." << test_info_->name()
+            << std::endl;
+
+  for (uint32_t i = 1; i <= iteration_count_; i++) {
+    std::cout
+        << "###############################################################"
+        << std::endl;
+
+    std::cout << "Ruunnig Test Iteration: " << i << "/" << iteration_count_
+              << std::endl;
+
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
+              test_info_->name(), i);
+
+    auto ret = recorder_.Connect(recorder_status_cb_);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    sleep(3);
+
+    ret = recorder_.Disconnect();
+    ASSERT_TRUE(ret == NO_ERROR);
+  }
+  std::cout << "---------- Test Completed ----------\n"
+            << test_info_->test_case_name() << "." << test_info_->name();
+}
+
+/*
+* StartStopCamera: This test case will test Start/Stop Camera API.
+* API test sequence:
+*   loop Start {
+*   ------------------
+*  - StartCamera
+*  - StopCamera
+*   ------------------
+*   } loop End
+*/
+TEST_F(VideoGtest, StartStopCamera) {
+  std::cout << "\n---------- Run Test ----------"
+            << test_info_->test_case_name() << "." << test_info_->name()
+            << std::endl;
+
+  auto ret = Init();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  for (uint32_t i = 1; i <= iteration_count_; i++) {
+    std::cout
+        << "###############################################################"
+        << std::endl;
+
+    std::cout << "Ruunnig Test Iteration: " << i << "/" << iteration_count_
+              << std::endl;
+
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
+              test_info_->name(), i);
+
+    ret = recorder_.StartCamera(camera_id_, 30);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    sleep(3);
+
+    ret = recorder_.StopCamera(camera_id_);
+    ASSERT_TRUE(ret == NO_ERROR);
+  }
+  ret = DeInit();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  std::cout << "---------- Test Completed ----------\n"
+            << test_info_->test_case_name() << "." << test_info_->name();
+}
+
+/*
 * SessionWithSingleStream:
 *   This test will test Single stream of a configurable
 *   resolution and format.
