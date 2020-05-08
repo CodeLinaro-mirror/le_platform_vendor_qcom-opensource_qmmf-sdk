@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2017, 2020, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -32,8 +32,6 @@
 
 #include <qmmf-sdk/qmmf_recorder.h>
 #include <qmmf-sdk/qmmf_recorder_params.h>
-#include <qmmf-sdk/qmmf_display.h>
-#include <qmmf-sdk/qmmf_display_params.h>
 
 #include "common/utils/qmmf_condition.h"
 
@@ -42,15 +40,6 @@ namespace timelapse {
 
 using namespace qmmf::recorder;
 using namespace android;
-using ::qmmf::display::DisplayEventType;
-using ::qmmf::display::DisplayType;
-using ::qmmf::display::Display;
-using ::qmmf::display::DisplayCb;
-using ::qmmf::display::SurfaceBuffer;
-using ::qmmf::display::SurfaceParam;
-using ::qmmf::display::SurfaceConfig;
-using ::qmmf::display::SurfaceBlending;
-using ::qmmf::display::SurfaceFormat;
 
 struct TimeLapseParams {
   uint32_t              camera_id;
@@ -94,20 +83,6 @@ class TimeLapse {
                   uint32_t image_sequence_count,
                   BufferDescriptor buffer, MetaData meta_data);
 
-#ifndef DISABLE_DISPLAY
-  void DisplayCallbackHandler(DisplayEventType event_type,
-                              void *event_data, size_t event_data_size);
-
-  void DisplayVSyncHandler(int64_t time_stamp);
-
-  status_t StartDisplay(DisplayType display_type);
-
-  status_t StopDisplay(DisplayType display_type);
-
-  status_t PushFrameToDisplay(BufferDescriptor& buffer,
-                              CameraBufferMetaData& meta_data);
-#endif
-
   Recorder              recorder_;
   CameraMetadata        static_info_;
   TimeLapseParams       params_;
@@ -121,14 +96,6 @@ class TimeLapse {
 
 
   static const uint32_t kPreviewTrackId;
-
-#ifndef DISABLE_DISPLAY
-  Display*   display_;
-  uint32_t   surface_id_;
-  SurfaceParam surface_param_;
-  SurfaceBuffer surface_buffer_;
-  bool display_started_;
-#endif
 };
 
 } //namespace timelapse ends here

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -55,7 +55,6 @@ namespace qmmf {
 
 #ifndef CAMERA_HAL1_SUPPORT
 using namespace cameraadaptor;
-using namespace overlay;
 #endif
 using namespace android;
 using namespace avcodec;
@@ -88,16 +87,6 @@ class CameraSource {
 
   /// Close Camera.
   status_t StopCamera(const uint32_t camera_id);
-
-  /// Add multiple Cameras
-  status_t CreateMultiCamera(const std::vector<uint32_t> camera_ids,
-                             uint32_t *virtual_camera_id);
-
-  /// Configure multiple Cameras
-  status_t ConfigureMultiCamera(const uint32_t virtual_camera_id,
-                                const MultiCameraConfigType type,
-                                const void *param,
-                                const uint32_t param_size);
 
   /// Get number of supported Cameras.
   status_t GetNumberOfCameras(SupportedCameras &cameras);
@@ -184,40 +173,6 @@ class CameraSource {
   status_t EnableFrameRepeat(const uint32_t track_id,
                              const bool enable_frame_repeat);
 
-  /// Create Overlay object
-  status_t CreateOverlayObject(const uint32_t track_id,
-                               OverlayParam *param,
-                               uint32_t *overlay_id);
-
-  /// Delete Overlay object parameters
-  status_t DeleteOverlayObject(const uint32_t track_id,
-                               const uint32_t overlay_id);
-
-  /// Delete Overlay object parameters in a batch
-  status_t DeleteOverlayObjects(const uint32_t track_id);
-
-  /// Get Overlay object parameters
-  status_t GetOverlayObjectParams(const uint32_t track_id,
-                                  const uint32_t overlay_id,
-                                  OverlayParam &param);
-
-  /// Update Overlay object parameters
-  status_t UpdateOverlayObjectParams(const uint32_t track_id,
-                                     const uint32_t overlay_id,
-                                     OverlayParam *param);
-
-  /// Process Overlay objects in batch
-  status_t ProcessOverlayObjects(const uint32_t track_id,
-                                 const std::vector<OverlayParam>& overlay_list);
-
-  /// Set Overlay object parameters
-  status_t SetOverlayObject(const uint32_t track_id,
-                            const uint32_t overlay_id);
-
-  /// Remove Overlay object
-  status_t RemoveOverlayObject(const uint32_t track_id,
-                               const uint32_t overlay_id);
-
   /// Register Flush Callback
   status_t SetFlushCb(const uint32_t camera_id, FlushCb &cb);
 
@@ -262,10 +217,6 @@ class CameraSource {
   std::map<uint32_t, std::shared_ptr<TrackSource>> track_sources_;
 
   SnapshotCb client_snapshot_cb_;
-
-#ifndef CAMERA_HAL1_SUPPORT
-  std::shared_ptr<PostProcFactory> factory_;
-#endif
 
   SupportedCameras supported_cameras_;
 
@@ -346,37 +297,6 @@ class TrackSource : public ICodecSource {
   /// Return buffers to producer
   void ClearInputQueue();
 
-  // Overlay Apis. TrackSource has instance of Overlay to deal with static
-  // and dynamic types of overlay.
-
-  /// Create Overlay object
-  status_t CreateOverlayObject(OverlayParam *param, uint32_t *overlay_id);
-
-  /// Delete Overlay object
-  status_t DeleteOverlayObject(const uint32_t overlay_id);
-
-  /// Delete Overlay object in batch
-  status_t DeleteOverlayObjects();
-
-  /// Get Overlay object parameters
-  status_t GetOverlayObjectParams(const uint32_t overlay_id,
-                                  OverlayParam &param);
-
-
-  /// Update Overlay object parameters
-  status_t UpdateOverlayObjectParams(const uint32_t overlay_id,
-                                     OverlayParam *param);
-
-  /// Process Overlay objects in batch
-  status_t ProcessOverlayObjects(const std::vector<OverlayParam> &overlay_list);
-
-
-  /// Set Overlay object parameters
-  status_t SetOverlayObject(const uint32_t overlay_id);
-
-  /// Remove Overlay objects
-  status_t RemoveOverlayObject(const uint32_t overlay_id);
-
   /// Change frame rate
   void UpdateFrameRate(const float frame_rate);
 
@@ -390,21 +310,10 @@ class TrackSource : public ICodecSource {
 
   /// Sets source track and enable track duplication
   status_t InitCopy(std::shared_ptr<TrackSource> track_source,
-                    const std::shared_ptr<CameraRescaler>& rescaler,
-                    int32_t port_track_id,
-                    int32_t track_id_master);
-
-  /// Return connected Camera port
-  bool IsConnectedToCameraPort() { return connected_tocamera_port_;};
+                    const std::shared_ptr<CameraRescaler>& rescaler);
 
   /// Return if the source of this track is another track
   bool IsSlaveTrack() {return slave_track_source_; };
-
-  /// Return master Track ID
-  int32_t GetMasterTrackId();
-
-  /// Return port Track ID
-  int32_t GetCameraPortId();
 
   /// Add track source Consumer
   status_t AddConsumer(const sp<IBufferConsumer>& consumer);
@@ -471,10 +380,6 @@ class TrackSource : public ICodecSource {
   TSQueue<StreamBuffer> frames_being_encoded_;
 
   std::shared_ptr<CameraInterface>   camera_interface_;
-#ifndef CAMERA_HAL1_SUPPORT
-  Overlay  overlay_;
-  uint32_t active_overlays_;
-#endif
   float   input_frame_rate_;
   double  input_frame_interval_;
   double  output_frame_interval_;
@@ -496,11 +401,7 @@ class TrackSource : public ICodecSource {
   std::shared_ptr<FrameRateController> frc_;
   std::shared_ptr<CameraRescaler>  rescaler_;
 
-  bool  connected_tocamera_port_;
   bool  slave_track_source_;
-
-  int32_t track_id_master_;
-  int32_t port_track_id_;
 
   sp<IBufferProducer>    buffer_producer_impl_;
   std::mutex             consumer_lock_;

@@ -655,6 +655,10 @@ status_t CameraRescalerMemPool::AllocHWMemBuffer(IBufferHandle &buf) {
   if (atoi(prop) == 1) {
     // Handle UBWC aligned Buffer
     usage.flags |= IMemAllocUsage::kPrivateAllocUbwc;
+    // Remove the CPU read/write flags since they are confusing GBM
+    // when UBWC flag is set which causes the allocated buffer to be plain NV12
+    usage.flags &= ~(IMemAllocUsage::kSwWriteOften |
+        IMemAllocUsage::kSwReadOften);
   }
 
   if (!width || !height) {

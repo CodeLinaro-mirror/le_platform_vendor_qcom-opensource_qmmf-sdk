@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -40,12 +40,7 @@ namespace qmmf {
 namespace recorder {
 
 enum ParamTag {
-  QMMF_SOURCE_SURFACE_DESCRIPTOR = (1 << 16),
-  QMMF_SURFACE_CROP,
-  QMMF_MULTICAM_STITCH_CONFIG,
-  QMMF_POSTPROCESS_PLUGIN,
-  QMMF_POSTPROCESS_FRAME_SKIP,
-  QMMF_JPEG_CAPTURE_SETUP,
+  QMMF_JPEG_CAPTURE_SETUP = (1 << 16),
   QMMF_SOURCE_VIDEO_TRACK_ID,
   QMMF_VIDEO_TIMELAPSE_INTERVAL,
   QMMF_IMAGE_THUMBNAIL,
@@ -61,6 +56,7 @@ enum ParamTag {
   QMMF_CAMERA_SLAVE_MODE,
   QMMF_CPU_CACHE,
   QMMF_USE_LINKED_TRACK_IN_SLAVE_MODE,
+  QMMF_LDC,
 };
 
 enum class RotationFlags {
@@ -68,45 +64,6 @@ enum class RotationFlags {
   kRotate90,
   kRotate180,
   kRotate270,
-};
-
-enum class TransformFlags {
-  kNone      = 0,
-  kHFlip     = (1 << 0),
-  kVFlip     = (1 << 1),
-  kRotate90  = (1 << 2),
-  kRotate180 = (1 << 3),
-  kRotate270 = (1 << 4),
-};
-
-enum class StitchingMode {
-  kNone,
- /**< Input frames/images are timestamp synchronized but no stitching is */
- /**< applied on them and are passed as separate outputs to the upper layers. */
-  k360Default,
-/**< Input frames/images are timestamp synchronized and passed to a 360     */
-/**< stitching library in which the 1st input surface is placed on the left */
-/**< while each subsequent surface is placed next to it on the right and a  */
-/**< 360 algorithm is applied.                                              */
-  k360Trifold,
-/**< Input frames/images are timestamp synchronized and passed to a 360      */
-/**< stitching library in which the 1st input surface content will be placed */
-/**< in the center of the equirectangular output, and the second surface is  */
-/**< split into 2 halves and a 360 algorithm is applied.                     */
-  kSideBySideRow,
-/**< Input frames/images are timestamp synchronized and passed to a library   */
-/**< which produces one frame/image containing both inputs stitched in a row, */
-/**< next to each other from left to right, as they are.                      */
-  kSideBySideColumn,
-/**< Input frames/images are timestamp synchronized and passed to a library  */
-/**< which produces one frame/image containing both inputs stitched in a     */
-/**< column from top to bottom, as they are.                                 */
-  kCustomComposition
-/**< Input frames/images are timestamp synchronized                          */
-/**< and passed to a library in */
-/**< which the scale and position of each input surface is determined by the */
-/**< client via the QMMF_SURFACE_PLACEMENT tag structure.                    */
-/**< TODO: Not implemented. Do not use!                                      */
 };
 
 enum class SnapshotMode {
@@ -140,72 +97,6 @@ enum class SlaveMode {
   kMaster,
   /**< Camera Slave mode */
   kSlave,
-};
-
-struct SourceSurfaceDesc : DataTagBase {
-  /**< ID of the camera whose surface dimensions will be set. */
-  int32_t camera_id;    // Default: -1
-  /**< Width in pixels of the source surface. */
-  uint32_t width;       // Default: 0
-  /**< Height in pixels of the source surface. */
-  uint32_t height;      // Default: 0
-  /**< Transformations that will be applied on the source surface. */
-  TransformFlags flags; // Default: TransformFlags::kNone
-
-
-  SourceSurfaceDesc()
-    : DataTagBase(QMMF_SOURCE_SURFACE_DESCRIPTOR),
-      camera_id(-1), width(0), height(0), flags(TransformFlags::kNone) {}
-};
-
-struct SurfaceCrop : DataTagBase {
-  int32_t camera_id;  // Default: -1
-  /**< Y-axis coordinate of the crop rectangle top left starting point. */
-  /**< The coordinate system begins from the top left corner of the source. */
-  uint32_t x;         // Default: 0
-  /**< X-axis coordinate of the crop rectangle top left starting point. */
-  /**< The coordinate system begins from the top left corner of the source. */
-  uint32_t y;         // Default: 0
-  /**< Width in pixels of the crop rectangle. */
-  uint32_t width;     // Default: 0
-  /**< Height in pixels of the crop rectangle. */
-  uint32_t height;    // Default: 0
-
-  SurfaceCrop()
-    : DataTagBase(QMMF_SURFACE_CROP),
-      camera_id(-1), x(0), y(0), width(0), height(0) {}
-};
-
-struct MultiCamStitchConfig : DataTagBase {
-  /**< Type of frame stitching that will be applied. */
-  StitchingMode mode;   // Default: StitchingMode::k360Default
-  /**< Transformation applied on the stitched frames. */
-  TransformFlags flags; // Default: TransformFlags::kNone
-
-  MultiCamStitchConfig()
-    : DataTagBase(QMMF_MULTICAM_STITCH_CONFIG),
-      mode(StitchingMode::k360Default),
-      flags(TransformFlags::kNone) {}
-};
-
-struct PostprocPlugin : DataTagBase {
-  /**< Unique id of the plugin. */
-  uint32_t uid;     // Default: 0
-
-  PostprocPlugin()
-    : DataTagBase(QMMF_POSTPROCESS_PLUGIN),
-      uid(0) {}
-};
-
-struct PostprocFrameSkip : DataTagBase {
-  /**< Number of skip frames for each sent frame */
-  uint32_t frame_skip;     // Default: 0 means no skip
-  uint32_t source_framerate;
-
-  PostprocFrameSkip()
-    : DataTagBase(QMMF_POSTPROCESS_FRAME_SKIP),
-      frame_skip(0),
-      source_framerate(30) {}
 };
 
 struct HighQualityCaptureSetup : DataTagBase {
@@ -376,6 +267,16 @@ struct LinkedTrackInSlaveMode : DataTagBase {
   LinkedTrackInSlaveMode() :
     DataTagBase(QMMF_USE_LINKED_TRACK_IN_SLAVE_MODE),
     enable(false) {
+  }
+};
+
+struct LDCMode : DataTagBase {
+  /**< Add support for client to enable/disable */
+  /**< LDC (Lens Distortion Correction). */
+  /**< Default: False */
+  bool enable;
+  LDCMode() :
+    DataTagBase(QMMF_LDC), enable(false) {
   }
 };
 

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+* Copyright (c) 2018,2020 The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -29,47 +29,12 @@
 
 #pragma once
 
-#include <sys/mman.h>
-#include <fcntl.h>
+#include "qmmf_gtest_common.h"
 
-#include <sdm/core/layer_buffer.h>
-#include <sdm/core/buffer_allocator.h>
-
-namespace gralloc {
-
-class IAllocController;
-
-}  // namespace gralloc
-
-namespace qmmf {
-
-namespace display {
-
-using namespace sdm;
-
-class DisplayBufferAllocator : public BufferAllocator {
+class VideoGtest : public GtestCommon  {
  public:
-  DisplayBufferAllocator();
+  VideoGtest() {}
 
-  DisplayError AllocateBuffer(BufferInfo *buffer_info) override;
-  DisplayError FreeBuffer(BufferInfo *buffer_info) override;
-  uint32_t GetBufferSize(BufferInfo *buffer_info) override;
-  DisplayError GetBufferInfo(BufferInfo *buffer_info, int32_t &aligned_width,
-      int32_t &aligned_height);
-  DisplayError GetAllocatedBufferInfo(const BufferConfig &buffer_config,
-      AllocatedBufferInfo *allocated_buffer_info) override;
-
- private:
-  struct MetaBufferInfo {
-    int alloc_type;  //!< Specifies allocation type set by the buffer allocator.
-    void *base_addr; //!< Specifies base address of the allocated output buffer.
-  };
-
-  int SetBufferInfo(LayerBufferFormat format, int *target, int *flags);
-
-  gralloc::IAllocController *alloc_controller_;
+  ~VideoGtest() {}
 };
 
-}; // namespace display
-
-}; //namespace qmmf

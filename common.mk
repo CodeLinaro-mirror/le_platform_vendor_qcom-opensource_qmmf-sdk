@@ -39,10 +39,6 @@ LOCAL_EXPORT_C_INCLUDE_DIRS := $(QMMF_SDK_TOP_SRCDIR)/include
 
 LOCAL_32_BIT_ONLY := true
 
-ifeq ($(DISABLE_DISPLAY),1)
-LOCAL_CFLAGS += -DDISABLE_DISPLAY
-endif
-
 # Enable libs/bins installation into vendor
 ifeq ($(IS_ANDROID_O_OR_ABOVE),true)
 LOCAL_VENDOR_MODULE := true
@@ -119,13 +115,6 @@ endif #FLUSH_RESTART_NOTAVAILABLE
 ifeq ($(TARGET_BOARD_PLATFORM),qcs605)
 LOCAL_CFLAGS += -DQCAMERA3_TAG_LOCAL_COPY
 endif #QCAMERA3_TAG_LOCAL_COPY
-
-# Display service v1, gralloc1 and updated sdm interface
-ifeq ($(TARGET_BOARD_PLATFORM),qcs605)
-ifeq ($(TARGET_USES_GRALLOC1),true)
-LOCAL_CFLAGS += -DQMMF_DISPLAY_INTF_v1
-endif
-endif #QMMF_DISPLAY_INTF_v1
 
 # Disable Rescaler Colorspace
 ifeq ($(TARGET_BOARD_PLATFORM),qcs605)

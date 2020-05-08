@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -39,6 +39,13 @@ namespace qmmf {
 
 namespace recorder {
 
+enum class StreamFlags : uint32_t {
+  kNone = 0,         /// No flag is set.
+  kWaitAEC = 1 << 0, /// Wait for AEC to converge.
+  kEncoded = 1 << 1, /// Encoded stream.
+  kCached = 1 << 2,  /// Buffers are cached.
+};
+
 struct StreamParam {
   uint32_t     id;
   uint32_t     width;
@@ -46,15 +53,12 @@ struct StreamParam {
   uint32_t     rotation;
   BufferFormat format;
   float        framerate;
-  bool         is_yuv_track;
-  bool         wait_aec_mode;
-  bool         is_caching_enabled;
+  uint32_t     stream_flags;
 
   StreamParam()
       :  id(0), width(0), height(0), rotation(0),
          format(BufferFormat::kUnsupported), framerate(0.0),
-         is_yuv_track(false), wait_aec_mode(false),
-         is_caching_enabled(true){}
+         stream_flags(static_cast<uint32_t>(StreamFlags::kCached)) {}
 };
 
 struct SnapshotParam {

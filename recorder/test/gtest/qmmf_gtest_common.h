@@ -49,15 +49,9 @@
 //#include <system/graphics.h>
 
 #include <qmmf-sdk/qmmf_queue.h>
-#include <qmmf-sdk/qmmf_display.h>
-#include <qmmf-sdk/qmmf_display_params.h>
 #include <qmmf-sdk/qmmf_recorder.h>
 #include <qmmf-sdk/qmmf_recorder_params.h>
 #include <qmmf-sdk/qmmf_recorder_extra_param_tags.h>
-
-#ifndef CAMERA_HAL1_SUPPORT
-#include <qmmf-alg/overlay_configuration.h>
-#endif
 
 #include "common/utils/qmmf_log.h"
 
@@ -67,7 +61,6 @@
 #endif
 
 #define DUMP_META_PATH "/data/misc/qmmf/param.dump"
-#define OVERLAY_TEST_FILE "/data/misc/qmmf/overlay_test.rgba"
 
 #ifdef USE_SURFACEFLINGER
 #include <sys/mman.h>
@@ -112,21 +105,17 @@
 
 using namespace qmmf;
 using namespace recorder;
-using namespace overlay;
 using namespace android;
-using ::qmmf::display::DisplayEventType;
-using ::qmmf::display::DisplayType;
-using ::qmmf::display::Display;
-using ::qmmf::display::DisplayCb;
-using ::qmmf::display::SurfaceBuffer;
-using ::qmmf::display::SurfaceParam;
-using ::qmmf::display::SurfaceConfig;
-using ::qmmf::display::SurfaceBlending;
-using ::qmmf::display::SurfaceFormat;
 
 static const uint32_t kZslWidth      = 3840;
 static const uint32_t kZslHeight     = 2160;
 static const uint32_t kZslQDepth     = 10;
+
+static const uint32_t kFirstStreamID  = 1;
+static const uint32_t kSecondStreamID = 2;
+static const uint32_t kThirdStreamID  = 3;
+static const uint32_t kFourthStreamID = 4;
+static const uint32_t kFifthStreamID  = 5;
 
 #define TEXT_SIZE                 40
 #define DATETIME_PIXEL_SIZE       30
@@ -159,13 +148,52 @@ struct FaceInfo {
   std::vector<Rect<uint32_t>> face_rect;
 };
 
-#define DEFAULT_YUV_DUMP_FREQ       "200"
-#define DEFAULT_ITERATIONS          "50"
-#define DEFAULT_BURST_COUNT         "15"
-#define IMAGE_QUALITY               "95"
+#define DEFAULT_YUV_DUMP_FREQ            "200"
+#define DEFAULT_ITERATIONS               "50"
+#define DEFAULT_BURST_COUNT              "15"
+#define IMAGE_QUALITY                    "95"
+#define DEFAULT_SNAPSHOT_COUNT           "5"
 
 // Default recording duration is 2 minutes i.e. 2 * 60 seconds
-#define DEFAULT_RECORD_DURATION     "120"
+#define DEFAULT_RECORD_DURATION          "120"
+// Default Camera FPS
+#define DEFAULT_CAMERA_FPS               "30.0"
+
+// Default Values for First Stream
+#define DEFAULT_FIRST_STREAM_WIDTH       "1920"
+#define DEFAULT_FIRST_STREAM_HEIGHT      "1080"
+#define DEFAULT_FIRST_STREAM_FPS         "30.0"
+#define DEFAULT_FIRST_STREAM_FORMAT      "AVC"
+
+// Default Values for Second Stream
+#define DEFAULT_SECOND_STREAM_WIDTH      "1280"
+#define DEFAULT_SECOND_STREAM_HEIGHT     "720"
+#define DEFAULT_SECOND_STREAM_FPS        "30.0"
+#define DEFAULT_SECOND_STREAM_FORMAT     "AVC"
+
+// Default Values for Third Stream
+#define DEFAULT_THIRD_STREAM_WIDTH       "1280"
+#define DEFAULT_THIRD_STREAM_HEIGHT      "720"
+#define DEFAULT_THIRD_STREAM_FPS         "30.0"
+#define DEFAULT_THIRD_STREAM_FORMAT      "AVC"
+
+// Default Values for fourth Stream
+#define DEFAULT_FOURTH_STREAM_WIDTH      "720"
+#define DEFAULT_FOURTH_STREAM_HEIGHT     "480"
+#define DEFAULT_FOURTH_STREAM_FPS        "30.0"
+#define DEFAULT_FOURTH_STREAM_FORMAT     "AVC"
+
+// Default Values for Fifth Stream
+#define DEFAULT_FIFTH_STREAM_WIDTH       "320"
+#define DEFAULT_FIFTH_STREAM_HEIGHT      "240"
+#define DEFAULT_FIFTH_STREAM_FPS         "30.0"
+#define DEFAULT_FIFTH_STREAM_FORMAT      "AVC"
+
+// Default Values of Snapshot Stream
+#define DEFAULT_SNAPSHOT_STREAM_WIDTH    "1920"
+#define DEFAULT_SNAPSHOT_STREAM_HEIGHT   "1080"
+#define DEFAULT_SNAPSHOT_STREAM_FORMAT   "JPEG"
+#define DEFAULT_PROP_SNAPSHOT_MODE       "Video"
 
 // Prop to enable the dump to external storage
 #define PROP_DUMP_TO_EXT            "persist.qmmf.gtest.dumptoext"
@@ -189,20 +217,6 @@ struct FaceInfo {
 #define PROP_DUMP_THUMBNAIL         "persist.qmmf.rec.gtest.thumb"
 // Prop to set Burst snapshot count
 #define PROP_BURST_N_IMAGES         "persist.qmmf.rec.gtest.burstcnt"
-
-// Prop to set Track Resolutions and FPS
-#define PROP_TRACK1_WIDTH           "persist.qmmf.rec.gtest.t1.w"
-#define PROP_TRACK1_HEIGHT          "persist.qmmf.rec.gtest.t1.h"
-#define PROP_TRACK1_FPS             "persist.qmmf.rec.gtest.t1.fps"
-#define PROP_TRACK2_WIDTH           "persist.qmmf.rec.gtest.t2.w"
-#define PROP_TRACK2_HEIGHT          "persist.qmmf.rec.gtest.t2.h"
-#define PROP_TRACK2_FPS             "persist.qmmf.rec.gtest.t2.fps"
-// Prop to update Camera Parameters: SHDR and TNR
-#define PROP_CAM_PARAMS1            "persist.qmmf.rec.gtest.cam.par1"
-#define PROP_CAM_PARAMS2            "persist.qmmf.rec.gtest.cam.par2"
-// Prop to determine whether to create or delete session
-#define PROP_TRACK1_DELETE          "persist.qmmf.rec.gtest.t1.del"
-#define PROP_SESSION2_CREATE        "persist.qmmf.rec.gtest.s2.creat"
 // Prop to set JPEG Quality
 #define PROP_JPEG_QUALITY           "persist.qmmf.rec.gtest.jpegq"
 // Prop to set CDS sensitivity threshold
@@ -215,8 +229,6 @@ struct FaceInfo {
 #define PROP_TOGGLE_DISPLAY_USAGE   "persist.qmmf.rec.gtest.display"
 // Prop to set video timelapse interval
 #define PROP_TIMELAPSE_INTERVAL     "persist.qmmf.rec.gtest.tlapse"
-// Prop to enable/disable overlay usage
-#define PROP_TOGGLE_OVERLAY_USAGE   "persist.qmmf.rec.gtest.overlay"
 // Prop to enable debugging frames
 #define PROP_FRAME_DEBUG            "persist.qmmf.rec.gtest.frm.dbg"
 // Prop to set force sensor mode config file
@@ -225,6 +237,59 @@ struct FaceInfo {
 #define PROP_MEASURE_SOF_LATENCY    "persist.qmmf.rec.gtest.sof.ts"
 // Prop to set Auto Focus mode
 #define PROP_AF_MODE                "persist.qmmf.rec.gtest.af.mode"
+
+// Prop to set camera fps in StartCamera API
+#define PROP_CAMERA_FPS             "persist.qmmf.gtest.cam.fps"
+// Prop to set EIS
+#define PROP_EIS                    "persist.qmmf.gtest.eis"
+// Prop to set SHDR
+#define PROP_SHDR                   "persist.qmmf.gtest.shdr"
+// Prop to set LDC
+#define PROP_LDC                    "persist.qmmf.gtest.ldc"
+// Prop to enable Snapshot Stream
+#define PROP_SNAPSHOT_STREAM_ON     "persist.qmmf.snapshot.stream.on"
+// Prop to set number of snpshot in a test
+#define PROP_NUM_SNAPSHOT           "persist.qmmf.snapshot.count"
+
+// Prop for First Stream
+#define PROP_FIRST_STREAM_WIDTH      "persist.qmmf.stream.1.w"
+#define PROP_FIRST_STREAM_HEIGHT     "persist.qmmf.stream.1.h"
+#define PROP_FIRST_STREAM_FPS        "persist.qmmf.stream.1.fps"
+#define PROP_FIRST_STREAM_FORMAT     "persist.qmmf.stream.1.fmt"
+
+// Prop for Second Stream
+#define PROP_SECOND_STREAM_WIDTH     "persist.qmmf.stream.2.w"
+#define PROP_SECOND_STREAM_HEIGHT    "persist.qmmf.stream.2.h"
+#define PROP_SECOND_STREAM_FPS       "persist.qmmf.stream.2.fps"
+#define PROP_SECOND_STREAM_FORMAT    "persist.qmmf.stream.2.fmt"
+#define PROP_SECOND_STREAM_SOURCE_ID "persist.qmmf.stream.2.src.id"
+
+// Prop for Third Stream
+#define PROP_THIRD_STREAM_WIDTH      "persist.qmmf.stream.3.w"
+#define PROP_THIRD_STREAM_HEIGHT     "persist.qmmf.stream.3.h"
+#define PROP_THIRD_STREAM_FPS        "persist.qmmf.stream.3.fps"
+#define PROP_THIRD_STREAM_FORMAT     "persist.qmmf.stream.3.fmt"
+#define PROP_THIRD_STREAM_SOURCE_ID  "persist.qmmf.stream.3.src.id"
+
+// Prop for Fourth Stream
+#define PROP_FOURTH_STREAM_WIDTH     "persist.qmmf.stream.4.w"
+#define PROP_FOURTH_STREAM_HEIGHT    "persist.qmmf.stream.4.h"
+#define PROP_FOURTH_STREAM_FPS       "persist.qmmf.stream.4.fps"
+#define PROP_FOURTH_STREAM_FORMAT    "persist.qmmf.stream.4.fmt"
+#define PROP_FOURTH_STREAM_SOURCE_ID "persist.qmmf.stream.4.src.id"
+
+// Prop for Fivth Stream
+#define PROP_FIFTH_STREAM_WIDTH      "persist.qmmf.stream.5.w"
+#define PROP_FIFTH_STREAM_HEIGHT     "persist.qmmf.stream.5.h"
+#define PROP_FIFTH_STREAM_FPS        "persist.qmmf.stream.5.fps"
+#define PROP_FIFTH_STREAM_FORMAT     "persist.qmmf.stream.5.fmt"
+#define PROP_FIFTH_STREAM_SOURCE_ID  "persist.qmmf.stream.5.src.id"
+
+// Prop for Snapshot Stream
+#define PROP_SNAPSHOT_STREAM_WIDTH   "persist.qmmf.snap.stream.w"
+#define PROP_SNAPSHOT_STREAM_HEIGHT  "persist.qmmf.snap.stream.h"
+#define PROP_SNAPSHOT_STREAM_FORMAT  "persist.qmmf.snap.stream.fmt"
+#define PROP_SNAPSHOT_MODE           "persist.qmmf.snapshot.mode"
 
 #ifndef MAX
 #define MAX(a,b) ((a) > (b) ? (a) : (b))
@@ -296,6 +361,14 @@ typedef struct TriggerParams {
   float end;
   int32_t fog_p;
 } TriggerParams;
+
+typedef struct VideoStreamInfo {
+  uint32_t width;
+  uint32_t height;
+  float fps;
+  uint32_t source_stream_id;
+  VideoFormat format;
+} VideoStreamInfo;
 
 typedef struct FogSceneDetectionParams {
   TriggerParams dnr_trigger[3];  // [0]: flat_scene, [1]: fog_scene, [2]:
@@ -531,6 +604,22 @@ class GtestCommon : public ::testing::Test {
 
   int32_t DeInit();
 
+  void SetVideoStreamFormat(char prop[], VideoFormat &format);
+
+  void SetSnapShotStreamFormat(char prop[]);
+
+  void PrintStreamInfo(uint32_t num);
+
+  void SetSnapshotMode(char prop[]);
+
+  std::string GetSnapshotStreamFormat ();
+
+  std::string GetVideoStreamFormat (VideoFormat &fmt);
+
+  std::string GetSnapshotMode();
+
+  void SetCameraExtraParam(CameraExtraParam &param);
+
   void InitSupportedVHDRModes();
   bool IsVHDRSupported();
   void InitSupportedNRModes();
@@ -628,13 +717,6 @@ class GtestCommon : public ::testing::Test {
 
   bool VendorTagExistsInMeta(const CameraMetadata& meta, const String8& name,
                              const String8& section, uint32_t* tag_id);
-
-  void CreatePrivacyMaskOverlay(const uint32_t& video_track_id,
-                                const int32_t& width, const int32_t& height,
-                                uint32_t* mask_id);
-
-  void DestroyPrivacyMaskOverlay (const uint32_t& video_track_id,
-                                  const uint32_t& mask_id);
 #endif
 
   Recorder              recorder_;
@@ -685,8 +767,6 @@ class GtestCommon : public ::testing::Test {
                                         uint32_t &width,
                                         uint32_t &height);
 
-  status_t DrawOverlay(void *data, int32_t width, int32_t height);
-
   void ExtractColorValues(uint32_t hex_color, RGBAValues* color);
 
   void ClearSurface();
@@ -694,6 +774,8 @@ class GtestCommon : public ::testing::Test {
   status_t FillCropMetadata(CameraMetadata& meta, int32_t sensor_mode_w,
                             int32_t sensor_mode_h, int32_t crop_x,
                             int32_t crop_y, int32_t crop_w, int32_t crop_h);
+
+  void ConfigureAndTakeSnapshot();
 
   SessionCb CreateSessionStatusCb() {
     SessionCb session_status_cb;
@@ -705,33 +787,10 @@ class GtestCommon : public ::testing::Test {
     return session_status_cb;
   }
 
-  void DisplayCallbackHandler(DisplayEventType event_type, void *event_data,
-                              size_t event_data_size);
-
-  void DisplayVSyncHandler(int64_t time_stamp);
-
-#ifndef CAMERA_HAL1_SUPPORT
-  status_t StartDisplay(DisplayType display_type,
-                     uint32_t src_width, uint32_t src_height,
-                     uint32_t dst_width, uint32_t dst_height);
-
-  status_t StopDisplay(DisplayType display_type);
-
-  status_t PushFrameToDisplay(BufferDescriptor &buffer,
-                              CameraBufferMetaData &meta_data);
-#endif
-
-#ifndef DISABLE_DISPLAY
-  int32_t DequeueGfxSurfaceBuffer();
-
-  int32_t QueueGfxSurfaceBuffer();
-#endif
-
   std::vector<uint32_t> face_bbox_id_;
   bool face_bbox_active_;
   uint32_t face_track_id_;
   struct FaceInfo face_info_;
-  std::mutex face_overlay_lock_;
 #if USE_SKIA
   SkCanvas*            canvas_;
 #elif USE_CAIRO
@@ -774,30 +833,29 @@ class GtestCommon : public ::testing::Test {
   bool                  camera_error_;
   float                 eis_h_margin_;
   float                 eis_v_margin_;
-  bool                  is_apply_overlay_;
   float                 timelapse_interval_;
   bool                  is_frame_debug_enabled_;
   std::string           sensor_mode_file_name_;
 
-  bool                  use_display_;
-  bool                  display_started_;
-  Display               *display_;
   uint32_t              surface_id_;
-  SurfaceParam          surface_param_;
-  SurfaceBuffer         surface_buffer_;
-  SurfaceConfig         surface_config_;
-
-#ifndef DISABLE_DISPLAY
-  FILE                  *gfx_file;
-  bool                  enable_gfx_;
-  uint32_t              gfx_surface_id_;
-  SurfaceParam          gfx_surface_param_;
-  SurfaceBuffer         gfx_surface_buffer_;
-  SurfaceConfig         gfx_surface_config_;
-#endif
 
   bool                  enable_sof_latency_;
   uint8_t               af_mode_;
+
+  float                 camera_fps_;
+  bool                  is_eis_on_;
+  bool                  is_shdr_on_;
+  bool                  is_ldc_on_;
+
+  bool                  is_snap_stream_on_;
+  uint32_t              snap_width_;
+  uint32_t              snap_height_;
+  uint32_t              snap_count_;
+  ImageFormat           snap_format_;
+  SnapshotMode          snap_mode_;
+
+  // Map of Stream and its Parameter
+  std::map<uint32_t, VideoStreamInfo> stream_info_map_;
 #ifndef CAMERA_HAL1_SUPPORT
 #ifdef QCAMERA3_TAG_LOCAL_COPY
   sp<VendorTagDescriptor> vendor_tag_desc_;

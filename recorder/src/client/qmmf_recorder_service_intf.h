@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -42,7 +42,6 @@
 
 #include "qmmf-sdk/qmmf_recorder_params.h"
 #include "qmmf-sdk/qmmf_recorder_extra_param.h"
-#include "qmmf-sdk/qmmf_overlay.h"
 
 namespace qmmf {
 namespace recorder {
@@ -51,7 +50,6 @@ using namespace android;
 using ::std::setbase;
 using ::std::string;
 using ::std::stringstream;
-using namespace overlay;
 
 #define QMMF_RECORDER_SERVICE_NAME "qmmf_recorder.service"
 
@@ -89,16 +87,6 @@ enum QMMF_RECORDER_SERVICE_CMDS {
   RECORDER_GET_CAMERA_PARAMS,
   RECORDER_GET_DEFAULT_CAPTURE_PARAMS,
   RECORDER_GET_CAMERA_CHARACTERISTICS,
-  RECORDER_CREATE_OVERLAYOBJECT,
-  RECORDER_DELETE_OVERLAYOBJECT,
-  RECORDER_DELETE_OVERLAYOBJECTS,
-  RECORDER_GET_OVERLAYOBJECT_PARAMS,
-  RECORDER_UPDATE_OVERLAYOBJECT_PARAMS,
-  RECORDER_PROCESS_OVERLAYOBJECTS,
-  RECORDER_SET_OVERLAYOBJECT,
-  RECORDER_REMOVE_OVERLAYOBJECT,
-  RECORDER_CREATE_MULTICAMERA,
-  RECORDER_CONFIGURE_MULTICAMERA,
   RECORDER_GET_VENDOR_TAG_DESCRIPTOR,
 };
 
@@ -309,50 +297,6 @@ class IRecorderService : public IInterface {
   virtual status_t GetCameraCharacteristics(const uint32_t client_id,
                                             const uint32_t camera_id,
                                             CameraMetadata &meta) = 0;
-
-  virtual status_t CreateOverlayObject(const uint32_t client_id,
-                                       const uint32_t track_id,
-                                       OverlayParam *param,
-                                       uint32_t *overlay_id) = 0;
-
-  virtual status_t DeleteOverlayObject(const uint32_t client_id,
-                                       const uint32_t track_id,
-                                       const uint32_t overlay_id) = 0;
-
-  virtual status_t DeleteOverlayObjects(const uint32_t client_id,
-                                        const uint32_t track_id) = 0;
-
-  virtual status_t GetOverlayObjectParams(const uint32_t client_id,
-                                          const uint32_t track_id,
-                                          const uint32_t overlay_id,
-                                          OverlayParam &param) = 0;
-
-  virtual status_t UpdateOverlayObjectParams(const uint32_t client_id,
-                                             const uint32_t track_id,
-                                             const uint32_t overlay_id,
-                                             OverlayParam *param) = 0;
-
-  virtual status_t ProcessOverlayObjects(
-      const uint32_t client_id, const uint32_t track_id,
-      const std::vector<OverlayParam> &overlay_list) = 0;
-
-  virtual status_t SetOverlayObject(const uint32_t client_id,
-                                    const uint32_t track_id,
-                                    const uint32_t overlay_id) = 0;
-
-  virtual status_t RemoveOverlayObject(const uint32_t client_id,
-                                       const uint32_t track_id,
-                                       const uint32_t overlay_id) = 0;
-
-  virtual status_t CreateMultiCamera(const uint32_t client_id,
-                                     const std::vector<uint32_t> camera_ids,
-                                     uint32_t *virtual_camera_id) = 0;
-
-  virtual status_t ConfigureMultiCamera(const uint32_t client_id,
-                                        const uint32_t virtual_camera_id,
-                                        const MultiCameraConfigType type,
-                                        const void *param,
-                                        const uint32_t param_size) = 0;
 
   virtual status_t GetVendorTagDescriptor(sp<VendorTagDescriptor> &desc) = 0;
 };

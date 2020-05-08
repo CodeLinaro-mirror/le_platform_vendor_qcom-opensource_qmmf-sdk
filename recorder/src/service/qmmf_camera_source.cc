@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -39,11 +39,6 @@
 #include <hardware/camera3.h>
 #endif
 
-
-#ifndef CAMERA_HAL1_SUPPORT
-#include "recorder/src/service/qmmf_multicamera_manager.h"
-#include "recorder/src/service/post-process/factory/qmmf_postproc_factory.h"
-#endif
 #include "recorder/src/service/qmmf_camera_source.h"
 #include "recorder/src/service/qmmf_recorder_common.h"
 #include "recorder/src/service/qmmf_recorder_utils.h"
@@ -84,9 +79,6 @@ CameraSource::CameraSource() {
   QMMF_KPI_GET_MASK();
   QMMF_KPI_DETAIL();
   QMMF_INFO("%s: Enter", __func__);
-#ifndef CAMERA_HAL1_SUPPORT
-  factory_ = PostProcFactory::getInstance();
-#endif
   DetectCameras();
   QMMF_INFO("%s: Exit", __func__);
 }
@@ -96,10 +88,6 @@ CameraSource::~CameraSource() {
   QMMF_KPI_DETAIL();
   QMMF_INFO("%s: Enter", __func__);
   camera_map_.clear();
-#ifndef CAMERA_HAL1_SUPPORT
-  PostProcFactory::releaseInstance();
-  factory_ = nullptr;
-#endif
   instance_ = nullptr;
   QMMF_INFO("%s: Exit (0x%p)", __func__, this);
 }
@@ -141,45 +129,28 @@ status_t CameraSource::StartCamera(const uint32_t camera_id,
 
   QMMF_INFO("%s: Camera Id(%u) to open!", __func__, camera_id);
   QMMF_KPI_DETAIL();
-  bool is_virtual_camera_id = false;
-
-#ifndef CAMERA_HAL1_SUPPORT
-  is_virtual_camera_id = (kVirtualCameraIdOffset <= camera_id);
-#else
-  is_virtual_camera_id = false;//(kVirtualCameraIdOffset <= camera_id);
-#endif
   std::shared_ptr<CameraInterface> camera;
 
-  if (is_virtual_camera_id) {
-    if (camera_map_.count(camera_id) == 0) {
-      QMMF_ERROR("%s: Invalid Virtual Camera Id(%u)!", __func__, camera_id);
-      return BAD_VALUE;
-    }
-    camera = camera_map_[camera_id];
-  } else {
-    if (camera_map_.count(camera_id) != 0) {
-      QMMF_ERROR("%s: Camera Id(%u) is already open!", __func__, camera_id);
-      return BAD_VALUE;
-    }
-    camera = std::make_shared<CameraContext>();
-    if (!camera.get()) {
-      QMMF_ERROR("%s: Can't Instantiate CameraDevice(%d)!!",
-          __func__, camera_id);
-      return NO_MEMORY;
-    }
-
-    // Add contexts to map when in regular camera case.
-    camera_map_.emplace(camera_id, camera);
+  if (camera_map_.count(camera_id) != 0) {
+    QMMF_ERROR("%s: Camera Id(%u) is already open!", __func__, camera_id);
+    return BAD_VALUE;
   }
+  camera = std::make_shared<CameraContext>();
+  if (!camera.get()) {
+    QMMF_ERROR("%s: Can't Instantiate CameraDevice(%d)!!",
+        __func__, camera_id);
+    return NO_MEMORY;
+  }
+
+  // Add contexts to map when in regular camera case.
+  camera_map_.emplace(camera_id, camera);
 
   auto ret = camera->OpenCamera(camera_id, frame_rate, extra_param, cb, errcb);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: OpenCamera(%d) Failed!", __func__, camera_id);
-    if (!is_virtual_camera_id) {
-      camera = nullptr;
-      if (camera_map_.count(camera_id) != 0) {
-        camera_map_.erase(camera_id);
-      }
+    camera = nullptr;
+    if (camera_map_.count(camera_id) != 0) {
+      camera_map_.erase(camera_id);
     }
     return ret;
   }
@@ -210,61 +181,6 @@ status_t CameraSource::StopCamera(const uint32_t camera_id) {
   return NO_ERROR;
 }
 
-status_t CameraSource::CreateMultiCamera(const std::vector<uint32_t> camera_ids,
-                                         uint32_t *virtual_camera_id) {
-
-#ifndef CAMERA_HAL1_SUPPORT
-  QMMF_INFO("%s: Enter ", __func__);
-  QMMF_KPI_DETAIL();
-  std::shared_ptr<CameraInterface> multi_camera = std::make_shared<MultiCameraManager>();
-  if (!multi_camera.get()) {
-    QMMF_ERROR("%s: Can't Instantiate MultiCameraDevice!!", __func__);
-    return NO_MEMORY;
-  }
-
-  MultiCameraManager *camera_mgr =
-      static_cast<MultiCameraManager*>(multi_camera.get());
-
-  auto ret = camera_mgr->CreateMultiCamera(camera_ids, virtual_camera_id);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: CreateMultiCamera Failed!", __func__);
-    multi_camera = nullptr;
-    return NO_INIT;
-  }
-  // Adds only virtual cameras. Virtual camera is a camera used
-  // for 360 camera case.
-  camera_map_.insert(std::make_pair(*virtual_camera_id, multi_camera));
-  QMMF_INFO("%s: Exit ", __func__);
-#endif
-  return NO_ERROR;
-}
-
-status_t CameraSource::ConfigureMultiCamera(const uint32_t virtual_camera_id,
-                                            const MultiCameraConfigType type,
-                                            const void *param,
-                                            const uint32_t param_size) {
-
-  status_t ret = NO_ERROR;
-#ifndef CAMERA_HAL1_SUPPORT
-  if ((kVirtualCameraIdOffset > virtual_camera_id) ||
-      (camera_map_.end() == camera_map_.find(virtual_camera_id))) {
-    QMMF_ERROR("%s: Invalid Virtual Camera Id(%u)!", __func__,
-        virtual_camera_id);
-    return BAD_VALUE;
-  }
-
-  std::shared_ptr<CameraInterface> multi_camera;
-  assert(camera_map_.find(virtual_camera_id) != camera_map_.end());
-  multi_camera = camera_map_.find(virtual_camera_id)->second;
-  MultiCameraManager *camera_mgr =
-      static_cast<MultiCameraManager*>(multi_camera.get());
-
-  ret = camera_mgr->ConfigureMultiCamera(virtual_camera_id, type,
-                                         param, param_size);
-#endif
-  return ret;
-}
-
 status_t CameraSource::GetNumberOfCameras(SupportedCameras &cameras) {
 
   QMMF_DEBUG("%s: Enter", __func__);
@@ -279,14 +195,6 @@ status_t CameraSource::GetSupportedPlugins(SupportedPlugins *plugins) {
 
   QMMF_DEBUG("%s: Enter", __func__);
 
-#ifndef CAMERA_HAL1_SUPPORT
-  auto ret = factory_->GetSupportedPlugins(plugins);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: GetSupportedPlugins Failed!", __func__);
-    return ret;
-  }
-#endif
-
   QMMF_DEBUG("%s: Exit", __func__);
   return NO_ERROR;
 }
@@ -295,13 +203,6 @@ status_t CameraSource::CreatePlugin(uint32_t *uid, const PluginInfo &plugin) {
 
   QMMF_DEBUG("%s: Enter", __func__);
 
-#ifndef CAMERA_HAL1_SUPPORT
-  auto ret = factory_->CreatePlugin(*uid, plugin);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: CreatePlugin Failed!", __func__);
-    return ret;
-  }
-#endif
 
   QMMF_DEBUG("%s: Exit", __func__);
   return NO_ERROR;
@@ -311,14 +212,6 @@ status_t CameraSource::DeletePlugin(const uint32_t &uid) {
 
   QMMF_DEBUG("%s: Enter", __func__);
 
-#ifndef CAMERA_HAL1_SUPPORT
-  auto ret = factory_->DeletePlugin(uid);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: DeletePlugin Failed!", __func__);
-    return ret;
-  }
-#endif
-
   QMMF_DEBUG("%s: Exit", __func__);
   return NO_ERROR;
 }
@@ -327,14 +220,6 @@ status_t CameraSource::ConfigPlugin(const uint32_t &uid,
                                     const std::string &json_config) {
 
   QMMF_DEBUG("%s: Enter", __func__);
-
-#ifndef CAMERA_HAL1_SUPPORT
-  auto ret = factory_->ConfigPlugin(uid, json_config);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: ConfigPlugin Failed!", __func__);
-    return ret;
-  }
-#endif
 
   QMMF_DEBUG("%s: Exit", __func__);
   return NO_ERROR;
@@ -346,13 +231,6 @@ status_t CameraSource::ConfigPlugin(const uint32_t &uid,
 
   QMMF_DEBUG("%s: Enter", __func__);
 
-#ifndef CAMERA_HAL1_SUPPORT
-  auto ret = factory_->ConfigPlugin(uid, type, blob_config);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: ConfigPlugin Failed!", __func__);
-    return ret;
-  }
-#endif
 
   QMMF_DEBUG("%s: Exit", __func__);
   return NO_ERROR;
@@ -362,14 +240,6 @@ status_t CameraSource::GetPluginConfig(const uint32_t &uid,
                                        std::string &json_config) {
 
   QMMF_DEBUG("%s: Enter", __func__);
-
-#ifndef CAMERA_HAL1_SUPPORT
-  auto ret = factory_->GetPluginConfig(uid, json_config);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: ConfigPlugin Failed!", __func__);
-    return ret;
-  }
-#endif
 
   QMMF_DEBUG("%s: Exit", __func__);
   return NO_ERROR;
@@ -613,7 +483,6 @@ status_t CameraSource::CreateTrackSource(const uint32_t track_id,
   auto const& camera = camera_map_[camera_id];
 
   status_t ret = NO_ERROR;
-  int32_t port_track_id = -1;
   bool copy_stream_mode = false;
   bool linked_mode = false;
   VideoTrackParams source_track_params {};
@@ -628,28 +497,9 @@ status_t CameraSource::CreateTrackSource(const uint32_t track_id,
 
     if (ValidateSlaveTrackParam(track_params, track->getParams())) {
       linked_mode = CheckLinkedStream(track_params, track->getParams());
-      if (track->IsSlaveTrack()) {
-        int32_t master_track_id = track->GetMasterTrackId();
-        for (size_t i = 0; i < track_sources_.size(); i++) {
-          assert(track_sources_.count(master_track_id) != 0);
-          track = track_sources_[master_track_id];
-
-          if (track->IsSlaveTrack()) {
-            master_track_id = track->GetMasterTrackId();
-            continue;
-          } else {
-            port_track_id = track->GetCameraPortId();
-            break;
-          }
-        }
-      } else {
-        port_track_id = source_track_id;
-      }
-      if (port_track_id != -1) {
-        copy_stream_mode = true;
-        source_track_params = track->getParams();
-        QMMF_INFO("%s: Copy stream should be create.", __func__);
-      }
+      copy_stream_mode = true;
+      source_track_params = track->getParams();
+      QMMF_INFO("%s: Copy stream should be create.", __func__);
     } else {
       QMMF_ERROR("%s: Copy stream validation failed.", __func__);
     }
@@ -669,43 +519,33 @@ status_t CameraSource::CreateTrackSource(const uint32_t track_id,
   if (copy_stream_mode) {
     std::shared_ptr<CameraRescaler> rescaler;
     if (linked_mode == false) {
-      if (rescalers_.count(source_track_id) == 0 ||
-         (port_track_id == source_track_id)) {
-        rescaler = std::make_shared<CameraRescaler>();
-        auto format =
-            Common::FromVideoToQmmfFormat(track_params.params.format_type);
-        ret = rescaler->Init(track_params.params.width,
-                             track_params.params.height,
-                             format,
-                             source_track_params.params.frame_rate,
-                             track_params.params.frame_rate);
-        if (ret != NO_ERROR) {
-          rescaler = nullptr;
-          QMMF_ERROR("%s: Rescaler Init Failed", __func__);
-          return BAD_VALUE;
-        }
-        rescaler->Configure(GetRescalerConfig(track_params));
-        rescalers_.emplace(track_id, rescaler);
-      } else {
-        QMMF_ERROR("%s: GET Copy TrackSource Instance trackId: %x",
-            __func__, track_id);
-        rescaler = rescalers_.at(source_track_id);
+      rescaler = std::make_shared<CameraRescaler>();
+      auto format =
+          Common::FromVideoToQmmfFormat(track_params.params.format_type);
+      ret = rescaler->Init(track_params.params.width,
+                           track_params.params.height,
+                           format,
+                           source_track_params.params.frame_rate,
+                           track_params.params.frame_rate);
+      if (ret != NO_ERROR) {
+        rescaler = nullptr;
+        QMMF_ERROR("%s: Rescaler Init Failed", __func__);
+        return BAD_VALUE;
       }
-
-      assert(track_sources_.count(port_track_id) != 0);
-      master_track = track_sources_[port_track_id];
-    } else {
-      assert(track_sources_.count(source_track_id) != 0);
-      master_track = track_sources_[source_track_id];
+      rescaler->Configure(GetRescalerConfig(track_params));
+      rescalers_.emplace(track_id, rescaler);
     }
 
+    assert(track_sources_.count(source_track_id) != 0);
+    master_track = track_sources_[source_track_id];
     assert(master_track.get() != nullptr);
-    ret = track_source->InitCopy(
-        master_track, rescaler, port_track_id, source_track_id);
+
+    ret = track_source->InitCopy(master_track, rescaler);
     if (ret != NO_ERROR) {
-      QMMF_ERROR("%s: track_id(%x) CopyTrackSource Init failed!",
-          __func__, track_id);
+      QMMF_ERROR("%s: track_id(%x) TrackSource InitCopy failed!", __func__,
+         track_id);
       rescalers_.erase(track_id);
+      goto FAIL;
     }
   } else {
     if (track_params.params.format_type == VideoFormat::kRGB) {
@@ -713,13 +553,13 @@ status_t CameraSource::CreateTrackSource(const uint32_t track_id,
       goto FAIL;
     }
     ret = track_source->Init();
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s: track_id(%x) TrackSource Init failed!", __func__,
+          track_id);
+      goto FAIL;
+    }
   }
 
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: track_id(%x) TrackSource Init failed!", __func__,
-        track_id);
-    goto FAIL;
-  }
   track_sources_.emplace(track_id, track_source);
 
   QMMF_DEBUG("%s: Exit", __func__);
@@ -894,160 +734,6 @@ status_t CameraSource::EnableFrameRepeat(const uint32_t track_id,
   auto const& track = track_sources_[track_id];
 
   track->EnableFrameRepeat(enable_frame_repeat);
-  return NO_ERROR;
-}
-
-status_t CameraSource::CreateOverlayObject(const uint32_t track_id,
-                                           OverlayParam *param,
-                                           uint32_t *overlay_id) {
-
-#ifndef CAMERA_HAL1_SUPPORT
-  if (!IsTrackIdValid(track_id)) {
-    QMMF_ERROR("%s: Track(%x) does not exist !!", __func__, track_id);
-    return BAD_VALUE;
-  }
-  auto const& track = track_sources_[track_id];
-
-  auto ret = track->CreateOverlayObject(param, overlay_id);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: CreateOverlayObject failed!", __func__);
-    return BAD_VALUE;
-  }
-  return ret;
-#endif
-  return NO_ERROR;
-}
-
-status_t CameraSource::DeleteOverlayObject(const uint32_t track_id,
-                                           const uint32_t overlay_id) {
-
-#ifndef CAMERA_HAL1_SUPPORT
-  if (!IsTrackIdValid(track_id)) {
-    QMMF_ERROR("%s: Track(%x) does not exist !!", __func__, track_id);
-    return BAD_VALUE;
-  }
-  auto const& track = track_sources_[track_id];
-
-  auto ret = track->DeleteOverlayObject(overlay_id);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: DeleteOverlayObject failed!", __func__);
-    return BAD_VALUE;
-  }
-  return ret;
-#endif
-  return NO_ERROR;
-}
-
-status_t CameraSource::DeleteOverlayObjects(const uint32_t track_id) {
-  if (!IsTrackIdValid(track_id)) {
-    QMMF_ERROR("%s: Track(%x) does not exist !!", __func__, track_id);
-    return BAD_VALUE;
-  }
-  auto const& track = track_sources_[track_id];
-
-  auto ret = track->DeleteOverlayObjects();
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: DeleteOverlayObjects failed!", __func__);
-    return BAD_VALUE;
-  }
-  return ret;
-}
-
-status_t CameraSource::GetOverlayObjectParams(const uint32_t track_id,
-                                              const uint32_t overlay_id,
-                                              OverlayParam &param) {
-
-#ifndef CAMERA_HAL1_SUPPORT
-  if (!IsTrackIdValid(track_id)) {
-    QMMF_ERROR("%s: Track(%x) does not exist !!", __func__, track_id);
-    return BAD_VALUE;
-  }
-  auto const& track = track_sources_[track_id];
-
-  auto ret = track->GetOverlayObjectParams(overlay_id, param);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: GetOverlayObjectParams failed!", __func__);
-    return BAD_VALUE;
-  }
-  return ret;
-#endif
-  return NO_ERROR;
-}
-
-status_t CameraSource::UpdateOverlayObjectParams(const uint32_t track_id,
-                                                 const uint32_t overlay_id,
-                                                 OverlayParam *param) {
-
-#ifndef CAMERA_HAL1_SUPPORT
-  if (!IsTrackIdValid(track_id)) {
-    QMMF_ERROR("%s: Track(%x) does not exist !!", __func__, track_id);
-    return BAD_VALUE;
-  }
-  auto const& track = track_sources_[track_id];
-
-  auto ret = track->UpdateOverlayObjectParams(overlay_id, param);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: UpdateOverlayObjectParams failed!", __func__);
-    return BAD_VALUE;
-  }
-  return ret;
-#endif
-  return NO_ERROR;
-}
-
-status_t CameraSource::ProcessOverlayObjects(
-    const uint32_t track_id, const std::vector<OverlayParam>& overlay_list) {
-  if (!IsTrackIdValid(track_id)) {
-    QMMF_ERROR("%s: Track(%x) does not exist !!", __func__, track_id);
-    return BAD_VALUE;
-  }
-  auto const& track = track_sources_[track_id];
-
-  auto ret = track->ProcessOverlayObjects(overlay_list);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: failed!", __func__);
-    return BAD_VALUE;
-  }
-  return ret;
-}
-
-status_t CameraSource::SetOverlayObject(const uint32_t track_id,
-                                        const uint32_t overlay_id) {
-
-#ifndef CAMERA_HAL1_SUPPORT
-  if (!IsTrackIdValid(track_id)) {
-    QMMF_ERROR("%s: Track(%x) does not exist !!", __func__, track_id);
-    return BAD_VALUE;
-  }
-  auto const& track = track_sources_[track_id];
-
-  auto ret = track->SetOverlayObject(overlay_id);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: SetOverlayObject failed!", __func__);
-    return BAD_VALUE;
-  }
-  return ret;
-#endif
-  return NO_ERROR;
-}
-
-status_t CameraSource::RemoveOverlayObject(const uint32_t track_id,
-                                           const uint32_t overlay_id) {
-
-#ifndef CAMERA_HAL1_SUPPORT
-  if (!IsTrackIdValid(track_id)) {
-    QMMF_ERROR("%s: Track(%x) does not exist !!", __func__, track_id);
-    return BAD_VALUE;
-  }
-  auto const& track = track_sources_[track_id];
-
-  auto ret = track->RemoveOverlayObject(overlay_id);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: RemoveOverlayObject failed!", __func__);
-    return BAD_VALUE;
-  }
-  return ret;
-#endif
   return NO_ERROR;
 }
 
@@ -1288,9 +974,6 @@ TrackSource::TrackSource(const VideoTrackParams& params,
       is_paused_(false),
       eos_acked_(false),
       is_idle_(true),
-#ifndef CAMERA_HAL1_SUPPORT
-      active_overlays_(0),
-#endif
       input_count_(0),
       count_(0),
       pending_encodes_per_frame_ratio_(0.0),
@@ -1300,7 +983,6 @@ TrackSource::TrackSource(const VideoTrackParams& params,
       fsc_(nullptr),
       frc_(nullptr),
       rescaler_(nullptr),
-      connected_tocamera_port_(true),
       slave_track_source_(false),
       time_lapse_mode_(false),
       time_stamp_(0),
@@ -1405,35 +1087,14 @@ status_t TrackSource::RemoveConsumer(sp<IBufferConsumer>& consumer) {
   return NO_ERROR;
 }
 
-int32_t TrackSource::GetMasterTrackId() {
-  if (slave_track_source_) {
-    return track_id_master_;
-  } else {
-    return TrackId();
-  }
-}
-
-int32_t TrackSource::GetCameraPortId() {
-  if (slave_track_source_) {
-    return port_track_id_;
-  } else {
-    return TrackId();
-  }
-}
-
 status_t TrackSource::InitCopy(shared_ptr<TrackSource> master_track_source,
-                               const std::shared_ptr<CameraRescaler>& rescaler,
-                               int32_t port_track_id,
-                               int32_t track_id_master) {
+                               const std::shared_ptr<CameraRescaler>& rescaler) {
 
   QMMF_DEBUG("%s: Enter track_id(%x)", __func__, TrackId());
   status_t result = 0;
   assert(master_track_source.get() != nullptr);
   master_track_ = master_track_source;
 
-  connected_tocamera_port_ = (port_track_id == track_id_master);
-  track_id_master_ = track_id_master;
-  port_track_id_ = port_track_id;
   slave_track_source_ = true;
 
   if (rescaler.get() == nullptr) {
@@ -1441,14 +1102,6 @@ status_t TrackSource::InitCopy(shared_ptr<TrackSource> master_track_source,
   } else {
     rescaler_ = rescaler;
   }
-#ifndef DISABLE_OVERLAY
-  result = overlay_.Init(TargetBufferFormat::kYUVNV12);
-  if (result != 0) {
-    QMMF_ERROR("%s: Failed to initialize overlay for copy track(%x)", __func__,
-        TrackId());
-    return result;
-  }
-#endif
 
   QMMF_DEBUG("%s: Exit track_id(%x)", __func__, TrackId());
   return result;
@@ -1458,7 +1111,6 @@ status_t TrackSource::Init() {
 
   QMMF_DEBUG("%s Enter track_id(%x)", __func__, TrackId());
 
-  connected_tocamera_port_ = true;
   slave_track_source_ = false;
   rescaler_ = nullptr;
   master_track_ = nullptr;
@@ -1468,8 +1120,9 @@ status_t TrackSource::Init() {
   param.width          = track_params_.params.width;
   param.height         = track_params_.params.height;
   param.framerate      = track_params_.params.frame_rate;
-  if (track_params_.params.format_type == VideoFormat::kYUV) {
-    param.is_yuv_track = true;
+  if (track_params_.params.format_type == VideoFormat::kAVC
+      || track_params_.params.format_type == VideoFormat::kHEVC) {
+    param.stream_flags |= static_cast<uint32_t> (StreamFlags::kEncoded);
   }
   param.format =
       Common::FromVideoToQmmfFormat(track_params_.params.format_type);
@@ -1479,9 +1132,11 @@ status_t TrackSource::Init() {
     if (entry_count == 1) {
       SystemCache mode;
       track_params_.extra_param.Fetch(QMMF_CPU_CACHE, mode, 0);
-      param.is_caching_enabled = mode.enable;
+      if (!mode.enable) {
+        param.stream_flags &= ~(static_cast<uint32_t>(StreamFlags::kCached));
+      }
       QMMF_INFO("%s: Caching value is: %d", __func__,
-                param.is_caching_enabled);
+                mode.enable);
     } else {
       QMMF_ERROR("%s: Invalid Caching mode received", __func__);
       return BAD_VALUE;
@@ -1491,9 +1146,9 @@ status_t TrackSource::Init() {
   if (track_params_.extra_param.Exists(QMMF_VIDEO_WAIT_AEC_MODE)) {
     VideoWaitAECMode wait_aec;
     track_params_.extra_param.Fetch(QMMF_VIDEO_WAIT_AEC_MODE, wait_aec);
-    param.wait_aec_mode = wait_aec.enable;
-  } else {
-    param.wait_aec_mode = false;
+    if (wait_aec.enable) {
+      param.stream_flags |= static_cast<uint32_t>(StreamFlags::kWaitAEC);
+    }
   }
 
   param.rotation = rotation_;
@@ -1508,12 +1163,6 @@ status_t TrackSource::Init() {
   QMMF_INFO("%s: TrackSource(0x%p)(%dx%d) and Camera Device Stream "
       " Created Succesffuly for track_id(%x)",  __func__, this,
       track_params_.params.width, track_params_.params.height, TrackId());
-
-#ifndef DISABLE_OVERLAY
-  //TODO: Add mechanism to query the stream format from adaptor.
-  ret = overlay_.Init(TargetBufferFormat::kYUVNV12);
-  assert(ret == NO_ERROR);
-#endif
 
   QMMF_DEBUG("%s Exit track_id(%x)", __func__, TrackId());
   return ret;
@@ -2008,28 +1657,6 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
       buffer.fd);
   QMMF_VERBOSE("%s: track_id(%x) size = %d", __func__, TrackId(),
       buffer.size);
-
-#ifndef CAMERA_HAL1_SUPPORT
-  if (active_overlays_ > 0) {
-    OverlayTargetBuffer overlay_buf;
-
-    overlay_buf.width  = buffer.info.plane_info[0].width;
-    overlay_buf.height = buffer.info.plane_info[0].height;
-    overlay_buf.ion_fd = buffer.fd;
-
-    if (buffer.info.format == BufferFormat::kNV12) {
-      overlay_buf.format    = TargetBufferFormat::kYUVNV12;
-      overlay_buf.frame_len = buffer.size;
-    } else if (buffer.info.format == BufferFormat::kNV12UBWC) {
-      overlay_buf.format    = TargetBufferFormat::kYUVNV12UBWC;
-      overlay_buf.frame_len = VENUS_BUFFER_SIZE(COLOR_FMT_NV12_UBWC,
-                                                overlay_buf.width,
-                                                overlay_buf.height);
-    }
-
-    overlay_.ApplyOverlay(overlay_buf);
-  }
-#endif
   if (yuv_dump_freq_ > 0) {
     DumpYUV(buffer);
   }
@@ -2187,130 +1814,6 @@ void TrackSource::ClearInputQueue() {
   }
   frames_received_.Clear();
   QMMF_DEBUG("%s: Exit track_id(%x)", __func__, TrackId());
-}
-
-status_t TrackSource::CreateOverlayObject(OverlayParam *param,
-                                          uint32_t *overlay_id) {
-#ifndef CAMERA_HAL1_SUPPORT
-  QMMF_DEBUG("%s: Enter track_id(%x)", __func__, TrackId());
-  uint32_t id;
-  auto ret = overlay_.CreateOverlayItem(*param, &id);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: createOverlayItem failed!", __func__);
-    return BAD_VALUE;
-  }
-  *overlay_id = id;
-  QMMF_INFO("%s: OverlayItem of type(%d) created! id(%d)", __func__,
-      param->type, id);
-  QMMF_DEBUG("%s: Exit track_id(%x)", __func__, TrackId());
-  return ret;
-#endif
-  return NO_ERROR;
-}
-
-status_t TrackSource::DeleteOverlayObject(const uint32_t overlay_id) {
-#ifndef CAMERA_HAL1_SUPPORT
-  QMMF_DEBUG("%s: Enter track_id(%x)", __func__, TrackId());
-  auto ret = overlay_.DeleteOverlayItem(overlay_id);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: deleteOverlayItem failed!", __func__);
-    return BAD_VALUE;
-  }
-  QMMF_DEBUG("%s: Exit track_id(%x)", __func__, TrackId());
-  return ret;
-#endif
-  return NO_ERROR;
-}
-
-status_t TrackSource::DeleteOverlayObjects() {
-#ifndef CAMERA_HAL1_SUPPORT
-  QMMF_DEBUG("%s: Enter track_id(%x)", __func__, TrackId());
-  auto ret = overlay_.DeleteOverlayItems();
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: DeleteOverlayItems failed!", __func__);
-    return BAD_VALUE;
-  }
-  QMMF_DEBUG("%s: Exit track_id(%x)", __func__, TrackId());
-  return ret;
-#endif
-  return NO_ERROR;
-}
-
-status_t TrackSource::GetOverlayObjectParams(const uint32_t overlay_id,
-                                             OverlayParam &param) {
-#ifndef CAMERA_HAL1_SUPPORT
-  QMMF_DEBUG("%s: Enter track_id(%x)", __func__, TrackId());
-  auto ret = overlay_.GetOverlayParams(overlay_id, param);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: getOverlayItemParams failed!", __func__);
-    return BAD_VALUE;
-  }
-  QMMF_DEBUG("%s: Exit track_id(%x)", __func__, TrackId());
-  return ret;
-#endif
-  return NO_ERROR;
-}
-
-status_t TrackSource::UpdateOverlayObjectParams(const uint32_t overlay_id,
-                                                OverlayParam *param) {
-#ifndef CAMERA_HAL1_SUPPORT
-  QMMF_DEBUG("%s: Enter track_id(%x)", __func__, TrackId());
-  auto ret = overlay_.UpdateOverlayParams(overlay_id, *param);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: updateOverlayParams failed!", __func__);
-    return BAD_VALUE;
-  }
-  QMMF_DEBUG("%s: Exit track_id(%x)", __func__, TrackId());
-  return ret;
-#endif
-  return NO_ERROR;
-}
-
-status_t TrackSource::ProcessOverlayObjects(const std::vector<OverlayParam> &overlay_list) {
-#ifndef CAMERA_HAL1_SUPPORT
-  QMMF_DEBUG("%s: Enter track_id(%x)", __func__, TrackId());
-  auto ret = overlay_.ProcessOverlayItems(overlay_list);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: ProcessOverlayItems failed!", __func__);
-    return BAD_VALUE;
-  }
-  active_overlays_ = overlay_list.size();
-
-  QMMF_DEBUG("%s: Exit track_id(%x)", __func__, TrackId());
-  return ret;
-#endif
-  return NO_ERROR;
-}
-
-
-status_t TrackSource::SetOverlayObject(const uint32_t overlay_id) {
-#ifndef CAMERA_HAL1_SUPPORT
-  QMMF_DEBUG("%s: Enter track_id(%x)", __func__, TrackId());
-  auto ret = overlay_.EnableOverlayItem(overlay_id);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: enableOverlayItem failed!", __func__);
-    return BAD_VALUE;
-  }
-  ++active_overlays_;
-  QMMF_DEBUG("%s: Exit track_id(%x)", __func__, TrackId());
-  return ret;
-#endif
-  return NO_ERROR;
-}
-
-status_t TrackSource::RemoveOverlayObject(const uint32_t overlay_id) {
-#ifndef CAMERA_HAL1_SUPPORT
-  QMMF_DEBUG("%s: Enter track_id(%x)", __func__, TrackId());
-  auto ret = overlay_.DisableOverlayItem(overlay_id);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: disableOverlayItem failed!", __func__);
-    return BAD_VALUE;
-  }
-  --active_overlays_;
-  QMMF_DEBUG("%s: Exit track_id(%x)", __func__, TrackId());
-  return ret;
-#endif
-  return NO_ERROR;
 }
 
 void TrackSource::UpdateFrameRate(const float frame_rate) {

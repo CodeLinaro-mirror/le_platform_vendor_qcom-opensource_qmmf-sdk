@@ -11,8 +11,6 @@ else()
     ${TOP_DIRECTORY}/include/qmmf-sdk/qmmf_recorder_params.h
     ${TOP_DIRECTORY}/include/qmmf-sdk/qmmf_recorder_extra_param.h
     ${TOP_DIRECTORY}/include/qmmf-sdk/qmmf_recorder_extra_param_tags.h
-    ${TOP_DIRECTORY}/include/qmmf-sdk/qmmf_display.h
-    ${TOP_DIRECTORY}/include/qmmf-sdk/qmmf_display_params.h
     ${TOP_DIRECTORY}/include/qmmf-sdk/qmmf_device.h
     ${TOP_DIRECTORY}/include/qmmf-sdk/qmmf_codec.h
     ${TOP_DIRECTORY}/include/qmmf-sdk/qmmf_overlay.h

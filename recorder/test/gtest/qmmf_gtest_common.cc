@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -35,7 +35,7 @@
 #include <ios>
 #include <random>
 
-#include "recorder/test/gtest/qmmf_recorder_gtest_common.h"
+#include "recorder/test/gtest/qmmf_gtest_common.h"
 
 #ifndef CAMERA_HAL1_SUPPORT
 using namespace qcamera;
@@ -462,10 +462,6 @@ void GtestCommon::SetUp() {
   eis_v_margin_ = atof(prop_val);
   property_get(PROP_TIMELAPSE_INTERVAL, prop_val, "2.0");
   timelapse_interval_ = atof(prop_val);
-  property_get(PROP_TOGGLE_DISPLAY_USAGE, prop_val, "1");
-  use_display_ = (atoi(prop_val) == 0) ? false : true;
-  property_get(PROP_TOGGLE_OVERLAY_USAGE, prop_val, "0");
-  is_apply_overlay_ = (atoi(prop_val) == 0) ? false : true;
   property_get(PROP_FRAME_DEBUG, prop_val, "0");
   is_frame_debug_enabled_ = (atoi(prop_val) == 0) ? false : true;
   property_get(PROP_SENSOR_CONFIG_FILE, prop_val, "");
@@ -474,11 +470,143 @@ void GtestCommon::SetUp() {
   enable_sof_latency_ = (atoi(prop_val) == 0) ? false : true;
   property_get(PROP_AF_MODE, prop_val, "0");
   af_mode_ = atoi(prop_val);
+  property_get(PROP_CAMERA_FPS, prop_val, DEFAULT_CAMERA_FPS);
+  camera_fps_ = atof(prop_val);
+  property_get(PROP_EIS, prop_val, "0");
+  is_eis_on_ = (atoi(prop_val) == 0) ? false : true;
+  property_get(PROP_SHDR, prop_val, "0");
+  is_shdr_on_ = (atoi(prop_val) == 0) ? false : true;
+  property_get(PROP_SNAPSHOT_STREAM_ON, prop_val, "0");
+  is_snap_stream_on_ = (atoi(prop_val) == 0) ? false : true;
+  property_get(PROP_LDC, prop_val, "0");
+  is_ldc_on_ = (atoi(prop_val) == 0) ? false : true;
 
-  display_started_ = false;
-#ifndef DISABLE_DISPLAY
-  enable_gfx_ = false;
-#endif
+  // Read First Video Stream Params
+  VideoStreamInfo stream { };
+  property_get(PROP_FIRST_STREAM_WIDTH, prop_val, DEFAULT_FIRST_STREAM_WIDTH);
+  stream.width = atoi(prop_val);
+
+  property_get(PROP_FIRST_STREAM_HEIGHT, prop_val,
+               DEFAULT_FIRST_STREAM_HEIGHT);
+  stream.height = atoi(prop_val);
+
+  property_get(PROP_FIRST_STREAM_FPS, prop_val, DEFAULT_FIRST_STREAM_FPS);
+  stream.fps = atof(prop_val);
+
+  stream.source_stream_id = 0; // First Stream, Linked ID should be 0.
+
+  property_get(PROP_FIRST_STREAM_FORMAT, prop_val,
+               DEFAULT_FIRST_STREAM_FORMAT);
+  SetVideoStreamFormat(prop_val, stream.format);
+
+  // Insert first stream into Map. Taking stream ID as 1.
+  stream_info_map_.emplace(kFirstStreamID, stream);
+
+  // Read Second Video Stream Params
+  property_get(PROP_SECOND_STREAM_WIDTH, prop_val,
+               DEFAULT_SECOND_STREAM_WIDTH);
+  stream.width = atoi(prop_val);
+
+  property_get(PROP_SECOND_STREAM_HEIGHT, prop_val,
+               DEFAULT_SECOND_STREAM_HEIGHT);
+  stream.height = atoi(prop_val);
+
+  property_get(PROP_SECOND_STREAM_FPS, prop_val, DEFAULT_SECOND_STREAM_FPS);
+  stream.fps = atof(prop_val);
+
+  property_get(PROP_SECOND_STREAM_SOURCE_ID, prop_val, "0");
+  stream.source_stream_id = atoi(prop_val);
+
+  property_get(PROP_SECOND_STREAM_FORMAT, prop_val,
+               DEFAULT_SECOND_STREAM_FORMAT);
+  SetVideoStreamFormat(prop_val, stream.format);
+
+  // Insert Second stream into Map. Taking stream ID as 2.
+  stream_info_map_.emplace(kSecondStreamID, stream);
+
+  // Read Third Video Stream Params
+  property_get(PROP_THIRD_STREAM_WIDTH, prop_val, DEFAULT_THIRD_STREAM_WIDTH);
+  stream.width = atoi(prop_val);
+
+  property_get(PROP_THIRD_STREAM_HEIGHT, prop_val,
+               DEFAULT_THIRD_STREAM_HEIGHT);
+  stream.height = atoi(prop_val);
+
+  property_get(PROP_THIRD_STREAM_FPS, prop_val, DEFAULT_THIRD_STREAM_FPS);
+  stream.fps = atof(prop_val);
+
+  property_get(PROP_THIRD_STREAM_SOURCE_ID, prop_val, "0");
+  stream.source_stream_id = atoi(prop_val);
+
+  property_get(PROP_THIRD_STREAM_FORMAT, prop_val,
+               DEFAULT_THIRD_STREAM_FORMAT);
+  SetVideoStreamFormat(prop_val, stream.format);
+
+  // Insert Third stream into Map. Taking stream ID as 3.
+  stream_info_map_.emplace(kThirdStreamID, stream);
+
+  // Read Fourth Video Stream Params
+  property_get(PROP_FOURTH_STREAM_WIDTH, prop_val, DEFAULT_FOURTH_STREAM_WIDTH);
+  stream.width = atoi(prop_val);
+
+  property_get(PROP_FOURTH_STREAM_HEIGHT, prop_val,
+               DEFAULT_FOURTH_STREAM_HEIGHT);
+  stream.height = atoi(prop_val);
+
+  property_get(PROP_FOURTH_STREAM_FPS, prop_val, DEFAULT_FOURTH_STREAM_FPS);
+  stream.fps = atof(prop_val);
+
+  property_get(PROP_FOURTH_STREAM_SOURCE_ID, prop_val, "0");
+  stream.source_stream_id = atoi(prop_val);
+
+  property_get(PROP_FOURTH_STREAM_FORMAT, prop_val,
+               DEFAULT_FOURTH_STREAM_FORMAT);
+  SetVideoStreamFormat(prop_val, stream.format);
+
+  // Insert Fourth stream into Map. Taking stream ID as 4.
+  stream_info_map_.emplace(kFourthStreamID, stream);
+
+  // Read Fifth Video Stream Params
+  property_get(PROP_FIFTH_STREAM_WIDTH, prop_val, DEFAULT_FIFTH_STREAM_WIDTH);
+  stream.width = atoi(prop_val);
+
+  property_get(PROP_FIFTH_STREAM_HEIGHT, prop_val,
+               DEFAULT_FIFTH_STREAM_HEIGHT);
+  stream.height = atoi(prop_val);
+
+  property_get(PROP_FIFTH_STREAM_FPS, prop_val, DEFAULT_FIFTH_STREAM_FPS);
+  stream.fps = atof(prop_val);
+
+  property_get(PROP_FIFTH_STREAM_SOURCE_ID, prop_val, "0");
+  stream.source_stream_id = atoi(prop_val);
+
+  property_get(PROP_FIFTH_STREAM_FORMAT, prop_val,
+               DEFAULT_FIFTH_STREAM_FORMAT);
+  SetVideoStreamFormat(prop_val, stream.format);
+
+  // Insert Fifth stream into Map. Taking stream ID as 5.
+  stream_info_map_.emplace(kFifthStreamID, stream);
+
+  // Read JPEG Snapshot Stream
+  property_get(PROP_SNAPSHOT_STREAM_WIDTH, prop_val,
+               DEFAULT_SNAPSHOT_STREAM_WIDTH);
+  snap_width_ = atoi(prop_val);
+
+  property_get(PROP_SNAPSHOT_STREAM_HEIGHT, prop_val,
+               DEFAULT_SNAPSHOT_STREAM_HEIGHT);
+  snap_height_ = atoi(prop_val);
+
+  property_get(PROP_SNAPSHOT_STREAM_FORMAT, prop_val,
+               DEFAULT_SNAPSHOT_STREAM_FORMAT);
+  SetSnapShotStreamFormat(prop_val);
+
+  property_get(PROP_NUM_SNAPSHOT, prop_val,
+               DEFAULT_SNAPSHOT_COUNT);
+  snap_count_ = atoi(prop_val);
+
+  property_get(PROP_SNAPSHOT_MODE, prop_val,
+               DEFAULT_PROP_SNAPSHOT_MODE);
+  SetSnapshotMode(prop_val);
 
 #ifdef QCAMERA3_TAG_LOCAL_COPY
   vendor_tag_desc_ = nullptr;
@@ -486,6 +614,143 @@ void GtestCommon::SetUp() {
 
   TEST_INFO("%s Exit ", __func__);
 }
+
+void GtestCommon::SetSnapshotMode(char prop[]) {
+  std::string value = prop;
+  if (value == "Video") {
+    snap_mode_ = SnapshotMode::kVideo;
+  } else if (value == "Still") {
+    snap_mode_ = SnapshotMode::kStill;
+  } else if (value == "StillPlusRaw") {
+    snap_mode_ = SnapshotMode::kStillPlusRaw;
+  } else if (value == "Continuous") {
+    snap_mode_ = SnapshotMode::kContinuous;
+  } else if (value == "Zsl") {
+    snap_mode_ = SnapshotMode::kZsl;
+  } else if (value == "VideoPlusRaw") {
+    snap_mode_ = SnapshotMode::kVideoPlusRaw;
+  }
+}
+
+std::string GtestCommon::GetSnapshotMode() {
+  if (snap_mode_ == SnapshotMode::kVideo) {
+    return "Video";
+  } else if (snap_mode_ == SnapshotMode::kStill) {
+    return "Still";
+  } else if (snap_mode_ == SnapshotMode::kStillPlusRaw) {
+    return "StillPlusRaw";
+  } else if (snap_mode_ == SnapshotMode::kContinuous) {
+    return "Continuous";
+  } else if (snap_mode_ == SnapshotMode::kZsl) {
+    return "ZSL";
+  } else if (snap_mode_ == SnapshotMode::kVideoPlusRaw) {
+    return "VideoPlusRaw";
+  } else {
+    return "Invalid Mode";
+  }
+}
+
+void GtestCommon::SetSnapShotStreamFormat(char prop[]) {
+  std::string value = prop;
+  if (value == "JPEG") {
+    snap_format_ = ImageFormat::kJPEG;
+  } else if (value == "NV12") {
+    snap_format_ = ImageFormat::kNV12;
+  } else if (value == "NV21") {
+    snap_format_ = ImageFormat::kNV21;
+  } else if (value == "RAW8") {
+    snap_format_ = ImageFormat::kBayerRDI8BIT;
+  } else if (value == "RAW10") {
+    snap_format_ = ImageFormat::kBayerRDI10BIT;
+  } else if (value == "RAW12") {
+    snap_format_ = ImageFormat::kBayerRDI12BIT;
+  } else if (value == "RAW16") {
+    snap_format_ = ImageFormat::kBayerRDI16BIT;
+  }
+}
+
+void GtestCommon::SetVideoStreamFormat(char prop[], VideoFormat &format) {
+  std::string value = prop;
+  if (value == "AVC") {
+    format = VideoFormat::kAVC;
+  } else if (value == "HEVC") {
+    format = VideoFormat::kHEVC;
+  } else if (value == "YUV") {
+    format = VideoFormat::kYUV;
+  } else if (value == "RGB") {
+    format = VideoFormat::kRGB;
+  } else if (value == "RAW8") {
+    format = VideoFormat::kBayerRDI8BIT;
+  } else if (value == "RAW10") {
+    format = VideoFormat::kBayerRDI10BIT;
+  } else if (value == "RAW`12") {
+    format = VideoFormat::kBayerRDI12BIT;
+  }
+}
+
+void GtestCommon::PrintStreamInfo(uint32_t num) {
+
+  std::cout << "\n############################################################"
+      << std::endl;
+  for (uint32_t i = kFirstStreamID; i <= num; i++) {
+    auto stream = stream_info_map_[i];
+    std::cout << "Video Stream Info:" << i << " Width:"
+        << stream.width << " Height:" << stream.height << " FPS:"
+        << stream.fps << " Source Stream ID:" << stream.source_stream_id
+        << " Format: " << GetVideoStreamFormat(stream.format) << std::endl;
+  }
+  if (is_snap_stream_on_) {
+    std::cout << "Snapshot Stream Info:" << " Width:" << snap_width_
+        << " Height:" << snap_height_ << " Format:"
+        << GetSnapshotStreamFormat() << " Mode:" <<
+        GetSnapshotMode() << std::endl;
+  }
+}
+
+std::string GtestCommon::GetVideoStreamFormat(VideoFormat &fmt) {
+  if (fmt == VideoFormat::kAVC) {
+    return "AVC";
+  } else if (fmt == VideoFormat::kHEVC) {
+    return "HEVC";
+  } else if (fmt == VideoFormat::kYUV) {
+    return "YUV";
+  } else if (fmt == VideoFormat::kRGB) {
+    return "RGB";
+  } else if (fmt == VideoFormat::kRGB) {
+    return "RGB";
+  } else if (fmt == VideoFormat::kBayerRDI8BIT) {
+    return "RAW8";
+  } else if (fmt == VideoFormat::kBayerRDI10BIT) {
+    return "RAW10";
+  } else if (fmt == VideoFormat::kBayerRDI12BIT) {
+    return "RAW12";
+  } else if (fmt == VideoFormat::kBayerIdeal) {
+    return "RAWIDEAL";
+  } else {
+    return "Invalid Video Format";
+  }
+}
+
+std::string GtestCommon::GetSnapshotStreamFormat() {
+  if (snap_format_ == ImageFormat::kJPEG) {
+    return "JPEG";
+  } else if (snap_format_ == ImageFormat::kNV12) {
+    return "NV12";
+  } else if (snap_format_ == ImageFormat::kNV21) {
+    return "NV21";
+  } else if (snap_format_ == ImageFormat::kBayerRDI8BIT) {
+    return "RAW8";
+  } else if (snap_format_ == ImageFormat::kBayerRDI10BIT) {
+    return "RAW10";
+  } else if (snap_format_ == ImageFormat::kBayerRDI12BIT) {
+    return "RAW12";
+  } else if (snap_format_ == ImageFormat::kBayerRDI16BIT) {
+    return "RAW16";
+  } else {
+    return "Invalid Snapshot Format";
+  }
+}
+
 
 void GtestCommon::TearDown() {
 
@@ -659,18 +924,6 @@ void GtestCommon::VideoTrackYUVDataCb(uint32_t session_id, uint32_t track_id,
         fclose(file);
       }
     }
-  }
-
-  if (display_ && use_display_) {
-#ifndef DISABLE_DISPLAY
-    if (enable_gfx_) {
-      DequeueGfxSurfaceBuffer();
-      QueueGfxSurfaceBuffer();
-    }
-#endif
-#ifndef CAMERA_HAL1_SUPPORT
-    PushFrameToDisplay(buffers[0], meta_buffers[0].cam_buffer_meta_data);
-#endif
   }
 
 
@@ -1210,70 +1463,6 @@ void GtestCommon::ParseFaceInfo(const android::CameraMetadata &res,
   }
 }
 
-void GtestCommon::ApplyFaceOveralyOnStream(struct FaceInfo &info) {
-  face_overlay_lock_.lock();
-  if (face_bbox_active_) {
-    uint32_t i;
-    int ret;
-    uint32_t last_num = face_bbox_id_.size();
-    uint32_t cur_num = info.face_rect.size();
-    OverlayParam object_params;
-
-    for(i = 0; i < std::min(last_num, cur_num); i++) {
-      ret = GtestCommon::recorder_.GetOverlayObjectParams(face_track_id_,
-          face_bbox_id_[i], object_params);
-      ASSERT_TRUE(ret == 0);
-      object_params.dst_rect.start_x = info.face_rect[i].left;
-      object_params.dst_rect.width = info.face_rect[i].width;
-      if (object_params.dst_rect.width <= 0) {
-        TEST_INFO("invalid width(%d)", object_params.dst_rect.width);
-        object_params.dst_rect.width = 1;
-      }
-      object_params.dst_rect.start_y = info.face_rect[i].top;
-      object_params.dst_rect.height = info.face_rect[i].height;
-      if (object_params.dst_rect.height <= 0) {
-        TEST_INFO("invalid width(%d)", object_params.dst_rect.height);
-        object_params.dst_rect.height = 1;
-      }
-      ret = GtestCommon::recorder_.UpdateOverlayObjectParams(face_track_id_,
-          face_bbox_id_[i], object_params);
-      ASSERT_TRUE(ret == 0);
-      ret = GtestCommon::recorder_.SetOverlay(face_track_id_, face_bbox_id_[i]);
-      ASSERT_TRUE(ret == 0);
-    }
-
-    if (last_num > cur_num) {
-      for(i = cur_num; i < last_num; i++) {
-        ret = GtestCommon::recorder_.RemoveOverlay(face_track_id_,
-                                                     face_bbox_id_[i]);
-        ASSERT_TRUE(ret == 0);
-      }
-    } else if (last_num < cur_num) {
-      for (i = last_num; i < cur_num; i++) {
-        // Create BoundingBox type overlay.
-        std::string bb_text("Face");
-        uint32_t bbox_id;
-        object_params = {};
-        object_params.type  = OverlayType::kBoundingBox;
-        object_params.color = kColorLightGreen;
-        object_params.dst_rect.start_x = info.face_rect[i].left;
-        object_params.dst_rect.start_y = info.face_rect[i].top;
-        object_params.dst_rect.width   = info.face_rect[i].width;
-        object_params.dst_rect.height  = info.face_rect[i].height;
-        bb_text.copy(object_params.bounding_box.box_name, bb_text.length());
-        ret = recorder_.CreateOverlayObject(face_track_id_,
-                 object_params, &bbox_id);
-        ASSERT_TRUE(ret == 0);
-        face_bbox_id_.push_back(bbox_id);
-        ret = GtestCommon::recorder_.SetOverlay(face_track_id_, bbox_id);
-        ASSERT_TRUE(ret == 0);
-      }
-    }
-  }
-  face_overlay_lock_.unlock();
-  info.face_rect.clear();
-}
-
 /** ValidateResFromStreamConfigs
 *
 * Validates whether input resolution is available in
@@ -1587,132 +1776,6 @@ bool GtestCommon::GetMinSupportedCameraRes(const CameraMetadata& meta,
 #endif
   return found;
 }
-
-void GtestCommon::DisplayCallbackHandler(DisplayEventType event_type,
-                                           void *event_data,
-                                           size_t event_data_size) {
-  TEST_DBG("%s Enter ", __func__);
-  TEST_DBG("%s Exit ", __func__);
-}
-
-void GtestCommon::DisplayVSyncHandler(int64_t time_stamp) {
-  TEST_DBG("%s: Enter", __func__);
-  TEST_DBG("%s: Exit", __func__);
-}
-#ifndef CAMERA_HAL1_SUPPORT
-status_t GtestCommon::StartDisplay(DisplayType display_type,
-                                     uint32_t src_width, uint32_t src_height,
-                                     uint32_t dst_width, uint32_t dst_height) {
-  TEST_INFO("%s: Enter", __func__);
-  int32_t res = 0;
-  DisplayCb display_status_cb;
-  display_ = new Display();
-  EXPECT_TRUE(display_ != nullptr);
-
-  res = display_->Connect();
-  EXPECT_TRUE(res == 0);
-
-  display_status_cb.EventCb = [&](DisplayEventType event_type, void *event_data,
-                                  size_t event_data_size) {
-    DisplayCallbackHandler(event_type, event_data, event_data_size);
-  };
-
-  display_status_cb.VSyncCb = [&](int64_t time_stamp) {
-    DisplayVSyncHandler(time_stamp);
-  };
-
-  res = display_->CreateDisplay(display_type, display_status_cb);
-  EXPECT_TRUE(res == 0);
-
-  memset(&surface_config_, 0x0, sizeof surface_config_);
-
-  surface_config_.width = src_width;
-  surface_config_.height = src_height;
-  surface_config_.format = SurfaceFormat::kFormatYCbCr420SemiPlanarVenus;
-  surface_config_.buffer_count = 1;
-  surface_config_.cache = 0;
-  surface_config_.use_buffer = 1;
-  surface_config_.z_order = 1;
-  res = display_->CreateSurface(surface_config_, &surface_id_);
-  EXPECT_TRUE(res == 0);
-
-  display_started_ = 1;
-
-  surface_param_.src_rect = {0.0, 0.0, (float)src_width, (float)src_height};
-  surface_param_.dst_rect = {0.0, 0.0, (float)dst_width, (float)dst_height};
-  surface_param_.surface_blending = SurfaceBlending::kBlendingCoverage;
-  surface_param_.surface_flags.cursor = 0;
-  surface_param_.frame_rate = 30;
-  surface_param_.solid_fill_color = 0;
-  surface_param_.surface_transform.rotation = 0.0f;
-  surface_param_.surface_transform.flip_horizontal = 0;
-  surface_param_.surface_transform.flip_vertical = 0;
-#ifndef DISABLE_DISPLAY
-  if (enable_gfx_) {
-    memset(&gfx_surface_config_, 0x0, sizeof gfx_surface_config_);
-    gfx_surface_config_.width = 352;
-    gfx_surface_config_.height = 288;
-    gfx_surface_config_.format = SurfaceFormat::kFormatBGRA8888;
-    gfx_surface_config_.buffer_count = 4;
-    gfx_surface_config_.cache = 0;
-    gfx_surface_config_.use_buffer = 0;
-    gfx_surface_config_.z_order = 2;
-    auto ret = display_->CreateSurface(gfx_surface_config_, &gfx_surface_id_);
-    if (ret != 0) {
-      TEST_ERROR("%s: CreateSurface Failed!!", __func__);
-    }
-
-    gfx_surface_param_.src_rect = {0.0, 0.0, static_cast<float>(352),
-                                   static_cast<float>(288)};
-    gfx_surface_param_.dst_rect = {0.0, 0.0, static_cast<float>(352),
-                                   static_cast<float>(288)};
-    gfx_surface_param_.surface_blending = SurfaceBlending::kBlendingCoverage;
-    gfx_surface_param_.surface_flags.cursor = 0;
-    gfx_surface_param_.frame_rate = 30;
-    gfx_surface_param_.solid_fill_color = 0;
-    gfx_surface_param_.surface_transform.rotation = 0.0f;
-    gfx_surface_param_.surface_transform.flip_horizontal = 0;
-    gfx_surface_param_.surface_transform.flip_vertical = 0;
-  }
-#endif
-  TEST_INFO("%s: Exit", __func__);
-  return res;
-}
-
-status_t GtestCommon::StopDisplay(DisplayType display_type) {
-  TEST_INFO("%s: Enter", __func__);
-  int32_t res = 0;
-
-  if (display_started_ == 1) {
-    display_started_ = 0;
-    res = display_->DestroySurface(surface_id_);
-    if (res != 0) {
-      TEST_ERROR("%s DestroySurface Failed!!", __func__);
-    }
-#ifndef DISABLE_DISPLAY
-    if (enable_gfx_) {
-      res = display_->DestroySurface(gfx_surface_id_);
-      if (res != 0) {
-        TEST_ERROR("%s  DestroyGfxSurface Failed!!", __func__);
-      }
-    }
-#endif
-    res = display_->DestroyDisplay(display_type);
-    if (res != 0) {
-      TEST_ERROR("%s DestroyDisplay Failed!!", __func__);
-    }
-    res = display_->Disconnect();
-
-    if (display_ != nullptr) {
-      TEST_INFO("%s: DELETE display_:%p", __func__, display_);
-      delete display_;
-      display_ = nullptr;
-    }
-  }
-  TEST_INFO("%s: Exit", __func__);
-  return res;
-}
-#endif
 
 status_t GtestCommon::SetCameraFocalLength(const float focal_length) {
   CameraMetadata meta;
@@ -2178,64 +2241,6 @@ bool GtestCommon::VendorTagExistsInMeta(const CameraMetadata& meta,
   TEST_DBG("%s: Exit", __func__);
   return is_available;
 }
-
-void GtestCommon::CreatePrivacyMaskOverlay (const uint32_t& video_track_id,
-                                              const int32_t& width,
-                                              const int32_t& height,
-                                              uint32_t* mask_id) {
-  // Create BoundingBox type overlay.
-  OverlayParam object_params{};
-  object_params.type  = OverlayType::kPrivacyMask;
-  object_params.color = 0xFF9933FF; //Fill mask with color.
-  // Dummy coordinates for test purpose.
-  object_params.dst_rect.start_x = 20;
-  object_params.dst_rect.start_y = 40;
-  object_params.dst_rect.width   = width/8;
-  object_params.dst_rect.height  = height/8;
-
-  auto ret = recorder_.CreateOverlayObject(video_track_id, object_params,
-                                           mask_id);
-  ASSERT_TRUE(ret == 0);
-  ret = recorder_.SetOverlay(video_track_id, *mask_id);
-  ASSERT_TRUE(ret == 0);
-
-  ret = recorder_.GetOverlayObjectParams(video_track_id, *mask_id,
-                                             object_params);
-  ASSERT_TRUE(ret == 0);
-
-  object_params.dst_rect.start_x = (object_params.dst_rect.start_x +
-    object_params.dst_rect.width < width) ? object_params.dst_rect.start_x + 20
-                                          : 20;
-
-  object_params.dst_rect.width = (object_params.dst_rect.start_x +
-    object_params.dst_rect.width < width) ? object_params.dst_rect.width + 50
-                                          : width/8;
-
-  object_params.dst_rect.start_y = (object_params.dst_rect.start_y +
-    object_params.dst_rect.height < height) ? object_params.dst_rect.start_y +
-                                              10 : 40;
-
-  object_params.dst_rect.height = (object_params.dst_rect.start_y +
-    object_params.dst_rect.height < height) ? object_params.dst_rect.height +
-                                          50 : height/8;
-
-  ret = recorder_.UpdateOverlayObjectParams(video_track_id, *mask_id,
-                                                object_params);
-  ASSERT_TRUE(ret == 0);
-
-}
-
-void GtestCommon::DestroyPrivacyMaskOverlay (const uint32_t& video_track_id,
-                                               const uint32_t& mask_id) {
-
-  // Remove overlay object from video track.
-  auto ret = recorder_.RemoveOverlay(video_track_id, mask_id);
-  ASSERT_TRUE(ret == 0);
-
-  // Delete overlay object.
-  ret = recorder_.DeleteOverlayObject(video_track_id, mask_id);
-  ASSERT_TRUE(ret == 0);
-}
 #endif
 status_t GtestCommon::DumpThumbnail(BufferDescriptor buffer,
                                     const CameraBufferMetaData& meta_data,
@@ -2347,244 +2352,6 @@ status_t GtestCommon::DumpThumbnail(BufferDescriptor buffer,
   return NO_ERROR;
 }
 
-#ifndef CAMERA_HAL1_SUPPORT
-status_t GtestCommon::PushFrameToDisplay(BufferDescriptor &buffer,
-                                           CameraBufferMetaData &meta_data) {
-  TEST_DBG("%s: Enter", __func__);
-  if (display_started_) {
-    int32_t ret;
-    surface_buffer_.plane_info[0].ion_fd = buffer.fd;
-    surface_buffer_.buf_id = buffer.fd;
-    surface_buffer_.format = SurfaceFormat::kFormatYCbCr420SemiPlanarVenus;
-    surface_buffer_.plane_info[0].stride = meta_data.plane_info[0].stride;
-    surface_buffer_.plane_info[0].size = buffer.size;
-    surface_buffer_.plane_info[0].width = meta_data.plane_info[0].width;
-    surface_buffer_.plane_info[0].height = meta_data.plane_info[0].height;
-    surface_buffer_.plane_info[0].offset = 0;
-    surface_buffer_.plane_info[0].buf = buffer.data;
-
-    ret = display_->QueueSurfaceBuffer(surface_id_, surface_buffer_,
-                                       surface_param_);
-    if (ret != 0) {
-      TEST_ERROR("%s QueueSurfaceBuffer Failed!!", __func__);
-      return ret;
-    }
-
-    ret = display_->DequeueSurfaceBuffer(surface_id_, surface_buffer_);
-    if (ret != 0) {
-      TEST_ERROR("%s DequeueSurfaceBuffer Failed!!", __func__);
-    }
-  }
-  TEST_DBG("%s: Exit", __func__);
-  return NO_ERROR;
-}
-#endif
-
-#ifndef DISABLE_DISPLAY
-int32_t GtestCommon::DequeueGfxSurfaceBuffer() {
-  TEST_DBG("%s: Enter", __func__);
-  auto ret = 0;
-
-  memset(&gfx_surface_buffer_, 0x0, sizeof gfx_surface_buffer_);
-
-  gfx_surface_buffer_.format = SurfaceFormat::kFormatBGRA8888;
-  gfx_surface_buffer_.acquire_fence = 0;
-  gfx_surface_buffer_.release_fence = 0;
-
-  ret = display_->DequeueSurfaceBuffer(gfx_surface_id_, gfx_surface_buffer_);
-  if (ret != 0) {
-    TEST_ERROR("%s: DequeueSurfaceBuffer Failed!!", __func__);
-  }
-  gfx_file = fopen("/data/misc/qmmf/Images/fasimo_352x288_bgra_8888.rgb", "r");
-  if (!gfx_file) {
-    TEST_ERROR("%s: Unable to open file", __func__);
-    return -1;
-  }
-  int32_t offset = 0;
-  for (uint32_t i = 0; i < gfx_surface_buffer_.plane_info[0].height; i++) {
-    fread((uint8_t *)gfx_surface_buffer_.plane_info[0].buf +
-              gfx_surface_buffer_.plane_info[0].offset + offset,
-          sizeof(uint8_t), gfx_surface_buffer_.plane_info[0].width * 4,
-          gfx_file);
-    offset += ((gfx_surface_buffer_.plane_info[0].width +
-                ((gfx_surface_buffer_.plane_info[0].width % 64) ?
-                (64 - (gfx_surface_buffer_.plane_info[0].width % 64)): 0)) *4);
-  }
-  fclose(gfx_file);
-
-  TEST_DBG("%s: Exit", __func__);
-  return 0;
-}
-
-int32_t GtestCommon::QueueGfxSurfaceBuffer() {
-  TEST_DBG("%s: Enter", __func__);
-
-  memset(&gfx_surface_param_, 0x0, sizeof gfx_surface_param_);
-
-  gfx_surface_param_.src_rect = {0.0, 0.0, 352.0, 288.0};
-  gfx_surface_param_.dst_rect = {0.0, 0.0, 352.0, 288.0};
-  gfx_surface_param_.surface_blending = SurfaceBlending::kBlendingCoverage;
-  gfx_surface_param_.surface_flags.cursor = 0;
-  gfx_surface_param_.frame_rate = 30;
-  gfx_surface_param_.solid_fill_color = 0;
-
-  auto ret = display_->QueueSurfaceBuffer(gfx_surface_id_, gfx_surface_buffer_,
-                                          gfx_surface_param_);
-  if (ret != 0) {
-    TEST_ERROR("%s: QueueSurfaceBuffer Failed!!", __func__);
-  }
-
-  TEST_DBG("%s: Exit", __func__);
-  return 0;
-}
-#endif
-
-status_t GtestCommon::DrawOverlay(void *data, int32_t width, int32_t height) {
-
-  TEST_DBG("%s: Enter", __func__);
-  status_t ret = 0;
-#ifndef CAMERA_HAL1_SUPPORT
-#if USE_SKIA
-  //Create Skia canvas outof ION memory.
-  SkImageInfo imageInfo = SkImageInfo::Make(width, height,
-      kRGBA_8888_SkColorType, kPremul_SkAlphaType);
-
-#ifdef QCAMERA3_TAG_LOCAL_COPY
-  canvas_ = (SkCanvas::MakeRasterDirect(imageInfo,
-      static_cast<unsigned char*>(data), width *4)).release();
-#else
-  canvas_ = SkCanvas::NewRasterDirect(imageInfo,
-      static_cast<unsigned char*>(data), width *4);
-#endif
-
-#elif USE_CAIRO
-  cr_surface_ = cairo_image_surface_create_for_data(static_cast<unsigned char*>
-                                                    (data),
-                                                    CAIRO_FORMAT_ARGB32, width,
-                                                    height, width * 4);
-  EXPECT_TRUE(cr_surface_ != nullptr);
-
-  cr_context_ = cairo_create (cr_surface_);
-  EXPECT_TRUE(cr_context_ != nullptr);
-#endif
-
-  struct timeval tv;
-  time_t now_time;
-  struct tm *time;
-  char date_buf[40];
-  char time_buf[40];
-
-  gettimeofday(&tv, NULL);
-  now_time = tv.tv_sec;
-  time = localtime(&now_time);
-
-  strftime(date_buf, sizeof date_buf, "%Y/%m/%d", time);
-  strftime(time_buf, sizeof time_buf, "%H:%M:%S", time);
-
-  TEST_INFO("%s: date:time (%s:%s)", __func__, date_buf, time_buf);
-
-  double x_date, y_date;
-  x_date = y_date = 0.0;
-
-#if USE_SKIA
-  canvas_->clear(SK_AlphaOPAQUE);
-
-  int32_t date_len = strlen(date_buf);
-  int32_t time_len = strlen(time_buf);
-
-  SkPaint paint;
-  paint.setColor(kColorRed);
-  paint.setTextSize(SkIntToScalar(DATETIME_PIXEL_SIZE));
-  paint.setAntiAlias(true);
-  paint.setTextScaleX(1);
-
-  SkString date_text(date_buf, date_len);
-  canvas_->drawText(date_text.c_str(), date_text.size(), x_date, y_date, paint);
-
-  SkString time_text(time_buf, time_len);
-  int32_t per_char_size = DATETIME_TEXT_BUF_WIDTH/date_text.size();
-  float x_time = (DATETIME_TEXT_BUF_WIDTH - (time_text.size() * per_char_size));
-  x_time = x_time > 0 ? (x_time) : 0;
-  float y_time = DATETIME_TEXT_BUF_HEIGHT - DATETIME_PIXEL_SIZE/2;
-  canvas_->drawText(time_text.c_str(), time_text.size(), x_time, y_time, paint);
-  canvas_->flush();
-  usleep(1000);
-
-#elif USE_CAIRO
-  ClearSurface();
-  cairo_select_font_face(cr_context_, "@cairo:Serif", CAIRO_FONT_SLANT_ITALIC,
-                          CAIRO_FONT_WEIGHT_BOLD);
-  cairo_set_font_size (cr_context_, DATETIME_PIXEL_SIZE);
-  cairo_set_antialias (cr_context_, CAIRO_ANTIALIAS_BEST);
-  EXPECT_TRUE(CAIRO_STATUS_SUCCESS == cairo_status(cr_context_));
-
-  cairo_font_extents_t font_extent;
-  cairo_font_extents (cr_context_, &font_extent);
-  TEST_DBG("%s: ascent=%f, descent=%f, height=%f, max_x_advance=%f,"
-      " max_y_advance = %f", __func__, font_extent.ascent, font_extent.descent,
-       font_extent.height, font_extent.max_x_advance,
-       font_extent.max_y_advance);
-
-  cairo_text_extents_t date_text_extents;
-  cairo_text_extents (cr_context_, date_buf, &date_text_extents);
-
-  TEST_DBG("%s: Date: te.x_bearing=%f, te.y_bearing=%f, te.width=%f,"
-      " te.height=%f, te.x_advance=%f, te.y_advance=%f", __func__,
-      date_text_extents.x_bearing, date_text_extents.y_bearing,
-      date_text_extents.width, date_text_extents.height,
-      date_text_extents.x_advance, date_text_extents.y_advance);
-
-  cairo_font_options_t *options;
-  options = cairo_font_options_create ();
-  cairo_font_options_set_antialias (options, CAIRO_ANTIALIAS_DEFAULT);
-  cairo_set_font_options (cr_context_, options);
-  cairo_font_options_destroy (options);
-
-  //(0,0) is at topleft corner of draw buffer.
-  y_date = height/2.0; // height is buffer height.
-  y_date = std::max(y_date, date_text_extents.height - (font_extent.descent/2.0));
-  cairo_move_to (cr_context_, x_date, y_date);
-
-  // Draw date.
-  RGBAValues text_color{};
-  ExtractColorValues(kColorRed, &text_color);
-  cairo_set_source_rgba (cr_context_, text_color.red, text_color.green,
-                         text_color.blue, text_color.alpha);
-
-  cairo_show_text (cr_context_, date_buf);
-  EXPECT_TRUE(CAIRO_STATUS_SUCCESS == cairo_status(cr_context_));
-
-  cairo_text_extents_t time_text_extents;
-  cairo_text_extents (cr_context_, time_buf, &time_text_extents);
-  TEST_DBG("%s: Time: te.x_bearing=%f, te.y_bearing=%f, te.width=%f,"
-    " te.height=%f, te.x_advance=%f, te.y_advance=%f", __func__,
-    time_text_extents.x_bearing, time_text_extents.y_bearing,
-    time_text_extents.width, time_text_extents.height,
-    time_text_extents.x_advance, time_text_extents.y_advance);
-  // Calculate the x_time to draw the time text extact middle of buffer.
-  // Use x_width which usally few pixel less than the width of the actual
-  // drawn text.
-  double x_time = (width - time_text_extents.width)/2.0; // width_ is buffer width.
-  double y_time = y_date + (date_text_extents.height - (font_extent.descent/2));
-  cairo_move_to (cr_context_, x_time, y_time);
-  cairo_show_text (cr_context_, time_buf);
-  EXPECT_TRUE(CAIRO_STATUS_SUCCESS == cairo_status(cr_context_));
-
-  cairo_surface_flush(cr_surface_);
-
-  if (cr_surface_) {
-    cairo_surface_destroy(cr_surface_);
-  }
-  if (cr_context_) {
-    cairo_destroy(cr_context_);
-  }
-#endif
-
-  TEST_DBG("%s: Exit", __func__);
-#endif
-  return ret;
-}
-
 void GtestCommon::ExtractColorValues(uint32_t hex_color, RGBAValues* color) {
 
   color->red   = ((hex_color >> 24) & 0xff) / 255.0;
@@ -2648,4 +2415,112 @@ status_t GtestCommon::FillCropMetadata(CameraMetadata& meta,
   }
 
   return NO_ERROR;
+}
+
+void GtestCommon::ConfigureAndTakeSnapshot() {
+
+  bool res_supported = false;
+
+  std::vector<CameraMetadata> meta_array;
+  CameraMetadata meta;
+
+  auto ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  CameraMetadata static_meta;
+  ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  // Configure Snapshot Mode
+  ImageConfigParam image_config;
+  SnapshotType snapshot_type;
+  snapshot_type.type = snap_mode_;
+  snapshot_type.raw_format = snap_format_;
+  image_config.Update(QMMF_SNAPSHOT_TYPE, snapshot_type);
+
+  ret = recorder_.ConfigImageCapture(camera_id_, image_config);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  // Configure Snapshot Stream
+  ImageParam image_param{};
+  image_param.image_format = snap_format_;
+
+  if (snap_format_ == ImageFormat::kJPEG) {
+    image_param.width = snap_width_;
+    image_param.height = snap_height_;
+    image_param.image_quality = default_jpeg_quality_;
+
+    res_supported = GtestCommon::ValidateResFromJpegSizes(
+        static_meta, image_param.width, image_param.height);
+    ASSERT_TRUE(res_supported != false);
+  } else if (snap_format_ == ImageFormat::kBayerRDI8BIT ||
+             snap_format_ == ImageFormat::kBayerRDI10BIT ||
+             snap_format_ == ImageFormat::kBayerRDI12BIT ||
+             snap_format_ == ImageFormat::kBayerRDI16BIT) {
+    // Configure max resolution for Bayer Snapshot.
+    GtestCommon::GetMaxSupportedCameraRes(static_meta, image_param.width,
+                                          image_param.height);
+
+    TEST_INFO("%s: Supported Max Capture W(%d):H(%d)", __func__,
+              image_param.width, image_param.height);
+    ASSERT_TRUE(image_param.width > 0 && image_param.height > 0);
+
+  } else if (snap_format_ == ImageFormat::kNV12 ||
+             snap_format_ == ImageFormat::kNV21) {
+    image_param.width = snap_width_;
+    image_param.height = snap_height_;
+    res_supported = GtestCommon::ValidateResFromStreamConfigs(
+        static_meta, image_param.width, image_param.height);
+    ASSERT_TRUE(res_supported != false);
+  }
+  meta_array.push_back(meta);
+
+  ImageCaptureCb cb = [&](uint32_t camera_id, uint32_t image_count,
+                          BufferDescriptor buffer,
+                          MetaData meta_data) -> void {
+    SnapshotCb(camera_id, image_count, buffer, meta_data);
+  };
+
+  for (uint32_t i = 0; i < snap_count_; i++) {
+    ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array, cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    if (snap_mode_ == SnapshotMode::kContinuous) {
+      // Continuous Snapshot requires only one call to CaptureImage()
+      sleep(record_duration_ / 2);
+      break;
+    }
+    // Take Snapshot with every 5 sec.
+    sleep(5);
+  }
+
+  ret = recorder_.CancelCaptureImage(camera_id_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  sleep(1);
+}
+
+void GtestCommon::SetCameraExtraParam(CameraExtraParam &param) {
+  if (is_eis_on_) {
+    // Enable EIS
+    EISSetup eis_mode;
+    eis_mode.enable = true;
+    param.Update(QMMF_EIS, eis_mode);
+  }
+  if (is_shdr_on_) {
+    // Enable HDR
+    VideoHDRMode vid_hdr_mode;
+    vid_hdr_mode.enable = true;
+    param.Update(QMMF_VIDEO_HDR_MODE, vid_hdr_mode);
+  }
+  if (is_ldc_on_) {
+    // Enable LDc
+    LDCMode ldc_mode;
+    ldc_mode.enable = true;
+    param.Update(QMMF_LDC, ldc_mode);
+  }
+
+  std::cout << "EIS is :" << (is_eis_on_ ? "On" : "Off") << " SHDR is :"
+      << (is_shdr_on_ ? "On" : "Off") << " LDC is :" <<
+      (is_ldc_on_ ? "On" : "Off") << std::endl;
 }

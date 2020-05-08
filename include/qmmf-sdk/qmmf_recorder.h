@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -40,7 +40,6 @@
 
 #include "qmmf-sdk/qmmf_recorder_params.h"
 #include "qmmf-sdk/qmmf_recorder_extra_param.h"
-#include "qmmf-sdk/qmmf_overlay.h"
 
 namespace qmmf {
 namespace recorder {
@@ -350,66 +349,6 @@ class Recorder {
   status_t GetCameraCharacteristics(const uint32_t camera_id,
                                     android::CameraMetadata &meta);
 
-  /// @brief Create overlay object of type
-  /// static image, date/time, bounding box,
-  /// simple text, and privacy mask.
-  ///
-  /// This Api returns the object id which
-  /// can be use for configuration change at runtime.
-  status_t CreateOverlayObject(const uint32_t track_id,
-                               const overlay::OverlayParam &param,
-                               uint32_t *overlay_id);
-
-  /// Overlay object can be deleted at any point after creation.
-  status_t DeleteOverlayObject(const uint32_t track_id,
-                               const uint32_t overlay_id);
-
-  /// Overlay group of objects associated with the track can be deleted.
-  status_t DeleteOverlayObjects(const uint32_t track_id);
-
-  /// @brief Overlay object's parameters can be queried after creation, it is
-  /// recommended to call get parameters first before setting any new
-  /// parameters using Api updateOverlayObject.
-  status_t GetOverlayObjectParams(const uint32_t track_id,
-                                  const uint32_t overlay_id,
-                                  overlay::OverlayParam &param);
-
-  /// @brief Overlay object's configuration can
-  /// be updated at run time using this Api.
-  /// Client has to provide overlay Id and updated parameters.
-  ///
-  /// It is recommended to call getOverlayObjectParams first to get current
-  /// parameters then update them using this Api.
-  status_t UpdateOverlayObjectParams(const uint32_t track_id,
-                                     const uint32_t overlay_id,
-                                     const overlay::OverlayParam &param);
-
-  status_t ProcessOverlayObjects(const uint32_t track_id,
-      const std::vector<overlay::OverlayParam> &overlay_list);
-
-  /// Overlay Object can be set and removed per track at runtime
-  status_t SetOverlay(const uint32_t track_id, const uint32_t overlay_id);
-
-  /// Overlay object can be dynamically removed
-  status_t RemoveOverlay(const uint32_t track_id, const uint32_t overlay_id);
-
-  /// @brief Creates a virtual camera by bundling the given camera IDs and
-  /// mapping them to a virtual ID.
-  ///
-  /// This API must be called before calling ConfigureMultiCamera and
-  /// StartCamera in order to work with the virtual camera. The virtual
-  /// camera ID is set by the underlying layers.
-  status_t CreateMultiCamera(const std::vector<uint32_t> camera_ids,
-                             uint32_t *virtual_camera_id);
-
-  /// @brief Configure a virtual camera with the given ID.
-  ///
-  /// This API must be called after CreateMultiCamera but before calling
-  /// StartCamera.
-  status_t ConfigureMultiCamera(const uint32_t virtual_camera_id,
-                                const MultiCameraConfigType type,
-                                const void *param,
-                                const uint32_t param_size);
  private:
   RecorderClient* recorder_client_;
 
