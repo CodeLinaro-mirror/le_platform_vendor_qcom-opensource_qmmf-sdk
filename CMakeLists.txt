@@ -37,8 +37,6 @@ DESTINATION include/qmmf-sdk)
 
 add_subdirectory(qmmf-server)
 
-add_subdirectory(plugins)
-
 add_subdirectory(recorder/src/service)
 
 add_subdirectory(recorder/test/gtest)
