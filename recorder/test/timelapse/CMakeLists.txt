@@ -20,6 +20,8 @@ target_include_directories(qmmf_recorder_timelapse
  PRIVATE ${TOP_DIRECTORY}/common/memory)
 
 install(TARGETS qmmf_recorder_timelapse DESTINATION bin OPTIONAL)
-target_link_libraries(qmmf_recorder_timelapse log cutils utils camera_client camera_metadata qmmf_recorder_client qmmf_utils)
-
+target_link_libraries(qmmf_recorder_timelapse log cutils utils camera_metadata qmmf_recorder_client qmmf_utils)
+if(NOT CAMERA_CLIENT_DISABLED)
+target_link_libraries(qmmf_recorder_timelapse camera_client)
+endif()
 endif()
