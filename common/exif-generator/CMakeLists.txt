@@ -14,4 +14,7 @@ target_include_directories(qmmf_exif_generator
  PRIVATE ${TOP_DIRECTORY})
 
 install(TARGETS qmmf_exif_generator DESTINATION lib OPTIONAL)
-target_link_libraries(qmmf_exif_generator log binder utils cutils dl pthread camera_client)
+target_link_libraries(qmmf_exif_generator log binder utils cutils dl pthread camera_metadata)
+if(NOT CAMERA_CLIENT_DISABLED)
+target_link_libraries(qmmf_exif_generator camera_client)
+endif()

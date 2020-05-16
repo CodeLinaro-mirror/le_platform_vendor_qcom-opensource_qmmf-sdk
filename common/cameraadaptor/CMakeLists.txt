@@ -30,8 +30,11 @@ target_include_directories(qmmf_camera_adaptor
  PRIVATE ${TOP_DIRECTORY}/common/memory)
 
 install(TARGETS qmmf_camera_adaptor DESTINATION lib OPTIONAL)
-target_link_libraries(qmmf_camera_adaptor camera_client log binder qmmf_utils utils
-cutils pthread dl hardware camera_metadata qmmf_memory_interface)
+target_link_libraries(qmmf_camera_adaptor camera_metadata log binder qmmf_utils utils
+cutils pthread dl hardware qmmf_memory_interface)
+if(NOT CAMERA_CLIENT_DISABLED)
+target_link_libraries(qmmf_camera_adaptor camera_client)
+endif()
 if(TARGET_USES_GBM)
 target_link_libraries(qmmf_camera_adaptor gbm)
 endif()
