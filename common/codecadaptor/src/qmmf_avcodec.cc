@@ -712,6 +712,8 @@ status_t AVCodec::ConfigureVideoEncoder(CodecParam& codec_param) {
     return ret;
   }
 
+// TODO: remove once support is available in RB5
+#ifndef DISABLE_VID_AU_DELIMITER
   ret = omx_client_->SetParameter(
       static_cast<OMX_INDEXTYPE>(OMX_QcomIndexParamAUDelimiter),
       reinterpret_cast<OMX_PTR>(&param_aud));
@@ -719,6 +721,7 @@ status_t AVCodec::ConfigureVideoEncoder(CodecParam& codec_param) {
     QMMF_ERROR("%s: Failed to configure AUD delimiter", __func__);
     return ret;
   }
+#endif
 
   ret = omx_client_->SetParameter(
       static_cast<OMX_INDEXTYPE>(OMX_QcomIndexParamH264VUITimingInfo),
