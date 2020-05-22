@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -75,7 +75,7 @@ const size_t AudioPulseClient::kPaBinaryNameSize(256);
 const size_t AudioPulseClient::kPaUserNameSize(256);
 const size_t AudioPulseClient::kPaHostNameSize(256);
 const size_t AudioPulseClient::kPaBufferLength(100); // ms
-const uint32_t AudioPulseClient::kLatency(25000);
+const size_t AudioPulseClient::kLatency(25000);
 
 AudioPulseClient::AudioPulseClient()
     : pa_mainloop_(nullptr),
