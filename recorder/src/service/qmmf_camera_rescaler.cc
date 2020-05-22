@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -65,9 +65,13 @@ CameraRescalerBase::CameraRescalerBase()
   std::string name = prop;
 #ifndef CAMERA_HAL1_SUPPORT
   if (name == "Neon") {
-    rescaler_ = new NEONResizer();
+#ifndef DISABLE_RESCALER_NEON
+      rescaler_ = new NEONResizer();
+#endif
   } else if (name == "FastCV") {
+#ifndef DISABLE_RESCALER_FASTCV
     rescaler_ = new FastCVResizer();
+#endif
   } else {
     rescaler_ = new C2DResizer();
   }

@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -1089,6 +1089,8 @@ status_t AVCodec::ConfigureVideoDecoder(CodecParam& codec_param) {
 
   if (codec_param.video_dec_param.enable_vqzip_extradata) {
     QMMF_INFO("%s Enabling SEI extradata for VQZIP", __func__);
+
+#ifndef EXTRADATA_VQZIP_NOT_SUPPORTED
     OMX_QTI_VIDEO_PARAM_VQZIP_SEI_TYPE enable_sei_params;
     InitOMXParams(&enable_sei_params);
     enable_sei_params.bEnable = OMX_TRUE;
@@ -1099,6 +1101,7 @@ status_t AVCodec::ConfigureVideoDecoder(CodecParam& codec_param) {
       QMMF_ERROR("%s Failed to set the SEI extradata for Decoder", __func__);
       return ret;
     }
+ #endif
   }
 
   if(codec_param.video_dec_param.enable_thumbnail) {
@@ -1894,6 +1897,7 @@ status_t AVCodec::SetupAVCEncoderParameters(CodecParam& param) {
                    __func__);
         return -1;
       } else {
+#ifndef EXTRADATA_VQZIP_NOT_SUPPORTED
         OMX_QTI_VIDEO_PARAM_VQZIP_SEI_TYPE enable_sei_params;
         InitOMXParams(&enable_sei_params);
         enable_sei_params.bEnable = OMX_TRUE;
@@ -1905,6 +1909,7 @@ status_t AVCodec::SetupAVCEncoderParameters(CodecParam& param) {
                      __func__);
           return ret;
         }
+#endif
       }
   }
 
@@ -2007,6 +2012,7 @@ status_t AVCodec::SetupAVCEncoderParameters(CodecParam& param) {
   if (param.video_enc_param.codec_param.avc.slice_enabled) {
     QMMF_INFO("%s Setting slice delivery mode: Spacing: (%u)", __func__,
               param.video_enc_param.codec_param.avc.slice_header_spacing);
+#ifndef EXTRADATA_VQZIP_NOT_SUPPORTED
     QOMX_EXTNINDEX_PARAMTYPE extn_index;
     InitOMXParams(&extn_index);
     extn_index.nPortIndex = kPortIndexOutput;
@@ -2017,6 +2023,7 @@ status_t AVCodec::SetupAVCEncoderParameters(CodecParam& param) {
     if (ret != 0) {
       QMMF_ERROR("%s Failed to Set Slice Mode", __func__);
     }
+#endif
   }
 
   QMMF_INFO("%s Exit", __func__);
@@ -4235,13 +4242,13 @@ OMX_ERRORTYPE AVCodec::OnEmptyBufferDone(
   } else if(avcodec->format_type_ == CodecType::kAudioEncoder) {
     assert(buf_header->pBuffer != nullptr);
     stream_buffer.data = buf_header->pBuffer;
-    stream_buffer.fd = reinterpret_cast<int32_t>(buf_header->pAppPrivate);
+    stream_buffer.fd = reinterpret_cast<size_t>(buf_header->pAppPrivate);
     QMMF_DEBUG("%s EBD buffer[%s]", __func__,
                stream_buffer.ToString().c_str());
   } else {
     assert(buf_header->pBuffer != nullptr);
     stream_buffer.data = buf_header->pBuffer;
-    stream_buffer.fd = reinterpret_cast<int32_t>(buf_header->pAppPrivate);
+    stream_buffer.fd = reinterpret_cast<size_t>(buf_header->pAppPrivate);
     QMMF_DEBUG("%s EBD data(%p), ts(%lld)", __func__,
         stream_buffer.data, buf_header->nTimeStamp);
   }
@@ -4385,7 +4392,7 @@ OMX_ERRORTYPE AVCodec::OnFillBufferDone(
   }
 
   if(avcodec->format_type_ == CodecType::kAudioDecoder) {
-    codec_buffer.fd = reinterpret_cast<int32_t>(buf_header->pAppPrivate);
+    codec_buffer.fd = reinterpret_cast<size_t>(buf_header->pAppPrivate);
     codec_buffer.capacity = buf_header->nAllocLen;
   }
 

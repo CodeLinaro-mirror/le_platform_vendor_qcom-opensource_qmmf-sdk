@@ -76,10 +76,14 @@ add_subdirectory(common/jpeg-encoder)
 
 add_subdirectory(common/overlay)
 
+if (RESIZER_FASTCV_ENABLED)
 add_subdirectory(common/resizer-fastCV)
+endif()
 
 add_subdirectory(common/resizer-c2d)
 
+if (RESIZER_NEON_ENABLED)
 add_subdirectory(common/resizer-neon)
+endif()
 
 add_subdirectory(common/utils)

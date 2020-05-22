@@ -53,11 +53,21 @@ add_dependencies(
   qmmf_codec_adaptor
   qmmf_camera_adaptor
   qmmf_exif_generator
-  qmmf_common_resizer_neon
   qmmf_common_resizer_c2d
-  qmmf_common_resizer_fastcv
   qmmf_recorder_client
 )
+if (RESIZER_FASTCV_ENABLED)
+add_dependencies(
+  qmmf_recorder_service
+  qmmf_common_resizer_fastcv
+)
+endif()
+if (RESIZER_NEON_ENABLED)
+add_dependencies(
+  qmmf_recorder_service
+  qmmf_common_resizer_neon
+)
+endif()
 else()
 add_dependencies(
   qmmf_recorder_service
@@ -70,7 +80,7 @@ add_dependencies(
 )
 endif()
 if (NOT DISABLE_RESCALER_COLORSPACE)
-add_dependencies(qdMetaData)
+add_dependencies(qmmf_recorder_service qdMetaData)
 endif()
 if (NOT DISABLE_PP_JPEG)
 add_dependencies(qmmf_recorder_service qmmf_common_jpeg_encoder qmmf_jpeg)
@@ -103,8 +113,19 @@ if (NOT CAMERA_HAL1_SUPPORT)
 target_link_libraries(qmmf_recorder_service dl jsoncpp log utils cutils binder
   pthread pulse camera_client camera_metadata hardware qmmf_recorder_client
   qmmf_utils qmmf_camera_adaptor qmmf_codec_adaptor
-  qmmf_exif_generator qmmf_common_resizer_neon
-  qmmf_common_resizer_c2d qmmf_common_resizer_fastcv)
+  qmmf_exif_generator qmmf_common_resizer_c2d )
+if (RESIZER_FASTCV_ENABLED)
+target_link_libraries(
+  qmmf_recorder_service
+  qmmf_common_resizer_fastcv
+)
+endif()
+if (RESIZER_NEON_ENABLED)
+target_link_libraries(
+  qmmf_recorder_service
+  qmmf_common_resizer_neon
+)
+endif()
 else()
 target_link_libraries(qmmf_recorder_service dl jsoncpp log utils cutils binder
   pthread pulse camera_client camera_metadata hardware qmmf_recorder_client
