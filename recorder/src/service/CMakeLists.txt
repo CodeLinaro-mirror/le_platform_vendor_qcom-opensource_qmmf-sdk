@@ -128,12 +128,6 @@ target_include_directories(qmmf_recorder_service
  PRIVATE ${WORKSPACE}/hardware/qcom/media/)
 
 target_include_directories(qmmf_recorder_service
- PRIVATE ${WORKSPACE}/hardware/libhardware/include)
-
-target_include_directories(qmmf_recorder_service
- PRIVATE ${WORKSPACE}/frameworks/av/include)
-
-target_include_directories(qmmf_recorder_service
  PRIVATE $<BUILD_INTERFACE:${KERNEL_INCDIR}/usr/include>)
 
 target_include_directories(qmmf_recorder_service
