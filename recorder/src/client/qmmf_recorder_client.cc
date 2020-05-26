@@ -1320,18 +1320,20 @@ void RecorderClient::NotifyRecorderEvent(EventType event_type, void *event_data,
                                          size_t event_data_size) {
   QMMF_DEBUG("%s Enter ", __func__);
 
-  RecorderErrorData *errdata = (RecorderErrorData *)event_data;
-  if (errdata != nullptr && errdata->error_code == REMAP_ALL_BUFFERS) {
-    for (auto& iter : track_buffers_map_) {
-      uint32_t track_id = iter.first;
-      for (auto& pair : track_buffers_map_[track_id]) {
-        auto& buffer_info = pair.second;
-        auto ret = UnmapBuffer(buffer_info);
-        if (NO_ERROR != ret) {
-          QMMF_ERROR("%s Failed to unmap buffer!", __func__);
+  if (EventType::kCameraError == event_type) {
+    RecorderErrorData *errdata = (RecorderErrorData *)event_data;
+    if (errdata != nullptr && errdata->error_code == REMAP_ALL_BUFFERS) {
+      for (auto& iter : track_buffers_map_) {
+        uint32_t track_id = iter.first;
+        for (auto& pair : track_buffers_map_[track_id]) {
+          auto& buffer_info = pair.second;
+          auto ret = UnmapBuffer(buffer_info);
+          if (NO_ERROR != ret) {
+            QMMF_ERROR("%s Failed to unmap buffer!", __func__);
+          }
         }
+        track_buffers_map_.erase(track_id);
       }
-      track_buffers_map_.erase(track_id);
     }
   }
 
@@ -2320,11 +2322,13 @@ class BpRecorderServiceCallback: public BpInterface<IRecorderServiceCallback> {
       memcpy(blob.data(), event_data, event_data_size);
     }
 
-    RecorderErrorData *errdata = (RecorderErrorData *)event_data;
-    if (errdata != nullptr && errdata->error_code == REMAP_ALL_BUFFERS) {
-      for (auto& iter : track_buffers_map_) {
-        uint32_t track_id = iter.first;
-        track_buffers_map_.erase(track_id);
+    if (EventType::kCameraError == event_type) {
+      RecorderErrorData *errdata = (RecorderErrorData *)event_data;
+      if (errdata != nullptr && errdata->error_code == REMAP_ALL_BUFFERS) {
+        for (auto& iter : track_buffers_map_) {
+          uint32_t track_id = iter.first;
+          track_buffers_map_.erase(track_id);
+        }
       }
     }
 
