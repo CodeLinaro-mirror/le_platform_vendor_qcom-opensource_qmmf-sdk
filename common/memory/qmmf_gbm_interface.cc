@@ -254,13 +254,14 @@ int GBMBuffer::GetFormat() {
   }
   return format;
 }
+
 uint32_t GBMBuffer::GetSize() {
-  uint32_t bo_size = 0;
-  int ret;
-  ret = gbm_perform(GBM_PERFORM_GET_BO_SIZE, generic_handle_, &bo_size);
+  size_t bo_size = 0;
+  int ret = gbm_perform(GBM_PERFORM_GET_BO_SIZE, generic_handle_, &bo_size);
   assert(ret == GBM_ERROR_NONE);
-  return bo_size;
+  return (uint32_t)bo_size;
 }
+
 uint32_t GBMBuffer::GetWidth() { return gbm_bo_get_width(generic_handle_); }
 
 uint32_t GBMBuffer::GetHeight() { return gbm_bo_get_height(generic_handle_); }
