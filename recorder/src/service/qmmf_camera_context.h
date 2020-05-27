@@ -260,8 +260,6 @@ class CameraContext : public CameraInterface {
 
   void HandleFinalResult(const CaptureResult &result);
 
-  std::string GetSnapshotJsonConfig();
-
   bool IsRawOnly(const int32_t format);
 
 

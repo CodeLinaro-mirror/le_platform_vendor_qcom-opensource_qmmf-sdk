@@ -746,27 +746,6 @@ status_t CameraContext::CaptureImage(const std::vector<CameraMetadata> &meta,
   return ret;
 }
 
-std::string CameraContext::GetSnapshotJsonConfig() {
-  Json::Value root(Json::objectValue);
-
-  for (size_t i = 0; i < thumbnails_.size(); i++) {
-    root["thumbnail"][i]["width"] = thumbnails_[i].width;
-    root["thumbnail"][i]["height"] = thumbnails_[i].height;
-    root["thumbnail"][i]["quality"] = thumbnails_[i].quality;
-  }
-
-  root["jpeg quality"] = snapshot_param_.quality;
-
-  root["maker note"] = exif_en_;
-
-  Json::FastWriter fastWriter;
-  auto config = fastWriter.write(root);
-
-  QMMF_INFO("%s: Snapshot configuration: %s", __func__, config.c_str());
-
-  return config;
-}
-
 status_t CameraContext::ValidateCaptureConfig(const ImageConfigParam &config) {
   if (config.Exists(QMMF_EXIF) && config.Exists(QMMF_IMAGE_THUMBNAIL)) {
     ImageExif exif;
@@ -976,7 +955,7 @@ status_t CameraContext::CreateStream(const StreamParam& param,
   assert(camera_device_.get() != nullptr);
   assert(param.id != 0);
 
-  size_t batch;
+  uint32_t batch;
   if (NO_ERROR != GetBatchSize(param, batch)) {
     return BAD_VALUE;
   }
