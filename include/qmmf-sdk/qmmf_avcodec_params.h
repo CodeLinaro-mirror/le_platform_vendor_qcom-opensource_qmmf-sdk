@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, 2018, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016, 2018, 2020, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -43,8 +43,8 @@
 #include "qmmf-sdk/qmmf_player_params.h"
 #include "qmmf-sdk/qmmf_recorder_params.h"
 
-#define INPUT_MAX_COUNT         (11)
-#define OUTPUT_MAX_COUNT        (6)
+#define AVCODEC_IN_BUF_COUNT    (11)
+#define AVCODEC_OUT_BUF_COUNT   (6)
 #define CMD_BUF_MAX_COUNT       (10)
 
 
