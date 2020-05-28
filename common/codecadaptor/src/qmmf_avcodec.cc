@@ -1354,7 +1354,7 @@ status_t AVCodec::ConfigureAudioEncoder(CodecParam& codec_param) {
                input_port.nBufferSize);
 
   // hardcode the number of input buffers
-  uint32_t buf_count = INPUT_MAX_COUNT;
+  uint32_t buf_count = AVCODEC_IN_BUF_COUNT;
   if (input_port.nBufferCountActual != buf_count) {
     input_port.nBufferCountActual = buf_count;
     result = omx_client_->SetParameter(OMX_IndexParamPortDefinition,
@@ -2467,35 +2467,39 @@ status_t AVCodec::AllocateBuffer(uint32_t port_type, uint32_t buf_count,
   }
 
   if (format_type_ == CodecType::kVideoEncoder) {
-    uint32_t buf_count = (port_type == kPortIndexInput) ? INPUT_MAX_COUNT
-                                                        : OUTPUT_MAX_COUNT;
+    uint32_t buf_count = (port_type == kPortIndexInput) ? AVCODEC_IN_BUF_COUNT
+                                                        : AVCODEC_OUT_BUF_COUNT;
 
     if (slice_mode_encoding_) {
-      buf_count = (port_type == kPortIndexInput) ? INPUT_MAX_COUNT
+      buf_count = (port_type == kPortIndexInput) ? AVCODEC_IN_BUF_COUNT
                                                  : port_def.nBufferCountActual;
     }
 
-    if (port_def.nBufferCountActual != buf_count) {
+    if (buf_count < port_def.nBufferCountMin) {
+      buf_count = port_def.nBufferCountMin;
+    }
 
+    if (port_def.nBufferCountActual != buf_count) {
       port_def.nBufferCountActual = buf_count;
       ret = omx_client_->SetParameter(OMX_IndexParamPortDefinition,
                                       reinterpret_cast<OMX_PTR>(&port_def));
-      if(ret != OK) {
+      if (ret != OK) {
         QMMF_ERROR("%s Failed to set new buffer count(%d) on %s",
             __func__, port_def.nBufferCountActual, PORT_NAME(port_type));
         return ret;
       }
       ret = omx_client_->GetParameter(OMX_IndexParamPortDefinition,
                                       reinterpret_cast<OMX_PTR>(&port_def));
-      if(ret != OK) {
+      if (ret != OK) {
         QMMF_ERROR("%s Failed to getParameter on %s", __func__,
                    PORT_NAME(port_type));
         return ret;
       }
-      QMMF_INFO("%s New Buf count(%d), size(%d)", __func__,
-                port_def.nBufferCountActual, port_def.nBufferSize);
-      assert(buf_count == port_def.nBufferCountActual);
     }
+
+    QMMF_INFO("%s New Buf count(%d), size(%d)", __func__,
+              port_def.nBufferCountActual, port_def.nBufferSize);
+    assert(buf_count == port_def.nBufferCountActual);
 
     if (port_type == kPortIndexInput)
       in_buff_hdr_size_ = port_def.nBufferCountActual;
