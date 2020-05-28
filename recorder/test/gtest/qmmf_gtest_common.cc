@@ -2465,6 +2465,13 @@ void GtestCommon::ConfigureAndTakeSnapshot() {
               image_param.width, image_param.height);
     ASSERT_TRUE(image_param.width > 0 && image_param.height > 0);
 
+    if (snap_mode_ == SnapshotMode::kStillPlusRaw || snap_mode_
+        == SnapshotMode::kVideoPlusRaw) {
+      image_param.image_format = ImageFormat::kJPEG;
+      image_param.width = snap_width_;
+      image_param.height = snap_height_;
+      image_param.image_quality = default_jpeg_quality_;
+    }
   } else if (snap_format_ == ImageFormat::kNV12 ||
              snap_format_ == ImageFormat::kNV21) {
     image_param.width = snap_width_;
