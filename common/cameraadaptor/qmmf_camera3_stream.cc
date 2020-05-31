@@ -465,14 +465,15 @@ int32_t Camera3Stream::PopulateMetaInfo(CameraBufferMetaData &info,
     return -EINVAL;
   }
   ret  = mem_alloc_interface_->Perform(handle,
-                                      IAllocDevice::AllocDeviceAction::GetHeight,
+                                      IAllocDevice::AllocDeviceAction::GetAlignedHeight,
                                        static_cast<void*>(&alignedH));
   if (MemAllocError::kAllocOk != ret) {
     QMMF_ERROR("%s: Error in GetStrideAndHeightFromHandle() : %d\n", __func__,
                ret);
     return -EINVAL;
   }
-
+  QMMF_DEBUG("%s: Stream ID: %d alignedW: %d alignedH: %d",
+      __func__, GetId(), alignedW, alignedH);
   QMMF_DEBUG("%s: format(0x%x)", __func__, handle->GetFormat());
 
   switch (handle->GetFormat()) {

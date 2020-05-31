@@ -462,6 +462,8 @@ void GtestCommon::SetUp() {
   enable_sof_latency_ = (atoi(prop_val) == 0) ? false : true;
   property_get(PROP_ENABLE_10_BIT, prop_val, "0");
   enable_10bit_support_ = (atoi(prop_val) == 0) ? false : true;
+  property_get(PROP_ZOOM_VALUE, prop_val, "0.0");
+  zoom_value_ = atof(prop_val);
 
   camera_start_params_ = {};
   camera_start_params_.zsl_mode         = false;
@@ -1729,7 +1731,7 @@ status_t GtestCommon::PopulateDeFogTables(
       } else if (key.compare("algo_decision_mode") == 0) {
         defog_table.algo_decision_mode = std::atoi(value.c_str());
       } else if (key.compare("strength") == 0) {
-        defog_table.strength = std::atoi(value.c_str());
+        defog_table.strength = std::atof(value.c_str());
       } else if (key.compare("convergence_speed") == 0) {
         defog_table.convergence_speed = std::atoi(value.c_str());
       } else if (key.compare("lp_color_comp_gain") == 0) {
@@ -1802,6 +1804,48 @@ status_t GtestCommon::PopulateDeFogTables(
             ++index;
             defog_table.trig_params.cct_trigger[index/3].fog_p =
               std::atoi(out_values[index].c_str());
+        }
+      } else if (key.compare("drc_trigger") == 0) {
+        out_values.clear();
+        TokenizeString(value, delim_space, out_values);
+        for (index = 0; out_values.size() <= 6 &&
+             index + 2 < out_values.size(); index++) {
+            defog_table.trig_params.drc_trigger[index/3].start =
+              std::atof(out_values[index].c_str());
+            ++index;
+            defog_table.trig_params.drc_trigger[index/3].end =
+              std::atof(out_values[index].c_str());
+            ++index;
+            defog_table.trig_params.drc_trigger[index/3].fog_p =
+              std::atoi(out_values[index].c_str());
+        }
+      } else if (key.compare("ce_en") == 0) {
+        defog_table.ce_en = std::atoi(value.c_str());
+      } else if (key.compare("convergence_mode") == 0) {
+        defog_table.convergence_mode = std::atoi(value.c_str());
+      } else if (key.compare("guc_en") == 0) {
+        defog_table.guc_en = std::atoi(value.c_str());
+      } else if (key.compare("dcc_en") == 0) {
+        defog_table.dcc_en = std::atoi(value.c_str());
+      } else if (key.compare("guc_str") == 0) {
+        defog_table.guc_str = std::atof(value.c_str());
+      } else if (key.compare("dcc_dark_str") == 0) {
+        defog_table.dcc_dark_str = std::atoi(value.c_str());
+      } else if (key.compare("dcc_bright_str") == 0) {
+        defog_table.dcc_bright_str = std::atoi(value.c_str());
+      } else if (key.compare("gain_trigger") == 0) {
+        out_values.clear();
+        TokenizeString(value, delim_space, out_values);
+        for (index = 0; out_values.size() <= 9 &&
+             index + 2 < out_values.size(); index++) {
+          defog_table.ce_trig_params.gain_trigger[index/3].start =
+            std::atof(out_values[index].c_str());
+          ++index;
+          defog_table.ce_trig_params.gain_trigger[index/3].end =
+            std::atof(out_values[index].c_str());
+          ++index;
+          defog_table.ce_trig_params.gain_trigger[index/3].fog_p =
+            std::atoi(out_values[index].c_str());
         }
       } else {
         TEST_ERROR("%s: Invalid field %s\n", __func__, key.c_str());
@@ -2506,4 +2550,52 @@ status_t GtestCommon::FillCropMetadata(CameraMetadata& meta,
   }
 
   return NO_ERROR;
+}
+
+void GtestCommon::EnableZoom(float zoom) {
+
+  TEST_INFO("%s: Enter ", __func__);
+
+  if (zoom <= 0.0f) {
+    TEST_INFO("%s: Zoom not applicable ", __func__);
+    return;
+  }
+
+  CameraMetadata video_meta;
+  auto ret = recorder_.GetCameraParam(camera_id_, video_meta);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  int32_t crop[4];
+  int32_t width = 0;
+  int32_t height = 0;
+
+  if (video_meta.exists(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE)) {
+    width = video_meta.find(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE).data.i32[2];
+    height =
+        video_meta.find(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE).data.i32[3];
+  }
+  ASSERT_TRUE(width && height > 0);
+
+  crop[2] = static_cast<int32_t> (width / zoom);
+  crop[3] = (crop[2] * height / width);
+  crop[0] = (width - crop[2]) / 2;
+  crop[1] = (height - crop[3]) / 2;
+  ret = video_meta.update(ANDROID_SCALER_CROP_REGION, crop, 4);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.SetCameraParam(camera_id_, video_meta);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  sleep(record_duration_ / 3);
+
+  crop[2] = width;
+  crop[3] = (crop[2] * height / width);
+  crop[0] = (width - crop[2]) / 2;
+  crop[1] = (height - crop[3]) / 2;
+  ret = video_meta.update(ANDROID_SCALER_CROP_REGION, crop, 4);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.SetCameraParam(camera_id_, video_meta);
+  ASSERT_TRUE(ret == NO_ERROR);
+  TEST_INFO("%s: Exit ", __func__);
 }
