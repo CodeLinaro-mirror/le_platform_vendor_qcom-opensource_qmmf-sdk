@@ -42,6 +42,7 @@ namespace qmmf {
 
 using namespace cameraadaptor;
 
+#define MAX_SENSOR_FPS              480
 #define VIDEO_STREAM_BUFFER_COUNT    11
 #define PREVIEW_STREAM_BUFFER_COUNT  10
 #define REPROC_STREAM_BUFFER_COUNT    2
@@ -217,7 +218,8 @@ class CameraContext : public CameraInterface {
                                    CameraStreamParameters &stream_param);
 
 #ifdef USE_FPS_IDX
-  uint32_t GetSensorModeIndex(uint32_t framerate);
+  uint32_t GetSensorModeIndex(uint32_t width, uint32_t height,
+                              uint32_t framerate);
 #endif
 
   void InitHFRModes();

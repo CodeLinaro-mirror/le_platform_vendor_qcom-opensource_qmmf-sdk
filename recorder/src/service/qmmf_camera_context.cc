@@ -907,13 +907,13 @@ status_t CameraContext::GetBatchSize(const StreamParam& param,
     return NO_ERROR;
   }
 
-  if ((kConstrainedModeThreshold < param.framerate) && (!hfr_supported_)) {
+  if ((kConstrainedModeThreshold <= param.framerate) && (!hfr_supported_)) {
     QMMF_ERROR("%s: Stream tries to enable HFR which is not supported!",
                __func__);
     return BAD_VALUE;
   }
 
-  if ((kConstrainedModeThreshold < param.framerate) &&
+  if ((kConstrainedModeThreshold <= param.framerate) &&
       (snapshot_type_ == SnapshotMode::kZsl)) {
     QMMF_ERROR("%s: HFR and ZSL are mutually exclusive!",
                __func__);
@@ -1304,20 +1304,20 @@ status_t CameraContext::CreateDeviceStream(CameraStreamParameters& params,
   if (streaming_request_id_ < 0 && !cache) {
     bool is_constrained_mode = false;
     if (hfr_supported_) {
-      for (auto const& it : active_ports_) {
-        auto& port = it.second;
-        if (kConstrainedModeThreshold < port->GetPortFramerate()) {
-          is_constrained_mode = true;
-          break;
-        }
-      }
-      if (!is_constrained_mode && (kConstrainedModeThreshold < frame_rate)) {
+      if (kConstrainedModeThreshold <= frame_rate) {
         is_constrained_mode = true;
+      } else {
+        for (auto const& it : active_ports_) {
+          auto& port = it.second;
+          if (kConstrainedModeThreshold <= port->GetPortFramerate()) {
+            is_constrained_mode = true;
+            break;
+          }
+        }
       }
     }
 
-    QMMF_VERBOSE("%s: is_constrained_mode(%d)", __func__,
-        is_constrained_mode);
+    QMMF_VERBOSE("%s: is_constrained_mode(%d)", __func__, is_constrained_mode);
 
     uint32_t fps_sensormode_index = 0;
 #ifdef USE_FPS_IDX
@@ -1335,8 +1335,9 @@ status_t CameraContext::CreateDeviceStream(CameraStreamParameters& params,
     }
     QMMF_DEBUG("%s: Max fps (%u)!!", __func__, max_frame_rate);
 
-    if ((max_frame_rate > 30) && (max_frame_rate <= 90)) {
-      fps_sensormode_index = GetSensorModeIndex(max_frame_rate);
+    if (max_frame_rate > 30 && max_frame_rate < kConstrainedModeThreshold) {
+      fps_sensormode_index = GetSensorModeIndex(params.width, params.height,
+          max_frame_rate);
       QMMF_DEBUG("%s: Sensor mode index (%u) for fps=%u!!", __func__,
           fps_sensormode_index, max_frame_rate);
     }
@@ -1349,6 +1350,8 @@ status_t CameraContext::CreateDeviceStream(CameraStreamParameters& params,
     stream_config.is_raw_only = is_raw_only;
     stream_config.batch_size = camera_parameters_.batch_size;
     stream_config.fps_sensormode_index = fps_sensormode_index;
+    stream_config.frame_rate_range[0] = max_frame_rate;
+    stream_config.frame_rate_range[1] = max_frame_rate;
     stream_config.params = &params;
 
     ret = camera_device_->EndConfigure(stream_config);
@@ -1370,42 +1373,63 @@ status_t CameraContext::CreateDeviceStream(CameraStreamParameters& params,
 }
 
 #ifdef USE_FPS_IDX
-// This take frame rate as argument and return index of 60fps sensor mode
-uint32_t CameraContext::GetSensorModeIndex(uint32_t framerate) {
+uint32_t CameraContext::GetSensorModeIndex(uint32_t width, uint32_t height,
+    uint32_t fps) {
+
   String8 tag_name("SensorModeTable");
   String8 section_name("org.quic.camera2.sensormode.info");
   uint32_t sensor_mode_table_tagid;
   sp<VendorTagDescriptor> vendor_tag_desc =
       VendorTagDescriptor::getGlobalVendorTagDescriptor();
   if (nullptr == vendor_tag_desc.get()) {
+    QMMF_INFO("%s: no global vendor tag descriptor", __func__);
     return 0;
   }
 
   status_t result = vendor_tag_desc->lookupTag(tag_name, section_name,
                                                &sensor_mode_table_tagid);
   if (result != 0) {
+    QMMF_INFO("%s: no sensor mode info", __func__);
     return 0;
   }
-  if (static_meta_.exists(sensor_mode_table_tagid)) {
-    camera_metadata_entry_t entry = static_meta_.find(sensor_mode_table_tagid);
-    int32_t num_rows = entry.data.i32[0];
-    int32_t data_len = entry.data.i32[1];
-    int32_t index = 1;
-    int32_t width, height, fps;
-    for (int i =0; i < num_rows*data_len ; i += data_len) {
-      width = entry.data.i32[i+2];
-      height = entry.data.i32[i+3];
-      fps = entry.data.i32[i+4];
-      if (framerate <= static_cast<uint32_t>(fps) &&
-          ((fps - framerate) < 30)) {
-        QMMF_INFO("%s: SELECTED SENSOR MODE WIDTH:%d HEIGHT:%d FPS:%d",
-                  __func__, width, height, fps);
-        return index;
-      }
-      index++;
+
+  camera_metadata_entry_t entry = static_meta_.find(sensor_mode_table_tagid);
+  if (!entry.count) {
+    QMMF_INFO("%s: no sensor mode count 0", __func__);
+    return 0;
+  }
+
+  const int32_t *sensor_mode_table = entry.data.i32;
+  int mode_count = sensor_mode_table[0];
+  int mode_size = sensor_mode_table[1];
+  int sensor_mode = -1;
+  int s_width, s_height, s_fps, matched_fps;
+
+  matched_fps = MAX_SENSOR_FPS;
+
+  for (int i = 0; i < mode_count; i++) {
+    s_width  =  sensor_mode_table[2 + i * mode_size];
+    s_height =  sensor_mode_table[3 + i * mode_size];
+    s_fps    =  sensor_mode_table[4 + i * mode_size];
+
+    if ((s_width >= width) &&
+        (s_height >= height) &&
+        (s_fps >= fps) &&
+        (s_fps <= matched_fps)) {
+      matched_fps = s_fps;
+      sensor_mode = i;
     }
   }
-  return 0;
+
+  if (sensor_mode > -1) {
+    QMMF_INFO("%s: SELECTED SENSOR MODE WIDTH:%d HEIGHT:%d FPS:%d", __func__,
+      sensor_mode_table[2 + sensor_mode * mode_size],
+      sensor_mode_table[3 + sensor_mode * mode_size],
+      sensor_mode_table[4 + sensor_mode * mode_size]);
+  }
+
+  // We have to incrase mode by 1 because sensor modes start from 1
+  return sensor_mode + 1;
 }
 #endif
 
@@ -1642,8 +1666,10 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
     std::lock_guard<std::mutex> lock(device_access_lock_);
     if (0 < max_fps) {
       int32_t fpsRange[2];
-      fpsRange[0] = ceil(max_fps);
-      fpsRange[1] = ceil(max_fps);
+      fpsRange[0] = ceil(max_fps - 0.5);
+      fpsRange[1] = ceil(max_fps - 0.5);
+
+      QMMF_INFO("%s: set frame rate to %d fps", __func__, fpsRange[0]);
 
       for (size_t i = 0; i < streaming_active_requests_.size(); ++i) {
         streaming_active_requests_[i].metadata.update(

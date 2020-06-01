@@ -73,10 +73,11 @@ struct StreamConfiguration {
   uint32_t batch_size;
   uint32_t fps_sensormode_index;
   CameraStreamParameters *params;
+  int32_t frame_rate_range[2];
 
   StreamConfiguration()
     :  is_constrained_high_speed(false), is_raw_only(false), batch_size(1),
-       fps_sensormode_index(0), params(nullptr) {}
+       fps_sensormode_index(0), params(nullptr), frame_rate_range{} {}
 };
 
 typedef struct Camera3Request_t {

@@ -392,6 +392,8 @@ int32_t Camera3DeviceClient::ConfigureStreams(const StreamConfiguration& stream_
   hfr_mode_enabled_ = stream_config.is_constrained_high_speed;
   is_raw_only_ = stream_config.is_raw_only;
   batch_size_ = stream_config.batch_size;
+  frame_rate_range_[0] = stream_config.frame_rate_range[0];
+  frame_rate_range_[1] = stream_config.frame_rate_range[1];
 
   if (stream_config.params) {
     cam_feature_flags_ |= stream_config.params->cam_feature_flags;
@@ -426,6 +428,17 @@ int32_t Camera3DeviceClient::ConfigureStreamsLocked() {
   config.operation_mode = GetOpMode();
 
   QMMF_INFO("%s: operation_mode: 0x%x \n", __func__, config.operation_mode);
+
+#if defined(CAMERA_HAL_API_VERSION) && (CAMERA_HAL_API_VERSION >= 0x0305)
+  if (hfr_mode_enabled_) {
+    camera_metadata_t *session_parameters = allocate_camera_metadata(1, 128);
+    add_camera_metadata_entry(session_parameters,
+                              ANDROID_CONTROL_AE_TARGET_FPS_RANGE,
+                              frame_rate_range_, 2);
+
+    config.session_parameters = session_parameters;
+  }
+#endif
 
   Vector<camera3_stream_t *> streams;
   for (size_t i = 0; i < streams_.size(); i++) {
