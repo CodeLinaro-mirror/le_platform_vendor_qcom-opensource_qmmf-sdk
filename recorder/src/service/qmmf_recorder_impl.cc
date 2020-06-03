@@ -1344,9 +1344,6 @@ uint32_t RecorderImpl::FindSuitableIdForLinkedTrack(
         // Try to find a track with same resolution
         for (auto const& track : track_map.second) {
           TrackInfo tr = track.second;
-          if (tr.format.video != params.format_type) {
-            continue;
-          }
           std::shared_ptr<TrackSource> track_source =
               camera_source_->GetTrackSource(tr.track_id);
           VideoTrackParams tr_params = track_source->getParams();
@@ -1364,9 +1361,6 @@ uint32_t RecorderImpl::FindSuitableIdForLinkedTrack(
           uint32_t selected_height = 0;
           for (auto const& track : track_map.second) {
             TrackInfo tr = track.second;
-            if (tr.format.video != params.format_type) {
-              continue;
-            }
             std::shared_ptr<TrackSource> track_source =
                 camera_source_->GetTrackSource(tr.track_id);
             VideoTrackParams tr_params = track_source->getParams();
