@@ -344,6 +344,7 @@ RESIZER_STATUS C2DResizer::ValidateOutput(const uint32_t width,
                                           const uint32_t height,
                                           const BufferFormat format) {
   if (format != BufferFormat::kNV12 &&
+      format != BufferFormat::kNV12UBWC &&
       format != BufferFormat::kNV21 &&
       format != BufferFormat::kNV16 &&
       format != BufferFormat::kRGB) {
