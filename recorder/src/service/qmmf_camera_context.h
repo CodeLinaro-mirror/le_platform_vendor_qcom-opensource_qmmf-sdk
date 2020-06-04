@@ -447,7 +447,6 @@ class CameraPort {
   std::mutex             stop_lock_;
   std::mutex             aec_lock_;
 
-  std::string            pipe_config_json_data_;
   CameraParameters       camera_parameters_;
 };
 

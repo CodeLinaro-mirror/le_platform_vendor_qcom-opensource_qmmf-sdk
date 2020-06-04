@@ -34,7 +34,6 @@
 #include <dirent.h>
 #include <sys/mman.h>
 #include <sys/time.h>
-#include <json/json.h>
 #ifndef CAMERA_HAL1_SUPPORT
 #include <hardware/camera3.h>
 #endif
@@ -186,60 +185,6 @@ status_t CameraSource::GetNumberOfCameras(SupportedCameras &cameras) {
   QMMF_DEBUG("%s: Enter", __func__);
 
   cameras = supported_cameras_;
-
-  QMMF_DEBUG("%s: Exit", __func__);
-  return NO_ERROR;
-}
-
-status_t CameraSource::GetSupportedPlugins(SupportedPlugins *plugins) {
-
-  QMMF_DEBUG("%s: Enter", __func__);
-
-  QMMF_DEBUG("%s: Exit", __func__);
-  return NO_ERROR;
-}
-
-status_t CameraSource::CreatePlugin(uint32_t *uid, const PluginInfo &plugin) {
-
-  QMMF_DEBUG("%s: Enter", __func__);
-
-
-  QMMF_DEBUG("%s: Exit", __func__);
-  return NO_ERROR;
-}
-
-status_t CameraSource::DeletePlugin(const uint32_t &uid) {
-
-  QMMF_DEBUG("%s: Enter", __func__);
-
-  QMMF_DEBUG("%s: Exit", __func__);
-  return NO_ERROR;
-}
-
-status_t CameraSource::ConfigPlugin(const uint32_t &uid,
-                                    const std::string &json_config) {
-
-  QMMF_DEBUG("%s: Enter", __func__);
-
-  QMMF_DEBUG("%s: Exit", __func__);
-  return NO_ERROR;
-}
-
-status_t CameraSource::ConfigPlugin(const uint32_t &uid,
-                                    const int32_t type,
-                                    const std::vector<uint8_t> &blob_config) {
-
-  QMMF_DEBUG("%s: Enter", __func__);
-
-
-  QMMF_DEBUG("%s: Exit", __func__);
-  return NO_ERROR;
-}
-
-status_t CameraSource::GetPluginConfig(const uint32_t &uid,
-                                       std::string &json_config) {
-
-  QMMF_DEBUG("%s: Enter", __func__);
 
   QMMF_DEBUG("%s: Exit", __func__);
   return NO_ERROR;
@@ -455,23 +400,25 @@ bool CameraSource::CheckLinkedStream(
   return false;
 }
 
-std::string CameraSource::GetRescalerConfig(const VideoTrackParams& track_params) {
-  Json::Value root(Json::objectValue);
+ResizerCrop CameraSource::GetRescalerConfig(const VideoTrackParams& track_params) {
+
+  ResizerCrop resizer_crop;
   if (track_params.extra_param.Exists(QMMF_TRACK_CROP)) {
     TrackCrop crop;
     track_params.extra_param.Fetch(QMMF_TRACK_CROP, crop);
-    root["crop"]["width"] = crop.width;
-    root["crop"]["height"] = crop.height;
-    root["crop"]["x"] = crop.x;
-    root["crop"]["y"] = crop.y;
+
+    resizer_crop.x = crop.x;
+    resizer_crop.y = crop.y;
+    resizer_crop.width = crop.width;
+    resizer_crop.height = crop.height;
+    resizer_crop.valid = true;
     QMMF_INFO("%s Crop applied successfully!", __func__);
   } else {
+    resizer_crop.valid = false;
     QMMF_INFO("%s Crop param doesn't exist so it's not applied!", __func__);
   }
 
-  Json::FastWriter fastWriter;
-  auto config = fastWriter.write(root);
-  return config;
+  return resizer_crop;
 }
 
 status_t CameraSource::CreateTrackSource(const uint32_t track_id,

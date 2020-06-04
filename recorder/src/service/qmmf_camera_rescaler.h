@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, 2020, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -149,7 +149,7 @@ class CameraRescalerBase : public CameraRescalerThread,
 
   void UnMapBufs();
 
-  status_t Configure(const std::string& json_config_data);
+  status_t Configure(const ResizerCrop& config_data);
 
  protected:
   // Thread for preparing synced and output buffers for processing by the

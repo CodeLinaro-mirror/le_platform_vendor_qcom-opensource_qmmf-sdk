@@ -34,7 +34,7 @@ target_include_directories(qmmf_recorder_gtest
  PRIVATE ${TOP_DIRECTORY}/common/memory)
 
 install(TARGETS qmmf_recorder_gtest DESTINATION bin OPTIONAL)
-target_link_libraries(qmmf_recorder_gtest log cutils utils cairo gtest gtest_main camera_metadata qmmf_recorder_client qmmf_av_queue jsoncpp)
+target_link_libraries(qmmf_recorder_gtest log cutils utils cairo gtest gtest_main camera_metadata qmmf_recorder_client qmmf_av_queue)
 if(NOT CAMERA_CLIENT_DISABLED)
 target_link_libraries(qmmf_recorder_gtest camera_client)
 endif()

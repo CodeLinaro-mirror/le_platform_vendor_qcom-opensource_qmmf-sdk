@@ -106,25 +106,6 @@ class RecorderService : public BnInterface<IRecorderService> {
   status_t GetNumberOfCameras(const uint32_t client_id,
                               SupportedCameras &cameras) override;
 
-  status_t GetSupportedPlugins(const uint32_t client_id,
-                               SupportedPlugins *plugins) override;
-
-  status_t CreatePlugin(const uint32_t client_id, uint32_t *uid,
-                        const PluginInfo &plugin) override;
-
-  status_t DeletePlugin(const uint32_t client_id, const uint32_t &uid) override;
-
-  status_t ConfigPlugin(const uint32_t client_id, const uint32_t &uid,
-                        const std::string &json_config) override;
-
-  status_t ConfigPlugin(const uint32_t client_id,
-                        const uint32_t &uid,
-                        const int32_t type,
-                        const std::vector<uint8_t> &blob_config) override;
-
-  status_t GetPluginConfig(const uint32_t client_id, const uint32_t &uid,
-                           std::string &json_config) override;
-
   status_t CreateAudioTrack(const uint32_t client_id,
                             const uint32_t session_id,
                             const uint32_t track_id,
