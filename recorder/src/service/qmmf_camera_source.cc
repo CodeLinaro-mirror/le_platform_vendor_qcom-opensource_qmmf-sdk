@@ -191,7 +191,6 @@ status_t CameraSource::GetNumberOfCameras(SupportedCameras &cameras) {
 }
 
 status_t CameraSource::CaptureImage(const uint32_t camera_id,
-                                    const ImageParam &param,
                                     const uint32_t num_images,
                                     const std::vector<CameraMetadata> &meta,
                                     const SnapshotCb& cb) {
@@ -205,31 +204,22 @@ status_t CameraSource::CaptureImage(const uint32_t camera_id,
   }
   auto const& camera = camera_map_[camera_id];
 
-  SnapshotParam sparam {};
-  sparam.width   = param.width;
-  sparam.height  = param.height;
-  sparam.format  = Common::FromImageToQmmfFormat(param.image_format);
-  sparam.quality = param.image_quality;
-
-  auto ret = camera->SetUpCapture(sparam, num_images);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: SetUpCapture Failed!", __func__);
-    return ret;
-  }
   client_snapshot_cb_ = cb;
   StreamSnapshotCb stream_cb = [&] (uint32_t count, StreamBuffer& buf) {
     SnapshotCallback(count, buf);
   };
-  ret = camera->CaptureImage(meta, stream_cb);
+  auto ret = camera->CaptureImage(num_images, meta, stream_cb);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: CaptureImage Failed!", __func__);
     return ret;
   }
+
   QMMF_DEBUG("%s: Exit", __func__);
   return NO_ERROR;
 }
 
 status_t CameraSource::ConfigImageCapture(const uint32_t camera_id,
+                                          const ImageParam &param,
                                           const ImageConfigParam &config) {
 
   QMMF_DEBUG("%s: Enter", __func__);
@@ -245,6 +235,19 @@ status_t CameraSource::ConfigImageCapture(const uint32_t camera_id,
     QMMF_ERROR("%s: ConfigImageCapture Failed!", __func__);
     return ret;
   }
+
+  SnapshotParam sparam {};
+  sparam.width   = param.width;
+  sparam.height  = param.height;
+  sparam.format  = Common::FromImageToQmmfFormat(param.image_format);
+  sparam.quality = param.image_quality;
+
+  ret = camera->SetUpCapture(sparam);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s: SetUpCapture Failed!", __func__);
+    return ret;
+  }
+
   QMMF_DEBUG("%s: Exit", __func__);
   return NO_ERROR;
 }
