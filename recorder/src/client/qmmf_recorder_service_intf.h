@@ -241,12 +241,12 @@ class IRecorderService : public IInterface {
 
   virtual status_t CaptureImage(const uint32_t client_id,
                                 const uint32_t camera_id,
-                                const ImageParam &param,
                                 const uint32_t num_images,
                                 const std::vector<CameraMetadata> &meta) = 0;
 
   virtual status_t ConfigImageCapture(const uint32_t client_id,
                                       const uint32_t camera_id,
+                                      const ImageParam &param,
                                       const ImageConfigParam &config) = 0;
 
   virtual status_t CancelCaptureImage(const uint32_t client_id,

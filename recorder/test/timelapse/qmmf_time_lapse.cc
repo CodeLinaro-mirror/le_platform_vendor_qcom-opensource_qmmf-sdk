@@ -306,9 +306,12 @@ int32_t TimeLapse::CaptureImage(bool store) {
         snapshot_cond_.Signal();
       } };
   }
-
-  return recorder_.CaptureImage(params_.camera_id, image_param, 1, meta_array,
-                                cb);
+  if (!store) {
+    ImageConfigParam config;
+    return recorder_.ConfigImageCapture(params_.camera_id, image_param, config);
+  } else {
+    return recorder_.CaptureImage(params_.camera_id, 1, meta_array, cb);
+  }
 }
 
 void TimeLapse::SnapshotCb(uint32_t camera_id,

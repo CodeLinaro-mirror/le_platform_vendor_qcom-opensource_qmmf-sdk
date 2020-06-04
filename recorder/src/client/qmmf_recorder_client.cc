@@ -799,7 +799,6 @@ status_t RecorderClient::DeleteVideoTrack(const uint32_t session_id,
 }
 
 status_t RecorderClient::CaptureImage(const uint32_t camera_id,
-                                      const ImageParam &param,
                                       const uint32_t num_images,
                                       const std::vector<CameraMetadata> &meta,
                                       const ImageCaptureCb &cb) {
@@ -812,7 +811,7 @@ status_t RecorderClient::CaptureImage(const uint32_t camera_id,
     return NO_INIT;
   }
   assert(client_id_ > 0);
-  auto ret = recorder_service_->CaptureImage(client_id_, camera_id, param,
+  auto ret = recorder_service_->CaptureImage(client_id_, camera_id,
                                              num_images, meta);
   if (NO_ERROR != ret) {
     QMMF_ERROR("%s CaptureImage failed!", __func__);
@@ -823,6 +822,7 @@ status_t RecorderClient::CaptureImage(const uint32_t camera_id,
 }
 
 status_t RecorderClient::ConfigImageCapture(const uint32_t camera_id,
+                                            const ImageParam &param,
                                             const ImageConfigParam &config) {
 
   QMMF_DEBUG("%s Enter ", __func__);
@@ -832,7 +832,7 @@ status_t RecorderClient::ConfigImageCapture(const uint32_t camera_id,
   }
   assert(client_id_ > 0);
   auto ret = recorder_service_->ConfigImageCapture(client_id_, camera_id,
-                                                   config);
+                                                   param, config);
   if (NO_ERROR != ret) {
     QMMF_ERROR("%s ConfigImageCapture failed!", __func__);
   }
@@ -1825,17 +1825,12 @@ class BpRecorderService: public BpInterface<IRecorderService> {
   }
 
   status_t CaptureImage(const uint32_t client_id, const uint32_t camera_id,
-                        const ImageParam &param, const uint32_t num_images,
+                        const uint32_t num_images,
                         const std::vector<CameraMetadata> &meta) {
     Parcel data, reply;
     data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
     data.writeUint32(client_id);
     data.writeUint32(camera_id);
-    uint32_t param_size = sizeof param;
-    data.writeUint32(param_size);
-    android::Parcel::WritableBlob blob;
-    data.writeBlob(param_size, false, &blob);
-    memcpy(blob.data(), &param, param_size);
     data.writeUint32(num_images);
     data.writeUint32(meta.size());
     for (uint8_t i = 0; i < meta.size(); ++i) {
@@ -1848,22 +1843,29 @@ class BpRecorderService: public BpInterface<IRecorderService> {
 
   status_t ConfigImageCapture(const uint32_t client_id,
                               const uint32_t camera_id,
+                              const ImageParam &param,
                               const ImageConfigParam &config) {
 
     Parcel data, reply;
     data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
     data.writeUint32(client_id);
     data.writeUint32(camera_id);
-    uint32_t param_size = config.Size();
+    uint32_t param_size = sizeof param;
     data.writeUint32(param_size);
-    const void *config_data = config.GetAndLock();
     android::Parcel::WritableBlob blob;
     data.writeBlob(param_size, false, &blob);
-    memcpy(blob.data(), config_data, param_size);
+    memcpy(blob.data(), &param, param_size);
+    param_size = config.Size();
+    data.writeUint32(param_size);
+    const void *config_data = config.GetAndLock();
+    android::Parcel::WritableBlob config_blob;
+    data.writeBlob(param_size, false, &config_blob);
+    memcpy(config_blob.data(), config_data, param_size);
     remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
         RECORDER_CONFIG_IMAGECAPTURE), data, &reply);
     config.ReturnAndUnlock(config_data);
     blob.release();
+    config_blob.release();
     return reply.readInt32();
   }
 

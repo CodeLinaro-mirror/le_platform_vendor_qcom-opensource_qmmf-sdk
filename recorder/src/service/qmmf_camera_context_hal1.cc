@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -570,10 +570,7 @@ status_t CameraContext::WaitAecToConverge(const uint32_t timeout) {
   return NO_ERROR;
 }
 
-status_t CameraContext::SetUpCapture(const SnapshotParam& param,
-  const uint32_t num_images) {
-
-  QMMF_INFO("%s: Enter num_images - %d", __func__, num_images);
+status_t CameraContext::SetUpCapture(const SnapshotParam& param) {
 
   QMMF_DEBUG("%s Enter ", __func__);
   if (snapshot_type_ != SnapshotMode::kZsl) {
@@ -581,12 +578,6 @@ status_t CameraContext::SetUpCapture(const SnapshotParam& param,
 
     snapshot_param_ = param;
     snapshot_type_ = new_snapshot_type_;
-
-    if (snapshot_type_ == SnapshotMode::kContinuous) {
-      sequence_cnt_ = 1;
-    } else {
-      sequence_cnt_ = num_images;
-    }
 
     if(param.format == BufferFormat::kBLOB) {
       mParameters_.setPictureFormat(CameraParameters::PIXEL_FORMAT_JPEG);
@@ -603,16 +594,29 @@ status_t CameraContext::SetUpCapture(const SnapshotParam& param,
   return NO_ERROR;
 }
 
-status_t CameraContext::CaptureImage(const std::vector<CameraMetadata> &meta,
-  const StreamSnapshotCb& cb) {
+status_t CameraContext::CaptureImage(const uint32_t num_images,
+                                     const std::vector<CameraMetadata> &meta,
+                                     const StreamSnapshotCb& cb) {
 
-  QMMF_INFO("%s: Enter", __func__);
+  QMMF_INFO("%s: Enter num_images - %d", __func__, num_images);
+
   int32_t ret = NO_ERROR;
   client_snapshot_cb_ = cb;
   capture_cnt_ = 0;
+  uint32_t img_cnt = num_images;
+
+  if (snapshot_param_.width == 0 || snapshot_param_.height == 0) {
+    QMMF_ERROR("%s: No snapshot stream available", __func__);
+    return BAD_VALUE;
+  }
+
+  if (snapshot_type_ == SnapshotMode::kContinuous) {
+    img_cnt = 1;
+  }
+
   if (snapshot_type_ != SnapshotMode::kZsl) {
     int64_t last_frame_number;
-    for (uint32_t i = 0; i < sequence_cnt_; i++) {
+    for (uint32_t i = 0; i < img_cnt; i++) {
       QMMF_INFO("%s: HAL take picture", __func__);
       ((camera_device_t *)camera_device_)->
           ops->take_picture((camera_device_t *)camera_device_);

@@ -45,6 +45,8 @@ namespace qmmf {
 
 namespace recorder {
 
+#define MAX_SNAPSHOT_BUFFER_COUNT        15
+
 class CameraPort;
 class PreviewPort;
 class VideoPort;
@@ -73,10 +75,10 @@ class CameraContext : public CameraInterface {
 
   status_t WaitAecToConverge(const uint32_t timeout) override;
 
-  status_t SetUpCapture(const SnapshotParam& param,
-                        const uint32_t num_images) override;
+  status_t SetUpCapture(const SnapshotParam& param) override;
 
-  status_t CaptureImage(const std::vector<CameraMetadata> &meta,
+  status_t CaptureImage(const uint32_t num_images,
+                        const std::vector<CameraMetadata> &meta,
                         const StreamSnapshotCb& cb) override;
 
   status_t ConfigImageCapture(const ImageConfigParam &config) override;
@@ -150,8 +152,6 @@ private:
 
   friend class PreviewPort;
   friend class VideoPort;
-
-  uint32_t                 sequence_cnt_;
 
   FlushCb                  flush_cb_;
 

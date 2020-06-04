@@ -1786,7 +1786,6 @@ status_t RecorderImpl::SetVideoTrackParam(const uint32_t client_id,
 
 status_t RecorderImpl::CaptureImage(const uint32_t client_id,
                                     const uint32_t camera_id,
-                                    const ImageParam &param,
                                     const uint32_t num_images,
                                     const std::vector<CameraMetadata> &meta) {
 
@@ -1810,7 +1809,7 @@ status_t RecorderImpl::CaptureImage(const uint32_t client_id,
           CameraSnapshotCb(client_id, camera_id, count, buf, meta_data);
       };
 
-  auto ret = camera_source_->CaptureImage(camera_id, param, num_images,
+  auto ret = camera_source_->CaptureImage(camera_id, num_images,
                                           meta, cb);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: client_id(%d):camera_id(%d) CaptureImage failed!",
@@ -1824,6 +1823,7 @@ status_t RecorderImpl::CaptureImage(const uint32_t client_id,
 
 status_t RecorderImpl::ConfigImageCapture(const uint32_t client_id,
                                           const uint32_t camera_id,
+                                          const ImageParam &param,
                                           const ImageConfigParam &config) {
 
   QMMF_DEBUG("%s: Enter client_id(%d):camera_id(%d)", __func__,
@@ -1841,7 +1841,7 @@ status_t RecorderImpl::ConfigImageCapture(const uint32_t client_id,
   }
 
   assert(camera_source_ != nullptr);
-  auto ret = camera_source_->ConfigImageCapture(camera_id, config);
+  auto ret = camera_source_->ConfigImageCapture(camera_id, param, config);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: client_id(%d):camera_id(%d) ConfigImageCapture failed!",
         __func__, client_id, camera_id);

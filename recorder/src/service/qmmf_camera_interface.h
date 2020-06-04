@@ -88,6 +88,9 @@ struct SnapshotParam {
   uint32_t     height;
   uint32_t     quality;
   BufferFormat format;
+
+  SnapshotParam(): width(0), height(0), quality(95),
+      format(BufferFormat::kBLOB) {}
 };
 
 class CameraInterface {
@@ -110,11 +113,11 @@ class CameraInterface {
   virtual status_t WaitAecToConverge(const uint32_t timeout) = 0;
 
   /// Apply image configuration
-  virtual status_t SetUpCapture(const SnapshotParam& param,
-                                const uint32_t num_images) = 0;
+  virtual status_t SetUpCapture(const SnapshotParam& param) = 0;
 
   /// Image Capture
-  virtual status_t CaptureImage(const std::vector<CameraMetadata> &meta,
+  virtual status_t CaptureImage(const uint32_t num_images,
+                                const std::vector<CameraMetadata> &meta,
                                 const StreamSnapshotCb& cb) = 0;
 
   /// Configure Image Capture. Configuration is applied by SetUpCapture.
