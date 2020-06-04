@@ -36,7 +36,6 @@
 #include <fcntl.h>
 #include <math.h>
 #include <sys/mman.h>
-#include <json/json.h>
 #ifdef QCAMERA3_TAG_LOCAL_COPY
 #include "common/utils/qmmf_common_utils.h"
 #else

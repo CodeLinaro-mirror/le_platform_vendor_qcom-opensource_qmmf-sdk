@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2018, The Linux Foundation. All rights reserved.
+* Copyright (c) 2018, 2020, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -32,7 +32,6 @@
 #include <cstdint>
 
 #include "common/utils/qmmf_log.h"
-#include <json/json.h>
 
 #include "qmmf_resizer_fastCV.h"
 
@@ -144,28 +143,15 @@ RESIZER_STATUS FastCVResizer::ValidateOutput(const uint32_t width,
   return RESIZER_STATUS_OK;
 }
 
-RESIZER_STATUS FastCVResizer::Configure(const std::string& json_config_data) {
-  Json::Reader r;
-  Json::Value root;
-
- auto ret = r.parse(json_config_data, root);
-  if (ret == 0) {
-    QMMF_INFO("%s: no json data", __func__);
-    return RESIZER_STATUS_ERROR;
-  }
-
-  if (!root.isMember("crop")) {
-    QMMF_INFO("%s:no crop configuration", __func__);
-  } else if (root["crop"].empty()) {
-    crop_.valid = false;
-    QMMF_INFO("%s: Clear crop configuration", __func__);
-  } else {
-    crop_.width = root["crop"]["width"].asUInt();
-    crop_.height = root["crop"]["height"].asUInt();
-    crop_.x = root["crop"]["x"].asUInt();
-    crop_.y = root["crop"]["y"].asUInt();
+RESIZER_STATUS FastCVResizer::Configure(const ResizerCrop& config_data) {
+  if(config_data.valid) {
+    crop_.width = config_data.width;
+    crop_.height = config_data.height;
+    crop_.x = config_data.x;
+    crop_.y = config_data.y;
     crop_.valid = true;
   }
+
   return RESIZER_STATUS_OK;
 }
 

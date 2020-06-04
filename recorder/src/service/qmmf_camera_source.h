@@ -91,25 +91,6 @@ class CameraSource {
   /// Get number of supported Cameras.
   status_t GetNumberOfCameras(SupportedCameras &cameras);
 
-  /// Get all supported plugins.
-  status_t GetSupportedPlugins(SupportedPlugins *plugins);
-
-  /// Create plugin
-  status_t CreatePlugin(uint32_t *uid, const PluginInfo &plugin);
-
-  /// Delete plugin
-  status_t DeletePlugin(const uint32_t &uid);
-
-  /// Configure plugin
-  status_t ConfigPlugin(const uint32_t &uid, const std::string &json_config);
-
-  /// Configure plugin
-  status_t ConfigPlugin(const uint32_t &uid, const int32_t type,
-                        const std::vector<uint8_t> &blob_config);
-
-  /// Get plugin config
-  status_t GetPluginConfig(const uint32_t &uid, std::string &json_config);
-
   /// Image Capture
   status_t CaptureImage(const uint32_t camera_id,
                         const ImageParam &param,
@@ -183,7 +164,7 @@ class CameraSource {
   const ::std::shared_ptr<TrackSource>& GetTrackSource(uint32_t track_id);
 
   /// Get Rescaller configuration parameters
-  std::string GetRescalerConfig(const VideoTrackParams& track_params);
+  ResizerCrop GetRescalerConfig(const VideoTrackParams& track_params);
 
   /// @cond PRIVATE
  private:
