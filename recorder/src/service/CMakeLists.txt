@@ -140,9 +140,12 @@ target_include_directories(qmmf_recorder_service
 install(TARGETS qmmf_recorder_service DESTINATION lib OPTIONAL)
 if (NOT CAMERA_HAL1_SUPPORT)
 target_link_libraries(qmmf_recorder_service dl jsoncpp log utils cutils binder
-  pthread camera_client camera_metadata hardware qmmf_recorder_client
+  pthread camera_metadata hardware qmmf_recorder_client
   qmmf_utils qmmf_camera_adaptor qmmf_codec_adaptor
   qmmf_exif_generator qmmf_common_resizer_c2d )
+if(NOT CAMERA_CLIENT_DISABLED)
+target_link_libraries(qmmf_recorder_service camera_client )
+endif()
 if (RESIZER_FASTCV_ENABLED)
 target_link_libraries(
   qmmf_recorder_service
@@ -157,9 +160,12 @@ target_link_libraries(
 endif()
 else()
 target_link_libraries(qmmf_recorder_service dl jsoncpp log utils cutils binder
-  pthread camera_client camera_metadata hardware qmmf_recorder_client
+  pthread camera_metadata hardware qmmf_recorder_client
   qmmf_utils qmmf_codec_adaptor qmmf_exif_generator qmmf_memory_interface
   qmmf_common_resizer_neon qmmf_common_resizer_c2d)
+if(NOT CAMERA_CLIENT_DISABLED)
+target_link_libraries(qmmf_recorder_service camera_client )
+endif()
 endif()
 if (NOT DISABLE_PP_JPEG)
 target_link_libraries(qmmf_recorder_service qmmf_common_jpeg_encoder qmmf_jpeg)

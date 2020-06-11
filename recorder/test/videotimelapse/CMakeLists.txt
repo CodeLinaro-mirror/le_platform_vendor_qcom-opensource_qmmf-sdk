@@ -18,6 +18,8 @@ target_include_directories(qmmf_recorder_video_timelapse
  PRIVATE $<BUILD_INTERFACE:${KERNEL_INCDIR}/usr/include>)
 
 install(TARGETS qmmf_recorder_video_timelapse DESTINATION bin OPTIONAL)
-target_link_libraries(qmmf_recorder_video_timelapse log cutils utils camera_client camera_metadata qmmf_recorder_client qmmf_utils qmmf_av_codec)
-
+target_link_libraries(qmmf_recorder_video_timelapse log cutils utils camera_metadata qmmf_recorder_client qmmf_utils qmmf_av_codec)
+if(NOT CAMERA_CLIENT_DISABLED)
+target_link_libraries(qmmf_recorder_video_timelapse camera_client)
+endif()
 endif()

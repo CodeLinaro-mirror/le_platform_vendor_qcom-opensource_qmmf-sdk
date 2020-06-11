@@ -24,7 +24,10 @@ target_include_directories(qmmf_camera_adaptor_gtest
  PRIVATE ${TOP_DIRECTORY}/common/memory)
 
 install(TARGETS qmmf_camera_adaptor_gtest DESTINATION bin OPTIONAL)
-target_link_libraries(qmmf_camera_adaptor_gtest log cutils utils gtest gtest_main camera_client camera_metadata qmmf_camera_adaptor)
+target_link_libraries(qmmf_camera_adaptor_gtest log cutils utils gtest gtest_main camera_metadata qmmf_camera_adaptor)
+if(NOT CAMERA_CLIENT_DISABLED)
+target_link_libraries(qmmf_camera_adaptor_gtest camera_client)
+endif()
 
 add_executable(qmmf_ccamera_dual_adaptor_gtest ${exclude} qmmf_dual_camera_adaptor_gtest.cc)
 add_dependencies(qmmf_ccamera_dual_adaptor_gtest qmmf_camera_adaptor)
@@ -42,4 +45,7 @@ target_include_directories(qmmf_ccamera_dual_adaptor_gtest
  PRIVATE ${TOP_DIRECTORY}/common/memory)
 
 install(TARGETS qmmf_ccamera_dual_adaptor_gtest DESTINATION bin OPTIONAL)
-target_link_libraries(qmmf_ccamera_dual_adaptor_gtest log cutils utils gtest gtest_main camera_client camera_metadata qmmf_camera_adaptor)
+target_link_libraries(qmmf_ccamera_dual_adaptor_gtest log cutils utils gtest gtest_main camera_metadata qmmf_camera_adaptor)
+if(NOT CAMERA_CLIENT_DISABLED)
+target_link_libraries(qmmf_ccamera_dual_adaptor_gtest camera_client)
+endif()
