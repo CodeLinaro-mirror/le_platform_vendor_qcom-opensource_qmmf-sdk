@@ -65,12 +65,6 @@ enum QMMF_RECORDER_SERVICE_CMDS {
   RECORDER_PAUSE_SESSION,
   RECORDER_RESUME_SESSION,
   RECORDER_GET_NUMBER_OF_CAMERAS,
-  RECORDER_GET_SUPPORTED_PLUGINS,
-  RECORDER_CREATE_PLUGIN,
-  RECORDER_DELETE_PLUGIN,
-  RECORDER_CONFIGURE_PLUGIN,
-  RECORDER_GET_PLUGIN_CONFIG,
-  RECORDER_CONFIGURE_PLUGIN_WITH_BLOB,
   RECORDER_CREATE_AUDIOTRACK,
   RECORDER_CREATE_VIDEOTRACK,
   RECORDER_CREATE_VIDEOTRACK_EXTRAPARAMS,
@@ -201,26 +195,6 @@ class IRecorderService : public IInterface {
 
   virtual status_t GetNumberOfCameras(const uint32_t client_id,
                                       SupportedCameras &cameras) = 0;
-
-  virtual status_t GetSupportedPlugins(const uint32_t client_id,
-                                       SupportedPlugins *plugins) = 0;
-
-  virtual status_t CreatePlugin(const uint32_t client_id, uint32_t *uid,
-                                const PluginInfo &plugin) = 0;
-
-  virtual status_t DeletePlugin(const uint32_t client_id,
-                                const uint32_t &uid) = 0;
-
-  virtual status_t ConfigPlugin(const uint32_t client_id, const uint32_t &uid,
-                                const std::string &json_config) = 0;
-
-  virtual status_t ConfigPlugin(const uint32_t client_id,
-                                const uint32_t &uid,
-                                const int32_t type,
-                                const std::vector<uint8_t> &blob_config) = 0;
-
-  virtual status_t GetPluginConfig(const uint32_t client_id, const uint32_t &uid,
-                                   std::string &json_config) = 0;
 
   virtual status_t CreateAudioTrack(const uint32_t client_id,
                                     const uint32_t session_id,

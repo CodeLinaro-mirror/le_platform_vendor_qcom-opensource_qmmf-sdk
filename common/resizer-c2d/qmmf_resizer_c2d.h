@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018, 2020, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -48,7 +48,7 @@ class C2DResizer : public ResizerInterface {
 
   void DeInit() override;
 
-  RESIZER_STATUS Configure(const std::string& json_config_data) override;
+  RESIZER_STATUS Configure(const ResizerCrop& config_data) override;
 
   RESIZER_STATUS Draw(StreamBuffer& src_buffer,
                       StreamBuffer& dst_buffer) override;

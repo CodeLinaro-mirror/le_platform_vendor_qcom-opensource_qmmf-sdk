@@ -269,8 +269,8 @@ void CameraRescalerBase::UnMapBufs() {
   mapped_buffs_.clear();
 }
 
-status_t CameraRescalerBase::Configure(const std::string& json_config_data) {
-  auto ret = rescaler_->Configure(json_config_data);
+status_t CameraRescalerBase::Configure(const ResizerCrop& config_data) {
+  auto ret = rescaler_->Configure(config_data);
   if (ret != RESIZER_STATUS_OK) {
     return BAD_VALUE;
   }
