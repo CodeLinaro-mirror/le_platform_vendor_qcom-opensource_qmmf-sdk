@@ -1928,7 +1928,8 @@ status_t AVCodec::SetupAVCEncoderParameters(CodecParam& param) {
     h264_type.bUseHadamard = OMX_TRUE;
     h264_type.nRefFrames = 1;
     h264_type.nBFrames = 0;
-    h264_type.nPFrames = frame_rate*iframe_interval;
+    h264_type.nPFrames = (iframe_interval == 0) ? 0 :
+        ((frame_rate * iframe_interval) - 1);
     if(h264_type.nPFrames == 0) {
       h264_type.nAllowedPictureTypes = OMX_VIDEO_PictureTypeI;
     }
@@ -1952,7 +1953,8 @@ status_t AVCodec::SetupAVCEncoderParameters(CodecParam& param) {
     h264_type.bUseHadamard = OMX_TRUE;
     h264_type.nRefFrames = 2;
     h264_type.nBFrames = 0;
-    h264_type.nPFrames = frame_rate*iframe_interval;
+    h264_type.nPFrames = (iframe_interval == 0) ? 0 :
+        ((frame_rate * iframe_interval) - 1);
     h264_type.nAllowedPictureTypes =
         OMX_VIDEO_PictureTypeI | OMX_VIDEO_PictureTypeP;
     h264_type.nRefIdx10ActiveMinus1 = 0;
@@ -1986,7 +1988,8 @@ status_t AVCodec::SetupAVCEncoderParameters(CodecParam& param) {
       QMMF_ERROR("%s Failed to get video intra period", __func__);
       return ret;
     }
-    intra.nPFrames = frame_rate * iframe_interval;
+    intra.nPFrames = (iframe_interval == 0) ? 0 :
+        ((frame_rate * iframe_interval) - 1);
     intra.nBFrames = 0;
     ret = omx_client_->SetConfig(
         static_cast<OMX_INDEXTYPE>(QOMX_IndexConfigVideoIntraperiod),
@@ -2075,7 +2078,8 @@ status_t AVCodec::SetupHEVCEncoderParameters(CodecParam& param) {
     QMMF_ERROR("%s Failed to get video intra period", __func__);
     return ret;
   }
-  intra.nPFrames = frame_rate * iframe_interval;
+  intra.nPFrames = (iframe_interval == 0) ? 0 :
+      ((frame_rate * iframe_interval) - 1);
   // TODO: remove hard code B frame value
   intra.nBFrames = 0;
   ret = omx_client_->SetConfig(
