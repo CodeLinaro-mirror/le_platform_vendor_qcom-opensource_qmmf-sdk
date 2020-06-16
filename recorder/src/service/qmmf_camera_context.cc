@@ -2469,6 +2469,16 @@ status_t CameraPort::Init() {
           (IMemAllocUsage::kSwReadOften | IMemAllocUsage::kSwWriteOften) :
           IMemAllocUsage::kPrivateAllocUbwc;
 
+  //TODO: This needs to be rework and provide proper solution to
+  //      set UBWC per stream basis.
+  if ((camera_parameters_.cam_feature_flags &
+       static_cast<uint32_t>(CamFeatureFlag::kLDC)) ||
+      (camera_parameters_.cam_feature_flags &
+       static_cast<uint32_t>(CamFeatureFlag::kEIS))) {
+    cam_stream_params_.allocFlags.flags &=
+        ~(IMemAllocUsage::kPrivateAllocUbwc);
+  }
+
   cam_stream_params_.allocFlags.flags |=
       static_cast<bool>(params_.flags & StreamFlags::kUncashed) ?
           IMemAllocUsage::kPrivateUncached : 0;

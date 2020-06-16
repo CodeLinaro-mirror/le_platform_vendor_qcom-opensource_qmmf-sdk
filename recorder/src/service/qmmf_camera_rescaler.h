@@ -101,7 +101,8 @@ class CameraRescalerMemPool {
 
    ~CameraRescalerMemPool();
 
-   int32_t Initialize(uint32_t width, uint32_t height, int32_t  format);
+   int32_t Initialize(uint32_t width, uint32_t height, int32_t  format,
+                      const CameraExtraParam& extra_param);
 
    status_t ReturnBufferLocked(const StreamBuffer &buffer);
 
@@ -129,6 +130,8 @@ class CameraRescalerMemPool {
 
    static const nsecs_t kBufferWaitTimeout = 1000000000;// 1 s.
    uint32_t                      buffer_cnt_;
+   bool                          is_eis_on_;
+   bool                          is_ldc_on_;
 };
 
 
@@ -219,7 +222,8 @@ class CameraRescaler: public CameraRescalerBase {
 
   status_t Init(const uint32_t& width, const uint32_t& height,
                 const BufferFormat& fmt,
-                const float& in_fps, const float& out_fps);
+                const float& in_fps, const float& out_fps,
+                const CameraExtraParam& extra_param);
 
   bool IsStop();
 

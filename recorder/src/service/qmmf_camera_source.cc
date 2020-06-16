@@ -144,6 +144,9 @@ status_t CameraSource::StartCamera(const uint32_t camera_id,
   // Add contexts to map when in regular camera case.
   camera_map_.emplace(camera_id, camera);
 
+  // This is required to send it to rescaler to take decision on UBWC.
+  start_cam_param_ = extra_param;
+
   auto ret = camera->OpenCamera(camera_id, frame_rate, extra_param, cb, errcb);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: OpenCamera(%d) Failed!", __func__, camera_id);
@@ -481,7 +484,8 @@ status_t CameraSource::CreateTrackSource(const uint32_t track_id,
                            track_params.params.height,
                            format,
                            source_track_params.params.frame_rate,
-                           track_params.params.frame_rate);
+                           track_params.params.frame_rate,
+                           start_cam_param_);
       if (ret != NO_ERROR) {
         rescaler = nullptr;
         QMMF_ERROR("%s: Rescaler Init Failed", __func__);

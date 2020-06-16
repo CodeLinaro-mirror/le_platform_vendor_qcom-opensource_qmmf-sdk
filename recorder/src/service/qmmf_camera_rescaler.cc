@@ -363,7 +363,9 @@ CameraRescalerMemPool::CameraRescalerMemPool()
       mem_alloc_slots_(nullptr),
       buffers_allocated_(0),
       pending_buffer_count_(0),
-      buffer_cnt_(RESCALER_BUFFERS_CNT) {
+      buffer_cnt_(RESCALER_BUFFERS_CNT),
+      is_eis_on_(false),
+      is_ldc_on_(false) {
   QMMF_INFO("%s: Enter", __func__);
   QMMF_INFO("%s: Exit (%p)", __func__, this);
 }
@@ -389,12 +391,41 @@ CameraRescalerMemPool::~CameraRescalerMemPool() {
 
 int32_t CameraRescalerMemPool::Initialize(uint32_t width,
                                           uint32_t height,
-                                          int32_t  format) {
+                                          int32_t  format,
+                                          const CameraExtraParam& extra_param) {
   status_t ret = NO_ERROR;
 
   init_params_.width = width;
   init_params_.height = height;
   init_params_.format = format;
+
+  if (extra_param.Exists(QMMF_EIS)) {
+    size_t entry_count = extra_param.EntryCount(QMMF_EIS);
+    if (entry_count == 1) {
+      EISSetup eis_mode;
+      extra_param.Fetch(QMMF_EIS, eis_mode, 0);
+      if (eis_mode.enable == true) {
+        is_eis_on_ = true;
+      }
+    } else {
+      QMMF_ERROR("%s: Invalid EIS mode received", __func__);
+      return BAD_VALUE;
+    }
+  }
+
+  if (extra_param.Exists(QMMF_LDC)) {
+    size_t entry_count = extra_param.EntryCount(QMMF_LDC);
+    if (entry_count == 1) {
+      LDCMode ldc_mode;
+      extra_param.Fetch(QMMF_LDC, ldc_mode, 0);
+      if (ldc_mode.enable == true) {
+        is_ldc_on_ = true;
+      }
+    } else {
+      QMMF_ERROR("%s: Invalid LDC mode received", __func__);
+      return BAD_VALUE;
+    }
+  }
 
   alloc_device_interface_ = AllocDeviceFactory::CreateAllocDevice();
   if (nullptr == alloc_device_interface_) {
@@ -652,13 +683,11 @@ status_t CameraRescalerMemPool::AllocHWMemBuffer(IBufferHandle &buf) {
 
   usage.flags |= IMemAllocUsage::kSwWriteOften | IMemAllocUsage::kSwReadOften;
   usage.flags |= IMemAllocUsage::kHwFb | IMemAllocUsage::kVideoEncoder;
+  usage.flags |= IMemAllocUsage::kPrivateAllocUbwc;
 
-  char prop[PROPERTY_VALUE_MAX];
-  memset(prop, 0, sizeof(prop));
-  property_get("persist.qmmf.ubwcstream.enable", prop, "0");
-  if (atoi(prop) == 1) {
-    // Handle UBWC aligned Buffer
-    usage.flags |= IMemAllocUsage::kPrivateAllocUbwc;
+  if (is_eis_on_ || is_ldc_on_) {
+    usage.flags &= ~ (IMemAllocUsage::kPrivateAllocUbwc);
+  } else {
     // Remove the CPU read/write flags since they are confusing GBM
     // when UBWC flag is set which causes the allocated buffer to be plain NV12
     usage.flags &= ~(IMemAllocUsage::kSwWriteOften |
@@ -832,7 +861,8 @@ bool CameraRescaler::IsStop() {
 
 status_t CameraRescaler::Init(const uint32_t& width, const uint32_t& height,
                               const BufferFormat& fmt,
-                              const float& in_fps, const float& out_fps) {
+                              const float& in_fps, const float& out_fps,
+                              const CameraExtraParam& extra_param) {
 
   if ((width == 0) || (height == 0)) {
     QMMF_ERROR("%s: Invalid dimensions: %ux%u!", __func__, width, height);
@@ -844,16 +874,9 @@ status_t CameraRescaler::Init(const uint32_t& width, const uint32_t& height,
     return BAD_VALUE;
   }
 
-  char prop[PROPERTY_VALUE_MAX];
-  property_get("persist.qmmf.ubwcstream.enable", prop, "0");
-  bool is_ubwc_stream_enabled = atoi(prop);
-
   auto format = Common::FromQmmfToHalFormat(fmt);
-  if (is_ubwc_stream_enabled && fmt == BufferFormat::kNV12) {
-    format = HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS_UBWC;
-  }
 
-  auto ret = Initialize(width, height, format);
+  auto ret = Initialize(width, height, format, extra_param);
   return ret;
 }
 
