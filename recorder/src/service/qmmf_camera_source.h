@@ -201,6 +201,8 @@ class CameraSource {
 
   SupportedCameras supported_cameras_;
 
+  CameraExtraParam start_cam_param_;
+
   // Not allowed
   CameraSource();
   CameraSource(const CameraSource&);
