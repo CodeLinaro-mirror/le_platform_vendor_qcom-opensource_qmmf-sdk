@@ -89,7 +89,8 @@ CameraContext::CameraContext()
       restart_pipe_(true),
       reconfig_pipe_(false),
       port_paused_(false),
-      camera_parameters_{} {
+      camera_parameters_{},
+      continuous_mode_is_on(false) {
 
   QMMF_INFO("%s: Enter", __func__);
   QMMF_INFO("%s: Exit", __func__);
@@ -640,8 +641,15 @@ status_t CameraContext::CaptureImage(const uint32_t num_images,
     return BAD_VALUE;
   }
 
+  if (continuous_mode_is_on) {
+    QMMF_WARN("%s: CaptureImage() should be called only once "
+        "in continuous capture mode", __func__);
+    return NO_ERROR;
+  }
+
   if (snapshot_type_ == SnapshotMode::kContinuous) {
     img_cnt = 1;
+    continuous_mode_is_on = true;
   }
 
   if (snapshot_type_ != SnapshotMode::kZsl) {
@@ -856,6 +864,7 @@ status_t CameraContext::CancelCaptureImage() {
       cancel_capture_ = true;
     }
 
+    continuous_mode_is_on = false;
     PauseActiveStreams();
     DeleteSnapshotStream();
     ResumeActiveStreams();
