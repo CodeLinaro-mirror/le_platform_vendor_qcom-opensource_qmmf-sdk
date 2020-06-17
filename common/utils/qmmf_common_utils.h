@@ -243,8 +243,13 @@ class Common {
     switch (format) {
       case VideoFormat::kAVC:
       case VideoFormat::kHEVC:
-      case VideoFormat::kYUV:
+        return BufferFormat::kNV12UBWC;
+        break;
+      case VideoFormat::kNV12:
         return BufferFormat::kNV12;
+        break;
+      case VideoFormat::kNV12UBWC:
+        return BufferFormat::kNV12UBWC;
         break;
       case VideoFormat::kRGB:
         return BufferFormat::kRGB;

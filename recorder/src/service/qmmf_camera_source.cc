@@ -34,7 +34,6 @@
 #include <dirent.h>
 #include <sys/mman.h>
 #include <sys/time.h>
-#include <json/json.h>
 #ifndef CAMERA_HAL1_SUPPORT
 #include <hardware/camera3.h>
 #endif
@@ -191,60 +190,6 @@ status_t CameraSource::GetNumberOfCameras(SupportedCameras &cameras) {
   return NO_ERROR;
 }
 
-status_t CameraSource::GetSupportedPlugins(SupportedPlugins *plugins) {
-
-  QMMF_DEBUG("%s: Enter", __func__);
-
-  QMMF_DEBUG("%s: Exit", __func__);
-  return NO_ERROR;
-}
-
-status_t CameraSource::CreatePlugin(uint32_t *uid, const PluginInfo &plugin) {
-
-  QMMF_DEBUG("%s: Enter", __func__);
-
-
-  QMMF_DEBUG("%s: Exit", __func__);
-  return NO_ERROR;
-}
-
-status_t CameraSource::DeletePlugin(const uint32_t &uid) {
-
-  QMMF_DEBUG("%s: Enter", __func__);
-
-  QMMF_DEBUG("%s: Exit", __func__);
-  return NO_ERROR;
-}
-
-status_t CameraSource::ConfigPlugin(const uint32_t &uid,
-                                    const std::string &json_config) {
-
-  QMMF_DEBUG("%s: Enter", __func__);
-
-  QMMF_DEBUG("%s: Exit", __func__);
-  return NO_ERROR;
-}
-
-status_t CameraSource::ConfigPlugin(const uint32_t &uid,
-                                    const int32_t type,
-                                    const std::vector<uint8_t> &blob_config) {
-
-  QMMF_DEBUG("%s: Enter", __func__);
-
-
-  QMMF_DEBUG("%s: Exit", __func__);
-  return NO_ERROR;
-}
-
-status_t CameraSource::GetPluginConfig(const uint32_t &uid,
-                                       std::string &json_config) {
-
-  QMMF_DEBUG("%s: Enter", __func__);
-
-  QMMF_DEBUG("%s: Exit", __func__);
-  return NO_ERROR;
-}
-
 status_t CameraSource::CaptureImage(const uint32_t camera_id,
                                     const ImageParam &param,
                                     const uint32_t num_images,
@@ -368,11 +313,13 @@ bool CameraSource::ValidateSlaveTrackParam(
 
   if ((slave_track.params.format_type != VideoFormat::kHEVC) &&
       (slave_track.params.format_type != VideoFormat::kAVC) &&
-      (slave_track.params.format_type != VideoFormat::kYUV) &&
+      (slave_track.params.format_type != VideoFormat::kNV12) &&
+      (slave_track.params.format_type != VideoFormat::kNV12UBWC) &&
       (slave_track.params.format_type != VideoFormat::kRGB) &&
       (master_track.params.format_type != VideoFormat::kHEVC) &&
       (master_track.params.format_type != VideoFormat::kAVC) &&
-      (master_track.params.format_type != VideoFormat::kYUV) &&
+      (master_track.params.format_type != VideoFormat::kNV12) &&
+      (master_track.params.format_type != VideoFormat::kNV12UBWC) &&
       (master_track.params.format_type != VideoFormat::kRGB)) {
     QMMF_ERROR("%s Invalid format:", __func__);
     return false;
@@ -391,9 +338,10 @@ VideoFormat CameraSource::GetYUVFormatType(VideoFormat format_type) {
   switch (format_type) {
     case VideoFormat::kHEVC:
     case VideoFormat::kAVC:
-    case VideoFormat::kYUV:
-      format_type = VideoFormat::kYUV;
+      format_type = VideoFormat::kNV12UBWC;
       break;
+    case VideoFormat::kNV12:
+    case VideoFormat::kNV12UBWC:
     case VideoFormat::kRGB:
     case VideoFormat::kJPEG:
     case VideoFormat::kBayerRDI8BIT:
@@ -430,11 +378,13 @@ bool CameraSource::CheckLinkedStream(
 
   if ((slave_track.params.format_type != VideoFormat::kHEVC) &&
       (slave_track.params.format_type != VideoFormat::kAVC) &&
-      (slave_track.params.format_type != VideoFormat::kYUV) &&
+      (slave_track.params.format_type != VideoFormat::kNV12) &&
+      (slave_track.params.format_type != VideoFormat::kNV12UBWC) &&
       (slave_track.params.format_type != VideoFormat::kRGB) &&
       (master_track.params.format_type != VideoFormat::kHEVC) &&
       (master_track.params.format_type != VideoFormat::kAVC) &&
-      (master_track.params.format_type != VideoFormat::kYUV) &&
+      (master_track.params.format_type != VideoFormat::kNV12) &&
+      (master_track.params.format_type != VideoFormat::kNV12UBWC) &&
       (master_track.params.format_type != VideoFormat::kRGB)) {
     QMMF_ERROR("%s Invalid format:", __func__);
     return false;
@@ -450,23 +400,25 @@ bool CameraSource::CheckLinkedStream(
   return false;
 }
 
-std::string CameraSource::GetRescalerConfig(const VideoTrackParams& track_params) {
-  Json::Value root(Json::objectValue);
+ResizerCrop CameraSource::GetRescalerConfig(const VideoTrackParams& track_params) {
+
+  ResizerCrop resizer_crop;
   if (track_params.extra_param.Exists(QMMF_TRACK_CROP)) {
     TrackCrop crop;
     track_params.extra_param.Fetch(QMMF_TRACK_CROP, crop);
-    root["crop"]["width"] = crop.width;
-    root["crop"]["height"] = crop.height;
-    root["crop"]["x"] = crop.x;
-    root["crop"]["y"] = crop.y;
+
+    resizer_crop.x = crop.x;
+    resizer_crop.y = crop.y;
+    resizer_crop.width = crop.width;
+    resizer_crop.height = crop.height;
+    resizer_crop.valid = true;
     QMMF_INFO("%s Crop applied successfully!", __func__);
   } else {
+    resizer_crop.valid = false;
     QMMF_INFO("%s Crop param doesn't exist so it's not applied!", __func__);
   }
 
-  Json::FastWriter fastWriter;
-  auto config = fastWriter.write(root);
-  return config;
+  return resizer_crop;
 }
 
 status_t CameraSource::CreateTrackSource(const uint32_t track_id,
@@ -986,8 +938,7 @@ TrackSource::TrackSource(const VideoTrackParams& params,
       slave_track_source_(false),
       time_lapse_mode_(false),
       time_stamp_(0),
-      num_consumers_(0),
-      rotation_(0) {
+      num_consumers_(0) {
   QMMF_GET_LOG_LEVEL();
   char prop[PROPERTY_VALUE_MAX];
   memset(prop, 0, sizeof(prop));
@@ -1022,13 +973,6 @@ TrackSource::TrackSource(const VideoTrackParams& params,
   assert(frc_.get() != nullptr);
   frc_->SetFrameRate(track_params_.params.frame_rate);
 
-  if (track_params_.extra_param.Exists(QMMF_VIDEO_ROTATE)) {
-    VideoRotate video_rotate;
-    track_params_.extra_param.Fetch(QMMF_VIDEO_ROTATE, video_rotate);
-    rotation_ = static_cast<int32_t> (video_rotate.flags);
-    QMMF_INFO("%s: track_id(%x) Rotation enabled! Rotation:(%u)",
-      __func__, TrackId(), rotation_);
-  }
   // TODO: There are issues related to how recorder service
   // treats the adb properties at runtime. Once it gets resolved,
   // the following lines for prop querying may be moved to
@@ -1116,42 +1060,35 @@ status_t TrackSource::Init() {
   master_track_ = nullptr;
 
   StreamParam param{};
-  param.id             = track_params_.track_id;
-  param.width          = track_params_.params.width;
-  param.height         = track_params_.params.height;
-  param.framerate      = track_params_.params.frame_rate;
-  if (track_params_.params.format_type == VideoFormat::kAVC
-      || track_params_.params.format_type == VideoFormat::kHEVC) {
-    param.stream_flags |= static_cast<uint32_t> (StreamFlags::kEncoded);
-  }
+  param.id = track_params_.track_id;
+  param.width = track_params_.params.width;
+  param.height = track_params_.params.height;
+  param.framerate = track_params_.params.frame_rate;
+
   param.format =
       Common::FromVideoToQmmfFormat(track_params_.params.format_type);
 
+  param.flags = ((track_params_.params.format_type == VideoFormat::kAVC) ||
+      (track_params_.params.format_type == VideoFormat::kHEVC)) ?
+          StreamFlags::kEncoded : StreamFlags::kNone;
+
   if (track_params_.extra_param.Exists(QMMF_CPU_CACHE)) {
-    size_t entry_count = track_params_.extra_param.EntryCount(QMMF_CPU_CACHE);
-    if (entry_count == 1) {
-      SystemCache mode;
-      track_params_.extra_param.Fetch(QMMF_CPU_CACHE, mode, 0);
-      if (!mode.enable) {
-        param.stream_flags &= ~(static_cast<uint32_t>(StreamFlags::kCached));
-      }
-      QMMF_INFO("%s: Caching value is: %d", __func__,
-                mode.enable);
-    } else {
-      QMMF_ERROR("%s: Invalid Caching mode received", __func__);
-      return BAD_VALUE;
-    }
+    SystemCache mode;
+    track_params_.extra_param.Fetch(QMMF_CPU_CACHE, mode, 0);
+    param.flags |= mode.enable ? StreamFlags::kNone : StreamFlags::kUncashed;
   }
 
   if (track_params_.extra_param.Exists(QMMF_VIDEO_WAIT_AEC_MODE)) {
     VideoWaitAECMode wait_aec;
     track_params_.extra_param.Fetch(QMMF_VIDEO_WAIT_AEC_MODE, wait_aec);
-    if (wait_aec.enable) {
-      param.stream_flags |= static_cast<uint32_t>(StreamFlags::kWaitAEC);
-    }
+    param.flags |= wait_aec.enable ? StreamFlags::kIAEC : StreamFlags::kNone;
   }
 
-  param.rotation = rotation_;
+  if (track_params_.extra_param.Exists(QMMF_VIDEO_ROTATE)) {
+    VideoRotate rotate;
+    track_params_.extra_param.Fetch(QMMF_VIDEO_ROTATE, rotate);
+    param.rotation = static_cast<int32_t> (rotate.flags);
+  }
 
   assert(camera_interface_.get() != nullptr);
   auto ret = camera_interface_->CreateStream(param, track_params_.extra_param);
@@ -1280,7 +1217,8 @@ status_t TrackSource::StopTrack(bool is_force_cleanup) {
   //    returned.
 
   if (track_params_.params.format_type == VideoFormat::kRGB ||
-      track_params_.params.format_type == VideoFormat::kYUV ||
+      track_params_.params.format_type == VideoFormat::kNV12 ||
+      track_params_.params.format_type == VideoFormat::kNV12UBWC ||
       track_params_.params.format_type == VideoFormat::kBayerRDI8BIT ||
       track_params_.params.format_type == VideoFormat::kBayerRDI10BIT ||
       track_params_.params.format_type == VideoFormat::kBayerRDI12BIT ||
@@ -1680,7 +1618,8 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
 
   // If format type is YUV or BAYER then give callback from this point, do not
   // feed buffer to Encoder.
-  if (track_params_.params.format_type == VideoFormat::kYUV ||
+  if (track_params_.params.format_type == VideoFormat::kNV12 ||
+      track_params_.params.format_type == VideoFormat::kNV12UBWC ||
       track_params_.params.format_type == VideoFormat::kRGB ||
       track_params_.params.format_type == VideoFormat::kBayerRDI8BIT ||
       track_params_.params.format_type == VideoFormat::kBayerRDI10BIT ||

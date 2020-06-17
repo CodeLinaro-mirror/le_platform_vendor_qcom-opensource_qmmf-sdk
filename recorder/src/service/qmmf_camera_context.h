@@ -48,8 +48,6 @@ using namespace cameraadaptor;
 #define SNAPSHOT_STREAM_BUFFER_COUNT 30
 #define EXTRA_DCVS_BUFFERS            2
 #define EXTRA_HFR_BUFFERS             4
-#define MIN_UBWC_WIDTH               1280
-#define MIN_UBWC_HEIGHT              720
 
 namespace recorder {
 
@@ -260,8 +258,6 @@ class CameraContext : public CameraInterface {
 
   void HandleFinalResult(const CaptureResult &result);
 
-  std::string GetSnapshotJsonConfig();
-
   bool IsRawOnly(const int32_t format);
 
 
@@ -351,7 +347,6 @@ class CameraContext : public CameraInterface {
   bool                          port_paused_;
   std::set<int32_t>             stopped_stream_ids_;
   CameraParameters              camera_parameters_;
-  bool                          is_ubwc_enabled_;
 };
 
 enum class CameraPortType {
@@ -429,8 +424,6 @@ class CameraPort {
 
  private:
 
-  bool IsUbwcValidForStream(uint32_t width, uint32_t height);
-
   bool IsConsumerConnected(sp<IBufferConsumer>& consumer);
 
   void StreamCallback(StreamBuffer buffer);
@@ -454,7 +447,6 @@ class CameraPort {
   std::mutex             stop_lock_;
   std::mutex             aec_lock_;
 
-  std::string            pipe_config_json_data_;
   CameraParameters       camera_parameters_;
 };
 

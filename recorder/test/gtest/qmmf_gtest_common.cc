@@ -676,7 +676,7 @@ void GtestCommon::SetVideoStreamFormat(char prop[], VideoFormat &format) {
   } else if (value == "HEVC") {
     format = VideoFormat::kHEVC;
   } else if (value == "YUV") {
-    format = VideoFormat::kYUV;
+    format = VideoFormat::kNV12;
   } else if (value == "RGB") {
     format = VideoFormat::kRGB;
   } else if (value == "RAW8") {
@@ -712,7 +712,7 @@ std::string GtestCommon::GetVideoStreamFormat(VideoFormat &fmt) {
     return "AVC";
   } else if (fmt == VideoFormat::kHEVC) {
     return "HEVC";
-  } else if (fmt == VideoFormat::kYUV) {
+  } else if (fmt == VideoFormat::kNV12) {
     return "YUV";
   } else if (fmt == VideoFormat::kRGB) {
     return "RGB";
@@ -2089,94 +2089,6 @@ status_t GtestCommon::PopulateExpTables(
   return NO_ERROR;
 }
 
-status_t GtestCommon::ReadAndParseJsonFile(const std::string &input_file,
-                                           Json::Value &value) {
-  std::string data;
-  Json::Reader reader;
-  status_t ret = NO_ERROR;
-
-  if (input_file.empty()) {
-    TEST_ERROR("%s: Please provide input file ", __func__);
-    return -EINVAL;
-  }
-
-  std::ifstream cfg_data(input_file);
-  if (!cfg_data.is_open()) {
-    TEST_ERROR("%s: File not found: %s", __func__, input_file.c_str());
-    return -ENOENT;
-  }
-  data = std::string((std::istreambuf_iterator<char>(cfg_data)),
-                     std::istreambuf_iterator<char>());
-  cfg_data.close();
-
-  if (!reader.parse(data, value)) {
-    TEST_ERROR("%s: Parsing Failed for file: %s", __func__, input_file.c_str());
-    ret = -EINVAL;
-  }
-  return ret;
-}
-
-template <typename TItem>
-void GtestCommon::GetValue(const Json::Value &v,const std::string &field_name,
-                           TItem &item) {
-  if (field_name.empty()) {
-    TEST_ERROR("%s: Please provide input key ", __func__);
-    return;
-  }
-  Json::Value root = v[field_name];
-  if (!root.empty()) {
-    switch (root.type()) {
-      case Json::ValueType::intValue:
-        item = root.asInt();
-        break;
-      case Json::ValueType::uintValue:
-        item = root.asUInt();
-        break;
-      case Json::ValueType::realValue:
-        item = root.asDouble();
-        break;
-      case Json::ValueType::booleanValue:
-        item = root.asBool();
-        break;
-      default:
-        std::stringstream s;
-        TEST_ERROR("%s: value type: %d is not supported by current get method",
-                   __func__, root.type());
-        break;
-    }
-  } else {
-    TEST_ERROR("%s: field_name: %s is not set in json", __func__,
-               field_name.c_str());
-  }
-}
-
-/*
- * FindSensorModeIndex: This method parses a given sensor mode specified
- * as a string, and returns the mode index.
- */
-int32_t GtestCommon::FindSensorModeIndex(const std::string& name_of_file,
-                                         const std::string& mode) {
-  Json::Value value;
-  if (name_of_file.empty() || mode.empty()) {
-    TEST_ERROR("%s: Please provide correct params:", __func__);
-    return -EINVAL;
-  }
-
-  std::string dir_path(kQmmfFolderPath);
-  std::string path = dir_path.append(name_of_file);
-  TEST_INFO("%s: Config File Path: %s", __func__, path.c_str());
-  int32_t index_value = -1;
-
-  auto status = ReadAndParseJsonFile(path, value);
-  if (status == NO_ERROR) {
-    GetValue(value, mode, index_value);
-  }
-
-  TEST_INFO("%s: Sensor Mode : %s Sensor Mode Value: %u\n", __func__,
-            mode.c_str(), index_value);
-  return index_value;
-}
-
 #ifdef CAM_ARCH_V2
 /**
  * This function can be called only after StartCamera. It tries to fetch
@@ -2465,6 +2377,13 @@ void GtestCommon::ConfigureAndTakeSnapshot() {
               image_param.width, image_param.height);
     ASSERT_TRUE(image_param.width > 0 && image_param.height > 0);
 
+    if (snap_mode_ == SnapshotMode::kStillPlusRaw || snap_mode_
+        == SnapshotMode::kVideoPlusRaw) {
+      image_param.image_format = ImageFormat::kJPEG;
+      image_param.width = snap_width_;
+      image_param.height = snap_height_;
+      image_param.image_quality = default_jpeg_quality_;
+    }
   } else if (snap_format_ == ImageFormat::kNV12 ||
              snap_format_ == ImageFormat::kNV21) {
     image_param.width = snap_width_;

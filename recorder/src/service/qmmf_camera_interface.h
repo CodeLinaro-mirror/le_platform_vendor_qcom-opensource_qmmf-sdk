@@ -39,12 +39,34 @@ namespace qmmf {
 
 namespace recorder {
 
-enum class StreamFlags : uint32_t {
-  kNone = 0,         /// No flag is set.
-  kWaitAEC = 1 << 0, /// Wait for AEC to converge.
-  kEncoded = 1 << 1, /// Encoded stream.
-  kCached = 1 << 2,  /// Buffers are cached.
+/// @enum mapper::StreamFlags
+/// @brief A strongly typed enum class representing stream configuration flags.
+enum class StreamFlags : uint64_t {
+  kNone     = 0,      /// No active configuration flags.
+  kIAEC     = 1 << 0, /// Wait Initial Auto Exposure Convergence.
+  kUncashed = 1 << 1, /// Allocated buffers are not cached.
+  kEncoded  = 1 << 2, /// Stream buffers are going to be encoded.
 };
+
+inline StreamFlags operator | (StreamFlags lhs, StreamFlags rhs) {
+  using T = std::underlying_type_t<StreamFlags>;
+  return static_cast<StreamFlags>(static_cast<T>(lhs) | static_cast<T>(rhs));
+}
+
+inline StreamFlags& operator |= (StreamFlags& lhs, StreamFlags rhs) {
+  lhs = lhs | rhs;
+  return lhs;
+}
+
+inline StreamFlags operator & (StreamFlags lhs, StreamFlags rhs) {
+  using T = std::underlying_type_t<StreamFlags>;
+  return static_cast<StreamFlags>(static_cast<T>(lhs) & static_cast<T>(rhs));
+}
+
+inline StreamFlags& operator &= (StreamFlags& lhs, StreamFlags rhs) {
+  lhs = lhs & rhs;
+  return lhs;
+}
 
 struct StreamParam {
   uint32_t     id;
@@ -53,12 +75,12 @@ struct StreamParam {
   uint32_t     rotation;
   BufferFormat format;
   float        framerate;
-  uint32_t     stream_flags;
+  StreamFlags  flags;
 
   StreamParam()
       :  id(0), width(0), height(0), rotation(0),
          format(BufferFormat::kUnsupported), framerate(0.0),
-         stream_flags(static_cast<uint32_t>(StreamFlags::kCached)) {}
+         flags(StreamFlags::kNone) {}
 };
 
 struct SnapshotParam {

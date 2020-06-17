@@ -63,9 +63,11 @@ RecorderImpl* RecorderImpl::CreateRecorder() {
 RecorderImpl::RecorderImpl()
   : unique_session_id_(0),
     camera_source_(nullptr),
-    encoder_core_(nullptr),
-    audio_source_(nullptr),
+    encoder_core_(nullptr)
+#ifdef PULSE_AUDIO_ENABLE
+    ,audio_source_(nullptr),
     audio_encoder_core_(nullptr)
+#endif
 {
 
     QMMF_GET_LOG_LEVEL();
@@ -88,6 +90,7 @@ RecorderImpl::~RecorderImpl() {
     delete encoder_core_;
     encoder_core_ = nullptr;
   }
+#ifdef PULSE_AUDIO_ENABLE
   if (audio_source_) {
     delete audio_source_;
     audio_source_ = nullptr;
@@ -96,6 +99,7 @@ RecorderImpl::~RecorderImpl() {
     delete audio_encoder_core_;
     audio_encoder_core_ = nullptr;
   }
+#endif
   instance_ = nullptr;
   QMMF_INFO("%s: Exit (0x%p)", __func__, this);
 }
@@ -123,6 +127,7 @@ status_t RecorderImpl::Init(const RemoteCallbackHandle& remote_cb_handle) {
   }
   QMMF_INFO("%s: EncoderCore Instance Created Successfully!",
       __func__);
+#ifdef PULSE_AUDIO_ENABLE
   audio_source_ = AudioSource::CreateAudioSource();
   if (!audio_source_) {
     QMMF_ERROR("%s: Can't Create AudioSource Instance!", __func__);
@@ -138,6 +143,7 @@ status_t RecorderImpl::Init(const RemoteCallbackHandle& remote_cb_handle) {
   }
   QMMF_INFO("%s: AudioEncoderCore Instance Created Successfully!",
       __func__);
+#endif
   QMMF_INFO("%s: Exit", __func__);
   return NO_ERROR;
 }
@@ -155,6 +161,7 @@ status_t RecorderImpl::DeInit() {
     delete encoder_core_;
     encoder_core_ = nullptr;
   }
+#ifdef PULSE_AUDIO_ENABLE
   if (audio_source_) {
     delete audio_source_;
     audio_source_ = nullptr;
@@ -163,6 +170,7 @@ status_t RecorderImpl::DeInit() {
     delete audio_encoder_core_;
     audio_encoder_core_ = nullptr;
   }
+#endif
   QMMF_INFO("%s: Exit", __func__);
   return NO_ERROR;
 }
@@ -256,9 +264,12 @@ status_t RecorderImpl::DeRegisterClient(const uint32_t client_id,
 
         if (track_info.type == TrackType::kVideo) {
           ret = DeleteVideoTrack(client_id, session_id, client_track_id);
-        } else {
+        }
+#ifdef PULSE_AUDIO_ENABLE
+        else {
           ret = DeleteAudioTrack(client_id, session_id, client_track_id);
         }
+#endif
         // Carry-on even delete track fails.
         ++track;
       }
@@ -605,7 +616,7 @@ status_t RecorderImpl::StartSession(const uint32_t client_id,
   auto& session_track_map = client_session_map_[client_id];
   auto& tracks_in_session = session_track_map[session_id];
   client_session_lock_.unlock();
-
+#ifdef PULSE_AUDIO_ENABLE
   QMMF_INFO("%s: client_id(%d):session_id(%d) number of tracks(%d) to start",
       __func__, client_id, session_id, tracks_in_session.size());
   std::future<uint32_t> audio_tracks_result;
@@ -663,6 +674,7 @@ status_t RecorderImpl::StartSession(const uint32_t client_id,
     return ret;
   };
   audio_tracks_result = std::async(std::launch::async, audio_tracks);
+#endif
   // all of the video tracks associated to one session starts together
   for (auto const& track : tracks_in_session) {
     uint32_t client_track_id  = track.first;
@@ -701,13 +713,17 @@ status_t RecorderImpl::StartSession(const uint32_t client_id,
         "client_track_id(%d):service_track_id(%x) Started Successfully!",
         __func__, client_id, session_id, client_track_id, service_track_id);
   }
+#ifdef PULSE_AUDIO_ENABLE
   if (audio_tracks_result.get() == NO_ERROR && ret == NO_ERROR) {
+#else
+  if (ret == NO_ERROR) {
+#endif
     QMMF_INFO("%s: client_id(%d):session_id(%d) with num tracks(%d) Started"
         " Successfully!", __func__, client_id, session_id,
         tracks_in_session.size());
-
     ChangeSessionState(session_id, SessionState::kActive);
   }
+
   QMMF_DEBUG("%s: Exit client_id(%d):session_id(%d)", __func__,
       client_id, session_id);
   return ret;
@@ -785,6 +801,7 @@ status_t RecorderImpl::StopSession(const uint32_t client_id,
         }
       }
     }
+#ifdef PULSE_AUDIO_ENABLE
      else if (track_info.type == TrackType::kAudio) {
 
       assert(audio_source_ != nullptr);
@@ -807,6 +824,7 @@ status_t RecorderImpl::StopSession(const uint32_t client_id,
         }
       }
     }
+#endif
     QMMF_INFO("%s: client_id(%d):session_id(%d), "
         "client_track_id(%d):service_track_id(%x) Stoped Successfully!",
         __func__, client_id, session_id, client_track_id, service_track_id);
@@ -883,6 +901,7 @@ status_t RecorderImpl::PauseSession(const uint32_t client_id,
         break;
       }
     }
+#ifdef PULSE_AUDIO_ENABLE
     else if (track_info.type == TrackType::kAudio) {
 
       assert(audio_source_ != nullptr);
@@ -907,6 +926,7 @@ status_t RecorderImpl::PauseSession(const uint32_t client_id,
         }
       }
     }
+#endif
     ++track;
   }
   if (ret == NO_ERROR) {
@@ -973,6 +993,7 @@ status_t RecorderImpl::ResumeSession(const uint32_t client_id,
         break;
       }
     }
+#ifdef PULSE_AUDIO_ENABLE
     else if (track_info.type == TrackType::kAudio) {
 
       assert(audio_source_ != nullptr);
@@ -997,6 +1018,7 @@ status_t RecorderImpl::ResumeSession(const uint32_t client_id,
         }
       }
     }
+#endif
   }
   if (ret == NO_ERROR) {
     QMMF_INFO("%s: client_id(%d):session_id(%d) with num tracks(%d) Resumed"
@@ -1025,137 +1047,6 @@ status_t RecorderImpl::GetNumberOfCameras(const uint32_t client_id,
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: client_id(%d): GetNumberOfCameras failed!",
         __func__, client_id);
-    return ret;
-  }
-
-  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
-  return NO_ERROR;
-}
-
-status_t RecorderImpl::GetSupportedPlugins(const uint32_t client_id,
-                                           SupportedPlugins *plugins) {
-  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
-
-  if (!IsClientValid(client_id)) {
-    QMMF_ERROR("%s: Client(%u) is not connected!", __func__, client_id);
-    return BAD_VALUE;
-  }
-
-  assert(camera_source_ != nullptr);
-  auto ret = camera_source_->GetSupportedPlugins(plugins);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: client_id(%d): GetSupportedPlugins failed!",
-        __func__, client_id);
-    return ret;
-  }
-
-  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
-  return NO_ERROR;
-}
-
-status_t RecorderImpl::CreatePlugin(const uint32_t client_id, uint32_t *uid,
-                                    const PluginInfo &plugin) {
-
-  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
-
-  if (!IsClientValid(client_id)) {
-    QMMF_ERROR("%s: Client(%u) is not connected!", __func__, client_id);
-    return BAD_VALUE;
-  }
-
-  assert(camera_source_ != nullptr);
-  auto ret = camera_source_->CreatePlugin(uid, plugin);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: client_id(%d): CreatePlugin %s failed!", __func__,
-        client_id, plugin.name.c_str());
-    return ret;
-  }
-  QMMF_INFO("%s: client_id(%d): Plugin %s created uid(%d)", __func__,
-      client_id, plugin.name.c_str(), *uid);
-
-  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
-  return NO_ERROR;
-}
-
-status_t RecorderImpl::DeletePlugin(const uint32_t client_id,
-                                    const uint32_t &uid) {
-  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
-
-  if (!IsClientValid(client_id)) {
-    QMMF_ERROR("%s: Client(%u) is not connected!", __func__, client_id);
-    return BAD_VALUE;
-  }
-
-  assert(camera_source_ != nullptr);
-  auto ret = camera_source_->DeletePlugin(uid);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: client_id(%d):DeletePlugin uid(%d) failed!", __func__,
-        client_id, uid);
-    return ret;
-  }
-
-  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
-  return NO_ERROR;
-}
-
-status_t RecorderImpl::ConfigPlugin(const uint32_t client_id,
-                                    const uint32_t &uid,
-                                    const std::string &json_config) {
-
-  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
-
-  if (!IsClientValid(client_id)) {
-    QMMF_ERROR("%s: Client(%u) is not connected!", __func__, client_id);
-    return BAD_VALUE;
-  }
-
-  assert(camera_source_ != nullptr);
-  auto ret = camera_source_->ConfigPlugin(uid, json_config);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: client_id(%d): ConfigPlugin uid(%d) failed!",
-        __func__, client_id, uid);
-    return ret;
-  }
-
-  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
-  return NO_ERROR;
-}
-
-status_t RecorderImpl::ConfigPlugin(const uint32_t client_id,
-                                    const uint32_t &uid,
-                                    const int32_t type,
-                                    const std::vector<uint8_t> &blob_config) {
-
-  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
-  assert(camera_source_ != nullptr);
-  try {
-    camera_source_->ConfigPlugin(uid, type, blob_config);
-  } catch (const std::exception &e) {
-    QMMF_ERROR("%s: Error while configuring exception: %s",
-       __func__, e.what());
-    return BAD_VALUE;
-  }
-
-  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
-  return NO_ERROR;
-}
-
-status_t RecorderImpl::GetPluginConfig(const uint32_t client_id,
-                                    const uint32_t &uid,
-                                    std::string &json_config) {
-
-  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
-
-  if (!IsClientValid(client_id)) {
-    QMMF_ERROR("%s: Client(%u) is not connected!", __func__, client_id);
-    return BAD_VALUE;
-  }
-
-  assert(camera_source_ != nullptr);
-  auto ret = camera_source_->GetPluginConfig(uid, json_config);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: client_id(%d): ConfigPlugin uid(%d) failed!",
-        __func__, client_id, uid);
     return ret;
   }
 
@@ -1230,7 +1121,7 @@ status_t RecorderImpl::CreateAudioTrack(const uint32_t client_id,
           AudioTrackBufferCb(client_id, session_id, track_id,
                              buffers, meta_buffers);
       };
-
+#ifdef PULSE_AUDIO_ENABLE
   assert(audio_source_ != nullptr);
   ret = audio_source_->CreateTrackSource(service_track_id, audio_params);
   if (ret != NO_ERROR) {
@@ -1253,6 +1144,7 @@ status_t RecorderImpl::CreateAudioTrack(const uint32_t client_id,
       return BAD_VALUE;
     }
   }
+#endif
   // Assosiate track to session.
   TrackInfo track_info{};
   track_info.track_id     = service_track_id;
@@ -1305,7 +1197,7 @@ status_t RecorderImpl::DeleteAudioTrack(const uint32_t client_id,
   QMMF_INFO("%s: client_id(%d):session_id(%d), "
       "track_id(%d):service_track_id(%x)", __func__, client_id,
       session_id, track_id, service_track_id);
-
+#ifdef PULSE_AUDIO_ENABLE
   assert(track_info.type == TrackType::kAudio);
   assert(audio_source_ != nullptr);
   assert(service_track_id > 0);
@@ -1326,7 +1218,7 @@ status_t RecorderImpl::DeleteAudioTrack(const uint32_t client_id,
       return ret;
     }
   }
-
+#endif
   std::lock_guard<std::mutex> lock(client_session_lock_);
   tracks_in_session.erase(track_id);
 
@@ -1452,9 +1344,6 @@ uint32_t RecorderImpl::FindSuitableIdForLinkedTrack(
         // Try to find a track with same resolution
         for (auto const& track : track_map.second) {
           TrackInfo tr = track.second;
-          if (tr.format.video != params.format_type) {
-            continue;
-          }
           std::shared_ptr<TrackSource> track_source =
               camera_source_->GetTrackSource(tr.track_id);
           VideoTrackParams tr_params = track_source->getParams();
@@ -1472,9 +1361,6 @@ uint32_t RecorderImpl::FindSuitableIdForLinkedTrack(
           uint32_t selected_height = 0;
           for (auto const& track : track_map.second) {
             TrackInfo tr = track.second;
-            if (tr.format.video != params.format_type) {
-              continue;
-            }
             std::shared_ptr<TrackSource> track_source =
                 camera_source_->GetTrackSource(tr.track_id);
             VideoTrackParams tr_params = track_source->getParams();
@@ -1784,6 +1670,7 @@ status_t RecorderImpl::ReturnTrackBuffer(const uint32_t client_id,
     }
 
   }
+#ifdef PULSE_AUDIO_ENABLE
   else {
     if (track_info.format.audio != AudioFormat::kPCM) {
       assert(audio_encoder_core_ != nullptr);
@@ -1796,6 +1683,7 @@ status_t RecorderImpl::ReturnTrackBuffer(const uint32_t client_id,
       assert(ret == NO_ERROR);
     }
   }
+#endif
   QMMF_VERBOSE("%s: Exit client_id(%d):session_id(%d)", __func__,
       client_id, session_id);
   return NO_ERROR;

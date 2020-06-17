@@ -43,8 +43,10 @@
 
 #include "recorder/src/client/qmmf_recorder_service_intf.h"
 #include "recorder/src/service/qmmf_recorder_common.h"
+#ifdef PULSE_AUDIO_ENABLE
 #include "recorder/src/service/qmmf_audio_source.h"
 #include "recorder/src/service/qmmf_audio_encoder_core.h"
+#endif
 #include "recorder/src/service/qmmf_camera_source.h"
 #include "recorder/src/service/qmmf_encoder_core.h"
 #include "recorder/src/service/qmmf_remote_cb.h"
@@ -116,31 +118,6 @@ class RecorderImpl {
   /// Return number of available Cameras to the Camera Source
   status_t GetNumberOfCameras(const uint32_t client_id,
                               SupportedCameras &cameras);
-
-  /// Return all supported plugins to the Camera Source
-  status_t GetSupportedPlugins(const uint32_t client_id,
-                               SupportedPlugins *plugins);
-
-  /// Create plugin
-  status_t CreatePlugin(const uint32_t client_id, uint32_t *uid,
-                        const PluginInfo &plugin);
-
-  /// Delete plugin
-  status_t DeletePlugin(const uint32_t client_id, const uint32_t &uid);
-
-  /// Configures plugin
-  status_t ConfigPlugin(const uint32_t client_id, const uint32_t &uid,
-                        const std::string &json_config);
-
-  /// Configures plugin
-  status_t ConfigPlugin(const uint32_t client_id,
-                        const uint32_t &uid,
-                        const int32_t type,
-                        const std::vector<uint8_t> &blob_config);
-
-  /// Get plugin config
-  status_t GetPluginConfig(const uint32_t client_id, const uint32_t &uid,
-                           std::string &json_config);
 
   /// Create Audio Track and associates it to the session.
   status_t CreateAudioTrack(const uint32_t client_id,
@@ -336,8 +313,10 @@ class RecorderImpl {
 
   CameraSource*                 camera_source_;
   EncoderCore*                  encoder_core_;
+#ifdef PULSE_AUDIO_ENABLE
   AudioSource*                  audio_source_;
   AudioEncoderCore*             audio_encoder_core_;
+#endif
   RemoteCallbackHandle          remote_cb_handle_;
 
   std::map<uint32_t, bool>      timelapse_mode_;

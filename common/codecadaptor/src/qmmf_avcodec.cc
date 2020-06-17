@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -712,6 +712,8 @@ status_t AVCodec::ConfigureVideoEncoder(CodecParam& codec_param) {
     return ret;
   }
 
+// TODO: remove once support is available in RB5
+#ifndef DISABLE_VID_AU_DELIMITER
   ret = omx_client_->SetParameter(
       static_cast<OMX_INDEXTYPE>(OMX_QcomIndexParamAUDelimiter),
       reinterpret_cast<OMX_PTR>(&param_aud));
@@ -719,6 +721,7 @@ status_t AVCodec::ConfigureVideoEncoder(CodecParam& codec_param) {
     QMMF_ERROR("%s: Failed to configure AUD delimiter", __func__);
     return ret;
   }
+#endif
 
   ret = omx_client_->SetParameter(
       static_cast<OMX_INDEXTYPE>(OMX_QcomIndexParamH264VUITimingInfo),
@@ -1089,6 +1092,8 @@ status_t AVCodec::ConfigureVideoDecoder(CodecParam& codec_param) {
 
   if (codec_param.video_dec_param.enable_vqzip_extradata) {
     QMMF_INFO("%s Enabling SEI extradata for VQZIP", __func__);
+
+#ifndef EXTRADATA_VQZIP_NOT_SUPPORTED
     OMX_QTI_VIDEO_PARAM_VQZIP_SEI_TYPE enable_sei_params;
     InitOMXParams(&enable_sei_params);
     enable_sei_params.bEnable = OMX_TRUE;
@@ -1099,6 +1104,7 @@ status_t AVCodec::ConfigureVideoDecoder(CodecParam& codec_param) {
       QMMF_ERROR("%s Failed to set the SEI extradata for Decoder", __func__);
       return ret;
     }
+ #endif
   }
 
   if(codec_param.video_dec_param.enable_thumbnail) {
@@ -1351,7 +1357,7 @@ status_t AVCodec::ConfigureAudioEncoder(CodecParam& codec_param) {
                input_port.nBufferSize);
 
   // hardcode the number of input buffers
-  uint32_t buf_count = INPUT_MAX_COUNT;
+  uint32_t buf_count = AVCODEC_IN_BUF_COUNT;
   if (input_port.nBufferCountActual != buf_count) {
     input_port.nBufferCountActual = buf_count;
     result = omx_client_->SetParameter(OMX_IndexParamPortDefinition,
@@ -1894,6 +1900,7 @@ status_t AVCodec::SetupAVCEncoderParameters(CodecParam& param) {
                    __func__);
         return -1;
       } else {
+#ifndef EXTRADATA_VQZIP_NOT_SUPPORTED
         OMX_QTI_VIDEO_PARAM_VQZIP_SEI_TYPE enable_sei_params;
         InitOMXParams(&enable_sei_params);
         enable_sei_params.bEnable = OMX_TRUE;
@@ -1905,6 +1912,7 @@ status_t AVCodec::SetupAVCEncoderParameters(CodecParam& param) {
                      __func__);
           return ret;
         }
+#endif
       }
   }
 
@@ -1920,7 +1928,8 @@ status_t AVCodec::SetupAVCEncoderParameters(CodecParam& param) {
     h264_type.bUseHadamard = OMX_TRUE;
     h264_type.nRefFrames = 1;
     h264_type.nBFrames = 0;
-    h264_type.nPFrames = frame_rate*iframe_interval;
+    h264_type.nPFrames = (iframe_interval == 0) ? 0 :
+        ((frame_rate * iframe_interval) - 1);
     if(h264_type.nPFrames == 0) {
       h264_type.nAllowedPictureTypes = OMX_VIDEO_PictureTypeI;
     }
@@ -1944,7 +1953,8 @@ status_t AVCodec::SetupAVCEncoderParameters(CodecParam& param) {
     h264_type.bUseHadamard = OMX_TRUE;
     h264_type.nRefFrames = 2;
     h264_type.nBFrames = 0;
-    h264_type.nPFrames = frame_rate*iframe_interval;
+    h264_type.nPFrames = (iframe_interval == 0) ? 0 :
+        ((frame_rate * iframe_interval) - 1);
     h264_type.nAllowedPictureTypes =
         OMX_VIDEO_PictureTypeI | OMX_VIDEO_PictureTypeP;
     h264_type.nRefIdx10ActiveMinus1 = 0;
@@ -1978,7 +1988,8 @@ status_t AVCodec::SetupAVCEncoderParameters(CodecParam& param) {
       QMMF_ERROR("%s Failed to get video intra period", __func__);
       return ret;
     }
-    intra.nPFrames = frame_rate * iframe_interval;
+    intra.nPFrames = (iframe_interval == 0) ? 0 :
+        ((frame_rate * iframe_interval) - 1);
     intra.nBFrames = 0;
     ret = omx_client_->SetConfig(
         static_cast<OMX_INDEXTYPE>(QOMX_IndexConfigVideoIntraperiod),
@@ -2007,6 +2018,7 @@ status_t AVCodec::SetupAVCEncoderParameters(CodecParam& param) {
   if (param.video_enc_param.codec_param.avc.slice_enabled) {
     QMMF_INFO("%s Setting slice delivery mode: Spacing: (%u)", __func__,
               param.video_enc_param.codec_param.avc.slice_header_spacing);
+#ifndef EXTRADATA_VQZIP_NOT_SUPPORTED
     QOMX_EXTNINDEX_PARAMTYPE extn_index;
     InitOMXParams(&extn_index);
     extn_index.nPortIndex = kPortIndexOutput;
@@ -2017,6 +2029,7 @@ status_t AVCodec::SetupAVCEncoderParameters(CodecParam& param) {
     if (ret != 0) {
       QMMF_ERROR("%s Failed to Set Slice Mode", __func__);
     }
+#endif
   }
 
   QMMF_INFO("%s Exit", __func__);
@@ -2065,7 +2078,8 @@ status_t AVCodec::SetupHEVCEncoderParameters(CodecParam& param) {
     QMMF_ERROR("%s Failed to get video intra period", __func__);
     return ret;
   }
-  intra.nPFrames = frame_rate * iframe_interval;
+  intra.nPFrames = (iframe_interval == 0) ? 0 :
+      ((frame_rate * iframe_interval) - 1);
   // TODO: remove hard code B frame value
   intra.nBFrames = 0;
   ret = omx_client_->SetConfig(
@@ -2460,35 +2474,39 @@ status_t AVCodec::AllocateBuffer(uint32_t port_type, uint32_t buf_count,
   }
 
   if (format_type_ == CodecType::kVideoEncoder) {
-    uint32_t buf_count = (port_type == kPortIndexInput) ? INPUT_MAX_COUNT
-                                                        : OUTPUT_MAX_COUNT;
+    uint32_t buf_count = (port_type == kPortIndexInput) ? AVCODEC_IN_BUF_COUNT
+                                                        : AVCODEC_OUT_BUF_COUNT;
 
     if (slice_mode_encoding_) {
-      buf_count = (port_type == kPortIndexInput) ? INPUT_MAX_COUNT
+      buf_count = (port_type == kPortIndexInput) ? AVCODEC_IN_BUF_COUNT
                                                  : port_def.nBufferCountActual;
     }
 
-    if (port_def.nBufferCountActual != buf_count) {
+    if (buf_count < port_def.nBufferCountMin) {
+      buf_count = port_def.nBufferCountMin;
+    }
 
+    if (port_def.nBufferCountActual != buf_count) {
       port_def.nBufferCountActual = buf_count;
       ret = omx_client_->SetParameter(OMX_IndexParamPortDefinition,
                                       reinterpret_cast<OMX_PTR>(&port_def));
-      if(ret != OK) {
+      if (ret != OK) {
         QMMF_ERROR("%s Failed to set new buffer count(%d) on %s",
             __func__, port_def.nBufferCountActual, PORT_NAME(port_type));
         return ret;
       }
       ret = omx_client_->GetParameter(OMX_IndexParamPortDefinition,
                                       reinterpret_cast<OMX_PTR>(&port_def));
-      if(ret != OK) {
+      if (ret != OK) {
         QMMF_ERROR("%s Failed to getParameter on %s", __func__,
                    PORT_NAME(port_type));
         return ret;
       }
-      QMMF_INFO("%s New Buf count(%d), size(%d)", __func__,
-                port_def.nBufferCountActual, port_def.nBufferSize);
-      assert(buf_count == port_def.nBufferCountActual);
     }
+
+    QMMF_INFO("%s New Buf count(%d), size(%d)", __func__,
+              port_def.nBufferCountActual, port_def.nBufferSize);
+    assert(buf_count == port_def.nBufferCountActual);
 
     if (port_type == kPortIndexInput)
       in_buff_hdr_size_ = port_def.nBufferCountActual;
@@ -4235,13 +4253,13 @@ OMX_ERRORTYPE AVCodec::OnEmptyBufferDone(
   } else if(avcodec->format_type_ == CodecType::kAudioEncoder) {
     assert(buf_header->pBuffer != nullptr);
     stream_buffer.data = buf_header->pBuffer;
-    stream_buffer.fd = reinterpret_cast<int32_t>(buf_header->pAppPrivate);
+    stream_buffer.fd = reinterpret_cast<size_t>(buf_header->pAppPrivate);
     QMMF_DEBUG("%s EBD buffer[%s]", __func__,
                stream_buffer.ToString().c_str());
   } else {
     assert(buf_header->pBuffer != nullptr);
     stream_buffer.data = buf_header->pBuffer;
-    stream_buffer.fd = reinterpret_cast<int32_t>(buf_header->pAppPrivate);
+    stream_buffer.fd = reinterpret_cast<size_t>(buf_header->pAppPrivate);
     QMMF_DEBUG("%s EBD data(%p), ts(%lld)", __func__,
         stream_buffer.data, buf_header->nTimeStamp);
   }
@@ -4385,7 +4403,7 @@ OMX_ERRORTYPE AVCodec::OnFillBufferDone(
   }
 
   if(avcodec->format_type_ == CodecType::kAudioDecoder) {
-    codec_buffer.fd = reinterpret_cast<int32_t>(buf_header->pAppPrivate);
+    codec_buffer.fd = reinterpret_cast<size_t>(buf_header->pAppPrivate);
     codec_buffer.capacity = buf_header->nAllocLen;
   }
 
