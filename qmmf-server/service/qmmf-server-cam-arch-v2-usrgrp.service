@@ -1,4 +1,4 @@
-# Copyright (c) 2018, 2019, The Linux Foundation. All rights reserved.
+# Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are
@@ -33,7 +33,7 @@ SourcePath=/usr/bin/qmmf-server
 User=qmmfsvr
 Group=qmmfsvr
 Restart=always
-Environment=LD_LIBRARY_PATH=/usr/lib/camera/components/:/usr/lib/camera/
+EnvironmentFile=/etc/qmmf-server-env
 ExecStart=/usr/bin/qmmf-server
 
 [Install]
