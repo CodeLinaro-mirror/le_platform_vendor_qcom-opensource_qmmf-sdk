@@ -2469,9 +2469,10 @@ status_t CameraPort::Init() {
   cam_stream_params_.rotation =
       static_cast<camera3_stream_rotation_t> (params_.rotation);
 
-  cam_stream_params_.allocFlags.flags =
-      static_cast<bool>(params_.flags & StreamFlags::kEncoded) ?
-          IMemAllocUsage::kVideoEncoder : 0;
+  // This flag is mandatory. Stream is considered as preview stream without it.
+  // Different tuning, setings and sensor mode is applied for preview and
+  // video streams. This is why this flag is needed.
+  cam_stream_params_.allocFlags.flags = IMemAllocUsage::kVideoEncoder;
 
   cam_stream_params_.allocFlags.flags |=
       (params_.format != BufferFormat::kNV12UBWC) ?
