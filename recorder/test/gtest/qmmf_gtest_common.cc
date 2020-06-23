@@ -2329,31 +2329,21 @@ status_t GtestCommon::FillCropMetadata(CameraMetadata& meta,
   return NO_ERROR;
 }
 
-void GtestCommon::ConfigureAndTakeSnapshot() {
+void GtestCommon::ConfigureImageParam() {
 
   bool res_supported = false;
-
-  std::vector<CameraMetadata> meta_array;
-  CameraMetadata meta;
-
-  auto ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
-  ASSERT_TRUE(ret == NO_ERROR);
-
   CameraMetadata static_meta;
-  ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
+
+  auto ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  // Configure Snapshot Mode
+  // Configure Snapshot Mode And Image Param
   ImageConfigParam image_config;
   SnapshotType snapshot_type;
   snapshot_type.type = snap_mode_;
   snapshot_type.raw_format = snap_format_;
   image_config.Update(QMMF_SNAPSHOT_TYPE, snapshot_type);
 
-  ret = recorder_.ConfigImageCapture(camera_id_, image_config);
-  ASSERT_TRUE(ret == NO_ERROR);
-
-  // Configure Snapshot Stream
   ImageParam image_param{};
   image_param.image_format = snap_format_;
 
@@ -2392,16 +2382,29 @@ void GtestCommon::ConfigureAndTakeSnapshot() {
         static_meta, image_param.width, image_param.height);
     ASSERT_TRUE(res_supported != false);
   }
+
+  ret = recorder_.ConfigImageCapture(camera_id_, image_param, image_config);
+  ASSERT_TRUE(ret == NO_ERROR);
+}
+
+void GtestCommon::TakeSnapshot() {
+  std::vector < CameraMetadata > meta_array;
+  CameraMetadata meta;
+
+  auto ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
+  ASSERT_TRUE(ret == NO_ERROR);
+
   meta_array.push_back(meta);
 
   ImageCaptureCb cb = [&](uint32_t camera_id, uint32_t image_count,
                           BufferDescriptor buffer,
                           MetaData meta_data) -> void {
-    SnapshotCb(camera_id, image_count, buffer, meta_data);
+      SnapshotCb(camera_id, image_count, buffer, meta_data);
   };
 
   for (uint32_t i = 0; i < snap_count_; i++) {
-    ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array, cb);
+
+    ret = recorder_.CaptureImage(camera_id_, 1, meta_array, cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
     if (snap_mode_ == SnapshotMode::kContinuous) {

@@ -216,16 +216,21 @@ TEST_F(VideoGtest, SessionWithSingleStream) {
     track_ids.push_back(video_track_1);
     sessions_.insert(std::make_pair(session_id, track_ids));
 
+    // Configure Snapshot Stream.
+    if (is_snap_stream_on_) {
+      ConfigureImageParam();
+    }
+
     // Start Session
     ret = recorder_.StartSession(session_id);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    // Check if Snapshot Stream is enabled.
-    if (is_snap_stream_on_) {
-      ConfigureAndTakeSnapshot();
-    }
-
     sleep(record_duration_);
+
+    // Now Take Snapshot.
+    if (is_snap_stream_on_) {
+      TakeSnapshot();
+    }
 
     ret = recorder_.StopSession(session_id, false);
     ASSERT_TRUE(ret == NO_ERROR);
@@ -403,16 +408,21 @@ TEST_F(VideoGtest, SessionWithTwoStream) {
 
     sessions_.insert(std::make_pair(session_id, track_ids));
 
+    // Configure Snapshot Stream.
+    if (is_snap_stream_on_) {
+      ConfigureImageParam();
+    }
+
     // Start Session
     ret = recorder_.StartSession(session_id);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    // Check if Snapshot Stream is enabled.
-    if (is_snap_stream_on_) {
-      ConfigureAndTakeSnapshot();
-    }
-
     sleep(record_duration_);
+
+    // Now Take Snapshot.
+    if (is_snap_stream_on_) {
+      TakeSnapshot();
+    }
 
     ret = recorder_.StopSession(session_id, false);
     ASSERT_TRUE(ret == NO_ERROR);
@@ -642,16 +652,21 @@ TEST_F(VideoGtest, SessionWithThreeStream) {
 
     sessions_.insert(std::make_pair(session_id, track_ids));
 
+    // Configure Snapshot Stream.
+    if (is_snap_stream_on_) {
+      ConfigureImageParam();
+    }
+
     // Start Session
     ret = recorder_.StartSession(session_id);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    // Check if Snapshot Stream is enabled.
-    if (is_snap_stream_on_) {
-      ConfigureAndTakeSnapshot();
-    }
-
     sleep(record_duration_);
+
+    // Now Take Snapshot.
+    if (is_snap_stream_on_) {
+      TakeSnapshot();
+    }
 
     ret = recorder_.StopSession(session_id, false);
     ASSERT_TRUE(ret == NO_ERROR);
@@ -933,16 +948,21 @@ TEST_F(VideoGtest, SessionWithFourStream) {
 
     sessions_.insert(std::make_pair(session_id, track_ids));
 
+    // Configure Snapshot Stream.
+    if (is_snap_stream_on_) {
+      ConfigureImageParam();
+    }
+
     // Start Session
     ret = recorder_.StartSession(session_id);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    // Check if Snapshot Stream is enabled.
-    if (is_snap_stream_on_) {
-      ConfigureAndTakeSnapshot();
-    }
-
     sleep(record_duration_);
+
+    // Now Take Snapshot.
+    if (is_snap_stream_on_) {
+      TakeSnapshot();
+    }
 
     ret = recorder_.StopSession(session_id, false);
     ASSERT_TRUE(ret == NO_ERROR);
@@ -1276,16 +1296,21 @@ TEST_F(VideoGtest, SessionWithFiveStream) {
 
     sessions_.insert(std::make_pair(session_id, track_ids));
 
+    // Configure Snapshot Stream.
+    if (is_snap_stream_on_) {
+      ConfigureImageParam();
+    }
+
     // Start Session
     ret = recorder_.StartSession(session_id);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    // Check if Snapshot Stream is enabled.
-    if (is_snap_stream_on_) {
-      ConfigureAndTakeSnapshot();
-    }
-
     sleep(record_duration_);
+
+    // Now Take Snapshot.
+    if (is_snap_stream_on_) {
+      TakeSnapshot();
+    }
 
     ret = recorder_.StopSession(session_id, false);
     ASSERT_TRUE(ret == NO_ERROR);
@@ -1688,8 +1713,8 @@ TEST_F(VideoGtest, SessionWithThreeConcurrentCam1080pEncAndMaxRawStream) {
                                    cam1_video_track_id_1080p_hevc);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret =
-      recorder_.DeleteVideoTrack(cam2_session_id, cam2_video_track_max_res_raw);
+  ret = recorder_.DeleteVideoTrack(cam2_session_id,
+                                   cam2_video_track_max_res_raw);
   ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.DeleteSession(cam0_session_id);
@@ -2067,16 +2092,21 @@ TEST_F(VideoGtest, SessionWithSingleStreamWithCamIDOne) {
     track_ids.push_back(video_track_1);
     sessions_.insert(std::make_pair(session_id, track_ids));
 
+    // Configure Snapshot Stream.
+    if (is_snap_stream_on_) {
+      ConfigureImageParam();
+    }
+
     // Start Session
     ret = recorder_.StartSession(session_id);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    // Check if Snapshot Stream is enabled.
-    if (is_snap_stream_on_) {
-      ConfigureAndTakeSnapshot();
-    }
-
     sleep(record_duration_);
+
+    // Now Take Snapshot.
+    if (is_snap_stream_on_) {
+      TakeSnapshot();
+    }
 
     ret = recorder_.StopSession(session_id, false);
     ASSERT_TRUE(ret == NO_ERROR);
@@ -2255,16 +2285,21 @@ TEST_F(VideoGtest, SessionWithTwoStreamWithCamIDOne) {
 
     sessions_.insert(std::make_pair(session_id, track_ids));
 
+    // Configure Snapshot Stream.
+    if (is_snap_stream_on_) {
+      ConfigureImageParam();
+    }
+
     // Start Session
     ret = recorder_.StartSession(session_id);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    // Check if Snapshot Stream is enabled.
-    if (is_snap_stream_on_) {
-      ConfigureAndTakeSnapshot();
-    }
-
     sleep(record_duration_);
+
+    // Now Take Snapshot.
+    if (is_snap_stream_on_) {
+      TakeSnapshot();
+    }
 
     ret = recorder_.StopSession(session_id, false);
     ASSERT_TRUE(ret == NO_ERROR);

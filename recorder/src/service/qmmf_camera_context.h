@@ -48,6 +48,7 @@ using namespace cameraadaptor;
 #define SNAPSHOT_STREAM_BUFFER_COUNT 30
 #define EXTRA_DCVS_BUFFERS            2
 #define EXTRA_HFR_BUFFERS             4
+#define MAX_SNAPSHOT_BUFFER_COUNT    15
 
 namespace recorder {
 
@@ -103,10 +104,10 @@ class CameraContext : public CameraInterface {
 
   status_t WaitAecToConverge(const uint32_t timeout) override;
 
-  status_t SetUpCapture(const SnapshotParam& param,
-                        const uint32_t num_images) override;
+  status_t SetUpCapture(const SnapshotParam& param) override;
 
-  status_t CaptureImage(const std::vector<CameraMetadata> &meta,
+  status_t CaptureImage(const uint32_t num_images,
+                        const std::vector<CameraMetadata> &meta,
                         const StreamSnapshotCb& cb) override;
 
   status_t ConfigImageCapture(const ImageConfigParam &config) override;
@@ -292,7 +293,6 @@ class CameraContext : public CameraInterface {
   //Non zsl capture request.
   Camera3Request           snapshot_request_;
   StreamSnapshotCb         client_snapshot_cb_;
-  uint32_t                 sequence_cnt_;
   uint32_t                 capture_cnt_;
   std::mutex               capture_lock_;
   bool                     cancel_capture_ = false;

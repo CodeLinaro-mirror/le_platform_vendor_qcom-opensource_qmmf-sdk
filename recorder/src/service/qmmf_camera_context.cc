@@ -71,7 +71,6 @@ CameraContext::CameraContext()
       streaming_request_id_(-1),
       capture_request_id_(-1),
       last_frame_number_(-1),
-      sequence_cnt_(1),
       capture_cnt_(0),
       result_cb_(nullptr),
       error_cb_(nullptr),
@@ -80,7 +79,6 @@ CameraContext::CameraContext()
       hfr_supported_(false),
       batch_stream_id_(-1),
       partial_result_count_(0),
-      snapshot_param_{0, 0, 0, BufferFormat::kBLOB},
       snapshot_type_(SnapshotMode::kVideo),
       new_snapshot_type_(SnapshotMode::kVideo),
       raw_snapshot_format_(BufferFormat::kRAW10),
@@ -217,7 +215,7 @@ status_t CameraContext::CreateSnapshotStream(
                                      raw_snapshot_format_);
     raw_stream_param.allocFlags.flags  = IMemAllocUsage::kSwWriteOften |
                                            IMemAllocUsage::kSwReadOften;
-    raw_stream_param.bufferCount  = sequence_cnt_;
+    raw_stream_param.bufferCount  = MAX_SNAPSHOT_BUFFER_COUNT;
 
     QMMF_INFO("%s: Raw Snapshot W(%d) & H(%d) Fmt(0x%x)", __func__,
         raw_stream_param.width, raw_stream_param.height,
@@ -563,8 +561,7 @@ bool CameraContext::IsNeedReconfigSnapshotStream() {
   return reconfiguration;
 }
 
-status_t CameraContext::SetUpCapture(const SnapshotParam& param,
-                                     const uint32_t num_images) {
+status_t CameraContext::SetUpCapture(const SnapshotParam& param) {
   QMMF_DEBUG("%s Enter ", __func__);
   if (snapshot_type_ != SnapshotMode::kZsl) {
     bool reconfigure_needed = false;
@@ -574,7 +571,6 @@ status_t CameraContext::SetUpCapture(const SnapshotParam& param,
       reconfigure_needed = snapshot_request_.streamIds.empty() ||
                            (snapshot_param_.width != param.width) ||
                            (snapshot_param_.height != param.height) ||
-                           (sequence_cnt_ < num_images) ||
                            IsNeedReconfigSnapshotStream() ||
                            (jpeg_input_format_ != new_jpeg_input_format_) ||
                            (snapshot_param_.format != param.format);
@@ -584,12 +580,6 @@ status_t CameraContext::SetUpCapture(const SnapshotParam& param,
       snapshot_param_ = param;
       snapshot_type_ = new_snapshot_type_;
       jpeg_input_format_ = new_jpeg_input_format_;
-
-      if (snapshot_type_ == SnapshotMode::kContinuous) {
-        sequence_cnt_ = 1;
-      } else {
-        sequence_cnt_ = num_images;
-      }
     }
 
     if (reconfigure_needed) {
@@ -635,20 +625,32 @@ status_t CameraContext::SetUpCapture(const SnapshotParam& param,
   return NO_ERROR;
 }
 
-status_t CameraContext::CaptureImage(const std::vector<CameraMetadata> &meta,
+status_t CameraContext::CaptureImage(const uint32_t num_images,
+                                     const std::vector<CameraMetadata> &meta,
                                      const StreamSnapshotCb& cb) {
 
   QMMF_INFO("%s: Enter", __func__);
   int32_t ret = NO_ERROR;
   client_snapshot_cb_ = cb;
   capture_cnt_ = 0;
+  uint32_t img_cnt = num_images;
+
+  if (snapshot_request_.streamIds.empty()) {
+    QMMF_ERROR("%s: No snapshot stream available", __func__);
+    return BAD_VALUE;
+  }
+
+  if (snapshot_type_ == SnapshotMode::kContinuous) {
+    img_cnt = 1;
+  }
+
   if (snapshot_type_ != SnapshotMode::kZsl) {
     device_access_lock_.lock();
     int64_t last_frame_number;
     uint8_t jpeg_quality = snapshot_param_.quality;
     std::list<Camera3Request> requests;
     std::vector<CameraMetadata>::const_iterator it = meta.begin();
-    for (uint32_t i = 0; i < sequence_cnt_; i++) {
+    for (uint32_t i = 0; i < img_cnt; i++) {
       if (streaming_active_requests_.size() > 0 &&
           !streaming_active_requests_[0].metadata.isEmpty() &&
           (snapshot_type_ == SnapshotMode::kVideo ||
@@ -1921,8 +1923,7 @@ status_t CameraContext::GetSnapshotStreamParams(const SnapshotParam &param,
   // Reserve buffers for continuous capture in order to avoid camera and pipe
   // restart if snapshot mode is switched. Buffer are just reserved, not
   // allocated because buffer are allocated on demand in camera adapter.
-  stream_param.bufferCount  = std::max(sequence_cnt_,
-    static_cast<uint32_t>(PREVIEW_STREAM_BUFFER_COUNT));
+  stream_param.bufferCount  = MAX_SNAPSHOT_BUFFER_COUNT;
 
   QMMF_VERBOSE("%s Exit ", __func__);
   return NO_ERROR;
@@ -2027,6 +2028,7 @@ status_t CameraContext::StartZSL(SnapshotType &param) {
 
   QMMF_VERBOSE("%s Exit ", __func__);
   return NO_ERROR;
+
 }
 
 status_t CameraContext::StopZSL() {
@@ -2466,6 +2468,16 @@ status_t CameraPort::Init() {
       (params_.format != BufferFormat::kNV12UBWC) ?
           (IMemAllocUsage::kSwReadOften | IMemAllocUsage::kSwWriteOften) :
           IMemAllocUsage::kPrivateAllocUbwc;
+
+  //TODO: This needs to be rework and provide proper solution to
+  //      set UBWC per stream basis.
+  if ((camera_parameters_.cam_feature_flags &
+       static_cast<uint32_t>(CamFeatureFlag::kLDC)) ||
+      (camera_parameters_.cam_feature_flags &
+       static_cast<uint32_t>(CamFeatureFlag::kEIS))) {
+    cam_stream_params_.allocFlags.flags &=
+        ~(IMemAllocUsage::kPrivateAllocUbwc);
+  }
 
   cam_stream_params_.allocFlags.flags |=
       static_cast<bool>(params_.flags & StreamFlags::kUncashed) ?

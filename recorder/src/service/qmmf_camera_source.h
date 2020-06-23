@@ -93,13 +93,13 @@ class CameraSource {
 
   /// Image Capture
   status_t CaptureImage(const uint32_t camera_id,
-                        const ImageParam &param,
                         const uint32_t num_images,
                         const std::vector<CameraMetadata> &meta,
                         const SnapshotCb &cb);
 
   /// Configure Image Capture
   status_t ConfigImageCapture(const uint32_t camera_id,
+                              const ImageParam &param,
                               const ImageConfigParam &config);
 
   /// Cancel Image Capture
@@ -200,6 +200,8 @@ class CameraSource {
   SnapshotCb client_snapshot_cb_;
 
   SupportedCameras supported_cameras_;
+
+  CameraExtraParam start_cam_param_;
 
   // Not allowed
   CameraSource();

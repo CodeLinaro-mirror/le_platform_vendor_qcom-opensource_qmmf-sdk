@@ -498,6 +498,9 @@ struct ImageParam {
   /// Image format
   ImageFormat image_format;
 
+  ImageParam(): width(0), height(0), image_quality(95),
+      image_format(ImageFormat::kJPEG) {}
+
   ::std::string ToString() const {
     ::std::stringstream stream;
     stream << "width[" << width << "]";

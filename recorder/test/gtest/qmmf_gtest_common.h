@@ -764,7 +764,8 @@ class GtestCommon : public ::testing::Test {
                             int32_t sensor_mode_h, int32_t crop_x,
                             int32_t crop_y, int32_t crop_w, int32_t crop_h);
 
-  void ConfigureAndTakeSnapshot();
+  void ConfigureImageParam();
+  void TakeSnapshot();
 
   SessionCb CreateSessionStatusCb() {
     SessionCb session_status_cb;

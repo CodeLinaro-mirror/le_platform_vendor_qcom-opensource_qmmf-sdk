@@ -1101,7 +1101,7 @@ TEST_F(RecorderHal1GTest, SessionWithTwo1080pYUVAndLinked1080pYUV) {
 /*
 * SessionWith720pYUVAndSnapshotVGA: Test one 720p YUV track and b2b VGA snapshot
 *
-* Api test sequence:
+* API test sequence:
 *  - StartCamera
 *   loop Start {
 *   ------------------
@@ -1167,12 +1167,7 @@ TEST_F(RecorderHal1GTest, SessionWith720pYUVAndSnapshotVGA) {
     std::vector<uint32_t> track_ids;
     track_ids.push_back(video_track_id_yuv1);
 
-    /************************ Start Session ***********************************/
-
-    ret = recorder_.StartSession(session_id);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    sleep(5);
+    /*********************** Configure Snapshot ******************************/
 
     ImageParam image_param{};
     image_param.width         = width;
@@ -1207,8 +1202,15 @@ TEST_F(RecorderHal1GTest, SessionWith720pYUVAndSnapshotVGA) {
     exif.enable = false;
     image_config.Update(QMMF_EXIF, exif);
 
-    ret = recorder_.ConfigImageCapture(camera_id_, image_config);
+    ret = recorder_.ConfigImageCapture(camera_id_, image_param, image_config);
     ASSERT_TRUE(ret == NO_ERROR);
+
+    /************************ Start Session ***********************************/
+
+    ret = recorder_.StartSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    sleep(5);
 
     for (uint32_t i = 1; i <= iteration_count_; i++) {
       fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
@@ -1216,7 +1218,7 @@ TEST_F(RecorderHal1GTest, SessionWith720pYUVAndSnapshotVGA) {
         test_info_->name(), i);
 
       pending_count++;
-      ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array, cb);
+      ret = recorder_.CaptureImage(camera_id_, 1, meta_array, cb);
       ASSERT_TRUE(ret == NO_ERROR);
       sleep(5);
     }
@@ -1260,7 +1262,7 @@ TEST_F(RecorderHal1GTest, SessionWith720pYUVAndSnapshotVGA) {
 /*
 * SessionWith720pYUVAndSnapshot720p: Test one 720p YUV track and b2b 720p snapshot
 *
-* Api test sequence:
+* API test sequence:
 *  - StartCamera
 *   loop Start {
 *   ------------------
@@ -1326,12 +1328,7 @@ TEST_F(RecorderHal1GTest, SessionWith720pYUVAndSnapshot720p) {
     std::vector<uint32_t> track_ids;
     track_ids.push_back(video_track_id_yuv1);
 
-    /************************ Start Session ***********************************/
-
-    ret = recorder_.StartSession(session_id);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    sleep(5);
+    /*********************** Configure Snapshot ******************************/
 
     ImageParam image_param{};
     image_param.width         = width;
@@ -1366,8 +1363,15 @@ TEST_F(RecorderHal1GTest, SessionWith720pYUVAndSnapshot720p) {
     exif.enable = false;
     image_config.Update(QMMF_EXIF, exif);
 
-    ret = recorder_.ConfigImageCapture(camera_id_, image_config);
+    ret = recorder_.ConfigImageCapture(camera_id_, image_param, image_config);
     ASSERT_TRUE(ret == NO_ERROR);
+
+    /************************ Start Session ***********************************/
+
+    ret = recorder_.StartSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    sleep(5);
 
     for (uint32_t i = 1; i <= iteration_count_; i++) {
       fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
@@ -1375,7 +1379,7 @@ TEST_F(RecorderHal1GTest, SessionWith720pYUVAndSnapshot720p) {
         test_info_->name(), i);
 
       pending_count++;
-      ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array, cb);
+      ret = recorder_.CaptureImage(camera_id_, 1, meta_array, cb);
       ASSERT_TRUE(ret == NO_ERROR);
       sleep(5);
     }
@@ -1418,7 +1422,7 @@ TEST_F(RecorderHal1GTest, SessionWith720pYUVAndSnapshot720p) {
 /*
 * SessionWithTwo720pYUVAndSnapshot720p: Test two YUV 720p tracks and b2b 720p snapshot
 *
-* Api test sequence:
+* API test sequence:
 *  - StartCamera
 *   loop Start {
 *   ------------------
@@ -1499,12 +1503,7 @@ TEST_F(RecorderHal1GTest, SessionWithTwo720pYUVAndSnapshot720p) {
     track_ids.push_back(video_track_id_yuv2);
     sessions_.insert(std::make_pair(session_id, track_ids));
 
-    /************************ Start Session ***********************************/
-
-    ret = recorder_.StartSession(session_id);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    sleep(5);
+    /*********************** Configure Snapshot ******************************/
 
     ImageParam image_param{};
     image_param.width         = width;
@@ -1539,8 +1538,15 @@ TEST_F(RecorderHal1GTest, SessionWithTwo720pYUVAndSnapshot720p) {
     exif.enable = false;
     image_config.Update(QMMF_EXIF, exif);
 
-    ret = recorder_.ConfigImageCapture(camera_id_, image_config);
+    ret = recorder_.ConfigImageCapture(camera_id_, image_param, image_config);
     ASSERT_TRUE(ret == NO_ERROR);
+
+    /************************ Start Session ***********************************/
+
+    ret = recorder_.StartSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    sleep(5);
 
     for (uint32_t i = 1; i <= iteration_count_; i++) {
       fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
@@ -1548,7 +1554,7 @@ TEST_F(RecorderHal1GTest, SessionWithTwo720pYUVAndSnapshot720p) {
         test_info_->name(), i);
 
       pending_count++;
-      ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array, cb);
+      ret = recorder_.CaptureImage(camera_id_, 1, meta_array, cb);
       ASSERT_TRUE(ret == NO_ERROR);
       sleep(5);
     }
@@ -1593,7 +1599,7 @@ TEST_F(RecorderHal1GTest, SessionWithTwo720pYUVAndSnapshot720p) {
 /*
 * SessionWithTwoVGAYUVAndSnapshotVGA: Test two YUV VGA tracks and b2b VGA snapshot
 *
-* Api test sequence:
+* API test sequence:
 *  - StartCamera
 *   loop Start {
 *   ------------------
@@ -1674,12 +1680,7 @@ TEST_F(RecorderHal1GTest, SessionWithTwoVGAYUVAndSnapshotVGA) {
     track_ids.push_back(video_track_id_yuv2);
     sessions_.insert(std::make_pair(session_id, track_ids));
 
-    /************************ Start Session ***********************************/
-
-    ret = recorder_.StartSession(session_id);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    sleep(5);
+    /*********************** Configure Snapshot ******************************/
 
     ImageParam image_param{};
     image_param.width         = width;
@@ -1714,8 +1715,15 @@ TEST_F(RecorderHal1GTest, SessionWithTwoVGAYUVAndSnapshotVGA) {
     exif.enable = false;
     image_config.Update(QMMF_EXIF, exif);
 
-    ret = recorder_.ConfigImageCapture(camera_id_, image_config);
+    ret = recorder_.ConfigImageCapture(camera_id_, image_param, image_config);
     ASSERT_TRUE(ret == NO_ERROR);
+
+    /************************ Start Session ***********************************/
+
+    ret = recorder_.StartSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    sleep(5);
 
     for (uint32_t i = 1; i <= iteration_count_; i++) {
       fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
@@ -1723,7 +1731,7 @@ TEST_F(RecorderHal1GTest, SessionWithTwoVGAYUVAndSnapshotVGA) {
         test_info_->name(), i);
 
       pending_count++;
-      ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array, cb);
+      ret = recorder_.CaptureImage(camera_id_, 1, meta_array, cb);
       ASSERT_TRUE(ret == NO_ERROR);
       sleep(5);
     }
@@ -1769,7 +1777,7 @@ TEST_F(RecorderHal1GTest, SessionWithTwoVGAYUVAndSnapshotVGA) {
 * SessionWithYUVTrackAndToggleSnapshotRes: Test one video tracks and toggle
 *                                          snapshot resolutions while streaming.
 *
-* Api test sequence:
+* API test sequence:
 *  - StartCamera
 *   loop Start {
 *   ------------------
@@ -1831,12 +1839,7 @@ TEST_F(RecorderHal1GTest, SessionWithYUVTrackAndToggleSnapshotRes) {
   std::vector<uint32_t> track_ids;
   track_ids.push_back(video_track_id_yuv1);
 
-  /************************ Start Session ***********************************/
-
-  ret = recorder_.StartSession(session_id);
-  ASSERT_TRUE(ret == NO_ERROR);
-
-  sleep(5);
+  /*********************** Configure Snapshot ******************************/
 
   ImageParam image_param{};
   image_param.image_format  = ImageFormat::kJPEG;
@@ -1866,8 +1869,15 @@ TEST_F(RecorderHal1GTest, SessionWithYUVTrackAndToggleSnapshotRes) {
   exif.enable = false;
   image_config.Update(QMMF_EXIF, exif);
 
-  ret = recorder_.ConfigImageCapture(camera_id_, image_config);
+  ret = recorder_.ConfigImageCapture(camera_id_, image_param, image_config);
   ASSERT_TRUE(ret == NO_ERROR);
+
+  /************************ Start Session ***********************************/
+
+  ret = recorder_.StartSession(session_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  sleep(5);
 
   for (uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
@@ -1883,12 +1893,16 @@ TEST_F(RecorderHal1GTest, SessionWithYUVTrackAndToggleSnapshotRes) {
           image_param.height) != false);
 
       pending_count++;
-      ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array, cb);
+      ret = recorder_.ConfigImageCapture(camera_id_, image_param, image_config);
+      ASSERT_TRUE(ret == NO_ERROR);
+      ret = recorder_.CaptureImage(camera_id_, 1, meta_array, cb);
       ASSERT_TRUE(ret == NO_ERROR);
       sleep(5);
 
       pending_count++;
-      ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array, cb);
+      ret = recorder_.ConfigImageCapture(camera_id_, image_param, image_config);
+      ASSERT_TRUE(ret == NO_ERROR);
+      ret = recorder_.CaptureImage(camera_id_, 1, meta_array, cb);
       ASSERT_TRUE(ret == NO_ERROR);
       sleep(5);
     }
@@ -1931,7 +1945,7 @@ TEST_F(RecorderHal1GTest, SessionWithYUVTrackAndToggleSnapshotRes) {
 /*
 * SessionWithYUVTrackAndSnapshot: Test one video tracks and snapshot with
 *                                 multiple resolutions.
-* Api test sequence:
+* API test sequence:
 *  - StartCamera
 *   loop Start {
 *   ------------------
@@ -1999,12 +2013,7 @@ TEST_F(RecorderHal1GTest, SessionWithYUVTrackAndSnapshot) {
     std::vector<uint32_t> track_ids;
     track_ids.push_back(video_track_id_yuv1);
 
-    /************************ Start Session ***********************************/
-
-    ret = recorder_.StartSession(session_id);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    sleep(5);
+    /*********************** Configure Snapshot ******************************/
 
     ImageParam image_param{};
     image_param.width         = width;
@@ -2039,8 +2048,16 @@ TEST_F(RecorderHal1GTest, SessionWithYUVTrackAndSnapshot) {
     exif.enable = false;
     image_config.Update(QMMF_EXIF, exif);
 
-    ret = recorder_.ConfigImageCapture(camera_id_, image_config);
+    ret = recorder_.ConfigImageCapture(camera_id_, image_param, image_config);
     ASSERT_TRUE(ret == NO_ERROR);
+
+
+    /************************ Start Session ***********************************/
+
+    ret = recorder_.StartSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    sleep(5);
 
     for (uint32_t i = 1; i <= iteration_count_; i++) {
       fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
@@ -2048,7 +2065,7 @@ TEST_F(RecorderHal1GTest, SessionWithYUVTrackAndSnapshot) {
         test_info_->name(), i);
 
       pending_count++;
-      ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array, cb);
+      ret = recorder_.CaptureImage(camera_id_, 1, meta_array, cb);
       ASSERT_TRUE(ret == NO_ERROR);
       sleep(5);
     }
@@ -2092,7 +2109,7 @@ TEST_F(RecorderHal1GTest, SessionWithYUVTrackAndSnapshot) {
 * SessionWithTwoYUVTracksAndSnapshot: Test two video tracks and snapshot with
 *                                     multiple resolutions.
 *
-* Api test sequence:
+* API test sequence:
 *  - StartCamera
 *   loop Start {
 *   ------------------
@@ -2175,12 +2192,7 @@ TEST_F(RecorderHal1GTest, SessionWithTwoYUVTracksAndSnapshot) {
     track_ids.push_back(video_track_id_yuv2);
     sessions_.insert(std::make_pair(session_id, track_ids));
 
-    /************************ Start Session ***********************************/
-
-    ret = recorder_.StartSession(session_id);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    sleep(5);
+    /*********************** Configure Snapshot ******************************/
 
     ImageParam image_param{};
     image_param.width         = width;
@@ -2215,8 +2227,17 @@ TEST_F(RecorderHal1GTest, SessionWithTwoYUVTracksAndSnapshot) {
     exif.enable = false;
     image_config.Update(QMMF_EXIF, exif);
 
-    ret = recorder_.ConfigImageCapture(camera_id_, image_config);
+    ret = recorder_.ConfigImageCapture(camera_id_, image_param, image_config);
     ASSERT_TRUE(ret == NO_ERROR);
+
+
+    /************************ Start Session ***********************************/
+
+    ret = recorder_.StartSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    sleep(5);
+
 
     for (uint32_t i = 1; i <= iteration_count_; i++) {
       fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
@@ -2224,7 +2245,7 @@ TEST_F(RecorderHal1GTest, SessionWithTwoYUVTracksAndSnapshot) {
         test_info_->name(), i);
 
       pending_count++;
-      ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array, cb);
+      ret = recorder_.CaptureImage(camera_id_, 1, meta_array, cb);
       ASSERT_TRUE(ret == NO_ERROR);
       sleep(5);
     }

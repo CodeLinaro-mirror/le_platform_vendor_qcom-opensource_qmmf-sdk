@@ -298,14 +298,12 @@ status_t Recorder::DeleteVideoTrack(const uint32_t session_id,
 }
 
 status_t Recorder::CaptureImage(const uint32_t camera_id,
-                                const ImageParam &param,
                                 const uint32_t num_images,
                                 const std::vector<CameraMetadata> &meta,
                                 const ImageCaptureCb& cb) {
 
   assert(recorder_client_ != NULL);
-  auto ret = recorder_client_->CaptureImage(camera_id, param, num_images,
-                                            meta, cb);
+  auto ret = recorder_client_->CaptureImage(camera_id, num_images, meta, cb);
   if (NO_ERROR != ret) {
     QMMF_ERROR("%s: CaptureImage failed!", __func__);
   }
@@ -313,10 +311,11 @@ status_t Recorder::CaptureImage(const uint32_t camera_id,
 }
 
 status_t Recorder::ConfigImageCapture(const uint32_t camera_id,
+                                      const ImageParam &param,
                                       const ImageConfigParam &config) {
 
   assert(recorder_client_ != NULL);
-  auto ret = recorder_client_->ConfigImageCapture(camera_id, config);
+  auto ret = recorder_client_->ConfigImageCapture(camera_id, param, config);
   if (NO_ERROR != ret) {
     QMMF_ERROR("%s: ConfigImageCapture failed!", __func__);
   }
