@@ -2030,7 +2030,7 @@ void RecorderImpl::VideoTrackBufferCb(uint32_t client_id, uint32_t session_id,
     ReturnTrackBuffer(client_id, session_id, track_id, buffers);
   } else {
     remote_cb_handle_(client_id)->
-        NotifyVideoTrackData(track_id, buffers, meta_buffers);
+        NotifyVideoTrackData(session_id, track_id, buffers, meta_buffers);
   }
   QMMF_DEBUG("%s Exit client_id(%u), session_id(%u), track_id(%u)",
       __func__, client_id, session_id, track_id);
@@ -2049,7 +2049,7 @@ void RecorderImpl::AudioTrackBufferCb(uint32_t client_id, uint32_t session_id,
     ReturnTrackBuffer(client_id, session_id, track_id, buffers);
   } else {
     remote_cb_handle_(client_id)->
-        NotifyAudioTrackData(track_id, buffers, meta_buffers);
+        NotifyAudioTrackData(session_id, track_id, buffers, meta_buffers);
   }
   QMMF_DEBUG("%s Exit client_id(%u), session_id(%u), track_id(%u)",
       __func__, client_id, session_id, track_id);
