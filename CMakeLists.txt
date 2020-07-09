@@ -82,6 +82,7 @@ add_subdirectory(common/resizer-c2d)
 
 if (RESIZER_NEON_ENABLED)
 add_subdirectory(common/resizer-neon)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DENABLE_RESCALER_NEON")
 endif()
 
 add_subdirectory(common/utils)

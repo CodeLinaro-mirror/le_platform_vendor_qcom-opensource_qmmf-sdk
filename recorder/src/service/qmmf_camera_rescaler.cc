@@ -65,7 +65,7 @@ CameraRescalerBase::CameraRescalerBase()
   std::string name = prop;
 #ifndef CAMERA_HAL1_SUPPORT
   if (name == "Neon") {
-#ifndef DISABLE_RESCALER_NEON
+#ifdef ENABLE_RESCALER_NEON
       rescaler_ = new NEONResizer();
 #endif
   } else if (name == "FastCV") {
