@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -158,10 +158,10 @@ const std::unordered_map<uint32_t, uint32_t> GBMBuffer::to_gbm_ = {
   {HAL_PIXEL_FORMAT_RGBX_8888,               GBM_FORMAT_RGBX8888},
 
   {HAL_PIXEL_FORMAT_BLOB,                    GBM_FORMAT_BLOB},
-  {HAL_PIXEL_FORMAT_RAW10,                   GBM_FORMAT_RAW10},
-  {HAL_PIXEL_FORMAT_RAW16,                   GBM_FORMAT_RAW16},
   {HAL_PIXEL_FORMAT_RAW8,                    0},
-  {HAL_PIXEL_FORMAT_RAW12,                   0},
+  {HAL_PIXEL_FORMAT_RAW10,                   GBM_FORMAT_RAW10},
+  {HAL_PIXEL_FORMAT_RAW12,                   GBM_FORMAT_RAW12},
+  {HAL_PIXEL_FORMAT_RAW16,                   GBM_FORMAT_RAW16},
 
   {HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED,  GBM_FORMAT_IMPLEMENTATION_DEFINED},
 
@@ -190,6 +190,7 @@ const std::unordered_map<int32_t, int32_t> GBMBuffer::from_gbm_ = {
 
   {GBM_FORMAT_BLOB,                     HAL_PIXEL_FORMAT_BLOB},
   {GBM_FORMAT_RAW10,                    HAL_PIXEL_FORMAT_RAW10},
+  {GBM_FORMAT_RAW12,                    HAL_PIXEL_FORMAT_RAW12},
   {GBM_FORMAT_RAW16,                    HAL_PIXEL_FORMAT_RAW16},
 
   {GBM_FORMAT_IMPLEMENTATION_DEFINED,   HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED},
