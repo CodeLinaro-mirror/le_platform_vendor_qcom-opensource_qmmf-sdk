@@ -465,18 +465,14 @@ class OverlayItemBoundingBox: public OverlayItem {
 #endif
 };
 
-#define TEXT_BUF_WIDTH              480
-#define TEXT_BUF_HEIGHT             60
 #define TEXT_TARGET_WIDTH_PERCENT   30
 #define TEXT_TARGET_HEIGHT_PERCENT  10
-#define TEXT_SIZE                   40
 
 class OverlayItemText: public OverlayItem {
  public:
 
 #ifdef OVERLAY_OPEN_CL_BLIT
-  OverlayItemText(int32_t ion_device,
-                  std::shared_ptr<OpenClKernel> &blit)
+  OverlayItemText(int32_t ion_device, std::shared_ptr<OpenClKernel> &blit)
                       : OverlayItem(ion_device, OverlayType::kUserText, blit),
                         text_() {};
 #else // OVERLAY_OPEN_CL_BLIT
@@ -499,10 +495,14 @@ class OverlayItemText: public OverlayItem {
   int32_t UpdateParameters(OverlayParam& param) override;
 
  private:
+  static const uint32_t kTextSize             = 40;
+  static const uint32_t kCairoBufferMinWidth  = kTextSize * 4;
+  static const uint32_t kCairoBufferMinHeight = kTextSize;
+
   int32_t CreateSurface();
 
   uint32_t          text_color_;
-  android::String8  text_;
+  std::string       text_;
 #if USE_SKIA
   SkCanvas*         canvas_;
 #endif

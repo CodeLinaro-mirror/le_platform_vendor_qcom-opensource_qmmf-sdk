@@ -2711,7 +2711,6 @@ ERROR:
 
 OverlayItemText::~OverlayItemText() {
   OVDBG_VERBOSE("%s:Enter ", __func__);
-  text_.clear();
   OVDBG_VERBOSE("%s:Exit ", __func__);
 }
 
@@ -2719,22 +2718,28 @@ int32_t OverlayItemText::Init(OverlayParam& param) {
 
   OVDBG_VERBOSE("%s: Enter", __func__);
 
+  if (param.dst_rect.width <= 0 || param.dst_rect.height <= 0) {
+    return BAD_VALUE;
+  }
+
+  if (param.dst_rect.start_x < 0 || param.dst_rect.start_y < 0) {
+    return BAD_VALUE;
+  }
+
   location_type_ = param.location;
   text_color_    = param.color;
   x_             = param.dst_rect.start_x;
   y_             = param.dst_rect.start_y;
   width_         = param.dst_rect.width;
   height_        = param.dst_rect.height;
+  text_          = param.user_text;
 
-  text_.setTo(param.user_text, strlen(param.user_text) + 1);
+  surface_.width_ = std::max(kCairoBufferMinWidth, width_);
+  surface_.width_ = ROUND_TO(surface_.width_, 16);
+  surface_.height_ = std::max(kCairoBufferMinHeight, height_);
 
-  if (param.dst_rect.width == 0 || param.dst_rect.height == 0) {
-    width_  = TEXT_BUF_WIDTH;
-    height_ = TEXT_BUF_HEIGHT;
-  }
-
-  surface_.width_  = width_;
-  surface_.height_ = height_;
+  OVDBG_INFO("%s: Offscreen buffer:(%dx%d)",__func__, surface_.width_,
+      surface_.height_);
 
   auto ret = CreateSurface();
   if(ret != 0) {
@@ -2756,9 +2761,8 @@ int32_t OverlayItemText::UpdateAndDraw() {
   SyncStart(surface_.ion_fd_);
 
   // Split the Text based on new line character.
-  string input(text_.string());
   vector < string > res;
-  stringstream ss(input); // Turn the string into a stream.
+  stringstream ss(text_); // Turn the string into a stream.
   string tok;
   while (getline(ss, tok, '\n')) {
     OVDBG_INFO("%s: UserText:: Substring: %s", __func__, tok.c_str());
@@ -2769,7 +2773,7 @@ int32_t OverlayItemText::UpdateAndDraw() {
   ClearSurface();
   cairo_select_font_face(cr_context_, "@cairo:Georgia", CAIRO_FONT_SLANT_NORMAL,
                           CAIRO_FONT_WEIGHT_NORMAL);
-  cairo_set_font_size (cr_context_, TEXT_SIZE);
+  cairo_set_font_size (cr_context_, kTextSize);
   cairo_set_antialias (cr_context_, CAIRO_ANTIALIAS_BEST);
   assert(CAIRO_STATUS_SUCCESS == cairo_status(cr_context_));
 
@@ -2781,7 +2785,7 @@ int32_t OverlayItemText::UpdateAndDraw() {
        font_extent.max_y_advance);
 
   cairo_text_extents_t text_extents;
-  cairo_text_extents (cr_context_, text_.string(), &text_extents);
+  cairo_text_extents (cr_context_, text_.c_str(), &text_extents);
 
   OVDBG_VERBOSE("%s: Custom text: te.x_bearing=%f, te.y_bearing=%f,"
       " te.width=%f, te.height=%f, te.x_advance=%f, te.y_advance=%f", __func__,
@@ -2824,7 +2828,7 @@ int32_t OverlayItemText::UpdateAndDraw() {
 
   SkPaint paint;
   paint.setColor(text_color_);
-  paint.setTextSize(SkIntToScalar(TEXT_SIZE));
+  paint.setTextSize(SkIntToScalar(kTextSize));
   paint.setAntiAlias(true);
 
   int32_t x = 0;
@@ -2850,8 +2854,9 @@ void OverlayItemText::GetDrawInfo(uint32_t targetWidth,
   OVDBG_VERBOSE("%s: Enter", __func__);
   DrawInfo draw_info;
   memset(&draw_info, 0x0, sizeof(DrawInfo));
-  draw_info.width  = targetWidth * TEXT_TARGET_WIDTH_PERCENT/100;
-  draw_info.height = targetHeight * TEXT_TARGET_HEIGHT_PERCENT/100;
+
+  draw_info.width  = width_;
+  draw_info.height = height_;
 
   int32_t xMargin = targetWidth * OVERLAYITEM_X_MARGIN_PERCENT/100;
   int32_t yMargin = targetHeight * OVERLAYITEM_Y_MARGIN_PERCENT/100;
@@ -2913,28 +2918,58 @@ void OverlayItemText::GetParameters(OverlayParam& param) {
   param.dst_rect.start_y = y_;
   param.dst_rect.width   = width_;
   param.dst_rect.height  = height_;
-  std::string str(text_.string());
-  str.copy(param.user_text, text_.length());
-  OVDBG_VERBOSE("%s:Exit ",__func__);
+  int size = std::min(text_.length(), sizeof(param.user_text) - 1);
+  text_.copy(param.user_text, size);
+  param.user_text[size + 1] = '\0';
+  OVDBG_VERBOSE("%s:Exit ", __func__);
 }
 
 int32_t OverlayItemText::UpdateParameters(OverlayParam& param) {
 
   OVDBG_VERBOSE("%s:Enter ",__func__);
   int32_t ret = 0;
+
+  if (param.dst_rect.width <= 0 || param.dst_rect.height <= 0) {
+    return BAD_VALUE;
+  }
+
+  if (param.dst_rect.start_x < 0 || param.dst_rect.start_y < 0) {
+    return BAD_VALUE;
+  }
+
   location_type_ = param.location;
-  text_color_    = param.color;
   x_             = param.dst_rect.start_x;
   y_             = param.dst_rect.start_y;
-  width_         = param.dst_rect.width;
-  height_        = param.dst_rect.height;
 
-  surface_.width_  = width_;
-  surface_.height_ = height_;
+  if (width_ != param.dst_rect.width || height_ != param.dst_rect.height) {
+    width_ = param.dst_rect.width;
+    height_ = param.dst_rect.height;
 
-  text_.clear();
-  text_.setTo(param.user_text, strlen(param.user_text) + 1);
-  MarkDirty(true);
+    surface_.width_ = std::max(kCairoBufferMinWidth, width_);
+    surface_.width_ = ROUND_TO(surface_.width_, 16);
+    surface_.height_ = std::max(kCairoBufferMinHeight, height_);
+
+    OVDBG_INFO("%s: New Offscreen buffer:(%dx%d)",__func__, surface_.width_,
+        surface_.height_);
+
+    DestroySurface();
+    ret = CreateSurface();
+    if (ret != 0) {
+      OVDBG_ERROR("%s: CreateSurface failed!", __func__);
+      return ret;
+    }
+  }
+
+  if (text_color_ != param.color) {
+    text_color_ = param.color;
+    MarkDirty(true);
+  }
+
+  if (text_.compare(param.user_text)) {
+    text_ = param.user_text;
+    MarkDirty(true);
+  }
+
   OVDBG_VERBOSE("%s:Exit ",__func__);
   return ret;
 }
