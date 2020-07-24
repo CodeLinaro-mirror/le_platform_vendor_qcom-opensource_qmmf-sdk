@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -2648,7 +2648,8 @@ status_t CameraPort::DeInit() {
     postproc_pipe_ = nullptr;
   }
 
-  auto ret = context_->DeleteDeviceStream(camera_stream_id_, true);
+  auto ret = context_->DeleteDeviceStream(camera_stream_id_,
+                                          params_.slave_client ? false : true);
   if(ret != NO_ERROR) {
     QMMF_ERROR("%s: DeleteDeviceStream failed!!", __func__);
     return BAD_VALUE;

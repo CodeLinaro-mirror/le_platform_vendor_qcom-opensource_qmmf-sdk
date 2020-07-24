@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -1342,6 +1342,12 @@ status_t RecorderImpl::CreateVideoTrack(const uint32_t client_id,
           VideoTrackBufferCb(client_id, session_id, track_id,
                              buffers, meta_buffers);
       };
+
+  video_params.slave_client = IsSlaveClient(client_id);
+
+  QMMF_INFO("%s: track_id(%d): is for slave [0/1] client: %d", __func__,
+            track_id, video_params.slave_client);
+
   // Create Camera track first.
   assert(camera_source_ != nullptr);
   auto ret = camera_source_->CreateTrackSource(service_track_id, video_params);
@@ -1441,6 +1447,11 @@ status_t RecorderImpl::CreateVideoTrack(const uint32_t client_id,
           VideoTrackBufferCb(client_id, session_id, track_id,
                              buffers, meta_buffers);
       };
+
+  video_params.slave_client = IsSlaveClient(client_id);
+
+  QMMF_INFO("%s: track_id(%d): is for slave [0/1] client: %d", __func__,
+            track_id, video_params.slave_client);
 
   if (video_params.extra_param.Exists(QMMF_SOURCE_VIDEO_TRACK_ID)) {
     SourceVideoTrack source_track;
@@ -2349,6 +2360,21 @@ bool RecorderImpl::IsCameraOwned(const uint32_t& client_id,
       return true;
     }
   }
+  return false;
+}
+
+bool RecorderImpl::IsSlaveClient(const uint32_t& client_id) {
+
+  std::lock_guard<std::mutex> lock(camera_map_lock_);
+
+  auto cameras = client_cameraid_map_[client_id];
+  for (auto camera : cameras) {
+    auto slave_flag = camera.second;
+    if (!slave_flag) {
+      return true;
+    }
+  }
+
   return false;
 }
 
