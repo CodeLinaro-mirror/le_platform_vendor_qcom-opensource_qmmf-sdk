@@ -445,10 +445,13 @@ class OverlayItemBoundingBox: public OverlayItem {
   static const int32_t kTextLimit    = 20;
   static const int32_t kTextSize     = 25;
   static const int32_t kTextPercent  = 20;
-  static const int32_t kTextMargin   = 5;
+  static const int32_t kTextMargin   = kStrokeWidth + 4;
 
   int32_t CreateSurface();
+
   void ClearTextSurface();
+
+  void DestroyTextSurface();
 
   uint32_t    bbox_color_;
 #if USE_SKIA
@@ -464,9 +467,6 @@ class OverlayItemBoundingBox: public OverlayItem {
   cairo_t*          text_cr_context_;
 #endif
 };
-
-#define TEXT_TARGET_WIDTH_PERCENT   30
-#define TEXT_TARGET_HEIGHT_PERCENT  10
 
 class OverlayItemText: public OverlayItem {
  public:
