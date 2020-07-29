@@ -2379,6 +2379,7 @@ int32_t OverlayItemBoundingBox::UpdateAndDraw() {
 
 
   SyncStart(surface_.ion_fd_);
+  SyncStart(text_surface_.ion_fd_);
 #if USE_CAIRO
   OVDBG_INFO("%s: Draw bounding box and text!", __func__);
   ClearSurface();
@@ -2475,6 +2476,7 @@ int32_t OverlayItemBoundingBox::UpdateAndDraw() {
   }
 #endif
   SyncEnd(surface_.ion_fd_);
+  SyncEnd(text_surface_.ion_fd_);
   MarkDirty(false);
   OVDBG_VERBOSE("%s: Exit", __func__);
   return ret;
