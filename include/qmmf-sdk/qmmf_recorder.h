@@ -163,44 +163,6 @@ class Recorder {
   /// This is a sync API.
   status_t GetNumberOfCameras(SupportedCameras &cameras);
 
-  /// @brief Provides list with information regarding all existing plugins.
-  ///*
-  /// This is an async API.
-  status_t GetSupportedPlugins(SupportedPlugins *plugins);
-
-  /// @brief Create a instance of the plugin and map it to a unique ID.
-  ///
-  /// The unique ID is set by the underlying layers.
-  status_t CreatePlugin(uint32_t *uid, const PluginInfo &plugin);
-
-  /// @brief Delete the plugin instance with the given unique ID.
-  ///
-  /// Must be called after DeleteVideoTrack or CancelCaptureImage.
-  status_t DeletePlugin(const uint32_t &uid);
-
-  /// @brief Set plugin specific configuration data.
-  ///
-  /// @param uid: The UID of the specific plugin
-  /// @param config: A configuration string for the plugin
-  /// This is an async API.
-  status_t ConfigPlugin(const uint32_t &uid, const std::string &config);
-
-  /// @brief Set plugin specific configuration data.
-  ///
-  /// @param uid: The UID of the specific plugin
-  /// @param type: Overlay type (Date, UserText, StaticImage, BoundingBox)
-  /// @param blob_config: A vector with data for overlay with StaticImage
-  /// This is an async API.
-  status_t ConfigPlugin(const uint32_t &uid, const int32_t type,
-                        const std::vector<uint8_t> &blob_config);
-
-  /// @brief Get plugin specific configuration data.
-  ///
-  /// @param uid: The UID of the specific plugin
-  /// @param config: A configuration string returned by the plugin
-  /// This is an async API.
-  status_t GetPluginConfig(const uint32_t &uid, std::string &config);
-
   /// @brief Creates an audio track and
   /// associates it to the session id provided.
   /// User must specify the unique track_id for the session.

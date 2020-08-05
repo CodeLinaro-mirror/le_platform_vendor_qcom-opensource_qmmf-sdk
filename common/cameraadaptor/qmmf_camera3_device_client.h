@@ -243,6 +243,7 @@ class Camera3DeviceClient : public camera3_callback_ops,
   bool hfr_mode_enabled_;
   uint32_t cam_feature_flags_;
   uint32_t fps_sensormode_index_;
+  int32_t frame_rate_range_[2];
   Camera3PrepareHandler prepare_handler_;
   Camera3InputStream input_stream_;
   uint32_t batch_size_;
