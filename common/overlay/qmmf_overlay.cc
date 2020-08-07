@@ -65,6 +65,8 @@ using namespace std;
 
 #define ROUND_TO(val, round_to) ((val + round_to - 1) & ~(round_to - 1))
 
+#ifdef OVERLAY_OPEN_CL_BLIT
+
 cl_device_id OpenClKernel::device_id_ = nullptr;
 cl_context OpenClKernel::context_ = nullptr;
 cl_command_queue OpenClKernel::command_queue_ = nullptr;
@@ -561,10 +563,18 @@ std::string OpenClKernel::CreateCLKernelBuildLog() {
   return build_log;
 }
 
+#endif // OVERLAY_OPEN_CL_BLIT
+
+#ifdef OVERLAY_OPEN_CL_BLIT
 Overlay::Overlay()
     : target_c2dsurface_id_(-1), blit_instance_(nullptr), ion_device_(-1),
      id_(0) {
 }
+#else // OVERLAY_OPEN_CL_BLIT
+Overlay::Overlay()
+    : target_c2dsurface_id_(-1), ion_device_(-1), id_(0) {
+}
+#endif // OVERLAY_OPEN_CL_BLIT
 
 Overlay::~Overlay() {
 
@@ -648,6 +658,8 @@ int32_t Overlay::CreateOverlayItem(OverlayParam& param, uint32_t* overlay_id) {
 
   OVDBG_VERBOSE("%s:Enter ", __func__);
   OverlayItem* overlayItem = nullptr;
+
+#ifdef OVERLAY_OPEN_CL_BLIT
   switch (param.type) {
     case OverlayType::kDateType:
       overlayItem = new OverlayItemDateAndTime(ion_device_, blit_instance_);
@@ -672,6 +684,32 @@ int32_t Overlay::CreateOverlayItem(OverlayParam& param, uint32_t* overlay_id) {
            param.type);
       break;
   }
+#else // OVERLAY_OPEN_CL_BLIT
+    switch (param.type) {
+    case OverlayType::kDateType:
+      overlayItem = new OverlayItemDateAndTime(ion_device_);
+      break;
+    case OverlayType::kUserText:
+      overlayItem = new OverlayItemText(ion_device_);
+      break;
+    case OverlayType::kStaticImage:
+      overlayItem = new OverlayItemStaticImage(ion_device_);
+      break;
+    case OverlayType::kBoundingBox:
+      overlayItem = new OverlayItemBoundingBox(ion_device_);
+      break;
+    case OverlayType::kPrivacyMask:
+      overlayItem = new OverlayItemPrivacyMask(ion_device_);
+      break;
+    case OverlayType::kGraph:
+      overlayItem = new OverlayItemGraph(ion_device_);
+      break;
+    default:
+      OVDBG_ERROR("%s: OverlayType(%d) not supported!", __func__,
+           param.type);
+      break;
+  }
+#endif // OVERLAY_OPEN_CL_BLIT
 
   if(!overlayItem) {
     OVDBG_ERROR("%s: OverlayItem type(%d) failed!", __func__, param.type);
@@ -1277,11 +1315,11 @@ bool Overlay::IsOverlayItemValid(uint32_t overlay_id) {
   return valid;
 }
 
+#ifdef OVERLAY_OPEN_CL_BLIT
 OverlayItem::OverlayItem(int32_t ion_device, OverlayType type,
     std::shared_ptr<OpenClKernel> &blit)
     : surface_(), location_type_(OverlayLocationType::kBottomLeft),
       dirty_(false), ion_device_(ion_device), type_(type), is_active_(false) {
-
   OVDBG_VERBOSE("%s:Enter ", __func__);
 
 #if USE_CAIRO
@@ -1289,15 +1327,27 @@ OverlayItem::OverlayItem(int32_t ion_device, OverlayType type,
   cr_context_ = nullptr;
 #endif
 
-#ifdef OVERLAY_OPEN_CL_BLIT
   if (blit.get()) {
     // Create local instance of blit kernel
     surface_.blit_inst_ = blit->AddInstance();
   }
-#endif // OVERLAY_OPEN_CL_BLIT
 
   OVDBG_VERBOSE("%s:Exit ", __func__);
 }
+#else // OVERLAY_OPEN_CL_BLIT
+OverlayItem::OverlayItem(int32_t ion_device, OverlayType type)
+    : surface_(), location_type_(OverlayLocationType::kBottomLeft),
+      dirty_(false), ion_device_(ion_device), type_(type), is_active_(false) {
+  OVDBG_VERBOSE("%s:Enter ", __func__);
+
+#if USE_CAIRO
+  cr_surface_ = nullptr;
+  cr_context_ = nullptr;
+#endif
+
+  OVDBG_VERBOSE("%s:Exit ", __func__);
+}
+#endif // OVERLAY_OPEN_CL_BLIT
 
 OverlayItem::~OverlayItem() {
 
@@ -1799,6 +1849,7 @@ ERROR:
   return ret;
 }
 
+#ifdef OVERLAY_OPEN_CL_BLIT
 OverlayItemDateAndTime::OverlayItemDateAndTime(int32_t ion_device,
     std::shared_ptr<OpenClKernel> &blit)
         : OverlayItem(ion_device, OverlayType::kDateType, blit) {
@@ -1808,6 +1859,16 @@ OverlayItemDateAndTime::OverlayItemDateAndTime(int32_t ion_device,
   date_time_type_.date_format = OverlayDateFormatType::kMMDDYYYY;
   OVDBG_VERBOSE("%s:Exit", __func__);
 }
+#else // OVERLAY_OPEN_CL_BLIT
+OverlayItemDateAndTime::OverlayItemDateAndTime(int32_t ion_device)
+        : OverlayItem(ion_device, OverlayType::kDateType) {
+  OVDBG_VERBOSE("%s:Enter ", __func__);
+  memset(&date_time_type_, 0x0, sizeof date_time_type_);
+  date_time_type_.time_format = OverlayTimeFormatType::kHHMM_24HR;
+  date_time_type_.date_format = OverlayDateFormatType::kMMDDYYYY;
+  OVDBG_VERBOSE("%s:Exit", __func__);
+}
+#endif // OVERLAY_OPEN_CL_BLIT
 
 OverlayItemDateAndTime::~OverlayItemDateAndTime() {
   OVDBG_VERBOSE("%s:Enter ", __func__);
@@ -2157,17 +2218,28 @@ ERROR:
   return ret;
 }
 
+#ifdef OVERLAY_OPEN_CL_BLIT
 OverlayItemBoundingBox::OverlayItemBoundingBox(int32_t ion_device,
                          std::shared_ptr<OpenClKernel> &blit)
                     : OverlayItem(ion_device, OverlayType::kBoundingBox, blit),
                       bbox_name_(), text_height_(0) {
-#ifdef OVERLAY_OPEN_CL_BLIT
+  OVDBG_VERBOSE("%s: Enter", __func__);
   if (blit.get()) {
     // Create local instance of blit kernel
     text_surface_.blit_inst_ = blit->AddInstance();
   }
-#endif // OVERLAY_OPEN_CL_BLIT
+  OVDBG_VERBOSE("%s: Exit", __func__);
 };
+#else // OVERLAY_OPEN_CL_BLIT
+OverlayItemBoundingBox::OverlayItemBoundingBox(int32_t ion_device)
+                    : OverlayItem(ion_device, OverlayType::kBoundingBox),
+                      bbox_name_(), text_height_(0) {
+  OVDBG_VERBOSE("%s: Enter", __func__);
+  OVDBG_VERBOSE("%s: Exit", __func__);
+};
+#endif // OVERLAY_OPEN_CL_BLIT
+
+
 
 OverlayItemBoundingBox::~OverlayItemBoundingBox() {
   OVDBG_INFO("%s: Enter", __func__);
