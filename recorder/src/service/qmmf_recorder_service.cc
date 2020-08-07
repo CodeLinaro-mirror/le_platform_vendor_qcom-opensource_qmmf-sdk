@@ -591,6 +591,8 @@ status_t RecorderService::Disconnect(uint32_t client_id) {
     return BAD_VALUE;
   }
 
+  recorder_->DeRegisterClient(client_id);
+
   sp<DeathNotifier> notifier = death_notifier_list_[client_id];
   sp<RemoteCallBack> callback = remote_cb_list_[client_id];
 
@@ -598,8 +600,6 @@ status_t RecorderService::Disconnect(uint32_t client_id) {
 
   death_notifier_list_.erase(client_id);
   remote_cb_list_.erase(client_id);
-
-  recorder_->DeRegisterClient(client_id);
 
   if (death_notifier_list_.empty() && remote_cb_list_.empty()) {
     QMMF_INFO("%s: No client is connected! de-init the recorder!", __func__);
