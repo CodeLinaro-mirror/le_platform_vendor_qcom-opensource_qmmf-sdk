@@ -197,7 +197,10 @@ struct OverlayParamInfo {
 };
 
 class OverlayItem;
+
+#ifdef OVERLAY_OPEN_CL_BLIT
 class OpenClKernel;
+#endif // OVERLAY_OPEN_CL_BLIT
 
 // This class provides facility to embed different
 // Kinds of overlay on top of Camera stream buffers.
@@ -268,7 +271,9 @@ class Overlay {
   std::map <uint32_t, OverlayItem* > overlay_items_;
 
   uint32_t     target_c2dsurface_id_;
+#ifdef OVERLAY_OPEN_CL_BLIT
   std::shared_ptr<OpenClKernel> blit_instance_;
+#endif // OVERLAY_OPEN_CL_BLIT
   int32_t      ion_device_;
   uint32_t     id_;
   std::mutex   lock_;

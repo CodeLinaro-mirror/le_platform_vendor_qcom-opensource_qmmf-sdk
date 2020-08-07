@@ -36,8 +36,11 @@
 #include <linux/msm_ion.h>
 #include <linux/msm_kgsl.h>
 #include <utils/String8.h>
+
+#ifdef OVERLAY_OPEN_CL_BLIT
 #include <CL/cl.h>
 #include <CL/cl_ext.h>
+#endif // OVERLAY_OPEN_CL_BLIT
 
 #include "common/utils/qmmf_condition.h"
 
@@ -95,6 +98,9 @@ OVDBG_INFO, ERROR and WARN logs are enabled all the time by default.
 
 #define PROP_DUMP_BLOB_IMAGE        "persist.qmmf.overlay.dump.blob"
 #define PROP_BOX_STROKE_WIDTH       "persist.qmmf.overlay.stroke.width"
+
+
+#ifdef OVERLAY_OPEN_CL_BLIT
 
 struct OpenClFrame {
   cl_mem    cl_buffer;
@@ -194,6 +200,8 @@ private:
   } sync_;
 };
 
+#endif // OVERLAY_OPEN_CL_BLIT
+
 struct DrawInfo {
     uint32_t width;
     uint32_t height;
@@ -252,8 +260,13 @@ class OverlaySurface {
 //Base class for all types of overlays.
 class OverlayItem {
  public:
+
+#ifdef OVERLAY_OPEN_CL_BLIT
   OverlayItem(int32_t ion_device, OverlayType type,
               std::shared_ptr<OpenClKernel> &blit);
+#else // OVERLAY_OPEN_CL_BLIT
+  OverlayItem(int32_t ion_device, OverlayType type);
+#endif // OVERLAY_OPEN_CL_BLIT
 
   virtual ~OverlayItem();
 
@@ -318,10 +331,17 @@ class OverlayItem {
 class OverlayItemStaticImage : public OverlayItem {
 
  public:
+
+#ifdef OVERLAY_OPEN_CL_BLIT
   OverlayItemStaticImage(int32_t ion_device,
                          std::shared_ptr<OpenClKernel> &blit)
                     : OverlayItem(ion_device, OverlayType::kStaticImage, blit),
                       image_path_() {};
+#else // OVERLAY_OPEN_CL_BLIT
+  OverlayItemStaticImage(int32_t ion_device)
+                    : OverlayItem(ion_device, OverlayType::kStaticImage),
+                      image_path_() {};
+#endif // OVERLAY_OPEN_CL_BLIT
 
   virtual ~OverlayItemStaticImage();
 
@@ -362,8 +382,13 @@ class OverlayItemStaticImage : public OverlayItem {
 
 class OverlayItemDateAndTime: public OverlayItem {
  public:
+
+#ifdef OVERLAY_OPEN_CL_BLIT
   OverlayItemDateAndTime(int32_t ion_device,
                          std::shared_ptr<OpenClKernel> &blit);
+#else // OVERLAY_OPEN_CL_BLIT
+  OverlayItemDateAndTime(int32_t ion_device);
+#endif // OVERLAY_OPEN_CL_BLIT
 
   virtual ~OverlayItemDateAndTime();
 
@@ -390,8 +415,13 @@ class OverlayItemDateAndTime: public OverlayItem {
 
 class OverlayItemBoundingBox: public OverlayItem {
  public:
+
+#ifdef OVERLAY_OPEN_CL_BLIT
   OverlayItemBoundingBox(int32_t ion_device,
                          std::shared_ptr<OpenClKernel> &blit);
+#else // OVERLAY_OPEN_CL_BLIT
+  OverlayItemBoundingBox(int32_t ion_device);
+#endif // OVERLAY_OPEN_CL_BLIT
 
   virtual ~OverlayItemBoundingBox();
 
@@ -442,10 +472,16 @@ class OverlayItemBoundingBox: public OverlayItem {
 class OverlayItemText: public OverlayItem {
  public:
 
+#ifdef OVERLAY_OPEN_CL_BLIT
   OverlayItemText(int32_t ion_device,
                   std::shared_ptr<OpenClKernel> &blit)
                       : OverlayItem(ion_device, OverlayType::kUserText, blit),
                         text_() {};
+#else // OVERLAY_OPEN_CL_BLIT
+  OverlayItemText(int32_t ion_device)
+                      : OverlayItem(ion_device, OverlayType::kUserText),
+                        text_() {};
+#endif // OVERLAY_OPEN_CL_BLIT
 
   virtual ~OverlayItemText();
 
@@ -474,9 +510,14 @@ class OverlayItemText: public OverlayItem {
 class OverlayItemPrivacyMask: public OverlayItem {
  public:
 
+#ifdef OVERLAY_OPEN_CL_BLIT
   OverlayItemPrivacyMask(int32_t ion_device,
                          std::shared_ptr<OpenClKernel> &blit)
                   : OverlayItem(ion_device, OverlayType::kPrivacyMask, blit) {};
+#else // OVERLAY_OPEN_CL_BLIT
+  OverlayItemPrivacyMask(int32_t ion_device)
+                  : OverlayItem(ion_device, OverlayType::kPrivacyMask) {};
+#endif // OVERLAY_OPEN_CL_BLIT
 
   virtual ~OverlayItemPrivacyMask() {};
 
@@ -506,10 +547,14 @@ class OverlayItemPrivacyMask: public OverlayItem {
 class OverlayItemGraph : public OverlayItem {
  public:
 
+#ifdef OVERLAY_OPEN_CL_BLIT
   OverlayItemGraph(int32_t ion_device,
                    std::shared_ptr<OpenClKernel> &blit)
                       : OverlayItem(ion_device, OverlayType::kGraph, blit) {};
-
+#else // OVERLAY_OPEN_CL_BLIT
+  OverlayItemGraph(int32_t ion_device)
+                      : OverlayItem(ion_device, OverlayType::kGraph) {};
+#endif // OVERLAY_OPEN_CL_BLIT
 
   virtual ~OverlayItemGraph() {};
 
