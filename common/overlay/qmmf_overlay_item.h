@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -36,7 +36,10 @@
 #include <linux/msm_ion.h>
 #include <linux/msm_kgsl.h>
 #include <utils/String8.h>
+#include <CL/cl.h>
+#include <CL/cl_ext.h>
 
+#include "common/utils/qmmf_condition.h"
 
 #if USE_SKIA
 #include <SkCanvas.h>
@@ -81,6 +84,9 @@ OVDBG_INFO, ERROR and WARN logs are enabled all the time by default.
 #define BG_DEBUG_COLOR       0xFFE5CC80 //Light gray.
 #define DOWNSCALE_FACTOR     4
 
+#define BLIT_KERNEL      "/usr/lib/qmmf/overlay_blit_kernel.cl"
+#define BLIT_KERNEL_NAME "overlay_cl"
+
 // Remove comment marker to enable backgroud surface drawing of overlay objects.
 //#define DEBUG_BACKGROUND_SURFACE
 
@@ -90,12 +96,115 @@ OVDBG_INFO, ERROR and WARN logs are enabled all the time by default.
 #define PROP_DUMP_BLOB_IMAGE        "persist.qmmf.overlay.dump.blob"
 #define PROP_BOX_STROKE_WIDTH       "persist.qmmf.overlay.stroke.width"
 
+struct OpenClFrame {
+  cl_mem    cl_buffer;
+  cl_uint   plane0_offset;
+  cl_uint   plane1_offset;
+  cl_ushort stride0;
+  cl_ushort stride1;
+  cl_ushort swap_uv;
+};
+
+struct OpenCLArgs {
+    uint32_t width;
+    uint32_t height;
+    uint32_t x;
+    uint32_t y;
+    cl_mem   mask;
+};
+
+class OpenClKernel {
+public:
+
+  OpenClKernel(const std::string &kernel_name) :
+                    kernel_name_(kernel_name),
+                    prog_(nullptr),
+                    kernel_(nullptr),
+                    kernel_dimensions_(2),
+                    local_size_{0, 0},
+                    global_size_{0, 0},
+                    global_offset_{0, 0} {}
+
+  OpenClKernel(const OpenClKernel &other) :
+                    kernel_name_(other.kernel_name_),
+                    prog_(other.prog_),
+                    kernel_(nullptr),
+                    kernel_dimensions_(other.kernel_dimensions_),
+                    local_size_{0, 0},
+                    global_size_{0, 0},
+                    global_offset_{0, 0} {}
+
+  ~OpenClKernel();
+
+  static std::shared_ptr<OpenClKernel> New(const std::string &path_to_src,
+                                           const std::string &name);
+
+  std::shared_ptr<OpenClKernel> AddInstance();
+
+  int32_t BuildProgram(const std::string &path_to_src);
+
+  int32_t SetKernelArgs(OpenClFrame &frame, OpenCLArgs &args);
+
+  int32_t RunCLKernel(bool wait_to_finish);
+
+  static int32_t MapBuffer(cl_mem &cl_buffer, void *vaddr, int32_t fd,
+                            uint32_t size);
+
+  static int32_t UnMapBuffer(cl_mem &cl_buffer);
+
+  static int32_t MapImage(cl_mem &cl_buffer, void *vaddr, int32_t fd,
+                          size_t width, size_t height, uint32_t stride);
+
+  static int32_t unMapImage(cl_mem &cl_buffer);
+
+private:
+
+  static int32_t OpenCLInit();
+
+  static int32_t OpenCLDeInit();
+
+  int32_t CreateKernelInstance();
+
+  static void ClCompleteCallback(cl_event event,
+                                 cl_int event_command_exec_status,
+                                 void *user_data);
+
+  std::string CreateCLKernelBuildLog();
+
+  static cl_device_id device_id_;
+  static cl_context context_;
+  static cl_command_queue command_queue_;
+  static std::mutex lock_;
+  static int32_t ref_count;
+
+  std::string kernel_name_;
+  cl_program prog_;
+  cl_kernel kernel_;
+  cl_uint kernel_dimensions_;
+  size_t local_size_[2];
+  size_t global_size_[2];
+  size_t global_offset_[2];
+
+  static const uint32_t kWaitProcessTimeout = 2000000000; // 2 sec.
+
+  struct SyncObject {
+    bool       done_;
+    QCondition signal_;
+    std::mutex lock_;
+  } sync_;
+};
+
 struct DrawInfo {
     uint32_t width;
     uint32_t height;
     uint32_t x;
     uint32_t y;
+#ifdef OVERLAY_OPEN_CL_BLIT
+    cl_mem   mask;
+    std::shared_ptr<OpenClKernel> blit_inst;
+#else
     uint32_t c2dSurfaceId;
+#endif
     uint32_t in_width;
     uint32_t in_height;
     uint32_t in_x;
@@ -113,10 +222,38 @@ struct C2dObjects {
   C2D_OBJECT objects[MAX_OVERLAYS*2];
 };
 
+class OverlaySurface {
+ public:
+  OverlaySurface () : width_(0), height_(0), gpu_addr_(nullptr),
+     vaddr_(nullptr), ion_fd_(0), size_(0) {
+#ifdef OVERLAY_OPEN_CL_BLIT
+      cl_buffer_ = nullptr;
+      blit_inst_ = nullptr;
+#else // OVERLAY_OPEN_CL_BLIT
+      c2dsurface_id_ = -1;
+#endif // OVERLAY_OPEN_CL_BLIT
+     }
+
+  uint32_t                      width_;
+  uint32_t                      height_;
+  void *                        gpu_addr_;
+  void *                        vaddr_;
+  int32_t                       ion_fd_;
+  uint32_t                      size_;
+
+#ifdef OVERLAY_OPEN_CL_BLIT
+  cl_mem                        cl_buffer_;
+  std::shared_ptr<OpenClKernel> blit_inst_;
+#else // OVERLAY_OPEN_CL_BLIT
+  uint32_t                      c2dsurface_id_;
+#endif // OVERLAY_OPEN_CL_BLIT
+};
+
 //Base class for all types of overlays.
 class OverlayItem {
  public:
-  OverlayItem(int32_t ion_device, OverlayType type);
+  OverlayItem(int32_t ion_device, OverlayType type,
+              std::shared_ptr<OpenClKernel> &blit);
 
   virtual ~OverlayItem();
 
@@ -149,6 +286,13 @@ class OverlayItem {
 
   int32_t AllocateIonMemory(IonMemInfo& mem_info, uint32_t size);
 
+  void FreeIonMemory(void *&vaddr, int32_t &ion_fd, uint32_t size);
+
+  int32_t MapOverlaySurface(OverlaySurface &surface, IonMemInfo &mem_info,
+                            int32_t format);
+
+  void UnMapOverlaySurface(OverlaySurface &surface);
+
   void ExtractColorValues(uint32_t hex_color, RGBAValues* color);
 
   void ClearSurface();
@@ -156,17 +300,13 @@ class OverlayItem {
   int32_t                x_;
   int32_t                y_;
   uint32_t               width_;
-  time_t                 prev_time_;
   uint32_t               height_;
-  uint32_t               c2dsurface_id_;
-  void *                 gpu_addr_;
-  void *                 vaddr_;
-  int32_t                ion_fd_;
-  uint32_t               size_;
+  OverlaySurface         surface_;
   OverlayLocationType    location_type_;
   bool                   dirty_;
   int32_t                ion_device_;
   OverlayType            type_;
+  time_t                 prev_time_;
 #if USE_CAIRO
   cairo_surface_t*       cr_surface_;
   cairo_t*               cr_context_;
@@ -178,9 +318,10 @@ class OverlayItem {
 class OverlayItemStaticImage : public OverlayItem {
 
  public:
-  OverlayItemStaticImage(int32_t ion_device)
-                           : OverlayItem(ion_device, OverlayType::kStaticImage),
-                             image_path_() {};
+  OverlayItemStaticImage(int32_t ion_device,
+                         std::shared_ptr<OpenClKernel> &blit)
+                    : OverlayItem(ion_device, OverlayType::kStaticImage, blit),
+                      image_path_() {};
 
   virtual ~OverlayItemStaticImage();
 
@@ -203,8 +344,6 @@ class OverlayItemStaticImage : public OverlayItem {
   OverlayImageType image_type_;
   char *   image_buffer_;
   uint32_t image_size_;
-  uint32_t image_width_;
-  uint32_t image_height_;
   uint32_t crop_rect_x_;
   uint32_t crop_rect_y_;
   uint32_t crop_rect_width_;
@@ -223,7 +362,8 @@ class OverlayItemStaticImage : public OverlayItem {
 
 class OverlayItemDateAndTime: public OverlayItem {
  public:
-  OverlayItemDateAndTime(int32_t ion_device);
+  OverlayItemDateAndTime(int32_t ion_device,
+                         std::shared_ptr<OpenClKernel> &blit);
 
   virtual ~OverlayItemDateAndTime();
 
@@ -248,20 +388,10 @@ class OverlayItemDateAndTime: public OverlayItem {
 #endif
 };
 
-#define BOUNDING_BOX_BUF_WIDTH     240
-#define BOUNDING_BOX_BUF_HEIGHT    320
-#define BOUNDING_BOX_STROKE_WIDTH  4
-#define BOUNDING_BOX_TEXT_LIMIT    20
-#define BOUNDING_BOX_TEXT_SIZE     25
-#define BOUNDING_BOX_TEXT_PERCENT  20
-#define BOUNDING_BOX_TEXT_MARGIN   5
-
 class OverlayItemBoundingBox: public OverlayItem {
  public:
-  OverlayItemBoundingBox(int32_t ion_device)
-                           : OverlayItem(ion_device, OverlayType::kBoundingBox),
-                             bbox_name_(),
-                             text_height_(0) {};
+  OverlayItemBoundingBox(int32_t ion_device,
+                         std::shared_ptr<OpenClKernel> &blit);
 
   virtual ~OverlayItemBoundingBox();
 
@@ -275,7 +405,15 @@ class OverlayItemBoundingBox: public OverlayItem {
   void GetParameters(OverlayParam& param) override;
 
   int32_t UpdateParameters(OverlayParam& param) override;
+
  private:
+
+  static const int32_t kBoxBuffWidth = 320;
+  static const int32_t kStrokeWidth  = 4;
+  static const int32_t kTextLimit    = 20;
+  static const int32_t kTextSize     = 25;
+  static const int32_t kTextPercent  = 20;
+  static const int32_t kTextMargin   = 5;
 
   int32_t CreateSurface();
   void ClearTextSurface();
@@ -286,20 +424,12 @@ class OverlayItemBoundingBox: public OverlayItem {
 #endif
   android::String8  bbox_name_;
   uint32_t          text_height_   = 0;
-  int32_t           buffer_width_  = 0;
-  int32_t           buffer_height_ = 0;
 
 #if USE_CAIRO
-  int32_t           text_y_;
-  uint32_t          text_width_;
-  uint32_t          text_c2dsurface_id_;
-  void *            text_gpu_addr_;
-  void *            text_vaddr_;
-  int32_t           text_ion_fd_;
-  uint32_t          text_size_;
+  OverlaySurface    text_surface_;
   uint32_t          box_stroke_width_;
-  cairo_surface_t*       text_cr_surface_;
-  cairo_t*               text_cr_context_;
+  cairo_surface_t*  text_cr_surface_;
+  cairo_t*          text_cr_context_;
 #endif
 };
 
@@ -312,9 +442,10 @@ class OverlayItemBoundingBox: public OverlayItem {
 class OverlayItemText: public OverlayItem {
  public:
 
-  OverlayItemText(int32_t ion_device)
-                             : OverlayItem(ion_device, OverlayType::kUserText),
-                               text_() {};
+  OverlayItemText(int32_t ion_device,
+                  std::shared_ptr<OpenClKernel> &blit)
+                      : OverlayItem(ion_device, OverlayType::kUserText, blit),
+                        text_() {};
 
   virtual ~OverlayItemText();
 
@@ -340,14 +471,12 @@ class OverlayItemText: public OverlayItem {
 
 };
 
-#define PMASK_BOX_BUF_WIDTH     240
-#define PMASK_BOX_BUF_HEIGHT    135
-
 class OverlayItemPrivacyMask: public OverlayItem {
  public:
 
-  OverlayItemPrivacyMask(int32_t ion_device)
-                       : OverlayItem(ion_device, OverlayType::kPrivacyMask) {};
+  OverlayItemPrivacyMask(int32_t ion_device,
+                         std::shared_ptr<OpenClKernel> &blit)
+                  : OverlayItem(ion_device, OverlayType::kPrivacyMask, blit) {};
 
   virtual ~OverlayItemPrivacyMask() {};
 
@@ -363,18 +492,23 @@ class OverlayItemPrivacyMask: public OverlayItem {
   int32_t UpdateParameters(OverlayParam& param) override;
 
  private:
+
+  static const uint32_t kMaskBoxBufWidth = 1920;
+
   int32_t CreateSurface();
 #if USE_SKIA
   SkCanvas*   canvas_;
 #endif
   uint32_t    mask_color_;
+  OverlayPrivacyMask config_;
 };
 
 class OverlayItemGraph : public OverlayItem {
  public:
 
-  OverlayItemGraph(int32_t ion_device)
-                         : OverlayItem(ion_device, OverlayType::kGraph) {};
+  OverlayItemGraph(int32_t ion_device,
+                   std::shared_ptr<OpenClKernel> &blit)
+                      : OverlayItem(ion_device, OverlayType::kGraph, blit) {};
 
 
   virtual ~OverlayItemGraph() {};
@@ -400,8 +534,6 @@ class OverlayItemGraph : public OverlayItem {
   static const int  kGraphBufHeight = 270;
 
   uint32_t          graph_color_;
-  int32_t           buffer_width_  = 0;
-  int32_t           buffer_height_ = 0;
   float             downscale_ratio_;
   OverlayGraph      graph_;
 };

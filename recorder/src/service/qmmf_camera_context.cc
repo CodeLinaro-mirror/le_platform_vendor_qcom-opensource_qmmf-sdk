@@ -1674,7 +1674,15 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
       for (size_t i = 0; i < streaming_active_requests_.size(); ++i) {
         streaming_active_requests_[i].metadata.update(
             ANDROID_CONTROL_AE_TARGET_FPS_RANGE, fpsRange, 2);
+
+        // This is required for streaming without AE.
+        if (fpsRange[0] == fpsRange[1]) {
+          int64_t frameDuration = 1e9 / fpsRange[0];
+          streaming_active_requests_[i].metadata.update(
+              ANDROID_SENSOR_FRAME_DURATION, &frameDuration, 1);
+        }
       }
+
     }
     std::list<Camera3Request> request_list;
     for (ssize_t i = (streaming_active_requests_.size() - 1); i >= 0; --i) {
