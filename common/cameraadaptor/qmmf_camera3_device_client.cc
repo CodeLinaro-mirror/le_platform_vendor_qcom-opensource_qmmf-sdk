@@ -147,6 +147,8 @@ Camera3DeviceClient::~Camera3DeviceClient() {
     }
   }
 
+  pending_error_requests_vector_.clear();
+
   pthread_cond_destroy(&state_updated_);
   pthread_mutex_destroy(&pending_requests_lock_);
   pthread_mutex_destroy(&lock_);
@@ -1076,6 +1078,14 @@ void Camera3DeviceClient::HandleCaptureResult(
   pthread_mutex_lock(&pending_requests_lock_);
   ssize_t idx = pending_requests_vector_.indexOfKey(frameNumber);
   if (-ENOENT == idx) {
+    ssize_t error_idx = pending_error_requests_vector_.indexOfKey(frameNumber);
+    if (-ENOENT != error_idx) {
+      QMMF_INFO("%s: Found a request with error status. "
+          "Ignore the capture result.\n", __func__);
+      pending_error_requests_vector_.removeItemsAt(error_idx, 1);
+      pthread_mutex_unlock(&pending_requests_lock_);
+      return;
+    }
     SET_ERR("Invalid frame number in capture result: %d", frameNumber);
     pthread_mutex_unlock(&pending_requests_lock_);
     return;
@@ -1455,6 +1465,12 @@ void Camera3DeviceClient::RemovePendingRequestLocked(int idx) {
     ReturnOutputBuffers(request.pendingBuffers.array(),
                         request.pendingBuffers.size(), 0,
                         frameNumber);
+
+    if (0 != request.status && (!request.isMetaPresent || shutterTS == 0)) {
+      QMMF_INFO("%s: Received error in the capture request. Added to the error"
+          " requests vector.\n", __func__);
+      pending_error_requests_vector_.add(frameNumber, request);
+    }
 
     pending_requests_vector_.removeItemsAt(idx, 1);
   }
