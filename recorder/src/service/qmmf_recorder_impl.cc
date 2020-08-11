@@ -400,6 +400,8 @@ status_t RecorderImpl::StopCamera(const uint32_t client_id,
   QMMF_DEBUG("%s: Enter", __func__);
   QMMF_KPI_DETAIL();
 
+  std::unique_lock<std::mutex> lk(stop_camera_lock_);
+
   if (!IsClientValid(client_id)) {
     QMMF_ERROR("%s: Client(%u) is not connected!", __func__, client_id);
     return BAD_VALUE;
