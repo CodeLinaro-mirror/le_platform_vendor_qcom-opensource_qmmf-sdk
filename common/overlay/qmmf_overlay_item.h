@@ -308,7 +308,11 @@ class OverlayItem {
 
   void ExtractColorValues(uint32_t hex_color, RGBAValues* color);
 
+  virtual int32_t CreateSurface() = 0;
+
   void ClearSurface();
+
+  virtual void DestroySurface();
 
   int32_t                x_;
   int32_t                y_;
@@ -319,7 +323,6 @@ class OverlayItem {
   bool                   dirty_;
   int32_t                ion_device_;
   OverlayType            type_;
-  time_t                 prev_time_;
 #if USE_CAIRO
   cairo_surface_t*       cr_surface_;
   cairo_t*               cr_context_;
@@ -374,12 +377,6 @@ class OverlayItemStaticImage : public OverlayItem {
   std::mutex update_param_lock_;
 };
 
-#define DATETIME_TEXT_BUF_WIDTH         192
-#define DATETIME_TEXT_BUF_HEIGHT        108
-#define DATETIME_TARGET_WIDTH_PERCENT   12
-#define DATETIME_TARGET_HEIGHT_PERCENT  12
-#define DATETIME_PIXEL_SIZE             20
-
 class OverlayItemDateAndTime: public OverlayItem {
  public:
 
@@ -404,10 +401,15 @@ class OverlayItemDateAndTime: public OverlayItem {
   int32_t UpdateParameters(OverlayParam& param) override;
 
  private:
+  static const int kTextSize             = 20;
+  static const int kCairoBufferMinWidth  = kTextSize * 6;
+  static const int kCairoBufferMinHeight = kTextSize * 2;
+
   int32_t CreateSurface();
 
   OverlayDateTimeType date_time_type_;
   uint32_t            text_color_;
+  time_t              prev_time_;
 #if USE_SKIA
   SkCanvas*           canvas_;
 #endif
