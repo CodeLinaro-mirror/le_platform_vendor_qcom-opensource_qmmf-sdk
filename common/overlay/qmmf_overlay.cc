@@ -2304,19 +2304,7 @@ OverlayItemBoundingBox::OverlayItemBoundingBox(int32_t ion_device)
 
 OverlayItemBoundingBox::~OverlayItemBoundingBox() {
   OVDBG_INFO("%s: Enter", __func__);
-  bbox_name_.clear();
-#if USE_CAIRO
-  UnMapOverlaySurface(text_surface_);
-  FreeIonMemory(text_surface_.vaddr_, text_surface_.ion_fd_,
-      text_surface_.size_);
-
-  if (text_cr_surface_) {
-    cairo_surface_destroy(text_cr_surface_);
-  }
-  if (text_cr_context_) {
-    cairo_destroy(text_cr_context_);
-  }
-#endif
+  DestroyTextSurface();
   OVDBG_INFO("%s: Exit", __func__);
 }
 
@@ -2512,10 +2500,11 @@ void OverlayItemBoundingBox::GetDrawInfo(uint32_t targetWidth,
 #if USE_CAIRO
   DrawInfo draw_info_text;
   memset(&draw_info_text, 0x0, sizeof(DrawInfo));
-  draw_info_text.x = x_ + box_stroke_width_+ 4;
-  draw_info_text.y = y_ + (box_stroke_width_ / 2);
-  draw_info_text.width = targetWidth * TEXT_TARGET_WIDTH_PERCENT / 100;
-  draw_info_text.height = targetHeight * TEXT_TARGET_HEIGHT_PERCENT / 100;
+  draw_info_text.x = x_ + kTextMargin;
+  draw_info_text.y = y_ + kTextMargin;
+  draw_info_text.width = (targetWidth * kTextPercent) / 100;
+  draw_info_text.height =
+      (draw_info_text.width * text_surface_.height_) / text_surface_.width_;
 #ifdef OVERLAY_OPEN_CL_BLIT
   draw_info_text.mask = text_surface_.cl_buffer_;
   draw_info_text.blit_inst  = text_surface_.blit_inst_;
@@ -2586,7 +2575,13 @@ int32_t OverlayItemBoundingBox::UpdateParameters(OverlayParam& param) {
 
   if (surface_.height_ != ROUND_TO((surface_.width_ * height_) / width_, 2)) {
     surface_.height_ = ROUND_TO((surface_.width_ * height_) / width_, 2);
-    MarkDirty(true);
+    DestroySurface();
+    DestroyTextSurface();
+    ret = CreateSurface();
+    if (ret != 0) {
+      OVDBG_ERROR("%s: CreateSurface failed!", __func__);
+      return ret;
+    }
   }
 
 #if USE_CAIRO
@@ -2707,6 +2702,22 @@ ERROR:
   text_surface_.ion_fd_ = -1;
 #endif
   return ret;
+}
+
+void OverlayItemBoundingBox::DestroyTextSurface() {
+  bbox_name_.clear();
+#if USE_CAIRO
+  UnMapOverlaySurface(text_surface_);
+  FreeIonMemory(text_surface_.vaddr_, text_surface_.ion_fd_,
+    text_surface_.size_);
+
+  if (text_cr_surface_) {
+    cairo_surface_destroy(text_cr_surface_);
+  }
+  if (text_cr_context_) {
+    cairo_destroy(text_cr_context_);
+  }
+#endif
 }
 
 OverlayItemText::~OverlayItemText() {
