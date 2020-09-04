@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -1334,7 +1334,6 @@ status_t TrackSource::Init() {
   param.framerate      = track_params_.params.frame_rate;
   param.low_power_mode = track_params_.params.low_power_mode;
   param.format = Common::FromVideoToQmmfFormat(track_params_.params.format_type);
-  param.slave_client =  track_params_.slave_client;
 
   if (track_params_.extra_param.Exists(QMMF_VIDEO_WAIT_AEC_MODE)) {
     VideoWaitAECMode wait_aec;

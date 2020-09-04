@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -52,7 +52,6 @@ struct StreamParam {
   bool         is_eis_enabled;
   bool         is_10bit_type;
   int32_t      force_sensor_mode;
-  bool         slave_client;
 
   StreamParam()
       : id(0),
@@ -66,8 +65,7 @@ struct StreamParam {
         is_zzhdr_enabled(false),
         is_eis_enabled(false),
         is_10bit_type(false),
-        force_sensor_mode(-1),
-        slave_client(false) {}
+        force_sensor_mode(-1) {}
 };
 
 struct SnapshotParam {
