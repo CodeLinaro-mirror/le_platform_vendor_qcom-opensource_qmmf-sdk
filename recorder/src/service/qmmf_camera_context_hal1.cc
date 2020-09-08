@@ -195,22 +195,6 @@ CameraContext::~CameraContext() {
   }
 }
 
-int32_t CameraContext::GetNumberOfCameras() {
-
-  camera_module_t * camera_module;
-  uint32_t rc = hw_get_module(CAMERA_HARDWARE_MODULE_ID,
-    (const hw_module_t **)&camera_module);
-  if (rc < 0 || camera_module == NULL) {
-    QMMF_ERROR("hw_get_module failed rc %d camera_module_ %p", rc,
-      camera_module);
-    return -1;
-  }
-  uint8_t num_cam = camera_module->get_number_of_cameras();
-  QMMF_INFO("%s:%d: Number of cameras: %d", __func__, __LINE__, num_cam);
-
-  return num_cam;
-}
-
 void CameraContext::SetFlushCb(FlushCb &cb) {
   flush_cb_ = cb;
 }

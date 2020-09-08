@@ -78,7 +78,6 @@ CameraSource::CameraSource() {
   QMMF_KPI_GET_MASK();
   QMMF_KPI_DETAIL();
   QMMF_INFO("%s: Enter", __func__);
-  DetectCameras();
   QMMF_INFO("%s: Exit", __func__);
 }
 
@@ -180,16 +179,6 @@ status_t CameraSource::StopCamera(const uint32_t camera_id) {
   camera_map_.erase(camera_id);
   QMMF_INFO("%s: Camera(%d) successfully closed!", __func__, camera_id);
 
-  return NO_ERROR;
-}
-
-status_t CameraSource::GetNumberOfCameras(SupportedCameras &cameras) {
-
-  QMMF_DEBUG("%s: Enter", __func__);
-
-  cameras = supported_cameras_;
-
-  QMMF_DEBUG("%s: Exit", __func__);
   return NO_ERROR;
 }
 
@@ -834,34 +823,6 @@ status_t CameraSource::ParseThumb(uint8_t* vaddr, uint32_t size,
   buffer.info = info;
   return NO_ERROR;
 }
-
-status_t CameraSource::DetectCameras() {
-
-  if(!supported_cameras_.empty()) {
-    return NO_ERROR;
-  }
-
-  int32_t num_camera = CameraContext::GetNumberOfCameras();
-  if (num_camera < 1) {
-    QMMF_ERROR("%s: Failed: number of cameras %d", __func__, num_camera);
-    return BAD_VALUE;
-  }
-
-  // Detect physical cameras.
-  for (int32_t camera_id = 0; camera_id < num_camera; camera_id++) {
-    supported_cameras_.push_back(
-        CameraCapability(camera_id, CameraType::kLiveSingle));
-  }
-
-  // TODO: Detect which cameras could be use for dual camera use case.
-
-  // TODO: Detect glance.
-  supported_cameras_.push_back(CameraCapability(101, CameraType::kExternal));
-  supported_cameras_.push_back(CameraCapability(102, CameraType::kExternal));
-
-  return NO_ERROR;
-}
-
 
 void CameraSource::SnapshotCallback(uint32_t count, StreamBuffer& buffer) {
 

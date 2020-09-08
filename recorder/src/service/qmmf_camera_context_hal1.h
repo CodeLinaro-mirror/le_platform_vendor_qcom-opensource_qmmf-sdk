@@ -57,8 +57,6 @@ class CameraContext : public CameraInterface {
   CameraContext();
   ~CameraContext();
 
-  static int32_t GetNumberOfCameras();
-
   status_t HAL_load();
   status_t HAL_unload();
   status_t camera_device_open(uint8_t id);

@@ -158,11 +158,6 @@ class Recorder {
   /// session specific event cb is called by recorder
   status_t ResumeSession(const uint32_t session_id);
 
-  /// \brief Provides list with information regarding all existing cameras.
-  ///* TODO
-  /// This is a sync API.
-  status_t GetNumberOfCameras(SupportedCameras &cameras);
-
   /// @brief Creates an audio track and
   /// associates it to the session id provided.
   /// User must specify the unique track_id for the session.
