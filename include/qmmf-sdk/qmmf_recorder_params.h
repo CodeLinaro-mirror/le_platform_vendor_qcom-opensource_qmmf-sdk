@@ -542,49 +542,6 @@ struct ZslQueueParam {
   }
 };
 
-/// @brief CameraType describes camera purpose and usage
-enum class CameraType {
-  /// Normal single cameras
-  kLiveSingle = 0,
-  /// RD 360 camera which behaves as single camera
-  kLiveVirtualSingle,
-  /// Camera which process data captured by offline through ISP
-  kOffline,
-  /// External camera
-  kExternal,
-  /// Simulated camera like the fake camera
-  kSimulated
-};
-
-/// @brief Contain the camera ids and hints on what camera is capable to do
-struct CameraCapability {
-  /// Camera ID
-  int32_t id;
-  /// Camera functionality
-  CameraType type;
-
-  CameraCapability()
-      : id(-1), type(CameraType::kSimulated) {}
-
-  CameraCapability(const int32_t& id, const CameraType& type)
-      : id(id), type(type) {}
-
-  std::string ToString(uint32_t indent = 0) const {
-    std::stringstream indentation;
-    for (uint32_t i = 0; i < indent; i++) indentation << '\t';
-    indent++;
-
-    std::stringstream stream;
-    stream << indentation.str()
-           << "\"camera_id\" : " << id << '\n';
-    stream << indentation.str()
-           << "\"camera_type\" : " << static_cast<int>(type) << '\n';
-    return stream.str();
-  }
-};
-
-typedef std::vector<CameraCapability> SupportedCameras;
-
 typedef std::function<void(uint32_t camera_id, uint32_t image_sequence_count,
                            BufferDescriptor buffer, MetaData meta_data)>
     ImageCaptureCb;
