@@ -175,18 +175,6 @@ status_t Recorder::ResumeSession(const uint32_t session_id) {
   return ret;
 }
 
-status_t Recorder::GetNumberOfCameras(SupportedCameras &cameras) {
-
-  assert(recorder_client_ != NULL);
-
-  auto ret = recorder_client_->GetNumberOfCameras(cameras);
-  if (NO_ERROR != ret) {
-    QMMF_ERROR("%s: GetNumberOfCameras failed!", __func__);
-  }
-
-  return ret;
-}
-
 status_t Recorder::CreateAudioTrack(const uint32_t session_id,
                                     const uint32_t track_id,
                                     const AudioTrackCreateParam& params,

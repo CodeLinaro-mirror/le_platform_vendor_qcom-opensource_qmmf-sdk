@@ -193,9 +193,6 @@ class IRecorderService : public IInterface {
   virtual status_t ResumeSession(const uint32_t client_id,
                                  const uint32_t session_id) = 0;
 
-  virtual status_t GetNumberOfCameras(const uint32_t client_id,
-                                      SupportedCameras &cameras) = 0;
-
   virtual status_t CreateAudioTrack(const uint32_t client_id,
                                     const uint32_t session_id,
                                     const uint32_t track_id,

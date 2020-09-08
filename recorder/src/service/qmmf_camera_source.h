@@ -88,9 +88,6 @@ class CameraSource {
   /// Close Camera.
   status_t StopCamera(const uint32_t camera_id);
 
-  /// Get number of supported Cameras.
-  status_t GetNumberOfCameras(SupportedCameras &cameras);
-
   /// Image Capture
   status_t CaptureImage(const uint32_t camera_id,
                         const uint32_t num_images,
@@ -198,8 +195,6 @@ class CameraSource {
   std::map<uint32_t, std::shared_ptr<TrackSource>> track_sources_;
 
   SnapshotCb client_snapshot_cb_;
-
-  SupportedCameras supported_cameras_;
 
   CameraExtraParam start_cam_param_;
 
