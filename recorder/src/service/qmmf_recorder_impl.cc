@@ -2254,6 +2254,9 @@ void RecorderImpl::CameraResultCb(uint32_t camera_id,
 
   QMMF_DEBUG("%s Enter camera_id(%u)", __func__, camera_id);
   assert(remote_cb_handle_ != nullptr);
+
+  std::lock_guard<std::mutex> lock(camera_map_lock_);
+
   auto client_ids = GetCameraClients(camera_id);
 
   for (auto const& client_id : client_ids) {
@@ -2266,6 +2269,9 @@ void RecorderImpl::CameraResultCb(uint32_t camera_id,
 void RecorderImpl::CameraErrorCb(RecorderErrorData &error) {
 
   assert(remote_cb_handle_ != nullptr);
+
+  std::lock_guard<std::mutex> lock(camera_map_lock_);
+
   auto client_ids = GetCameraClients(error.camera_id);
 
   for (auto const& client_id : client_ids) {
@@ -2414,7 +2420,6 @@ uint32_t RecorderImpl::GetServiceTrackId(const uint32_t& client_id,
 
 std::vector<uint32_t> RecorderImpl::GetCameraClients(const uint32_t& camera_id) {
 
-  std::lock_guard<std::mutex> lock(camera_map_lock_);
   std::vector<uint32_t> client_ids;
 
   for (auto const& client_cameras : client_cameraid_map_) {
