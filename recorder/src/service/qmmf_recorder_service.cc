@@ -41,6 +41,25 @@ RecorderService::RecorderService()
 
   QMMF_GET_LOG_LEVEL();
   QMMF_KPI_GET_MASK();
+
+  // Preload the recorder at bootup.
+  recorder_.reset(RecorderImpl::CreateRecorder());
+  if (!recorder_) {
+    QMMF_ERROR("%s: Can't create Recorder Instance!!", __func__);
+  } else {
+    std::function< const sp<RemoteCallBack>& (uint32_t id)>
+      remote_cb_handle = [&] (uint32_t id) {
+        QMMF_VERBOSE("%s: Client(%u): RemoteCallback request!", __func__, id);
+        assert(remote_cb_list_.count(id) != 0);
+        return remote_cb_list_[id];
+    };
+    auto ret = recorder_->Init(remote_cb_handle);
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s: Recorder Initialization failed!", __func__);
+      recorder_.reset();
+    }
+  }
+
   QMMF_INFO("%s: RecorderService Instantiated! ", __func__);
   QMMF_KPI_DETAIL();
 }
@@ -501,13 +520,13 @@ status_t RecorderService::Connect(const sp<IRecorderServiceCallback>&
     }
     std::function< const sp<RemoteCallBack>& (uint32_t id)>
       remote_cb_handle = [&] (uint32_t id) -> sp<RemoteCallBack>& {
-        QMMF_VERBOSE("%s: Remote Callback request for client(%d)", __func__, id);
+        QMMF_VERBOSE("%s: Client(%u): RemoteCallback request!", __func__, id);
         assert(remote_cb_list_.count(id) != 0);
         return remote_cb_list_[id];
     };
     auto ret = recorder_->Init(remote_cb_handle);
     if (ret != NO_ERROR) {
-      QMMF_ERROR("%s: Recorder Initialization failed!", __func__);
+      QMMF_ERROR("%s: Recorder initialization failed!", __func__);
       recorder_.reset();
       return ret;
     }
