@@ -33,12 +33,15 @@
 #include <sys/stat.h>
 #include <camera/CameraMetadata.h>
 #include <random>
+#include <unistd.h>
+#include <sys/prctl.h>
 
 #include "recorder/test/gtest/qmmf_recorder_gtest_common.h"
 
 using namespace qcamera;
 
 const std::string GtestCommon::kQmmfFolderPath = "/data/misc/qmmf/";
+const uint32_t GtestCommon::kSleepSetCameraInterval = 1;
 
 status_t DumpBitStream::SetUp(const StreamDumpInfo& dumpinfo) {
   TEST_DBG("%s: Enter", __func__);
@@ -436,6 +439,8 @@ void GtestCommon::SetUp() {
   camera_id_ = atoi(prop_val);
   property_get(PROP_RECORD_DURATION, prop_val, DEFAULT_RECORD_DURATION);
   record_duration_ = atoi(prop_val);
+  property_get(PROP_RECORD_DURATION_SLAVE, prop_val, DEFAULT_RECORD_DURATION);
+  slave_record_duration_ = atoi(prop_val);
   property_get(PROP_DUMP_THUMBNAIL, prop_val, "0");
   is_dump_thumb_enabled_ = (atoi(prop_val) == 0) ? false : true;
   property_get(PROP_BURST_N_IMAGES, prop_val, DEFAULT_BURST_COUNT);
@@ -472,6 +477,9 @@ void GtestCommon::SetUp() {
   camera_start_params_.zsl_height       = kZslHeight;
   camera_start_params_.frame_rate       = 30;
   camera_start_params_.flags            = 0x0;
+
+  cb_thread_ = nullptr;
+  master_is_running_ = false;
 
 #ifndef DISABLE_DISPLAY
   display_started_ = false;
@@ -606,6 +614,39 @@ void GtestCommon::CameraResultCallbackHandler(uint32_t camera_id,
   if (!result.exists(ANDROID_REQUEST_FRAME_COUNT)) {
     return;
   }
+}
+
+void GtestCommon::Thread() {
+
+  while (master_is_running_) {
+    CameraMetadata meta;
+    if (recorder_.GetCameraParam(camera_id_, meta) != NO_ERROR)
+      fprintf(stderr, "MetadataThread GetCameraParam error\n");
+
+    uint8_t controlMode = ANDROID_CONTROL_MODE_AUTO;
+    uint8_t aeMode = ANDROID_CONTROL_AE_MODE_ON;
+    uint8_t sceneMode = ANDROID_CONTROL_SCENE_MODE_DISABLED;
+    uint8_t antibandingMode = ANDROID_CONTROL_AE_ANTIBANDING_MODE_OFF;
+
+    if (meta.exists(ANDROID_CONTROL_MODE))
+      meta.update(ANDROID_CONTROL_MODE, &controlMode, 1);
+    if (meta.exists(ANDROID_CONTROL_SCENE_MODE))
+      meta.update(ANDROID_CONTROL_SCENE_MODE, &sceneMode, 1);
+    if (meta.exists(ANDROID_CONTROL_AE_MODE))
+      meta.update(ANDROID_CONTROL_AE_MODE, &aeMode, 1);
+    if (meta.exists(ANDROID_CONTROL_AE_ANTIBANDING_MODE))
+      meta.update(ANDROID_CONTROL_AE_ANTIBANDING_MODE, &antibandingMode, 1);
+
+    if (recorder_.SetCameraParam(camera_id_, meta) != NO_ERROR)
+      fprintf(stderr, "MetadataThread SetCameraParam error\n");
+
+    sleep(kSleepSetCameraInterval);
+  }
+}
+
+void GtestCommon::MetadataThreadEntry(GtestCommon * ptr) {
+  prctl(PR_SET_NAME, "MetadataTh", 0, 0, 0);
+  ptr->Thread();
 }
 
 void GtestCommon::VideoTrackYUVDataCb(uint32_t session_id, uint32_t track_id,
