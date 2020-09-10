@@ -687,13 +687,18 @@ status_t CameraRescalerMemPool::AllocHWMemBuffer(IBufferHandle &buf) {
 
   usage.flags |= IMemAllocUsage::kSwWriteOften | IMemAllocUsage::kSwReadOften;
   usage.flags |= IMemAllocUsage::kHwFb | IMemAllocUsage::kVideoEncoder;
-  usage.flags |= IMemAllocUsage::kPrivateAllocUbwc;
+
+  if (format == HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS_UBWC) {
+    usage.flags |= IMemAllocUsage::kPrivateAllocUbwc;
+  }
 
   if (is_eis_on_ || is_ldc_on_) {
     usage.flags &= ~ (IMemAllocUsage::kPrivateAllocUbwc);
-  } else {
-    // Remove the CPU read/write flags since they are confusing GBM
-    // when UBWC flag is set which causes the allocated buffer to be plain NV12
+  }
+
+  // Remove the CPU read/write flags since they are confusing GBM
+  // when UBWC flag is set which causes the allocated buffer to be plain NV12
+  if ((usage.flags | IMemAllocUsage::kPrivateAllocUbwc) != 0) {
     usage.flags &= ~(IMemAllocUsage::kSwWriteOften |
         IMemAllocUsage::kSwReadOften);
   }
