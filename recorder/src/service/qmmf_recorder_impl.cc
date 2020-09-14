@@ -172,26 +172,33 @@ status_t RecorderImpl::RegisterClient(const uint32_t client_id) {
 
   QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
 
-  std::lock_guard<std::mutex> session_lock(client_session_lock_);
-  if (client_session_map_.count(client_id) != 0) {
-    QMMF_WARN("%s: Client is already connected !!", __func__);
-    return NO_ERROR;
+  {
+    std::lock_guard < std::mutex > session_lock(client_session_lock_);
+    if (client_session_map_.count(client_id) != 0) {
+      QMMF_WARN("%s: Client is already connected !!", __func__);
+      return NO_ERROR;
+    }
+    client_session_map_.emplace(client_id, SessionTrackMap());
+    QMMF_INFO("%s: client_session_map_.size(%d)", __func__,
+        client_session_map_.size());
+
+    auto const& session_track_map = client_session_map_[client_id];
+    QMMF_INFO("%s: session_track_map.size(%d)", __func__,
+        session_track_map.size());
   }
-  client_session_map_.emplace(client_id, SessionTrackMap());
-  QMMF_INFO("%s: client_session_map_.size(%d)", __func__,
-      client_session_map_.size());
 
-  auto const& session_track_map = client_session_map_[client_id];
-  QMMF_INFO("%s: session_track_map.size(%d)", __func__,
-      session_track_map.size());
+  {
+    std::lock_guard < std::mutex > status_lock(client_state_lock_);
+    client_state_.emplace(client_id, ClientState::kAlive);
+  }
 
-  std::lock_guard<std::mutex> status_lock(client_state_lock_);
-  client_state_.emplace(client_id, ClientState::kAlive);
-  QMMF_INFO("%s: client_status_map_.size(%d)", __func__,
-      client_cameraid_map_.size());
+  {
+    std::lock_guard < std::mutex > camera_lock(camera_map_lock_);
+    client_cameraid_map_.emplace(client_id, std::map<uint32_t, bool>());
+    QMMF_INFO("%s: client_cameraid_map_.size(%d)", __func__,
+        client_cameraid_map_.size());
+  }
 
-  std::lock_guard<std::mutex> camera_lock(camera_map_lock_);
-  client_cameraid_map_.emplace(client_id, std::map<uint32_t, bool>());
   QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
   return NO_ERROR;
 }
