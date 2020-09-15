@@ -70,7 +70,7 @@ CameraContext::CameraContext()
     : camera_id_(-1),
       streaming_request_id_(-1),
       capture_request_id_(-1),
-      last_frame_number_(-1),
+      last_frame_number_(NO_IN_FLIGHT_REPEATING_FRAMES),
       capture_cnt_(0),
       result_cb_(nullptr),
       error_cb_(nullptr),
@@ -495,6 +495,8 @@ status_t CameraContext::CloseCamera(const uint32_t camera_id) {
   ret = camera_device_->WaitUntilIdle();
   assert(ret == NO_ERROR);
 
+  last_frame_number_ = NO_IN_FLIGHT_REPEATING_FRAMES;
+
   camera_device_.clear();
   camera_device_ = nullptr;
 
@@ -724,10 +726,22 @@ status_t CameraContext::CaptureImage(const uint32_t num_images,
 
     {
       std::unique_lock<std::mutex> lock(capture_lock_);
+      std::unique_lock<std::mutex> pending_frames_lock(pending_frames_lock_);
       cancel_capture_ = false;
       auto request_id = camera_device_->SubmitRequestList(requests,
                                                           streaming,
                                                           &last_frame_number);
+
+      QMMF_INFO("%s: last_frame_number: current=%lld previous=%lld", __func__,
+          last_frame_number, last_frame_number_);
+
+      // SubmitRequestList returns NO_IN_FLIGHT_REPEATING_FRAMES when there is
+      // no previous request or when previous request is not submitted to HAL
+      // yet.
+      if (last_frame_number != NO_IN_FLIGHT_REPEATING_FRAMES) {
+        last_frame_number_ = last_frame_number;
+      }
+
       assert(request_id >= 0);
       if (streaming) {
         streaming_request_id_ = request_id;
@@ -1135,7 +1149,6 @@ status_t CameraContext::SetCameraParam(const CameraMetadata &meta) {
   std::lock_guard<std::mutex> lock(device_access_lock_);
   if ((!streaming_active_requests_.empty()) &&
       (!streaming_active_requests_[0].metadata.isEmpty())) {
-    int64_t last_frame_mumber;
     std::list<Camera3Request> request_list;
     for (size_t i = 0; i < streaming_active_requests_.size(); i++) {
       Camera3Request &req = streaming_active_requests_[i];
@@ -1146,10 +1159,23 @@ status_t CameraContext::SetCameraParam(const CameraMetadata &meta) {
     // Submit request with updated camera meta data only if streaming is
     // started, if not then just update default meta data and leave it to
     // startSession -> startStream to submit request.
+    std::unique_lock<std::mutex> pending_frames_lock(pending_frames_lock_);
     if (streaming_request_id_ >= 0 &&
         snapshot_type_ != SnapshotMode::kContinuous) {
+      int64_t last_frame_number;
       auto ret = camera_device_->SubmitRequestList(request_list, true,
-                                                   &last_frame_mumber);
+                                                   &last_frame_number);
+
+      QMMF_INFO("%s: last_frame_number: current=%lld previous=%lld", __func__,
+          last_frame_number, last_frame_number_);
+
+      // SubmitRequestList returns NO_IN_FLIGHT_REPEATING_FRAMES when there is
+      // no previous request or when previous request is not submitted to HAL
+      // yet.
+      if (last_frame_number != NO_IN_FLIGHT_REPEATING_FRAMES) {
+        last_frame_number_ = last_frame_number;
+      }
+
       assert(ret >= 0);
       streaming_request_id_ = ret;
     }
@@ -1697,20 +1723,35 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
       });
     }
 
+    int64_t last_frame_number = NO_IN_FLIGHT_REPEATING_FRAMES;
     std::unique_lock<std::mutex> pending_frames_lock(pending_frames_lock_);
     auto req_id = camera_device_->SubmitRequestList(request_list, is_streaming,
-                                                    &last_frame_number_);
-    QMMF_INFO("%s: last_frame_number=%lld", __func__,
-        last_frame_number_);
+                                                    &last_frame_number);
+
+    QMMF_INFO("%s: last_frame_number: current=%lld previous=%lld", __func__,
+        last_frame_number, last_frame_number_);
+
+    // SubmitRequestList returns NO_IN_FLIGHT_REPEATING_FRAMES when there is no
+    // previous request or when previous request is not submitted to HAL yet.
+    // Because of that we have to use previous last_frame_number of any in such
+    // case. For example it could happen if SetCameraParam is called soon.
+    if (last_frame_number == NO_IN_FLIGHT_REPEATING_FRAMES) {
+      // use previous one
+      last_frame_number = last_frame_number_;
+    } else {
+      // store the current one
+      last_frame_number_ = last_frame_number;
+    }
+
     assert(req_id >= 0);
     streaming_request_id_ = req_id;
 
     for (auto const& stream_id : stream_ids) {
       // Update the last submitted frame number for each stream id.
       if (last_frame_number_map_.count(stream_id) != 0 &&
-          last_frame_number_ != NO_IN_FLIGHT_REPEATING_FRAMES) {
+          last_frame_number != NO_IN_FLIGHT_REPEATING_FRAMES) {
         // Request was submitted successfully since previous call, update.
-        last_frame_number_map_[stream_id] = last_frame_number_;
+        last_frame_number_map_[stream_id] = last_frame_number;
 
       } else if (last_frame_number_map_.count(stream_id) == 0) {
         // Newly initiated stream, request hasn't yet been submitted to HAL.
@@ -1779,8 +1820,9 @@ status_t CameraContext::CancelRequest() {
   }
   streaming_request_id_ = -1;
   capture_request_id_ = -1;
+  last_frame_number_ = NO_IN_FLIGHT_REPEATING_FRAMES;
   QMMF_INFO("%s: Request cancelled last frame number: %lld\n",
-      __func__, last_frame_mumber);
+            __func__, last_frame_mumber);
   return ret;
 }
 
@@ -1809,6 +1851,8 @@ status_t CameraContext::PauseActiveStreams(bool immedialtely) {
 
     ret = camera_device_->WaitUntilIdle();
     assert(ret == NO_ERROR);
+
+    last_frame_number_ = NO_IN_FLIGHT_REPEATING_FRAMES;
 
     // inform all active ports that streaming is interrupted
     for (auto const& it : active_ports_) {
