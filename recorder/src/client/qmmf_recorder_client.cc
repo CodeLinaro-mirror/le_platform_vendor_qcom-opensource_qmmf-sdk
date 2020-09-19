@@ -1009,6 +1009,15 @@ void RecorderClient::ImportBuffer(int32_t fd, int32_t metafd,
     height = bufdata.plane_info[0].height;
 
     switch (bufdata.format) {
+      case BufferFormat::kRAW10:
+        format = GBM_FORMAT_RAW10;
+        break;
+      case BufferFormat::kRAW12:
+        format = GBM_FORMAT_RAW12;
+        break;
+      case BufferFormat::kRAW16:
+        format = GBM_FORMAT_RAW16;
+        break;
       case BufferFormat::kNV12:
         format = GBM_FORMAT_NV12;
         break;

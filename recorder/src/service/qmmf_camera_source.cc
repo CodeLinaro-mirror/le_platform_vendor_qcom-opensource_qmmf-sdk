@@ -1831,7 +1831,7 @@ void TrackSource::ReturnBufferToProducer(StreamBuffer& buffer) {
       // Hold this buffer, do not return until its ref count is 1.
       uint32_t value = buffer_map_.at(buffer.handle);
       buffer_map_[buffer.handle] = --value;
-      if (num_consumers_ == 0) {
+      if (num_consumers_ == 0 && rescaler_.get() != nullptr) {
         stream_buffer_map_.erase(buffer.handle);
         buffer_consumer_impl_->GetProducerHandle()->NotifyBufferReturned(buffer);
         buffer_map_.erase(buffer.handle);

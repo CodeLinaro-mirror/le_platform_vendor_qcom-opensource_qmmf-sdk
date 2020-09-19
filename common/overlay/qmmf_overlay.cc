@@ -1350,18 +1350,7 @@ OverlayItem::OverlayItem(int32_t ion_device, OverlayType type)
 #endif // OVERLAY_OPEN_CL_BLIT
 
 OverlayItem::~OverlayItem() {
-
-  UnMapOverlaySurface(surface_);
-  FreeIonMemory(surface_.vaddr_, surface_.ion_fd_, surface_.size_);
-
-#if USE_CAIRO
-  if (cr_surface_) {
-    cairo_surface_destroy(cr_surface_);
-  }
-  if (cr_context_) {
-    cairo_destroy(cr_context_);
-  }
-#endif
+  DestroySurface();
 }
 
 void OverlayItem::MarkDirty(bool dirty) {
@@ -1526,6 +1515,23 @@ void OverlayItem::ClearSurface() {
 #endif
 }
 
+void OverlayItem::DestroySurface() {
+  OVDBG_VERBOSE("%s: Enter", __func__);
+  MarkDirty(true);
+  UnMapOverlaySurface(surface_);
+  FreeIonMemory(surface_.vaddr_, surface_.ion_fd_, surface_.size_);
+
+#if USE_CAIRO
+  if (cr_surface_) {
+    cairo_surface_destroy(cr_surface_);
+  }
+  if (cr_context_) {
+    cairo_destroy(cr_context_);
+  }
+#endif
+  OVDBG_VERBOSE("%s: Exit", __func__);
+}
+
 OverlayItemStaticImage::~OverlayItemStaticImage() {
   OVDBG_VERBOSE("%s: Enter", __func__);
   image_path_.clear();
@@ -1533,8 +1539,11 @@ OverlayItemStaticImage::~OverlayItemStaticImage() {
 }
 
 void OverlayItemStaticImage::DestroySurface() {
+    OVDBG_VERBOSE("%s: Enter", __func__);
+  MarkDirty(true);
   UnMapOverlaySurface(surface_);
   FreeIonMemory(surface_.vaddr_, surface_.ion_fd_, surface_.size_);
+  OVDBG_VERBOSE("%s: Exit", __func__);
 }
 
 int32_t OverlayItemStaticImage::Init(OverlayParam& param) {
@@ -1878,6 +1887,15 @@ OverlayItemDateAndTime::~OverlayItemDateAndTime() {
 int32_t OverlayItemDateAndTime::Init(OverlayParam& param) {
 
   OVDBG_VERBOSE("%s: Enter", __func__);
+
+  if (param.dst_rect.width <= 0 || param.dst_rect.height <= 0) {
+    return BAD_VALUE;
+  }
+
+  if (param.dst_rect.start_x < 0 || param.dst_rect.start_y < 0) {
+    return BAD_VALUE;
+  }
+
   location_type_ = param.location;
   text_color_    = param.color;
   x_             = param.dst_rect.start_x;
@@ -1885,16 +1903,24 @@ int32_t OverlayItemDateAndTime::Init(OverlayParam& param) {
   width_         = param.dst_rect.width;
   height_        = param.dst_rect.height;
   prev_time_     = 0;
+
   date_time_type_.date_format = param.date_time.date_format;
   date_time_type_.time_format = param.date_time.time_format;
 
-  if (param.dst_rect.width == 0 || param.dst_rect.height == 0) {
-    width_  = DATETIME_TEXT_BUF_WIDTH;
-    height_ = DATETIME_TEXT_BUF_HEIGHT;
+  // Create surface with the same aspect ratio
+  surface_.width_ = ROUND_TO(kCairoBufferMinWidth, 16);
+  surface_.height_ = kCairoBufferMinWidth * height_ / width_;
+
+  // Recalculate if surface height is less than minimum
+  if (surface_.height_ < kCairoBufferMinHeight) {
+    surface_.height_ = kCairoBufferMinHeight;
+    surface_.width_ = ROUND_TO(kCairoBufferMinHeight * width_ / height_, 16);
+    // recalculated height according to aligned width
+    surface_.height_ = surface_.width_ * height_ / width_;
   }
 
-  surface_.width_  = width_;
-  surface_.height_ = height_;
+  OVDBG_INFO("%s: Offscreen buffer:(%dx%d)",__func__, surface_.width_,
+      surface_.height_);
 
   auto ret = CreateSurface();
   if(ret != 0) {
@@ -1965,7 +1991,7 @@ int32_t OverlayItemDateAndTime::UpdateAndDraw() {
   ClearSurface();
   cairo_select_font_face(cr_context_, "@cairo:Georgia", CAIRO_FONT_SLANT_NORMAL,
                           CAIRO_FONT_WEIGHT_NORMAL);
-  cairo_set_font_size (cr_context_, DATETIME_PIXEL_SIZE);
+  cairo_set_font_size (cr_context_, kTextSize);
   cairo_set_antialias (cr_context_, CAIRO_ANTIALIAS_BEST);
   assert(CAIRO_STATUS_SUCCESS == cairo_status(cr_context_));
 
@@ -1992,8 +2018,8 @@ int32_t OverlayItemDateAndTime::UpdateAndDraw() {
   cairo_font_options_destroy (options);
 
   //(0,0) is at topleft corner of draw buffer.
-  y_date = height_/2.0; // height is buffer height.
-  y_date = std::max(y_date, date_text_extents.height - (font_extent.descent/2.0));
+  x_date = (surface_.width_ - date_text_extents.width) / 2.0;
+  y_date = std::max(surface_.height_ / 2.0, date_text_extents.height);
   OVDBG_VERBOSE("%s: x_date=%f, y_date=%f, ref=%f", __func__, x_date, y_date,
       date_text_extents.height - (font_extent.descent/2.0));
   cairo_move_to (cr_context_, x_date, y_date);
@@ -2017,10 +2043,10 @@ int32_t OverlayItemDateAndTime::UpdateAndDraw() {
       time_text_extents.width, time_text_extents.height,
       time_text_extents.x_advance, time_text_extents.y_advance);
   // Calculate the x_time to draw the time text extact middle of buffer.
-  // Use x_width which usally few pixel less than the width of the actual
+  // Use x_width which usually few pixel less than the width of the actual
   // drawn text.
-  x_time = (width_ - time_text_extents.width)/2.0; // width_ is buffer width.
-  y_time = y_date + (date_text_extents.height - (font_extent.descent/2));
+  x_time = (surface_.width_ - time_text_extents.width) / 2.0;
+  y_time = y_date + date_text_extents.height;
   cairo_move_to (cr_context_, x_time, y_time);
   cairo_show_text (cr_context_, time_buf);
   assert(CAIRO_STATUS_SUCCESS == cairo_status(cr_context_));
@@ -2043,12 +2069,12 @@ int32_t OverlayItemDateAndTime::UpdateAndDraw() {
 
   SkPaint paint;
   paint.setColor(text_color_);
-  paint.setTextSize(SkIntToScalar(DATETIME_PIXEL_SIZE));
+  paint.setTextSize(SkIntToScalar(kTextSize));
   paint.setAntiAlias(false);
   paint.setTextScaleX(1);
 
   SkString dateText(data_time_buf.c_str(), data_time_buf.size());
-  y_date = DATETIME_TEXT_BUF_HEIGHT - DATETIME_PIXEL_SIZE;
+  y_date = DATETIME_TEXT_BUF_HEIGHT - kTextSize;
   canvas_->drawText(dateText.c_str(), dateText.size(), x_date, y_date, paint);
   canvas_->flush();
 #endif
@@ -2066,8 +2092,8 @@ void OverlayItemDateAndTime::GetDrawInfo(uint32_t targetWidth,
   DrawInfo draw_info;
   memset(&draw_info, 0x0, sizeof(DrawInfo));
 
-  draw_info.width  = targetWidth * DATETIME_TARGET_WIDTH_PERCENT/100;
-  draw_info.height = targetHeight * DATETIME_TARGET_HEIGHT_PERCENT/100;
+  draw_info.width  = width_;
+  draw_info.height = height_;
 
   int32_t xMargin = targetWidth * OVERLAYITEM_X_MARGIN_PERCENT/100;
   int32_t yMargin = targetHeight * OVERLAYITEM_Y_MARGIN_PERCENT/100;
@@ -2102,6 +2128,8 @@ void OverlayItemDateAndTime::GetDrawInfo(uint32_t targetWidth,
       break;
     case OverlayLocationType::kNone:
     default:
+      x = x_;
+      y = y_;
       break;
   }
   draw_info.x            = x;
@@ -2135,18 +2163,51 @@ int32_t OverlayItemDateAndTime::UpdateParameters(OverlayParam& param) {
 
   OVDBG_VERBOSE("%s:Enter ",__func__);
   int32_t ret = 0;
+
+  if (param.dst_rect.width <= 0 || param.dst_rect.height <= 0) {
+    return BAD_VALUE;
+  }
+
+  if (param.dst_rect.start_x < 0 || param.dst_rect.start_y < 0) {
+    return BAD_VALUE;
+  }
+
   location_type_ = param.location;
   text_color_    = param.color;
   x_             = param.dst_rect.start_x;
   y_             = param.dst_rect.start_y;
-  width_         = param.dst_rect.width;
-  height_        = param.dst_rect.height;
-
-  surface_.width_  = width_;
-  surface_.height_ = height_;
 
   date_time_type_.date_format = param.date_time.date_format;
   date_time_type_.time_format = param.date_time.time_format;
+
+  if (width_ != param.dst_rect.width || height_ != param.dst_rect.height) {
+    width_ = param.dst_rect.width;
+    height_ = param.dst_rect.height;
+    prev_time_ = 0;
+
+    // Create surface with the same aspect ratio
+    surface_.width_ = ROUND_TO(kCairoBufferMinWidth, 16);
+    surface_.height_ = kCairoBufferMinWidth * height_ / width_;
+
+    // Recalculate if surface height is less than minimum
+    if (surface_.height_ < kCairoBufferMinHeight) {
+      surface_.height_ = kCairoBufferMinHeight;
+      surface_.width_ = ROUND_TO(kCairoBufferMinHeight * width_ / height_, 16);
+      // recalculated height according to aligned width
+      surface_.height_ = surface_.width_ * height_ / width_;
+    }
+
+    OVDBG_INFO("%s: New Offscreen buffer:(%dx%d)",__func__, surface_.width_,
+        surface_.height_);
+
+    DestroySurface();
+    ret = CreateSurface();
+    if (ret != 0) {
+      OVDBG_ERROR("%s: CreateSurface failed!", __func__);
+      return ret;
+    }
+  }
+
   OVDBG_VERBOSE("%s:Exit ",__func__);
   return ret;
 }
@@ -2243,19 +2304,7 @@ OverlayItemBoundingBox::OverlayItemBoundingBox(int32_t ion_device)
 
 OverlayItemBoundingBox::~OverlayItemBoundingBox() {
   OVDBG_INFO("%s: Enter", __func__);
-  bbox_name_.clear();
-#if USE_CAIRO
-  UnMapOverlaySurface(text_surface_);
-  FreeIonMemory(text_surface_.vaddr_, text_surface_.ion_fd_,
-      text_surface_.size_);
-
-  if (text_cr_surface_) {
-    cairo_surface_destroy(text_cr_surface_);
-  }
-  if (text_cr_context_) {
-    cairo_destroy(text_cr_context_);
-  }
-#endif
+  DestroyTextSurface();
   OVDBG_INFO("%s: Exit", __func__);
 }
 
@@ -2330,6 +2379,7 @@ int32_t OverlayItemBoundingBox::UpdateAndDraw() {
 
 
   SyncStart(surface_.ion_fd_);
+  SyncStart(text_surface_.ion_fd_);
 #if USE_CAIRO
   OVDBG_INFO("%s: Draw bounding box and text!", __func__);
   ClearSurface();
@@ -2426,6 +2476,7 @@ int32_t OverlayItemBoundingBox::UpdateAndDraw() {
   }
 #endif
   SyncEnd(surface_.ion_fd_);
+  SyncEnd(text_surface_.ion_fd_);
   MarkDirty(false);
   OVDBG_VERBOSE("%s: Exit", __func__);
   return ret;
@@ -2451,10 +2502,11 @@ void OverlayItemBoundingBox::GetDrawInfo(uint32_t targetWidth,
 #if USE_CAIRO
   DrawInfo draw_info_text;
   memset(&draw_info_text, 0x0, sizeof(DrawInfo));
-  draw_info_text.x = x_ + box_stroke_width_+ 4;
-  draw_info_text.y = y_ + (box_stroke_width_ / 2);
-  draw_info_text.width = targetWidth * TEXT_TARGET_WIDTH_PERCENT / 100;
-  draw_info_text.height = targetHeight * TEXT_TARGET_HEIGHT_PERCENT / 100;
+  draw_info_text.x = x_ + kTextMargin;
+  draw_info_text.y = y_ + kTextMargin;
+  draw_info_text.width = (targetWidth * kTextPercent) / 100;
+  draw_info_text.height =
+      (draw_info_text.width * text_surface_.height_) / text_surface_.width_;
 #ifdef OVERLAY_OPEN_CL_BLIT
   draw_info_text.mask = text_surface_.cl_buffer_;
   draw_info_text.blit_inst  = text_surface_.blit_inst_;
@@ -2525,7 +2577,13 @@ int32_t OverlayItemBoundingBox::UpdateParameters(OverlayParam& param) {
 
   if (surface_.height_ != ROUND_TO((surface_.width_ * height_) / width_, 2)) {
     surface_.height_ = ROUND_TO((surface_.width_ * height_) / width_, 2);
-    MarkDirty(true);
+    DestroySurface();
+    DestroyTextSurface();
+    ret = CreateSurface();
+    if (ret != 0) {
+      OVDBG_ERROR("%s: CreateSurface failed!", __func__);
+      return ret;
+    }
   }
 
 #if USE_CAIRO
@@ -2648,9 +2706,24 @@ ERROR:
   return ret;
 }
 
+void OverlayItemBoundingBox::DestroyTextSurface() {
+  bbox_name_.clear();
+#if USE_CAIRO
+  UnMapOverlaySurface(text_surface_);
+  FreeIonMemory(text_surface_.vaddr_, text_surface_.ion_fd_,
+    text_surface_.size_);
+
+  if (text_cr_surface_) {
+    cairo_surface_destroy(text_cr_surface_);
+  }
+  if (text_cr_context_) {
+    cairo_destroy(text_cr_context_);
+  }
+#endif
+}
+
 OverlayItemText::~OverlayItemText() {
   OVDBG_VERBOSE("%s:Enter ", __func__);
-  text_.clear();
   OVDBG_VERBOSE("%s:Exit ", __func__);
 }
 
@@ -2658,22 +2731,28 @@ int32_t OverlayItemText::Init(OverlayParam& param) {
 
   OVDBG_VERBOSE("%s: Enter", __func__);
 
+  if (param.dst_rect.width <= 0 || param.dst_rect.height <= 0) {
+    return BAD_VALUE;
+  }
+
+  if (param.dst_rect.start_x < 0 || param.dst_rect.start_y < 0) {
+    return BAD_VALUE;
+  }
+
   location_type_ = param.location;
   text_color_    = param.color;
   x_             = param.dst_rect.start_x;
   y_             = param.dst_rect.start_y;
   width_         = param.dst_rect.width;
   height_        = param.dst_rect.height;
+  text_          = param.user_text;
 
-  text_.setTo(param.user_text, strlen(param.user_text) + 1);
+  surface_.width_ = std::max(kCairoBufferMinWidth, width_);
+  surface_.width_ = ROUND_TO(surface_.width_, 16);
+  surface_.height_ = std::max(kCairoBufferMinHeight, height_);
 
-  if (param.dst_rect.width == 0 || param.dst_rect.height == 0) {
-    width_  = TEXT_BUF_WIDTH;
-    height_ = TEXT_BUF_HEIGHT;
-  }
-
-  surface_.width_  = width_;
-  surface_.height_ = height_;
+  OVDBG_INFO("%s: Offscreen buffer:(%dx%d)",__func__, surface_.width_,
+      surface_.height_);
 
   auto ret = CreateSurface();
   if(ret != 0) {
@@ -2695,9 +2774,8 @@ int32_t OverlayItemText::UpdateAndDraw() {
   SyncStart(surface_.ion_fd_);
 
   // Split the Text based on new line character.
-  string input(text_.string());
   vector < string > res;
-  stringstream ss(input); // Turn the string into a stream.
+  stringstream ss(text_); // Turn the string into a stream.
   string tok;
   while (getline(ss, tok, '\n')) {
     OVDBG_INFO("%s: UserText:: Substring: %s", __func__, tok.c_str());
@@ -2708,7 +2786,7 @@ int32_t OverlayItemText::UpdateAndDraw() {
   ClearSurface();
   cairo_select_font_face(cr_context_, "@cairo:Georgia", CAIRO_FONT_SLANT_NORMAL,
                           CAIRO_FONT_WEIGHT_NORMAL);
-  cairo_set_font_size (cr_context_, TEXT_SIZE);
+  cairo_set_font_size (cr_context_, kTextSize);
   cairo_set_antialias (cr_context_, CAIRO_ANTIALIAS_BEST);
   assert(CAIRO_STATUS_SUCCESS == cairo_status(cr_context_));
 
@@ -2720,7 +2798,7 @@ int32_t OverlayItemText::UpdateAndDraw() {
        font_extent.max_y_advance);
 
   cairo_text_extents_t text_extents;
-  cairo_text_extents (cr_context_, text_.string(), &text_extents);
+  cairo_text_extents (cr_context_, text_.c_str(), &text_extents);
 
   OVDBG_VERBOSE("%s: Custom text: te.x_bearing=%f, te.y_bearing=%f,"
       " te.width=%f, te.height=%f, te.x_advance=%f, te.y_advance=%f", __func__,
@@ -2763,7 +2841,7 @@ int32_t OverlayItemText::UpdateAndDraw() {
 
   SkPaint paint;
   paint.setColor(text_color_);
-  paint.setTextSize(SkIntToScalar(TEXT_SIZE));
+  paint.setTextSize(SkIntToScalar(kTextSize));
   paint.setAntiAlias(true);
 
   int32_t x = 0;
@@ -2789,8 +2867,9 @@ void OverlayItemText::GetDrawInfo(uint32_t targetWidth,
   OVDBG_VERBOSE("%s: Enter", __func__);
   DrawInfo draw_info;
   memset(&draw_info, 0x0, sizeof(DrawInfo));
-  draw_info.width  = targetWidth * TEXT_TARGET_WIDTH_PERCENT/100;
-  draw_info.height = targetHeight * TEXT_TARGET_HEIGHT_PERCENT/100;
+
+  draw_info.width  = width_;
+  draw_info.height = height_;
 
   int32_t xMargin = targetWidth * OVERLAYITEM_X_MARGIN_PERCENT/100;
   int32_t yMargin = targetHeight * OVERLAYITEM_Y_MARGIN_PERCENT/100;
@@ -2852,28 +2931,58 @@ void OverlayItemText::GetParameters(OverlayParam& param) {
   param.dst_rect.start_y = y_;
   param.dst_rect.width   = width_;
   param.dst_rect.height  = height_;
-  std::string str(text_.string());
-  str.copy(param.user_text, text_.length());
-  OVDBG_VERBOSE("%s:Exit ",__func__);
+  int size = std::min(text_.length(), sizeof(param.user_text) - 1);
+  text_.copy(param.user_text, size);
+  param.user_text[size + 1] = '\0';
+  OVDBG_VERBOSE("%s:Exit ", __func__);
 }
 
 int32_t OverlayItemText::UpdateParameters(OverlayParam& param) {
 
   OVDBG_VERBOSE("%s:Enter ",__func__);
   int32_t ret = 0;
+
+  if (param.dst_rect.width <= 0 || param.dst_rect.height <= 0) {
+    return BAD_VALUE;
+  }
+
+  if (param.dst_rect.start_x < 0 || param.dst_rect.start_y < 0) {
+    return BAD_VALUE;
+  }
+
   location_type_ = param.location;
-  text_color_    = param.color;
   x_             = param.dst_rect.start_x;
   y_             = param.dst_rect.start_y;
-  width_         = param.dst_rect.width;
-  height_        = param.dst_rect.height;
 
-  surface_.width_  = width_;
-  surface_.height_ = height_;
+  if (width_ != param.dst_rect.width || height_ != param.dst_rect.height) {
+    width_ = param.dst_rect.width;
+    height_ = param.dst_rect.height;
 
-  text_.clear();
-  text_.setTo(param.user_text, strlen(param.user_text) + 1);
-  MarkDirty(true);
+    surface_.width_ = std::max(kCairoBufferMinWidth, width_);
+    surface_.width_ = ROUND_TO(surface_.width_, 16);
+    surface_.height_ = std::max(kCairoBufferMinHeight, height_);
+
+    OVDBG_INFO("%s: New Offscreen buffer:(%dx%d)",__func__, surface_.width_,
+        surface_.height_);
+
+    DestroySurface();
+    ret = CreateSurface();
+    if (ret != 0) {
+      OVDBG_ERROR("%s: CreateSurface failed!", __func__);
+      return ret;
+    }
+  }
+
+  if (text_color_ != param.color) {
+    text_color_ = param.color;
+    MarkDirty(true);
+  }
+
+  if (text_.compare(param.user_text)) {
+    text_ = param.user_text;
+    MarkDirty(true);
+  }
+
   OVDBG_VERBOSE("%s:Exit ",__func__);
   return ret;
 }

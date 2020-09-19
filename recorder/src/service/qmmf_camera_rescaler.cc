@@ -61,7 +61,11 @@ CameraRescalerBase::CameraRescalerBase()
   QMMF_INFO("%s: Enter", __func__);
   char prop[PROPERTY_VALUE_MAX];
   memset(prop, 0, sizeof(prop));
+#ifdef ENABLE_RESCALER_NEON
   property_get("persist.qmmf.rescaler.type", prop, "Neon");
+#else
+  property_get("persist.qmmf.rescaler.type", prop, "C2D");
+#endif
   std::string name = prop;
 #ifndef CAMERA_HAL1_SUPPORT
   if (name == "Neon") {
