@@ -222,6 +222,17 @@ status_t RecorderImpl::DeRegisterClient(const uint32_t client_id,
       client_cameraid_map_.erase(client_id);
     }
     return NO_ERROR;
+  } else {
+    // Force cancel capture image in case of force cleanup
+    auto const& cameras = client_cameraid_map_[client_id];
+    for (auto camera : cameras) {
+      auto camera_id = camera.first;
+      ret = camera_source_->CancelCaptureImage(camera_id, true);
+      if (ret != NO_ERROR) {
+        QMMF_ERROR("%s: CancelCaptureImage failed for camera_id %d",
+            __func__, camera_id);
+      }
+    }
   }
 
   // This is the case when client is dead before releasing its acquired

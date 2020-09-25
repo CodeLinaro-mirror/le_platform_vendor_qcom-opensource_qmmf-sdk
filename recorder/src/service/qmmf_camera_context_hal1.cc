@@ -674,11 +674,20 @@ status_t CameraContext::ConfigImageCapture(const ImageConfigParam &config) {
   return NO_ERROR;
 }
 
-status_t CameraContext::CancelCaptureImage() {
+status_t CameraContext::CancelCaptureImage(bool is_force_cleanup) {
 
   // todo wait until image capture is done
-
-  return NO_ERROR;
+  QMMF_DEBUG("%s: Enter", __func__);
+  status_t ret = NO_ERROR;
+  if (is_force_cleanup) {
+    for (int i = 0; i < snapshot_buffer_list_.size(); i++) {
+      auto entry = snapshot_buffer_list_.begin();
+      ret = ReturnImageCaptureBuffer(0, entry->first);
+      assert(ret == NO_ERROR);
+    }
+  }
+  QMMF_DEBUG("%s: Exit", __func__);
+  return ret;
 }
 
 status_t CameraContext::CreateStream(const StreamParam& param,

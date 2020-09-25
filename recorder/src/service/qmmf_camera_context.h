@@ -113,7 +113,7 @@ class CameraContext : public CameraInterface {
 
   status_t ConfigImageCapture(const ImageConfigParam &config) override;
 
-  status_t CancelCaptureImage() override;
+  status_t CancelCaptureImage(bool is_force_cleanup) override;
 
   status_t CreateStream(const StreamParam& param,
                         const VideoExtraParam& extra_param) override;

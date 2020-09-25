@@ -847,31 +847,40 @@ status_t CameraContext::ConfigImageCapture(const ImageConfigParam &config) {
   return NO_ERROR;
 }
 
-status_t CameraContext::CancelCaptureImage() {
+status_t CameraContext::CancelCaptureImage(bool is_force_cleanup) {
 
   QMMF_INFO("%s: Enter", __func__);
-
-  if (snapshot_type_ == SnapshotMode::kZsl) {
-    auto ret = StopZSL();
-    assert(ret == NO_ERROR);
-
-    // After cancel image capture snapshot mode is not ZSL anymore.
-    // Switch mode to default.
-    snapshot_type_ = SnapshotMode::kStill;
-  } else if (!snapshot_request_.streamIds.empty()) {
-    {
-      std::unique_lock<std::mutex> lock(capture_lock_);
-      cancel_capture_ = true;
+  status_t ret = NO_ERROR;
+  if (is_force_cleanup) {
+    QMMF_INFO("%s: Return all image capture buffers", __func__);
+    for (int i = 0; i < snapshot_buffer_list_.size(); i++) {
+      auto entry = snapshot_buffer_list_.begin();
+      ret = ReturnImageCaptureBuffer(0, entry->first);
+      assert(ret == NO_ERROR);
     }
+  } else {
+    if (snapshot_type_ == SnapshotMode::kZsl) {
+      auto ret = StopZSL();
+      assert(ret == NO_ERROR);
 
-    continuous_mode_is_on = false;
-    PauseActiveStreams();
-    DeleteSnapshotStream();
-    ResumeActiveStreams();
+      // After cancel image capture snapshot mode is not ZSL anymore.
+      // Switch mode to default.
+      snapshot_type_ = SnapshotMode::kStill;
+    } else if (!snapshot_request_.streamIds.empty()) {
+      {
+        std::unique_lock<std::mutex> lock(capture_lock_);
+        cancel_capture_ = true;
+      }
+
+      continuous_mode_is_on = false;
+      PauseActiveStreams();
+      DeleteSnapshotStream();
+      ResumeActiveStreams();
+    }
   }
 
   QMMF_INFO("%s: Exit", __func__);
-  return NO_ERROR;
+  return ret;
 }
 
 void CameraContext::RestoreBatchStreamId(std::shared_ptr<CameraPort>& port) {
@@ -1209,6 +1218,7 @@ status_t CameraContext::GetCameraCharacteristics(CameraMetadata &meta) {
 status_t CameraContext::ReturnImageCaptureBuffer(const uint32_t camera_id,
                                                  const int32_t buffer_id) {
 
+  std::lock_guard<std::mutex> lock(device_access_lock_);
   QMMF_DEBUG("%s: Enter", __func__);
   if (snapshot_buffer_list_.find(buffer_id) == snapshot_buffer_list_.end()) {
     QMMF_ERROR("%s: buffer_id(%u) is not valid!!", __func__, buffer_id);

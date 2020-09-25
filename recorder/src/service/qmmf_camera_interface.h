@@ -125,7 +125,7 @@ class CameraInterface {
 
   /// Abort ongoing Image Capture. This blocking API and returns when
   /// image capture is stopped and all buffers are returned
-  virtual status_t CancelCaptureImage() = 0;
+  virtual status_t CancelCaptureImage(bool is_force_cleanup) = 0;
 
   /// Create stream
   virtual status_t CreateStream(const StreamParam& param,
