@@ -1242,7 +1242,9 @@ status_t CameraContext::StartStream(const uint32_t track_id) {
 
 status_t CameraContext::StopStream(const uint32_t track_id) {
 
-  QMMF_DEBUG("%s: Enter", __func__);
+  QMMF_DEBUG("%s: Enter: track_id: %u", __func__, track_id);
+
+  std::lock_guard<std::mutex> lock(stop_stream_lock_);
   auto port = GetPort(track_id);
   if (!port) {
     QMMF_ERROR("%s: Invalid track_id(%x)", __func__, track_id);
