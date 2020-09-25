@@ -110,6 +110,8 @@ class CameraContext : public CameraInterface {
 
   status_t GetCameraCharacteristics(CameraMetadata &meta) override;
 
+  status_t ReturnAllImageCaptureBuffers() override;
+
   status_t ReturnImageCaptureBuffer(const uint32_t camera_id,
                                     const int32_t buffer_id) override;
 

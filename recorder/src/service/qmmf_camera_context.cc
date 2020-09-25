@@ -1198,9 +1198,23 @@ status_t CameraContext::GetCameraCharacteristics(CameraMetadata &meta) {
   return NO_ERROR;
 }
 
+status_t CameraContext::ReturnAllImageCaptureBuffers() {
+
+  QMMF_DEBUG("%s: Enter", __func__);
+  status_t ret = NO_ERROR;
+  for (int i = 0; i < snapshot_buffer_list_.size(); i++) {
+    auto entry = snapshot_buffer_list_.begin();
+    ret = ReturnImageCaptureBuffer(0, entry->first);
+    assert(ret == NO_ERROR);
+  }
+  QMMF_DEBUG("%s: Exit", __func__);
+  return ret;
+}
+
 status_t CameraContext::ReturnImageCaptureBuffer(const uint32_t camera_id,
                                                  const int32_t buffer_id) {
 
+  std::lock_guard<std::mutex> lock(device_access_lock_);
   QMMF_DEBUG("%s: Enter", __func__);
   if (snapshot_buffer_list_.find(buffer_id) == snapshot_buffer_list_.end()) {
     QMMF_ERROR("%s: buffer_id(%u) is not valid!!", __func__, buffer_id);
