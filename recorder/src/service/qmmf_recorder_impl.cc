@@ -765,6 +765,20 @@ status_t RecorderImpl::StopSession(const uint32_t client_id,
   QMMF_INFO("%s: client_id(%d):session_id(%d), number of tracks(%d) to stop",
       __func__, client_id, session_id, tracks_in_session.size());
 
+  // Return all image capture buffers in case of force cleanup
+  if (is_force_cleanup) {
+    auto const& cameras = client_cameraid_map_[client_id];
+    for (auto camera : cameras) {
+      auto camera_id = camera.first;
+      ret = camera_source_->
+          ReturnAllImageCaptureBuffers(camera_id);
+      if (ret != NO_ERROR) {
+        QMMF_ERROR("%s: ReturnAllImageCaptureBuffers failed for camera_id %d",
+            __func__, camera_id);
+      }
+    }
+  }
+
   // All the tracks associated to one session are stopped together.
   auto track = tracks_in_session.rbegin();
   while (track != tracks_in_session.rend()) {
