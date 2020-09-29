@@ -2247,6 +2247,11 @@ void CameraContext::CameraErrorCb(CameraErrorCode error_code,
       pending_frames_.Signal();
       break;
     }
+    case ERROR_CAMERA_RESULT: {
+      QMMF_WARN("%s: An error has occurred in producing an output result"
+          " metadata buffer for frame: %u ", __func__, result.frameNumber);
+      break;
+    }
     default:
       QMMF_WARN("%s: Camera: %d, Error %d won't be handled by CameraContext!",
           __func__, camera_id_, error_code);
