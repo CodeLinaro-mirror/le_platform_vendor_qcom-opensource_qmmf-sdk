@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -92,11 +92,6 @@ struct VideoTrackParams {
   VideoExtraParam        extra_param;
   uint32_t               track_id;
   buffer_callback        data_cb;
-  bool                   slave_client;
-
-  VideoTrackParams() :
-    params( { }), extra_param( { }), track_id(0), data_cb(nullptr),
-    slave_client(false) { }
 };
 
 struct AudioTrackParams {

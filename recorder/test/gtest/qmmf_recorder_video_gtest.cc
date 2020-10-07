@@ -645,7 +645,7 @@ TEST_F(VideoGtest, SlavemodeSessionWith480pYuvTrack) {
   // Random number generator.
   std::random_device rdev;
   std::mt19937 rgen(rdev());
-  std::uniform_int_distribution<int32_t> idist(1,15);
+  std::uniform_int_distribution<int32_t> idist(5,10);
 
   for(uint32_t i = 1; i <= iteration_count_; i++) {
     fprintf(stderr,"test iteration = %d/%d\n", i, iteration_count_);
@@ -659,6 +659,11 @@ TEST_F(VideoGtest, SlavemodeSessionWith480pYuvTrack) {
     ASSERT_TRUE(ret == NO_ERROR);
     VideoTrackCreateParam video_track_param{camera_id_, format_type,
                                             width, height, 30};
+
+    if (ubwc_stream_enable_) {
+      video_track_param.low_power_mode = true;
+    }
+
     uint32_t video_track_id = 1;
 
     TrackCb video_track_cb;
@@ -15634,6 +15639,713 @@ TEST_F(VideoGtest,
 
   ret = DeInit();
   ASSERT_TRUE(ret == NO_ERROR);
+
+  fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+* SilentMasterWithPrimaryCamera:
+* This test will test open a camera 0 and sitting silent.
+* API test sequence:
+*  - StartCamera
+*  - StopCamera
+*/
+
+TEST_F(VideoGtest, SilentMasterWithPrimaryCamera) {
+  fprintf(stderr, "\n---------- Run Test %s.%s ------------\n",
+          test_info_->test_case_name(), test_info_->name());
+
+  auto ret = Init();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  TEST_INFO("%s: Running Test(%s)", __func__, test_info_->name());
+
+  sleep(record_duration_);
+
+  ret = recorder_.StopCamera(camera_id_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = DeInit();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+* SilentMasterWithSecondaryCamera:
+* This test will test open a camera 1 and sitting silent.
+* API test sequence:
+*  - StartCamera
+*  - StopCamera
+*/
+
+TEST_F(VideoGtest, SilentMasterWithSecondaryCamera) {
+  fprintf(stderr, "\n---------- Run Test %s.%s ------------\n",
+          test_info_->test_case_name(), test_info_->name());
+
+  auto ret = Init();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  camera_id_ = 1;
+
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  TEST_INFO("%s: Running Test(%s)", __func__, test_info_->name());
+
+  sleep(record_duration_);
+
+  ret = recorder_.StopCamera(camera_id_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = DeInit();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
+}
+
+
+/*
+* SessionWith720pAVCTrackSlaveModeWithPrimaryCamera:
+* This will test session with 720p AVC track in slave mode for camera 0.
+* API test sequence:
+*  - StartCamera
+*  - CreateSession
+*  - CreateVideoTrack -  720p AVC
+*  - StartSession
+*  - StopSession
+*  - DeleteVideoTrack -  720p AVC
+*  - DeleteSession
+*  - StopCamera
+*/
+
+TEST_F(VideoGtest, SessionWith720pAVCTrackSlaveModeWithPrimaryCamera) {
+  fprintf(stderr, "\n---------- Run Test %s.%s ------------\n",
+          test_info_->test_case_name(), test_info_->name());
+
+  VideoFormat format_type = VideoFormat::kAVC;
+  uint32_t width = 1280;
+  uint32_t height = 720;
+  uint32_t video_track_id = 1;
+
+  camera_start_params_.flags |= kCameraSlaveMode;
+
+  for (uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
+              test_info_->name(), i);
+
+    auto ret = Init();
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+    if (ret == -ENOENT) {
+      // Wait for a master client to open the camera.
+      std::unique_lock<std::mutex> lk(camera_state_lock_);
+      std::chrono::milliseconds timeout(10000);
+
+      camera_state_updated_.wait_for(lk, timeout, [&]() {
+        return (camera_state_[camera_id_] == GtestCameraState::kOpened);
+      });
+      ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
+    SessionCb session_status_cb = CreateSessionStatusCb();
+
+    uint32_t session_id;
+    ret = recorder_.CreateSession(session_status_cb, &session_id);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo1 = {format_type, session_id, video_track_id,
+                                  width, height};
+      ret = dump_bitstream_.SetUp(dumpinfo1);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
+    VideoTrackCreateParam video_track_param{camera_id_, format_type, width,
+                                            height, 30};
+
+    if (ubwc_stream_enable_) {
+      video_track_param.low_power_mode = true;
+    }
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&, session_id](
+        uint32_t track_id, std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
+    };
+
+    video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
+                                  void *event_data, size_t event_data_size) {
+      VideoTrackEventCb(track_id, event_type, event_data, event_data_size);
+    };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                     video_track_param, video_track_cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    std::vector<uint32_t> track_ids;
+    track_ids.push_back(video_track_id);
+    sessions_.emplace(session_id, track_ids);
+
+    ret = recorder_.StartSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    // Let session run slave_record_duration_ sec or until signaled by the
+    // master camera client to close camera.
+    {
+      std::unique_lock<std::mutex> lk(camera_state_lock_);
+      std::chrono::milliseconds timeout(slave_record_duration_ * 1000);
+
+      camera_state_updated_.wait_for(lk, timeout, [&]() {
+        return (camera_state_[camera_id_] == GtestCameraState::kClosing);
+      });
+    }
+
+    ret = recorder_.StopSession(session_id, false);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    sessions_.erase(session_id);
+
+    ClearSessions();
+    dump_bitstream_.CloseAll();
+
+    ret = recorder_.StopCamera(camera_id_);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = DeInit();
+    ASSERT_TRUE(ret == NO_ERROR);
+  }
+
+  fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
+}
+
+
+/*
+* SessionWith1080pAVCTrackSlaveModeWithPrimaryCamera:
+* This will test session with 1080p AVC track in slave mode for camera 0.
+* API test sequence:
+*  - StartCamera
+*  - CreateSession
+*  - CreateVideoTrack -  1080p AVC
+*  - StartSession
+*  - StopSession
+*  - DeleteVideoTrack -  1080p AVC
+*  - DeleteSession
+*  - StopCamera
+*/
+
+TEST_F(VideoGtest, SessionWith1080pAVCTrackSlaveModeWithPrimaryCamera) {
+  fprintf(stderr, "\n---------- Run Test %s.%s ------------\n",
+          test_info_->test_case_name(), test_info_->name());
+
+  VideoFormat format_type = VideoFormat::kAVC;
+  uint32_t width = 1920;
+  uint32_t height = 1080;
+
+  uint32_t video_track_id = 1;
+
+  camera_start_params_.flags |= kCameraSlaveMode;
+
+  for (uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
+              test_info_->name(), i);
+
+    auto ret = Init();
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+    if (ret == -ENOENT) {
+      // Wait for a master client to open the camera.
+      std::unique_lock<std::mutex> lk(camera_state_lock_);
+      std::chrono::milliseconds timeout(10000);
+
+      camera_state_updated_.wait_for(lk, timeout, [&]() {
+        return (camera_state_[camera_id_] == GtestCameraState::kOpened);
+      });
+      ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
+    SessionCb session_status_cb = CreateSessionStatusCb();
+
+    uint32_t session_id;
+    ret = recorder_.CreateSession(session_status_cb, &session_id);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo1 = {format_type, session_id, video_track_id,
+                                  width, height};
+      ret = dump_bitstream_.SetUp(dumpinfo1);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
+    VideoTrackCreateParam video_track_param{camera_id_, format_type, width,
+                                            height, 30};
+
+    if (ubwc_stream_enable_) {
+      video_track_param.low_power_mode = true;
+    }
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&, session_id](
+        uint32_t track_id, std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
+    };
+
+    video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
+                                  void *event_data, size_t event_data_size) {
+      VideoTrackEventCb(track_id, event_type, event_data, event_data_size);
+    };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                     video_track_param, video_track_cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    std::vector<uint32_t> track_ids;
+    track_ids.push_back(video_track_id);
+    sessions_.emplace(session_id, track_ids);
+
+    ret = recorder_.StartSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    // Let session run slave_record_duration_ or until signaled by the
+    // master camera client to close camera.
+    {
+      std::unique_lock<std::mutex> lk(camera_state_lock_);
+      std::chrono::milliseconds timeout(slave_record_duration_ * 1000);
+
+      camera_state_updated_.wait_for(lk, timeout, [&]() {
+        return (camera_state_[camera_id_] == GtestCameraState::kClosing);
+      });
+    }
+
+    ret = recorder_.StopSession(session_id, false);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    sessions_.erase(session_id);
+
+    ClearSessions();
+    dump_bitstream_.CloseAll();
+
+    ret = recorder_.StopCamera(camera_id_);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = DeInit();
+    ASSERT_TRUE(ret == NO_ERROR);
+  }
+
+  fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+* SessionWith720pAVCTrackSlaveModeWithSecondaryCamera:
+* This will test session with 720p AVC track in slave mode for camera id 1.
+* API test sequence:
+*  - StartCamera
+*  - CreateSession
+*  - CreateVideoTrack -  720p AVC
+*  - StartSession
+*  - StopSession
+*  - DeleteVideoTrack -  720p AVC
+*  - DeleteSession
+*  - StopCamera
+*/
+
+TEST_F(VideoGtest, SessionWith720pAVCTrackSlaveModeWithSecondaryCamera) {
+  fprintf(stderr, "\n---------- Run Test %s.%s ------------\n",
+          test_info_->test_case_name(), test_info_->name());
+
+  VideoFormat format_type = VideoFormat::kAVC;
+  uint32_t width = 1280;
+  uint32_t height = 720;
+  uint32_t video_track_id = 1;
+
+  camera_start_params_.flags |= kCameraSlaveMode;
+
+  camera_id_ = 1;
+
+  for (uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
+              test_info_->name(), i);
+
+    auto ret = Init();
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+    if (ret == -ENOENT) {
+      // Wait for a master client to open the camera.
+      std::unique_lock<std::mutex> lk(camera_state_lock_);
+      std::chrono::milliseconds timeout(10000);
+
+      camera_state_updated_.wait_for(lk, timeout, [&]() {
+        return (camera_state_[camera_id_] == GtestCameraState::kOpened);
+      });
+      ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
+    SessionCb session_status_cb = CreateSessionStatusCb();
+
+    uint32_t session_id;
+    ret = recorder_.CreateSession(session_status_cb, &session_id);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo1 = {format_type, session_id, video_track_id,
+                                  width, height};
+      ret = dump_bitstream_.SetUp(dumpinfo1);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
+    VideoTrackCreateParam video_track_param{camera_id_, format_type, width,
+                                            height, 30};
+
+    if (ubwc_stream_enable_) {
+      video_track_param.low_power_mode = true;
+    }
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&, session_id](
+        uint32_t track_id, std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
+    };
+
+    video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
+                                  void *event_data, size_t event_data_size) {
+      VideoTrackEventCb(track_id, event_type, event_data, event_data_size);
+    };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                     video_track_param, video_track_cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    std::vector<uint32_t> track_ids;
+    track_ids.push_back(video_track_id);
+    sessions_.emplace(session_id, track_ids);
+
+    ret = recorder_.StartSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    // Let session run slave_record_duration_ sec or until signaled by the
+    // master camera client to close camera.
+    {
+      std::unique_lock<std::mutex> lk(camera_state_lock_);
+      std::chrono::milliseconds timeout(slave_record_duration_ * 1000);
+
+      camera_state_updated_.wait_for(lk, timeout, [&]() {
+        return (camera_state_[camera_id_] == GtestCameraState::kClosing);
+      });
+    }
+
+    ret = recorder_.StopSession(session_id, false);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    sessions_.erase(session_id);
+
+    ClearSessions();
+    dump_bitstream_.CloseAll();
+
+    ret = recorder_.StopCamera(camera_id_);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = DeInit();
+    ASSERT_TRUE(ret == NO_ERROR);
+  }
+
+  fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+* SessionWith1080pAVCTrackSlaveModeWithSecondaryCamera:
+* This will test session with 1080p AVC track in slave mode for camera id 1.
+* API test sequence:
+*  - StartCamera
+*  - CreateSession
+*  - CreateVideoTrack -  1080p AVC
+*  - StartSession
+*  - StopSession
+*  - DeleteVideoTrack -  1080p AVC
+*  - DeleteSession
+*  - StopCamera
+*/
+
+TEST_F(VideoGtest, SessionWith1080pAVCTrackSlaveModeWithSecondaryCamera) {
+  fprintf(stderr, "\n---------- Run Test %s.%s ------------\n",
+          test_info_->test_case_name(), test_info_->name());
+
+  VideoFormat format_type = VideoFormat::kAVC;
+  uint32_t width = 1920;
+  uint32_t height = 1080;
+
+  uint32_t video_track_id = 1;
+
+  camera_id_ = 1;
+
+  camera_start_params_.flags |= kCameraSlaveMode;
+
+  for (uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
+              test_info_->name(), i);
+
+    auto ret = Init();
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+    if (ret == -ENOENT) {
+      // Wait for a master client to open the camera.
+      std::unique_lock<std::mutex> lk(camera_state_lock_);
+      std::chrono::milliseconds timeout(10000);
+
+      camera_state_updated_.wait_for(lk, timeout, [&]() {
+        return (camera_state_[camera_id_] == GtestCameraState::kOpened);
+      });
+      ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
+    SessionCb session_status_cb = CreateSessionStatusCb();
+
+    uint32_t session_id;
+    ret = recorder_.CreateSession(session_status_cb, &session_id);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo1 = {format_type, session_id, video_track_id,
+                                  width, height};
+      ret = dump_bitstream_.SetUp(dumpinfo1);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
+    VideoTrackCreateParam video_track_param{camera_id_, format_type, width,
+                                            height, 30};
+
+    if (ubwc_stream_enable_) {
+      video_track_param.low_power_mode = true;
+    }
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&, session_id](
+        uint32_t track_id, std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
+    };
+
+    video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
+                                  void *event_data, size_t event_data_size) {
+      VideoTrackEventCb(track_id, event_type, event_data, event_data_size);
+    };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                     video_track_param, video_track_cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    std::vector<uint32_t> track_ids;
+    track_ids.push_back(video_track_id);
+    sessions_.emplace(session_id, track_ids);
+
+    ret = recorder_.StartSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    // Let session run slave_record_duration_ or until signaled by the
+    // master camera client to close camera.
+    {
+      std::unique_lock<std::mutex> lk(camera_state_lock_);
+      std::chrono::milliseconds timeout(slave_record_duration_ * 1000);
+
+      camera_state_updated_.wait_for(lk, timeout, [&]() {
+        return (camera_state_[camera_id_] == GtestCameraState::kClosing);
+      });
+    }
+
+    ret = recorder_.StopSession(session_id, false);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    sessions_.erase(session_id);
+
+    ClearSessions();
+    dump_bitstream_.CloseAll();
+
+    ret = recorder_.StopCamera(camera_id_);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = DeInit();
+    ASSERT_TRUE(ret == NO_ERROR);
+  }
+
+  fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
+}
+
+/*
+* SessionWith4kAVCTrackSlaveModeWithSecondaryCamera:
+* This will test session with 4k AVC track in slave mode for camera id 1.
+* API test sequence:
+*  - StartCamera
+*  - CreateSession
+*  - CreateVideoTrack -  4k AVC
+*  - StartSession
+*  - StopSession
+*  - DeleteVideoTrack -  4k AVC
+*  - DeleteSession
+*  - StopCamera
+*/
+
+TEST_F(VideoGtest, SessionWith4kAVCTrackSlaveModeWithSecondaryCamera) {
+  fprintf(stderr, "\n---------- Run Test %s.%s ------------\n",
+          test_info_->test_case_name(), test_info_->name());
+
+  VideoFormat format_type = VideoFormat::kAVC;
+  uint32_t width = 3840;
+  uint32_t height = 2160;
+
+  uint32_t video_track_id = 1;
+
+  camera_id_ = 1;
+
+  camera_start_params_.flags |= kCameraSlaveMode;
+
+  for (uint32_t i = 1; i <= iteration_count_; i++) {
+    fprintf(stderr, "test iteration = %d/%d\n", i, iteration_count_);
+    TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
+              test_info_->name(), i);
+
+    auto ret = Init();
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+    if (ret == -ENOENT) {
+      // Wait for a master client to open the camera.
+      std::unique_lock<std::mutex> lk(camera_state_lock_);
+      std::chrono::milliseconds timeout(10000);
+
+      camera_state_updated_.wait_for(lk, timeout, [&]() {
+        return (camera_state_[camera_id_] == GtestCameraState::kOpened);
+      });
+      ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
+    SessionCb session_status_cb = CreateSessionStatusCb();
+
+    uint32_t session_id;
+    ret = recorder_.CreateSession(session_status_cb, &session_id);
+    ASSERT_TRUE(session_id > 0);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    if (dump_bitstream_.IsEnabled()) {
+      StreamDumpInfo dumpinfo1 = {format_type, session_id, video_track_id,
+                                  width, height};
+      ret = dump_bitstream_.SetUp(dumpinfo1);
+      ASSERT_TRUE(ret == NO_ERROR);
+    }
+
+    VideoTrackCreateParam video_track_param{camera_id_, format_type, width,
+                                            height, 30};
+
+    if (ubwc_stream_enable_) {
+      video_track_param.low_power_mode = true;
+    }
+
+    TrackCb video_track_cb;
+    video_track_cb.data_cb = [&, session_id](
+        uint32_t track_id, std::vector<BufferDescriptor> buffers,
+        std::vector<MetaData> meta_buffers) {
+      VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers);
+    };
+
+    video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
+                                  void *event_data, size_t event_data_size) {
+      VideoTrackEventCb(track_id, event_type, event_data, event_data_size);
+    };
+
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                     video_track_param, video_track_cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    std::vector<uint32_t> track_ids;
+    track_ids.push_back(video_track_id);
+    sessions_.emplace(session_id, track_ids);
+
+    ret = recorder_.StartSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    // Let session run slave_record_duration_ or until signaled by the
+    // master camera client to close camera.
+    {
+      std::unique_lock<std::mutex> lk(camera_state_lock_);
+      std::chrono::milliseconds timeout(slave_record_duration_ * 1000);
+
+      camera_state_updated_.wait_for(lk, timeout, [&]() {
+        return (camera_state_[camera_id_] == GtestCameraState::kClosing);
+      });
+    }
+
+    ret = recorder_.StopSession(session_id, false);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteSession(session_id);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    sessions_.erase(session_id);
+
+    ClearSessions();
+    dump_bitstream_.CloseAll();
+
+    ret = recorder_.StopCamera(camera_id_);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = DeInit();
+    ASSERT_TRUE(ret == NO_ERROR);
+  }
 
   fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
           test_info_->test_case_name(), test_info_->name());

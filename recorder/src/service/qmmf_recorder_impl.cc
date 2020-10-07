@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -172,26 +172,33 @@ status_t RecorderImpl::RegisterClient(const uint32_t client_id) {
 
   QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
 
-  std::lock_guard<std::mutex> session_lock(client_session_lock_);
-  if (client_session_map_.count(client_id) != 0) {
-    QMMF_WARN("%s: Client is already connected !!", __func__);
-    return NO_ERROR;
+  {
+    std::lock_guard < std::mutex > session_lock(client_session_lock_);
+    if (client_session_map_.count(client_id) != 0) {
+      QMMF_WARN("%s: Client is already connected !!", __func__);
+      return NO_ERROR;
+    }
+    client_session_map_.emplace(client_id, SessionTrackMap());
+    QMMF_INFO("%s: client_session_map_.size(%d)", __func__,
+        client_session_map_.size());
+
+    auto const& session_track_map = client_session_map_[client_id];
+    QMMF_INFO("%s: session_track_map.size(%d)", __func__,
+        session_track_map.size());
   }
-  client_session_map_.emplace(client_id, SessionTrackMap());
-  QMMF_INFO("%s: client_session_map_.size(%d)", __func__,
-      client_session_map_.size());
 
-  auto const& session_track_map = client_session_map_[client_id];
-  QMMF_INFO("%s: session_track_map.size(%d)", __func__,
-      session_track_map.size());
+  {
+    std::lock_guard < std::mutex > status_lock(client_state_lock_);
+    client_state_.emplace(client_id, ClientState::kAlive);
+  }
 
-  std::lock_guard<std::mutex> status_lock(client_state_lock_);
-  client_state_.emplace(client_id, ClientState::kAlive);
-  QMMF_INFO("%s: client_status_map_.size(%d)", __func__,
-      client_cameraid_map_.size());
+  {
+    std::lock_guard < std::mutex > camera_lock(camera_map_lock_);
+    client_cameraid_map_.emplace(client_id, std::map<uint32_t, bool>());
+    QMMF_INFO("%s: client_cameraid_map_.size(%d)", __func__,
+        client_cameraid_map_.size());
+  }
 
-  std::lock_guard<std::mutex> camera_lock(camera_map_lock_);
-  client_cameraid_map_.emplace(client_id, std::map<uint32_t, bool>());
   QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
   return NO_ERROR;
 }
@@ -361,10 +368,12 @@ status_t RecorderImpl::StartCamera(const uint32_t client_id,
   // Notify all clients, except this one, that the camera has been opened.
   for (auto it : client_cameraid_map_) {
     auto& client = it.first;
-    remote_cb_handle_(client)->NotifyRecorderEvent(
-        EventType::kCameraOpened,
-        const_cast<void*>(reinterpret_cast<const void*>(&camera_id)),
-        sizeof(uint32_t));
+    if (client != client_id) {
+      remote_cb_handle_(client)->NotifyRecorderEvent(
+          EventType::kCameraOpened,
+          const_cast<void*>(reinterpret_cast<const void*>(&camera_id)),
+          sizeof(uint32_t));
+    }
   }
 
   client_cameraid_map_[client_id].emplace(camera_id, true);
@@ -399,6 +408,8 @@ status_t RecorderImpl::StopCamera(const uint32_t client_id,
 
   QMMF_DEBUG("%s: Enter", __func__);
   QMMF_KPI_DETAIL();
+
+  std::unique_lock<std::mutex> lk(stop_camera_lock_);
 
   if (!IsClientValid(client_id)) {
     QMMF_ERROR("%s: Client(%u) is not connected!", __func__, client_id);
@@ -464,10 +475,12 @@ status_t RecorderImpl::StopCamera(const uint32_t client_id,
   // Notify all clients, except this one, that the camera has been closed.
   for (auto it : client_cameraid_map_) {
     auto& client = it.first;
-    remote_cb_handle_(client)->NotifyRecorderEvent(
-        EventType::kCameraClosed,
-        const_cast<void*>(reinterpret_cast<const void*>(&camera_id)),
-        sizeof(uint32_t));
+    if (client_id != client) {
+      remote_cb_handle_(client)->NotifyRecorderEvent(
+          EventType::kCameraClosed,
+          const_cast<void*>(reinterpret_cast<const void*>(&camera_id)),
+          sizeof(uint32_t));
+    }
   }
 
   QMMF_INFO("%s client_id(%d): number of cameras(%d)", __func__,
@@ -1342,12 +1355,6 @@ status_t RecorderImpl::CreateVideoTrack(const uint32_t client_id,
           VideoTrackBufferCb(client_id, session_id, track_id,
                              buffers, meta_buffers);
       };
-
-  video_params.slave_client = IsSlaveClient(client_id);
-
-  QMMF_INFO("%s: track_id(%d): is for slave [0/1] client: %d", __func__,
-            track_id, video_params.slave_client);
-
   // Create Camera track first.
   assert(camera_source_ != nullptr);
   auto ret = camera_source_->CreateTrackSource(service_track_id, video_params);
@@ -1447,11 +1454,6 @@ status_t RecorderImpl::CreateVideoTrack(const uint32_t client_id,
           VideoTrackBufferCb(client_id, session_id, track_id,
                              buffers, meta_buffers);
       };
-
-  video_params.slave_client = IsSlaveClient(client_id);
-
-  QMMF_INFO("%s: track_id(%d): is for slave [0/1] client: %d", __func__,
-            track_id, video_params.slave_client);
 
   if (video_params.extra_param.Exists(QMMF_SOURCE_VIDEO_TRACK_ID)) {
     SourceVideoTrack source_track;
@@ -2202,7 +2204,7 @@ void RecorderImpl::VideoTrackBufferCb(uint32_t client_id, uint32_t session_id,
     ReturnTrackBuffer(client_id, session_id, track_id, buffers);
   } else {
     remote_cb_handle_(client_id)->
-        NotifyVideoTrackData(track_id, buffers, meta_buffers);
+        NotifyVideoTrackData(session_id, track_id, buffers, meta_buffers);
   }
   QMMF_DEBUG("%s Exit client_id(%u), session_id(%u), track_id(%u)",
       __func__, client_id, session_id, track_id);
@@ -2222,7 +2224,7 @@ void RecorderImpl::AudioTrackBufferCb(uint32_t client_id, uint32_t session_id,
     ReturnTrackBuffer(client_id, session_id, track_id, buffers);
   } else {
     remote_cb_handle_(client_id)->
-        NotifyAudioTrackData(track_id, buffers, meta_buffers);
+        NotifyAudioTrackData(session_id, track_id, buffers, meta_buffers);
   }
   QMMF_DEBUG("%s Exit client_id(%u), session_id(%u), track_id(%u)",
       __func__, client_id, session_id, track_id);
@@ -2265,6 +2267,9 @@ void RecorderImpl::CameraResultCb(uint32_t camera_id,
 
   QMMF_DEBUG("%s Enter camera_id(%u)", __func__, camera_id);
   assert(remote_cb_handle_ != nullptr);
+
+  std::lock_guard<std::mutex> lock(camera_map_lock_);
+
   auto client_ids = GetCameraClients(camera_id);
 
   for (auto const& client_id : client_ids) {
@@ -2277,6 +2282,9 @@ void RecorderImpl::CameraResultCb(uint32_t camera_id,
 void RecorderImpl::CameraErrorCb(RecorderErrorData &error) {
 
   assert(remote_cb_handle_ != nullptr);
+
+  std::lock_guard<std::mutex> lock(camera_map_lock_);
+
   auto client_ids = GetCameraClients(error.camera_id);
 
   for (auto const& client_id : client_ids) {
@@ -2363,21 +2371,6 @@ bool RecorderImpl::IsCameraOwned(const uint32_t& client_id,
   return false;
 }
 
-bool RecorderImpl::IsSlaveClient(const uint32_t& client_id) {
-
-  std::lock_guard<std::mutex> lock(camera_map_lock_);
-
-  auto cameras = client_cameraid_map_[client_id];
-  for (auto camera : cameras) {
-    auto slave_flag = camera.second;
-    if (!slave_flag) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
 bool RecorderImpl::IsSessionActive(const uint32_t& session_id) {
 
   std::lock_guard<std::mutex> lock(client_session_lock_);
@@ -2440,7 +2433,6 @@ uint32_t RecorderImpl::GetServiceTrackId(const uint32_t& client_id,
 
 std::vector<uint32_t> RecorderImpl::GetCameraClients(const uint32_t& camera_id) {
 
-  std::lock_guard<std::mutex> lock(camera_map_lock_);
   std::vector<uint32_t> client_ids;
 
   for (auto const& client_cameras : client_cameraid_map_) {

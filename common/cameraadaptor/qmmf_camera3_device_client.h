@@ -191,6 +191,7 @@ class Camera3DeviceClient : public camera3_callback_ops,
 
   pthread_mutex_t pending_requests_lock_;
   PendingRequestVector pending_requests_vector_;
+  PendingRequestVector pending_error_requests_vector_;
 
   pthread_mutex_t lock_;
   CameraClientCallbacks client_cb_;
