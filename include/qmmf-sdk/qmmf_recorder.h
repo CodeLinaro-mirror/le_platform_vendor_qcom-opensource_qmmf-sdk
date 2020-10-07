@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -53,21 +53,21 @@ class RecorderClient;
     A session can contain multiple audio and video tracks.
     All tracks in a session changes state change
     (say start, stop, pause etc) together.
-   
+
     Multiple sessions can be created and run at the same time.
     Recorder provides elementary stream callback to clients and clients
     manage the muxer. A/V muxer is not part of the
     Recorder class and hence clients
     need to use an external muxer to save the elementary streams
-   
+
     For image capture, Recorder API provides single, burst and
     timed image capture
     Image capture APIs are  not associated with session and can
     be triggered independent of session.
-   
+
     Some of the APIs in the class are sync and others async.
     The API documentation explicitly says whether the API is async.
-   
+
     Callbacks used for async communication from recorder class are expected
     to be lambda functions. The client is expected to capture the context
     while setting the callback.
@@ -92,7 +92,7 @@ class Recorder {
   /// it is set by client, notifications will get triggered on each
   /// incoming streaming request along with the camera results.
   status_t StartCamera(const uint32_t camera_id,
-                       const float frame_rate,
+                       const float framerate,
                        const CameraExtraParam& extra_param = {},
                        const CameraResultCb &cb = nullptr);
 
@@ -166,7 +166,7 @@ class Recorder {
   /// bitrate etc. cb is used by the recorder to inform clients about track
   /// data availability and track specific async errors.
   status_t CreateAudioTrack(const uint32_t session_id, const uint32_t track_id,
-                            const AudioTrackCreateParam &param,
+                            const AudioTrackParam &param,
                             const TrackCb &cb);
 
   /// @brief Creates an video track
@@ -178,7 +178,7 @@ class Recorder {
   /// cb is used by the recorder to inform clients about track data
   /// availability and track specific async errors
   status_t CreateVideoTrack(const uint32_t session_id, const uint32_t track_id,
-                            const VideoTrackCreateParam &param,
+                            const VideoTrackParam &param,
                             const TrackCb &cb);
 
   /// @brief Creates an video track with additional configurations set in
@@ -192,7 +192,7 @@ class Recorder {
   /// cb is used by the recorder to inform clients about track data
   /// availability and track specific async errors
   status_t CreateVideoTrack(const uint32_t session_id, const uint32_t track_id,
-                            const VideoTrackCreateParam &param,
+                            const VideoTrackParam &param,
                             const VideoExtraParam& extra_param,
                             const TrackCb &cb);
 
@@ -210,8 +210,8 @@ class Recorder {
   /// param_size should be set to sizeof the param data structure
   status_t SetAudioTrackParam(const uint32_t session_id,
                               const uint32_t track_id,
-                              CodecParamType type, const void *param,
-                              size_t param_size);
+                              AudioParam type, const void *param,
+                              size_t size);
 
   /// @brief Changes runtime video track params such as video encoder
   /// bitrate, framerate, IDR insertion etc
@@ -220,8 +220,8 @@ class Recorder {
   /// param_size should be set to sizeof the param data structure
   status_t SetVideoTrackParam(const uint32_t session_id,
                               const uint32_t track_id,
-                              CodecParamType type, const void *param,
-                              size_t param_size);
+                              VideoParam type, const void *param,
+                              size_t size);
 
   /// @brief Deletes Audio track. The track can be deleted only when the session
   /// the track is associated with is in stopped state

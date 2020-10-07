@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, 2021, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -38,7 +38,6 @@
 #include <thread>
 
 #include "common/utils/qmmf_condition.h"
-#include "common/codecadaptor/src/qmmf_avcodec.h"
 #include "recorder/src/service/qmmf_audio_pulse_client.h"
 #include "recorder/src/service/qmmf_recorder_common.h"
 #include "recorder/src/service/qmmf_recorder_ion.h"
@@ -125,22 +124,22 @@ class IAudioTrackSource {
  *  and the data path.
  *
  *  @startuml
- *  
+ *
  *  skinparam ArrowColor blue
  *  hide footbox
  *  autonumber
- *  
+ *
  *  title Data Flow
- *  
+ *
  *  participant RecorderImpl as ri
  *  participant AudioRawTrackSource as arts
  *  participant AudioPulseClient as apc
- *  
+ *
  *  arts -> apc : AudioPulseClient::SendBuffers()
  *  apc -> arts : AudioRawTrackSource::BufferHandler()
  *  arts -> ri  : RecorderImpl::AudioTrackBufferCb()
  *  ri -> arts  : AudioRawTrackSource::ReturnTrackBuffer()
- *  
+ *
  *  @enduml
  */
 class AudioRawTrackSource : public IAudioTrackSource {
@@ -151,7 +150,8 @@ class AudioRawTrackSource : public IAudioTrackSource {
    *  @param [in] params Given parameters for audio path configuration.
    *  @returns Status indicating success or failure.
    */
-  AudioRawTrackSource(const AudioTrackParams& params);
+  AudioRawTrackSource(const uint32_t id, const AudioTrackParam& params,
+                      const BnBufferCallback& cb);
 
   //! Default constructor
   virtual ~AudioRawTrackSource();
@@ -223,7 +223,9 @@ class AudioRawTrackSource : public IAudioTrackSource {
    */
   void BufferHandler(const BufferDescriptor& buffer);
 
-  AudioTrackParams track_params_; //!< Saved set of given parameters.
+  uint32_t id_ //!< Track ID
+  AudioTrackParam params_; //!< Saved set of given parameters.
+  BnBufferCallback buffer_cb_; //!< Buffer callback
   AudioPulseClient* pulse_client_; //!< PulseAudio client.
   RecorderIon ion_; //!< Instance of the RecorderIon.
 
@@ -237,134 +239,6 @@ class AudioRawTrackSource : public IAudioTrackSource {
   AudioRawTrackSource(AudioRawTrackSource&&) = delete;
   AudioRawTrackSource& operator=(const AudioRawTrackSource&) = delete;
   AudioRawTrackSource& operator=(const AudioRawTrackSource&&) = delete;
-};
-
-/*! @brief Manages the audio data flow between AVCodec and AudioPulseClient.
- *
- *  Sets up the data path between an AVCodec audio encoder and a newly created
- *  instance of an AudioPulseClient.  Configures the pulseaudio client based
- *  on the parameters of AudioTrackParam.  Also allocates a number
- *  of audio ION buffers and pushes them to the buffer queue.
- *
- *  Once setup, manages the data flow of audio buffers between the AVCodec
- *  audio encoder and the pulseaudio client.
- *
- *  After streaming has completed, destroys the instance of the AudioPulseClient
- *  and the data path.
- *
- *  @startuml
- *  
- *  skinparam ArrowColor blue
- *  hide footbox
- *  autonumber
- *  
- *  title Data Flow
- *  
- *  participant AVCodec as avc
- *  participant AudioEncodedTrackSource as aets
- *  participant AudioPulseClient as apc
- *  
- *  aets -> apc : AudioPulseClient::SendBuffers()
- *  apc -> aets : AudioEncodedTrackSource::BufferHandler()
- *  aets -> avc : AudioTrackEncoder::GetBuffer()
- *  avc -> aets : AudioTrackEncoder::ReturnBuffer()
- *  
- *  @enduml
- */
-class AudioEncodedTrackSource : public ::qmmf::avcodec::ICodecSource,
-                                public IAudioTrackSource {
- public:
-
-  /*! @brief Constructor
-   *
-   *  @param [in] params Given parameters for audio path configuration.
-   *  @returns Status indicating success or failure.
-   */
-  AudioEncodedTrackSource(const AudioTrackParams& params);
-
-  //! Default constructor
-  virtual ~AudioEncodedTrackSource();
-
-  //! @copydoc IAudioTrackSource::Init()
-  status_t Init() override;
-
-  //! @copydoc IAudioTrackSource::Deinit()
-  status_t DeInit() override;
-
-  //! @copydoc IAudioTrackSource::StartTrack()
-  status_t StartTrack() override;
-
-  //! @copydoc IAudioTrackSource::StopTrack()
-  status_t StopTrack() override;
-
-  //! @copydoc IAudioTrackSource::PauseTrack()
-  status_t PauseTrack() override;
-
-  //! @copydoc IAudioTrackSource::ResumeTrack()
-  status_t ResumeTrack() override;
-
-  //! @copydoc IAudioTrackSource::SetParameter()
-  status_t SetParameter(const ::std::string& key,
-                        const ::std::string& value) override;
-
-  //! @copydoc IAudioTrackSource::ReturnTrackBuffer()
-  status_t ReturnTrackBuffer(const std::vector<BnBuffer>& buffers) override;
-
-  //! @copydoc ICodecSource::GetBuffer()
-  status_t GetBuffer(BufferDescriptor& buffer, void* client_data) override;
-
-  //! @copydoc ICodecSource::ReturnBuffer()
-  status_t ReturnBuffer(BufferDescriptor& buffer, void* client_data) override;
-
-  //! @copydoc ICodecSource::NotifyPortEvent()
-  status_t NotifyPortEvent(::qmmf::avcodec::PortEventType event_type,
-                           void* event_data) override;
-
-  /*! @brief Gets the current buffer size.
-   *
-   *  @param [out] buffer_size Current value of the buffer size.
-   *  @returns Status indicating success or failure.
-   */
-  status_t GetBufferSize(int32_t* buffer_size);
-
-  /*! @brief Sets the buffer size to the given value.
-   *
-   *  @param [in] buffer_size New value of the buffer size.
-   *  @returns Status indicating success or failure.
-   */
-  status_t SetBufferSize(const int32_t buffer_size);
-
- private:
-
-  /*! @brief Handles error-related callbacks from the AudioPulseClient.
-   *
-   *  @param [in] error Indicates which error occurred.
-   */
-  void ErrorHandler(const int32_t error);
-
-  /*! @brief Callback handler used to receive a filled buffer from the
-   *         AudioPulseClient.
-   *
-   *  @param [in] buffer Audio data from the AudioPulseClient.
-   */
-  void BufferHandler(const BufferDescriptor& buffer);
-
-  AudioTrackParams track_params_; //!< Saved set of given parameters.
-  AudioPulseClient* pulse_client_; //!< PulseAudio client.
-  RecorderIon ion_; //!< Instance of the RecorderIon.
-  ::std::queue<BufferDescriptor> buffers_; //!< Queue of allocated buffers.
-  int32_t buffer_size_; //!< Size of audio buffers to allocate (bytes).
-  bool stop_called_; //!< Flag indicating RecorderImpl called stop.
-  bool stop_notify_received_; //!< Flag indicating AVCodec received stop.
-
-  std::mutex mutex_; //!< Protects the buffer queue.
-  QCondition signal_; //!< Sync mechanism for buffer queue access.
-
-  // disable copy, assignment, and move
-  AudioEncodedTrackSource(const AudioEncodedTrackSource&) = delete;
-  AudioEncodedTrackSource(AudioEncodedTrackSource&&) = delete;
-  AudioEncodedTrackSource& operator=(const AudioEncodedTrackSource&) = delete;
-  AudioEncodedTrackSource& operator=(const AudioEncodedTrackSource&&) = delete;
 };
 
 }; // namespace recorder

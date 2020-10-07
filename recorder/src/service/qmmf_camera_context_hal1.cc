@@ -195,10 +195,6 @@ CameraContext::~CameraContext() {
   }
 }
 
-void CameraContext::SetFlushCb(FlushCb &cb) {
-  flush_cb_ = cb;
-}
-
 /* Internal Helper Functions*/
 static void __notify_cb(int32_t msg_type, int32_t ext1, int32_t ext2,
   void *user) {
@@ -1582,7 +1578,6 @@ const char *CameraContext::FromQmmfToHalFormat_hal1(
   switch (format) {
   case BufferFormat::kNV12UBWC:
   case BufferFormat::kNV12:
-  case BufferFormat::kNV12Encodable:
     return QTI_PIXEL_FORMAT_NV12_VENUS;
     break;
   case BufferFormat::kNV21:

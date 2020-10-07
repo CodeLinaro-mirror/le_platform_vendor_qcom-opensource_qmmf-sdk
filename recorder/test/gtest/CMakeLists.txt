@@ -19,7 +19,7 @@ qmmf_gtest_common.cc
 qmmf_hal1_gtest.cc
 )
 endif()
-add_dependencies(qmmf_recorder_gtest qmmf_recorder_client qmmf_utils qmmf_av_queue)
+add_dependencies(qmmf_recorder_gtest qmmf_recorder_client qmmf_utils)
 
 target_include_directories(qmmf_recorder_gtest
  PRIVATE ${TOP_DIRECTORY})
@@ -34,7 +34,7 @@ target_include_directories(qmmf_recorder_gtest
  PRIVATE ${TOP_DIRECTORY}/common/memory)
 
 install(TARGETS qmmf_recorder_gtest DESTINATION bin OPTIONAL)
-target_link_libraries(qmmf_recorder_gtest log cutils utils cairo gtest gtest_main camera_metadata qmmf_recorder_client qmmf_av_queue)
+target_link_libraries(qmmf_recorder_gtest log cutils utils cairo gtest gtest_main camera_metadata qmmf_recorder_client)
 if(NOT CAMERA_CLIENT_DISABLED)
 target_link_libraries(qmmf_recorder_gtest camera_client)
 endif()

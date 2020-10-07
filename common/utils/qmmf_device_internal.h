@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016, 2021, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -79,7 +79,7 @@ struct DeviceInfoInternal : public DeviceInfo {
         subtype.audio_out = static_cast<AudioOutSubtype>(parcel.readInt32());
         break;
     }
-    id = static_cast<DeviceId>(parcel.readInt32());
+    id = static_cast<uint32_t>(parcel.readInt32());
     return *this;
   }
 };
@@ -113,9 +113,9 @@ struct VideoCapsInternal : public VideoCaps {
     parcel->writeUint32(static_cast<uint32_t>(dimensions.size()));
     for (const Dimension& dimension : dimensions)
       DimensionInternal(dimension).ToParcel(parcel);
-    parcel->writeUint32(static_cast<uint32_t>(frame_rates.size()));
-    for (int32_t frame_rate : frame_rates)
-      parcel->writeInt32(frame_rate);
+    parcel->writeUint32(static_cast<uint32_t>(framerates.size()));
+    for (int32_t framerate : framerates)
+      parcel->writeInt32(framerate);
     parcel->writeUint32(static_cast<uint32_t>(formats.size()));
     for (ImageFormat format : formats)
       parcel->writeInt32(static_cast<int32_t>(format));
@@ -127,7 +127,7 @@ struct VideoCapsInternal : public VideoCaps {
       dimensions.push_back(DimensionInternal().FromParcel(parcel));
     number_of_elements = static_cast<size_t>(parcel.readUint32());
     for (size_t index = 0; index < number_of_elements; ++index)
-      frame_rates.push_back(parcel.readInt32());
+      framerates.push_back(parcel.readInt32());
     number_of_elements = static_cast<size_t>(parcel.readUint32());
     for (size_t index = 0; index < number_of_elements; ++index)
       formats.push_back(static_cast<ImageFormat>(parcel.readInt32()));
