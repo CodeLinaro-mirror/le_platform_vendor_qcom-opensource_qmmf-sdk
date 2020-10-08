@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -215,11 +215,21 @@ status_t RecorderImpl::DeRegisterClient(const uint32_t client_id,
   }
 
   if (!force_cleanup) {
-    QMMF_WARN("%s Resource belogs to client(%d) are not released!",
-        __func__, client_id);
-    std::unique_lock<std::mutex> lk(camera_map_lock_);
-    if (client_cameraid_map_[client_id].empty()) {
+    QMMF_WARN("%s Resource belongs to client(%d) are released!", __func__,
+        client_id);
+    {
+      std::unique_lock<std::mutex> lk(camera_map_lock_);
       client_cameraid_map_.erase(client_id);
+    }
+
+    {
+      std::lock_guard<std::mutex> status_lock(client_state_lock_);
+      client_state_.erase(client_id);
+    }
+
+    {
+      std::lock_guard<std::mutex> session_lock(client_session_lock_);
+      client_session_map_.erase(client_id);
     }
     return NO_ERROR;
   }
