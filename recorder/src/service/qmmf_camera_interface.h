@@ -165,6 +165,9 @@ class CameraInterface {
 
   virtual status_t GetCameraCharacteristics(CameraMetadata &meta) = 0;
 
+  /// Return All Image Capture buffers
+  virtual status_t ReturnAllImageCaptureBuffers() = 0;
+
   /// Return Image Capture buffer
   virtual status_t ReturnImageCaptureBuffer(const uint32_t camera_id,
                                             const int32_t buffer_id) = 0;

@@ -380,10 +380,12 @@ status_t RecorderImpl::StartCamera(const uint32_t client_id,
   // Notify all clients, except this one, that the camera has been opened.
   for (auto it : client_cameraid_map_) {
     auto& client = it.first;
-    remote_cb_handle_(client)->NotifyRecorderEvent(
-        EventType::kCameraOpened,
-        const_cast<void*>(reinterpret_cast<const void*>(&camera_id)),
-        sizeof(uint32_t));
+    if (client != client_id) {
+      remote_cb_handle_(client)->NotifyRecorderEvent(
+          EventType::kCameraOpened,
+          const_cast<void*>(reinterpret_cast<const void*>(&camera_id)),
+          sizeof(uint32_t));
+    }
   }
 
   client_cameraid_map_[client_id].emplace(camera_id, true);
@@ -485,10 +487,12 @@ status_t RecorderImpl::StopCamera(const uint32_t client_id,
   // Notify all clients, except this one, that the camera has been closed.
   for (auto it : client_cameraid_map_) {
     auto& client = it.first;
-    remote_cb_handle_(client)->NotifyRecorderEvent(
-        EventType::kCameraClosed,
-        const_cast<void*>(reinterpret_cast<const void*>(&camera_id)),
-        sizeof(uint32_t));
+    if (client_id != client) {
+      remote_cb_handle_(client)->NotifyRecorderEvent(
+          EventType::kCameraClosed,
+          const_cast<void*>(reinterpret_cast<const void*>(&camera_id)),
+          sizeof(uint32_t));
+    }
   }
 
   QMMF_INFO("%s client_id(%d): number of cameras(%d)", __func__,
@@ -764,6 +768,20 @@ status_t RecorderImpl::StopSession(const uint32_t client_id,
 
   QMMF_INFO("%s: client_id(%d):session_id(%d), number of tracks(%d) to stop",
       __func__, client_id, session_id, tracks_in_session.size());
+
+  // Return all image capture buffers in case of force cleanup
+  if (is_force_cleanup) {
+    auto const& cameras = client_cameraid_map_[client_id];
+    for (auto camera : cameras) {
+      auto camera_id = camera.first;
+      ret = camera_source_->
+          ReturnAllImageCaptureBuffers(camera_id);
+      if (ret != NO_ERROR) {
+        QMMF_ERROR("%s: ReturnAllImageCaptureBuffers failed for camera_id %d",
+            __func__, camera_id);
+      }
+    }
+  }
 
   // All the tracks associated to one session are stopped together.
   auto track = tracks_in_session.rbegin();
