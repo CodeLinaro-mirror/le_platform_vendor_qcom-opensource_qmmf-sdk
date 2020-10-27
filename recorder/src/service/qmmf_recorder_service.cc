@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -36,8 +36,7 @@ namespace qmmf {
 
 namespace recorder {
 
-RecorderService::RecorderService()
-    : unique_client_id_(0) {
+RecorderService::RecorderService() {
 
   QMMF_GET_LOG_LEVEL();
   QMMF_KPI_GET_MASK();
@@ -509,6 +508,7 @@ status_t RecorderService::Connect(const sp<IRecorderServiceCallback>&
 
   QMMF_DEBUG("%s: Enter ", __func__);
   QMMF_KPI_DETAIL();
+  status_t ret;
 
   std::lock_guard<std::mutex> lock(lock_);
 
@@ -524,7 +524,7 @@ status_t RecorderService::Connect(const sp<IRecorderServiceCallback>&
         assert(remote_cb_list_.count(id) != 0);
         return remote_cb_list_[id];
     };
-    auto ret = recorder_->Init(remote_cb_handle);
+    ret = recorder_->Init(remote_cb_handle);
     if (ret != NO_ERROR) {
       QMMF_ERROR("%s: Recorder initialization failed!", __func__);
       recorder_.reset();
@@ -532,8 +532,11 @@ status_t RecorderService::Connect(const sp<IRecorderServiceCallback>&
     }
   }
 
-  ++unique_client_id_;
-  *client_id = unique_client_id_;
+  ret = GetUniqueClientID(client_id);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s: Too many active clients (255)!", __func__);
+    return ret;
+  }
 
   sp<RemoteCallBack> remote_callback;
   remote_callback = new RemoteCallBack(*client_id, service_cb);
@@ -604,7 +607,6 @@ status_t RecorderService::Disconnect(uint32_t client_id) {
     QMMF_INFO("%s: No client is connected! de-init the recorder!", __func__);
     recorder_->DeInit();
     recorder_.reset();
-    unique_client_id_ = 0;
   }
 
   QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
@@ -1203,7 +1205,6 @@ status_t RecorderService::DisconnectInternal(const uint32_t client_id) {
     QMMF_INFO("%s: No client is connected! de-init the recorder!", __func__);
     recorder_->DeInit();
     recorder_.reset();
-    unique_client_id_ = 0;
   }
 
   QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
@@ -1214,6 +1215,17 @@ status_t RecorderService::GetVendorTagDescriptor(sp<VendorTagDescriptor> &desc) 
 
   desc = VendorTagDescriptor::getGlobalVendorTagDescriptor();
   return (desc == nullptr) ? BAD_VALUE : NO_ERROR;
+}
+
+status_t RecorderService::GetUniqueClientID(uint32_t *client_id) {
+
+  for (uint32_t id = 1; id <= 0xFF; id++) {
+    if (remote_cb_list_.count(id) == 0) {
+      *client_id = id;
+      return NO_ERROR;
+    }
+  }
+  return BAD_VALUE;
 }
 
 }; //namespace recorder
