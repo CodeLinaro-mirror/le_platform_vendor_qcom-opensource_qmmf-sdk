@@ -105,6 +105,9 @@ class CameraSource {
   /// Cancel Image Capture
   status_t CancelCaptureImage(const uint32_t camera_id);
 
+  /// Return All Image Capture buffers
+  status_t ReturnAllImageCaptureBuffers(const uint32_t camera_id);
+
   /// Return Image Capture buffer
   status_t ReturnImageCaptureBuffer(const uint32_t camera_id,
                            const int32_t buffer_id);
