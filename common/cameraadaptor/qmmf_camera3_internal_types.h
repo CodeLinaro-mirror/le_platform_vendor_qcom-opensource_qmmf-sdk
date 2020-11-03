@@ -21,9 +21,10 @@
 
 #ifndef CAMERA3INTERNALTYPES_H_
 #define CAMERA3INTERNALTYPES_H_
+
+#include <map>
 #include <hardware/camera_common.h>
 #include <hardware/camera3.h>
-#include <utils/KeyedVector.h>
 #include <camera/CameraMetadata.h>
 
 using namespace android;
@@ -84,7 +85,7 @@ struct PendingRequest {
         buffersRemaining(numBuffers) {}
 };
 
-typedef KeyedVector<uint32_t, PendingRequest> PendingRequestVector;
+typedef std::map<uint32_t, PendingRequest> PendingRequestVector;
 
 }  // namespace cameraadaptor ends here
 
