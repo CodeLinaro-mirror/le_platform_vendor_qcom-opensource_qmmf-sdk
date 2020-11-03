@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  * Not a Contribution.
  */
 
@@ -924,13 +924,12 @@ int32_t Camera3DeviceClient::MarkPendingRequest(
     CaptureResultExtras resultExtras) {
   pthread_mutex_lock(&pending_requests_lock_);
 
-  int32_t res;
-  res = pending_requests_vector_.add(frameNumber,
+  pending_requests_vector_.emplace(frameNumber,
                                    PendingRequest(numBuffers, resultExtras));
 
   pthread_mutex_unlock(&pending_requests_lock_);
 
-  return res;
+  return 0;
 }
 
 bool Camera3DeviceClient::HandlePartialResult(
@@ -1085,13 +1084,11 @@ void Camera3DeviceClient::HandleCaptureResult(
   int64_t shutterTimestamp = 0;
 
   pthread_mutex_lock(&pending_requests_lock_);
-  ssize_t idx = pending_requests_vector_.indexOfKey(frameNumber);
-  if (-ENOENT == idx) {
-    ssize_t error_idx = pending_error_requests_vector_.indexOfKey(frameNumber);
-    if (-ENOENT != error_idx) {
+  if (!pending_requests_vector_.count(frameNumber)) {
+    if (pending_error_requests_vector_.count(frameNumber)) {
       QMMF_INFO("%s: Found a request with error status. "
           "Ignore the capture result.\n", __func__);
-      pending_error_requests_vector_.removeItemsAt(error_idx, 1);
+      pending_error_requests_vector_.erase(frameNumber);
       pthread_mutex_unlock(&pending_requests_lock_);
       return;
     }
@@ -1099,7 +1096,7 @@ void Camera3DeviceClient::HandleCaptureResult(
     pthread_mutex_unlock(&pending_requests_lock_);
     return;
   }
-  PendingRequest &request = pending_requests_vector_.editValueAt(idx);
+  PendingRequest &request = pending_requests_vector_.at(frameNumber);
   QMMF_DEBUG(
       "%s: Received PendingRequest requestId = %d, frameNumber = %d,"
       "burstId = %d, partialResultCount = %d\n",
@@ -1184,7 +1181,7 @@ void Camera3DeviceClient::HandleCaptureResult(
                         shutterTimestamp, result->frame_number);
   }
 
-  RemovePendingRequestLocked(idx);
+  RemovePendingRequestLocked(frameNumber);
   pthread_mutex_unlock(&pending_requests_lock_);
 
   if (NULL != result->input_buffer) {
@@ -1228,7 +1225,6 @@ void Camera3DeviceClient::Notify(const camera3_notify_msg *msg) {
 }
 
 void Camera3DeviceClient::NotifyError(const camera3_error_msg_t &msg) {
-  int32_t idx;
 
   static const CameraErrorCode halErrorMap[CAMERA3_MSG_NUM_ERRORS] = {
       ERROR_CAMERA_INVALID_ERROR, ERROR_CAMERA_DEVICE, ERROR_CAMERA_REQUEST,
@@ -1248,9 +1244,8 @@ void Camera3DeviceClient::NotifyError(const camera3_error_msg_t &msg) {
     case ERROR_CAMERA_RESULT:
     case ERROR_CAMERA_BUFFER:
       pthread_mutex_lock(&pending_requests_lock_);
-      idx = pending_requests_vector_.indexOfKey(msg.frame_number);
-      if (idx >= 0) {
-        PendingRequest &r = pending_requests_vector_.editValueAt(idx);
+      if (pending_requests_vector_.count(msg.frame_number)) {
+        PendingRequest &r = pending_requests_vector_.at(msg.frame_number);
         r.status = msg.error_code;
         resultExtras = r.resultExtras;
       } else {
@@ -1276,12 +1271,12 @@ void Camera3DeviceClient::NotifyError(const camera3_error_msg_t &msg) {
 }
 
 void Camera3DeviceClient::NotifyShutter(const camera3_shutter_msg_t &msg) {
-  int64_t idx;
 
   pthread_mutex_lock(&pending_requests_lock_);
-  idx = pending_requests_vector_.indexOfKey(msg.frame_number);
-  if (idx >= 0) {
-    PendingRequest &r = pending_requests_vector_.editValueAt(idx);
+  bool pending_request_found = false;
+  if (pending_requests_vector_.count(msg.frame_number)) {
+    pending_request_found = true;
+    PendingRequest &r = pending_requests_vector_.at(msg.frame_number);
 
     if (nullptr != client_cb_.shutterCb) {
       client_cb_.shutterCb(r.resultExtras, msg.timestamp);
@@ -1317,11 +1312,11 @@ void Camera3DeviceClient::NotifyShutter(const camera3_shutter_msg_t &msg) {
                         r.shutterTS, msg.frame_number);
     r.pendingBuffers.clear();
 
-    RemovePendingRequestLocked(idx);
+    RemovePendingRequestLocked(msg.frame_number);
   }
   pthread_mutex_unlock(&pending_requests_lock_);
 
-  if (idx < 0) {
+  if (!pending_request_found) {
     SET_ERR("Shutter notification with invalid frame number %d",
             msg.frame_number);
   }
@@ -1392,10 +1387,8 @@ void Camera3DeviceClient::ReturnOutputBuffers(
     if (CAMERA3_BUFFER_STATUS_ERROR == outputBuffers[i].status &&
         flush_on_going_ == false) {
       CaptureResultExtras resultExtras;
-      ssize_t idx = pending_requests_vector_.indexOfKey(frame_number);
-
-      if (idx >= 0) {
-        PendingRequest &r = pending_requests_vector_.editValueAt(idx);
+      if (pending_requests_vector_.count(frame_number)) {
+        PendingRequest &r = pending_requests_vector_.at(frame_number);
         r.status = CAMERA3_MSG_ERROR_BUFFER;
         resultExtras = r.resultExtras;
       } else {
@@ -1454,9 +1447,8 @@ exit:
   return res;
 }
 
-void Camera3DeviceClient::RemovePendingRequestLocked(int idx) {
-  const PendingRequest &request = pending_requests_vector_.valueAt(idx);
-  const uint32_t frameNumber = pending_requests_vector_.keyAt(idx);
+void Camera3DeviceClient::RemovePendingRequestLocked(uint32_t frameNumber) {
+  PendingRequest &request = pending_requests_vector_.at(frameNumber);
 
   int64_t sensorTS = request.sensorTS;
   int64_t shutterTS = request.shutterTS;
@@ -1478,10 +1470,10 @@ void Camera3DeviceClient::RemovePendingRequestLocked(int idx) {
     if (0 != request.status && (!request.isMetaPresent || shutterTS == 0)) {
       QMMF_INFO("%s: Received error in the capture request. Added to the error"
           " requests vector.\n", __func__);
-      pending_error_requests_vector_.add(frameNumber, request);
+      pending_error_requests_vector_.emplace(frameNumber, request);
     }
 
-    pending_requests_vector_.removeItemsAt(idx, 1);
+    pending_requests_vector_.erase(frameNumber);
   }
 }
 
@@ -1953,6 +1945,11 @@ int32_t Camera3DeviceClient::WaitUntilDrainedLocked() {
           input_stream_.format, input_stream_.input_buffer_cnt);
     }
   }
+
+  pthread_mutex_lock(&pending_requests_lock_);
+  pending_error_requests_vector_.clear();
+  pthread_mutex_unlock(&pending_requests_lock_);
+
   return res;
 }
 
