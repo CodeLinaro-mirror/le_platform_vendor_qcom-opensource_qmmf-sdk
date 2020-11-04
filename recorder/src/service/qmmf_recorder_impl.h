@@ -308,6 +308,8 @@ class RecorderImpl {
 
   std::vector<uint32_t> GetCameraClients(const uint32_t& camera_id);
 
+  status_t ForceReturnBuffers(const uint32_t client_id);
+
   uint32_t                      unique_session_id_;
 
   CameraSource*                 camera_source_;

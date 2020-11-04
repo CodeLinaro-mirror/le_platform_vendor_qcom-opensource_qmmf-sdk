@@ -118,9 +118,11 @@ class CameraSource {
   /// Start Track Source
   status_t StartTrackSource(const uint32_t track_id);
 
+  /// Force return all pending buffers to producer
+  status_t FlushTrackSource(const uint32_t track_id);
+
   /// Stop Track Source
-  status_t StopTrackSource(const uint32_t track_id,
-                           bool is_force_cleanup = false);
+  status_t StopTrackSource(const uint32_t track_id);
 
   /// Pause Track Source
   status_t PauseTrackSource(const uint32_t track_id);
@@ -233,8 +235,11 @@ class TrackSource : public ICodecSource {
   /// Link track source with consumer and start additional processing
   status_t StartTrack();
 
+  /// Force return all pending buffers to producer
+  status_t Flush();
+
   /// Unlink track source with consumer and stops additional processing
-  status_t StopTrack(bool is_force_cleanup = false);
+  status_t StopTrack();
 
   /// Pause track source
   status_t PauseTrack();
