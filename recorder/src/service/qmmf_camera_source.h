@@ -100,8 +100,10 @@ class CameraSource {
                               const ImageConfigParam &config);
 
   /// Cancel Image Capture
-  status_t CancelCaptureImage(const uint32_t camera_id,
-                              bool is_force_cleanup = false);
+  status_t CancelCaptureImage(const uint32_t camera_id);
+
+  /// Return All Image Capture buffers
+  status_t ReturnAllImageCaptureBuffers(const uint32_t camera_id);
 
   /// Return Image Capture buffer
   status_t ReturnImageCaptureBuffer(const uint32_t camera_id,

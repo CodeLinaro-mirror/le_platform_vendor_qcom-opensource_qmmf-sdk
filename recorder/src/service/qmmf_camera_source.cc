@@ -244,8 +244,7 @@ status_t CameraSource::ConfigImageCapture(const uint32_t camera_id,
   return NO_ERROR;
 }
 
-status_t CameraSource::CancelCaptureImage(const uint32_t camera_id,
-                                          bool is_force_cleanup) {
+status_t CameraSource::CancelCaptureImage(const uint32_t camera_id) {
 
   QMMF_DEBUG("%s: Enter", __func__);
   QMMF_KPI_DETAIL();
@@ -256,13 +255,32 @@ status_t CameraSource::CancelCaptureImage(const uint32_t camera_id,
   }
   auto const& camera = camera_map_[camera_id];
 
-  auto ret = camera->CancelCaptureImage(is_force_cleanup);
+  auto ret = camera->CancelCaptureImage();
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: CancelCaptureImage Failed!", __func__);
     return ret;
   }
   QMMF_DEBUG("%s: Exit", __func__);
   return NO_ERROR;
+}
+
+status_t CameraSource::ReturnAllImageCaptureBuffers(const uint32_t camera_id) {
+  QMMF_DEBUG("%s: Enter", __func__);
+
+  if (camera_map_.count(camera_id) == 0) {
+    QMMF_ERROR("%s: Invalid Camera Id(%d)", __func__, camera_id);
+    return BAD_VALUE;
+  }
+  auto const& camera = camera_map_[camera_id];
+
+  auto ret = camera->ReturnAllImageCaptureBuffers();
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s: ReturnAllImageCaptureBuffers Failed!", __func__);
+    return ret;
+  }
+
+  QMMF_DEBUG("%s: Exit", __func__);
+  return ret;
 }
 
 status_t CameraSource::ReturnImageCaptureBuffer(const uint32_t camera_id,
