@@ -529,6 +529,8 @@ status_t RecorderImpl::CreateSession(const uint32_t client_id,
   QMMF_INFO("%s: Client(%u): Session(%u) created successfully", __func__,
       client_id, *session_id);
 
+  sessions_mutex_map_.emplace(*session_id, new std::mutex());
+
   QMMF_DEBUG("%s: Exit", __func__);
   return NO_ERROR;
 }
@@ -564,6 +566,7 @@ status_t RecorderImpl::DeleteSession(const uint32_t client_id,
 
   session_track_map.erase(session_id);
   sessions_state_.erase(session_id);
+  sessions_mutex_map_.erase(session_id);
 
   QMMF_INFO("%s: Number of sessions(%d) left in client_id(%d)",
       __func__, session_track_map.size(), client_id);
@@ -590,6 +593,13 @@ status_t RecorderImpl::StartSession(const uint32_t client_id,
   QMMF_DEBUG("%s: Enter client_id(%d):session_id(%d)", __func__,
       client_id, session_id);
   QMMF_KPI_DETAIL();
+
+  client_session_lock_.lock();
+  auto& session_track_map = client_session_map_[client_id];
+  auto& tracks_in_session = session_track_map[session_id];
+  auto& session_lock = sessions_mutex_map_[session_id];
+  client_session_lock_.unlock();
+  std::lock_guard<std::mutex> lock(*session_lock);
 
   uint32_t ret = NO_ERROR;
   if (!IsClientValid(client_id)) {
@@ -618,10 +628,6 @@ status_t RecorderImpl::StartSession(const uint32_t client_id,
     return NO_ERROR;
   }
 
-  client_session_lock_.lock();
-  auto& session_track_map = client_session_map_[client_id];
-  auto& tracks_in_session = session_track_map[session_id];
-  client_session_lock_.unlock();
 #ifdef PULSE_AUDIO_ENABLE
   QMMF_INFO("%s: client_id(%d):session_id(%d) number of tracks(%d) to start",
       __func__, client_id, session_id, tracks_in_session.size());
@@ -743,6 +749,13 @@ status_t RecorderImpl::StopSession(const uint32_t client_id,
       client_id, session_id);
   QMMF_KPI_DETAIL();
 
+  client_session_lock_.lock();
+  auto& session_track_map = client_session_map_[client_id];
+  auto& tracks_in_session = session_track_map[session_id];
+  auto& session_lock = sessions_mutex_map_[session_id];
+  client_session_lock_.unlock();
+  std::lock_guard<std::mutex> lock(*session_lock);
+
   uint32_t ret = NO_ERROR;
   if (!IsClientValid(client_id)) {
     QMMF_ERROR("%s: Client(%u) is not connected!", __func__, client_id);
@@ -760,11 +773,6 @@ status_t RecorderImpl::StopSession(const uint32_t client_id,
         client_id, session_id);
     return NO_ERROR;
   }
-
-  client_session_lock_.lock();
-  auto session_track_map = client_session_map_[client_id];
-  auto tracks_in_session = session_track_map[session_id];
-  client_session_lock_.unlock();
 
   QMMF_INFO("%s: client_id(%d):session_id(%d), number of tracks(%d) to stop",
       __func__, client_id, session_id, tracks_in_session.size());
