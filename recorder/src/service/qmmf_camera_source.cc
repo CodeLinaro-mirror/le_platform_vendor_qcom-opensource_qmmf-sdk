@@ -567,13 +567,12 @@ status_t CameraSource::StartTrackSource(const uint32_t track_id) {
   auto ret = track->StartTrack();
   assert(ret == NO_ERROR);
 
-  QMMF_VERBOSE("%s: TrackSource id(%x) Started Succesffuly!", __func__,
+  QMMF_VERBOSE("%s: TrackSource id(%x) Started Successfully!", __func__,
       track_id);
   return ret;
 }
 
-status_t CameraSource::StopTrackSource(const uint32_t track_id,
-                                       bool is_force_cleanup) {
+status_t CameraSource::FlushTrackSource(const uint32_t track_id) {
 
   QMMF_KPI_DETAIL();
   if (!IsTrackIdValid(track_id)) {
@@ -582,10 +581,27 @@ status_t CameraSource::StopTrackSource(const uint32_t track_id,
   }
   auto const& track = track_sources_[track_id];
 
-  auto ret = track->StopTrack(is_force_cleanup);
+  auto ret = track->Flush();
   assert(ret == NO_ERROR);
 
-  QMMF_VERBOSE("%s: TrackSource id(%x) Stopped Succesffuly!", __func__,
+  QMMF_VERBOSE("%s: TrackSource id(%x) Flush Buffers Successfully!", __func__,
+      track_id);
+  return ret;
+}
+
+status_t CameraSource::StopTrackSource(const uint32_t track_id) {
+
+  QMMF_KPI_DETAIL();
+  if (!IsTrackIdValid(track_id)) {
+    QMMF_ERROR("%s: Track(%x) does not exist !!", __func__, track_id);
+    return BAD_VALUE;
+  }
+  auto const& track = track_sources_[track_id];
+
+  auto ret = track->StopTrack();
+  assert(ret == NO_ERROR);
+
+  QMMF_VERBOSE("%s: TrackSource id(%x) Stopped Successfully!", __func__,
       track_id);
   return ret;
 }
@@ -602,7 +618,7 @@ status_t CameraSource::PauseTrackSource(const uint32_t track_id) {
   auto ret = track->PauseTrack();
   assert(ret == NO_ERROR);
 
-  QMMF_VERBOSE("%s: TrackSource id(%x) Paused Succesffuly!", __func__,
+  QMMF_VERBOSE("%s: TrackSource id(%x) Paused Successfully!", __func__,
       track_id);
   return ret;
 }
@@ -619,7 +635,7 @@ status_t CameraSource::ResumeTrackSource(const uint32_t track_id) {
   auto ret = track->ResumeTrack();
   assert(ret == NO_ERROR);
 
-  QMMF_VERBOSE("%s: TrackSource id(%x) Resumed Succesffuly!", __func__,
+  QMMF_VERBOSE("%s: TrackSource id(%x) Resumed Successfully!", __func__,
       track_id);
   return ret;
 }
@@ -1085,7 +1101,7 @@ status_t TrackSource::Init() {
   }
 
   QMMF_INFO("%s: TrackSource(0x%p)(%dx%d) and Camera Device Stream "
-      " Created Succesffuly for track_id(%x)",  __func__, this,
+      " Created Successfully for track_id(%x)",  __func__, this,
       track_params_.params.width, track_params_.params.height, TrackId());
 
   QMMF_DEBUG("%s Exit track_id(%x)", __func__, TrackId());
@@ -1171,7 +1187,37 @@ status_t TrackSource::StartTrack() {
   return NO_ERROR;
 }
 
-status_t TrackSource::StopTrack(bool is_force_cleanup) {
+status_t TrackSource::Flush() {
+  status_t ret;
+
+  QMMF_DEBUG("%s: Enter track_id(%x)", __func__, TrackId());
+
+  if (track_params_.params.format_type == VideoFormat::kRGB ||
+      track_params_.params.format_type == VideoFormat::kNV12 ||
+      track_params_.params.format_type == VideoFormat::kNV12UBWC ||
+      track_params_.params.format_type == VideoFormat::kBayerRDI8BIT ||
+      track_params_.params.format_type == VideoFormat::kBayerRDI10BIT ||
+      track_params_.params.format_type == VideoFormat::kBayerRDI12BIT ||
+      track_params_.params.format_type == VideoFormat::kBayerIdeal) {
+
+      QMMF_INFO("%s: track_id(%x) Force return buffers!", __func__, TrackId());
+      std::lock_guard<std::mutex> lk(buffer_list_lock_);
+      for (auto it = buffer_list_.begin(); it != buffer_list_.end(); it++) {
+        StreamBuffer buffer = it->second;
+        ReturnBufferToProducer(buffer);
+      }
+      buffer_list_.clear();
+
+      std::lock_guard<std::mutex> idle_lock(idle_lock_);
+      is_idle_ = true;
+  }
+  // else video encoder should return buffers
+
+  QMMF_DEBUG("%s: Exit track_id(%x)", __func__, TrackId());
+  return NO_ERROR;
+}
+
+status_t TrackSource::StopTrack() {
   status_t ret;
 
   QMMF_DEBUG("%s: Enter track_id(%x)", __func__, TrackId());
@@ -1211,19 +1257,6 @@ status_t TrackSource::StopTrack(bool is_force_cleanup) {
       track_params_.params.format_type == VideoFormat::kBayerRDI12BIT ||
       track_params_.params.format_type == VideoFormat::kBayerIdeal) {
 
-    if (is_force_cleanup) {
-      QMMF_INFO("%s: track_id(%x) stopping in force mode!", __func__,
-          TrackId());
-      std::lock_guard<std::mutex> lk(buffer_list_lock_);
-      for (auto it = buffer_list_.begin(); it != buffer_list_.end(); it++) {
-        StreamBuffer buffer = it->second;
-        ReturnBufferToProducer(buffer);
-      }
-      buffer_list_.clear();
-
-      std::lock_guard<std::mutex> idle_lock(idle_lock_);
-      is_idle_ = true;
-    }
     // Encoder is not involved in this case.
     assert(camera_interface_.get() != nullptr);
 
