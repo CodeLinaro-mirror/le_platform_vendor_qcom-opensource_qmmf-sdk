@@ -115,10 +115,6 @@ class RecorderImpl {
   /// Resume the session
   status_t ResumeSession(const uint32_t client_id, const uint32_t session_id);
 
-  /// Return number of available Cameras to the Camera Source
-  status_t GetNumberOfCameras(const uint32_t client_id,
-                              SupportedCameras &cameras);
-
   /// Create Audio Track and associates it to the session.
   status_t CreateAudioTrack(const uint32_t client_id,
                             const uint32_t session_id,
