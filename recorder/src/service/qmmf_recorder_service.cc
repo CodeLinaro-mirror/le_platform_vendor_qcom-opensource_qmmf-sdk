@@ -165,26 +165,6 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
         return NO_ERROR;
       }
       break;
-      case RECORDER_GET_NUMBER_OF_CAMERAS: {
-        uint32_t client_id;
-        data.readUint32(&client_id);
-        SupportedCameras cameras;
-        auto ret = GetNumberOfCameras(client_id, cameras);
-        uint32_t num_cameras = cameras.size();
-        reply->writeUint32(num_cameras);
-        for (auto const& camera : cameras) {
-          size_t blob_size = sizeof(camera);
-          reply->writeUint32(blob_size);
-          android::Parcel::WritableBlob blob;
-          auto status = reply->writeBlob(blob_size, false, &blob);
-          if (status == NO_ERROR) {
-            memcpy(blob.data(), &camera, blob_size);
-          }
-        }
-        reply->writeInt32(ret);
-        return NO_ERROR;
-      }
-      break;
       case RECORDER_CREATE_AUDIOTRACK: {
         uint32_t client_id, session_id, track_id;
         data.readUint32(&client_id);
@@ -784,25 +764,6 @@ status_t RecorderService::ResumeSession(const uint32_t client_id,
   auto ret = recorder_->ResumeSession(client_id, session_id);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: ResumeSession failed!", __func__);
-    return ret;
-  }
-  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
-  return NO_ERROR;
-}
-
-status_t RecorderService::GetNumberOfCameras(const uint32_t client_id,
-                                             SupportedCameras &cameras) {
-
-  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
-
-  if (!IsRecorderInitialized()) {
-    QMMF_ERROR("%s: Recorder not initialized!", __func__);
-    return NO_INIT;
-  }
-
-  auto ret = recorder_->GetNumberOfCameras(client_id, cameras);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: GetNumberOfCameras failed: %d", __func__, ret);
     return ret;
   }
   QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
