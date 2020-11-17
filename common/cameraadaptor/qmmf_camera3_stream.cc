@@ -89,7 +89,7 @@ Camera3Stream::Camera3Stream(int id, size_t maxSize,
   mem_alloc_interface_ = device;
 
   pthread_mutex_init(&lock_, NULL);
-  pthread_cond_init(&output_buffer_returned_signal_, NULL);
+  cond_init(&output_buffer_returned_signal_);
 }
 
 Camera3Stream::~Camera3Stream() {

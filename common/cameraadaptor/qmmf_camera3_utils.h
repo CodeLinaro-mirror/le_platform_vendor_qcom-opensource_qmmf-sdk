@@ -37,6 +37,8 @@ namespace qmmf {
 
 namespace cameraadaptor {
 
+void cond_init(pthread_cond_t *cond);
+
 int32_t cond_wait_relative(pthread_cond_t *cond, pthread_mutex_t *mutex,
                            uint64_t reltime);
 

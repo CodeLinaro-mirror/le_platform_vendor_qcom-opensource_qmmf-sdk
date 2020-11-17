@@ -52,11 +52,11 @@ Camera3RequestHandler::Camera3RequestHandler(Camera3Monitor &monitor)
       batch_size_(1),
       run_worker_(false) {
   pthread_mutex_init(&lock_, NULL);
-  pthread_cond_init(&requests_signal_, NULL);
-  pthread_cond_init(&current_request_signal_, NULL);
+  cond_init(&requests_signal_);
+  cond_init(&current_request_signal_);
   pthread_mutex_init(&pause_lock_, NULL);
-  pthread_cond_init(&toggle_pause_signal_, NULL);
-  pthread_cond_init(&pause_state_signal_, NULL);
+  cond_init(&toggle_pause_signal_);
+  cond_init(&pause_state_signal_);
   ClearCaptureRequest(old_request_);
 }
 

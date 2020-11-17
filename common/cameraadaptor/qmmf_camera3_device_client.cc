@@ -101,7 +101,7 @@ Camera3DeviceClient::Camera3DeviceClient(CameraClientCallbacks clientCb)
   camera_module_callbacks_t::torch_mode_status_change = &torchModeStatusChange;
   pthread_mutex_init(&lock_, NULL);
   pthread_mutex_init(&pending_requests_lock_, NULL);
-  pthread_cond_init(&state_updated_, NULL);
+  cond_init(&state_updated_);
   input_stream_.stream_id = -1;
   prepare_handler_.SetPrepareCb(clientCb.peparedCb);
 }
