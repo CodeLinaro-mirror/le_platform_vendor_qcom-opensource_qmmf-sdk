@@ -222,17 +222,6 @@ status_t RecorderImpl::DeRegisterClient(const uint32_t client_id,
       client_cameraid_map_.erase(client_id);
     }
     return NO_ERROR;
-  } else {
-    // Force cancel capture image in case of force cleanup
-    auto const& cameras = client_cameraid_map_[client_id];
-    for (auto camera : cameras) {
-      auto camera_id = camera.first;
-      ret = camera_source_->CancelCaptureImage(camera_id, true);
-      if (ret != NO_ERROR) {
-        QMMF_ERROR("%s: CancelCaptureImage failed for camera_id %d",
-            __func__, camera_id);
-      }
-    }
   }
 
   // This is the case when client is dead before releasing its acquired
@@ -246,6 +235,13 @@ status_t RecorderImpl::DeRegisterClient(const uint32_t client_id,
     // track callbacks to return the buffers from where they originated.
     std::lock_guard<std::mutex> lock(client_state_lock_);
     client_state_[client_id] = ClientState::kDead;
+  }
+
+  // Try to release buffer which are held by dead client.
+  ret = ForceReturnBuffers(client_id);
+  if (ret != NO_ERROR) {
+    QMMF_WARN("%s: Client(%u): Buffers clean up failed!", __func__, client_id);
+    // Carry-on even return buffers fails.
   }
 
   {
@@ -540,6 +536,8 @@ status_t RecorderImpl::CreateSession(const uint32_t client_id,
   QMMF_INFO("%s: Client(%u): Session(%u) created successfully", __func__,
       client_id, *session_id);
 
+  sessions_mutex_map_.emplace(*session_id, new std::mutex());
+
   QMMF_DEBUG("%s: Exit", __func__);
   return NO_ERROR;
 }
@@ -575,6 +573,7 @@ status_t RecorderImpl::DeleteSession(const uint32_t client_id,
 
   session_track_map.erase(session_id);
   sessions_state_.erase(session_id);
+  sessions_mutex_map_.erase(session_id);
 
   QMMF_INFO("%s: Number of sessions(%d) left in client_id(%d)",
       __func__, session_track_map.size(), client_id);
@@ -601,6 +600,13 @@ status_t RecorderImpl::StartSession(const uint32_t client_id,
   QMMF_DEBUG("%s: Enter client_id(%d):session_id(%d)", __func__,
       client_id, session_id);
   QMMF_KPI_DETAIL();
+
+  client_session_lock_.lock();
+  auto& session_track_map = client_session_map_[client_id];
+  auto& tracks_in_session = session_track_map[session_id];
+  auto& session_lock = sessions_mutex_map_[session_id];
+  client_session_lock_.unlock();
+  std::lock_guard<std::mutex> lock(*session_lock);
 
   uint32_t ret = NO_ERROR;
   if (!IsClientValid(client_id)) {
@@ -629,10 +635,6 @@ status_t RecorderImpl::StartSession(const uint32_t client_id,
     return NO_ERROR;
   }
 
-  client_session_lock_.lock();
-  auto& session_track_map = client_session_map_[client_id];
-  auto& tracks_in_session = session_track_map[session_id];
-  client_session_lock_.unlock();
 #ifdef PULSE_AUDIO_ENABLE
   QMMF_INFO("%s: client_id(%d):session_id(%d) number of tracks(%d) to start",
       __func__, client_id, session_id, tracks_in_session.size());
@@ -754,6 +756,13 @@ status_t RecorderImpl::StopSession(const uint32_t client_id,
       client_id, session_id);
   QMMF_KPI_DETAIL();
 
+  client_session_lock_.lock();
+  auto& session_track_map = client_session_map_[client_id];
+  auto& tracks_in_session = session_track_map[session_id];
+  auto& session_lock = sessions_mutex_map_[session_id];
+  client_session_lock_.unlock();
+  std::lock_guard<std::mutex> lock(*session_lock);
+
   uint32_t ret = NO_ERROR;
   if (!IsClientValid(client_id)) {
     QMMF_ERROR("%s: Client(%u) is not connected!", __func__, client_id);
@@ -772,11 +781,6 @@ status_t RecorderImpl::StopSession(const uint32_t client_id,
     return NO_ERROR;
   }
 
-  client_session_lock_.lock();
-  auto session_track_map = client_session_map_[client_id];
-  auto tracks_in_session = session_track_map[session_id];
-  client_session_lock_.unlock();
-
   QMMF_INFO("%s: client_id(%d):session_id(%d), number of tracks(%d) to stop",
       __func__, client_id, session_id, tracks_in_session.size());
 
@@ -794,7 +798,7 @@ status_t RecorderImpl::StopSession(const uint32_t client_id,
     if (track_info.type == TrackType::kVideo) {
       // Stop TrackSource
       assert(camera_source_ != nullptr);
-      ret = camera_source_->StopTrackSource(service_track_id, is_force_cleanup);
+      ret = camera_source_->StopTrackSource(service_track_id);
       if (ret != NO_ERROR) {
         QMMF_ERROR("%s: client_id(%d):session_id(%d), StopTrackSource"
             " failed for client_track_id(%d):service_track_id(%x)",
@@ -2260,6 +2264,60 @@ std::vector<uint32_t> RecorderImpl::GetCameraClients(const uint32_t& camera_id) 
     }
   }
   return client_ids;
+}
+
+status_t RecorderImpl::ForceReturnBuffers(const uint32_t client_id) {
+
+  assert(camera_source_ != nullptr);
+
+  uint32_t ret = NO_ERROR;
+
+  // Return all image capture buffers
+  auto const& cameras = client_cameraid_map_[client_id];
+  for (auto camera : cameras) {
+    auto camera_id = camera.first;
+    ret = camera_source_->ReturnAllImageCaptureBuffers(camera_id);
+    if (ret != NO_ERROR) {
+      QMMF_WARN("%s: ReturnAllImageCaptureBuffers failed for camera_id %d",
+          __func__, camera_id);
+    }
+  }
+
+  // Return all track buffers
+  client_session_lock_.lock();
+  auto session_track_map = client_session_map_[client_id];
+  client_session_lock_.unlock();
+
+  // iterate all sessions for this client
+  for (auto session : session_track_map) {
+    auto session_id = session.first;
+
+    client_session_lock_.lock();
+    auto tracks_in_session = session_track_map[session_id];
+    client_session_lock_.unlock();
+
+    // iterate all tracks for this session
+    auto track = tracks_in_session.rbegin();
+    while (track != tracks_in_session.rend()) {
+      uint32_t client_track_id  = track->first;
+      TrackInfo track_info      = track->second;
+      uint32_t service_track_id = track_info.track_id;
+
+      if (track_info.type == TrackType::kVideo) {
+        QMMF_INFO("%s: Return buffers to track, client_id(%d):session_id(%d), "
+            "client_track_id(%d):service_track_id(%x)", __func__, client_id,
+            session_id, client_track_id, service_track_id);
+
+        ret = camera_source_->FlushTrackSource(service_track_id);
+        if (ret != NO_ERROR) {
+          QMMF_WARN("%s: FlushTrackSource failed for track_id %d", __func__,
+              service_track_id);
+        }
+      }
+      ++track;
+    }
+  }
+  return ret;
 }
 
 }; // namespace recorder

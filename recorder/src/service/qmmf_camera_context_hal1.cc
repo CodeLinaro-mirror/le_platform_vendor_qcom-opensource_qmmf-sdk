@@ -658,20 +658,11 @@ status_t CameraContext::ConfigImageCapture(const ImageConfigParam &config) {
   return NO_ERROR;
 }
 
-status_t CameraContext::CancelCaptureImage(bool is_force_cleanup) {
+status_t CameraContext::CancelCaptureImage() {
 
   // todo wait until image capture is done
-  QMMF_DEBUG("%s: Enter", __func__);
-  status_t ret = NO_ERROR;
-  if (is_force_cleanup) {
-    for (int i = 0; i < snapshot_buffer_list_.size(); i++) {
-      auto entry = snapshot_buffer_list_.begin();
-      ret = ReturnImageCaptureBuffer(0, entry->first);
-      assert(ret == NO_ERROR);
-    }
-  }
-  QMMF_DEBUG("%s: Exit", __func__);
-  return ret;
+
+  return NO_ERROR;
 }
 
 status_t CameraContext::CreateStream(const StreamParam& param,
@@ -1276,6 +1267,19 @@ status_t CameraContext::GetCameraCharacteristics(CameraMetadata &meta) {
 
   meta.append(metadata_);
   return NO_ERROR;
+}
+
+status_t CameraContext::ReturnAllImageCaptureBuffers() {
+
+  QMMF_DEBUG("%s: Enter", __func__);
+  status_t ret = NO_ERROR;
+  for (int i = 0; i < snapshot_buffer_list_.size(); i++) {
+    auto entry = snapshot_buffer_list_.begin();
+    ret = ReturnImageCaptureBuffer(0, entry->first);
+    assert(ret == NO_ERROR);
+  }
+  QMMF_DEBUG("%s: Exit", __func__);
+  return ret;
 }
 
 status_t CameraContext::ReturnImageCaptureBuffer(const uint32_t camera_id,
