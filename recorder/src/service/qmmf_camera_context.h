@@ -336,6 +336,7 @@ class CameraContext : public CameraInterface,
   bool                     partial_metadata_required_;
   int32_t                  partial_result_count_;
   std::mutex               partial_result_lock_;
+  std::mutex               stop_stream_lock_;
 
   // snapshot configuration
   SnapshotParam                 snapshot_param_;

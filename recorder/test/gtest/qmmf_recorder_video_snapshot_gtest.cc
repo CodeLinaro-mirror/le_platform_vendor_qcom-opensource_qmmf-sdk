@@ -12553,4 +12553,139 @@ TEST_F(RecorderVideoSnapshotGTest,
           test_info_->test_case_name(), test_info_->name());
 }
 
+/*
+* MasterWithSecondaryCameraWithPriviewAndSnapshot:
+* This will test session with preview and snapshot with camera 1.
+* API test sequence:
+*  - StartCamera
+*  - CreateSession
+*  - CreateVideoTrack -  4k YUV
+*  - StartSession
+*  - Take Snapshot
+*  - StopSession
+*  - DeleteVideoTrack -  4k YUV
+*  - DeleteSession
+*  - StopCamera
+*/
+
+TEST_F(RecorderVideoSnapshotGTest,
+       MasterWithSecondaryCameraWithPriviewAndSnapshot) {
+  fprintf(stderr, "\n---------- Run Test %s.%s ------------\n",
+          test_info_->test_case_name(), test_info_->name());
+
+  auto ret = Init();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  VideoFormat format_type = VideoFormat::kYUV;
+  uint32_t width = 3840;
+  uint32_t height = 2160;
+
+  camera_id_ = 1;
+
+  ret = recorder_.StartCamera(camera_id_, camera_start_params_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  TEST_INFO("%s: Running Test(%s)", __func__, test_info_->name());
+
+  SessionCb session_status_cb = CreateSessionStatusCb();
+  uint32_t session_id;
+  ret = recorder_.CreateSession(session_status_cb, &session_id);
+  ASSERT_TRUE(session_id > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
+  VideoTrackCreateParam video_track_param{camera_id_, format_type, width,
+                                          height, 30};
+
+  uint32_t video_track_id = 1;
+
+  TrackCb video_track_cb;
+  video_track_cb.data_cb = [&, session_id](
+      uint32_t track_id, std::vector<BufferDescriptor> buffers,
+      std::vector<MetaData> meta_buffers) {
+    VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers);
+  };
+
+  video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
+                                void *event_data, size_t event_data_size) {
+    VideoTrackEventCb(track_id, event_type, event_data, event_data_size);
+  };
+
+  ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+                                   video_track_param, video_track_cb);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  std::vector<uint32_t> track_ids;
+  track_ids.push_back(video_track_id);
+  sessions_.emplace(session_id, track_ids);
+
+  ret = recorder_.StartSession(session_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  // Sleep for 30 seconds to let the Slave client open Video track.
+  sleep(30);
+
+  master_is_running_ = true;
+
+  cb_thread_ = new std::thread(GtestCommon::MetadataThreadEntry, this);
+  ASSERT_TRUE(cb_thread_ != nullptr);
+
+  std::vector<CameraMetadata> meta_array;
+  CameraMetadata meta;
+
+  ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  for (int count = 0; count < 5; count++) {
+    ImageParam image_param = {};
+    image_param.image_format = ImageFormat::kJPEG;
+    image_param.image_quality = default_jpeg_quality_;
+    GtestCommon::GetMaxSupportedCameraRes(meta, image_param.width,
+                                          image_param.height);
+
+    ImageCaptureCb cb = [this](uint32_t camera_id, uint32_t image_count,
+                               BufferDescriptor buffer,
+                               MetaData meta_data) -> void {
+      SnapshotCb(camera_id, image_count, buffer, meta_data);
+    };
+
+    meta_array.push_back(meta);
+
+    ret = recorder_.CaptureImage(camera_id_, image_param, 1, meta_array, cb);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    sleep(2);
+  }
+
+  sleep(record_duration_);
+
+  master_is_running_ = false;
+
+  if (cb_thread_->joinable()) cb_thread_->join();
+
+  if (cb_thread_) {
+    delete cb_thread_;
+    cb_thread_ = nullptr;
+  }
+
+  ret = recorder_.StopSession(session_id, false);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.DeleteSession(session_id);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  dump_bitstream_.CloseAll();
+  sessions_.erase(session_id);
+
+  ret = recorder_.StopCamera(camera_id_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = DeInit();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  fprintf(stderr, "---------- Test Completed %s.%s ----------\n",
+          test_info_->test_case_name(), test_info_->name());
+}
+
 #endif // CAM_ARCH_V2

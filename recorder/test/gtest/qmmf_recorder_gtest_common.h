@@ -192,6 +192,8 @@ struct FaceInfo {
 #define PROP_CAMERA_ID              "persist.qmmf.rec.gtest.cameraid"
 // Prop to set recording duration in seconds
 #define PROP_RECORD_DURATION        "persist.qmmf.rec.gtest.recdur"
+// Prop to set recording duration in seconds for slave
+#define PROP_RECORD_DURATION_SLAVE  "persist.qmmf.rec.gtest.slave.dur"
 // Prop to enable JPEG thumbnail dumping
 #define PROP_DUMP_THUMBNAIL         "persist.qmmf.rec.gtest.thumb"
 // Prop to set Burst snapshot count
@@ -617,6 +619,10 @@ class GtestCommon : public ::testing::Test {
   void CameraResultCallbackHandler(uint32_t camera_id,
                                    const CameraMetadata &result);
 
+  static void MetadataThreadEntry(GtestCommon * ptr);
+
+  void Thread();
+
   void VideoTrackRGBDataCb(uint32_t session_id, uint32_t track_id,
                            std::vector<BufferDescriptor> buffers,
                            std::vector<MetaData> meta_buffers);
@@ -825,6 +831,7 @@ class GtestCommon : public ::testing::Test {
   bool                  is_dump_thumb_enabled_;
   uint32_t              dump_yuv_freq_;
   uint32_t              record_duration_;
+  uint32_t              slave_record_duration_;
   uint32_t              burst_image_count_;
   uint32_t              default_jpeg_quality_;
   int32_t               default_cds_threshold_;
@@ -856,6 +863,11 @@ class GtestCommon : public ::testing::Test {
   bool                  ubwc_stream_enable_;
   bool                  enable_sof_latency_;
   bool                  enable_10bit_support_;
+
+  ::std::thread*        cb_thread_;
+  std::atomic<bool>     master_is_running_;
+
+  static const uint32_t kSleepSetCameraInterval;
 
 #ifdef QCAMERA3_TAG_LOCAL_COPY
   sp<VendorTagDescriptor> vendor_tag_desc_;

@@ -382,6 +382,8 @@ class RecorderImpl {
 
   ClientSessionStateMap         sessions_state_;
 
+  std::mutex                    stop_camera_lock_;
+
   // Not allowed
   RecorderImpl();
   RecorderImpl(const RecorderImpl&);

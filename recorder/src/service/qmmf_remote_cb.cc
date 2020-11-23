@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016, 2020, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -77,39 +77,47 @@ void RemoteCallBack::NotifySnapshotData(uint32_t camera_id,
                                         meta_data);
 }
 
-void RemoteCallBack::NotifyVideoTrackData(uint32_t track_id,
+void RemoteCallBack::NotifyVideoTrackData(uint32_t session_id,
+                                          uint32_t track_id,
                                           std::vector<BnBuffer> &buffers,
                                           std::vector<MetaData>& meta_buffers) {
 
   assert(client_cb_handle_.get() != nullptr);
-  client_cb_handle_->NotifyVideoTrackData(track_id, buffers, meta_buffers);
+  client_cb_handle_->NotifyVideoTrackData(session_id, track_id, buffers,
+                                          meta_buffers);
 }
 
-void RemoteCallBack::NotifyVideoTrackEvent(uint32_t track_id,
+void RemoteCallBack::NotifyVideoTrackEvent(uint32_t session_id,
+                                           uint32_t track_id,
                                            EventType event_type,
                                            void *event_data,
                                            size_t event_data_size) {
 
   assert(client_cb_handle_.get() != nullptr);
-  client_cb_handle_->NotifyVideoTrackEvent(track_id, event_type, event_data,
+  client_cb_handle_->NotifyVideoTrackEvent(session_id, track_id, event_type,
+                                           event_data,
                                            event_data_size);
 }
 
-void RemoteCallBack::NotifyAudioTrackData(uint32_t track_id,
+void RemoteCallBack::NotifyAudioTrackData(uint32_t session_id,
+                                          uint32_t track_id,
                                           std::vector<BnBuffer> &buffers,
                                           std::vector<MetaData>& meta_buffers) {
 
   assert(client_cb_handle_.get() != nullptr);
-  client_cb_handle_->NotifyAudioTrackData(track_id, buffers, meta_buffers);
+  client_cb_handle_->NotifyAudioTrackData(session_id, track_id, buffers,
+                                          meta_buffers);
 }
 
-void RemoteCallBack::NotifyAudioTrackEvent(uint32_t track_id,
+void RemoteCallBack::NotifyAudioTrackEvent(uint32_t session_id,
+                                           uint32_t track_id,
                                            EventType event_type,
                                            void *event_data,
                                            size_t event_data_size) {
 
   assert(client_cb_handle_.get() != nullptr);
-  client_cb_handle_->NotifyAudioTrackEvent(track_id, event_type, event_data,
+  client_cb_handle_->NotifyAudioTrackEvent(session_id, track_id, event_type,
+                                           event_data,
                                            event_data_size);
 }
 

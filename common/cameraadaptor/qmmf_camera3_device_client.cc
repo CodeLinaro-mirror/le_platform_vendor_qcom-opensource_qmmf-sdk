@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  * Not a Contribution.
  */
 
@@ -146,6 +146,8 @@ Camera3DeviceClient::~Camera3DeviceClient() {
       VendorTagDescriptor::clearGlobalVendorTagDescriptor();
     }
   }
+
+  pending_error_requests_vector_.clear();
 
   pthread_cond_destroy(&state_updated_);
   pthread_mutex_destroy(&pending_requests_lock_);
@@ -399,7 +401,11 @@ int32_t Camera3DeviceClient::ConfigureStreams(const StreamConfiguration& stream_
 
   if (stream_config.params) {
     is_pp_enabled = stream_config.params->is_pp_enabled;
-    is_zzhdr_enabled_ = stream_config.params->is_zzhdr_enabled;
+
+    if (stream_config.params->is_zzhdr_enabled) {
+      is_zzhdr_enabled_ = stream_config.params->is_zzhdr_enabled;
+    }
+
     if (stream_config.params->force_sensor_mode >= 0) {
       force_sensor_mode_ = stream_config.params->force_sensor_mode;
     }
@@ -590,6 +596,11 @@ int32_t Camera3DeviceClient::DeleteStream(int streamId, bool cache) {
     if (streams_.isEmpty() && is_eis_enabled_) {
       QMMF_INFO("%s: Disable EIS\n", __func__);
       is_eis_enabled_ = false;
+    }
+
+    if (streams_.isEmpty() && is_zzhdr_enabled_) {
+      QMMF_INFO("%s: Disable HDR\n", __func__);
+      is_zzhdr_enabled_ = false;
     }
     res = stream->Close();
     if (0 != res) {
@@ -1076,6 +1087,14 @@ void Camera3DeviceClient::HandleCaptureResult(
   pthread_mutex_lock(&pending_requests_lock_);
   ssize_t idx = pending_requests_vector_.indexOfKey(frameNumber);
   if (-ENOENT == idx) {
+    ssize_t error_idx = pending_error_requests_vector_.indexOfKey(frameNumber);
+    if (-ENOENT != error_idx) {
+      QMMF_INFO("%s: Found a request with error status. "
+          "Ignore the capture result.\n", __func__);
+      pending_error_requests_vector_.removeItemsAt(error_idx, 1);
+      pthread_mutex_unlock(&pending_requests_lock_);
+      return;
+    }
     SET_ERR("Invalid frame number in capture result: %d", frameNumber);
     pthread_mutex_unlock(&pending_requests_lock_);
     return;
@@ -1455,6 +1474,12 @@ void Camera3DeviceClient::RemovePendingRequestLocked(int idx) {
     ReturnOutputBuffers(request.pendingBuffers.array(),
                         request.pendingBuffers.size(), 0,
                         frameNumber);
+
+    if (0 != request.status && (!request.isMetaPresent || shutterTS == 0)) {
+      QMMF_INFO("%s: Received error in the capture request. Added to the error"
+          " requests vector.\n", __func__);
+      pending_error_requests_vector_.add(frameNumber, request);
+    }
 
     pending_requests_vector_.removeItemsAt(idx, 1);
   }
