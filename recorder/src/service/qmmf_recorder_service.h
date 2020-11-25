@@ -103,9 +103,6 @@ class RecorderService : public BnInterface<IRecorderService> {
   status_t ResumeSession(const uint32_t client_id,
                          const uint32_t session_id) override;
 
-  status_t GetNumberOfCameras(const uint32_t client_id,
-                              SupportedCameras &cameras) override;
-
   status_t CreateAudioTrack(const uint32_t client_id,
                             const uint32_t session_id,
                             const uint32_t track_id,

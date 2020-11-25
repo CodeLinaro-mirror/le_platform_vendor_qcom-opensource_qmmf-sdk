@@ -84,8 +84,6 @@ class RecorderClient {
 
   status_t ResumeSession(const uint32_t session_id);
 
-  status_t GetNumberOfCameras(SupportedCameras &cameras);
-
   status_t CreateAudioTrack(const uint32_t session_id, const uint32_t track_id,
                             const AudioTrackCreateParam& param,
                             const TrackCb& cb);
