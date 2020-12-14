@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  * Not a Contribution.
  */
 
@@ -58,6 +58,7 @@ Camera3RequestHandler::Camera3RequestHandler(Camera3Monitor &monitor)
   pthread_cond_init(&toggle_pause_signal_, NULL);
   pthread_cond_init(&pause_state_signal_, NULL);
   ClearCaptureRequest(old_request_);
+  ClearCaptureRequest(current_request_);
 }
 
 Camera3RequestHandler::~Camera3RequestHandler() {
