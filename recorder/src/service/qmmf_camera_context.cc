@@ -93,16 +93,37 @@ CameraContext::CameraContext()
       continuous_mode_is_on(false) {
 
   QMMF_INFO("%s: Enter", __func__);
+
+  //Setup Camera3DeviceClient callbacks.
+  camera_callbacks_.errorCb = [&] (CameraErrorCode error_code,
+      const CaptureResultExtras &extras) { CameraErrorCb(error_code, extras);};
+
+  camera_callbacks_.idleCb = [&] () { CameraIdleCb(); };
+
+  camera_callbacks_.peparedCb = [&] (int32_t id) { CameraPreparedCb(id); };
+
+  camera_callbacks_.shutterCb = [&] (const CaptureResultExtras &extras,
+      int64_t ts) { CameraShutterCb(extras, ts); };
+
+  camera_callbacks_.resultCb = [&] (const CaptureResult &result)
+      { CameraResultCb(result); };
+
+  camera_device_ = std::make_shared<Camera3DeviceClient>(camera_callbacks_);
+  if (!camera_device_) {
+    QMMF_ERROR("%s: Can't Instantiate Camera3DeviceClient", __func__);
+  }
+
+  if (camera_device_ && camera_device_->Initialize() != NO_ERROR) {
+    QMMF_ERROR("%s: Unable to Initialize Camera3DeviceClient", __func__);
+    camera_device_.reset();
+  }
+
   QMMF_INFO("%s: Exit", __func__);
 }
 
 CameraContext::~CameraContext() {
 
   QMMF_INFO("%s: Enter", __func__);
-  if(camera_device_.get()) {
-    camera_device_.clear();
-    camera_device_ = nullptr;
-  }
   //TODO: check all active ports
   QMMF_INFO("%s: Exit", __func__);
 }
@@ -249,20 +270,6 @@ status_t CameraContext::OpenCamera(const uint32_t camera_id,
   bool match_camera_id = false;
   uint32_t num_camera = 0;
 
-  //Setup Camera3DeviceClient callbacks.
-  camera_callbacks_.errorCb = [&] (CameraErrorCode error_code,
-      const CaptureResultExtras &extras) { CameraErrorCb(error_code, extras);};
-
-  camera_callbacks_.idleCb = [&] () { CameraIdleCb(); };
-
-  camera_callbacks_.peparedCb = [&] (int32_t id) { CameraPreparedCb(id); };
-
-  camera_callbacks_.shutterCb = [&] (const CaptureResultExtras &extras,
-      int64_t ts) { CameraShutterCb(extras, ts); };
-
-  camera_callbacks_.resultCb = [&] (const CaptureResult &result)
-      { CameraResultCb(result); };
-
   camera_parameters_ = {};
   camera_parameters_.frame_rate = frame_rate;
 
@@ -353,17 +360,9 @@ status_t CameraContext::OpenCamera(const uint32_t camera_id,
 
   camera_parameters_.batch_size = 1;
 
-  camera_device_ = new Camera3DeviceClient(camera_callbacks_);
-  if(!camera_device_.get()) {
-    QMMF_ERROR("%s: Can't Instantiate Camera3DeviceClient", __func__);
-    return NO_MEMORY;
-  }
-
-  ret = camera_device_->Initialize();
-  if(ret != NO_ERROR) {
-    QMMF_ERROR("%s Unable to Initialize Camera3DeviceClient %d",
-               __func__, ret);
-    goto FAIL;
+  if (!camera_device_) {
+    QMMF_ERROR("%s: Camera device was not created successfully!", __func__);
+    return NO_INIT;
   }
 
   ret = camera_device_->OpenCamera(camera_id);
@@ -399,10 +398,6 @@ status_t CameraContext::OpenCamera(const uint32_t camera_id,
   result_cb_ = cb;
   error_cb_ = errcb;
 
-  return ret;
-FAIL:
-  camera_device_.clear();
-  camera_device_= nullptr;
   return ret;
 }
 
@@ -448,7 +443,11 @@ status_t CameraContext::CloseCamera(const uint32_t camera_id) {
   QMMF_INFO("%s: Enter", __func__);
   int32_t ret = NO_ERROR;
   assert(camera_id_ == camera_id);
-  assert(camera_device_.get() != nullptr);
+
+  if (!camera_device_) {
+    QMMF_ERROR("%s: Camera device was not created successfully!", __func__);
+    return NO_INIT;
+  }
 
   DeleteSnapshotStream();
 
@@ -462,9 +461,6 @@ status_t CameraContext::CloseCamera(const uint32_t camera_id) {
   assert(ret == NO_ERROR);
 
   last_frame_number_ = NO_IN_FLIGHT_REPEATING_FRAMES;
-
-  camera_device_.clear();
-  camera_device_ = nullptr;
 
   QMMF_INFO("%s: Camera Closed Succussfully!", __func__);
   return ret;
@@ -938,7 +934,11 @@ status_t CameraContext::CreateStream(const StreamParam& param,
   // 4. Create port and link it with adaptor stream.
   // 5. Create producer interface in port and link consumer.
 
-  assert(camera_device_.get() != nullptr);
+  if (!camera_device_) {
+    QMMF_ERROR("%s: Camera device was not created successfully!", __func__);
+    return NO_INIT;
+  }
+
   assert(param.id != 0);
 
   uint32_t batch;
@@ -1273,7 +1273,11 @@ status_t CameraContext::CreateDeviceStream(CameraStreamParameters& params,
   QMMF_VERBOSE("%s: Enter", __func__);
 
   int32_t ret = NO_ERROR;
-  assert(camera_device_.get() != nullptr);
+
+  if (!camera_device_) {
+    QMMF_ERROR("%s: Camera device was not created successfully!", __func__);
+    return NO_INIT;
+  }
 
   if (snapshot_type_ == SnapshotMode::kZsl
       && GetPort(zsl_port_id_).get() != nullptr) {
@@ -1445,7 +1449,11 @@ status_t CameraContext::CreateDeviceInputStream(
   QMMF_INFO("%s: Enter", __func__);
 
   int32_t ret = NO_ERROR;
-  assert(camera_device_.get() != nullptr);
+
+  if (!camera_device_) {
+    QMMF_ERROR("%s: Camera device was not created successfully!", __func__);
+    return NO_INIT;
+  }
 
   // Configure is required only once, if streaming request is already submitted
   // then BeginConfigure is not required to be called, stream can be created
@@ -1479,7 +1487,11 @@ status_t CameraContext::DeleteDeviceStream(int32_t stream_id, bool cache) {
   QMMF_VERBOSE("%s: Enter", __func__);
   status_t ret = NO_ERROR;
   int64_t last_frame_mumber;
-  assert(camera_device_.get() != nullptr);
+
+  if (!camera_device_) {
+    QMMF_ERROR("%s: Camera device was not created successfully!", __func__);
+    return NO_INIT;
+  }
 
   bool resume_streaming = false;
   if (snapshot_type_ == SnapshotMode::kZsl

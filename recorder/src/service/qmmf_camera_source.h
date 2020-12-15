@@ -191,8 +191,10 @@ class CameraSource {
   bool IsFormatChanged(VideoFormat src_format_type,
                        VideoFormat dst_format_type);
 
-  // Map of camera id and CameraContext.
-  std::map<uint32_t, std::shared_ptr<CameraInterface>> camera_map_;
+  std::list<std::shared_ptr<CameraInterface>> preloaded_cameras_;
+
+  // Map of camera id and CameraInterface.
+  std::map<uint32_t, std::shared_ptr<CameraInterface>> active_cameras_;
 
   // Map of track id and TrackSources.
   std::map<uint32_t, std::shared_ptr<TrackSource>> track_sources_;
