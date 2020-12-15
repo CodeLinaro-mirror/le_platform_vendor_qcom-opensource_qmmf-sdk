@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016, 2020, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -37,6 +37,13 @@ namespace qmmf {
 
 namespace cameraadaptor {
 
+void cond_init(pthread_cond_t *cond) {
+  pthread_condattr_t attr;
+  pthread_condattr_init(&attr);
+  pthread_condattr_setclock(&attr, CLOCK_MONOTONIC);
+  pthread_cond_init(cond, &attr);
+}
+
 int32_t cond_wait_relative(pthread_cond_t *cond, pthread_mutex_t *mutex,
                            uint64_t reltime) {
   if ((NULL == cond) || (NULL == mutex)) {
@@ -46,7 +53,7 @@ int32_t cond_wait_relative(pthread_cond_t *cond, pthread_mutex_t *mutex,
   struct timespec ts;
   memset(&ts, 0, sizeof(ts));
 
-  clock_gettime(CLOCK_REALTIME, &ts);
+  clock_gettime(CLOCK_MONOTONIC, &ts);
   ts.tv_sec += reltime / 1000000000;
   ts.tv_nsec += reltime % 1000000000;
   if (ts.tv_nsec >= 1000000000) {
