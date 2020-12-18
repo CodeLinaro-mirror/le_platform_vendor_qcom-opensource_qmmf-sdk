@@ -207,9 +207,12 @@ int32_t Camera3RequestHandler::Clear(int64_t *lastFrameNumber) {
   streaming_last_frame_number_ = NO_IN_FLIGHT_REPEATING_FRAMES;
 
   int32_t ret = 0;
-  if (current_request_.resultExtras.requestId != -1) {
+  while (current_request_.resultExtras.requestId != -1) {
     // If there is a in-flight request, wait until it is submitted to HAL.
     ret = cond_wait_relative(&current_request_signal_, &lock_, CLEAR_TIMEOUT);
+    if (-ETIMEDOUT == ret) {
+      break;
+    }
   }
   pthread_mutex_unlock(&lock_);
   return ret;
