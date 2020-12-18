@@ -272,6 +272,9 @@ class RecorderImpl {
   // <session_id, SessionState>
   typedef std::map<uint32_t, SessionState> ClientSessionStateMap;
 
+  // <session_id, session_mutex>
+  typedef std::map<uint32_t, std::mutex *> SessionMutexMap;
+
   // <camera id, set <track id> >
   typedef std::map<uint32_t, std::set<uint32_t>> CameraTrackIdsMap;
 
@@ -331,6 +334,8 @@ class RecorderImpl {
   std::mutex                    client_state_lock_;
 
   ClientSessionStateMap         sessions_state_;
+
+  SessionMutexMap               sessions_mutex_map_;
 
   std::mutex                    stop_camera_lock_;
 
