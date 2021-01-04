@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  * Not a Contribution.
  */
 
@@ -401,7 +401,11 @@ int32_t Camera3DeviceClient::ConfigureStreams(const StreamConfiguration& stream_
 
   if (stream_config.params) {
     is_pp_enabled = stream_config.params->is_pp_enabled;
-    is_zzhdr_enabled_ = stream_config.params->is_zzhdr_enabled;
+
+    if (stream_config.params->is_zzhdr_enabled) {
+      is_zzhdr_enabled_ = stream_config.params->is_zzhdr_enabled;
+    }
+
     if (stream_config.params->force_sensor_mode >= 0) {
       force_sensor_mode_ = stream_config.params->force_sensor_mode;
     }
@@ -592,6 +596,11 @@ int32_t Camera3DeviceClient::DeleteStream(int streamId, bool cache) {
     if (streams_.isEmpty() && is_eis_enabled_) {
       QMMF_INFO("%s: Disable EIS\n", __func__);
       is_eis_enabled_ = false;
+    }
+
+    if (streams_.isEmpty() && is_zzhdr_enabled_) {
+      QMMF_INFO("%s: Disable HDR\n", __func__);
+      is_zzhdr_enabled_ = false;
     }
     res = stream->Close();
     if (0 != res) {
