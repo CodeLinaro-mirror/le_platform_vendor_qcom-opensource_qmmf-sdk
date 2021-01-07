@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2019 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2020 The Linux Foundation. All rights reserved.
  * Not a Contribution.
  */
 
@@ -99,7 +99,7 @@ class Camera3RequestHandler : public ThreadHelper {
   Camera3RequestHandler &operator=(const Camera3RequestHandler &);
 
   static const int64_t WAIT_TIMEOUT  = 50e6;  // 50 ms
-  static const int64_t CLEAR_TIMEOUT = 500e6; // 500 ms
+  static const int64_t CLEAR_TIMEOUT = 1000e6; // 1000 ms
 
   ErrorCallback error_cb_;
   MarkRequest mark_cb_;
