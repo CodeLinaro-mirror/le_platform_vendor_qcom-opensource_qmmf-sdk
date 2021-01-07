@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2018, 2020, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -233,6 +233,8 @@ class RecorderService : public BnInterface<IRecorderService> {
 
   status_t GetVendorTagDescriptor(sp<VendorTagDescriptor> &desc) override;
 
+  status_t GetUniqueClientID(uint32_t *client_id);
+
   std::unique_ptr<RecorderImpl>           recorder_;
 
   // Map of client ids and their death notifiers.
@@ -240,7 +242,6 @@ class RecorderService : public BnInterface<IRecorderService> {
   // Map of client ids and their callback handlers.
   std::map<uint32_t, sp<RemoteCallBack> > remote_cb_list_;
 
-  uint32_t                     unique_client_id_;
   std::mutex                   lock_;
 };
 
