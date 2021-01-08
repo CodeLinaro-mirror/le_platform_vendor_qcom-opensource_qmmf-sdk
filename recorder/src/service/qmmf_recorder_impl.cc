@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -2281,6 +2281,10 @@ status_t RecorderImpl::ForceReturnBuffers(const uint32_t client_id) {
       QMMF_WARN("%s: ReturnAllImageCaptureBuffers failed for camera_id %d",
           __func__, camera_id);
     }
+
+    // Flush encoder because video driver may hold input buffer until next
+    // output buffer arrive.
+    CameraFlushCb(camera_id);
   }
 
   // Return all track buffers
