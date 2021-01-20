@@ -351,11 +351,13 @@ bool CameraSource::ValidateSlaveTrackParam(
       (slave_track.params.format_type != VideoFormat::kAVC) &&
       (slave_track.params.format_type != VideoFormat::kNV12) &&
       (slave_track.params.format_type != VideoFormat::kNV12UBWC) &&
+      (slave_track.params.format_type != VideoFormat::kNV16) &&
       (slave_track.params.format_type != VideoFormat::kRGB) &&
       (master_track.params.format_type != VideoFormat::kHEVC) &&
       (master_track.params.format_type != VideoFormat::kAVC) &&
       (master_track.params.format_type != VideoFormat::kNV12) &&
       (master_track.params.format_type != VideoFormat::kNV12UBWC) &&
+      (master_track.params.format_type != VideoFormat::kNV16) &&
       (master_track.params.format_type != VideoFormat::kRGB)) {
     QMMF_ERROR("%s Invalid format:", __func__);
     return false;
@@ -378,6 +380,7 @@ VideoFormat CameraSource::GetYUVFormatType(VideoFormat format_type) {
       break;
     case VideoFormat::kNV12:
     case VideoFormat::kNV12UBWC:
+    case VideoFormat::kNV16:
     case VideoFormat::kRGB:
     case VideoFormat::kJPEG:
     case VideoFormat::kBayerRDI8BIT:
@@ -416,11 +419,13 @@ bool CameraSource::CheckLinkedStream(
       (slave_track.params.format_type != VideoFormat::kAVC) &&
       (slave_track.params.format_type != VideoFormat::kNV12) &&
       (slave_track.params.format_type != VideoFormat::kNV12UBWC) &&
+      (slave_track.params.format_type != VideoFormat::kNV16) &&
       (slave_track.params.format_type != VideoFormat::kRGB) &&
       (master_track.params.format_type != VideoFormat::kHEVC) &&
       (master_track.params.format_type != VideoFormat::kAVC) &&
       (master_track.params.format_type != VideoFormat::kNV12) &&
       (master_track.params.format_type != VideoFormat::kNV12UBWC) &&
+      (master_track.params.format_type != VideoFormat::kNV16) &&
       (master_track.params.format_type != VideoFormat::kRGB)) {
     QMMF_ERROR("%s Invalid format:", __func__);
     return false;
@@ -1218,6 +1223,7 @@ status_t TrackSource::Flush() {
   if (track_params_.params.format_type == VideoFormat::kRGB ||
       track_params_.params.format_type == VideoFormat::kNV12 ||
       track_params_.params.format_type == VideoFormat::kNV12UBWC ||
+      track_params_.params.format_type == VideoFormat::kNV16 ||
       track_params_.params.format_type == VideoFormat::kJPEG ||
       track_params_.params.format_type == VideoFormat::kYUY2 ||
       track_params_.params.format_type == VideoFormat::kBayerRDI8BIT ||
@@ -1277,6 +1283,7 @@ status_t TrackSource::StopTrack() {
   if (track_params_.params.format_type == VideoFormat::kRGB ||
       track_params_.params.format_type == VideoFormat::kNV12 ||
       track_params_.params.format_type == VideoFormat::kNV12UBWC ||
+      track_params_.params.format_type == VideoFormat::kNV16 ||
       track_params_.params.format_type == VideoFormat::kJPEG ||
       track_params_.params.format_type == VideoFormat::kYUY2 ||
       track_params_.params.format_type == VideoFormat::kBayerRDI8BIT ||
@@ -1668,6 +1675,7 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
   // feed buffer to Encoder.
   if (track_params_.params.format_type == VideoFormat::kNV12 ||
       track_params_.params.format_type == VideoFormat::kNV12UBWC ||
+      track_params_.params.format_type == VideoFormat::kNV16 ||
       track_params_.params.format_type == VideoFormat::kJPEG ||
       track_params_.params.format_type == VideoFormat::kYUY2 ||
       track_params_.params.format_type == VideoFormat::kRGB ||

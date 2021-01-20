@@ -257,6 +257,9 @@ class Common {
       case VideoFormat::kNV12UBWC:
         return BufferFormat::kNV12UBWC;
         break;
+      case VideoFormat::kNV16:
+        return BufferFormat::kNV16;
+        break;
       case VideoFormat::kJPEG:
         return BufferFormat::kBLOB;
         break;
