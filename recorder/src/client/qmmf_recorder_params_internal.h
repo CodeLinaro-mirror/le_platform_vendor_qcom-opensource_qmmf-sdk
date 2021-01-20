@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -189,6 +189,7 @@ struct VideoTrackCreateParamInternal : public VideoTrackCreateParam {
         break;
       case VideoFormat::kNV12:
       case VideoFormat::kNV12UBWC:
+      case VideoFormat::kNV16:
       case VideoFormat::kRGB:
       case VideoFormat::kBayerRDI8BIT:
       case VideoFormat::kBayerRDI10BIT:
@@ -225,6 +226,7 @@ struct VideoTrackCreateParamInternal : public VideoTrackCreateParam {
         break;
       case VideoFormat::kNV12:
       case VideoFormat::kNV12UBWC:
+      case VideoFormat::kNV16:
       case VideoFormat::kRGB:
       case VideoFormat::kBayerRDI8BIT:
       case VideoFormat::kBayerRDI10BIT:

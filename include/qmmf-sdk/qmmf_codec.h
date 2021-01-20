@@ -78,6 +78,7 @@ enum class VideoFormat {
   kNV12,
   kNV12UBWC,
   kYUY2,
+  kNV16,
   kJPEG,
   kBayerRDI8BIT,
   kBayerRDI10BIT,
@@ -411,6 +412,7 @@ union VideoCodecParams {
         stream << "avc[" << avc.ToString() << "]";
         break;
       case VideoFormat::kNV12:
+      case VideoFormat::kNV16:
       case VideoFormat::kBayerRDI8BIT:
       case VideoFormat::kBayerRDI10BIT:
       case VideoFormat::kBayerRDI12BIT:
