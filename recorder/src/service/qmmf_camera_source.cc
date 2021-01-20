@@ -386,6 +386,7 @@ VideoFormat CameraSource::GetYUVFormatType(VideoFormat format_type) {
     case VideoFormat::kBayerRDI8BIT:
     case VideoFormat::kBayerRDI10BIT:
     case VideoFormat::kBayerRDI12BIT:
+    case VideoFormat::kBayerRDI16BIT:
     case VideoFormat::kBayerIdeal:
       break;
   }
@@ -1229,6 +1230,7 @@ status_t TrackSource::Flush() {
       track_params_.params.format_type == VideoFormat::kBayerRDI8BIT ||
       track_params_.params.format_type == VideoFormat::kBayerRDI10BIT ||
       track_params_.params.format_type == VideoFormat::kBayerRDI12BIT ||
+      track_params_.params.format_type == VideoFormat::kBayerRDI16BIT ||
       track_params_.params.format_type == VideoFormat::kBayerIdeal) {
 
       QMMF_INFO("%s: track_id(%x) Force return buffers!", __func__, TrackId());
@@ -1289,6 +1291,7 @@ status_t TrackSource::StopTrack() {
       track_params_.params.format_type == VideoFormat::kBayerRDI8BIT ||
       track_params_.params.format_type == VideoFormat::kBayerRDI10BIT ||
       track_params_.params.format_type == VideoFormat::kBayerRDI12BIT ||
+      track_params_.params.format_type == VideoFormat::kBayerRDI16BIT ||
       track_params_.params.format_type == VideoFormat::kBayerIdeal) {
 
     // Encoder is not involved in this case.
@@ -1682,6 +1685,7 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
       track_params_.params.format_type == VideoFormat::kBayerRDI8BIT ||
       track_params_.params.format_type == VideoFormat::kBayerRDI10BIT ||
       track_params_.params.format_type == VideoFormat::kBayerRDI12BIT ||
+      track_params_.params.format_type == VideoFormat::kBayerRDI16BIT ||
       track_params_.params.format_type == VideoFormat::kBayerIdeal) {
 
     if (IsStop()) {
