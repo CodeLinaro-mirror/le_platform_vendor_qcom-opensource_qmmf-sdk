@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -168,11 +168,13 @@ class CameraSource {
   /// Get Rescaller configuration parameters
   ResizerCrop GetRescalerConfig(const VideoTrackParams& track_params);
 
+  /// Get calculated JPEG size
+  static uint32_t GetJpegSize(uint8_t *blobBuffer, uint32_t width);
+
   /// @cond PRIVATE
  private:
   bool IsTrackIdValid(const uint32_t track_id);
   void SnapshotCallback(uint32_t count, StreamBuffer& buffer);
-  uint32_t GetJpegSize(uint8_t *blobBuffer, uint32_t width);
 
   bool ValidateSlaveTrackParam(
     const VideoTrackParams& slave_track,
