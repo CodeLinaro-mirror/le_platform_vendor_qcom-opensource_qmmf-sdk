@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -714,8 +714,7 @@ status_t RecorderImpl::StartSession(const uint32_t client_id,
         break;
       }
       if ( (track_info.format.video == VideoFormat::kHEVC) ||
-           (track_info.format.video == VideoFormat::kAVC) ||
-           (track_info.format.video == VideoFormat::kJPEG)) {
+           (track_info.format.video == VideoFormat::kAVC)) {
         assert(encoder_core_ != nullptr);
         ret = encoder_core_->StartTrackEncoder(service_track_id);
         if (ret != NO_ERROR) {
@@ -808,8 +807,7 @@ status_t RecorderImpl::StopSession(const uint32_t client_id,
       }
       // Stop TrackEncoder
       if ((track_info.format.video == VideoFormat::kHEVC) ||
-          (track_info.format.video == VideoFormat::kAVC) ||
-          (track_info.format.video == VideoFormat::kJPEG)) {
+          (track_info.format.video == VideoFormat::kAVC)) {
         assert(encoder_core_ != nullptr);
         ret = encoder_core_->StopTrackEncoder(service_track_id,
                                               is_force_cleanup);
@@ -1289,8 +1287,7 @@ status_t RecorderImpl::CreateVideoTrack(const uint32_t client_id,
   // If video codec type is set to YUV then no need to create Encoder instance.
   // direct YUV frame will go to client.
   if ((params.format_type == VideoFormat::kHEVC) ||
-      (params.format_type == VideoFormat::kAVC) ||
-      (params.format_type == VideoFormat::kJPEG)) {
+      (params.format_type == VideoFormat::kAVC)) {
     // Create Encoder track and add TrackSource as a source to iit.
     // Track pipeline: TrackSource <--> TrackEncoder
     assert(encoder_core_ != nullptr);
@@ -1474,8 +1471,7 @@ status_t RecorderImpl::CreateVideoTrack(const uint32_t client_id,
   // If video codec type is set to YUV then no need to create Encoder instance.
   // direct YUV frame will go to client.
   if ((params.format_type == VideoFormat::kHEVC) ||
-      (params.format_type == VideoFormat::kAVC) ||
-      (params.format_type == VideoFormat::kJPEG)) {
+      (params.format_type == VideoFormat::kAVC)) {
     // Create Encoder track and add TrackSource as a source to iit.
     // Track pipeline: TrackSource <--> TrackEncoder
     assert(encoder_core_ != nullptr);
@@ -1576,8 +1572,7 @@ status_t RecorderImpl::DeleteVideoTrack(const uint32_t client_id,
     return ret;
   }
   if ((track_info.format.video == VideoFormat::kHEVC) ||
-      (track_info.format.video == VideoFormat::kAVC) ||
-      (track_info.format.video == VideoFormat::kJPEG)) {
+      (track_info.format.video == VideoFormat::kAVC)) {
     assert(encoder_core_ != nullptr);
     ret = encoder_core_->DeleteTrackEncoder(service_track_id);
     if (ret != NO_ERROR) {
@@ -1656,8 +1651,7 @@ status_t RecorderImpl::ReturnTrackBuffer(const uint32_t client_id,
   if (track_info.type == TrackType::kVideo) {
 
     if ((track_info.format.video == VideoFormat::kAVC) ||
-        (track_info.format.video == VideoFormat::kHEVC) ||
-        (track_info.format.video == VideoFormat::kJPEG)) {
+        (track_info.format.video == VideoFormat::kHEVC)) {
       assert(encoder_core_ != nullptr);
       ret = encoder_core_->ReturnTrackBuffer(track_info.track_id, buffers);
       assert(ret == NO_ERROR);

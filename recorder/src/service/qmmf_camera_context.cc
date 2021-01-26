@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -2544,41 +2544,46 @@ status_t CameraPort::Init() {
   cam_stream_params_.rotation =
       static_cast<camera3_stream_rotation_t> (params_.rotation);
 
-  // This flag is mandatory. Stream is considered as preview stream without it.
-  // Different tuning, setings and sensor mode is applied for preview and
-  // video streams. This is why this flag is needed.
-  cam_stream_params_.allocFlags.flags = IMemAllocUsage::kVideoEncoder;
+  if (params_.format == BufferFormat::kBLOB) {
+    cam_stream_params_.allocFlags.flags = IMemAllocUsage::kSwWriteOften |
+                                    IMemAllocUsage::kSwReadOften;
+    cam_stream_params_.bufferCount  = MAX_SNAPSHOT_BUFFER_COUNT;
+  } else {
+    // This flag is mandatory. Stream is considered as preview stream without it.
+    // Different tuning, setings and sensor mode is applied for preview and
+    // video streams. This is why this flag is needed.
+    cam_stream_params_.allocFlags.flags = IMemAllocUsage::kVideoEncoder;
 
-  cam_stream_params_.allocFlags.flags |=
-      (params_.format != BufferFormat::kNV12UBWC) ?
-          (IMemAllocUsage::kSwReadOften | IMemAllocUsage::kSwWriteOften) :
-          IMemAllocUsage::kPrivateAllocUbwc;
+    cam_stream_params_.allocFlags.flags |=
+        (params_.format != BufferFormat::kNV12UBWC) ?
+            (IMemAllocUsage::kSwReadOften | IMemAllocUsage::kSwWriteOften) :
+            IMemAllocUsage::kPrivateAllocUbwc;
 
-  //TODO: This needs to be rework and provide proper solution to
-  //      set UBWC per stream basis.
-  if ((camera_parameters_.cam_feature_flags &
-       static_cast<uint32_t>(CamFeatureFlag::kLDC)) ||
-      (camera_parameters_.cam_feature_flags &
-       static_cast<uint32_t>(CamFeatureFlag::kEIS))) {
-    cam_stream_params_.allocFlags.flags &=
-        ~(IMemAllocUsage::kPrivateAllocUbwc);
+    //TODO: This needs to be rework and provide proper solution to
+    //      set UBWC per stream basis.
+    if ((camera_parameters_.cam_feature_flags &
+         static_cast<uint32_t>(CamFeatureFlag::kLDC)) ||
+        (camera_parameters_.cam_feature_flags &
+         static_cast<uint32_t>(CamFeatureFlag::kEIS))) {
+      cam_stream_params_.allocFlags.flags &=
+          ~(IMemAllocUsage::kPrivateAllocUbwc);
+    }
+
+    cam_stream_params_.allocFlags.flags |=
+        static_cast<bool>(params_.flags & StreamFlags::kUncashed) ?
+            IMemAllocUsage::kPrivateUncached : 0;
+
+    cam_stream_params_.bufferCount =
+        static_cast<bool>(params_.flags & StreamFlags::kEncoded) ?
+            VIDEO_STREAM_BUFFER_COUNT + GetExtraBufferCount() :
+            PREVIEW_STREAM_BUFFER_COUNT;
+
+    cam_stream_params_.cam_feature_flags = camera_parameters_.cam_feature_flags;
   }
-
-  cam_stream_params_.allocFlags.flags |=
-      static_cast<bool>(params_.flags & StreamFlags::kUncashed) ?
-          IMemAllocUsage::kPrivateUncached : 0;
-
-  cam_stream_params_.bufferCount =
-      static_cast<bool>(params_.flags & StreamFlags::kEncoded) ?
-          VIDEO_STREAM_BUFFER_COUNT + GetExtraBufferCount() :
-          PREVIEW_STREAM_BUFFER_COUNT;
 
   cam_stream_params_.cb = [&] (StreamBuffer buffer) { StreamCallback(buffer); };
 
   assert(context_ != nullptr);
-
-  cam_stream_params_.cam_feature_flags = camera_parameters_.cam_feature_flags;
-
 
   int32_t stream_id;
   auto ret = context_->CreateDeviceStream(cam_stream_params_,
