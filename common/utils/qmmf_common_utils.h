@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -250,6 +250,9 @@ class Common {
         break;
       case VideoFormat::kNV12UBWC:
         return BufferFormat::kNV12UBWC;
+        break;
+      case VideoFormat::kJPEG:
+        return BufferFormat::kBLOB;
         break;
       case VideoFormat::kRGB:
         return BufferFormat::kRGB;
