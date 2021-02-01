@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -77,6 +77,7 @@ enum class VideoFormat {
   kAVC,
   kNV12,
   kNV12UBWC,
+  kYUY2,
   kJPEG,
   kBayerRDI8BIT,
   kBayerRDI10BIT,
@@ -554,6 +555,7 @@ enum class BufferFormat {
   kNV12UBWC,
   kNV21,
   kNV16,
+  kYUY2,
   kBLOB,
   kRAW8,
   kRAW10,
