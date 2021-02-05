@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -307,7 +307,7 @@ void GBMDevice::DestroyGBMDevice() {
 }
 
 GBMDevice::GBMDevice() {
-  gbm_fd_ = open("/dev/dri/card0", O_RDWR);
+  gbm_fd_ = open("/dev/dri/renderD128", O_RDWR);
   if (gbm_fd_ < 0) {
     QMMF_WARN("%s: Falling back to /dev/ion \n", __func__);
     gbm_fd_ = open("/dev/ion", O_RDWR);
