@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016, 2020 The Linux Foundation. All rights reserved.
  * Not a Contribution.
  */
 
@@ -36,7 +36,7 @@ Camera3Monitor::Camera3Monitor()
       composite_state_(IDLE) {
   pthread_mutex_init(&input_lock_, NULL);
   pthread_mutex_init(&lock_, NULL);
-  pthread_cond_init(&input_signal_, NULL);
+  cond_init(&input_signal_);
 }
 
 Camera3Monitor::~Camera3Monitor() {

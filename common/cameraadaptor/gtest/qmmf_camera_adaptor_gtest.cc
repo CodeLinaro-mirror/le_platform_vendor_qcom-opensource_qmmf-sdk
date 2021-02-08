@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -90,13 +90,13 @@ Camera3Gtest::Camera3Gtest()
                             int64_t ts) { ShutterCb(extras, ts); };
   client_cb_.resultCb = [&](const CaptureResult &result) { ResultCb(result); };
   pthread_mutex_init(&prepare_lock_, NULL);
-  pthread_cond_init(&prepare_cond_, NULL);
+  cond_init(&prepare_cond_);
   pthread_mutex_init(&input_lock_, NULL);
-  pthread_cond_init(&input_cond_, NULL);
+  cond_init(&input_cond_);
   pthread_mutex_init(&reprocess_lock_, NULL);
-  pthread_cond_init(&reprocess_cond_, NULL);
+  cond_init(&reprocess_cond_);
   pthread_mutex_init(&meta_lock_, NULL);
-  pthread_cond_init(&meta_cond_, NULL);
+  cond_init(&meta_cond_);
 }
 
 Camera3Gtest::~Camera3Gtest() {

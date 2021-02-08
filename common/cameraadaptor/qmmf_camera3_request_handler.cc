@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  * Not a Contribution.
  */
 
@@ -52,11 +52,11 @@ Camera3RequestHandler::Camera3RequestHandler(Camera3Monitor &monitor)
       batch_size_(1),
       run_worker_(false) {
   pthread_mutex_init(&lock_, NULL);
-  pthread_cond_init(&requests_signal_, NULL);
-  pthread_cond_init(&current_request_signal_, NULL);
+  cond_init(&requests_signal_);
+  cond_init(&current_request_signal_);
   pthread_mutex_init(&pause_lock_, NULL);
-  pthread_cond_init(&toggle_pause_signal_, NULL);
-  pthread_cond_init(&pause_state_signal_, NULL);
+  cond_init(&toggle_pause_signal_);
+  cond_init(&pause_state_signal_);
   ClearCaptureRequest(old_request_);
 }
 
@@ -207,9 +207,12 @@ int32_t Camera3RequestHandler::Clear(int64_t *lastFrameNumber) {
   streaming_last_frame_number_ = NO_IN_FLIGHT_REPEATING_FRAMES;
 
   int32_t ret = 0;
-  if (current_request_.resultExtras.requestId != -1) {
+  while (current_request_.resultExtras.requestId != -1) {
     // If there is a in-flight request, wait until it is submitted to HAL.
     ret = cond_wait_relative(&current_request_signal_, &lock_, CLEAR_TIMEOUT);
+    if (-ETIMEDOUT == ret) {
+      break;
+    }
   }
   pthread_mutex_unlock(&lock_);
   return ret;

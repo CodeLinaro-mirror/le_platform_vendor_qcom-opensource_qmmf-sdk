@@ -72,8 +72,6 @@ add_subdirectory(common/exif-generator)
 
 add_subdirectory(common/jpeg-encoder)
 
-add_subdirectory(common/overlay)
-
 if (RESIZER_FASTCV_ENABLED)
 add_subdirectory(common/resizer-fastCV)
 endif()
