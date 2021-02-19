@@ -343,6 +343,74 @@ MemAllocError GBMDevice::AllocBuffer(IBufferHandle& handle, int32_t width,
     return MemAllocError::kAllocFail;
   }
 
+  char prop[PROPERTY_VALUE_MAX];
+  property_get("persist.qmmf.mem.color.space", prop, "ITU_R_601");
+  std::string colorspace(prop);
+
+  QMMF_INFO("%s: Using color space: %s", __func__, colorspace.c_str());
+
+  int32_t value = 0;
+  ColorMetaData colormeta = {};
+
+  auto ret = gbm_perform(GBM_PERFORM_GET_METADATA, bo,
+                         GBM_METADATA_GET_COLOR_METADATA, &colormeta);
+  if (ret != GBM_ERROR_NONE) {
+    QMMF_ERROR("%s: Get metadata color space failed.", __func__);
+    return MemAllocError::kAllocFail;
+  }
+
+  if (colorspace == "ITU_R_601") {
+    value = GBM_METADATA_COLOR_SPACE_ITU_R_601;
+    colormeta.colorPrimaries = ColorPrimaries_BT601_6_625;
+    colormeta.range = Range_Full;
+    colormeta.transfer = Transfer_SMPTE_170M;
+    colormeta.matrixCoefficients = MatrixCoEff_BT601_6_625;
+  } else if (colorspace == "ITU_R_601_FR") {
+    value = GBM_METADATA_COLOR_SPACE_ITU_R_601_FR;
+    colormeta.colorPrimaries = ColorPrimaries_BT601_6_525;
+    colormeta.range = Range_Full;
+    colormeta.transfer = Transfer_SMPTE_170M;
+    colormeta.matrixCoefficients = MatrixCoEff_BT601_6_525;
+  } else if (colorspace == "ITU_R_709") {
+    value = GBM_METADATA_COLOR_SPACE_ITU_R_709;
+    colormeta.colorPrimaries = ColorPrimaries_BT709_5;
+    colormeta.range = Range_Full;
+    colormeta.transfer = Transfer_sRGB;
+    colormeta.matrixCoefficients = MatrixCoEff_BT709_5;
+  } else {
+    QMMF_ERROR("%s: Unsupported color space, using ITU_R_709", __func__);
+    value = GBM_METADATA_COLOR_SPACE_ITU_R_709;
+    colormeta.colorPrimaries = ColorPrimaries_BT709_5;
+    colormeta.range = Range_Full;
+    colormeta.transfer = Transfer_sRGB;
+    colormeta.matrixCoefficients = MatrixCoEff_BT709_5;
+  }
+
+  ret = gbm_perform(GBM_PERFORM_SET_METADATA, bo,
+                    GBM_METADATA_SET_COLOR_SPACE, (void *)&value);
+  if (ret != GBM_ERROR_NONE) {
+    QMMF_ERROR("%s: Set color space failed.", __func__);
+    return MemAllocError::kAllocFail;
+  }
+
+  ret = gbm_perform(GBM_PERFORM_SET_METADATA, bo,
+                    GBM_METADATA_SET_COLOR_METADATA, &colormeta);
+  if (ret != GBM_ERROR_NONE) {
+    QMMF_ERROR("%s: Set metadata color space failed.", __func__);
+    return MemAllocError::kAllocFail;
+  }
+
+  ret = gbm_perform(GBM_PERFORM_GET_METADATA, bo,
+                    GBM_METADATA_GET_COLOR_METADATA, &colormeta);
+  if (ret != GBM_ERROR_NONE) {
+    QMMF_ERROR("%s: Get metadata color space failed.", __func__);
+    return MemAllocError::kAllocFail;
+  }
+
+  QMMF_INFO("%s: Color Primaries %d, Color Range %d, Gamma Transfer %d, "
+      "Matrix Coefficients %d", __func__, colormeta.colorPrimaries,
+      colormeta.range, colormeta.transfer, colormeta.matrixCoefficients);
+
   gbm_hnd->SetNativeHandle(bo);
   *stride = gbm_bo_get_stride(bo);
 
