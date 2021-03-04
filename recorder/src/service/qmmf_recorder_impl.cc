@@ -2275,6 +2275,10 @@ status_t RecorderImpl::ForceReturnBuffers(const uint32_t client_id) {
       QMMF_WARN("%s: ReturnAllImageCaptureBuffers failed for camera_id %d",
           __func__, camera_id);
     }
+
+    // Flush encoder because video driver may hold input buffer until next
+    // output buffer arrive.
+    CameraFlushCb(camera_id);
   }
 
   // Return all track buffers
