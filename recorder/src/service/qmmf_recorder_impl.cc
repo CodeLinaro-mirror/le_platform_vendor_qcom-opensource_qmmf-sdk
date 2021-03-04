@@ -61,8 +61,7 @@ RecorderImpl* RecorderImpl::CreateRecorder() {
 }
 
 RecorderImpl::RecorderImpl()
-  : unique_session_id_(0),
-    camera_source_(nullptr),
+  : camera_source_(nullptr),
     encoder_core_(nullptr)
 #ifdef PULSE_AUDIO_ENABLE
     ,audio_source_(nullptr),
@@ -188,9 +187,17 @@ status_t RecorderImpl::RegisterClient(const uint32_t client_id) {
   QMMF_INFO("%s: client_session_map_.size(%d)", __func__,
       client_session_map_.size());
 
+  client_sessions_state_.emplace(client_id, SessionStateMap());
+  QMMF_INFO("%s: client_sessions_state_.size(%d)", __func__,
+      client_sessions_state_.size());
+
   auto const& session_track_map = client_session_map_[client_id];
   QMMF_INFO("%s: session_track_map.size(%d)", __func__,
       session_track_map.size());
+
+  auto const& sessions_state_map = client_sessions_state_[client_id];
+  QMMF_INFO("%s: sessions_state_map.size(%d)", __func__,
+      sessions_state_map.size());
 
   std::lock_guard<std::mutex> status_lock(client_state_lock_);
   client_state_.emplace(client_id, ClientState::kAlive);
@@ -215,7 +222,7 @@ status_t RecorderImpl::DeRegisterClient(const uint32_t client_id,
   }
 
   if (!force_cleanup) {
-    QMMF_WARN("%s Resource belogs to client(%d) are not released!",
+    QMMF_WARN("%s Resources belonging to client(%d) are not released!",
         __func__, client_id);
     std::unique_lock<std::mutex> lk(camera_map_lock_);
     if (client_cameraid_map_[client_id].empty()) {
@@ -291,6 +298,7 @@ status_t RecorderImpl::DeRegisterClient(const uint32_t client_id,
 
     lk.lock();
     client_session_map_.erase(client_id);
+    client_sessions_state_.erase(client_id);
   }
 
   {
@@ -526,13 +534,18 @@ status_t RecorderImpl::CreateSession(const uint32_t client_id,
     return NO_INIT;
   }
   std::lock_guard<std::mutex> lock(client_session_lock_);
-  ++unique_session_id_;
-  *session_id = unique_session_id_;
 
+  if (GetUniqueSessionID(client_id, session_id) != NO_ERROR) {
+    QMMF_ERROR("%s: Active sessions limit reached for Client(%u), 255!",
+        __func__, client_id);
+    return BAD_VALUE;
+  }
   auto& session_track_map = client_session_map_[client_id];
   session_track_map.emplace(*session_id, TrackInfoMap());
 
-  sessions_state_.emplace(*session_id, SessionState::kIdle);
+  auto& sessions_state_map = client_sessions_state_[client_id];
+  sessions_state_map.emplace(*session_id, SessionState::kIdle);
+
   QMMF_INFO("%s: Client(%u): Session(%u) created successfully", __func__,
       client_id, *session_id);
 
@@ -562,6 +575,7 @@ status_t RecorderImpl::DeleteSession(const uint32_t client_id,
 
   std::lock_guard<std::mutex> lock(client_session_lock_);
   auto& session_track_map = client_session_map_[client_id];
+  auto& sessions_state_map = client_sessions_state_[client_id];
   auto& tracks = session_track_map[session_id];
 
   if (!tracks.empty()) {
@@ -572,23 +586,11 @@ status_t RecorderImpl::DeleteSession(const uint32_t client_id,
   }
 
   session_track_map.erase(session_id);
-  sessions_state_.erase(session_id);
+  sessions_state_map.erase(session_id);
   sessions_mutex_map_.erase(session_id);
 
   QMMF_INFO("%s: Number of sessions(%d) left in client_id(%d)",
       __func__, session_track_map.size(), client_id);
-
-  uint32_t num_sessions = 0;
-  for (auto const& iter : client_session_map_) {
-    QMMF_INFO("%s: Client(%d): Number of sessions(%d)", __func__, iter.first,
-        iter.second.size());
-    num_sessions += iter.second.size();
-  }
-
-  if (num_sessions == 0) {
-    QMMF_INFO("%s: Reseting unique session id to 0!", __func__);
-    unique_session_id_ = 0;
-  }
 
   QMMF_DEBUG("%s: Exit", __func__);
   return ret;
@@ -620,16 +622,16 @@ status_t RecorderImpl::StartSession(const uint32_t client_id,
     return BAD_VALUE;
   }
 
-  if (IsSessionPaused(session_id)) {
+  if (IsSessionPaused(client_id, session_id)) {
     QMMF_WARN("%s: Client(%u): Session(%u) is paused, resuming!", __func__,
         client_id, session_id);
     ResumeSession(client_id, session_id);
     return NO_ERROR;
-  } else if (IsSessionActive(session_id)) {
+  } else if (IsSessionActive(client_id, session_id)) {
     QMMF_WARN("%s: Client(%u): Session(%u) is already started!", __func__,
         client_id, session_id);
     return NO_ERROR;
-  } else if (!IsSessionIdle(session_id)) {
+  } else if (!IsSessionIdle(client_id, session_id)) {
     QMMF_WARN("%s: Client(%u): Session(%u) hasn't been stopped!", __func__,
         client_id, session_id);
     return NO_ERROR;
@@ -739,7 +741,7 @@ status_t RecorderImpl::StartSession(const uint32_t client_id,
     QMMF_INFO("%s: client_id(%d):session_id(%d) with num tracks(%d) Started"
         " Successfully!", __func__, client_id, session_id,
         tracks_in_session.size());
-    ChangeSessionState(session_id, SessionState::kActive);
+    ChangeSessionState(client_id, session_id, SessionState::kActive);
   }
 
   QMMF_DEBUG("%s: Exit client_id(%d):session_id(%d)", __func__,
@@ -774,7 +776,7 @@ status_t RecorderImpl::StopSession(const uint32_t client_id,
     return BAD_VALUE;
   }
 
-  if (IsSessionIdle(session_id)) {
+  if (IsSessionIdle(client_id, session_id)) {
     QMMF_WARN("%s: Client(%u): Session(%u) not yet started!", __func__,
         client_id, session_id);
     return NO_ERROR;
@@ -855,7 +857,7 @@ status_t RecorderImpl::StopSession(const uint32_t client_id,
         " Successfully!", __func__, client_id, session_id,
         tracks_in_session.size());
 
-    ChangeSessionState(session_id, SessionState::kIdle);
+    ChangeSessionState(client_id, session_id, SessionState::kIdle);
   }
   QMMF_DEBUG("%s: Exit client_id(%d):session_id(%d)", __func__,
       client_id, session_id);
@@ -881,11 +883,11 @@ status_t RecorderImpl::PauseSession(const uint32_t client_id,
     return BAD_VALUE;
   }
 
-  if (IsSessionPaused(session_id)) {
+  if (IsSessionPaused(client_id, session_id)) {
     QMMF_WARN("%s: Client(%u): Session(%u) already paused!", __func__,
         client_id, session_id);
     return NO_ERROR;
-  } else if (IsSessionIdle(session_id)) {
+  } else if (IsSessionIdle(client_id, session_id)) {
     QMMF_WARN("%s: Client(%u): Session(%u) hasn't been started!", __func__,
         client_id, session_id);
     return NO_ERROR;
@@ -953,7 +955,7 @@ status_t RecorderImpl::PauseSession(const uint32_t client_id,
         " Successfully!", __func__, client_id, session_id,
         tracks_in_session.size());
 
-    ChangeSessionState(session_id, SessionState::kPause);
+    ChangeSessionState(client_id, session_id, SessionState::kPause);
   }
   QMMF_DEBUG("%s: Exit client_id(%d):session_id(%d)", __func__,
       client_id, session_id);
@@ -979,7 +981,7 @@ status_t RecorderImpl::ResumeSession(const uint32_t client_id,
     return BAD_VALUE;
   }
 
-  if (!IsSessionPaused(session_id)) {
+  if (!IsSessionPaused(client_id, session_id)) {
     QMMF_WARN("%s: Client(%u): Session(%u) hasn't been paused!", __func__,
         client_id, session_id);
     return NO_ERROR;
@@ -1044,7 +1046,7 @@ status_t RecorderImpl::ResumeSession(const uint32_t client_id,
         " Successfully!", __func__, client_id, session_id,
         tracks_in_session.size());
 
-    ChangeSessionState(session_id, SessionState::kActive);
+    ChangeSessionState(client_id, session_id, SessionState::kActive);
   }
   QMMF_DEBUG("%s: Exit client_id(%d):session_id(%d)", __func__,
       client_id, session_id);
@@ -2183,31 +2185,37 @@ bool RecorderImpl::IsCameraOwned(const uint32_t& client_id,
   return false;
 }
 
-bool RecorderImpl::IsSessionActive(const uint32_t& session_id) {
-
+bool RecorderImpl::IsSessionActive(const uint32_t& client_id,
+                                   const uint32_t& session_id) {
   std::lock_guard<std::mutex> lock(client_session_lock_);
-  return (sessions_state_[session_id] == SessionState::kActive) ? true : false;
+  auto& sessions_state_map = client_sessions_state_[client_id];
+  return (sessions_state_map[session_id] == SessionState::kActive) ? true
+                                                                   : false;
 }
 
-bool RecorderImpl::IsSessionPaused(const uint32_t& session_id) {
-
+bool RecorderImpl::IsSessionPaused(const uint32_t& client_id,
+                                   const uint32_t& session_id) {
   std::lock_guard<std::mutex> lock(client_session_lock_);
-  return (sessions_state_[session_id] == SessionState::kPause) ? true : false;
+  auto& sessions_state_map = client_sessions_state_[client_id];
+  return (sessions_state_map[session_id] == SessionState::kPause) ? true
+                                                                  : false;
 }
 
-bool RecorderImpl::IsSessionIdle(const uint32_t& session_id) {
-
+bool RecorderImpl::IsSessionIdle(const uint32_t& client_id,
+                                 const uint32_t& session_id) {
   std::lock_guard<std::mutex> lock(client_session_lock_);
-  return (sessions_state_[session_id] == SessionState::kIdle) ? true : false;
+  auto& sessions_state_map = client_sessions_state_[client_id];
+  return (sessions_state_map[session_id] == SessionState::kIdle) ? true : false;
 }
 
-void RecorderImpl::ChangeSessionState(const uint32_t& session_id,
+void RecorderImpl::ChangeSessionState(const uint32_t& client_id,
+                                      const uint32_t& session_id,
                                       const SessionState& state) {
-
   std::lock_guard<std::mutex> lock(client_session_lock_);
+  auto& sessions_state_map = client_sessions_state_[client_id];
   QMMF_INFO("%s: Session(%u): state = %d", __func__, session_id,
     (int32_t) state);
-  sessions_state_[session_id] = state;
+  sessions_state_map[session_id] = state;
 }
 
 uint32_t RecorderImpl::GetUniqueServiceTrackId(const uint32_t& client_id,
@@ -2316,6 +2324,17 @@ status_t RecorderImpl::ForceReturnBuffers(const uint32_t client_id) {
     }
   }
   return ret;
+}
+
+status_t RecorderImpl::GetUniqueSessionID(const uint32_t& client_id,
+                                          uint32_t* session_id) {
+  for (uint32_t id = 1; id <= 0xFF; id++) {
+    if (client_sessions_state_[client_id].count(id) == 0) {
+      *session_id = id;
+      return NO_ERROR;
+    }
+  }
+  return BAD_VALUE;
 }
 
 }; // namespace recorder
