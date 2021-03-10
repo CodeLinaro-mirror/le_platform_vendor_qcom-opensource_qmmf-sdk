@@ -1218,6 +1218,7 @@ status_t TrackSource::Flush() {
       track_params_.params.format_type == VideoFormat::kNV12 ||
       track_params_.params.format_type == VideoFormat::kNV12UBWC ||
       track_params_.params.format_type == VideoFormat::kJPEG ||
+      track_params_.params.format_type == VideoFormat::kYUY2 ||
       track_params_.params.format_type == VideoFormat::kBayerRDI8BIT ||
       track_params_.params.format_type == VideoFormat::kBayerRDI10BIT ||
       track_params_.params.format_type == VideoFormat::kBayerRDI12BIT ||
@@ -1276,6 +1277,7 @@ status_t TrackSource::StopTrack() {
       track_params_.params.format_type == VideoFormat::kNV12 ||
       track_params_.params.format_type == VideoFormat::kNV12UBWC ||
       track_params_.params.format_type == VideoFormat::kJPEG ||
+      track_params_.params.format_type == VideoFormat::kYUY2 ||
       track_params_.params.format_type == VideoFormat::kBayerRDI8BIT ||
       track_params_.params.format_type == VideoFormat::kBayerRDI10BIT ||
       track_params_.params.format_type == VideoFormat::kBayerRDI12BIT ||
@@ -1666,6 +1668,7 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
   if (track_params_.params.format_type == VideoFormat::kNV12 ||
       track_params_.params.format_type == VideoFormat::kNV12UBWC ||
       track_params_.params.format_type == VideoFormat::kJPEG ||
+      track_params_.params.format_type == VideoFormat::kYUY2 ||
       track_params_.params.format_type == VideoFormat::kRGB ||
       track_params_.params.format_type == VideoFormat::kBayerRDI8BIT ||
       track_params_.params.format_type == VideoFormat::kBayerRDI10BIT ||
