@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -270,9 +270,7 @@ class RecorderImpl {
   typedef std::map<uint32_t, ClientState> ClientStateMap;
 
   // <session_id, SessionState>
-  typedef std::map<uint32_t, SessionState> SessionStateMap;
-  // <client_id, SessionStateMap>
-  typedef std::map<uint32_t, SessionStateMap> ClientSessionStateMap;
+  typedef std::map<uint32_t, SessionState> ClientSessionStateMap;
 
   // <session_id, session_mutex>
   typedef std::map<uint32_t, std::mutex *> SessionMutexMap;
@@ -289,12 +287,10 @@ class RecorderImpl {
   bool IsCameraValid(const uint32_t& client_id, const uint32_t& camera_id);
   bool IsCameraOwned(const uint32_t& client_id, const uint32_t& camera_id);
 
-  bool IsSessionActive(const uint32_t& client_id, const uint32_t& session_id);
-  bool IsSessionPaused(const uint32_t& client_id, const uint32_t& session_id);
-  bool IsSessionIdle(const uint32_t& client_id, const uint32_t& session_id);
-  void ChangeSessionState(const uint32_t& client_id,
-                          const uint32_t& session_id,
-                          const SessionState& state);
+  bool IsSessionActive(const uint32_t& session_id);
+  bool IsSessionPaused(const uint32_t& session_id);
+  bool IsSessionIdle(const uint32_t& session_id);
+  void ChangeSessionState(const uint32_t& session_id, const SessionState& state);
 
   //Validate the input params during CreateAudioTrack requests.
   bool IsAudioTrackCreateParamValid(const AudioTrackCreateParam& param);
@@ -314,7 +310,7 @@ class RecorderImpl {
 
   status_t ForceReturnBuffers(const uint32_t client_id);
 
-  status_t GetUniqueSessionID(const uint32_t& client_id, uint32_t* session_id);
+  uint32_t                      unique_session_id_;
 
   CameraSource*                 camera_source_;
   EncoderCore*                  encoder_core_;
@@ -339,7 +335,7 @@ class RecorderImpl {
   ClientStateMap                client_state_;
   std::mutex                    client_state_lock_;
 
-  ClientSessionStateMap         client_sessions_state_;
+  ClientSessionStateMap         sessions_state_;
 
   SessionMutexMap               sessions_mutex_map_;
 
