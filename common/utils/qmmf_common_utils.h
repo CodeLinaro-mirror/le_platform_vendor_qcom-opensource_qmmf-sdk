@@ -275,6 +275,9 @@ class Common {
       case VideoFormat::kBayerRDI12BIT:
         return BufferFormat::kRAW12;
         break;
+      case VideoFormat::kBayerRDI16BIT:
+        return BufferFormat::kRAW16;
+        break;
       default:
         /* Format not supported */
         QMMF_ERROR("%s: error: unsupported format %d (0x%x)", __func__,

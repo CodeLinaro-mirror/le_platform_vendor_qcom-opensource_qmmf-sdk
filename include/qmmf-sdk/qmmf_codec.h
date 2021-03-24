@@ -82,6 +82,7 @@ enum class VideoFormat {
   kBayerRDI8BIT,
   kBayerRDI10BIT,
   kBayerRDI12BIT,
+  kBayerRDI16BIT,
   kBayerIdeal,
 };
 
@@ -414,6 +415,7 @@ union VideoCodecParams {
       case VideoFormat::kBayerRDI8BIT:
       case VideoFormat::kBayerRDI10BIT:
       case VideoFormat::kBayerRDI12BIT:
+      case VideoFormat::kBayerRDI16BIT:
       case VideoFormat::kBayerIdeal:
         stream << "N/A";
         break;

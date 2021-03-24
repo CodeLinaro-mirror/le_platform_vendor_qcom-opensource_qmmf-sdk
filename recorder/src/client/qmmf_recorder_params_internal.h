@@ -193,6 +193,7 @@ struct VideoTrackCreateParamInternal : public VideoTrackCreateParam {
       case VideoFormat::kBayerRDI8BIT:
       case VideoFormat::kBayerRDI10BIT:
       case VideoFormat::kBayerRDI12BIT:
+      case VideoFormat::kBayerRDI16BIT:
       case VideoFormat::kBayerIdeal:
         // nothing to write
         break;
@@ -229,6 +230,7 @@ struct VideoTrackCreateParamInternal : public VideoTrackCreateParam {
       case VideoFormat::kBayerRDI8BIT:
       case VideoFormat::kBayerRDI10BIT:
       case VideoFormat::kBayerRDI12BIT:
+      case VideoFormat::kBayerRDI16BIT:
       case VideoFormat::kBayerIdeal:
         // nothing to read
         break;
