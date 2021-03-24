@@ -270,6 +270,8 @@ class CameraContext : public CameraInterface {
 
   bool IsNeedReconfigSnapshotStream();
 
+  uint32_t GetVendorTagByName (const char *section, const char *name);
+
   sp<Camera3DeviceClient>  camera_device_;
   CameraClientCallbacks    camera_callbacks_;
   uint32_t                 camera_id_;
@@ -350,6 +352,7 @@ class CameraContext : public CameraInterface {
   std::set<int32_t>             stopped_stream_ids_;
   CameraParameters              camera_parameters_;
   bool                          continuous_mode_is_on;
+  uint32_t                      tag_id_temperature;
 };
 
 enum class CameraPortType {
