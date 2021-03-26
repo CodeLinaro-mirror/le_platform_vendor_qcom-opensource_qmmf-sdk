@@ -1217,6 +1217,8 @@ status_t TrackSource::Flush() {
   if (track_params_.params.format_type == VideoFormat::kRGB ||
       track_params_.params.format_type == VideoFormat::kNV12 ||
       track_params_.params.format_type == VideoFormat::kNV12UBWC ||
+      track_params_.params.format_type == VideoFormat::kJPEG ||
+      track_params_.params.format_type == VideoFormat::kYUY2 ||
       track_params_.params.format_type == VideoFormat::kBayerRDI8BIT ||
       track_params_.params.format_type == VideoFormat::kBayerRDI10BIT ||
       track_params_.params.format_type == VideoFormat::kBayerRDI12BIT ||
@@ -1274,6 +1276,8 @@ status_t TrackSource::StopTrack() {
   if (track_params_.params.format_type == VideoFormat::kRGB ||
       track_params_.params.format_type == VideoFormat::kNV12 ||
       track_params_.params.format_type == VideoFormat::kNV12UBWC ||
+      track_params_.params.format_type == VideoFormat::kJPEG ||
+      track_params_.params.format_type == VideoFormat::kYUY2 ||
       track_params_.params.format_type == VideoFormat::kBayerRDI8BIT ||
       track_params_.params.format_type == VideoFormat::kBayerRDI10BIT ||
       track_params_.params.format_type == VideoFormat::kBayerRDI12BIT ||
@@ -1663,6 +1667,8 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
   // feed buffer to Encoder.
   if (track_params_.params.format_type == VideoFormat::kNV12 ||
       track_params_.params.format_type == VideoFormat::kNV12UBWC ||
+      track_params_.params.format_type == VideoFormat::kJPEG ||
+      track_params_.params.format_type == VideoFormat::kYUY2 ||
       track_params_.params.format_type == VideoFormat::kRGB ||
       track_params_.params.format_type == VideoFormat::kBayerRDI8BIT ||
       track_params_.params.format_type == VideoFormat::kBayerRDI10BIT ||
@@ -1680,7 +1686,22 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
     BnBuffer bn_buffer{};
     bn_buffer.ion_fd            = buffer.fd;
     bn_buffer.ion_meta_fd       = buffer.metafd;
-    bn_buffer.size              = buffer.size;
+    if (track_params_.params.format_type == VideoFormat::kJPEG) {
+      void* vaddr = nullptr;
+      vaddr = mmap(nullptr, buffer.size, PROT_READ | PROT_WRITE, MAP_SHARED,
+          buffer.fd, 0);
+      assert(vaddr != nullptr);
+      assert(0 < buffer.info.num_planes);
+      bn_buffer.size = CameraSource::GetJpegSize((uint8_t*) vaddr,
+                                 buffer.info.plane_info[0].size);
+      QMMF_INFO("%s: jpeg buffer size(%d)", __func__, bn_buffer.size);
+      assert(0 < bn_buffer.size);
+      if (vaddr) {
+        munmap(vaddr, buffer.size);
+      }
+    } else {
+      bn_buffer.size              = buffer.size;
+    }
     bn_buffer.timestamp         = buffer.timestamp;
     bn_buffer.width             = buffer.info.plane_info[0].width;
     bn_buffer.height            = buffer.info.plane_info[0].height;

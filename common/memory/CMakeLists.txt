@@ -38,7 +38,7 @@ target_include_directories(qmmf_memory_interface
  PRIVATE ${TOP_DIRECTORY}/common/utils)
 
 install(TARGETS qmmf_memory_interface DESTINATION lib OPTIONAL)
-target_link_libraries(qmmf_memory_interface log utils hardware qmmf_utils dl)
+target_link_libraries(qmmf_memory_interface log utils cutils hardware qmmf_utils dl)
 if(TARGET_USES_GBM)
 target_link_libraries(qmmf_memory_interface gbm)
 endif()

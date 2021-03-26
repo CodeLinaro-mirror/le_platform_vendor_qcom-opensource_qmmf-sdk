@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -128,6 +128,9 @@ class Common {
       case BufferFormat::kNV16:
         return HAL_PIXEL_FORMAT_YCbCr_422_888;
         break;
+      case BufferFormat::kYUY2:
+        return HAL_PIXEL_FORMAT_YCBCR_422_I;
+        break;
       case BufferFormat::kRAW8:
         return HAL_PIXEL_FORMAT_RAW8;
         break;
@@ -171,6 +174,9 @@ class Common {
         break;
       case HAL_PIXEL_FORMAT_YCbCr_422_888:
         return BufferFormat::kNV16;
+        break;
+      case HAL_PIXEL_FORMAT_YCBCR_422_I:
+        return BufferFormat::kYUY2;
         break;
       case HAL_PIXEL_FORMAT_RAW8:
         return BufferFormat::kRAW8;
@@ -250,6 +256,12 @@ class Common {
         break;
       case VideoFormat::kNV12UBWC:
         return BufferFormat::kNV12UBWC;
+        break;
+      case VideoFormat::kJPEG:
+        return BufferFormat::kBLOB;
+        break;
+      case VideoFormat::kYUY2:
+        return BufferFormat::kYUY2;
         break;
       case VideoFormat::kRGB:
         return BufferFormat::kRGB;
@@ -621,6 +633,7 @@ class Common {
       case BufferFormat::kNV12UBWC:
       case BufferFormat::kNV21:
       case BufferFormat::kNV16:
+      case BufferFormat::kYUY2:
       case BufferFormat::kRGB:
         is_supported = ValidateResFromProcessedSizes(meta, width, height);
         break;

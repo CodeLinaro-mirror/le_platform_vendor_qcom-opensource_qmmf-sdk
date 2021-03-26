@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  * Not a Contribution.
  */
 
@@ -598,6 +598,17 @@ int32_t Camera3Stream::PopulateMetaInfo(CameraBufferMetaData &info,
       info.plane_info[0].stride = alignedW;
       info.plane_info[0].scanline = alignedH;
       info.plane_info[0].size = alignedW * alignedH;
+      info.plane_info[0].offset = 0;
+      break;
+    case HAL_PIXEL_FORMAT_YCbCr_422_I:
+      info.format = BufferFormat::kYUY2;
+      info.num_planes = 1;
+      info.plane_info[0].width = width;
+      info.plane_info[0].height = height;
+      info.plane_info[0].stride = alignedW * 2;
+      info.plane_info[0].scanline = alignedH;
+      info.plane_info[0].size =
+          MSM_MEDIA_ALIGN((alignedW * alignedH * 2), 4096);
       info.plane_info[0].offset = 0;
       break;
     default:
