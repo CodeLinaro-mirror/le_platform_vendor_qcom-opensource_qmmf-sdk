@@ -1089,6 +1089,7 @@ status_t TrackSource::Init() {
   param.width = track_params_.params.width;
   param.height = track_params_.params.height;
   param.framerate = track_params_.params.frame_rate;
+  param.extra_buffer_count = track_params_.params.extra_buffer_count;
 
   param.format =
       Common::FromVideoToQmmfFormat(track_params_.params.format_type);
