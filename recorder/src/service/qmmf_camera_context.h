@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -43,8 +43,7 @@ namespace qmmf {
 using namespace cameraadaptor;
 
 #define MAX_SENSOR_FPS              480
-#define VIDEO_STREAM_BUFFER_COUNT    11
-#define PREVIEW_STREAM_BUFFER_COUNT  10
+#define STREAM_BUFFER_COUNT          10
 #define REPROC_STREAM_BUFFER_COUNT    2
 #define SNAPSHOT_STREAM_BUFFER_COUNT 30
 #define EXTRA_DCVS_BUFFERS            2

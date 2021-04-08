@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -330,15 +330,19 @@ struct VideoTrackCreateParam {
   VideoCodecParams codec_param;
   bool do_vqzip;
   VQZipInfo vqzip_params;
+  /// Extra buffer count
+  uint32_t extra_buffer_count;
 
   VideoTrackCreateParam(uint32_t cam_id = 0,
                         VideoFormat fmt = VideoFormat::kNV12, uint32_t w = 3840,
-                        uint32_t h = 2160, float frm_rate = 30) {
+                        uint32_t h = 2160, float frm_rate = 30,
+                        uint32_t extra_buff_count = 0) {
     camera_id = cam_id;
     width = w;
     height = h;
     frame_rate = frm_rate;
     format_type = fmt;
+    extra_buffer_count = extra_buff_count;
     switch (format_type) {
       case VideoFormat::kAVC:
         setAVCDefaultVideoParam();
@@ -370,6 +374,7 @@ struct VideoTrackCreateParam {
            << static_cast<::std::underlying_type<VideoFormat>::type>(
                   format_type)
            << "] ";
+    stream << "extra_buffer_count[" << extra_buffer_count << "] ";
     stream << "codec_params[" << codec_param.ToString(format_type) << "] ";
     stream << "do_vqzip[" << ::std::boolalpha << do_vqzip << ::std::noboolalpha
            << "] ";
