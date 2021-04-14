@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2019, 2021, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -116,7 +116,7 @@ void DualCamera3Gtest::StreamCb(StreamBuffer buffer) {
 void DualCamera3Gtest::ErrorCb(CameraErrorCode errorCode,
                                const CaptureResultExtras &) {
   printf("%s: ErrorCode: %d\n", __func__, errorCode);
-  if (ERROR_CAMERA_SERVICE >= errorCode) {
+  if (ERROR_CAMERA_DEVICE >= errorCode) {
     camera_error_ = true;  // Unrecoverable error
   }
 }

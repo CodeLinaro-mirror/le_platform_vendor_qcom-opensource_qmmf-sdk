@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+* Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -820,36 +820,30 @@ bool GtestCommon::IsNRSupported() {
   return is_supported;
 }
 
-void GtestCommon::RecorderCallbackHandler(EventType event_type,
-                                          void *event_data,
-                                          size_t event_data_size) {
-  TEST_INFO("%s Enter event: %d ", __func__, (int32_t) event_type);
-  if (event_type == EventType::kCameraError &&
-      event_data_size && event_data != nullptr) {
-    RecorderErrorData *error_data = static_cast<RecorderErrorData *>(event_data);
-    TEST_INFO("%s error_code %d camera_id %d",
-        __func__, error_data->error_code, error_data->camera_id);
+void GtestCommon::RecorderCallbackHandler(EventType type, void *payload,
+                                          size_t size) {
+  TEST_INFO("%s Enter event: %d ", __func__, (int32_t) type);
+  if (type == EventType::kCameraError && size && payload != nullptr) {
+    ASSERT_TRUE(size == sizeof(uint32_t));
+    auto camera_id = *(static_cast<uint32_t*>(payload));
     test_wait_.Done();
     std::lock_guard<std::mutex> lock(error_lock_);
     camera_error_ = true;
-  } else if (event_type == EventType::kCameraOpened &&
-             event_data_size && event_data != nullptr) {
-    ASSERT_TRUE(event_data_size == sizeof(uint32_t));
-    auto camera_id = *(static_cast<uint32_t*>(event_data));
+  } else if (type == EventType::kCameraOpened && size && payload != nullptr) {
+    ASSERT_TRUE(size == sizeof(uint32_t));
+    auto camera_id = *(static_cast<uint32_t*>(payload));
     std::lock_guard<std::mutex> lk(camera_state_lock_);
     camera_state_[camera_id] = GtestCameraState::kOpened;
     camera_state_updated_.notify_all();
-  } else if (event_type == EventType::kCameraClosing &&
-             event_data_size && event_data != nullptr) {
-    ASSERT_TRUE(event_data_size == sizeof(uint32_t));
-    auto camera_id = *(static_cast<uint32_t*>(event_data));
+  } else if (type == EventType::kCameraClosing && size && payload != nullptr) {
+    ASSERT_TRUE(size == sizeof(uint32_t));
+    auto camera_id = *(static_cast<uint32_t*>(payload));
     std::lock_guard<std::mutex> lk(camera_state_lock_);
     camera_state_[camera_id] = GtestCameraState::kClosing;
     camera_state_updated_.notify_all();
-  } else if (event_type == EventType::kCameraClosed &&
-             event_data_size && event_data != nullptr) {
-    ASSERT_TRUE(event_data_size == sizeof(uint32_t));
-    auto camera_id = *(static_cast<uint32_t*>(event_data));
+  } else if (type == EventType::kCameraClosed && size && payload != nullptr) {
+    ASSERT_TRUE(size == sizeof(uint32_t));
+    auto camera_id = *(static_cast<uint32_t*>(payload));
     std::lock_guard<std::mutex> lk(camera_state_lock_);
     camera_state_[camera_id] = GtestCameraState::kClosed;
     camera_state_updated_.notify_all();

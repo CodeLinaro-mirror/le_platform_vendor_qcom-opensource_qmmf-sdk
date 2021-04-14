@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  * Not a Contribution.
  */
 
@@ -99,13 +99,11 @@ typedef struct {
 } CaptureResult;
 
 enum CameraErrorCode {
-  ERROR_CAMERA_INVALID_ERROR = -1,  // To indicate all invalid error codes
-  ERROR_CAMERA_DISCONNECTED = 0,    // Indicates that the camera disconnected
-  ERROR_CAMERA_DEVICE = 1,          // Indicates un-recoverable camera error
-  ERROR_CAMERA_SERVICE = 2,         // Indicates issue with device client
-  ERROR_CAMERA_REQUEST = 3,         // Indicates error during request processing
-  ERROR_CAMERA_RESULT = 4,  // Indicates an error when generating request result
-  ERROR_CAMERA_BUFFER = 5,  // Indicates an error during buffer processing
+  ERROR_CAMERA_INVALID_ERROR = 0, // All other invalid error codes
+  ERROR_CAMERA_DEVICE = 1,        // Un-recoverable camera error
+  ERROR_CAMERA_REQUEST = 2,       // Error during request processing
+  ERROR_CAMERA_RESULT = 3,        // Error when generating request result
+  ERROR_CAMERA_BUFFER = 4,        // Error during buffer processing
 };
 
 // Notifies about all sorts of errors that can happen during camera operation
