@@ -191,6 +191,10 @@ status_t RecorderImpl::RegisterClient(const uint32_t client_id) {
   QMMF_INFO("%s: client_sessions_state_.size(%d)", __func__,
       client_sessions_state_.size());
 
+  client_sessions_mutex_map_.emplace(client_id, SessionMutexMap());
+  QMMF_INFO("%s: client_sessions_mutex_map_.size(%d)", __func__,
+      client_sessions_mutex_map_.size());
+
   auto const& session_track_map = client_session_map_[client_id];
   QMMF_INFO("%s: session_track_map.size(%d)", __func__,
       session_track_map.size());
@@ -299,6 +303,7 @@ status_t RecorderImpl::DeRegisterClient(const uint32_t client_id,
     lk.lock();
     client_session_map_.erase(client_id);
     client_sessions_state_.erase(client_id);
+    client_sessions_mutex_map_.erase(client_id);
   }
 
   {
@@ -549,7 +554,11 @@ status_t RecorderImpl::CreateSession(const uint32_t client_id,
   QMMF_INFO("%s: Client(%u): Session(%u) created successfully", __func__,
       client_id, *session_id);
 
-  sessions_mutex_map_.emplace(*session_id, new std::mutex());
+  auto& sessions_mutex_map = client_sessions_mutex_map_[client_id];
+  if (sessions_mutex_map.count(*session_id) == 0) {
+    sessions_mutex_map.emplace(*session_id, new std::mutex());
+  }
+
 
   QMMF_DEBUG("%s: Exit", __func__);
   return NO_ERROR;
@@ -577,6 +586,7 @@ status_t RecorderImpl::DeleteSession(const uint32_t client_id,
   auto& session_track_map = client_session_map_[client_id];
   auto& sessions_state_map = client_sessions_state_[client_id];
   auto& tracks = session_track_map[session_id];
+  auto& sessions_mutex_map = client_sessions_mutex_map_[client_id];
 
   if (!tracks.empty()) {
     QMMF_ERROR("%s: Client(%d): Session(%d) Can't be deleted until all"
@@ -587,7 +597,8 @@ status_t RecorderImpl::DeleteSession(const uint32_t client_id,
 
   session_track_map.erase(session_id);
   sessions_state_map.erase(session_id);
-  sessions_mutex_map_.erase(session_id);
+  sessions_mutex_map.erase(session_id);
+
 
   QMMF_INFO("%s: Number of sessions(%d) left in client_id(%d)",
       __func__, session_track_map.size(), client_id);
@@ -606,7 +617,9 @@ status_t RecorderImpl::StartSession(const uint32_t client_id,
   client_session_lock_.lock();
   auto& session_track_map = client_session_map_[client_id];
   auto& tracks_in_session = session_track_map[session_id];
-  auto& session_lock = sessions_mutex_map_[session_id];
+  auto& sessions_mutex_map = client_sessions_mutex_map_[client_id];
+  auto& session_lock = sessions_mutex_map[session_id];
+
   client_session_lock_.unlock();
   std::lock_guard<std::mutex> lock(*session_lock);
 
@@ -760,7 +773,9 @@ status_t RecorderImpl::StopSession(const uint32_t client_id,
   client_session_lock_.lock();
   auto& session_track_map = client_session_map_[client_id];
   auto& tracks_in_session = session_track_map[session_id];
-  auto& session_lock = sessions_mutex_map_[session_id];
+  auto& sessions_mutex_map = client_sessions_mutex_map_[client_id];
+  auto& session_lock = sessions_mutex_map[session_id];
+
   client_session_lock_.unlock();
   std::lock_guard<std::mutex> lock(*session_lock);
 
