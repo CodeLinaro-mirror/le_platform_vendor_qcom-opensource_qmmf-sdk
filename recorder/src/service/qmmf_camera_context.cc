@@ -41,6 +41,7 @@
 #else
 #include <QCamera3VendorTags.h>
 #endif
+#include <camera/VendorTagDescriptor.h>
 
 #include "recorder/src/service/qmmf_camera_context.h"
 #include "recorder/src/service/qmmf_recorder_utils.h"
@@ -1060,6 +1061,9 @@ status_t CameraContext::StartStream(const uint32_t track_id) {
   assert(ret == NO_ERROR);
   QMMF_INFO("%s: track_id(%d) started on port(0x%p)", __func__,
       track_id, port.get());
+
+  tag_id_temperature =  GetVendorTagByName("com.qti.chi.temperature", "temperature");
+  QMMF_INFO("tag_id_temperature:0x%x", tag_id_temperature);
   return NO_ERROR;
 }
 
@@ -2353,7 +2357,32 @@ bool CameraContext::QueryPartialTag(const CameraMetadata &result,
   return true;
 }
 
+uint32_t CameraContext::GetVendorTagByName(const char *section, const char *name)
+{
+  ::android::sp<::android::VendorTagDescriptor> vtags;
+  ::android::status_t status = 0;
+  uint32_t tag_id = 0;
+
+  vtags = ::android::VendorTagDescriptor::getGlobalVendorTagDescriptor();
+  if (vtags.get() == NULL) {
+    QMMF_ERROR ("Failed to retrieve Global Vendor Tag Descriptor!");
+    return 0;
+  }
+
+  status = vtags->lookupTag(::android::String8(name),
+      ::android::String8(section), &tag_id);
+  if (status != 0) {
+    QMMF_ERROR ("Unable to locate tag for '%s', section '%s'!", name, section);
+    return 0;
+  }
+
+  return tag_id;
+}
+
 void CameraContext::HandleFinalResult(const CaptureResult &result) {
+
+  int32_t temperature;
+  static int32_t prev_temperature = 0;
 
   if (result.metadata.exists(ANDROID_CONTROL_AE_STATE) &&
       result.metadata.exists(ANDROID_SENSOR_TIMESTAMP)) {
@@ -2369,6 +2398,15 @@ void CameraContext::HandleFinalResult(const CaptureResult &result) {
       aec_.state     = new_state;
       aec_.timestamp = timestamp;
       aec_state_updated_.Signal();
+    }
+  }
+
+  if (tag_id_temperature && result.metadata.exists(tag_id_temperature)) {
+    temperature = result.metadata.find(tag_id_temperature).data.i32[0];
+    if (prev_temperature != temperature) {
+      QMMF_INFO("Camera:%d, temperature:%.2f", camera_id_, ((float)temperature) / 100);
+
+      prev_temperature = temperature;
     }
   }
 

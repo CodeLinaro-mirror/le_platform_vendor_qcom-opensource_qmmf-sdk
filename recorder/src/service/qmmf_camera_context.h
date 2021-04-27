@@ -276,6 +276,8 @@ class CameraContext : public CameraInterface {
   std::mutex                            device_access_lock_;
   CameraMetadata                        static_meta_;
 
+  uint32_t GetVendorTagByName (const char *section, const char *name);
+
   std::map<uint32_t, bool> stream_prepared_;
   QCondition               prepare_done_;
   std::mutex               prepare_lock_;
@@ -350,6 +352,7 @@ class CameraContext : public CameraInterface {
   std::set<int32_t>             stopped_stream_ids_;
   CameraParameters              camera_parameters_;
   bool                          continuous_mode_is_on;
+  uint32_t                      tag_id_temperature;
 };
 
 enum class CameraPortType {
