@@ -2573,10 +2573,16 @@ status_t CameraPort::Init() {
         static_cast<bool>(params_.flags & StreamFlags::kUncashed) ?
             IMemAllocUsage::kPrivateUncached : 0;
 
-    cam_stream_params_.bufferCount =
-        static_cast<bool>(params_.flags & StreamFlags::kEncoded) ?
-            VIDEO_STREAM_BUFFER_COUNT + GetExtraBufferCount() :
-            PREVIEW_STREAM_BUFFER_COUNT;
+    // round extra buffer count to batch size
+    params_.extra_buffer_count =
+        ((params_.extra_buffer_count + camera_parameters_.batch_size - 1) /
+          camera_parameters_.batch_size) * camera_parameters_.batch_size;
+
+    cam_stream_params_.bufferCount = STREAM_BUFFER_COUNT +
+        GetExtraBufferCount() + params_.extra_buffer_count;
+
+    QMMF_INFO ("%s: track_id(0%x) total buffer count(%d)", __func__,
+        params_.id, cam_stream_params_.bufferCount);
 
     cam_stream_params_.cam_feature_flags = camera_parameters_.cam_feature_flags;
   }
@@ -2818,26 +2824,19 @@ void CameraPort::StreamCallback(StreamBuffer buffer) {
 
 uint32_t CameraPort::GetExtraBufferCount() {
   uint32_t extra_buffer_count = 0;
-  switch (static_cast<uint32_t>(params_.framerate)) {
-    case 24:
-    case 30:
-    case 48:
-      extra_buffer_count = EXTRA_DCVS_BUFFERS;
-      break;
-    case 60:
-    case 90:
-      extra_buffer_count = EXTRA_HFR_BUFFERS;
-      break;
-    case 120:
-      extra_buffer_count = 2 * EXTRA_HFR_BUFFERS;
-      break;
-    case 240:
-      extra_buffer_count = 3 * EXTRA_HFR_BUFFERS;
-      break;
-    default:
-      QMMF_WARN("%s: FPS is not present in the list", __func__);
-      break;
+
+  if (params_.framerate < 24.0) {
+    extra_buffer_count = 0;
+  } else if (params_.framerate < 60.0) {
+    extra_buffer_count = EXTRA_DCVS_BUFFERS;
+  } else if (params_.framerate < 120.0) {
+    extra_buffer_count = EXTRA_HFR_BUFFERS;
+  } else if (params_.framerate < 240.0) {
+    extra_buffer_count = 2 * EXTRA_HFR_BUFFERS;
+  } else {
+    extra_buffer_count = 3 * EXTRA_HFR_BUFFERS;
   }
+
   QMMF_DEBUG("%s: Number of extra buffers added: %u", __func__,
              extra_buffer_count);
   return extra_buffer_count;
@@ -3110,7 +3109,7 @@ status_t ZslPort::SetUpZSL() {
 
   // Create ZSL stream
   CameraStreamParameters zsl_stream_params{};
-  zsl_stream_params.bufferCount = zsl_queue_depth_ + VIDEO_STREAM_BUFFER_COUNT;
+  zsl_stream_params.bufferCount = zsl_queue_depth_ + STREAM_BUFFER_COUNT;
   zsl_stream_params.format = Common::FromQmmfToHalFormat(params_.format);
   zsl_stream_params.width  = params_.width;
   zsl_stream_params.height = params_.height;
