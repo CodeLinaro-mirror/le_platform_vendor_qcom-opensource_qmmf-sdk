@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -875,6 +875,19 @@ status_t AVCodec::ConfigureVideoEncoder(CodecParam& codec_param) {
 
   if (ret != 0) {
     QMMF_ERROR("%s Failed to set up codec parameter", __func__);
+    return ret;
+  }
+
+  OMX_VIDEO_PARAM_PROFILELEVELTYPE profile_level;
+  InitOMXParams(&profile_level);
+  profile_level.nPortIndex = kPortIndexOutput;
+  profile_level.eProfile = QmmftoOmxProfile(codec_param);
+  profile_level.eLevel = QmmftoOmxLevel(codec_param);
+  ret = omx_client_->SetParameter(
+      static_cast<OMX_INDEXTYPE>(OMX_IndexParamVideoProfileLevelCurrent),
+      reinterpret_cast<void*>(&profile_level));
+  if (ret != 0){
+    QMMF_ERROR("%s: Failed to set video profile level", __func__);
     return ret;
   }
 
@@ -2246,7 +2259,7 @@ status_t AVCodec::QmmftoOmxLevel(CodecParam& param) {
             level = OMX_VIDEO_HEVCMainTierLevel5;
             break;
           case HEVCLevelType::kLevel5_1:
-            level = OMX_VIDEO_HEVCMainTierLevel41;
+            level = OMX_VIDEO_HEVCMainTierLevel51;
             break;
           case HEVCLevelType::kLevel5_2:
             level = OMX_VIDEO_HEVCMainTierLevel52;
