@@ -677,6 +677,8 @@ void GtestCommon::SetVideoStreamFormat(char prop[], VideoFormat &format) {
     format = VideoFormat::kHEVC;
   } else if (value == "YUV") {
     format = VideoFormat::kNV12;
+  } else if (value == "YUV422") {
+    format = VideoFormat::kYUY2;
   } else if (value == "RGB") {
     format = VideoFormat::kRGB;
   } else if (value == "RAW8") {
@@ -695,9 +697,10 @@ void GtestCommon::PrintStreamInfo(uint32_t num) {
   for (uint32_t i = kFirstStreamID; i <= num; i++) {
     auto stream = stream_info_map_[i];
     std::cout << "Video Stream Info:" << i << " Width:"
-        << stream.width << " Height:" << stream.height << " FPS:"
+        << stream.width << " Height:" << snap_height_ << " FPS:"
         << stream.fps << " Source Stream ID:" << stream.source_stream_id
-        << " Format: " << GetVideoStreamFormat(stream.format) << std::endl;
+        << " Format: " << GetVideoStreamFormat(stream.format)
+        << " link Status:" << link_status<< std::endl;
   }
   if (is_snap_stream_on_) {
     std::cout << "Snapshot Stream Info:" << " Width:" << snap_width_
@@ -714,6 +717,8 @@ std::string GtestCommon::GetVideoStreamFormat(VideoFormat &fmt) {
     return "HEVC";
   } else if (fmt == VideoFormat::kNV12) {
     return "YUV";
+  } else if (fmt == VideoFormat::kYUY2) {
+    return "YUV422";
   } else if (fmt == VideoFormat::kRGB) {
     return "RGB";
   } else if (fmt == VideoFormat::kRGB) {
@@ -751,6 +756,18 @@ std::string GtestCommon::GetSnapshotStreamFormat() {
   }
 }
 
+uint32_t GtestCommon::GetLinkStatus(){
+  camera_metadata_entry_t entry;
+  if (static_info_.exists(ANDROID_SENSOR_INFO_YUV_CHECK_LINK_STATUS)) {
+    entry = static_info_.find(ANDROID_SENSOR_INFO_YUV_CHECK_LINK_STATUS);
+    for (uint32_t i = 0 ; i < entry.count; i++) {
+      link_status = entry.data.i32[i];
+      return link_status;
+    }
+  }else{
+    return 0;
+  }
+}
 
 void GtestCommon::TearDown() {
 
@@ -897,9 +914,13 @@ void GtestCommon::VideoTrackYUVDataCb(uint32_t session_id, uint32_t track_id,
   if (is_dump_yuv_enabled_) {
     track_frame_count_map_[track_id]++;
     if (!(track_frame_count_map_[track_id] % dump_yuv_freq_)) {
-      std::string file_path("/data/misc/qmmf/gtest_track_");
+      std::string file_path("/data/misc/qmmf/recorder_camid");
       size_t written_len;
-      file_path += std::to_string(track_id) + "_";
+      auto stream = stream_info_map_[kFirstStreamID];
+      file_path += std::to_string(camera_id_) + "_";
+      file_path += std::to_string(track_frame_count_map_[track_id]) + "_w[";
+      file_path += std::to_string(stream.width) + "]_h[";
+      file_path += std::to_string(snap_height_) + "]_";
       file_path += std::to_string(buffers[0].timestamp);
       file_path += ".yuv";
       FILE *file = fopen(file_path.c_str(), "w+");

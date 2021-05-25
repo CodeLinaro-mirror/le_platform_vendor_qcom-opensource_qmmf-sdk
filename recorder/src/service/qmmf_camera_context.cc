@@ -980,7 +980,7 @@ status_t CameraContext::CreateStream(const StreamParam& param,
   if (streaming_active_requests_.empty()) {
     streaming_active_requests_.emplace_back();
     ret = CreateCaptureRequest(streaming_active_requests_[0],
-                               CAMERA3_TEMPLATE_VIDEO_RECORD);
+                               CAMERA3_TEMPLATE_PREVIEW);
     assert(ret == NO_ERROR);
     QMMF_INFO("%s: Global Streaming request created successfully!",__func__);
   }

@@ -58,6 +58,8 @@ typedef void(torch_mode_status_change_t)(const struct camera_module_callbacks *,
                                          const char *camera_id, int new_status);
 }
 
+#define CAMERA_HAL_LIBERAY "/usr/lib64/hw/camera.qcom.so"
+
 using namespace android;
 
 namespace qmmf {
@@ -105,6 +107,8 @@ class Camera3DeviceClient : public camera3_callback_ops,
   static int32_t LoadHWModule(const char *moduleId,
                               const struct hw_module_t **pHmi);
 
+  static int32_t loadCameraModule(const char *id, const char *path,
+		  camera_module_t **pCmi);
  private:
   std::vector<int32_t> current_request_ids_;
   typedef enum State_t {

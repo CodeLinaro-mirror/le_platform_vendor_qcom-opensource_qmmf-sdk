@@ -8,7 +8,12 @@ if (NOT RECORDER_GTEST_ENABLED)
   set(exclude EXCLUDE_FROM_ALL)
 endif()
 
-if (NOT CAMERA_HAL1_SUPPORT)
+if ((TARGET_BOARD_PLATFORM STREQUAL "sm8250"))
+add_executable(qmmf_recorder_gtest ${exclude}
+qmmf_gtest_common.cc
+qmmf_gtest_sample.cc
+)
+elseif (NOT CAMERA_HAL1_SUPPORT)
 add_executable(qmmf_recorder_gtest ${exclude}
 qmmf_gtest_common.cc
 qmmf_gtest.cc

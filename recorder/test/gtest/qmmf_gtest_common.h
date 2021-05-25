@@ -147,46 +147,46 @@ struct FaceInfo {
   std::vector<Rect<uint32_t>> face_rect;
 };
 
-#define DEFAULT_YUV_DUMP_FREQ            "200"
-#define DEFAULT_ITERATIONS               "50"
+#define DEFAULT_YUV_DUMP_FREQ            "100"
+#define DEFAULT_ITERATIONS               "2"
 #define DEFAULT_BURST_COUNT              "15"
 #define IMAGE_QUALITY                    "95"
 #define DEFAULT_SNAPSHOT_COUNT           "5"
 
 // Default recording duration is 2 minutes i.e. 2 * 60 seconds
-#define DEFAULT_RECORD_DURATION          "120"
+#define DEFAULT_RECORD_DURATION          "20"
 // Default Camera FPS
-#define DEFAULT_CAMERA_FPS               "30.0"
+#define DEFAULT_CAMERA_FPS               "25.0"
 
 // Default Values for First Stream
 #define DEFAULT_FIRST_STREAM_WIDTH       "1920"
-#define DEFAULT_FIRST_STREAM_HEIGHT      "1080"
-#define DEFAULT_FIRST_STREAM_FPS         "30.0"
-#define DEFAULT_FIRST_STREAM_FORMAT      "AVC"
+#define DEFAULT_FIRST_STREAM_HEIGHT      "1020"
+#define DEFAULT_FIRST_STREAM_FPS         "25.0"
+#define DEFAULT_FIRST_STREAM_FORMAT      "YUV422"
 
 // Default Values for Second Stream
-#define DEFAULT_SECOND_STREAM_WIDTH      "1280"
-#define DEFAULT_SECOND_STREAM_HEIGHT     "720"
-#define DEFAULT_SECOND_STREAM_FPS        "30.0"
-#define DEFAULT_SECOND_STREAM_FORMAT     "AVC"
+#define DEFAULT_SECOND_STREAM_WIDTH      "1920"
+#define DEFAULT_SECOND_STREAM_HEIGHT     "1020"
+#define DEFAULT_SECOND_STREAM_FPS        "25.0"
+#define DEFAULT_SECOND_STREAM_FORMAT     "YUV422"
 
 // Default Values for Third Stream
-#define DEFAULT_THIRD_STREAM_WIDTH       "1280"
-#define DEFAULT_THIRD_STREAM_HEIGHT      "720"
-#define DEFAULT_THIRD_STREAM_FPS         "30.0"
-#define DEFAULT_THIRD_STREAM_FORMAT      "AVC"
+#define DEFAULT_THIRD_STREAM_WIDTH       "1920"
+#define DEFAULT_THIRD_STREAM_HEIGHT      "1020"
+#define DEFAULT_THIRD_STREAM_FPS         "25.0"
+#define DEFAULT_THIRD_STREAM_FORMAT      "YUV422"
 
 // Default Values for fourth Stream
-#define DEFAULT_FOURTH_STREAM_WIDTH      "720"
-#define DEFAULT_FOURTH_STREAM_HEIGHT     "480"
-#define DEFAULT_FOURTH_STREAM_FPS        "30.0"
-#define DEFAULT_FOURTH_STREAM_FORMAT     "AVC"
+#define DEFAULT_FOURTH_STREAM_WIDTH      "1920"
+#define DEFAULT_FOURTH_STREAM_HEIGHT     "1020"
+#define DEFAULT_FOURTH_STREAM_FPS        "25.0"
+#define DEFAULT_FOURTH_STREAM_FORMAT     "YUV422"
 
 // Default Values for Fifth Stream
-#define DEFAULT_FIFTH_STREAM_WIDTH       "320"
-#define DEFAULT_FIFTH_STREAM_HEIGHT      "240"
-#define DEFAULT_FIFTH_STREAM_FPS         "30.0"
-#define DEFAULT_FIFTH_STREAM_FORMAT      "AVC"
+#define DEFAULT_FIFTH_STREAM_WIDTH       "1920"
+#define DEFAULT_FIFTH_STREAM_HEIGHT      "1020"
+#define DEFAULT_FIFTH_STREAM_FPS         "25.0"
+#define DEFAULT_FIFTH_STREAM_FORMAT      "YUV422"
 
 // Default Values of Snapshot Stream
 #define DEFAULT_SNAPSHOT_STREAM_WIDTH    "1920"
@@ -617,6 +617,8 @@ class GtestCommon : public ::testing::Test {
 
   std::string GetSnapshotMode();
 
+  uint32_t GetLinkStatus();
+
   void SetCameraExtraParam(CameraExtraParam &param);
 
   void InitSupportedVHDRModes();
@@ -841,6 +843,7 @@ class GtestCommon : public ::testing::Test {
   uint32_t              snap_width_;
   uint32_t              snap_height_;
   uint32_t              snap_count_;
+  uint32_t              link_status;
   ImageFormat           snap_format_;
   SnapshotMode          snap_mode_;
 

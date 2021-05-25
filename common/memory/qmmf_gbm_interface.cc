@@ -171,7 +171,7 @@ const std::unordered_map<uint32_t, uint32_t> GBMBuffer::to_gbm_ = {
 
   {HAL_PIXEL_FORMAT_YCbCr_420_888,           GBM_FORMAT_YCbCr_420_888},
   {HAL_PIXEL_FORMAT_YCbCr_422_SP,            GBM_FORMAT_YCbCr_422_SP},
-  {HAL_PIXEL_FORMAT_YCbCr_422_I,             GBM_FORMAT_YCrCb_422_I},
+  {HAL_PIXEL_FORMAT_YCbCr_422_I,             GBM_FORMAT_UYVY},
   {HAL_PIXEL_FORMAT_YCrCb_420_SP,            GBM_FORMAT_YCrCb_420_SP},
   {HAL_PIXEL_FORMAT_YV12,                    0},
   {HAL_PIXEL_FORMAT_YCbCr_422_888,           0},
@@ -202,7 +202,7 @@ const std::unordered_map<int32_t, int32_t> GBMBuffer::from_gbm_ = {
   {GBM_FORMAT_YCbCr_422_SP,             HAL_PIXEL_FORMAT_YCbCr_422_SP},
   {GBM_FORMAT_YCbCr_420_888,            HAL_PIXEL_FORMAT_YCbCr_420_888},
   {GBM_FORMAT_YCrCb_420_SP,             HAL_PIXEL_FORMAT_YCrCb_420_SP},
-  {GBM_FORMAT_YCrCb_422_I,              HAL_PIXEL_FORMAT_YCbCr_422_I},
+  {GBM_FORMAT_UYVY,              HAL_PIXEL_FORMAT_YCbCr_422_I},
 
   {GBM_FORMAT_NV21_ZSL,                 HAL_PIXEL_FORMAT_NV21_ZSL},
 };

@@ -163,8 +163,11 @@ int32_t Camera3DeviceClient::Initialize() {
     goto exit;
   }
 
+/***
   res = LoadHWModule(CAMERA_HARDWARE_MODULE_ID,
                      (const hw_module_t **)&camera_module_);
+***/
+  res = loadCameraModule(CAMERA_HARDWARE_MODULE_ID,CAMERA_HAL_LIBERAY,&camera_module_);
 
   if ((0 != res) || (NULL == camera_module_)) {
     QMMF_ERROR("%s: Unable to load Hal module: %d\n", __func__, res);
@@ -1465,6 +1468,63 @@ void Camera3DeviceClient::RemovePendingRequestLocked(uint32_t frameNumber) {
 
     pending_requests_vector_.erase(frameNumber);
   }
+}
+
+/************************************************************************
+* name : loadCameraModule
+* function: load the camera module liberay
+************************************************************************/
+int32_t Camera3DeviceClient::loadCameraModule(const char *id, const char *path,
+    camera_module_t **pCmi)
+{
+    int32_t status = 0;
+    void *handle = NULL;
+    camera_module_t *cmi = NULL;
+
+    handle = dlopen(path, RTLD_NOW);
+    if (handle == NULL) {
+        char const *err_str = dlerror();
+        QMMF_ERROR("load: module=%s\n%s", path, err_str?err_str:"unknown");
+        status = -EINVAL;
+        cmi = NULL;
+        *pCmi = cmi;
+        return status;
+    }
+
+    /* Get the address of the struct hal_module_info. */
+    const char *sym = HAL_MODULE_INFO_SYM_AS_STR;
+    cmi = (camera_module_t *)dlsym(handle, sym);
+    if (cmi == NULL) {
+        QMMF_ERROR("load: couldn't find symbol %s", sym);
+        status = -EINVAL;
+        if (handle != NULL) {
+            dlclose(handle);
+            handle = NULL;
+        }
+        *pCmi = cmi;
+        return status;
+    }
+
+    /* Check that the id matches */
+    if (strcmp(id, cmi->common.id) != 0) {
+        QMMF_ERROR("load: id=%s != cmi->id=%s", id, cmi->common.id);
+        status = -EINVAL;
+        if (handle != NULL) {
+            dlclose(handle);
+            handle = NULL;
+        }
+        *pCmi = cmi;
+        return status;
+    }
+
+    cmi->common.dso = handle;
+    *pCmi = cmi;
+
+    /* success */
+    QMMF_INFO("loaded HAL id=%s path=%s cmi=%p handle=%p",
+        id, path, *pCmi, handle);
+
+    return status;
 }
 
 int32_t Camera3DeviceClient::LoadHWModule(const char *moduleId,
