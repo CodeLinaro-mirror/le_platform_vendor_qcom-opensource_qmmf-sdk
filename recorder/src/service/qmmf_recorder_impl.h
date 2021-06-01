@@ -226,7 +226,7 @@ class RecorderImpl {
   void CameraResultCb(uint32_t camera_id, const CameraMetadata &result);
 
   /// Camera Error callback handler
-  void CameraErrorCb(RecorderErrorData &error);
+  void CameraErrorCb(uint32_t camera_id, uint32_t errcode);
 
   // Camera Flush Callback Handler
   void CameraFlushCb(const uint32_t camera_id);
@@ -276,6 +276,9 @@ class RecorderImpl {
 
   // <session_id, session_mutex>
   typedef std::map<uint32_t, std::mutex *> SessionMutexMap;
+  // <client_id, SessionStateMap>
+  typedef std::map<uint32_t, SessionMutexMap> ClientSessionMutexMap;
+
 
   // <camera id, set <track id> >
   typedef std::map<uint32_t, std::set<uint32_t>> CameraTrackIdsMap;
@@ -341,7 +344,7 @@ class RecorderImpl {
 
   ClientSessionStateMap         client_sessions_state_;
 
-  SessionMutexMap               sessions_mutex_map_;
+  ClientSessionMutexMap         client_sessions_mutex_map_;
 
   std::mutex                    stop_camera_lock_;
 

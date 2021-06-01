@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -62,16 +62,18 @@ namespace recorder {
 
 typedef int32_t status_t;
 
-enum class EventType {
-  kServerDied    = 1,
-  kCameraError   = 2,
-  kCameraOpened  = 3,
-  kCameraClosing = 4,
-  kCameraClosed  = 5,
+enum class EventType : uint32_t {
+  kUnknown       = 0, // Indicates a unknown event has occured.
+  kServerDied    = 1, // Indicates un-recoverable service crash.
+  kCameraError   = 2, // Indicates un-recoverable camera error.
+  kCameraOpened  = 3, // Indicates camera that has been opened.
+  kCameraClosing = 4, // Indicates camera that is about to be closed.
+  kCameraClosed  = 5, // Indicates camera that has been closed.
+  kFrameError    = 6, // Indicates a frame has been droped.
+  kMetadataError = 7, // Indicates metadata for a frame has been droped.
 };
 
-typedef std::function<void(EventType event_type, void *event_data,
-                           size_t event_data_size)> EventCb;
+typedef std::function<void(EventType event, void *payload, size_t size)> EventCb;
 
 /// @brief Recorder callback is called to notify non track
 /// and non session specific event notifications
@@ -79,12 +81,6 @@ typedef std::function<void(EventType event_type, void *event_data,
 /// Only error event types are expected as of now
 struct RecorderCb {
   EventCb event_cb;
-};
-
-/// @brief RecorderErrorData is used to determine the type of recorer errors.
-struct RecorderErrorData {
-  uint32_t        camera_id;
-  int32_t         error_code;
 };
 
 /// @brief Session cb is used to return state changes i.e. to indicate
@@ -268,8 +264,8 @@ typedef std::vector<PluginInfo> SupportedPlugins;
 struct TrackCb {
   std::function<void(uint32_t track_id, ::std::vector<BufferDescriptor> buffers,
                      ::std::vector<MetaData> meta_data)> data_cb;
-  std::function<void(uint32_t track_id, EventType event_type, void *event_data,
-                     size_t event_data_size)> event_cb;
+  std::function<void(uint32_t track_id, EventType type, void *payload,
+                     size_t size)> event_cb;
 };
 
 /// @brief Createtime parameters for audio track
@@ -330,15 +326,19 @@ struct VideoTrackCreateParam {
   VideoCodecParams codec_param;
   bool do_vqzip;
   VQZipInfo vqzip_params;
+  /// Extra buffer count
+  uint32_t extra_buffer_count;
 
   VideoTrackCreateParam(uint32_t cam_id = 0,
                         VideoFormat fmt = VideoFormat::kNV12, uint32_t w = 3840,
-                        uint32_t h = 2160, float frm_rate = 30) {
+                        uint32_t h = 2160, float frm_rate = 30,
+                        uint32_t extra_buff_count = 0) {
     camera_id = cam_id;
     width = w;
     height = h;
     frame_rate = frm_rate;
     format_type = fmt;
+    extra_buffer_count = extra_buff_count;
     switch (format_type) {
       case VideoFormat::kAVC:
         setAVCDefaultVideoParam();
@@ -370,6 +370,7 @@ struct VideoTrackCreateParam {
            << static_cast<::std::underlying_type<VideoFormat>::type>(
                   format_type)
            << "] ";
+    stream << "extra_buffer_count[" << extra_buffer_count << "] ";
     stream << "codec_params[" << codec_param.ToString(format_type) << "] ";
     stream << "do_vqzip[" << ::std::boolalpha << do_vqzip << ::std::noboolalpha
            << "] ";
