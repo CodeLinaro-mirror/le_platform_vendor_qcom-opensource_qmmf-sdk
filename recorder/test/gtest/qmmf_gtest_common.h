@@ -241,6 +241,8 @@ struct FaceInfo {
 #define PROP_SHDR                   "persist.qmmf.gtest.shdr"
 // Prop to set LDC
 #define PROP_LDC                    "persist.qmmf.gtest.ldc"
+// Prop to set LCAC
+#define PROP_LCAC                    "persist.qmmf.gtest.lcac"
 // Prop to enable Snapshot Stream
 #define PROP_SNAPSHOT_STREAM_ON     "persist.qmmf.snapshot.stream.on"
 // Prop to set number of snpshot in a test
@@ -769,6 +771,7 @@ class GtestCommon : public ::testing::Test {
   bool                  is_eis_on_;
   bool                  is_shdr_on_;
   bool                  is_ldc_on_;
+  bool                  is_lcac_on_;
 
   bool                  is_snap_stream_on_;
   uint32_t              snap_width_;

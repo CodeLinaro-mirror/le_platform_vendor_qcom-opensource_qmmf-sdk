@@ -338,6 +338,22 @@ status_t CameraContext::OpenCamera(const uint32_t camera_id,
     }
   }
 
+  if (extra_param.Exists(QMMF_LCAC)) {
+    size_t entry_count = extra_param.EntryCount(QMMF_LCAC);
+    if (entry_count == 1) {
+      LCACMode lcac_mode;
+      extra_param.Fetch(QMMF_LCAC, lcac_mode, 0);
+      if (lcac_mode.enable == true) {
+        QMMF_INFO("%s: LCAC is ON..", __func__);
+        camera_parameters_.cam_feature_flags |=
+            static_cast<uint32_t>(CamFeatureFlag::kLCAC);
+      }
+    } else {
+      QMMF_ERROR("%s: Invalid LCAC mode received", __func__);
+      return BAD_VALUE;
+    }
+  }
+
   if (extra_param.Exists(QMMF_PARTIAL_METADATA)) {
     size_t entry_count = extra_param.EntryCount(QMMF_PARTIAL_METADATA);
     if (entry_count == 1) {

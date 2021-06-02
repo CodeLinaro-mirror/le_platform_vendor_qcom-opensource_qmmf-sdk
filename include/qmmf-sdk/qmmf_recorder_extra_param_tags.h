@@ -53,6 +53,7 @@ enum ParamTag {
   QMMF_CAMERA_SLAVE_MODE,
   QMMF_USE_LINKED_TRACK_IN_SLAVE_MODE,
   QMMF_LDC,
+  QMMF_LCAC,
 };
 
 enum class SnapshotMode {
@@ -231,6 +232,16 @@ struct LDCMode : DataTagBase {
   bool enable;
   LDCMode() :
     DataTagBase(QMMF_LDC), enable(false) {
+  }
+};
+
+struct LCACMode : DataTagBase {
+  /**< Add support for client to enable/disable */
+  /**< LCAC (Lateral Chromatic Aberration Correction). */
+  /**< Default: False */
+  bool enable;
+  LCACMode() :
+    DataTagBase(QMMF_LCAC), enable(false) {
   }
 };
 

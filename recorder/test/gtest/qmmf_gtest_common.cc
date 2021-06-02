@@ -297,6 +297,8 @@ void GtestCommon::SetUp() {
   is_snap_stream_on_ = (atoi(prop_val) == 0) ? false : true;
   property_get(PROP_LDC, prop_val, "0");
   is_ldc_on_ = (atoi(prop_val) == 0) ? false : true;
+  property_get(PROP_LCAC, prop_val, "0");
+  is_lcac_on_ = (atoi(prop_val) == 0) ? false : true;
 
   // Read First Video Stream Params
   VideoStreamInfo stream { };
@@ -2084,13 +2086,20 @@ void GtestCommon::SetCameraExtraParam(CameraExtraParam &param) {
     param.Update(QMMF_VIDEO_HDR_MODE, vid_hdr_mode);
   }
   if (is_ldc_on_) {
-    // Enable LDc
+    // Enable LDC
     LDCMode ldc_mode;
     ldc_mode.enable = true;
     param.Update(QMMF_LDC, ldc_mode);
   }
+  if (is_lcac_on_) {
+    // Enable LCAC
+    LCACMode lcac_mode;
+    lcac_mode.enable = true;
+    param.Update(QMMF_LCAC, lcac_mode);
+  }
 
   std::cout << "EIS is :" << (is_eis_on_ ? "On" : "Off") << " SHDR is :"
       << (is_shdr_on_ ? "On" : "Off") << " LDC is :" <<
-      (is_ldc_on_ ? "On" : "Off") << std::endl;
+      (is_ldc_on_ ? "On" : "Off") << " LCAC is :" <<
+      (is_lcac_on_ ? "On" : "Off") << std::endl;
 }
