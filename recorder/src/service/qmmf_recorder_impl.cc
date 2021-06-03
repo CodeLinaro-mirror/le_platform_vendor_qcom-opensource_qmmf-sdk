@@ -385,7 +385,8 @@ status_t RecorderImpl::StartCamera(const uint32_t client_id,
     CameraResultCb(camera_id, result);
   };
 
-  ErrorCb errcb = [&] (RecorderErrorData &error) { CameraErrorCb(error); };
+  ErrorCb errcb = [&] (uint32_t camera_id, uint32_t errcode) {
+      CameraErrorCb(camera_id, errcode); };
 
   auto ret = camera_source_->StartCamera(camera_id, frame_rate, extra_param,
                                          enable_result_cb ? cb : nullptr,
@@ -2111,16 +2112,37 @@ void RecorderImpl::CameraResultCb(uint32_t camera_id,
   QMMF_DEBUG("%s Exit camera_id(%u)", __func__, camera_id);
 }
 
-void RecorderImpl::CameraErrorCb(RecorderErrorData &error) {
+void RecorderImpl::CameraErrorCb(uint32_t camera_id, uint32_t errcode) {
 
   assert(remote_cb_handle_ != nullptr);
-  auto client_ids = GetCameraClients(error.camera_id);
+  EventType event = EventType::kUnknown;
+
+  auto client_ids = GetCameraClients(camera_id);
+
+  switch (errcode) {
+    case ERROR_CAMERA_DEVICE:
+    case ERROR_CAMERA_INVALID_ERROR:
+      event = EventType::kCameraError;
+      break;
+    case ERROR_CAMERA_REQUEST:
+    case ERROR_CAMERA_BUFFER:
+      event = EventType::kFrameError;
+      break;
+    case ERROR_CAMERA_RESULT:
+      event = EventType::kMetadataError;
+      break;
+    case REMAP_ALL_BUFFERS:
+      event = static_cast<EventType>(REMAP_ALL_BUFFERS);
+      break;
+    default:
+      event = EventType::kUnknown;
+      break;
+  }
 
   for (auto const& client_id : client_ids) {
     assert(IsClientValid(client_id));
     remote_cb_handle_(client_id)->NotifyRecorderEvent(
-        EventType::kCameraError, reinterpret_cast<void*>(&error),
-        sizeof(RecorderErrorData));
+        event, &camera_id, sizeof(uint32_t));
   }
 }
 

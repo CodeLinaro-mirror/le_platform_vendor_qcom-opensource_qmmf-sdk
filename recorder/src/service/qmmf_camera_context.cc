@@ -95,8 +95,8 @@ CameraContext::CameraContext()
   QMMF_INFO("%s: Enter", __func__);
 
   //Setup Camera3DeviceClient callbacks.
-  camera_callbacks_.errorCb = [&] (CameraErrorCode error_code,
-      const CaptureResultExtras &extras) { CameraErrorCb(error_code, extras);};
+  camera_callbacks_.errorCb = [&] (CameraErrorCode errcode,
+      const CaptureResultExtras &extras) { CameraErrorCb(errcode, extras);};
 
   camera_callbacks_.idleCb = [&] () { CameraIdleCb(); };
 
@@ -2252,13 +2252,13 @@ status_t CameraContext::DisableFlushRestart(const bool& disable,
 
 #endif
 //Camera device callbacks
-void CameraContext::CameraErrorCb(CameraErrorCode error_code,
+void CameraContext::CameraErrorCb(CameraErrorCode errcode,
                                   const CaptureResultExtras &result) {
 
   QMMF_WARN("%s: Camera: %d, Error: %d, Request: %d, FrameNumber: %d",
-      __func__, camera_id_, error_code, result.requestId, result.frameNumber);
+      __func__, camera_id_, errcode, result.requestId, result.frameNumber);
 
-  switch (error_code) {
+  switch (errcode) {
     case ERROR_CAMERA_DEVICE:
       QMMF_ERROR("%s: Camera device faced an unrecoverable error!", __func__);
       break;
@@ -2290,15 +2290,12 @@ void CameraContext::CameraErrorCb(CameraErrorCode error_code,
     }
     default:
       QMMF_WARN("%s: Camera: %d, Error %d won't be handled by CameraContext!",
-          __func__, camera_id_, error_code);
+          __func__, camera_id_, errcode);
       break;
   }
 
   if (nullptr != error_cb_) {
-    RecorderErrorData data {};
-    data.camera_id = camera_id_;
-    data.error_code = error_code;
-    error_cb_(data);
+    error_cb_(camera_id_, errcode);
   }
 }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, 2021, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -77,7 +77,7 @@ typedef std::function<void(uint32_t camera_id)> FlushCb;
 typedef std::function< const sp<RemoteCallBack>& (uint32_t client_id)>
     RemoteCallbackHandle;
 
-typedef std::function<void(RecorderErrorData &error)> ErrorCb;
+typedef std::function<void(uint32_t camera_id, int32_t errcode)> ErrorCb;
 
 struct VideoTrackParams {
   VideoTrackCreateParam  params;
