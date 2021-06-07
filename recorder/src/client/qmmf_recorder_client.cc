@@ -1014,6 +1014,9 @@ void RecorderClient::ImportBuffer(int32_t fd, int32_t metafd,
       case BufferFormat::kNV12UBWC:
         format = GBM_FORMAT_YCbCr_420_SP_VENUS_UBWC;
         break;
+      case BufferFormat::kYUY2:
+        format = GBM_FORMAT_YCrCb_422_I;
+        break;
       default:
         format = 0;
     }
@@ -1022,6 +1025,11 @@ void RecorderClient::ImportBuffer(int32_t fd, int32_t metafd,
   gbm_buf_info bufinfo = { fd, metafd, width , height, format };
 
   auto bo = gbm_bo_import(gbm_device_, GBM_BO_IMPORT_GBM_BUF_TYPE, &bufinfo, 0);
+  if (bo == nullptr) {
+    QMMF_WARN("%s: gbm bo import failed", __func__);
+    return;
+  }
+
   gbm_buffers_map_.emplace(fd, bo);
 }
 
