@@ -22,23 +22,10 @@ target_include_directories(qmmf-server
  PRIVATE $<BUILD_INTERFACE:${KERNEL_INCDIR}/usr/include/vidc>)
 
 target_include_directories(qmmf-server
- PRIVATE ${WORKSPACE}/hardware/qcom/media/)
-
-target_include_directories(qmmf-server
- PRIVATE ${TOP_DIRECTORY}/recorder/src/service/post-process)
-
-target_include_directories(qmmf-server
  PRIVATE ${TOP_DIRECTORY}/common/memory)
-
-# TODO remove this hack when camx issue with propagating c and cpp glags is solved
-target_include_directories(qmmf-server
- PRIVATE ${PKG_CONFIG_SYSROOT_DIR}/usr/include/ion_headers)
 
 install(TARGETS qmmf-server DESTINATION bin OPTIONAL)
 target_link_libraries(qmmf-server log cutils utils binder qmmf_recorder_service)
-
-# TODO remove this hack when camx issue with propagating c and cpp glags is solved
-target_link_libraries(qmmf-server ion)
 
 if (TARGET_BOARD_PLATFORM STREQUAL "apq8009")
     install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/service/qmmf-server-cam-arch-v1.service DESTINATION ${QMMF_SYSTEMD_DIR} RENAME qmmf-server.service)

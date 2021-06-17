@@ -197,7 +197,7 @@ void SFDisplaySink::DestroyPreviewSurface() {
 }
 
 void SFDisplaySink::HandlePreviewBuffer(BufferDescriptor &buffer,
-    CameraBufferMetaData &meta_data) {
+                                        BufferMeta &meta) {
   TEST_INFO("%s: Enter ",__func__);
 
   if (buffer.data == nullptr) {
@@ -277,8 +277,6 @@ void GtestCommon::SetUp() {
   eis_h_margin_ = atof(prop_val);
   property_get(PROP_EIS_V_MARGIN, prop_val, "-1.0");
   eis_v_margin_ = atof(prop_val);
-  property_get(PROP_TIMELAPSE_INTERVAL, prop_val, "2.0");
-  timelapse_interval_ = atof(prop_val);
   property_get(PROP_FRAME_DEBUG, prop_val, "0");
   is_frame_debug_enabled_ = (atoi(prop_val) == 0) ? false : true;
   property_get(PROP_SENSOR_CONFIG_FILE, prop_val, "");
@@ -692,7 +690,7 @@ void GtestCommon::CameraResultCallbackHandler(uint32_t camera_id,
 
 void GtestCommon::VideoTrackYUVDataCb(uint32_t session_id, uint32_t track_id,
                                       std::vector<BufferDescriptor> buffers,
-                                      std::vector<MetaData> meta_buffers) {
+                                      std::vector<BufferMeta> metas) {
   TEST_DBG("%s: Enter track_id: %d", __func__, track_id);
 
   if (enable_sof_latency_) {
@@ -721,13 +719,13 @@ void GtestCommon::VideoTrackYUVDataCb(uint32_t session_id, uint32_t track_id,
       }
       written_len = fwrite(buffers[0].data, sizeof(uint8_t),
                            buffers[0].size, file);
-      TEST_DBG("%s: written_len =%d", __func__, written_len);
+      TEST_DBG("%s: written_len =%lu", __func__, written_len);
       if (buffers[0].size != written_len) {
         TEST_ERROR("%s: Bad Write error (%d):(%s)\n", __func__, errno,
             strerror(errno));
         goto FAIL;
       }
-      TEST_INFO("%s: Buffer(0x%p) Size(%u) Stored@(%s)\n", __func__,
+      TEST_INFO("%s: Buffer(0x%p) Size(%lu) Stored@(%s)\n", __func__,
         buffers[0].data, written_len, file_path.c_str());
 
   FAIL:
@@ -754,7 +752,7 @@ void GtestCommon::VideoTrackEventCb(uint32_t track_id,
 
 void GtestCommon::VideoTrackRawDataCb(uint32_t session_id, uint32_t track_id,
                                       std::vector<BufferDescriptor> buffers,
-                                      std::vector<MetaData> meta_buffers) {
+                                      std::vector<BufferMeta> metas) {
   TEST_DBG("%s: Enter track_id: %d", __func__, track_id);
   if (is_dump_raw_enabled_) {
     static uint32_t fcounter = 0;
@@ -766,7 +764,7 @@ void GtestCommon::VideoTrackRawDataCb(uint32_t session_id, uint32_t track_id,
       file_path += std::to_string(track_id) + "_";
       file_path += std::to_string(buffers[0].timestamp);
       file_path += ".";
-      switch (meta_buffers[0].cam_buffer_meta_data.format) {
+      switch (metas[0].format) {
         case BufferFormat::kRAW8:
           ext_str = "raw8";
           break;
@@ -818,109 +816,92 @@ void GtestCommon::VideoTrackRawDataCb(uint32_t session_id, uint32_t track_id,
   TEST_DBG("%s: Exit", __func__);
 }
 
-void GtestCommon::SnapshotCb(uint32_t camera_id,
-                               uint32_t image_sequence_count,
-                               BufferDescriptor buffer, MetaData meta_data) {
+void GtestCommon::SnapshotCb(uint32_t camera_id, uint32_t imgcount,
+                             BufferDescriptor buffer, BufferMeta meta) {
 
   TEST_INFO("%s Enter", __func__);
 
   size_t written_len;
 
-  if (meta_data.meta_flag  &
-      static_cast<uint32_t>(MetaParamType::kCamBufMetaData)) {
-    CameraBufferMetaData& cam_buf_meta = meta_data.cam_buffer_meta_data;
-    TEST_DBG("%s: format(0x%x)", __func__, cam_buf_meta.format);
-    TEST_DBG("%s: num_planes=%d", __func__, cam_buf_meta.num_planes);
-    for (uint8_t i = 0; i < cam_buf_meta.num_planes; ++i) {
-      TEST_DBG("plane[%d]:stride(%d)", __func__, i,
-          cam_buf_meta.plane_info[i].stride);
-      TEST_DBG("plane[%d]:scanline(%d)", __func__, i,
-          cam_buf_meta.plane_info[i].scanline);
-      TEST_DBG("plane[%d]:width(%d)", __func__, i,
-          cam_buf_meta.plane_info[i].width);
-      TEST_DBG("plane[%d]:height(%d)", __func__, i,
-          cam_buf_meta.plane_info[i].height);
+  TEST_DBG("%s: %s", __func__, meta.ToString());
+
+  bool dump_file;
+  bool dump_thumbnail = false;
+  if (meta.format == BufferFormat::kBLOB) {
+    dump_file = (is_dump_jpeg_enabled_) ? true : false;
+    dump_thumbnail = (dump_file && is_dump_thumb_enabled_) ? true : false;
+  } else {
+    dump_file = (is_dump_raw_enabled_) ? true : false;
+    fprintf(stderr, "\nRaw snapshot dumping enabled; "
+            "keep track of free storage space.\n");
+  }
+
+  if (dump_file) {
+    const char* ext_str;
+    switch (meta.format) {
+      case BufferFormat::kNV12:
+      ext_str = "nv12";
+      break;
+      case BufferFormat::kNV21:
+      ext_str = "nv21";
+      break;
+      case BufferFormat::kNV16:
+      ext_str = "nv16";
+      break;
+      case BufferFormat::kBLOB:
+      ext_str = "jpg";
+      break;
+      case BufferFormat::kRAW8:
+      ext_str = "raw8";
+      break;
+      case BufferFormat::kRAW10:
+      ext_str = "raw10";
+      break;
+      case BufferFormat::kRAW12:
+      ext_str = "raw12";
+      break;
+      case BufferFormat::kRAW16:
+      ext_str = "raw16";
+      break;
+      default:
+      ext_str = "bin";
+      break;
     }
 
-    bool dump_file;
-    bool dump_thumbnail = false;
-    if (cam_buf_meta.format == BufferFormat::kBLOB) {
-      dump_file = (is_dump_jpeg_enabled_) ? true : false;
-      dump_thumbnail = (dump_file && is_dump_thumb_enabled_) ? true : false;
-    } else {
-      dump_file = (is_dump_raw_enabled_) ? true : false;
-      fprintf(stderr, "\nRaw snapshot dumping enabled; "
-              "keep track of free storage space.\n");
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    uint64_t tv_ms = (tv.tv_sec * 1000) + (tv.tv_usec / 1000);
+    std::string file_path("/data/misc/qmmf/snapshot_");
+    file_path += std::to_string(imgcount) + "_";
+    file_path += std::to_string(tv_ms) + ".";
+    file_path += ext_str;
+    FILE *file = fopen(file_path.c_str(), "w+");
+    if (!file) {
+      ALOGE("%s: Unable to open file(%s)", __func__,
+          file_path.c_str());
+      goto FAIL;
     }
 
-    if (dump_file) {
-      const char* ext_str;
-      switch (cam_buf_meta.format) {
-        case BufferFormat::kNV12:
-        ext_str = "nv12";
-        break;
-        case BufferFormat::kNV21:
-        ext_str = "nv21";
-        break;
-        case BufferFormat::kNV16:
-        ext_str = "nv16";
-        break;
-        case BufferFormat::kBLOB:
-        ext_str = "jpg";
-        break;
-        case BufferFormat::kRAW8:
-        ext_str = "raw8";
-        break;
-        case BufferFormat::kRAW10:
-        ext_str = "raw10";
-        break;
-        case BufferFormat::kRAW12:
-        ext_str = "raw12";
-        break;
-        case BufferFormat::kRAW16:
-        ext_str = "raw16";
-        break;
-        default:
-        ext_str = "bin";
-        break;
-      }
+    written_len = fwrite(buffer.data, sizeof(uint8_t), buffer.size, file);
+    TEST_INFO("%s: written_len =%lu", __func__, written_len);
+    if (buffer.size != written_len) {
+      ALOGE("%s: Bad Write error (%d):(%s)\n", __func__, errno,
+            strerror(errno));
+      goto FAIL;
+    }
+    TEST_INFO("%s: Buffer(0x%p) Size(%lu) Stored@(%s)\n", __func__,
+              buffer.data, written_len, file_path.c_str());
 
-      struct timeval tv;
-      gettimeofday(&tv, NULL);
-      uint64_t tv_ms = (tv.tv_sec * 1000) + (tv.tv_usec / 1000);
-      std::string file_path("/data/misc/qmmf/snapshot_");
-      file_path += std::to_string(image_sequence_count) + "_";
-      file_path += std::to_string(tv_ms) + ".";
-      file_path += ext_str;
-      FILE *file = fopen(file_path.c_str(), "w+");
-      if (!file) {
-        ALOGE("%s: Unable to open file(%s)", __func__,
-            file_path.c_str());
-        goto FAIL;
+    if (dump_thumbnail) {
+      auto ret = DumpThumbnail(buffer, meta, imgcount, tv_ms);
+      if (ret != NO_ERROR) {
+        TEST_INFO("%s: Dump thumbnail faile failed!\n", __func__);
       }
+    }
 
-      written_len = fwrite(buffer.data, sizeof(uint8_t), buffer.size, file);
-      TEST_INFO("%s: written_len =%d", __func__, written_len);
-      if (buffer.size != written_len) {
-        ALOGE("%s: Bad Write error (%d):(%s)\n", __func__, errno,
-              strerror(errno));
-        goto FAIL;
-      }
-      TEST_INFO("%s: Buffer(0x%p) Size(%u) Stored@(%s)\n", __func__,
-                buffer.data, written_len, file_path.c_str());
-
-      if (dump_thumbnail) {
-        auto ret = DumpThumbnail(buffer, cam_buf_meta,
-                                 image_sequence_count, tv_ms);
-        if (ret != NO_ERROR) {
-          TEST_INFO("%s: Dump thumbnail faile failed!\n", __func__);
-        }
-      }
-
-    FAIL:
-      if (file != NULL) {
-        fclose(file);
-      }
+  FAIL:
+    if (file != NULL) {
+      fclose(file);
     }
   }
   // Return buffer back to recorder service.
@@ -930,7 +911,7 @@ void GtestCommon::SnapshotCb(uint32_t camera_id,
 
 void GtestCommon::VideoTrackRGBDataCb(uint32_t session_id, uint32_t track_id,
                                       std::vector<BufferDescriptor> buffers,
-                                      std::vector<MetaData> meta_buffers) {
+                                      std::vector<BufferMeta> metas) {
   TEST_DBG("%s: Enter track_id: %d", __func__, track_id);
   if (is_dump_raw_enabled_) {
     static uint32_t fcounter = 0;
@@ -951,13 +932,13 @@ void GtestCommon::VideoTrackRGBDataCb(uint32_t session_id, uint32_t track_id,
 
       written_len = fwrite(buffers[0].data, sizeof(uint8_t),
                            buffers[0].size, file);
-      TEST_INFO("%s: written_len =%d", __func__, written_len);
+      TEST_INFO("%s: written_len =%lu", __func__, written_len);
       if (buffers[0].size != written_len) {
         TEST_ERROR("%s: Bad Write error (%d):(%s)\n", __func__, errno,
             strerror(errno));
         goto FAIL;
       }
-      TEST_INFO("%s: Buffer(0x%p) Size(%u) Stored@(%s)\n", __func__,
+      TEST_INFO("%s: Buffer(0x%p) Size(%lu) Stored@(%s)\n", __func__,
         buffers[0].data, written_len, file_path.c_str());
 
   FAIL:
@@ -1024,15 +1005,11 @@ void GtestCommon::ResultCallbackHandlerMatchCameraMeta(uint32_t camera_id,
 
 void GtestCommon::VideoTrackDataCbMatchCameraMeta(uint32_t session_id,
     uint32_t track_id, std::vector<BufferDescriptor> buffers,
-    std::vector<MetaData> meta_buffers) {
+    std::vector<BufferMeta> metas) {
 
   uint32_t meta_frame_number = 0;
-  for (uint32_t i = 0; i < meta_buffers.size(); ++i) {
-    MetaData meta_data = meta_buffers[i];
-    if (meta_data.meta_flag &
-        static_cast<uint32_t>(MetaParamType::kCamMetaFrameNumber)) {
-      meta_frame_number = meta_buffers[i].cam_meta_frame_number;
-    }
+  for (uint32_t i = 0; i < buffers.size(); ++i) {
+    meta_frame_number = buffers[i].seqnum;
   }
   TEST_INFO("%s meta frame number =%d", __func__, meta_frame_number);
 
@@ -1048,7 +1025,7 @@ void GtestCommon::VideoTrackDataCbMatchCameraMeta(uint32_t session_id,
         CameraMetadata(), session_id, track_id);
     buffer_metadata_map_.insert( {meta_frame_number, buffer_meta_tuple} );
   } else {
-    // MetaData already arrived for this buffer.
+    // BufferMeta already arrived for this buffer.
     auto& tuple  = buffer_metadata_map_[meta_frame_number];
     std::get<0>(tuple) = buffers[0];
     // Double check the meta frame number.
@@ -1805,24 +1782,23 @@ bool GtestCommon::VendorTagExistsInMeta(const CameraMetadata& meta,
 }
 #endif
 status_t GtestCommon::DumpThumbnail(BufferDescriptor buffer,
-                                    const CameraBufferMetaData& meta_data,
-                                    uint32_t image_sequence_count,
+                                    const BufferMeta& meta,
+                                    uint32_t imgcount,
                                     uint64_t tv_ms) {
   uint8_t thumb_num = 0;
   uint8_t *in_img = static_cast<uint8_t*>(buffer.data);
-  const CameraBufferMetaData &info = meta_data;
 
-  if (meta_data.format != BufferFormat::kBLOB) {
+  if (meta.format != BufferFormat::kBLOB) {
     TEST_INFO("%s: Skip Thumbnail bump. In_fmt: %d \n",
-        __func__, (int32_t) meta_data.format);
+        __func__, (int32_t) meta.format);
     return NO_INIT;
   }
 
-  if (info.num_planes > 2) {
+  if (meta.n_planes > 2) {
 
     //Main image
     std::string main_image_path = "/data/misc/qmmf/snapshot_" +
-                                  std::to_string(image_sequence_count) + "_" +
+                                  std::to_string(imgcount) + "_" +
                                   std::to_string(tv_ms) + "_main.jpg";
 
     FILE *thumb_file = fopen(main_image_path.c_str(), "w+");
@@ -1839,22 +1815,22 @@ status_t GtestCommon::DumpThumbnail(BufferDescriptor buffer,
       fclose(thumb_file);
       return BAD_VALUE;
     }
-    len = fwrite(&in_img[info.plane_info[0].offset], sizeof(uint8_t),
-                      info.plane_info[0].size, thumb_file);
-    if (len != info.plane_info[0].size) {
+    len = fwrite(&in_img[meta.planes[0].offset], sizeof(uint8_t),
+                 meta.planes[0].size, thumb_file);
+    if (len != meta.planes[0].size) {
       TEST_ERROR("%s: Fail to store main image (%s)", __func__,
           main_image_path.c_str());
       fclose(thumb_file);
       return BAD_VALUE;
     }
     TEST_INFO("%s: Main image Size(%u) Stored@(%s)\n",
-        __func__, info.plane_info[0].size, main_image_path.c_str());
+        __func__, meta.planes[0].size, main_image_path.c_str());
     fclose(thumb_file);
     thumb_file = nullptr;
 
     // First thumbnail
     std::string thumb_path = "/data/misc/qmmf/snapshot_" +
-                             std::to_string(image_sequence_count) + "_" +
+                             std::to_string(imgcount) + "_" +
                              std::to_string(tv_ms) + "_thumb_" +
                              std::to_string(thumb_num) + ".jpg";
 
@@ -1866,23 +1842,23 @@ status_t GtestCommon::DumpThumbnail(BufferDescriptor buffer,
       return BAD_VALUE;
     }
 
-    len = fwrite(&in_img[info.plane_info[1].offset], sizeof(uint8_t),
-                 info.plane_info[1].size, thumb_file);
-    if (len != info.plane_info[1].size) {
+    len = fwrite(&in_img[meta.planes[1].offset], sizeof(uint8_t),
+                 meta.planes[1].size, thumb_file);
+    if (len != meta.planes[1].size) {
       TEST_ERROR("%s: Fail to store thumbnail (%s)", __func__,
           thumb_path.c_str());
       fclose(thumb_file);
       return BAD_VALUE;
     }
     TEST_INFO("%s: Thumb (%d) Size(%u) Stored@(%s)\n",
-        __func__, thumb_num, info.plane_info[1].size, thumb_path.c_str());
+        __func__, thumb_num, meta.planes[1].size, thumb_path.c_str());
     fclose(thumb_file);
     thumb_file = nullptr;
     thumb_num++;
 
     // Second thumbnail
     thumb_path = "/data/misc/qmmf/snapshot_" +
-                             std::to_string(image_sequence_count) + "_" +
+                             std::to_string(imgcount) + "_" +
                              std::to_string(tv_ms) + "_thumb_" +
                              std::to_string(thumb_num) + ".jpg";
 
@@ -1894,10 +1870,10 @@ status_t GtestCommon::DumpThumbnail(BufferDescriptor buffer,
     }
 
     uint32_t thumbnail_size = 0;
-    for (uint32_t i = 2; i < info.num_planes; i++) {
-      auto len = fwrite(&in_img[info.plane_info[i].offset], sizeof(uint8_t),
-                         info.plane_info[i].size, thumb_file);
-      if (len != info.plane_info[i].size) {
+    for (uint32_t i = 2; i < meta.n_planes; i++) {
+      auto len = fwrite(&in_img[meta.planes[i].offset], sizeof(uint8_t),
+                        meta.planes[i].size, thumb_file);
+      if (len != meta.planes[i].size) {
         TEST_ERROR("%s: Fail to store thumbnail (%s)", __func__,
             thumb_path.c_str());
         fclose(thumb_file);
@@ -1920,18 +1896,6 @@ void GtestCommon::ExtractColorValues(uint32_t hex_color, RGBAValues* color) {
   color->green = ((hex_color >> 16) & 0xff) / 255.0;
   color->blue  = ((hex_color >> 8) & 0xff) / 255.0;
   color->alpha = ((hex_color) & 0xff) / 255.0;
-}
-
-void GtestCommon::ClearSurface() {
-#if USE_SKIA
-
-#elif USE_CAIRO
-  cairo_set_operator(cr_context_, CAIRO_OPERATOR_CLEAR);
-  cairo_paint(cr_context_);
-  cairo_surface_flush(cr_surface_);
-  cairo_set_operator(cr_context_, CAIRO_OPERATOR_OVER);
-  ASSERT_TRUE(CAIRO_STATUS_SUCCESS == cairo_status(cr_context_));
-#endif
 }
 
 status_t GtestCommon::FillCropMetadata(CameraMetadata& meta,
@@ -1988,7 +1952,7 @@ void GtestCommon::ConfigureImageParam() {
   ASSERT_TRUE(ret == NO_ERROR);
 
   // Configure Snapshot Mode And Image Param
-  ImageConfigParam image_config;
+  ImageExtraParam image_config;
   SnapshotType snapshot_type;
   snapshot_type.type = snap_mode_;
   snapshot_type.raw_format = snap_format_;
@@ -2047,9 +2011,8 @@ void GtestCommon::TakeSnapshot() {
   meta_array.push_back(meta);
 
   ImageCaptureCb cb = [&](uint32_t camera_id, uint32_t image_count,
-                          BufferDescriptor buffer,
-                          MetaData meta_data) -> void {
-      SnapshotCb(camera_id, image_count, buffer, meta_data);
+                          BufferDescriptor buffer, BufferMeta meta) -> void {
+      SnapshotCb(camera_id, image_count, buffer, meta);
   };
 
   for (uint32_t i = 0; i < snap_count_; i++) {

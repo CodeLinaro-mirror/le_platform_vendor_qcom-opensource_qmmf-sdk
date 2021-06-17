@@ -64,13 +64,6 @@
 #include <android/native_window.h>
 #endif
 
-#if USE_SKIA
-#include <SkCanvas.h>
-#include <SkString.h>
-#elif USE_CAIRO
-#include <cairo/cairo.h>
-#endif
-
 #ifdef QCAMERA3_TAG_LOCAL_COPY
 #include <camera/VendorTagDescriptor.h>
 #endif
@@ -220,10 +213,6 @@ struct FaceInfo {
 #define PROP_EIS_H_MARGIN           "persist.qmmf.rec.gtest.eis.h.mrg"
 // Prop to override default EIS vertical margin
 #define PROP_EIS_V_MARGIN           "persist.qmmf.rec.gtest.eis.v.mrg"
-// Prop to enable/disable display usage
-#define PROP_TOGGLE_DISPLAY_USAGE   "persist.qmmf.rec.gtest.display"
-// Prop to set video timelapse interval
-#define PROP_TIMELAPSE_INTERVAL     "persist.qmmf.rec.gtest.tlapse"
 // Prop to enable debugging frames
 #define PROP_FRAME_DEBUG            "persist.qmmf.rec.gtest.frm.dbg"
 // Prop to set force sensor mode config file
@@ -494,8 +483,7 @@ class SFDisplaySink
 
   ~SFDisplaySink();
 
-  void HandlePreviewBuffer(BufferDescriptor &buffer,
-      CameraBufferMetaData &meta_data);
+  void HandlePreviewBuffer(BufferDescriptor &buffer, BufferMeta &meta);
 
  private:
   int32_t CreatePreviewSurface(uint32_t width, uint32_t height);
@@ -590,32 +578,32 @@ class GtestCommon : public ::testing::Test {
 
   void VideoTrackRGBDataCb(uint32_t session_id, uint32_t track_id,
                            std::vector<BufferDescriptor> buffers,
-                           std::vector<MetaData> meta_buffers);
+                           std::vector<BufferMeta> metas);
 
   void VideoTrackYUVDataCb(uint32_t session_id, uint32_t track_id,
                            std::vector<BufferDescriptor> buffers,
-                           std::vector<MetaData> meta_buffers);
+                           std::vector<BufferMeta> metas);
 
   void VideoTrackRawDataCb(uint32_t session_id, uint32_t track_id,
                            std::vector<BufferDescriptor> buffers,
-                           std::vector<MetaData> meta_buffers);
+                           std::vector<BufferMeta> metas);
 
   void VideoTrackEventCb(uint32_t track_id, EventType event_type,
                          void *event_data, size_t event_data_size);
 
-  void SnapshotCb(uint32_t camera_id, uint32_t image_sequence_count,
-                  BufferDescriptor buffer, MetaData meta_data);
+  void SnapshotCb(uint32_t camera_id, uint32_t imgcount,
+                  BufferDescriptor buffer, BufferMeta meta);
 
   void ResultCallbackHandlerMatchCameraMeta(uint32_t camera_id,
                                        const CameraMetadata &result);
 
   void VideoTrackDataCbMatchCameraMeta(uint32_t session_id, uint32_t track_id,
                                        std::vector<BufferDescriptor> buffers,
-                                       std::vector<MetaData> meta_buffers);
+                                       std::vector<BufferMeta> metas);
 
   status_t DumpThumbnail(BufferDescriptor buffer,
-                         const CameraBufferMetaData& meta_data,
-                         uint32_t image_sequence_count,
+                         const BufferMeta& meta,
+                         uint32_t imgcount,
                          uint64_t tv_ms);
 
   status_t SetCameraFocalLength(const float focal_length);
@@ -694,8 +682,6 @@ class GtestCommon : public ::testing::Test {
 
   void ExtractColorValues(uint32_t hex_color, RGBAValues* color);
 
-  void ClearSurface();
-
   status_t FillCropMetadata(CameraMetadata& meta, int32_t sensor_mode_w,
                             int32_t sensor_mode_h, int32_t crop_x,
                             int32_t crop_y, int32_t crop_w, int32_t crop_h);
@@ -717,12 +703,6 @@ class GtestCommon : public ::testing::Test {
   bool face_bbox_active_;
   uint32_t face_track_id_;
   struct FaceInfo face_info_;
-#if USE_SKIA
-  SkCanvas*            canvas_;
-#elif USE_CAIRO
-  cairo_surface_t*     cr_surface_;
-  cairo_t*             cr_context_;
-#endif
 
   typedef std::vector<uint8_t> nr_modes_;
   typedef std::vector<int32_t> vhdr_modes_;
@@ -758,7 +738,6 @@ class GtestCommon : public ::testing::Test {
   bool                  camera_error_;
   float                 eis_h_margin_;
   float                 eis_v_margin_;
-  float                 timelapse_interval_;
   bool                  is_frame_debug_enabled_;
   std::string           sensor_mode_file_name_;
 

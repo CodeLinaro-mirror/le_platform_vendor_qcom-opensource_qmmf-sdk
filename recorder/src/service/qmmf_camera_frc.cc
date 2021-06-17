@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019, 2021, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -47,9 +47,6 @@ namespace recorder {
 #define FRC_THRESHOLD                0.5f          // 50% skip/repeat threshold
 #define FRC_TS_DELTA                 0.01f         // 1% Delta
 
-// Property to enable FRC debugging.
-#define FRC_DEBUG_PROPERTY       "persist.qmmf.rec.frc.debug"
-
 // Debug flags.
 #define FRC_DEBUG_INPUT_FPS      (1 << 0)
 #define FRC_DEBUG_OUTPUT_FPS     (1 << 1)
@@ -78,9 +75,7 @@ FrameRateController::FrameRateController(const std::string& name)
   consumer_impl = new BufferConsumerImpl<FrameRateController>(this);
   buffer_consumer_ = consumer_impl;
 
-  char prop[PROPERTY_VALUE_MAX];
-  property_get(FRC_DEBUG_PROPERTY, prop, "0");
-  debug_flags_ = std::stoi(prop);
+  debug_flags_ = Property::Get("persist.qmmf.rec.frc.debug", 0);
 
   QMMF_INFO("%s: %s: Exit(%p)", __func__, name_.c_str(), this);
 }

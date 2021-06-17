@@ -79,7 +79,7 @@ class CameraContext : public CameraInterface {
                         const std::vector<CameraMetadata> &meta,
                         const StreamSnapshotCb& cb) override;
 
-  status_t ConfigImageCapture(const ImageConfigParam &config) override;
+  status_t ConfigImageCapture(const ImageExtraParam &config) override;
 
   status_t CancelCaptureImage() override;
 
@@ -117,8 +117,8 @@ class CameraContext : public CameraInterface {
 
   std::vector<int32_t>& GetSupportedFps() override;
 
-  status_t PopulateMetaInfo(CameraBufferMetaData &info, IBufferHandle &handle,
-                            uint32_t width, uint32_t height);
+  status_t PopulateBufferMeta(BufferMeta &info, IBufferHandle &handle,
+                              uint32_t width, uint32_t height);
 
   status_t SnapshotCallback(const camera_memory_t *data, int64_t timestamp = 0);
 
@@ -131,8 +131,6 @@ class CameraContext : public CameraInterface {
   std::shared_ptr<CameraPort> GetFreePort();
 
   status_t ApplyParameters();
-
-  status_t ValidateCaptureConfig(const ImageConfigParam &config);
 
   status_t SetFps(float fps);
 

@@ -9,7 +9,6 @@ endif()
 add_library(qmmf_utils SHARED ${exclude}
 ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_condition.cc
 ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_thread.cc
-${CMAKE_CURRENT_SOURCE_DIR}/qmmf_exif_converter.cc
 )
 
 target_include_directories(qmmf_utils PRIVATE ${TOP_DIRECTORY})

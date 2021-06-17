@@ -212,8 +212,8 @@ TEST_F(RecorderHal1GTest, SessionWith480pYUVTrack) {
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
-        std::vector<MetaData> meta_buffers) {
-          VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers); };
+        std::vector<BufferMeta> metas) {
+          VideoTrackYUVDataCb(session_id, track_id, buffers, metas); };
 
     video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
                                   void *event_data, size_t event_data_size) {
@@ -318,8 +318,8 @@ TEST_F(RecorderHal1GTest, SessionWith720YUVTrack) {
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
-        std::vector<MetaData> meta_buffers) {
-          VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers); };
+        std::vector<BufferMeta> metas) {
+          VideoTrackYUVDataCb(session_id, track_id, buffers, metas); };
 
     video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
                                   void *event_data, size_t event_data_size) {
@@ -427,8 +427,8 @@ TEST_F(RecorderHal1GTest, SessionWith720pYUVAnd480pYUV) {
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
-        std::vector<MetaData> meta_buffers) {
-          VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers); };
+        std::vector<BufferMeta> metas) {
+          VideoTrackYUVDataCb(session_id, track_id, buffers, metas); };
 
     video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
                                   void *event_data, size_t event_data_size) {
@@ -446,8 +446,8 @@ TEST_F(RecorderHal1GTest, SessionWith720pYUVAnd480pYUV) {
 
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
-        std::vector<MetaData> meta_buffers) {
-          VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers); };
+        std::vector<BufferMeta> metas) {
+          VideoTrackYUVDataCb(session_id, track_id, buffers, metas); };
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p_yuv,
       video_track_param, video_track_cb);
@@ -561,8 +561,8 @@ TEST_F(RecorderHal1GTest, SessionWith480pYUVAnd480pYUVAndLinked480pYUV) {
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
-        std::vector<MetaData> meta_buffers) {
-          VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers); };
+        std::vector<BufferMeta> metas) {
+          VideoTrackYUVDataCb(session_id, track_id, buffers, metas); };
 
     video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
                                   void *event_data, size_t event_data_size) {
@@ -585,8 +585,8 @@ TEST_F(RecorderHal1GTest, SessionWith480pYUVAnd480pYUVAndLinked480pYUV) {
 
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
-        std::vector<MetaData> meta_buffers) {
-          VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers); };
+        std::vector<BufferMeta> metas) {
+          VideoTrackYUVDataCb(session_id, track_id, buffers, metas); };
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p_yuv2,
       video_track_param, video_track_cb);
@@ -605,8 +605,8 @@ TEST_F(RecorderHal1GTest, SessionWith480pYUVAnd480pYUVAndLinked480pYUV) {
 
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
-        std::vector<MetaData> meta_buffers) {
-          VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers); };
+        std::vector<BufferMeta> metas) {
+          VideoTrackYUVDataCb(session_id, track_id, buffers, metas); };
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p_yuv3,
       video_track_param, extra_param, video_track_cb);
@@ -709,8 +709,8 @@ TEST_F(RecorderHal1GTest, SessionWith480pYUVand1080pYUVTracks) {
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
-        std::vector<MetaData> meta_buffers) {
-          VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers); };
+        std::vector<BufferMeta> metas) {
+          VideoTrackYUVDataCb(session_id, track_id, buffers, metas); };
 
     video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
                                   void *event_data, size_t event_data_size) {
@@ -731,8 +731,8 @@ TEST_F(RecorderHal1GTest, SessionWith480pYUVand1080pYUVTracks) {
 
     TrackCb video_track_cb2;
     video_track_cb2.data_cb = [&, session_id2] (uint32_t track_id,
-      std::vector<BufferDescriptor> buffers, std::vector<MetaData> meta_buffers)
-    { VideoTrackYUVDataCb(session_id2, track_id, buffers, meta_buffers);};
+      std::vector<BufferDescriptor> buffers, std::vector<BufferMeta> metas)
+    { VideoTrackYUVDataCb(session_id2, track_id, buffers, metas);};
 
     video_track_cb2.event_cb = [&] (uint32_t track_id, EventType event_type,
       void *event_data, size_t event_data_size) {VideoTrackEventCb(track_id,
@@ -858,8 +858,8 @@ TEST_F(RecorderHal1GTest, SessionWith1080pYUVCopy480YUVAndLinked480YUV) {
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
-        std::vector<MetaData> meta_buffers) {
-          VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers); };
+        std::vector<BufferMeta> metas) {
+          VideoTrackYUVDataCb(session_id, track_id, buffers, metas); };
 
     video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
                                   void *event_data, size_t event_data_size) {
@@ -882,8 +882,8 @@ TEST_F(RecorderHal1GTest, SessionWith1080pYUVCopy480YUVAndLinked480YUV) {
 
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
-        std::vector<MetaData> meta_buffers) {
-          VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers); };
+        std::vector<BufferMeta> metas) {
+          VideoTrackYUVDataCb(session_id, track_id, buffers, metas); };
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p_yuv,
       video_track_param, extra_param, video_track_cb);
@@ -902,8 +902,8 @@ TEST_F(RecorderHal1GTest, SessionWith1080pYUVCopy480YUVAndLinked480YUV) {
 
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
-        std::vector<MetaData> meta_buffers) {
-          VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers); };
+        std::vector<BufferMeta> metas) {
+          VideoTrackYUVDataCb(session_id, track_id, buffers, metas); };
 
     ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p_yuv2,
       video_track_param, extra_param2, video_track_cb);
@@ -1021,8 +1021,8 @@ TEST_F(RecorderHal1GTest, SessionWithTwo1080pYUVAndLinked1080pYUV) {
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
-        std::vector<MetaData> meta_buffers) {
-          VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers); };
+        std::vector<BufferMeta> metas) {
+          VideoTrackYUVDataCb(session_id, track_id, buffers, metas); };
 
     video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
                                   void *event_data, size_t event_data_size) {
@@ -1153,8 +1153,8 @@ TEST_F(RecorderHal1GTest, SessionWith720pYUVAndSnapshotVGA) {
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
-        std::vector<MetaData> meta_buffers) {
-          VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers); };
+        std::vector<BufferMeta> metas) {
+          VideoTrackYUVDataCb(session_id, track_id, buffers, metas); };
 
     video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
                                   void *event_data, size_t event_data_size) {
@@ -1192,17 +1192,13 @@ TEST_F(RecorderHal1GTest, SessionWith720pYUVAndSnapshotVGA) {
         image_param.height) != false);
 
     ImageCaptureCb cb = [&] (uint32_t camera_id, uint32_t image_count,
-                                BufferDescriptor buffer,
-                                MetaData meta_data) -> void
-        { SnapshotCb(camera_id, image_count, buffer, meta_data);
+                             BufferDescriptor buffer, BufferMeta meta) -> void
+        { SnapshotCb(camera_id, image_count, buffer, meta);
           pending_count--; };
 
-    ImageConfigParam image_config;
-    ImageExif exif;
-    exif.enable = false;
-    image_config.Update(QMMF_EXIF, exif);
+    ImageExtraParam xtraparam;
 
-    ret = recorder_.ConfigImageCapture(camera_id_, image_param, image_config);
+    ret = recorder_.ConfigImageCapture(camera_id_, image_param, xtraparam);
     ASSERT_TRUE(ret == NO_ERROR);
 
     /************************ Start Session ***********************************/
@@ -1314,8 +1310,8 @@ TEST_F(RecorderHal1GTest, SessionWith720pYUVAndSnapshot720p) {
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
-        std::vector<MetaData> meta_buffers) {
-          VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers); };
+        std::vector<BufferMeta> metas) {
+          VideoTrackYUVDataCb(session_id, track_id, buffers, metas); };
 
     video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
                                   void *event_data, size_t event_data_size) {
@@ -1353,17 +1349,13 @@ TEST_F(RecorderHal1GTest, SessionWith720pYUVAndSnapshot720p) {
         image_param.height) != false);
 
     ImageCaptureCb cb = [&] (uint32_t camera_id, uint32_t image_count,
-                                BufferDescriptor buffer,
-                                MetaData meta_data) -> void
-        { SnapshotCb(camera_id, image_count, buffer, meta_data);
+                             BufferDescriptor buffer, BufferMeta meta) -> void
+        { SnapshotCb(camera_id, image_count, buffer, meta);
           pending_count--; };
 
-    ImageConfigParam image_config;
-    ImageExif exif;
-    exif.enable = false;
-    image_config.Update(QMMF_EXIF, exif);
+    ImageExtraParam xtraparam;
 
-    ret = recorder_.ConfigImageCapture(camera_id_, image_param, image_config);
+    ret = recorder_.ConfigImageCapture(camera_id_, image_param, xtraparam);
     ASSERT_TRUE(ret == NO_ERROR);
 
     /************************ Start Session ***********************************/
@@ -1480,8 +1472,8 @@ TEST_F(RecorderHal1GTest, SessionWithTwo720pYUVAndSnapshot720p) {
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
-        std::vector<MetaData> meta_buffers) {
-          VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers); };
+        std::vector<BufferMeta> metas) {
+          VideoTrackYUVDataCb(session_id, track_id, buffers, metas); };
 
     video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
                                   void *event_data, size_t event_data_size) {
@@ -1528,17 +1520,13 @@ TEST_F(RecorderHal1GTest, SessionWithTwo720pYUVAndSnapshot720p) {
         image_param.height) != false);
 
     ImageCaptureCb cb = [&] (uint32_t camera_id, uint32_t image_count,
-                                BufferDescriptor buffer,
-                                MetaData meta_data) -> void
-        { SnapshotCb(camera_id, image_count, buffer, meta_data);
+                             BufferDescriptor buffer, BufferMeta meta) -> void
+        { SnapshotCb(camera_id, image_count, buffer, meta);
           pending_count--; };
 
-    ImageConfigParam image_config;
-    ImageExif exif;
-    exif.enable = false;
-    image_config.Update(QMMF_EXIF, exif);
+    ImageExtraParam xtraparam;
 
-    ret = recorder_.ConfigImageCapture(camera_id_, image_param, image_config);
+    ret = recorder_.ConfigImageCapture(camera_id_, image_param, xtraparam);
     ASSERT_TRUE(ret == NO_ERROR);
 
     /************************ Start Session ***********************************/
@@ -1657,8 +1645,8 @@ TEST_F(RecorderHal1GTest, SessionWithTwoVGAYUVAndSnapshotVGA) {
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
-        std::vector<MetaData> meta_buffers) {
-          VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers); };
+        std::vector<BufferMeta> metas) {
+          VideoTrackYUVDataCb(session_id, track_id, buffers, metas); };
 
     video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
                                   void *event_data, size_t event_data_size) {
@@ -1705,17 +1693,13 @@ TEST_F(RecorderHal1GTest, SessionWithTwoVGAYUVAndSnapshotVGA) {
         image_param.height) != false);
 
     ImageCaptureCb cb = [&] (uint32_t camera_id, uint32_t image_count,
-                                BufferDescriptor buffer,
-                                MetaData meta_data) -> void
-        { SnapshotCb(camera_id, image_count, buffer, meta_data);
+                             BufferDescriptor buffer, BufferMeta meta) -> void
+        { SnapshotCb(camera_id, image_count, buffer, meta);
           pending_count--; };
 
-    ImageConfigParam image_config;
-    ImageExif exif;
-    exif.enable = false;
-    image_config.Update(QMMF_EXIF, exif);
+    ImageExtraParam xtraparam;
 
-    ret = recorder_.ConfigImageCapture(camera_id_, image_param, image_config);
+    ret = recorder_.ConfigImageCapture(camera_id_, image_param, xtraparam);
     ASSERT_TRUE(ret == NO_ERROR);
 
     /************************ Start Session ***********************************/
@@ -1825,8 +1809,8 @@ TEST_F(RecorderHal1GTest, SessionWithYUVTrackAndToggleSnapshotRes) {
   TrackCb video_track_cb;
   video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
-      std::vector<MetaData> meta_buffers) {
-        VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers); };
+      std::vector<BufferMeta> metas) {
+        VideoTrackYUVDataCb(session_id, track_id, buffers, metas); };
 
   video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
                                 void *event_data, size_t event_data_size) {
@@ -1859,17 +1843,13 @@ TEST_F(RecorderHal1GTest, SessionWithYUVTrackAndToggleSnapshotRes) {
   meta_array.push_back(meta);
 
   ImageCaptureCb cb = [&] (uint32_t camera_id, uint32_t image_count,
-                              BufferDescriptor buffer,
-                              MetaData meta_data) -> void
-      { SnapshotCb(camera_id, image_count, buffer, meta_data);
+                           BufferDescriptor buffer, BufferMeta meta) -> void
+      { SnapshotCb(camera_id, image_count, buffer, meta);
         pending_count--; };
 
-  ImageConfigParam image_config;
-  ImageExif exif;
-  exif.enable = false;
-  image_config.Update(QMMF_EXIF, exif);
+  ImageExtraParam xtraparam;
 
-  ret = recorder_.ConfigImageCapture(camera_id_, image_param, image_config);
+  ret = recorder_.ConfigImageCapture(camera_id_, image_param, xtraparam);
   ASSERT_TRUE(ret == NO_ERROR);
 
   /************************ Start Session ***********************************/
@@ -1893,14 +1873,14 @@ TEST_F(RecorderHal1GTest, SessionWithYUVTrackAndToggleSnapshotRes) {
           image_param.height) != false);
 
       pending_count++;
-      ret = recorder_.ConfigImageCapture(camera_id_, image_param, image_config);
+      ret = recorder_.ConfigImageCapture(camera_id_, image_param, xtraparam);
       ASSERT_TRUE(ret == NO_ERROR);
       ret = recorder_.CaptureImage(camera_id_, 1, meta_array, cb);
       ASSERT_TRUE(ret == NO_ERROR);
       sleep(5);
 
       pending_count++;
-      ret = recorder_.ConfigImageCapture(camera_id_, image_param, image_config);
+      ret = recorder_.ConfigImageCapture(camera_id_, image_param, xtraparam);
       ASSERT_TRUE(ret == NO_ERROR);
       ret = recorder_.CaptureImage(camera_id_, 1, meta_array, cb);
       ASSERT_TRUE(ret == NO_ERROR);
@@ -1999,8 +1979,8 @@ TEST_F(RecorderHal1GTest, SessionWithYUVTrackAndSnapshot) {
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
-        std::vector<MetaData> meta_buffers) {
-          VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers); };
+        std::vector<BufferMeta> metas) {
+          VideoTrackYUVDataCb(session_id, track_id, buffers, metas); };
 
     video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
                                   void *event_data, size_t event_data_size) {
@@ -2038,17 +2018,13 @@ TEST_F(RecorderHal1GTest, SessionWithYUVTrackAndSnapshot) {
         image_param.height) != false);
 
     ImageCaptureCb cb = [&] (uint32_t camera_id, uint32_t image_count,
-                                BufferDescriptor buffer,
-                                MetaData meta_data) -> void
-        { SnapshotCb(camera_id, image_count, buffer, meta_data);
+                             BufferDescriptor buffer, BufferMeta meta) -> void
+        { SnapshotCb(camera_id, image_count, buffer, meta);
           pending_count--; };
 
-    ImageConfigParam image_config;
-    ImageExif exif;
-    exif.enable = false;
-    image_config.Update(QMMF_EXIF, exif);
+    ImageExtraParam xtraparam;
 
-    ret = recorder_.ConfigImageCapture(camera_id_, image_param, image_config);
+    ret = recorder_.ConfigImageCapture(camera_id_, image_param, xtraparam);
     ASSERT_TRUE(ret == NO_ERROR);
 
 
@@ -2169,8 +2145,8 @@ TEST_F(RecorderHal1GTest, SessionWithTwoYUVTracksAndSnapshot) {
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
-        std::vector<MetaData> meta_buffers) {
-          VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers); };
+        std::vector<BufferMeta> metas) {
+          VideoTrackYUVDataCb(session_id, track_id, buffers, metas); };
 
     video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
                                   void *event_data, size_t event_data_size) {
@@ -2217,17 +2193,13 @@ TEST_F(RecorderHal1GTest, SessionWithTwoYUVTracksAndSnapshot) {
         image_param.height) != false);
 
     ImageCaptureCb cb = [&] (uint32_t camera_id, uint32_t image_count,
-                                BufferDescriptor buffer,
-                                MetaData meta_data) -> void
-        { SnapshotCb(camera_id, image_count, buffer, meta_data);
+                             BufferDescriptor buffer, BufferMeta meta) -> void
+        { SnapshotCb(camera_id, image_count, buffer, meta);
           pending_count--; };
 
-    ImageConfigParam image_config;
-    ImageExif exif;
-    exif.enable = false;
-    image_config.Update(QMMF_EXIF, exif);
+    ImageExtraParam xtraparam;
 
-    ret = recorder_.ConfigImageCapture(camera_id_, image_param, image_config);
+    ret = recorder_.ConfigImageCapture(camera_id_, image_param, xtraparam);
     ASSERT_TRUE(ret == NO_ERROR);
 
 

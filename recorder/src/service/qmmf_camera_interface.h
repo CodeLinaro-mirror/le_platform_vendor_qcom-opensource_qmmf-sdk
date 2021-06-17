@@ -93,7 +93,7 @@ class CameraInterface {
                                 const StreamSnapshotCb& cb) = 0;
 
   /// Configure Image Capture. Configuration is applied by SetUpCapture.
-  virtual status_t ConfigImageCapture(const ImageConfigParam &config) = 0;
+  virtual status_t ConfigImageCapture(const ImageExtraParam &config) = 0;
 
   /// Abort ongoing Image Capture. This blocking API and returns when
   /// image capture is stopped and all buffers are returned

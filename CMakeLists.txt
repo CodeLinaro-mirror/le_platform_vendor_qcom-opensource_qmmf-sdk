@@ -25,10 +25,6 @@ set(CMAKE_STATIC_LINKER_FLAGS
 
 add_subdirectory(config/LE-${TARGET_BOARD_PLATFORM})
 
-foreach(l ${PLATFORM_INCLUDES})
-include_directories(${l})
-endforeach()
-
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${PLATFORM_CXX_FLAGS}")
 
 add_subdirectory(qmmf-server)
@@ -36,12 +32,6 @@ add_subdirectory(qmmf-server)
 add_subdirectory(recorder/src/service)
 
 add_subdirectory(recorder/test/gtest)
-
-add_subdirectory(recorder/test/audio)
-
-if (NOT CAMERA_HAL1_SUPPORT)
-add_subdirectory(recorder/test/timelapse)
-endif()
 
 add_subdirectory(recorder/src/client)
 
@@ -52,9 +42,6 @@ add_subdirectory(common/cameraadaptor/gtest)
 
 add_subdirectory(common/cameraadaptor)
 endif()
-add_subdirectory(common/exif-generator)
-
-add_subdirectory(common/jpeg-encoder)
 
 if (RESIZER_FASTCV_ENABLED)
 add_subdirectory(common/resizer-fastCV)
