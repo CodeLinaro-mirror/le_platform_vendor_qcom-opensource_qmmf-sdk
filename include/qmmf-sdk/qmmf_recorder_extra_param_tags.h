@@ -40,11 +40,8 @@ namespace qmmf {
 namespace recorder {
 
 enum ParamTag {
-  QMMF_JPEG_CAPTURE_SETUP = (1 << 16),
-  QMMF_SOURCE_VIDEO_TRACK_ID,
-  QMMF_IMAGE_THUMBNAIL,
+  QMMF_SOURCE_VIDEO_TRACK_ID = (1 << 16),
   QMMF_SNAPSHOT_TYPE,
-  QMMF_EXIF,
   QMMF_VIDEO_HDR_MODE,
   QMMF_TRACK_CROP,
   QMMF_FORCE_SENSOR_MODE,
@@ -89,29 +86,11 @@ enum class SlaveMode {
   kSlave,
 };
 
-struct HighQualityCaptureSetup : DataTagBase {
-  BufferFormat jpeg_input_format;
-
-  HighQualityCaptureSetup()
-    : DataTagBase(QMMF_JPEG_CAPTURE_SETUP),
-      jpeg_input_format(BufferFormat::kNV12) {}
-};
-
 struct SourceVideoTrack : DataTagBase {
   int32_t source_track_id;  // Default: -1
   SourceVideoTrack()
     : DataTagBase(QMMF_SOURCE_VIDEO_TRACK_ID),
       source_track_id(-1) {}
-};
-
-struct ImageThumbnail : DataTagBase {
-  uint32_t width;   // Default: 0
-  uint32_t height;  // Default: 0
-  uint32_t quality; // Default: 75 (range: 0~100)
-
-  ImageThumbnail()
-    : DataTagBase(QMMF_IMAGE_THUMBNAIL),
-      width(0), height(0), quality(75) {}
 };
 
 struct SnapshotType : DataTagBase {
@@ -134,13 +113,6 @@ struct SnapshotType : DataTagBase {
       zsl_queue_params{},
       zsl_image_param{} {}
 
-};
-
-struct ImageExif : DataTagBase {
-  bool enable;     // Default: true
-  ImageExif()
-    : DataTagBase(QMMF_EXIF),
-      enable(true) {}
 };
 
 struct VideoHDRMode : DataTagBase {

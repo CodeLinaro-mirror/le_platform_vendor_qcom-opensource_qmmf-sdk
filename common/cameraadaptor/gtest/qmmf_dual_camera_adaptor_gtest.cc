@@ -77,18 +77,18 @@ void DualCamera3Gtest::StreamCb(StreamBuffer buffer) {
   if (!(buffer.frame_number % 10)) {
     if (buffer.info.format < BufferFormat::kBLOB ) {
        path.appendFormat("/data/misc/qmmf/frame_%d_dim_%dx%d.yuv", buffer.frame_number,
-          buffer.info.plane_info[0].width, buffer.info.plane_info[0].height);
+          buffer.info.planes[0].width, buffer.info.planes[0].height);
     } else if (buffer.info.format > BufferFormat::kBLOB ) {
        path.appendFormat("/data/misc/qmmf/frame_%d_dim_%dx%d.raw", buffer.frame_number,
-          buffer.info.plane_info[0].width, buffer.info.plane_info[0].height);
+          buffer.info.planes[0].width, buffer.info.planes[0].height);
     }
     FILE *file = fopen(path.string(), "w+");
     uint8_t *mappedBuffer = NULL;
     MemAllocError mret = device_client_->alloc_device_interface_->MapBuffer(
                             buffer.handle,
                             IMemAllocUsage::kSwReadOften, 0,
-                            0, buffer.info.plane_info[0].width,
-                            buffer.info.plane_info[0].height,
+                            0, buffer.info.planes[0].width,
+                            buffer.info.planes[0].height,
                             (void **)&mappedBuffer);
     if ((MemAllocError::kAllocOk != mret) || (NULL == mappedBuffer)) {
        printf("%s: Unable to map buffer: %p res: %d\n", __func__,
