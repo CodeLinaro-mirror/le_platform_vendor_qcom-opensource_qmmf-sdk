@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.1)
 
 project(qmmf_recorder_client)
 
+
 if (NOT RECORDER_CLIENT_ENABLED)
   set(exclude EXCLUDE_FROM_ALL)
 else()
@@ -15,6 +16,8 @@ else()
     ${TOP_DIRECTORY}/include/qmmf-sdk/qmmf_codec.h
     ${TOP_DIRECTORY}/include/qmmf-sdk/qmmf_buffer.h
     ${TOP_DIRECTORY}/include/qmmf-sdk/qmmf_avcodec_params.h
+    ${TOP_DIRECTORY}/include/qmmf-sdk/qmmf_recorder_common.h
+    ${TOP_DIRECTORY}/include/qmmf-sdk/qmmf_recorder_interface.h
     DESTINATION include/qmmf-sdk)
 endif()
 
@@ -23,6 +26,8 @@ ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_recorder.cc
 ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_recorder_client.cc
 ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_recorder_client_ion.cc
 ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_recorder_extra_param.cc
+${CMAKE_CURRENT_SOURCE_DIR}/qmmf_recorder_common.cc
+${CMAKE_CURRENT_SOURCE_DIR}/qmmf_recorder_interface.cc
 )
 
 target_include_directories(qmmf_recorder_client
@@ -40,7 +45,7 @@ target_include_directories(qmmf_recorder_client
 
 install(TARGETS qmmf_recorder_client DESTINATION lib OPTIONAL)
 target_link_libraries(qmmf_recorder_client log binder utils cutils dl
- camera_metadata)
+ camera_metadata gtest gtest_main qmmf_av_queue pthread)
 if(NOT CAMERA_CLIENT_DISABLED)
 target_link_libraries(qmmf_recorder_client camera_client)
 endif()

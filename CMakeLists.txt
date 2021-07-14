@@ -52,6 +52,8 @@ endif()
 
 add_subdirectory(recorder/src/client)
 
+add_subdirectory(test)
+
 add_subdirectory(avcodec/test/gtest)
 
 add_subdirectory(avcodec/test/sample)
