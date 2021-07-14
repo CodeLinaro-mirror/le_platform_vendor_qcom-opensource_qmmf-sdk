@@ -257,6 +257,9 @@ class Common {
       case VideoFormat::kNV12UBWC:
         return BufferFormat::kNV12UBWC;
         break;
+      case VideoFormat::kNV16:
+        return BufferFormat::kNV16;
+        break;
       case VideoFormat::kJPEG:
         return BufferFormat::kBLOB;
         break;
@@ -274,6 +277,9 @@ class Common {
         break;
       case VideoFormat::kBayerRDI12BIT:
         return BufferFormat::kRAW12;
+        break;
+      case VideoFormat::kBayerRDI16BIT:
+        return BufferFormat::kRAW16;
         break;
       default:
         /* Format not supported */

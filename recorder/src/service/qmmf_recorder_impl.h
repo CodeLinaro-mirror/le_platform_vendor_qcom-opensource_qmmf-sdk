@@ -226,7 +226,7 @@ class RecorderImpl {
   void CameraResultCb(uint32_t camera_id, const CameraMetadata &result);
 
   /// Camera Error callback handler
-  void CameraErrorCb(RecorderErrorData &error);
+  void CameraErrorCb(uint32_t camera_id, uint32_t errcode);
 
   // Camera Flush Callback Handler
   void CameraFlushCb(const uint32_t camera_id);
