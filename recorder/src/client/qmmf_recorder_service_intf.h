@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -92,7 +92,7 @@ struct BnBuffer {
   uint32_t  width;
   uint32_t  height;
   uint32_t  buffer_id;
-  uint32_t  flag;
+  uint32_t  flags;
   uint32_t  capacity;
 
   string ToString() const {
@@ -104,7 +104,7 @@ struct BnBuffer {
     stream << "width[" << width << "] ";
     stream << "height[" << height << "] ";
     stream << "buffer_id[" << buffer_id << "] ";
-    stream << "flag[" << setbase(16) << flag << setbase(10) << "] ";
+    stream << "flag[" << setbase(16) << flags << setbase(10) << "] ";
     stream << "capacity[" << capacity << "]";
     return stream.str();
   }
@@ -128,7 +128,7 @@ struct BnBuffer {
     parcel->writeUint32(width);
     parcel->writeUint32(height);
     parcel->writeUint32(buffer_id);
-    parcel->writeUint32(flag);
+    parcel->writeUint32(flags);
     parcel->writeUint32(capacity);
   }
 
@@ -151,7 +151,7 @@ struct BnBuffer {
     width = parcel.readUint32();
     height = parcel.readUint32();
     buffer_id = parcel.readUint32();
-    flag = parcel.readUint32();
+    flags = parcel.readUint32();
     capacity = parcel.readUint32();
   }
 };
@@ -168,7 +168,7 @@ class IRecorderService : public IInterface {
 
   virtual status_t StartCamera(const uint32_t client_id,
                                const uint32_t camera_id,
-                               const float frame_rate,
+                               const float framerate,
                                const CameraExtraParam& extra_param,
                                bool enable_result_cb = false) = 0;
 
@@ -196,17 +196,17 @@ class IRecorderService : public IInterface {
   virtual status_t CreateAudioTrack(const uint32_t client_id,
                                     const uint32_t session_id,
                                     const uint32_t track_id,
-                                    const AudioTrackCreateParam& param) = 0;
+                                    const AudioTrackParam& param) = 0;
 
   virtual status_t CreateVideoTrack(const uint32_t client_id,
                                     const uint32_t session_id,
                                     const uint32_t track_id,
-                                    const VideoTrackCreateParam& param) = 0;
+                                    const VideoTrackParam& param) = 0;
 
   virtual status_t CreateVideoTrack(const uint32_t client_id,
                                     const uint32_t session_id,
                                     const uint32_t track_id,
-                                    const VideoTrackCreateParam& param,
+                                    const VideoTrackParam& param,
                                     const VideoExtraParam& extra_param) = 0;
 
   virtual status_t DeleteAudioTrack(const uint32_t client_id,
@@ -225,16 +225,16 @@ class IRecorderService : public IInterface {
   virtual status_t SetAudioTrackParam(const uint32_t client_id,
                                       const uint32_t session_id,
                                       const uint32_t track_id,
-                                      CodecParamType type,
+                                      AudioParam type,
                                       void *param,
-                                      size_t param_size) = 0;
+                                      size_t size) = 0;
 
   virtual status_t SetVideoTrackParam(const uint32_t client_id,
                                       const uint32_t session_id,
                                       const uint32_t track_id,
-                                      CodecParamType type,
+                                      VideoParam type,
                                       void *param,
-                                      size_t param_size) = 0;
+                                      size_t size) = 0;
 
   virtual status_t CaptureImage(const uint32_t client_id,
                                 const uint32_t camera_id,

@@ -31,10 +31,6 @@ endforeach()
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${PLATFORM_CXX_FLAGS}")
 
-install(FILES
-    ${TOP_DIRECTORY}/include/qmmf-sdk/qmmf_player_params.h
-DESTINATION include/qmmf-sdk)
-
 add_subdirectory(qmmf-server)
 
 add_subdirectory(recorder/src/service)
@@ -44,30 +40,18 @@ add_subdirectory(recorder/test/gtest)
 add_subdirectory(recorder/test/audio)
 
 if (NOT CAMERA_HAL1_SUPPORT)
-
-add_subdirectory(recorder/test/videotimelapse)
-
 add_subdirectory(recorder/test/timelapse)
 endif()
 
 add_subdirectory(recorder/src/client)
 
-add_subdirectory(avcodec/test/gtest)
-
-add_subdirectory(avcodec/test/sample)
-
-add_subdirectory(avcodec/src)
-
 add_subdirectory(common/memory)
 
-add_subdirectory(common/avqueue)
 if (NOT CAMERA_HAL1_SUPPORT)
 add_subdirectory(common/cameraadaptor/gtest)
 
 add_subdirectory(common/cameraadaptor)
 endif()
-add_subdirectory(common/codecadaptor/src)
-
 add_subdirectory(common/exif-generator)
 
 add_subdirectory(common/jpeg-encoder)

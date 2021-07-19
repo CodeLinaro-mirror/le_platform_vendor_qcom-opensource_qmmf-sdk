@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, 2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016, 2018, 2021, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -39,7 +39,7 @@
 #include <utility>
 #include <vector>
 
-#include "qmmf-sdk/qmmf_codec.h"
+#include "qmmf-sdk/qmmf_recorder_params.h"
 
 namespace qmmf {
 
@@ -186,8 +186,8 @@ struct Dimension {
 
 struct VideoCaps {
   ::std::vector<Dimension> dimensions;
-  ::std::vector<int32_t> frame_rates;
-  ::std::vector<ImageFormat> formats;
+  ::std::vector<int32_t> framerates;
+  ::std::vector<recorder::VideoFormat> formats;
 
   ::std::string ToString() const {
     ::std::stringstream stream;
@@ -195,13 +195,13 @@ struct VideoCaps {
     for (const Dimension& dimension : dimensions)
       stream << dimension.ToString() << ", ";
     stream << "SIZE[" << dimensions.size() << "]], ";
-    stream << "frame_rates[";
-    for (int32_t frame_rate : frame_rates)
-      stream << frame_rate << ", ";
-    stream << "SIZE[" << frame_rates.size() << "]], ";
+    stream << "framerates[";
+    for (int32_t framerate : framerates)
+      stream << framerate << ", ";
+    stream << "SIZE[" << framerates.size() << "]], ";
     stream << "formats[";
-    for (ImageFormat format : formats)
-      stream << static_cast<::std::underlying_type<ImageFormat>::type>(format)
+    for (recorder::VideoFormat format : formats)
+      stream << static_cast<::std::underlying_type<recorder::VideoFormat>::type>(format)
              << ", ";
     stream << "SIZE[" << formats.size() << "]]";
     return stream.str();
@@ -209,7 +209,7 @@ struct VideoCaps {
 };
 
 struct AudioCaps {
-  ::std::vector<AudioFormat> formats;
+  ::std::vector<recorder::AudioFormat> formats;
   ::std::vector<int32_t> sample_rates;
   ::std::vector<int32_t> channels;
   ::std::vector<int32_t> bit_depths;
@@ -217,8 +217,8 @@ struct AudioCaps {
   ::std::string ToString() const {
     ::std::stringstream stream;
     stream << "formats[";
-    for (AudioFormat format : formats)
-      stream << static_cast<::std::underlying_type<AudioFormat>::type>(format)
+    for (recorder::AudioFormat format : formats)
+      stream << static_cast<::std::underlying_type<recorder::AudioFormat>::type>(format)
              << ", ";
     stream << "SIZE[" << formats.size() << "]], ";
     stream << "sample_rates[";

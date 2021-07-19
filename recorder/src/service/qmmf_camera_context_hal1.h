@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+* Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -126,8 +126,6 @@ class CameraContext : public CameraInterface {
 
   const char *FromQmmfToHalFormat_hal1(const BufferFormat &format);
 
-  void SetFlushCb(FlushCb &cb) override;
-
   std::shared_ptr<CameraPort> GetPortByType(const CameraPortType port_type);
   std::shared_ptr<CameraPort> GetPortById(const uint32_t& track_id);
   std::shared_ptr<CameraPort> GetFreePort();
@@ -152,8 +150,6 @@ private:
 
   friend class PreviewPort;
   friend class VideoPort;
-
-  FlushCb                  flush_cb_;
 
   CameraMetadata           metadata_;
 

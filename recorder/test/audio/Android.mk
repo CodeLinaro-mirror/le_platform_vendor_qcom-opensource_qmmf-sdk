@@ -14,9 +14,6 @@ include $(QMMF_SDK_TOP_SRCDIR)/common.mk
 
 LOCAL_SRC_FILES  := qmmf_recorder_test.cc
 LOCAL_SRC_FILES  += qmmf_recorder_test_wav.cc
-LOCAL_SRC_FILES  += qmmf_recorder_test_aac.cc
-LOCAL_SRC_FILES  += qmmf_recorder_test_amr.cc
-LOCAL_SRC_FILES  += qmmf_recorder_test_mpegh.cc
 
 LOCAL_SHARED_LIBRARIES += libqmmf_utils libqmmf_recorder_client
 

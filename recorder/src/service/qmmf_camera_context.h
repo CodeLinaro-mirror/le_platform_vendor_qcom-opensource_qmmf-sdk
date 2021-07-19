@@ -171,8 +171,6 @@ class CameraContext : public CameraInterface {
 
   CameraMetadata GetCameraStaticMeta();
 
-  void SetFlushCb(FlushCb &cb) override;
-
  private:
 
   struct HFRMode_t {
@@ -300,7 +298,7 @@ class CameraContext : public CameraInterface {
 
   ResultCb                 result_cb_;
   ErrorCb                  error_cb_;
-  FlushCb                  flush_cb_;
+
   std::vector<int32_t>     supported_fps_;
   uint32_t                 zsl_port_id_;
 

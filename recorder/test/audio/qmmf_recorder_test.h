@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2019, 2021, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -36,17 +36,13 @@
 #include <cutils/properties.h>
 #include <cutils/trace.h>
 #include <linux/input.h>
-#include <qmmf-sdk/qmmf_buffer.h>
-#include <qmmf-sdk/qmmf_codec.h>
 
 #include "common/utils/qmmf_condition.h"
 #include "recorder/test/audio/qmmf_recorder_test_wav.h"
-#include "recorder/test/audio/qmmf_recorder_test_aac.h"
-#include "recorder/test/audio/qmmf_recorder_test_amr.h"
-#include "recorder/test/audio/qmmf_recorder_test_mpegh.h"
 
 #include <qmmf-sdk/qmmf_recorder.h>
 #include <qmmf-sdk/qmmf_recorder_params.h>
+#include <qmmf-sdk/qmmf_device.h>
 
 //#define DEBUG
 // Logging related defines
@@ -121,29 +117,11 @@ class RecorderTest {
 
   status_t CreateAudioPCMA2DPTrack();
 
-  status_t CreateAudioAACTrack();
-
-  status_t CreateAudio2AACTrack();
-
-  status_t CreateAudioPCMAACTrack();
-
-  status_t CreateAudioAMRTrack();
-
-  status_t CreateAudio2AMRTrack();
-
   status_t CreateAudioPCMAMRTrack();
-
-  status_t CreateAudioG711Track();
-
-  status_t CreateAudio2G711Track();
-
-  status_t CreateAudioPCMG711Track();
 
   status_t CreateAudioPCMFluenceTrack();
 
   status_t CreateAudioPCMAmbisonicTrack();
-
-  status_t CreateAudioMPEGHTrack();
 
   status_t StartSession();
 
@@ -214,9 +192,6 @@ class TestTrack {
   RecorderTest* recorder_test_;
 
   RecorderTestWav wav_output_;
-  RecorderTestAac aac_output_;
-  RecorderTestAmr amr_output_;
-  RecorderTestMpegh mpegh_output_;
 };
 
 class CmdMenu
@@ -231,18 +206,9 @@ public:
         CREATE_PCM_SCO_AUD_SESSION_CMD                  = 'd',
         CREATE_A2DP_AUD_SESSION_CMD                     = 'e',
         CREATE_PCM_A2DP_AUD_SESSION_CMD                 = 'f',
-        CREATE_AAC_AUD_SESSION_CMD                      = 'g',
-        CREATE_2AAC_AUD_SESSION_CMD                     = 'h',
-        CREATE_PCM_AAC_AUD_SESSION_CMD                  = 'i',
-        CREATE_AMR_AUD_SESSION_CMD                      = 'j',
-        CREATE_2AMR_AUD_SESSION_CMD                     = 'k',
-        CREATE_PCM_AMR_AUD_SESSION_CMD                  = 'l',
-        CREATE_G7ll_AUD_SESSION_CMD                     = 'm',
-        CREATE_2G7ll_AUD_SESSION_CMD                    = 'n',
         CREATE_PCM_G7ll_AUD_SESSION_CMD                 = 'o',
         CREATE_PCMFL_AUD_SESSION_CMD                    = 'p',
         CREATE_PCMAS_AUD_SESSION_CMD                    = 'u',
-        CREATE_MPEGH_AUD_SESSION_CMD                    = 'v',
         START_SESSION_CMD                               = 'A',
         STOP_SESSION_CMD                                = 'B',
         SET_PARAM_CMD                                   = 'T',

@@ -78,7 +78,7 @@ class RecorderService : public BnInterface<IRecorderService> {
   status_t Disconnect(const uint32_t client_id) override;
 
   status_t StartCamera(const uint32_t client_id, const uint32_t camera_id,
-                       const float frame_rate,
+                       const float framerate,
                        const CameraExtraParam& extra_param,
                        bool enable_result_cb = false) override;
 
@@ -106,17 +106,17 @@ class RecorderService : public BnInterface<IRecorderService> {
   status_t CreateAudioTrack(const uint32_t client_id,
                             const uint32_t session_id,
                             const uint32_t track_id,
-                            const AudioTrackCreateParam& param) override;
+                            const AudioTrackParam& param) override;
 
   status_t CreateVideoTrack(const uint32_t client_id,
                             const uint32_t session_id,
                             const uint32_t track_id,
-                            const VideoTrackCreateParam& param) override;
+                            const VideoTrackParam& param) override;
 
   status_t CreateVideoTrack(const uint32_t client_id,
                             const uint32_t session_id,
                             const uint32_t track_id,
-                            const VideoTrackCreateParam& param,
+                            const VideoTrackParam& param,
                             const VideoExtraParam& extra_param) override;
 
   status_t DeleteAudioTrack(const uint32_t client_id,
@@ -135,16 +135,16 @@ class RecorderService : public BnInterface<IRecorderService> {
   status_t SetAudioTrackParam(const uint32_t client_id,
                               const uint32_t session_id,
                               const uint32_t track_id,
-                              CodecParamType type,
+                              AudioParam type,
                               void *param,
-                              size_t param_size) override;
+                              size_t size) override;
 
   status_t SetVideoTrackParam(const uint32_t client_id,
                               const uint32_t session_id,
                               const uint32_t track_id,
-                              CodecParamType type,
+                              VideoParam type,
                               void *param,
-                              size_t param_size) override;
+                              size_t size) override;
 
   status_t CaptureImage(const uint32_t client_id,
                         const uint32_t camera_id,

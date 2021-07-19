@@ -30,7 +30,6 @@
 #define LOG_TAG "RecorderService"
 
 #include "recorder/src/service/qmmf_recorder_service.h"
-#include "recorder/src/client/qmmf_recorder_params_internal.h"
 
 namespace qmmf {
 
@@ -100,10 +99,10 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
         uint32_t camera_id, enable_flag;
         bool enable_result_cb;
         uint32_t client_id;
-        float frame_rate;
+        float framerate;
         data.readUint32(&client_id);
         data.readUint32(&camera_id);
-        data.readFloat(&frame_rate);
+        data.readFloat(&framerate);
         data.readUint32(&enable_flag);
         enable_result_cb = (1 == enable_flag) ? true : false;
         uint32_t extra_blob_size;
@@ -111,7 +110,7 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
         data.readUint32(&extra_blob_size);
         data.readBlob(extra_blob_size, &extra_blob);
         CameraExtraParam extra_param(extra_blob.data(), extra_blob_size);
-        ret = StartCamera(client_id, camera_id, frame_rate,
+        ret = StartCamera(client_id, camera_id, framerate,
                           extra_param, enable_result_cb);
         extra_blob.release();
         reply->writeInt32(ret);
@@ -188,8 +187,16 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
         data.readUint32(&client_id);
         data.readUint32(&session_id);
         data.readUint32(&track_id);
-        AudioTrackCreateParamInternal params;
-        params.FromParcel(data);
+
+        uint32_t blob_size;
+        data.readUint32(&blob_size);
+        AudioTrackParam params;
+        assert(blob_size == sizeof(params));
+
+        android::Parcel::ReadableBlob blob;
+        data.readBlob(blob_size, &blob);
+        memcpy(&params, blob.data(), blob_size);
+
         ret = CreateAudioTrack(client_id, session_id, track_id, params);
         reply->writeInt32(ret);
         return NO_ERROR;
@@ -205,7 +212,7 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
         android::Parcel::ReadableBlob blob;
         data.readBlob(blob_size, &blob);
         void* params = const_cast<void*>(blob.data());
-        VideoTrackCreateParam video_track_param;
+        VideoTrackParam video_track_param;
         assert(blob_size == sizeof(video_track_param));
         memcpy(&video_track_param, params, blob_size);
 
@@ -228,7 +235,7 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
         android::Parcel::ReadableBlob extra_blob;
         data.readUint32(&extra_blob_size);
         data.readBlob(extra_blob_size, &extra_blob);
-        VideoTrackCreateParam video_track_param;
+        VideoTrackParam video_track_param;
         assert(blob_size == sizeof(video_track_param));
         memcpy(&video_track_param, blob.data(), blob_size);
 
@@ -308,7 +315,7 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
         data.readBlob(blob_size, &blob);
         void* param = const_cast<void*>(blob.data());
         ret = SetAudioTrackParam(client_id, session_id, track_id,
-                                 static_cast<CodecParamType>(param_type),
+                                 static_cast<AudioParam>(param_type),
                                  param, blob_size);
         reply->writeInt32(ret);
         return NO_ERROR;
@@ -326,7 +333,7 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
         data.readBlob(blob_size, &blob);
         void* param = const_cast<void*>(blob.data());
         ret = SetVideoTrackParam(client_id, session_id, track_id,
-                                 static_cast<CodecParamType>(param_type),
+                                 static_cast<VideoParam>(param_type),
                                  param, blob_size);
         reply->writeInt32(ret);
         return NO_ERROR;
@@ -615,7 +622,7 @@ status_t RecorderService::Disconnect(uint32_t client_id) {
 
 status_t RecorderService::StartCamera(const uint32_t client_id,
                                       const uint32_t camera_id,
-                                      const float frame_rate,
+                                      const float framerate,
                                       const CameraExtraParam& extra_param,
                                       bool enable_result_cb) {
 
@@ -627,7 +634,7 @@ status_t RecorderService::StartCamera(const uint32_t client_id,
     return BAD_VALUE;
   }
 
-  auto ret = recorder_->StartCamera(client_id, camera_id, frame_rate,
+  auto ret = recorder_->StartCamera(client_id, camera_id, framerate,
                                     extra_param,
                                     enable_result_cb);
   if(ret != NO_ERROR) {
@@ -794,7 +801,7 @@ status_t RecorderService::ResumeSession(const uint32_t client_id,
 status_t RecorderService::CreateAudioTrack(const uint32_t client_id,
                                            const uint32_t session_id,
                                            const uint32_t track_id,
-                                           const AudioTrackCreateParam& param) {
+                                           const AudioTrackParam& param) {
 
   QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
   QMMF_KPI_DETAIL();
@@ -823,7 +830,7 @@ status_t RecorderService::CreateAudioTrack(const uint32_t client_id,
 status_t RecorderService::CreateVideoTrack(const uint32_t client_id,
                                            const uint32_t session_id,
                                            const uint32_t track_id,
-                                           const VideoTrackCreateParam& param) {
+                                           const VideoTrackParam& param) {
 
   QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
   QMMF_KPI_DETAIL();
@@ -852,7 +859,7 @@ status_t RecorderService::CreateVideoTrack(const uint32_t client_id,
 status_t RecorderService::CreateVideoTrack(const uint32_t client_id,
                                            const uint32_t session_id,
                                            const uint32_t track_id,
-                                           const VideoTrackCreateParam& param,
+                                           const VideoTrackParam& param,
                                            const VideoExtraParam& extra_param) {
 
   QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
@@ -946,9 +953,9 @@ status_t RecorderService::ReturnTrackBuffer(const uint32_t client_id,
 status_t RecorderService::SetAudioTrackParam(const uint32_t client_id,
                                              const uint32_t session_id,
                                              const uint32_t track_id,
-                                             CodecParamType type,
+                                             AudioParam type,
                                              void *param,
-                                             size_t param_size) {
+                                             size_t size) {
 
   QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
 
@@ -958,7 +965,7 @@ status_t RecorderService::SetAudioTrackParam(const uint32_t client_id,
   }
 
   auto ret = recorder_->SetAudioTrackParam(client_id, session_id, track_id,
-                                           type, param, param_size);
+                                           type, param, size);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: SetAudioTrackParam failed!", __func__);
     return ret;
@@ -970,9 +977,9 @@ status_t RecorderService::SetAudioTrackParam(const uint32_t client_id,
 status_t RecorderService::SetVideoTrackParam(const uint32_t client_id,
                                              const uint32_t session_id,
                                              const uint32_t track_id,
-                                             CodecParamType type,
+                                             VideoParam type,
                                              void *param,
-                                             size_t param_size) {
+                                             size_t size) {
 
   QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
 
@@ -982,7 +989,7 @@ status_t RecorderService::SetVideoTrackParam(const uint32_t client_id,
   }
 
   auto ret = recorder_->SetVideoTrackParam(client_id, session_id, track_id,
-                                           type, param, param_size);
+                                           type, param, size);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: SetVideoTrackParam failed!", __func__);
     return ret;
