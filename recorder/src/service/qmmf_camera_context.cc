@@ -74,7 +74,6 @@ CameraContext::CameraContext()
       capture_cnt_(0),
       result_cb_(nullptr),
       error_cb_(nullptr),
-      flush_cb_(nullptr),
       zsl_port_id_(0x100),
       hfr_supported_(false),
       batch_stream_id_(-1),
@@ -126,10 +125,6 @@ CameraContext::~CameraContext() {
   QMMF_INFO("%s: Enter", __func__);
   //TODO: check all active ports
   QMMF_INFO("%s: Exit", __func__);
-}
-
-void CameraContext::SetFlushCb(FlushCb &cb){
-  flush_cb_ = cb;
 }
 
 void CameraContext::InitSupportedFPS() {
@@ -339,6 +334,22 @@ status_t CameraContext::OpenCamera(const uint32_t camera_id,
       }
     } else {
       QMMF_ERROR("%s: Invalid LDC mode received", __func__);
+      return BAD_VALUE;
+    }
+  }
+
+  if (extra_param.Exists(QMMF_LCAC)) {
+    size_t entry_count = extra_param.EntryCount(QMMF_LCAC);
+    if (entry_count == 1) {
+      LCACMode lcac_mode;
+      extra_param.Fetch(QMMF_LCAC, lcac_mode, 0);
+      if (lcac_mode.enable == true) {
+        QMMF_INFO("%s: LCAC is ON..", __func__);
+        camera_parameters_.cam_feature_flags |=
+            static_cast<uint32_t>(CamFeatureFlag::kLCAC);
+      }
+    } else {
+      QMMF_ERROR("%s: Invalid LCAC mode received", __func__);
       return BAD_VALUE;
     }
   }
@@ -1839,8 +1850,6 @@ status_t CameraContext::PauseActiveStreams(bool immedialtely) {
     ret = camera_device_->Flush(&last_frame_mumber);
     assert(ret == NO_ERROR);
 
-    flush_cb_(camera_id_);
-
     ret = camera_device_->WaitUntilIdle();
     assert(ret == NO_ERROR);
 
@@ -1994,11 +2003,6 @@ status_t CameraContext::GetSnapshotStreamParams(const SnapshotParam &param,
                                     IMemAllocUsage::kSwReadOften;
   stream_param.cb               = GetStreamCb(param);
 
-  // For kNV12Encodable buffer format, set the encoder usage flag.
-  if (param.format == BufferFormat::kNV12Encodable) {
-    stream_param.allocFlags.flags |= IMemAllocUsage::kVideoEncoder;
-  }
-
   // Reserve buffers for continuous capture in order to avoid camera and pipe
   // restart if snapshot mode is switched. Buffer are just reserved, not
   // allocated because buffer are allocated on demand in camera adapter.
@@ -2021,13 +2025,13 @@ status_t CameraContext::StartZSL(SnapshotType &param) {
   BufferFormat zsl_format =
       Common::FromImageToQmmfFormat(param.zsl_queue_params.image_format);
   BufferFormat img_format =
-      Common::FromImageToQmmfFormat(param.zsl_image_param.image_format);
+      Common::FromImageToQmmfFormat(param.zsl_image_param.format);
 
   snapshot_param_ = {};
   snapshot_param_.width   = param.zsl_image_param.width;
   snapshot_param_.height  = param.zsl_image_param.height;
   snapshot_param_.format  = img_format;
-  snapshot_param_.quality = param.zsl_image_param.image_quality;
+  snapshot_param_.quality = param.zsl_image_param.quality;
 
   QMMF_INFO("%s zsl_format %d img_format %d", __func__,
       zsl_format, img_format);
@@ -2567,16 +2571,16 @@ status_t CameraPort::Init() {
     }
 
     cam_stream_params_.allocFlags.flags |=
-        static_cast<bool>(params_.flags & StreamFlags::kUncashed) ?
+        static_cast<bool>(params_.flags & VideoFlags::kUncashed) ?
             IMemAllocUsage::kPrivateUncached : 0;
 
     // round extra buffer count to batch size
-    params_.extra_buffer_count =
-        ((params_.extra_buffer_count + camera_parameters_.batch_size - 1) /
+    params_.xtrabufs =
+        ((params_.xtrabufs + camera_parameters_.batch_size - 1) /
           camera_parameters_.batch_size) * camera_parameters_.batch_size;
 
     cam_stream_params_.bufferCount = STREAM_BUFFER_COUNT +
-        GetExtraBufferCount() + params_.extra_buffer_count;
+        GetExtraBufferCount() + params_.xtrabufs;
 
     QMMF_INFO ("%s: track_id(0%x) total buffer count(%d)", __func__,
         params_.id, cam_stream_params_.bufferCount);
@@ -2795,7 +2799,7 @@ void CameraPort::StreamCallback(StreamBuffer buffer) {
 
   bool skip_frame = false;
 
-  if (static_cast<bool>(params_.flags & StreamFlags::kIAEC)) {
+  if (static_cast<bool>(params_.flags & VideoFlags::kIAEC)) {
     // Get auto exposure data and check if initial AE has converged.
     std::lock_guard<std::mutex> lock(aec_lock_);
     if (!aec_converged_) {

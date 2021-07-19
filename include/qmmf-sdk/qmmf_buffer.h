@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, 2018, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016, 2018, 2021, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -39,6 +39,23 @@
 
 namespace qmmf {
 
+#define MAX_PLANE 8
+
+enum class BufferFormat : uint32_t {
+  kRGB,
+  kNV12,
+  kNV12UBWC,
+  kNV21,
+  kNV16,
+  kYUY2,
+  kBLOB,
+  kRAW8,
+  kRAW10,
+  kRAW12,
+  kRAW16,
+  kUnsupported,
+};
+
 //  BufferFlags will be used to determine the type of encoded frame
 
 /**
@@ -58,6 +75,26 @@ enum class BufferFlags {
   kFlagDataCorrupt = (1<<8)
 };
 
+struct PlaneInfo {
+  uint32_t stride;
+  uint32_t scanline;
+  uint32_t width;
+  uint32_t height;
+  uint32_t offset; /**< offset in bytes */ //offset in bytes
+  uint32_t size;   /**< size of plane */ // size of plane
+
+  ::std::string ToString() const {
+    ::std::stringstream stream;
+    stream << "stride[" << stride << "] ";
+    stream << "scanline[" << scanline << "] ";
+    stream << "width[" << width << "] ";
+    stream << "height[" << height << "] ";
+    stream << "offset[" << offset << "] ";
+    stream << "size[" << size << "] ";
+    return stream.str();
+  }
+};
+
 struct BufferDescriptor {
   void*    data;
   int32_t  fd;
@@ -66,7 +103,7 @@ struct BufferDescriptor {
   uint32_t capacity;
   uint32_t offset;
   uint64_t timestamp;
-  uint32_t flag;
+  uint32_t flags;
 
   ::std::string ToString() const {
     ::std::stringstream stream;
@@ -77,8 +114,26 @@ struct BufferDescriptor {
     stream << "capacity[" << capacity << "] ";
     stream << "offset[" << offset << "] ";
     stream << "timestamp[" << timestamp << "] ";
-    stream << "flag[" << ::std::setbase(16) << flag << ::std::setbase(10)
+    stream << "flags[" << ::std::setbase(16) << flags << ::std::setbase(10)
            << "]";
+    return stream.str();
+  }
+};
+
+struct CameraBufferMetaData {
+  BufferFormat format;
+  uint32_t  num_planes;
+  PlaneInfo plane_info[MAX_PLANE];
+
+  ::std::string ToString() const {
+    ::std::stringstream stream;
+    stream << "format["
+           << static_cast<::std::underlying_type<BufferFormat>::type>(format)
+           << "] ";
+    stream << "num_planes[" << num_planes << "] ";
+    stream << "plane_info[";
+    for (uint32_t idx = 0; idx < num_planes; ++idx)
+      stream << "[" << plane_info[idx].ToString() << "], ";
     return stream.str();
   }
 };

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, 2020, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016, 2020-2021, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -66,7 +66,7 @@ class RecorderClient {
   status_t Disconnect();
 
   status_t StartCamera(const uint32_t camera_id,
-                       const float frame_rate,
+                       const float framerate,
                        const CameraExtraParam& extra_param,
                        const CameraResultCb &result_cb = nullptr);
 
@@ -85,15 +85,15 @@ class RecorderClient {
   status_t ResumeSession(const uint32_t session_id);
 
   status_t CreateAudioTrack(const uint32_t session_id, const uint32_t track_id,
-                            const AudioTrackCreateParam& param,
+                            const AudioTrackParam& param,
                             const TrackCb& cb);
 
   status_t CreateVideoTrack(const uint32_t session_id, const uint32_t track_id,
-                            const VideoTrackCreateParam& param,
+                            const VideoTrackParam& param,
                             const TrackCb& cb);
 
   status_t CreateVideoTrack(const uint32_t session_id, const uint32_t track_id,
-                            const VideoTrackCreateParam& param,
+                            const VideoTrackParam& param,
                             const VideoExtraParam& extra_param,
                             const TrackCb& cb);
 
@@ -103,13 +103,13 @@ class RecorderClient {
 
   status_t SetAudioTrackParam(const uint32_t session_id,
                               const uint32_t track_id,
-                              CodecParamType type, const void *param,
-                              size_t param_size);
+                              AudioParam type, const void *param,
+                              size_t size);
 
   status_t SetVideoTrackParam(const uint32_t session_id,
                               const uint32_t track_id,
-                              CodecParamType type, const void *param,
-                              size_t param_size);
+                              VideoParam type, const void *param,
+                              size_t size);
 
   status_t DeleteAudioTrack(const uint32_t session_id,
                             const uint32_t track_id);

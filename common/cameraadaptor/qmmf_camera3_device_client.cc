@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  * Not a Contribution.
  */
 
@@ -45,6 +45,7 @@
 #define FORCE_SENSORMODE_ENABLE               (1 << 24)
 #define EIS_ENABLE                            (0xF200)
 #define LDC_ENABLE                            (0xF800)
+#define LCAC_ENABLE                           (0x100000)
 #endif
 
 // Convenience macros for transitioning to the error state
@@ -2134,6 +2135,10 @@ uint32_t Camera3DeviceClient::GetOpMode() {
   // Handle LDC mode
   if (cam_feature_flags_ & static_cast<uint32_t>(CamFeatureFlag::kLDC)) {
     operation_mode |= LDC_ENABLE;
+  }
+  // Handle LCAC mode
+  if (cam_feature_flags_ & static_cast<uint32_t>(CamFeatureFlag::kLCAC)) {
+    operation_mode |= LCAC_ENABLE;
   }
   /*
    * Below two features are mutually exclusive:

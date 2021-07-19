@@ -14,7 +14,6 @@ include $(CLEAR_VARS)
 include $(QMMF_SDK_TOP_SRCDIR)/common.mk
 
 LOCAL_C_INCLUDES += $(TOP)/system/media/camera/include
-LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/mm-core/omxcore
 LOCAL_C_INCLUDES += $(MEDIA_HAL_PATH)
 
 LOCAL_SRC_FILES := qmmf_recorder.cc

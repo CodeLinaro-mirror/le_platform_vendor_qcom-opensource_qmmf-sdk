@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, 2021, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -68,7 +68,9 @@ class AudioSource {
    *  @param [in] params Given parameters for audio path configuration.
    *  @returns Status indicating success or failure.
    */
-  status_t CreateTrackSource(const uint32_t track_id, AudioTrackParams& params);
+  status_t CreateTrackSource(const uint32_t track_id,
+                             const AudioTrackParam& params,
+                             const BnBufferCallback& cb);
 
   /*! @brief Deletes an IAudioTrackSource-implemented instance.
    *

@@ -49,14 +49,15 @@
 #include <hardware/camera3.h>
 #endif
 
+#include "qmmf-sdk/qmmf_recorder_params.h"
 #include "common/utils/qmmf_log.h"
 #include "common/utils/qmmf_condition.h"
 #include "qmmf_memory_interface.h"
-#include "qmmf-sdk/qmmf_codec.h"
 
 namespace qmmf {
 
 using namespace android;
+using namespace recorder;
 
 typedef int32_t status_t;
 
@@ -75,11 +76,6 @@ struct StreamBuffer {
   int32_t metafd;
   void *data;
   uint32_t flags;
-  uint32_t filled_length;
-  uint32_t frame_length;
-  uint32_t pending_encodes_per_frame;
-  uint32_t encodes_per_frame_count;
-  bool needs_return;
   bool second_thumb;
 
   ::std::string ToString() const {
@@ -92,10 +88,6 @@ struct StreamBuffer {
     stream << "timestamp[" << timestamp << "] ";
     stream << "flags[" << ::std::setbase(16) << flags << ::std::setbase(10)
            << "]";
-    stream << "pending_encodes_per_frame[" << pending_encodes_per_frame << "] ";
-    stream << "encodes_per_frame_count[" << encodes_per_frame_count << "] ";
-    stream << "needs_return[" << ::std::boolalpha << needs_return
-           << ::std::noboolalpha << "] ";
     stream << "second_thumb[" << second_thumb << "] ";
     return stream.str();
   }
@@ -119,7 +111,6 @@ class Common {
         break;
       case BufferFormat::kNV12UBWC:
       case BufferFormat::kNV12:
-      case BufferFormat::kNV12Encodable:
         return HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
         break;
       case BufferFormat::kNV21:
@@ -227,9 +218,6 @@ class Common {
       case ImageFormat::kBayerRDI16BIT:
         return BufferFormat::kRAW16;
         break;
-      case ImageFormat::kNV12Encodable:
-        return BufferFormat::kNV12Encodable;
-        break;
       default:
         /* Format not supported */
         QMMF_ERROR("%s: error: unsupported format %d (0x%x)", __func__,
@@ -247,10 +235,6 @@ class Common {
    **/
   static BufferFormat FromVideoToQmmfFormat(const VideoFormat& format) {
     switch (format) {
-      case VideoFormat::kAVC:
-      case VideoFormat::kHEVC:
-        return BufferFormat::kNV12UBWC;
-        break;
       case VideoFormat::kNV12:
         return BufferFormat::kNV12;
         break;
@@ -635,7 +619,6 @@ class Common {
         break;
 
       case BufferFormat::kNV12:
-      case BufferFormat::kNV12Encodable:
       case BufferFormat::kNV12UBWC:
       case BufferFormat::kNV21:
       case BufferFormat::kNV16:

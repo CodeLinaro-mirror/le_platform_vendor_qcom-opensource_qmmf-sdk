@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2019, 2021, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -38,9 +38,6 @@
 #include <assert.h>
 
 #include "recorder/test/audio/qmmf_recorder_test.h"
-#include "recorder/test/audio/qmmf_recorder_test_wav.h"
-#include "recorder/test/audio/qmmf_recorder_test_amr.h"
-#include "recorder/test/audio/qmmf_recorder_test_mpegh.h"
 #include "common/utils/qmmf_log.h"
 
 using ::std::mutex;
@@ -284,321 +281,6 @@ status_t RecorderTest::CreateAudioPCMA2DPTrack() {
   return ret;
 }
 
-status_t RecorderTest::CreateAudioAACTrack() {
-  TEST_INFO("%s: Enter", __func__);
-
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [&] ( EventType event_type, void *event_data,
-      size_t event_data_size) { SessionCallbackHandler(event_type,
-      event_data, event_data_size); };
-
-  uint32_t session_id;
-  auto ret = recorder_.CreateSession(session_status_cb, &session_id);
-  TEST_INFO("%s: sessions_id = %d", __func__, session_id);
-
-  std::vector<TestTrack*> tracks;
-
-  TestTrack *audio_aac_track = new TestTrack(this);
-  TrackInfo info{};
-  info.track_id   = 101;
-  info.track_type = TrackType::kAudioAAC;
-  info.session_id = session_id;
-  info.device_id = static_cast<DeviceId>(AudioDeviceId::kBuiltIn);
-
-  ret = audio_aac_track->SetUp(info);
-  assert(ret == 0);
-  tracks.push_back(audio_aac_track);
-  sessions_.insert(std::make_pair(session_id, tracks));
-
-  TEST_INFO("%s: Exit", __func__);
-  return ret;
-}
-
-status_t RecorderTest::CreateAudio2AACTrack() {
-  TEST_INFO("%s: Enter", __func__);
-
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [&] ( EventType event_type, void *event_data,
-      size_t event_data_size) { SessionCallbackHandler(event_type,
-      event_data, event_data_size); };
-
-  uint32_t session_id;
-  auto ret = recorder_.CreateSession(session_status_cb, &session_id);
-  TEST_INFO("%s: sessions_id = %d", __func__, session_id);
-
-  std::vector<TestTrack*> tracks;
-
-  TestTrack *audio_aac_track1 = new TestTrack(this);
-  TrackInfo info{};
-  info.track_id   = 101;
-  info.track_type = TrackType::kAudioAAC;
-  info.session_id = session_id;
-  info.device_id = static_cast<DeviceId>(AudioDeviceId::kBuiltIn);
-
-  ret = audio_aac_track1->SetUp(info);
-  assert(ret == 0);
-  tracks.push_back(audio_aac_track1);
-
-  TestTrack *audio_aac_track2 = new TestTrack(this);
-  info.track_id   = 102;
-
-  ret = audio_aac_track2->SetUp(info);
-  assert(ret == 0);
-  tracks.push_back(audio_aac_track2);
-  sessions_.insert(std::make_pair(session_id, tracks));
-
-  TEST_INFO("%s: Exit", __func__);
-  return ret;
-}
-
-status_t RecorderTest::CreateAudioPCMAACTrack() {
-  TEST_INFO("%s: Enter", __func__);
-
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [&] ( EventType event_type, void *event_data,
-      size_t event_data_size) { SessionCallbackHandler(event_type,
-      event_data, event_data_size); };
-
-  uint32_t session_id;
-  auto ret = recorder_.CreateSession(session_status_cb, &session_id);
-  TEST_INFO("%s: sessions_id = %d", __func__, session_id);
-
-  std::vector<TestTrack*> tracks;
-
-  TestTrack *audio_pcm_track = new TestTrack(this);
-  TrackInfo info{};
-  info.track_id   = 101;
-  info.track_type = TrackType::kAudioPCM;
-  info.session_id = session_id;
-  info.device_id = static_cast<DeviceId>(AudioDeviceId::kBuiltIn);
-
-  ret = audio_pcm_track->SetUp(info);
-  assert(ret == 0);
-  tracks.push_back(audio_pcm_track);
-
-  TestTrack *audio_aac_track = new TestTrack(this);
-  info.track_id   = 102;
-  info.track_type = TrackType::kAudioAAC;
-
-  ret = audio_aac_track->SetUp(info);
-  assert(ret == 0);
-  tracks.push_back(audio_aac_track);
-  sessions_.insert(std::make_pair(session_id, tracks));
-
-  TEST_INFO("%s: Exit", __func__);
-  return ret;
-}
-
-status_t RecorderTest::CreateAudioAMRTrack() {
-  TEST_INFO("%s: Enter", __func__);
-
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [&] ( EventType event_type, void *event_data,
-      size_t event_data_size) { SessionCallbackHandler(event_type,
-      event_data, event_data_size); };
-
-  uint32_t session_id;
-  auto ret = recorder_.CreateSession(session_status_cb, &session_id);
-  TEST_INFO("%s: sessions_id = %d", __func__, session_id);
-
-  std::vector<TestTrack*> tracks;
-
-  TestTrack *audio_amr_track = new TestTrack(this);
-  TrackInfo info{};
-  info.track_id   = 101;
-  info.track_type = TrackType::kAudioAMR;
-  info.session_id = session_id;
-  info.device_id = static_cast<DeviceId>(AudioDeviceId::kBuiltIn);
-
-  ret = audio_amr_track->SetUp(info);
-  assert(ret == 0);
-  tracks.push_back(audio_amr_track);
-  sessions_.insert(std::make_pair(session_id, tracks));
-
-  TEST_INFO("%s: Exit", __func__);
-  return ret;
-}
-
-status_t RecorderTest::CreateAudio2AMRTrack() {
-  TEST_INFO("%s: Enter", __func__);
-
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [&] ( EventType event_type, void *event_data,
-      size_t event_data_size) { SessionCallbackHandler(event_type,
-      event_data, event_data_size); };
-
-  uint32_t session_id;
-  auto ret = recorder_.CreateSession(session_status_cb, &session_id);
-  TEST_INFO("%s: sessions_id = %d", __func__, session_id);
-
-  std::vector<TestTrack*> tracks;
-
-  TestTrack *audio_amr_track1 = new TestTrack(this);
-  TrackInfo info{};
-  info.track_id   = 101;
-  info.track_type = TrackType::kAudioAMR;
-  info.session_id = session_id;
-  info.device_id = static_cast<DeviceId>(AudioDeviceId::kBuiltIn);
-
-  ret = audio_amr_track1->SetUp(info);
-  assert(ret == 0);
-  tracks.push_back(audio_amr_track1);
-
-  TestTrack *audio_amr_track2 = new TestTrack(this);
-  info.track_id   = 102;
-
-  ret = audio_amr_track2->SetUp(info);
-  assert(ret == 0);
-  tracks.push_back(audio_amr_track2);
-  sessions_.insert(std::make_pair(session_id, tracks));
-
-  TEST_INFO("%s: Exit", __func__);
-  return ret;
-}
-
-status_t RecorderTest::CreateAudioPCMAMRTrack() {
-  TEST_INFO("%s: Enter", __func__);
-
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [&] ( EventType event_type, void *event_data,
-      size_t event_data_size) { SessionCallbackHandler(event_type,
-      event_data, event_data_size); };
-
-  uint32_t session_id;
-  auto ret = recorder_.CreateSession(session_status_cb, &session_id);
-  TEST_INFO("%s: sessions_id = %d", __func__, session_id);
-
-  std::vector<TestTrack*> tracks;
-
-  TestTrack *audio_pcm_track = new TestTrack(this);
-  TrackInfo info{};
-  info.track_id   = 101;
-  info.track_type = TrackType::kAudioPCM;
-  info.session_id = session_id;
-  info.device_id = static_cast<DeviceId>(AudioDeviceId::kBuiltIn);
-
-  ret = audio_pcm_track->SetUp(info);
-  assert(ret == 0);
-  tracks.push_back(audio_pcm_track);
-
-  TestTrack *audio_amr_track = new TestTrack(this);
-  info.track_id   = 102;
-  info.track_type = TrackType::kAudioAMR;
-
-  ret = audio_amr_track->SetUp(info);
-  assert(ret == 0);
-  tracks.push_back(audio_amr_track);
-  sessions_.insert(std::make_pair(session_id, tracks));
-
-  TEST_INFO("%s: Exit", __func__);
-  return ret;
-}
-
-status_t RecorderTest::CreateAudioG711Track() {
-  TEST_INFO("%s: Enter", __func__);
-
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [&] ( EventType event_type, void *event_data,
-      size_t event_data_size) { SessionCallbackHandler(event_type,
-      event_data, event_data_size); };
-
-  uint32_t session_id;
-  auto ret = recorder_.CreateSession(session_status_cb, &session_id);
-  TEST_INFO("%s: sessions_id = %d", __func__, session_id);
-
-  std::vector<TestTrack*> tracks;
-
-  TestTrack *audio_g711_track = new TestTrack(this);
-  TrackInfo info{};
-  info.track_id   = 101;
-  info.track_type = TrackType::kAudioG711;
-  info.session_id = session_id;
-  info.device_id = static_cast<DeviceId>(AudioDeviceId::kBuiltIn);
-
-  ret = audio_g711_track->SetUp(info);
-  assert(ret == 0);
-  tracks.push_back(audio_g711_track);
-  sessions_.insert(std::make_pair(session_id, tracks));
-
-  TEST_INFO("%s: Exit", __func__);
-  return ret;
-}
-
-status_t RecorderTest::CreateAudio2G711Track() {
-  TEST_INFO("%s: Enter", __func__);
-
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [&] ( EventType event_type, void *event_data,
-      size_t event_data_size) { SessionCallbackHandler(event_type,
-      event_data, event_data_size); };
-
-  uint32_t session_id;
-  auto ret = recorder_.CreateSession(session_status_cb, &session_id);
-  TEST_INFO("%s: sessions_id = %d", __func__, session_id);
-
-  std::vector<TestTrack*> tracks;
-
-  TestTrack *audio_g711_track1 = new TestTrack(this);
-  TrackInfo info{};
-  info.track_id   = 101;
-  info.track_type = TrackType::kAudioG711;
-  info.session_id = session_id;
-  info.device_id = static_cast<DeviceId>(AudioDeviceId::kBuiltIn);
-
-  ret = audio_g711_track1->SetUp(info);
-  assert(ret == 0);
-  tracks.push_back(audio_g711_track1);
-
-  TestTrack *audio_g711_track2 = new TestTrack(this);
-  info.track_id   = 102;
-
-  ret = audio_g711_track2->SetUp(info);
-  assert(ret == 0);
-  tracks.push_back(audio_g711_track2);
-  sessions_.insert(std::make_pair(session_id, tracks));
-
-  TEST_INFO("%s: Exit", __func__);
-  return ret;
-}
-
-status_t RecorderTest::CreateAudioPCMG711Track() {
-  TEST_INFO("%s: Enter", __func__);
-
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [&] ( EventType event_type, void *event_data,
-      size_t event_data_size) { SessionCallbackHandler(event_type,
-      event_data, event_data_size); };
-
-  uint32_t session_id;
-  auto ret = recorder_.CreateSession(session_status_cb, &session_id);
-  TEST_INFO("%s: sessions_id = %d", __func__, session_id);
-
-  std::vector<TestTrack*> tracks;
-
-  TestTrack *audio_pcm_track = new TestTrack(this);
-  TrackInfo info{};
-  info.track_id   = 101;
-  info.track_type = TrackType::kAudioPCM;
-  info.session_id = session_id;
-  info.device_id = static_cast<DeviceId>(AudioDeviceId::kBuiltIn);
-
-  ret = audio_pcm_track->SetUp(info);
-  assert(ret == 0);
-  tracks.push_back(audio_pcm_track);
-
-  TestTrack *audio_g711_track = new TestTrack(this);
-  info.track_id   = 102;
-  info.track_type = TrackType::kAudioG711;
-
-  ret = audio_g711_track->SetUp(info);
-  assert(ret == 0);
-  tracks.push_back(audio_g711_track);
-  sessions_.insert(std::make_pair(session_id, tracks));
-
-  TEST_INFO("%s: Exit", __func__);
-  return ret;
-}
-
 status_t RecorderTest::CreateAudioPCMFluenceTrack() {
   TEST_INFO("%s: Enter", __func__);
 
@@ -655,36 +337,6 @@ status_t RecorderTest::CreateAudioPCMAmbisonicTrack() {
   ret = audio_pcm_track->SetUp(info);
   assert(ret == 0);
   tracks.push_back(audio_pcm_track);
-  sessions_.insert(std::make_pair(session_id, tracks));
-
-  TEST_INFO("%s: Exit", __func__);
-  return ret;
-}
-
-status_t RecorderTest::CreateAudioMPEGHTrack() {
-  TEST_INFO("%s: Enter", __func__);
-
-  SessionCb session_status_cb;
-  session_status_cb.event_cb = [&] ( EventType event_type, void *event_data,
-      size_t event_data_size) { SessionCallbackHandler(event_type,
-      event_data, event_data_size); };
-
-  uint32_t session_id;
-  auto ret = recorder_.CreateSession(session_status_cb, &session_id);
-  TEST_INFO("%s: sessions_id = %d", __func__, session_id);
-
-  std::vector<TestTrack*> tracks;
-
-  TestTrack *audio_mpegh_track = new TestTrack(this);
-  TrackInfo info{};
-  info.track_id   = 101;
-  info.track_type = TrackType::kAudioMPEGH;
-  info.session_id = session_id;
-  info.device_id = static_cast<DeviceId>(AudioDeviceId::kBuiltIn);
-
-  ret = audio_mpegh_track->SetUp(info);
-  assert(ret == 0);
-  tracks.push_back(audio_mpegh_track);
   sessions_.insert(std::make_pair(session_id, tracks));
 
   TEST_INFO("%s: Exit", __func__);
@@ -801,7 +453,7 @@ status_t TestTrack::SetUp(TrackInfo& track_info) {
   assert(recorder_test_ != nullptr);
 
   // Create AudioTrack
-  AudioTrackCreateParam audio_track_params{};
+  AudioTrackParam audio_track_params{};
   audio_track_params.in_devices_num = 0;
   audio_track_params.in_devices[audio_track_params.in_devices_num++] =
       track_info.device_id;
@@ -825,28 +477,6 @@ status_t TestTrack::SetUp(TrackInfo& track_info) {
       ::std::string("record_ambisonic").copy(audio_track_params.profile,
                     strlen("record_ambisonic"));
       audio_track_params.channels = 4;
-      break;
-    case TrackType::kAudioAAC:
-      audio_track_params.format = AudioFormat::kAAC;
-      audio_track_params.codec_params.aac.format = AACFormat::kADTS;
-      audio_track_params.codec_params.aac.mode = AACMode::kAALC;
-      break;
-    case TrackType::kAudioAMR:
-      audio_track_params.format = AudioFormat::kAMR;
-      audio_track_params.codec_params.amr.isWAMR = false;
-      audio_track_params.sample_rate = 8000;
-      break;
-    case TrackType::kAudioG711:
-      audio_track_params.format = AudioFormat::kG711;
-      audio_track_params.codec_params.g711.mode = G711Mode::kALaw;
-      audio_track_params.sample_rate = 8000;
-      break;
-    case TrackType::kAudioMPEGH:
-      audio_track_params.format = AudioFormat::kMPEGH;
-      ::std::string("record_ambisonic").copy(audio_track_params.profile,
-                    strlen("record_ambisonic"));
-      audio_track_params.channels = 4;
-      audio_track_params.codec_params.mpegh.bit_rate = 307200;
       break;
     default:
       assert(0);
@@ -880,24 +510,6 @@ status_t TestTrack::SetUp(TrackInfo& track_info) {
                                   track_info.track_id, audio_track_params);
       assert(ret == NO_ERROR);
       break;
-    case TrackType::kAudioAAC:
-      // Configure .aac output.
-      ret = aac_output_.Configure(kDefaultAudioFilenamePrefix,
-                                  track_info.track_id, audio_track_params);
-      assert(ret == NO_ERROR);
-      break;
-    case TrackType::kAudioAMR:
-      // Configure .amr output.
-      ret = amr_output_.Configure(kDefaultAudioFilenamePrefix,
-                                  track_info.track_id, audio_track_params);
-      assert(ret == NO_ERROR);
-      break;
-    case TrackType::kAudioMPEGH:
-      // Configure .mhas output.
-      ret = mpegh_output_.Configure(kDefaultAudioFilenamePrefix,
-                                  track_info.track_id, audio_track_params);
-      assert(ret == NO_ERROR);
-      break;
     default:
       assert(0);
       break;
@@ -920,15 +532,6 @@ status_t TestTrack::Prepare() {
       track_info_.track_type == TrackType::kAudioG711) {
     ret = wav_output_.Open();
     assert(ret == NO_ERROR);
-  } else if (track_info_.track_type == TrackType::kAudioAAC) {
-    ret = aac_output_.Open();
-    assert(ret == NO_ERROR);
-  } else if (track_info_.track_type == TrackType::kAudioAMR) {
-    ret = amr_output_.Open();
-    assert(ret == NO_ERROR);
-  } else if (track_info_.track_type == TrackType::kAudioMPEGH) {
-    ret = mpegh_output_.Open();
-    assert(ret == NO_ERROR);
   }
   TEST_DBG("%s: Exit", __func__);
   return ret;
@@ -945,15 +548,6 @@ status_t TestTrack::CleanUp() {
     case TrackType::kAudioPCMAS:
     case TrackType::kAudioG711:
       wav_output_.Close();
-      break;
-    case TrackType::kAudioAAC:
-      aac_output_.Close();
-      break;
-    case TrackType::kAudioAMR:
-      amr_output_.Close();
-      break;
-    case TrackType::kAudioMPEGH:
-      mpegh_output_.Close();
       break;
     default:
       break;
@@ -983,30 +577,6 @@ void TestTrack::TrackDataCB(uint32_t track_id, std::vector<BufferDescriptor>
     case TrackType::kAudioG711:
       for (const BufferDescriptor& buffer : buffers) {
         ret = wav_output_.Write(buffer);
-        assert(ret == 0);
-      }
-    break;
-    case TrackType::kAudioAAC:
-      for (const BufferDescriptor& buffer : buffers) {
-        if (buffer.flag & static_cast<uint32_t>(BufferFlags::kFlagEOS))
-          break;
-        ret = aac_output_.Write(buffer);
-        assert(ret == 0);
-      }
-    break;
-    case TrackType::kAudioAMR:
-      for (const BufferDescriptor& buffer : buffers) {
-        if (buffer.flag & static_cast<uint32_t>(BufferFlags::kFlagEOS))
-          break;
-        ret = amr_output_.Write(buffer);
-        assert(ret == 0);
-      }
-    break;
-    case TrackType::kAudioMPEGH:
-      for (const BufferDescriptor& buffer : buffers) {
-        if (buffer.flag & static_cast<uint32_t>(BufferFlags::kFlagEOS))
-          break;
-        ret = mpegh_output_.Write(buffer);
         assert(ret == 0);
       }
     break;
@@ -1041,30 +611,10 @@ void CmdMenu::PrintMenu() {
   printf("   %c. Create Session: (PCM mono,16,48KHz + A2DP mono,16,48KHz)\n",
       CmdMenu::CREATE_PCM_A2DP_AUD_SESSION_CMD);
 #endif
-  printf("   %c. Create Session: (AAC mono)\n",
-      CmdMenu::CREATE_AAC_AUD_SESSION_CMD);
-  printf("   %c. Create Session: (AAC mono + AAC mono)\n",
-      CmdMenu::CREATE_2AAC_AUD_SESSION_CMD);
-  printf("   %c. Create Session: (PCM mono,16,48KHz + AAC mono)\n",
-    CmdMenu::CREATE_PCM_AAC_AUD_SESSION_CMD);
-  printf("   %c. Create Session: (AMR mono)\n",
-      CmdMenu::CREATE_AMR_AUD_SESSION_CMD);
-  printf("   %c. Create Session: (AMR mono + AMR mono)\n",
-      CmdMenu::CREATE_2AMR_AUD_SESSION_CMD);
-  printf("   %c. Create Session: (PCM mono,16,8KHz + AMR mono)\n",
-      CmdMenu::CREATE_PCM_AMR_AUD_SESSION_CMD);
-  printf("   %c. Create Session: (G711 mono)\n",
-      CmdMenu::CREATE_G7ll_AUD_SESSION_CMD);
-  printf("   %c. Create Session: (G711 mono + G711 mono)\n",
-      CmdMenu::CREATE_2G7ll_AUD_SESSION_CMD);
-  printf("   %c. Create Session: (PCM mono,16,8KHz + G711 mono)\n",
-      CmdMenu::CREATE_PCM_G7ll_AUD_SESSION_CMD);
   printf("   %c. Create Session: (PCM mono,16,16KHz,FluencePro)\n",
       CmdMenu::CREATE_PCMFL_AUD_SESSION_CMD);
   printf("   %c. Create Session: (PCM 4ch,16,48KHz,Ambisonic)\n",
       CmdMenu::CREATE_PCMAS_AUD_SESSION_CMD);
-  printf("   %c. Create Session: (MPEGH 4ch,16,48KHz)\n",
-      CmdMenu::CREATE_MPEGH_AUD_SESSION_CMD);
   printf("   %c. Start Session\n", CmdMenu::START_SESSION_CMD);
   printf("   %c. Stop Session\n", CmdMenu::STOP_SESSION_CMD);
   printf("   %c. Pause Session\n", CmdMenu::PAUSE_SESSION_CMD);
@@ -1130,52 +680,12 @@ int main(int argc,char *argv[]) {
       }
       break;
 #endif
-      case CmdMenu::CREATE_AAC_AUD_SESSION_CMD: {
-          test_context.CreateAudioAACTrack();
-      }
-      break;
-      case CmdMenu::CREATE_2AAC_AUD_SESSION_CMD: {
-          test_context.CreateAudio2AACTrack();
-      }
-      break;
-      case CmdMenu::CREATE_PCM_AAC_AUD_SESSION_CMD: {
-          test_context.CreateAudioPCMAACTrack();
-      }
-      break;
-      case CmdMenu::CREATE_AMR_AUD_SESSION_CMD: {
-          test_context.CreateAudioAMRTrack();
-      }
-      break;
-      case CmdMenu::CREATE_2AMR_AUD_SESSION_CMD: {
-          test_context.CreateAudio2AMRTrack();
-      }
-      break;
-      case CmdMenu::CREATE_PCM_AMR_AUD_SESSION_CMD: {
-          test_context.CreateAudioPCMAMRTrack();
-      }
-      break;
-      case CmdMenu::CREATE_G7ll_AUD_SESSION_CMD: {
-          test_context.CreateAudioG711Track();
-      }
-      break;
-      case CmdMenu::CREATE_2G7ll_AUD_SESSION_CMD: {
-          test_context.CreateAudio2G711Track();
-      }
-      break;
-      case CmdMenu::CREATE_PCM_G7ll_AUD_SESSION_CMD: {
-          test_context.CreateAudioPCMG711Track();
-      }
-      break;
       case CmdMenu::CREATE_PCMFL_AUD_SESSION_CMD: {
           test_context.CreateAudioPCMFluenceTrack();
       }
       break;
       case CmdMenu::CREATE_PCMAS_AUD_SESSION_CMD: {
           test_context.CreateAudioPCMAmbisonicTrack();
-      }
-      break;
-      case CmdMenu::CREATE_MPEGH_AUD_SESSION_CMD: {
-          test_context.CreateAudioMPEGHTrack();
       }
       break;
       case CmdMenu::START_SESSION_CMD: {

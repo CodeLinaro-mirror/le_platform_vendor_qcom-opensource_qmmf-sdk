@@ -4,10 +4,7 @@ project(qmmf_recorder_atest)
 
 add_executable(qmmf_recorder_atest
 qmmf_recorder_test.cc
-qmmf_recorder_test_wav.cc
-qmmf_recorder_test_aac.cc
-qmmf_recorder_test_amr.cc
-qmmf_recorder_test_mpegh.cc)
+qmmf_recorder_test_wav.cc)
 add_dependencies(qmmf_recorder_atest qmmf_recorder_client qmmf_utils)
 
 target_include_directories(qmmf_recorder_atest

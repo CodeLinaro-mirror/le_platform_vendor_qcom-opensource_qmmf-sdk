@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+* Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -32,8 +32,8 @@
 
 #pragma once
 
+#include "qmmf_recorder_params.h"
 #include "qmmf_recorder_extra_param.h"
-#include "qmmf-sdk/qmmf_avcodec_params.h"
 
 namespace qmmf {
 
@@ -42,11 +42,8 @@ namespace recorder {
 enum ParamTag {
   QMMF_JPEG_CAPTURE_SETUP = (1 << 16),
   QMMF_SOURCE_VIDEO_TRACK_ID,
-  QMMF_VIDEO_TIMELAPSE_INTERVAL,
   QMMF_IMAGE_THUMBNAIL,
   QMMF_SNAPSHOT_TYPE,
-  QMMF_VIDEO_WAIT_AEC_MODE,
-  QMMF_VIDEO_ROTATE,
   QMMF_EXIF,
   QMMF_VIDEO_HDR_MODE,
   QMMF_TRACK_CROP,
@@ -54,16 +51,9 @@ enum ParamTag {
   QMMF_EIS,
   QMMF_PARTIAL_METADATA,
   QMMF_CAMERA_SLAVE_MODE,
-  QMMF_CPU_CACHE,
   QMMF_USE_LINKED_TRACK_IN_SLAVE_MODE,
   QMMF_LDC,
-};
-
-enum class RotationFlags {
-  kNone,
-  kRotate90,
-  kRotate180,
-  kRotate270,
+  QMMF_LCAC,
 };
 
 enum class SnapshotMode {
@@ -114,13 +104,6 @@ struct SourceVideoTrack : DataTagBase {
       source_track_id(-1) {}
 };
 
-struct VideoTimeLapse : DataTagBase {
-  uint32_t time_interval;  // Default: 33ms
-  VideoTimeLapse()
-    : DataTagBase(QMMF_VIDEO_TIMELAPSE_INTERVAL),
-      time_interval(33) {}
-};
-
 struct ImageThumbnail : DataTagBase {
   uint32_t width;   // Default: 0
   uint32_t height;  // Default: 0
@@ -151,24 +134,6 @@ struct SnapshotType : DataTagBase {
       zsl_queue_params{},
       zsl_image_param{} {}
 
-};
-
-struct VideoWaitAECMode : DataTagBase {
-  /**< Wait for initial AE, right after start of video tracks to converge */
-  /**< before passing the frames to the client. */
-  bool enable;     // Default: false
-
-  VideoWaitAECMode()
-    : DataTagBase(QMMF_VIDEO_WAIT_AEC_MODE),
-      enable(false) {}
-};
-
-struct VideoRotate : DataTagBase {
-  RotationFlags flags; // Default: TransformFlags::kNone
-  VideoRotate()
-    : DataTagBase(QMMF_VIDEO_ROTATE),
-      flags(RotationFlags::kNone) {
-  }
 };
 
 struct ImageExif : DataTagBase {
@@ -250,16 +215,6 @@ struct CameraSlaveMode : DataTagBase {
   }
 };
 
-struct SystemCache : DataTagBase {
-  /**< Add support for client to enable/disable system cache. */
-  /**< Default: True*/
-  bool enable;
-  SystemCache() :
-    DataTagBase(QMMF_CPU_CACHE),
-    enable(true) {
-  }
-};
-
 struct LinkedTrackInSlaveMode : DataTagBase {
   /**< Add support for client to enable/disable linked track in slave mode. */
   /**< Default: True*/
@@ -277,6 +232,16 @@ struct LDCMode : DataTagBase {
   bool enable;
   LDCMode() :
     DataTagBase(QMMF_LDC), enable(false) {
+  }
+};
+
+struct LCACMode : DataTagBase {
+  /**< Add support for client to enable/disable */
+  /**< LCAC (Lateral Chromatic Aberration Correction). */
+  /**< Default: False */
+  bool enable;
+  LCACMode() :
+    DataTagBase(QMMF_LCAC), enable(false) {
   }
 };
 
