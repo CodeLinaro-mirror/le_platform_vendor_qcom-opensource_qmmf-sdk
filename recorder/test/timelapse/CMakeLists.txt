@@ -1,6 +1,4 @@
 cmake_minimum_required(VERSION 3.1)
-if (NOT DISABLE_DISPLAY_CLIENT)
-
 project(qmmf_recorder_timelapse)
 
 if (NOT RECORDER_TIMELAPSE_ENABLED)
@@ -23,5 +21,4 @@ install(TARGETS qmmf_recorder_timelapse DESTINATION bin OPTIONAL)
 target_link_libraries(qmmf_recorder_timelapse log cutils utils camera_metadata qmmf_recorder_client qmmf_utils)
 if(NOT CAMERA_CLIENT_DISABLED)
 target_link_libraries(qmmf_recorder_timelapse camera_client)
-endif()
 endif()

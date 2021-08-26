@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2017,2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2017, 2019, 2021, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -46,11 +46,10 @@
 #include "include/qmmf-sdk/qmmf_recorder_params.h"
 #include "common/utils/qmmf_log.h"
 
-using ::qmmf::AudioFormat;
 using ::qmmf::BufferDescriptor;
 using ::qmmf::BufferFlags;
-using ::qmmf::G711Mode;
-using ::qmmf::recorder::AudioTrackCreateParam;
+using ::qmmf::recorder::AudioFormat;
+using ::qmmf::recorder::AudioTrackParam;
 using ::std::ios;
 using ::std::lock_guard;
 using ::std::mutex;
@@ -82,7 +81,7 @@ RecorderTestWav::~RecorderTestWav() {
 
 int32_t RecorderTestWav::Configure(const string& filename_prefix,
                                    const uint32_t track_id,
-                                   const AudioTrackCreateParam& params) {
+                                   const AudioTrackParam& params) {
   QMMF_DEBUG("%s() TRACE", __func__);
   QMMF_VERBOSE("%s() INPARAM: filename_prefix[%s]", __func__,
                filename_prefix.c_str());
@@ -91,8 +90,7 @@ int32_t RecorderTestWav::Configure(const string& filename_prefix,
                params.ToString().c_str());
   lock_guard<mutex> lock(lock_);
 
-  if (params.format != AudioFormat::kPCM &&
-      params.format != AudioFormat::kG711) {
+  if (params.format != AudioFormat::kPCM) {
     QMMF_ERROR("%s() non-WAV format given: %d", __func__,
                static_cast<int>(params.format));
     return -EINVAL;
@@ -168,7 +166,7 @@ int32_t RecorderTestWav::Write(const BufferDescriptor& buffer) {
   }
 
   // finalize the file
-  if (buffer.flag & static_cast<uint32_t>(BufferFlags::kFlagEOS) ||
+  if (buffer.flags & static_cast<uint32_t>(BufferFlags::kFlagEOS) ||
       close_requested_ == true) {
     output_.seekp(0, ios::beg);
     if (params_.format == AudioFormat::kPCM)
@@ -229,10 +227,7 @@ void RecorderTestWav::WriteG711Header() {
   header.chunk_header.format_id = kIdFmt;
   header.chunk_header.format_size = sizeof header.chunk_format;
 
-  if (params_.codec_params.g711.mode == G711Mode::kALaw)
-    header.chunk_format.audio_format = kFormatALaw;
-  else
-    header.chunk_format.audio_format = kFormatMuLaw;
+  header.chunk_format.audio_format = kFormatMuLaw;
   header.chunk_format.num_channels = params_.channels;
   header.chunk_format.sample_rate = params_.sample_rate;
   header.chunk_format.bits_per_sample = 8;

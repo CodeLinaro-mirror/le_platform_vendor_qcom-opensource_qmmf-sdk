@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, 2021, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -31,10 +31,9 @@
 
 #include <vector>
 
+#include <qmmf-sdk/qmmf_buffer.h>
+
 #include "common/utils/qmmf_condition.h"
-
-
-#include <qmmf-sdk/qmmf_codec.h>
 
 namespace qmmf {
 

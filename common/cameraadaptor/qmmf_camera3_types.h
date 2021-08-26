@@ -44,7 +44,8 @@ enum class CamFeatureFlag : uint32_t {
   kEIS = 1 << 0,               /// EIS is on.
   kHDR = 1 << 1,               /// HDR is on.
   kLDC = 1 << 2,               /// LDC is on.
-  kForceSensorMode = 1 << 3,   /// Force Sensor Mode is on.
+  kLCAC = 1 << 3,              /// LCAC is on.
+  kForceSensorMode = 1 << 4,   /// Force Sensor Mode is on.
 };
 
 #define FORCE_SENSOR_MODE_MASK      (0x00FF0000)

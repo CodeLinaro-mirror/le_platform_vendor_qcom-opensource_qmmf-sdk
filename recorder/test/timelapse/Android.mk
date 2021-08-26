@@ -23,9 +23,6 @@ LOCAL_SRC_FILES  += qmmf_time_lapse_main.cc
 
 LOCAL_SHARED_LIBRARIES += libqmmf_utils libqmmf_recorder_client libqmmf_memory_interface
 LOCAL_SHARED_LIBRARIES += libcamera_client
-ifneq ($(DISABLE_DISPLAY),1)
-LOCAL_SHARED_LIBRARIES += libqmmf_display_client
-endif
 LOCAL_SHARED_LIBRARIES += libcamera_metadata
 
 LOCAL_MODULE = qmmf_recorder_timelapse

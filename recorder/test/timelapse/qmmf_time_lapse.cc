@@ -257,13 +257,13 @@ int32_t TimeLapse::StopSession() {
 }
 
 int32_t TimeLapse::AddPreviewTrack() {
-  VideoTrackCreateParam video_track_param{};
+  VideoTrackParam video_track_param{};
 
   video_track_param.camera_id   = params_.camera_id;
   video_track_param.width       = params_.preview_width;
   video_track_param.height      = params_.preview_height;
-  video_track_param.frame_rate  = 30;
-  video_track_param.format_type = VideoFormat::kNV12;
+  video_track_param.framerate   = 30;
+  video_track_param.format      = VideoFormat::kNV12;
 
   TrackCb video_track_cb;
   video_track_cb.data_cb = { [&] (uint32_t track_id,
@@ -285,10 +285,10 @@ int32_t TimeLapse::DeletePreviewTrack() {
 
 int32_t TimeLapse::CaptureImage(bool store) {
   ImageParam image_param{};
-  image_param.width         = params_.snapshot_width;
-  image_param.height        = params_.snapshot_height;
-  image_param.image_format  = ImageFormat::kJPEG;
-  image_param.image_quality = 95;
+  image_param.width   = params_.snapshot_width;
+  image_param.height  = params_.snapshot_height;
+  image_param.format  = ImageFormat::kJPEG;
+  image_param.quality = 95;
 
   std::vector<CameraMetadata> meta_array;
   ImageCaptureCb cb;

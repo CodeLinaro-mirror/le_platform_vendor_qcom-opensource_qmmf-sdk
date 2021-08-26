@@ -47,183 +47,6 @@ using ::std::streampos;
 
 const std::string GtestCommon::kQmmfFolderPath = "/data/misc/qmmf/";
 
-status_t DumpBitStream::SetUp(const StreamDumpInfo& dumpinfo) {
-  TEST_DBG("%s: Enter", __func__);
-  EXPECT_TRUE(dumpinfo.width > 0);
-  EXPECT_TRUE(dumpinfo.height > 0);
-  struct timeval tv;
-  gettimeofday(&tv, NULL);
-  SplitFileInfo file_info = {dumpinfo, tv.tv_sec, 0, nullptr, 0};
-
-  std::string bitstream_filepath = GetFileName(file_info);
-  int32_t file_fd = open(bitstream_filepath.c_str(),
-                         O_CREAT | O_WRONLY | O_TRUNC, 0655);
-  if (file_fd < 0) {
-    TEST_ERROR("%s File open failed!", __func__);
-    return BAD_VALUE;
-  }
-  file_info.file_fd = file_fd;
-  uint8_t key_by_session_track_id = GenerateKey(dumpinfo.session_id,
-    dumpinfo.track_id);
-  split_file_info_.insert(std::make_pair(key_by_session_track_id, file_info));
-
-  TEST_DBG("%s: Exit", __func__);
-  return NO_ERROR;
-}
-
-status_t DumpBitStream::SplitFile(const uint8_t file_index) {
-  TEST_DBG("%s: Enter", __func__);
-
-  SplitFileInfo& file_info = split_file_info_[file_index];
-  file_info.part_number += 1;
-  EXPECT_TRUE(file_info.streaminfo.width > 0);
-  EXPECT_TRUE(file_info.streaminfo.height > 0);
-
-  std::string bitstream_filepath = GetFileName(file_info);
-
-  int32_t file_fd = file_info.file_fd;
-  close(file_fd);
-  // Get New FileFd
-  file_fd = open(bitstream_filepath.c_str(),
-                 O_CREAT | O_WRONLY | O_TRUNC, 0655);
-  if (file_fd < 0) {
-    TEST_ERROR("%s File open failed for part number: %d", __func__,
-               file_info.part_number);
-    return BAD_VALUE;
-  }
-  file_info.file_fd = file_fd;
-
-  if (file_info.streaminfo.format == VideoFormat::kAVC ||
-      file_info.streaminfo.format == VideoFormat::kHEVC) {
-    // header or first buffer dump required at start of each file dump in case
-    // of AVC and HEVC format
-    BufferDescriptor *buf = file_info.header;
-    uint32_t exp_size = buf->size;
-    uint32_t written_length = write(file_fd, buf->data, buf->size);
-    if (written_length != exp_size) {
-      TEST_ERROR("%s: Bad Write error (%d) %s", __func__, errno,
-                 strerror(errno));
-      return BAD_VALUE;
-    }
-  }
-
-  TEST_DBG("%s: Exit", __func__);
-  return NO_ERROR;
-}
-
-std::string DumpBitStream::GetFileName(const SplitFileInfo& file_info) {
-  const char* type_string;
-  switch (file_info.streaminfo.format) {
-    case VideoFormat::kAVC:
-      type_string = "h264";
-      break;
-    case VideoFormat::kHEVC:
-      type_string = "h265";
-      break;
-    case VideoFormat::kJPEG:
-      type_string = "mjpg";
-      break;
-    default:
-      type_string = "bin";
-      break;
-  }
-  std::string extn(type_string);
-  std::string bitstream_filepath("/data/misc/qmmf/gtest_track_");
-  char prop_val[PROPERTY_VALUE_MAX];
-  property_get(PROP_DUMP_TO_EXT, prop_val, "0");
-  if (atoi(prop_val) == 1) {
-    bitstream_filepath = "/mnt/sdcard/data/misc/qmmf/gtest_track_";
-  }
-  bitstream_filepath += std::to_string(file_info.streaminfo.track_id) + "_";
-  bitstream_filepath += std::to_string(file_info.streaminfo.width) + "x";
-  bitstream_filepath += std::to_string(file_info.streaminfo.height) + "_";
-  bitstream_filepath += std::to_string(file_info.timestamp) + "_";
-  bitstream_filepath += std::to_string(file_info.part_number) + ".";
-  bitstream_filepath += extn;
-  return bitstream_filepath;
-}
-
-status_t DumpBitStream::Dump(const std::vector<BufferDescriptor>& buffers,
-   const uint32_t &session_id, const uint32_t &track_id) {
-
-  TEST_DBG("%s: Enter", __func__);
-  uint8_t key_by_session_track_id = GenerateKey(session_id, track_id);
-  int32_t file_fd = GetFileFd(session_id, track_id);
-  EXPECT_TRUE(file_fd >= 0);
-
-  if (!split_file_info_[key_by_session_track_id].header && buffers.size()) {
-    TEST_DBG("%s: First video frame", __func__);
-    BufferDescriptor *buf = new BufferDescriptor();
-    BufferDescriptor *head = const_cast<BufferDescriptor*>(&buffers[0]);
-    buf->size = head->size;
-    buf->data = malloc(head->size);
-    memcpy(buf->data, head->data, head->size);
-    split_file_info_[key_by_session_track_id].header = buf;
-  }
-
-  uint64_t file_size = GetFileSize(file_fd);
-  for (auto& iter : buffers) {
-    uint32_t exp_size = iter.size;
-    TEST_DBG("%s:%s BitStream buffer data(0x%x):size(%d):ts(%lld):flag(0x%x)"
-      ":buf_id(%d):capacity(%d)",  __func__, iter.data, iter.size,
-       iter.timestamp, iter.flag, iter.buf_id, iter.capacity);
-
-    if (file_size + iter.size > MAX_DUMP_SIZE) {
-      auto ret = SplitFile(key_by_session_track_id);
-      EXPECT_TRUE(ret == NO_ERROR);
-      file_size += iter.size;
-    }
-    uint32_t written_length = write(file_fd, iter.data, iter.size);
-    TEST_DBG("%s: written_length(%d)", __func__, written_length);
-    if (written_length != exp_size) {
-      TEST_ERROR("%s: Bad Write error (%d) %s", __func__, errno,
-      strerror(errno));
-      return BAD_VALUE;
-    }
-
-    if(iter.flag & static_cast<uint32_t>(BufferFlags::kFlagEOS)) {
-      TEST_INFO("%s EOS Last buffer!", __func__);
-      break;
-    }
-  }
-
-  TEST_DBG("%s: Exit", __func__);
-  return NO_ERROR;
-}
-
-void DumpBitStream::Close(const uint32_t &session_id,
-                          const uint32_t &track_id) {
-  TEST_DBG("%s: Enter", __func__);
-  uint8_t key_by_session_track_id = GenerateKey(session_id, track_id);
-  int32_t file_fd = split_file_info_[key_by_session_track_id].file_fd;
-  if (file_fd >= 0) {
-    close(file_fd);
-    BufferDescriptor *buf = split_file_info_[key_by_session_track_id].header;
-    free(buf->data);
-    delete(buf);
-    split_file_info_.erase(key_by_session_track_id);
-  } else {
-    TEST_WARN("%s: file_fd does not exist!", __func__);
-  }
-  TEST_DBG("%s: Exit", __func__);
-}
-
-void DumpBitStream::CloseAll() {
-  TEST_DBG("%s: Enter", __func__);
-  for(auto& iter : split_file_info_) {
-    if (iter.second.file_fd >= 0) {
-      close(iter.second.file_fd);
-    }
-    if(iter.second.header) {
-      BufferDescriptor *buf = iter.second.header;
-      free(buf->data);
-      delete(buf);
-    }
-  }
-  split_file_info_.clear();
-  TEST_DBG("%s: Exit", __func__);
-}
-
 void FrameTrace::SetUp(uint32_t session_id, uint32_t track_id, float fps) {
   std::lock_guard<std::mutex> lk(lock_);
   session_id_ = session_id;
@@ -428,12 +251,6 @@ void GtestCommon::SetUp() {
       { RecorderCallbackHandler(event_type, event_data, event_data_size); };
 
   char prop_val[PROPERTY_VALUE_MAX];
-  property_get(PROP_DUMP_BITSTREAM, prop_val, "0");
-  if (atoi(prop_val) == 0) {
-    dump_bitstream_.Enable(false);
-  } else {
-    dump_bitstream_.Enable(true);
-  }
   property_get(PROP_DUMP_JPEG, prop_val, "0");
   is_dump_jpeg_enabled_ = (atoi(prop_val) == 0) ? false : true;
   property_get(PROP_DUMP_RAW, prop_val, "0");
@@ -480,6 +297,8 @@ void GtestCommon::SetUp() {
   is_snap_stream_on_ = (atoi(prop_val) == 0) ? false : true;
   property_get(PROP_LDC, prop_val, "0");
   is_ldc_on_ = (atoi(prop_val) == 0) ? false : true;
+  property_get(PROP_LCAC, prop_val, "0");
+  is_lcac_on_ = (atoi(prop_val) == 0) ? false : true;
 
   // Read First Video Stream Params
   VideoStreamInfo stream { };
@@ -671,20 +490,20 @@ void GtestCommon::SetSnapShotStreamFormat(char prop[]) {
 
 void GtestCommon::SetVideoStreamFormat(char prop[], VideoFormat &format) {
   std::string value = prop;
-  if (value == "AVC") {
-    format = VideoFormat::kAVC;
-  } else if (value == "HEVC") {
-    format = VideoFormat::kHEVC;
-  } else if (value == "YUV") {
+  if (value == "NV12") {
     format = VideoFormat::kNV12;
+  } else if (value == "NV12UBWC") {
+    format = VideoFormat::kNV12UBWC;
   } else if (value == "RGB") {
     format = VideoFormat::kRGB;
   } else if (value == "RAW8") {
     format = VideoFormat::kBayerRDI8BIT;
   } else if (value == "RAW10") {
     format = VideoFormat::kBayerRDI10BIT;
-  } else if (value == "RAW`12") {
+  } else if (value == "RAW12") {
     format = VideoFormat::kBayerRDI12BIT;
+  } else if (value == "RAW16") {
+    format = VideoFormat::kBayerRDI16BIT;
   }
 }
 
@@ -708,14 +527,10 @@ void GtestCommon::PrintStreamInfo(uint32_t num) {
 }
 
 std::string GtestCommon::GetVideoStreamFormat(VideoFormat &fmt) {
-  if (fmt == VideoFormat::kAVC) {
-    return "AVC";
-  } else if (fmt == VideoFormat::kHEVC) {
-    return "HEVC";
-  } else if (fmt == VideoFormat::kNV12) {
-    return "YUV";
-  } else if (fmt == VideoFormat::kRGB) {
-    return "RGB";
+  if (fmt == VideoFormat::kNV12) {
+    return "NV12";
+  } else if (fmt == VideoFormat::kNV12UBWC) {
+    return "NV12UBWC";
   } else if (fmt == VideoFormat::kRGB) {
     return "RGB";
   } else if (fmt == VideoFormat::kBayerRDI8BIT) {
@@ -724,6 +539,8 @@ std::string GtestCommon::GetVideoStreamFormat(VideoFormat &fmt) {
     return "RAW10";
   } else if (fmt == VideoFormat::kBayerRDI12BIT) {
     return "RAW12";
+  } else if (fmt == VideoFormat::kBayerRDI16BIT) {
+    return "RAW16";
   } else if (fmt == VideoFormat::kBayerIdeal) {
     return "RAWIDEAL";
   } else {
@@ -927,22 +744,6 @@ void GtestCommon::VideoTrackYUVDataCb(uint32_t session_id, uint32_t track_id,
   TEST_DBG("%s: Exit", __func__);
 }
 
-void GtestCommon::VideoTrackEncDataCb(uint32_t session_id,
-                                    uint32_t track_id,
-                                    std::vector<BufferDescriptor> &buffers,
-                                    std::vector<MetaData> &meta_buffers) {
-
-  TEST_DBG("%s: Enter", __func__);
-  if (dump_bitstream_.IsUsed()) {
-    dump_bitstream_.Dump(buffers, session_id, track_id);
-  }
-  // Return buffers back to service.
-  auto ret = recorder_.ReturnTrackBuffer(session_id, track_id, buffers);
-  ASSERT_TRUE(ret == NO_ERROR);
-
-  TEST_DBG("%s: Exit", __func__);
-}
-
 void GtestCommon::VideoTrackEventCb(uint32_t track_id,
                                     EventType event_type,
                                     void *event_data,
@@ -1000,7 +801,7 @@ void GtestCommon::VideoTrackRawDataCb(uint32_t session_id, uint32_t track_id,
                    strerror(errno));
         goto FAIL;
       }
-      TEST_INFO("%s: Buffer(0x%p) Size(%u) Stored@(%s)\n", __func__,
+      TEST_INFO("%s: Buffer(0x%p) Size(%ld) Stored@(%s)\n", __func__,
                 buffers[0].data, (after - before), file_path.c_str());
 
     FAIL:
@@ -1171,151 +972,6 @@ void GtestCommon::VideoTrackRGBDataCb(uint32_t session_id, uint32_t track_id,
   ASSERT_TRUE(ret == NO_ERROR);
 
   TEST_DBG("%s: Exit", __func__);
-}
-
-status_t GtestCommon::QueueVideoFrame(VideoFormat format_type,
-                                        const uint8_t *buffer, size_t size,
-                                        int64_t timestamp, AVQueue *que) {
-  int buffer_size = 0;
-  uint8_t *tmp_buffer = NULL;
-  AVPacket *packet = NULL;
-
-  if ((size <= 5) || (NULL == que)) {
-    return BAD_VALUE;
-  }
-
-  switch (format_type) {
-    case VideoFormat::kAVC:
-      if (buffer[0] == 0x00 && buffer[1] == 0x00 && buffer[2] == 0x00 &&
-          buffer[3] == 0x01 && buffer[4] == 0x67) { /* SPS,PPS*/
-        if (que->pps != NULL) {
-          free(que->pps);
-          que->pps = NULL;
-        }
-        que->pps = (char *)malloc(sizeof(char) * (size));
-        memcpy(que->pps, buffer, size);
-        que->pps_size = size;
-        que->is_pps = true;
-        return NO_ERROR;
-      }
-      if (buffer[0] == 0x00 && buffer[1] == 0x00 && buffer[2] == 0x00 &&
-          buffer[3] == 0x01 && buffer[4] == 0x65) {
-        if (que->is_pps != true) {
-          buffer_size = que->pps_size;
-        }
-        que->is_pps = false;
-      }
-      break;
-    case VideoFormat::kHEVC:
-      if (buffer[0] == 0x00 && buffer[1] == 0x00 && buffer[2] == 0x00 &&
-          buffer[3] == 0x01 && buffer[4] == 0x40) {/* VPS,SPS,PPS*/
-        if (que->pps != NULL) {
-          free(que->pps);
-          que->pps = NULL;
-        }
-        que->pps = (char *)malloc(sizeof(char) * (size));
-        memcpy(que->pps, buffer, size);
-        que->pps_size = size;
-        que->is_pps = true;
-        return NO_ERROR;
-      }
-
-      if (buffer[0] == 0x00 && buffer[1] == 0x00 && buffer[2] == 0x00 &&
-          buffer[3] == 0x01 && buffer[4] == 0x26) {
-        if (que->is_pps != true) {
-          buffer_size = que->pps_size;
-        }
-        que->is_pps = false;
-      }
-      break;
-    default:
-      TEST_ERROR("%s: Unsupported format type: %d", __func__,
-        (int32_t) format_type);
-      return BAD_VALUE;
-  }
-
-  /* Set pointer to start address */
-  packet = (AVPacket *)malloc(sizeof(AVPacket));
-  if ((NULL == packet)) {
-    return NO_MEMORY;
-  }
-
-  /* Allocate a new frame object. */
-  packet->data = tmp_buffer = (uint8_t *)malloc((size + buffer_size));
-  if ((NULL == packet->data)) {
-    free(packet);
-    return NO_MEMORY;
-  }
-
-  if ((0 != buffer_size)) {
-    memcpy(tmp_buffer, que->pps, que->pps_size);
-    tmp_buffer += que->pps_size;
-  }
-  memcpy(tmp_buffer, buffer, size);
-  packet->size = size + buffer_size;
-  packet->timestamp = timestamp;
-  AVQueuePushHead(que, packet);
-
-  return NO_ERROR;
-}
-
-void GtestCommon::VideoCachedDataCb(uint32_t session_id, uint32_t track_id,
-                                      std::vector<BufferDescriptor> buffers,
-                                      std::vector<MetaData> meta_buffers,
-                                      VideoFormat format_type,
-                                      AVQueue *que) {
-
-  for ( auto &iter : buffers) {
-    if(iter.flag & static_cast<uint32_t>(BufferFlags::kFlagEOS)) {
-      break;
-    }
-
-    auto ret = QueueVideoFrame(format_type, (uint8_t *) iter.data, iter.size,
-                               iter.timestamp, que);
-    if (NO_ERROR != ret) {
-      TEST_ERROR("%s: Failed to cache video frame: %d\n", __func__, ret);
-    }
-  }
-  auto ret = recorder_.ReturnTrackBuffer(session_id, track_id, buffers);
-  ASSERT_TRUE(ret == NO_ERROR);
-}
-
-status_t GtestCommon::DumpQueue(AVQueue *queue, int32_t file_fd) {
-  if ((NULL == queue) || (0 >= file_fd)) {
-    return BAD_VALUE;
-  }
-
-  ssize_t q_size = AVQueueSize(queue);
-  if (0 >= q_size) {
-    TEST_ERROR("%s: Queue invalid or empty!", __func__);
-    return BAD_VALUE;
-  }
-
-  AVPacket *pkt;
-  for (ssize_t i = 0; i < q_size; i++) {
-    pkt = (AVPacket *)AVQueuePopTail(queue);
-    if (NULL != pkt) {
-      if ((NULL != pkt->data)) {
-        uint32_t written_length = write(file_fd, pkt->data, pkt->size);
-        if (written_length != pkt->size) {
-          TEST_ERROR("%s: Bad Write error (%d) %s", __func__, errno,
-                     strerror(errno));
-          free(pkt->data);
-          free(pkt);
-
-          return -errno;
-        }
-        free(pkt->data);
-      } else {
-        TEST_ERROR("%s: AV packet empty!", __func__);
-      }
-      free(pkt);
-    } else {
-      TEST_ERROR("%s: Invalid AV packet popped!", __func__);
-    }
-  }
-
-  return NO_ERROR;
 }
 
 void GtestCommon::ClearSessions() {
@@ -2339,12 +1995,12 @@ void GtestCommon::ConfigureImageParam() {
   image_config.Update(QMMF_SNAPSHOT_TYPE, snapshot_type);
 
   ImageParam image_param{};
-  image_param.image_format = snap_format_;
+  image_param.format = snap_format_;
 
   if (snap_format_ == ImageFormat::kJPEG) {
     image_param.width = snap_width_;
     image_param.height = snap_height_;
-    image_param.image_quality = default_jpeg_quality_;
+    image_param.quality = default_jpeg_quality_;
 
     res_supported = GtestCommon::ValidateResFromJpegSizes(
         static_meta, image_param.width, image_param.height);
@@ -2363,10 +2019,10 @@ void GtestCommon::ConfigureImageParam() {
 
     if (snap_mode_ == SnapshotMode::kStillPlusRaw || snap_mode_
         == SnapshotMode::kVideoPlusRaw) {
-      image_param.image_format = ImageFormat::kJPEG;
+      image_param.format = ImageFormat::kJPEG;
       image_param.width = snap_width_;
       image_param.height = snap_height_;
-      image_param.image_quality = default_jpeg_quality_;
+      image_param.quality = default_jpeg_quality_;
     }
   } else if (snap_format_ == ImageFormat::kNV12 ||
              snap_format_ == ImageFormat::kNV21) {
@@ -2430,13 +2086,20 @@ void GtestCommon::SetCameraExtraParam(CameraExtraParam &param) {
     param.Update(QMMF_VIDEO_HDR_MODE, vid_hdr_mode);
   }
   if (is_ldc_on_) {
-    // Enable LDc
+    // Enable LDC
     LDCMode ldc_mode;
     ldc_mode.enable = true;
     param.Update(QMMF_LDC, ldc_mode);
   }
+  if (is_lcac_on_) {
+    // Enable LCAC
+    LCACMode lcac_mode;
+    lcac_mode.enable = true;
+    param.Update(QMMF_LCAC, lcac_mode);
+  }
 
   std::cout << "EIS is :" << (is_eis_on_ ? "On" : "Off") << " SHDR is :"
       << (is_shdr_on_ ? "On" : "Off") << " LDC is :" <<
-      (is_ldc_on_ ? "On" : "Off") << std::endl;
+      (is_ldc_on_ ? "On" : "Off") << " LCAC is :" <<
+      (is_lcac_on_ ? "On" : "Off") << std::endl;
 }

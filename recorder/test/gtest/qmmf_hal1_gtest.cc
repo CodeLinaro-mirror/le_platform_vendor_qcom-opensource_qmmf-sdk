@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2021 The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -206,7 +206,7 @@ TEST_F(RecorderHal1GTest, SessionWith480pYUVTrack) {
 
     /************************ Create Preview Track ****************************/
 
-    VideoTrackCreateParam video_track_param { camera_id_, VideoFormat::kNV12,
+    VideoTrackParam video_track_param { camera_id_, VideoFormat::kNV12,
       width, height, frame_rate };
 
     TrackCb video_track_cb;
@@ -259,7 +259,7 @@ TEST_F(RecorderHal1GTest, SessionWith480pYUVTrack) {
 }
 
 /*
- * SessionWith720AVCTrack: This test case will test 1080p AVC video track
+ * SessionWith720YUVTrack: This test case will test 720p YUV video track
  *
  * Api test sequence:
  *   loop Start {
@@ -275,13 +275,13 @@ TEST_F(RecorderHal1GTest, SessionWith480pYUVTrack) {
  *   ------------------
  *   } loop End
  */
-TEST_F(RecorderHal1GTest, SessionWith720AVCTrack) {
+TEST_F(RecorderHal1GTest, SessionWith720YUVTrack) {
 
   fprintf(stderr, "\n---------- Run Test %s.%s ------------\n",
     test_info_->test_case_name(), test_info_->name());
 
-  uint32_t video_track_id_720p_avc = 1;
-  VideoFormat format_type = VideoFormat::kAVC;
+  uint32_t video_track_id_720p_yuv = 1;
+  VideoFormat format = VideoFormat::kNV12;
   uint32_t width = 1280;
   uint32_t height = 720;
   float frame_rate = 30;
@@ -305,11 +305,11 @@ TEST_F(RecorderHal1GTest, SessionWith720AVCTrack) {
 
     /************************ Create Preview Track ****************************/
 
-    VideoTrackCreateParam video_track_param { camera_id_, VideoFormat::kAVC,
+    VideoTrackParam video_track_param { camera_id_, VideoFormat::kNV12,
       width, height, frame_rate };
 
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo = { format_type, session_id, video_track_id_720p_avc,
+      StreamDumpInfo dumpinfo = { format, session_id, video_track_id_720p_yuv,
                                 width, height };
       ret = dump_bitstream_.SetUp(dumpinfo);
       ASSERT_TRUE(ret == NO_ERROR);
@@ -319,18 +319,18 @@ TEST_F(RecorderHal1GTest, SessionWith720AVCTrack) {
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-          VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers); };
+          VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers); };
 
     video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
                                   void *event_data, size_t event_data_size) {
         VideoTrackEventCb(track_id, event_type, event_data, event_data_size); };
 
-    ret = recorder_.CreateVideoTrack(session_id, video_track_id_720p_avc,
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_720p_yuv,
       video_track_param, video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
     std::vector<uint32_t> track_ids;
-    track_ids.push_back(video_track_id_720p_avc);
+    track_ids.push_back(video_track_id_720p_yuv);
     sessions_.insert(std::make_pair(session_id, track_ids));
 
     /************************ Start Preview  **********************************/
@@ -345,7 +345,7 @@ TEST_F(RecorderHal1GTest, SessionWith720AVCTrack) {
     ret = recorder_.StopSession(session_id, false);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_720p_avc);
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_720p_yuv);
     ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteSession(session_id);
@@ -366,8 +366,8 @@ TEST_F(RecorderHal1GTest, SessionWith720AVCTrack) {
 }
 
 /*
- * SessionWith720pAVCAnd480pAVC: This test will test session two AVC tracks,
-                                 one 720p AVC and one 480 AVC Track.
+ * SessionWith720pYUVAnd480pYUV: This test will test session two YUV tracks,
+                                 one 720p YUV and one 480 YUV Track.
  * Api test sequence:
  *  - StartCamera
 *   - CreateSession
@@ -384,7 +384,7 @@ TEST_F(RecorderHal1GTest, SessionWith720AVCTrack) {
 *   - DeleteSession
  *  - StopCamera
  */
-TEST_F(RecorderHal1GTest, SessionWith720pAVCAnd480pAVC) {
+TEST_F(RecorderHal1GTest, SessionWith720pYUVAnd480pYUV) {
 
   fprintf(stderr, "\n---------- Run Test %s.%s ------------\n",
     test_info_->test_case_name(), test_info_->name());
@@ -395,8 +395,8 @@ TEST_F(RecorderHal1GTest, SessionWith720pAVCAnd480pAVC) {
   ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  uint32_t video_track_id_720p_avc = 1;
-  uint32_t video_track_id_480p_avc = 2;
+  uint32_t video_track_id_720p_yuv = 1;
+  uint32_t video_track_id_480p_yuv = 2;
 
   SessionCb session_status_cb = CreateSessionStatusCb();
 
@@ -406,13 +406,13 @@ TEST_F(RecorderHal1GTest, SessionWith720pAVCAnd480pAVC) {
   ASSERT_TRUE(ret == NO_ERROR);
 
   if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo = { VideoFormat::kAVC, session_id,
-        video_track_id_720p_avc, 1280, 720 };
+    StreamDumpInfo dumpinfo = { VideoFormat::kNV12, session_id,
+        video_track_id_720p_yuv, 1280, 720 };
     ret = dump_bitstream_.SetUp(dumpinfo);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    StreamDumpInfo dumpinfo1 = { VideoFormat::kAVC, session_id,
-        video_track_id_480p_avc, 640, 480 };
+    StreamDumpInfo dumpinfo1 = { VideoFormat::kNV12, session_id,
+        video_track_id_480p_yuv, 640, 480 };
     ret = dump_bitstream_.SetUp(dumpinfo1);
     ASSERT_TRUE(ret == NO_ERROR);
   }
@@ -422,24 +422,24 @@ TEST_F(RecorderHal1GTest, SessionWith720pAVCAnd480pAVC) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
       test_info_->name(), i);
 
-    VideoTrackCreateParam video_track_param { camera_id_, VideoFormat::kAVC,
+    VideoTrackParam video_track_param { camera_id_, VideoFormat::kNV12,
       1280, 720, 30 };
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-          VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers); };
+          VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers); };
 
     video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
                                   void *event_data, size_t event_data_size) {
         VideoTrackEventCb(track_id, event_type, event_data, event_data_size); };
 
-    ret = recorder_.CreateVideoTrack(session_id, video_track_id_720p_avc,
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_720p_yuv,
       video_track_param, video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
     std::vector<uint32_t> track_ids;
-    track_ids.push_back(video_track_id_720p_avc);
+    track_ids.push_back(video_track_id_720p_yuv);
 
     video_track_param.width = 640;
     video_track_param.height = 480;
@@ -447,13 +447,13 @@ TEST_F(RecorderHal1GTest, SessionWith720pAVCAnd480pAVC) {
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-          VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers); };
+          VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers); };
 
-    ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p_avc,
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p_yuv,
       video_track_param, video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    track_ids.push_back(video_track_id_480p_avc);
+    track_ids.push_back(video_track_id_480p_yuv);
 
     ret = recorder_.StartSession(session_id);
     ASSERT_TRUE(ret == NO_ERROR);
@@ -465,10 +465,10 @@ TEST_F(RecorderHal1GTest, SessionWith720pAVCAnd480pAVC) {
     ret = recorder_.StopSession(session_id, false);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_720p_avc);
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_720p_yuv);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_480p_avc);
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_480p_yuv);
     ASSERT_TRUE(ret == NO_ERROR);
 
   }
@@ -490,7 +490,7 @@ TEST_F(RecorderHal1GTest, SessionWith720pAVCAnd480pAVC) {
 }
 
 /*
- * SessionWith480pAVCAnd480pAVCAndLinked480pAVC: This test will test session
+ * SessionWith480pYUVAnd480pYUVAndLinked480pYUV: This test will test session
                                              with three 480p streams. 3rd VGA is
                                              linked to second stream.
  * Api test sequence:
@@ -511,7 +511,7 @@ TEST_F(RecorderHal1GTest, SessionWith720pAVCAnd480pAVC) {
  *   } loop End
  *  - StopCamera
  */
-TEST_F(RecorderHal1GTest, SessionWith480pAVCAnd480pAVCAndLinked480pAVC) {
+TEST_F(RecorderHal1GTest, SessionWith480pYUVAnd480pYUVAndLinked480pYUV) {
 
   fprintf(stderr, "\n---------- Run Test %s.%s ------------\n",
     test_info_->test_case_name(), test_info_->name());
@@ -522,9 +522,9 @@ TEST_F(RecorderHal1GTest, SessionWith480pAVCAnd480pAVCAndLinked480pAVC) {
   ret = recorder_.StartCamera(camera_id_, 30);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  uint32_t video_track_id_480p_avc1  = 1;
-  uint32_t video_track_id_480p_avc2  = 2;
-  uint32_t video_track_id_480p_avc3  = 3;
+  uint32_t video_track_id_480p_yuv1  = 1;
+  uint32_t video_track_id_480p_yuv2  = 2;
+  uint32_t video_track_id_480p_yuv3  = 3;
 
   SessionCb session_status_cb = CreateSessionStatusCb();
 
@@ -534,18 +534,18 @@ TEST_F(RecorderHal1GTest, SessionWith480pAVCAnd480pAVCAndLinked480pAVC) {
   ASSERT_TRUE(ret == NO_ERROR);
 
   if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo = { VideoFormat::kAVC, session_id,
-        video_track_id_480p_avc1, 640, 480 };
+    StreamDumpInfo dumpinfo = { VideoFormat::kNV12, session_id,
+        video_track_id_480p_yuv1, 640, 480 };
     ret = dump_bitstream_.SetUp(dumpinfo);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    StreamDumpInfo dumpinfo1 = { VideoFormat::kAVC, session_id,
-        video_track_id_480p_avc2, 640, 480 };
+    StreamDumpInfo dumpinfo1 = { VideoFormat::kNV12, session_id,
+        video_track_id_480p_yuv2, 640, 480 };
     ret = dump_bitstream_.SetUp(dumpinfo1);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    StreamDumpInfo dumpinfo2 = { VideoFormat::kAVC, session_id,
-        video_track_id_480p_avc3, 640, 480 };
+    StreamDumpInfo dumpinfo2 = { VideoFormat::kNV12, session_id,
+        video_track_id_480p_yuv3, 640, 480 };
     ret = dump_bitstream_.SetUp(dumpinfo2);
     ASSERT_TRUE(ret == NO_ERROR);
 
@@ -556,24 +556,24 @@ TEST_F(RecorderHal1GTest, SessionWith480pAVCAnd480pAVCAndLinked480pAVC) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
       test_info_->name(), i);
 
-    VideoTrackCreateParam video_track_param { camera_id_, VideoFormat::kAVC,
+    VideoTrackParam video_track_param { camera_id_, VideoFormat::kNV12,
       640, 480, 30 };
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-          VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers); };
+          VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers); };
 
     video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
                                   void *event_data, size_t event_data_size) {
         VideoTrackEventCb(track_id, event_type, event_data, event_data_size); };
 
-    ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p_avc1,
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p_yuv1,
       video_track_param, video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
     std::vector<uint32_t> track_ids;
-    track_ids.push_back(video_track_id_480p_avc1);
+    track_ids.push_back(video_track_id_480p_yuv1);
 
     //VideoExtraParam extra_param;
     //SourceVideoTrack surface_video_copy;
@@ -586,33 +586,33 @@ TEST_F(RecorderHal1GTest, SessionWith480pAVCAnd480pAVCAndLinked480pAVC) {
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
-          VideoTrackEncDataCb(session_id, track_id, buffers, meta_buffers); };
+          VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers); };
 
-    ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p_avc2,
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p_yuv2,
       video_track_param, video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    track_ids.push_back(video_track_id_480p_avc2);
+    track_ids.push_back(video_track_id_480p_yuv2);
 
     VideoExtraParam extra_param;
     SourceVideoTrack surface_video_linked;
-    surface_video_linked.source_track_id = video_track_id_480p_avc2;
+    surface_video_linked.source_track_id = video_track_id_480p_yuv2;
     extra_param.Update(QMMF_SOURCE_VIDEO_TRACK_ID, surface_video_linked);
 
     //video_track_param.width = 640;
     //video_track_param.height = 480;
-    //video_track_param.format_type = VideoFormat::kNV12;
+    //video_track_param.format = VideoFormat::kNV12;
 
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
         std::vector<MetaData> meta_buffers) {
           VideoTrackYUVDataCb(session_id, track_id, buffers, meta_buffers); };
 
-    ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p_avc3,
+    ret = recorder_.CreateVideoTrack(session_id, video_track_id_480p_yuv3,
       video_track_param, extra_param, video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    track_ids.push_back(video_track_id_480p_avc3);
+    track_ids.push_back(video_track_id_480p_yuv3);
     sessions_.insert(std::make_pair(session_id, track_ids));
 
     ret = recorder_.StartSession(session_id);
@@ -625,13 +625,13 @@ TEST_F(RecorderHal1GTest, SessionWith480pAVCAnd480pAVCAndLinked480pAVC) {
     ret = recorder_.StopSession(session_id, false);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_480p_avc1);
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_480p_yuv1);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_480p_avc2);
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_480p_yuv2);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_480p_avc3);
+    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_480p_yuv3);
     ASSERT_TRUE(ret == NO_ERROR);
   }
 
@@ -703,7 +703,7 @@ TEST_F(RecorderHal1GTest, SessionWith480pYUVand1080pYUVTracks) {
 
     /************************ Create Preview Track ****************************/
 
-    VideoTrackCreateParam video_track_param { camera_id_, VideoFormat::kNV12,
+    VideoTrackParam video_track_param { camera_id_, VideoFormat::kNV12,
       width, height, 10 };
 
     TrackCb video_track_cb;
@@ -726,7 +726,7 @@ TEST_F(RecorderHal1GTest, SessionWith480pYUVand1080pYUVTracks) {
 
     /************************ Create Preview Track ****************************/
 
-    VideoTrackCreateParam video_track_param2 { camera_id_, VideoFormat::kNV12,
+    VideoTrackParam video_track_param2 { camera_id_, VideoFormat::kNV12,
       1920, 1080, frame_rate };
 
     TrackCb video_track_cb2;
@@ -853,7 +853,7 @@ TEST_F(RecorderHal1GTest, SessionWith1080pYUVCopy480YUVAndLinked480YUV) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
       test_info_->name(), i);
 
-    VideoTrackCreateParam video_track_param { camera_id_, VideoFormat::kNV12,
+    VideoTrackParam video_track_param { camera_id_, VideoFormat::kNV12,
       1920, 1080, 30 };
     TrackCb video_track_cb;
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
@@ -898,7 +898,7 @@ TEST_F(RecorderHal1GTest, SessionWith1080pYUVCopy480YUVAndLinked480YUV) {
 
     video_track_param.width = 640;
     video_track_param.height = 480;
-    video_track_param.format_type = VideoFormat::kNV12;
+    video_track_param.format = VideoFormat::kNV12;
 
     video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
@@ -1015,7 +1015,7 @@ TEST_F(RecorderHal1GTest, SessionWithTwo1080pYUVAndLinked1080pYUV) {
 
     /************************ Create 1080p Track 1 ****************************/
 
-    VideoTrackCreateParam video_track_param {
+    VideoTrackParam video_track_param {
       camera_id_, VideoFormat::kNV12, 1920, 1080, 30 };
 
     TrackCb video_track_cb;
@@ -1147,7 +1147,7 @@ TEST_F(RecorderHal1GTest, SessionWith720pYUVAndSnapshotVGA) {
 
     /************************ Create Track 1 ****************************/
 
-    VideoTrackCreateParam video_track_param {
+    VideoTrackParam video_track_param {
       camera_id_, VideoFormat::kNV12, 1280, 720, 30 };
 
     TrackCb video_track_cb;
@@ -1170,10 +1170,10 @@ TEST_F(RecorderHal1GTest, SessionWith720pYUVAndSnapshotVGA) {
     /*********************** Configure Snapshot ******************************/
 
     ImageParam image_param{};
-    image_param.width         = width;
-    image_param.height        = height;
-    image_param.image_format  = ImageFormat::kJPEG;
-    image_param.image_quality = default_jpeg_quality_;
+    image_param.width   = width;
+    image_param.height  = height;
+    image_param.format  = ImageFormat::kJPEG;
+    image_param.quality = default_jpeg_quality_;
 
     std::vector<CameraMetadata> meta_array;
     camera_metadata_entry_t entry;
@@ -1308,7 +1308,7 @@ TEST_F(RecorderHal1GTest, SessionWith720pYUVAndSnapshot720p) {
 
     /************************ Create Track 1 ****************************/
 
-    VideoTrackCreateParam video_track_param {
+    VideoTrackParam video_track_param {
       camera_id_, VideoFormat::kNV12, width, height, 30 };
 
     TrackCb video_track_cb;
@@ -1331,10 +1331,10 @@ TEST_F(RecorderHal1GTest, SessionWith720pYUVAndSnapshot720p) {
     /*********************** Configure Snapshot ******************************/
 
     ImageParam image_param{};
-    image_param.width         = width;
-    image_param.height        = height;
-    image_param.image_format  = ImageFormat::kJPEG;
-    image_param.image_quality = default_jpeg_quality_;
+    image_param.width   = width;
+    image_param.height  = height;
+    image_param.format  = ImageFormat::kJPEG;
+    image_param.quality = default_jpeg_quality_;
 
     std::vector<CameraMetadata> meta_array;
     camera_metadata_entry_t entry;
@@ -1474,7 +1474,7 @@ TEST_F(RecorderHal1GTest, SessionWithTwo720pYUVAndSnapshot720p) {
 
     /************************ Create Track 1 ****************************/
 
-    VideoTrackCreateParam video_track_param {
+    VideoTrackParam video_track_param {
       camera_id_, VideoFormat::kNV12, width, height, 30 };
 
     TrackCb video_track_cb;
@@ -1506,10 +1506,10 @@ TEST_F(RecorderHal1GTest, SessionWithTwo720pYUVAndSnapshot720p) {
     /*********************** Configure Snapshot ******************************/
 
     ImageParam image_param{};
-    image_param.width         = width;
-    image_param.height        = height;
-    image_param.image_format  = ImageFormat::kJPEG;
-    image_param.image_quality = default_jpeg_quality_;
+    image_param.width   = width;
+    image_param.height  = height;
+    image_param.format  = ImageFormat::kJPEG;
+    image_param.quality = default_jpeg_quality_;
 
     std::vector<CameraMetadata> meta_array;
     camera_metadata_entry_t entry;
@@ -1651,7 +1651,7 @@ TEST_F(RecorderHal1GTest, SessionWithTwoVGAYUVAndSnapshotVGA) {
 
     /************************ Create Track 1 ****************************/
 
-    VideoTrackCreateParam video_track_param {
+    VideoTrackParam video_track_param {
       camera_id_, VideoFormat::kNV12, width, height, 30 };
 
     TrackCb video_track_cb;
@@ -1683,10 +1683,10 @@ TEST_F(RecorderHal1GTest, SessionWithTwoVGAYUVAndSnapshotVGA) {
     /*********************** Configure Snapshot ******************************/
 
     ImageParam image_param{};
-    image_param.width         = width;
-    image_param.height        = height;
-    image_param.image_format  = ImageFormat::kJPEG;
-    image_param.image_quality = default_jpeg_quality_;
+    image_param.width   = width;
+    image_param.height  = height;
+    image_param.format  = ImageFormat::kJPEG;
+    image_param.quality = default_jpeg_quality_;
 
     std::vector<CameraMetadata> meta_array;
     camera_metadata_entry_t entry;
@@ -1819,7 +1819,7 @@ TEST_F(RecorderHal1GTest, SessionWithYUVTrackAndToggleSnapshotRes) {
 
   /************************ Create Track 1 ****************************/
 
-  VideoTrackCreateParam video_track_param {
+  VideoTrackParam video_track_param {
     camera_id_, VideoFormat::kNV12, 720, 480, 30 };
 
   TrackCb video_track_cb;
@@ -1842,8 +1842,8 @@ TEST_F(RecorderHal1GTest, SessionWithYUVTrackAndToggleSnapshotRes) {
   /*********************** Configure Snapshot ******************************/
 
   ImageParam image_param{};
-  image_param.image_format  = ImageFormat::kJPEG;
-  image_param.image_quality = default_jpeg_quality_;
+  image_param.format  = ImageFormat::kJPEG;
+  image_param.quality = default_jpeg_quality_;
 
   std::vector<CameraMetadata> meta_array;
   camera_metadata_entry_t entry;
@@ -1993,7 +1993,7 @@ TEST_F(RecorderHal1GTest, SessionWithYUVTrackAndSnapshot) {
 
     /************************ Create Track 1 ****************************/
 
-    VideoTrackCreateParam video_track_param {
+    VideoTrackParam video_track_param {
       camera_id_, VideoFormat::kNV12, width, height, 30 };
 
     TrackCb video_track_cb;
@@ -2016,10 +2016,10 @@ TEST_F(RecorderHal1GTest, SessionWithYUVTrackAndSnapshot) {
     /*********************** Configure Snapshot ******************************/
 
     ImageParam image_param{};
-    image_param.width         = width;
-    image_param.height        = height;
-    image_param.image_format  = ImageFormat::kJPEG;
-    image_param.image_quality = default_jpeg_quality_;
+    image_param.width   = width;
+    image_param.height  = height;
+    image_param.format  = ImageFormat::kJPEG;
+    image_param.quality = default_jpeg_quality_;
 
     std::vector<CameraMetadata> meta_array;
     camera_metadata_entry_t entry;
@@ -2163,7 +2163,7 @@ TEST_F(RecorderHal1GTest, SessionWithTwoYUVTracksAndSnapshot) {
 
     /************************ Create Track 1 ****************************/
 
-    VideoTrackCreateParam video_track_param {
+    VideoTrackParam video_track_param {
       camera_id_, VideoFormat::kNV12, width, height, 30 };
 
     TrackCb video_track_cb;
@@ -2195,10 +2195,10 @@ TEST_F(RecorderHal1GTest, SessionWithTwoYUVTracksAndSnapshot) {
     /*********************** Configure Snapshot ******************************/
 
     ImageParam image_param{};
-    image_param.width         = width;
-    image_param.height        = height;
-    image_param.image_format  = ImageFormat::kJPEG;
-    image_param.image_quality = default_jpeg_quality_;
+    image_param.width   = width;
+    image_param.height  = height;
+    image_param.format  = ImageFormat::kJPEG;
+    image_param.quality = default_jpeg_quality_;
 
     std::vector<CameraMetadata> meta_array;
     camera_metadata_entry_t entry;

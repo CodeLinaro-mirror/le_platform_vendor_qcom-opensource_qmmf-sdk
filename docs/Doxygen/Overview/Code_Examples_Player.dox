@@ -89,8 +89,8 @@ Preparing the pipeline
 // Fill the audio and video track params and ids from demuxer
 uint32_t audio_track_id_;
 uint32_t video_track_id_;
-AudioTrackCreateParam audio_track_param;
-VideoTrackCreateParam video_track_param;
+AudioTrackParam audio_track_param;
+VideoTrackParam video_track_param;
 
 // Register Audio Callbacks from player service
 TrackCb audio_track_cb;
@@ -235,8 +235,8 @@ Preparing the pipeline
 // Fill the audio and video track params and ids from demuxer
 uint32_t audio_track_id_;
 uint32_t video_track_id_;
-AudioTrackCreateParam audio_track_param;
-VideoTrackCreateParam video_track_param;
+AudioTrackParam audio_track_param;
+VideoTrackParam video_track_param;
 
 // Register Audio Callbacks from player service
 TrackCb audio_track_cb;
@@ -384,8 +384,8 @@ Preparing the pipeline
 // Fill the audio and video track params and ids from demuxer
 uint32_t audio_track_id_;
 uint32_t video_track_id_;
-AudioTrackCreateParam audio_track_param;
-VideoTrackCreateParam video_track_param;
+AudioTrackParam audio_track_param;
+VideoTrackParam video_track_param;
 
 // Register Audio Callbacks from player service
 TrackCb audio_track_cb;
@@ -522,8 +522,8 @@ Preparing the pipeline
 // Fill the audio and video track params and ids from demuxer
 uint32_t audio_track_id_;
 uint32_t video_track_id_;
-AudioTrackCreateParam audio_track_param;
-VideoTrackCreateParam video_track_param;
+AudioTrackParam audio_track_param;
+VideoTrackParam video_track_param;
 
 // Register Audio Callbacks from player service
 TrackCb audio_track_cb;
@@ -656,8 +656,8 @@ Preparing the pipeline
 // Fill the audio and video track params and ids from demuxer
 uint32_t audio_track_id_;
 uint32_t video_track_id_;
-AudioTrackCreateParam audio_track_param;
-VideoTrackCreateParam video_track_param;
+AudioTrackParam audio_track_param;
+VideoTrackParam video_track_param;
 
 // Register Audio Callbacks from player service
 TrackCb audio_track_cb;
