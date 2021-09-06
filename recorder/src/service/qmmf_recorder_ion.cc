@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016, 2019, 2021, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -247,7 +247,7 @@ int32_t RecorderIon::Import(const BnBuffer& bn_buffer,
   buffer->capacity = request_size_;
   buffer->size = bn_buffer.size;
   buffer->timestamp = bn_buffer.timestamp;
-  buffer->flag = bn_buffer.flag;
+  buffer->flags = bn_buffer.flags;
 
   QMMF_VERBOSE("%s() OUTPARAM: buffer[%s]", __func__,
                buffer->ToString().c_str());
@@ -274,7 +274,7 @@ int32_t RecorderIon::Export(const BufferDescriptor& buffer,
   bn_buffer->width = -1;
   bn_buffer->height = -1;
   bn_buffer->buffer_id = buffer.fd;
-  bn_buffer->flag = buffer.flag;
+  bn_buffer->flags = buffer.flags;
   bn_buffer->capacity = buffer.capacity;
 
   QMMF_VERBOSE("%s() OUTPARAM: bn_buffer[%s]", __func__,

@@ -94,11 +94,6 @@ else
 LOCAL_CFLAGS += -DJPEG_BLOB_OFFSET=1
 endif #JPEG_BLOB_OFFSET
 
-# Enable MPEGH encoder support
-ifeq ($(TARGET_BOARD_PLATFORM),qcs605)
-LOCAL_CFLAGS += -DMPEGH_ENCODER_SUPPORT
-endif #MPEGH_ENCODER_SUPPORT
-
 # AEC timeout value in ms (if not set here, default value is set in src)
 ifeq ($(TARGET_BOARD_PLATFORM),qcs605)
 LOCAL_CFLAGS += -DAEC_WAIT_TIMEOUT=750000000

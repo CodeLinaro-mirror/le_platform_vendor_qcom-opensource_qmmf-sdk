@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -43,8 +43,7 @@ namespace qmmf {
 using namespace cameraadaptor;
 
 #define MAX_SENSOR_FPS              480
-#define VIDEO_STREAM_BUFFER_COUNT    11
-#define PREVIEW_STREAM_BUFFER_COUNT  10
+#define STREAM_BUFFER_COUNT          10
 #define REPROC_STREAM_BUFFER_COUNT    2
 #define SNAPSHOT_STREAM_BUFFER_COUNT 30
 #define EXTRA_DCVS_BUFFERS            2
@@ -171,8 +170,6 @@ class CameraContext : public CameraInterface {
                         camera3_request_template_t template_type);
 
   CameraMetadata GetCameraStaticMeta();
-
-  void SetFlushCb(FlushCb &cb) override;
 
  private:
 
@@ -303,7 +300,7 @@ class CameraContext : public CameraInterface {
 
   ResultCb                 result_cb_;
   ErrorCb                  error_cb_;
-  FlushCb                  flush_cb_;
+
   std::vector<int32_t>     supported_fps_;
   uint32_t                 zsl_port_id_;
 

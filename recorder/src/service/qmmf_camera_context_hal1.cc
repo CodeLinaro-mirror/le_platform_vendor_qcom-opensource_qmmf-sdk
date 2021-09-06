@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -195,10 +195,6 @@ CameraContext::~CameraContext() {
   }
 }
 
-void CameraContext::SetFlushCb(FlushCb &cb) {
-  flush_cb_ = cb;
-}
-
 /* Internal Helper Functions*/
 static void __notify_cb(int32_t msg_type, int32_t ext1, int32_t ext2,
   void *user) {
@@ -318,10 +314,8 @@ static void __put_memory(camera_memory_t *data) {
       FDdata* fd_data = iter.second;
       if (fd_data->isInUse) {
         if (nullptr != fd_data->context->error_cb_) {
-          RecorderErrorData data {};
-          data.camera_id = fd_data->context->camera_id_;
-          data.error_code = REMAP_ALL_BUFFERS;
-          fd_data->context->error_cb_(data);
+          fd_data->context->error_cb_(fd_data->context->camera_id_,
+              REMAP_ALL_BUFFERS);
         }
       }
       if (fd_data->camera_memory == data) {
@@ -1584,7 +1578,6 @@ const char *CameraContext::FromQmmfToHalFormat_hal1(
   switch (format) {
   case BufferFormat::kNV12UBWC:
   case BufferFormat::kNV12:
-  case BufferFormat::kNV12Encodable:
     return QTI_PIXEL_FORMAT_NV12_VENUS;
     break;
   case BufferFormat::kNV21:

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, 2020, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016, 2020-2021, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -45,7 +45,6 @@
 #include "common/utils/qmmf_tools.h"
 #include "recorder/src/client/qmmf_recorder_client.h"
 #include "recorder/src/client/qmmf_recorder_client_ion.h"
-#include "recorder/src/client/qmmf_recorder_params_internal.h"
 #include "recorder/src/service/qmmf_recorder_common.h"
 
 #ifdef LOG_LEVEL_KPI
@@ -218,7 +217,7 @@ status_t RecorderClient::Disconnect() {
 }
 
 status_t RecorderClient::StartCamera(const uint32_t camera_id,
-                                     const float frame_rate,
+                                     const float framerate,
                                      const CameraExtraParam& extra_param,
                                      const CameraResultCb &result_cb) {
   bool enable_result_cb = false;
@@ -236,7 +235,7 @@ status_t RecorderClient::StartCamera(const uint32_t camera_id,
   }
 
   assert(client_id_ > 0);
-  auto ret = recorder_service_->StartCamera(client_id_, camera_id, frame_rate,
+  auto ret = recorder_service_->StartCamera(client_id_, camera_id, framerate,
                                             extra_param,
                                             enable_result_cb);
   if (NO_ERROR != ret) {
@@ -456,7 +455,7 @@ status_t RecorderClient::ResumeSession(const uint32_t session_id)
 
 status_t RecorderClient::CreateAudioTrack(const uint32_t session_id,
                                           const uint32_t track_id,
-                                          const AudioTrackCreateParam& param,
+                                          const AudioTrackParam& param,
                                           const TrackCb& cb) {
 
   QMMF_DEBUG("%s Enter ", __func__);
@@ -499,7 +498,7 @@ status_t RecorderClient::CreateAudioTrack(const uint32_t session_id,
 
 status_t RecorderClient::CreateVideoTrack(const uint32_t session_id,
                                           const uint32_t track_id,
-                                          const VideoTrackCreateParam& param,
+                                          const VideoTrackParam& param,
                                           const TrackCb& cb) {
 
   QMMF_DEBUG("%s Enter ", __func__);
@@ -539,7 +538,7 @@ status_t RecorderClient::CreateVideoTrack(const uint32_t session_id,
 
 status_t RecorderClient::CreateVideoTrack(const uint32_t session_id,
                                           const uint32_t track_id,
-                                          const VideoTrackCreateParam& param,
+                                          const VideoTrackParam& param,
                                           const VideoExtraParam& extra_param,
                                           const TrackCb& cb) {
 
@@ -606,7 +605,7 @@ status_t RecorderClient::ReturnTrackBuffer(const uint32_t session_id,
       0,                                   // width
       0,                                   // height
       buffer.buf_id,                       // buffer_id
-      buffer.flag,                         // flag
+      buffer.flags,                        // flags
       buffer.capacity                      // capacity
     };
     bn_buffers.push_back(bn_buffer);
@@ -623,9 +622,9 @@ status_t RecorderClient::ReturnTrackBuffer(const uint32_t session_id,
 
 status_t RecorderClient::SetAudioTrackParam(const uint32_t session_id,
                                             const uint32_t track_id,
-                                            CodecParamType type,
+                                            AudioParam type,
                                             const void *param,
-                                            size_t param_size) {
+                                            size_t size) {
 
   QMMF_DEBUG("%s Enter ", __func__);
   std::lock_guard<std::mutex> lock(lock_);
@@ -646,7 +645,7 @@ status_t RecorderClient::SetAudioTrackParam(const uint32_t session_id,
 
   assert(client_id_ > 0);
   auto ret = recorder_service_->SetAudioTrackParam(client_id_, session_id,
-      track_id, type, const_cast<void*>(param), param_size);
+      track_id, type, const_cast<void*>(param), size);
   if (NO_ERROR != ret) {
     QMMF_ERROR("%s SetAudioTrackParam failed!", __func__);
   }
@@ -656,9 +655,9 @@ status_t RecorderClient::SetAudioTrackParam(const uint32_t session_id,
 
 status_t RecorderClient::SetVideoTrackParam(const uint32_t session_id,
                                             const uint32_t track_id,
-                                            CodecParamType type,
+                                            VideoParam type,
                                             const void *param,
-                                            size_t param_size) {
+                                            size_t size) {
 
   QMMF_DEBUG("%s Enter ", __func__);
   std::lock_guard<std::mutex> lock(lock_);
@@ -678,7 +677,7 @@ status_t RecorderClient::SetVideoTrackParam(const uint32_t session_id,
 
   assert(client_id_ > 0);
   auto ret = recorder_service_->SetVideoTrackParam(client_id_, session_id,
-      track_id, type, const_cast<void*>(param), param_size);
+      track_id, type, const_cast<void*>(param), size);
   if (NO_ERROR != ret) {
     QMMF_ERROR("%s SetVideoTrackParam failed!", __func__);
   }
@@ -1014,6 +1013,9 @@ void RecorderClient::ImportBuffer(int32_t fd, int32_t metafd,
       case BufferFormat::kNV12UBWC:
         format = GBM_FORMAT_YCbCr_420_SP_VENUS_UBWC;
         break;
+      case BufferFormat::kYUY2:
+        format = GBM_FORMAT_YCrCb_422_I;
+        break;
       default:
         format = 0;
     }
@@ -1022,6 +1024,11 @@ void RecorderClient::ImportBuffer(int32_t fd, int32_t metafd,
   gbm_buf_info bufinfo = { fd, metafd, width , height, format };
 
   auto bo = gbm_bo_import(gbm_device_, GBM_BO_IMPORT_GBM_BUF_TYPE, &bufinfo, 0);
+  if (bo == nullptr) {
+    QMMF_WARN("%s: gbm bo import failed", __func__);
+    return;
+  }
+
   gbm_buffers_map_.emplace(fd, bo);
 }
 
@@ -1188,29 +1195,33 @@ void RecorderClient::ServiceDeathHandler() {
   QMMF_INFO("%s Exit ", __func__);
 }
 
-void RecorderClient::NotifyRecorderEvent(EventType event_type, void *event_data,
-                                         size_t event_data_size) {
-  QMMF_DEBUG("%s Enter ", __func__);
+void RecorderClient::NotifyRecorderEvent(EventType event, void *payload,
+                                         size_t size) {
 
-  if (EventType::kCameraError == event_type) {
-    RecorderErrorData *errdata = (RecorderErrorData *)event_data;
-    if (errdata != nullptr && errdata->error_code == REMAP_ALL_BUFFERS) {
-      for (auto& iter : track_buffers_map_) {
-        uint32_t track_id = iter.first;
-        for (auto& pair : track_buffers_map_[track_id]) {
-          auto& buffer_info = pair.second;
-          auto ret = UnmapBuffer(buffer_info);
-          if (NO_ERROR != ret) {
-            QMMF_ERROR("%s Failed to unmap buffer!", __func__);
-          }
+  QMMF_DEBUG("%s Enter ", __func__);
+  bool notify = true;
+
+  if (REMAP_ALL_BUFFERS == static_cast<uint32_t>(event)) {
+    for (auto& it : track_buffers_map_) {
+      auto& track_id = it.first;
+      BufferInfoMap& info_map = it.second;
+
+      for (auto& pair : info_map) {
+        BufferInfo& bufinfo = pair.second;
+
+        if (UnmapBuffer(bufinfo) != NO_ERROR) {
+          QMMF_ERROR("%s Failed to unmap buffer!", __func__);
         }
-        track_buffers_map_.erase(track_id);
       }
+
+      track_buffers_map_.erase(track_id);
     }
+    // This is a internal event, won't be transmitted to client.
+    notify = false;
   }
 
-  if (recorder_cb_.event_cb != nullptr) {
-    recorder_cb_.event_cb(event_type, event_data, event_data_size);
+  if (notify && (recorder_cb_.event_cb != nullptr)) {
+    recorder_cb_.event_cb(event, payload, size);
   }
   QMMF_DEBUG("%s Exit ", __func__);
 }
@@ -1254,7 +1265,7 @@ void RecorderClient::NotifySnapshotData(uint32_t camera_id,
   image_buffer.data      = buffer_info.vaddr;
   image_buffer.size      = buffer.size;
   image_buffer.timestamp = buffer.timestamp;
-  image_buffer.flag      = buffer.flag;
+  image_buffer.flags     = buffer.flags;
   image_buffer.capacity  = buffer.capacity;
   image_buffer.buf_id    = buffer.buffer_id;
   image_buffer.fd        = buffer.ion_fd;
@@ -1349,15 +1360,11 @@ void RecorderClient::NotifyVideoTrackData(uint32_t session_id,
     buffer.data      = buffer_info.vaddr;
     buffer.size      = bn_buffer.size;
     buffer.timestamp = bn_buffer.timestamp;
-    buffer.flag      = bn_buffer.flag;
+    buffer.flags     = bn_buffer.flags;
     buffer.buf_id    = bn_buffer.buffer_id;
     buffer.capacity  = bn_buffer.capacity;
     buffer.fd        = buffer_info.ion_fd;
     track_buffers.push_back(buffer);
-
-    if (buffer.flag & static_cast<uint32_t>(BufferFlags::kFlagEOS)) {
-      QMMF_KPI_ASYNC_END("LastVidFrame", track_id);
-    }
   }
   QMMF_DEBUG("%s Buffer Prepared for Callback track_id=%d", __func__, track_id);
 
@@ -1501,14 +1508,14 @@ class BpRecorderService: public BpInterface<IRecorderService> {
   }
 
   status_t StartCamera(const uint32_t client_id, const uint32_t camera_id,
-                       const float frame_rate,
+                       const float framerate,
                        const CameraExtraParam& extra_param,
                        bool enable_result_cb) {
     Parcel data, reply;
     data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
     data.writeUint32(client_id);
     data.writeUint32(camera_id);
-    data.writeFloat(frame_rate);
+    data.writeFloat(framerate);
     data.writeUint32(enable_result_cb ? 1 : 0);
     uint32_t extra_param_size = extra_param.Size();
     data.writeUint32(extra_param_size);
@@ -1605,23 +1612,30 @@ class BpRecorderService: public BpInterface<IRecorderService> {
 
   status_t CreateAudioTrack(const uint32_t client_id, const uint32_t session_id,
                             const uint32_t track_id,
-                            const AudioTrackCreateParam& param) {
+                            const AudioTrackParam& params) {
     QMMF_DEBUG("%s Enter", __func__);
     QMMF_VERBOSE("%s INPARAM: session_id[%u]", __func__, session_id);
     QMMF_VERBOSE("%s INPARAM: track_id[%u]", __func__, track_id);
     QMMF_VERBOSE("%s INPARAM: param[%s]", __func__,
-                 param.ToString().c_str());
+                 params.ToString().c_str());
     Parcel data, reply;
 
     data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
     data.writeUint32(client_id);
     data.writeUint32(session_id);
     data.writeUint32(track_id);
-    AudioTrackCreateParamInternal(param).ToParcel(&data);
+
+    uint32_t param_size = sizeof(params);
+    data.writeUint32(param_size);
+
+    android::Parcel::WritableBlob blob;
+    data.writeBlob(param_size, false, &blob);
+    memcpy(blob.data(), reinterpret_cast<const void*>(&params), param_size);
 
     remote()->transact(
         uint32_t(QMMF_RECORDER_SERVICE_CMDS::RECORDER_CREATE_AUDIOTRACK),
         data, &reply);
+    blob.release();
 
     return reply.readInt32();
   }
@@ -1629,7 +1643,7 @@ class BpRecorderService: public BpInterface<IRecorderService> {
   status_t CreateVideoTrack(const uint32_t client_id,
                             const uint32_t session_id,
                             const uint32_t track_id,
-                            const VideoTrackCreateParam& params) {
+                            const VideoTrackParam& params) {
     Parcel data, reply;
     data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
     data.writeUint32(client_id);
@@ -1640,8 +1654,8 @@ class BpRecorderService: public BpInterface<IRecorderService> {
     android::Parcel::WritableBlob blob;
     data.writeBlob(param_size, false, &blob);
     memset(blob.data(), 0x0, param_size);
-    VideoTrackCreateParam* track_params =
-        const_cast<VideoTrackCreateParam*>(&params);
+    VideoTrackParam* track_params =
+        const_cast<VideoTrackParam*>(&params);
     memcpy(blob.data(), reinterpret_cast<void*>(track_params), param_size);
     remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
         RECORDER_CREATE_VIDEOTRACK), data, &reply);
@@ -1652,7 +1666,7 @@ class BpRecorderService: public BpInterface<IRecorderService> {
   status_t CreateVideoTrack(const uint32_t client_id,
                             const uint32_t session_id,
                             const uint32_t track_id,
-                            const VideoTrackCreateParam& params,
+                            const VideoTrackParam& params,
                             const VideoExtraParam& extra_param) {
     Parcel data, reply;
     data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
@@ -1762,19 +1776,18 @@ class BpRecorderService: public BpInterface<IRecorderService> {
   status_t SetAudioTrackParam(const uint32_t client_id,
                               const uint32_t session_id,
                               const uint32_t track_id,
-                              CodecParamType type,
-                              void *param,
-                              size_t param_size) {
+                              AudioParam type,
+                              void *param, size_t size) {
     Parcel data, reply;
     data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
     data.writeUint32(client_id);
     data.writeUint32(session_id);
     data.writeUint32(track_id);
     data.writeUint32(static_cast<uint32_t>(type));
-    data.writeUint32(param_size);
+    data.writeUint32(size);
     android::Parcel::WritableBlob blob;
-    data.writeBlob(param_size, false, &blob);
-    memcpy(blob.data(), reinterpret_cast<void*>(param), param_size);
+    data.writeBlob(size, false, &blob);
+    memcpy(blob.data(), reinterpret_cast<void*>(param), size);
     remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
                             RECORDER_SET_AUDIOTRACK_PARAMS), data, &reply);
     blob.release();
@@ -1784,19 +1797,18 @@ class BpRecorderService: public BpInterface<IRecorderService> {
   status_t SetVideoTrackParam(const uint32_t client_id,
                               const uint32_t session_id,
                               const uint32_t track_id,
-                              CodecParamType type,
-                              void *param,
-                              size_t param_size) {
+                              VideoParam type,
+                              void *param, size_t size) {
     Parcel data, reply;
     data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
     data.writeUint32(client_id);
     data.writeUint32(session_id);
     data.writeUint32(track_id);
     data.writeUint32(static_cast<uint32_t>(type));
-    data.writeUint32(param_size);
+    data.writeUint32(size);
     android::Parcel::WritableBlob blob;
-    data.writeBlob(param_size, false, &blob);
-    memcpy(blob.data(), reinterpret_cast<void*>(param), param_size);
+    data.writeBlob(size, false, &blob);
+    memcpy(blob.data(), reinterpret_cast<void*>(param), size);
     remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
                             RECORDER_SET_VIDEOTRACK_PARAMS), data, &reply);
     blob.release();
@@ -1962,12 +1974,11 @@ ServiceCallbackHandler::~ServiceCallbackHandler() {
     QMMF_DEBUG("%s Exit ", __func__);
 }
 
-void ServiceCallbackHandler::NotifyRecorderEvent(EventType event_type,
-                                                 void *event_data,
-                                                 size_t event_data_size) {
+void ServiceCallbackHandler::NotifyRecorderEvent(EventType event, void *payload,
+                                                 size_t size) {
   QMMF_DEBUG("%s Enter ", __func__);
   assert(client_ != nullptr);
-  client_->NotifyRecorderEvent(event_type, event_data, event_data_size);
+  client_->NotifyRecorderEvent(event, payload, size);
   QMMF_DEBUG("%s Exit ", __func__);
 }
 
@@ -2061,31 +2072,27 @@ class BpRecorderServiceCallback: public BpInterface<IRecorderServiceCallback> {
     //TODO: Expose DeleteTrack Api from Binder proxy and call it from service.
   }
 
-  void NotifyRecorderEvent(EventType event_type, void *event_data,
-                           size_t event_data_size) {
+  void NotifyRecorderEvent(EventType event, void *payload, size_t size) {
 
     QMMF_DEBUG("%s Enter ", __func__);
     Parcel data, reply;
 
     data.writeInterfaceToken(
         IRecorderServiceCallback::getInterfaceDescriptor());
-    data.writeInt32(static_cast<underlying_type<EventType>::type>(event_type));
-    data.writeUint32(event_data_size);
+    data.writeUint32(static_cast<underlying_type<EventType>::type>(event));
+    data.writeUint32(size);
 
     android::Parcel::WritableBlob blob;
-    if (event_data_size) {
-      data.writeBlob(event_data_size, false, &blob);
-      memset(blob.data(), 0x0, event_data_size);
-      memcpy(blob.data(), event_data, event_data_size);
+    if (size) {
+      data.writeBlob(size, false, &blob);
+      memset(blob.data(), 0x0, size);
+      memcpy(blob.data(), payload, size);
     }
 
-    if (EventType::kCameraError == event_type) {
-      RecorderErrorData *errdata = (RecorderErrorData *)event_data;
-      if (errdata != nullptr && errdata->error_code == REMAP_ALL_BUFFERS) {
-        for (auto& iter : track_buffers_map_) {
-          uint32_t track_id = iter.first;
-          track_buffers_map_.erase(track_id);
-        }
+    if (REMAP_ALL_BUFFERS == static_cast<uint32_t>(event)) {
+      for (auto& iter : track_buffers_map_) {
+        uint32_t track_id = iter.first;
+        track_buffers_map_.erase(track_id);
       }
     }
 
@@ -2093,7 +2100,7 @@ class BpRecorderServiceCallback: public BpInterface<IRecorderServiceCallback> {
         uint32_t(RECORDER_SERVICE_CB_CMDS::RECORDER_NOTIFY_EVENT),
         data, &reply, IBinder::FLAG_ONEWAY);
 
-    if (event_data_size) {
+    if (size) {
       blob.release();
     }
     QMMF_DEBUG("%s Exit ", __func__);
@@ -2299,21 +2306,19 @@ status_t BnRecorderServiceCallback::onTransact(uint32_t code,
 
   switch(code) {
     case RECORDER_SERVICE_CB_CMDS::RECORDER_NOTIFY_EVENT: {
-      uint32_t event_data_size;
-      int32_t event_type;
+      uint32_t event, size;
 
-      data.readInt32(&event_type);
-      data.readUint32(&event_data_size);
+      data.readUint32(&event);
+      data.readUint32(&size);
 
       android::Parcel::ReadableBlob blob;
-      void* event_data = nullptr;
-      if (event_data_size) {
-        data.readBlob(event_data_size, &blob);
-        event_data = const_cast<void*>(blob.data());
+      void *payload = nullptr;
+      if (size) {
+        data.readBlob(size, &blob);
+        payload = const_cast<void*>(blob.data());
       }
-      NotifyRecorderEvent(static_cast<EventType>(event_type), event_data,
-                          event_data_size);
-      if (event_data_size) {
+      NotifyRecorderEvent(static_cast<EventType>(event), payload, size);
+      if (size) {
         blob.release();
       }
       return NO_ERROR;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -363,7 +363,9 @@ status_t AudioPulseClient::Disconnect() {
   return 0;
 }
 
-status_t AudioPulseClient::Configure(const AudioTrackParams& params) {
+status_t AudioPulseClient::Configure(const uint32_t track_id,
+                                     const AudioTrackParam& params,
+                                     const BnBufferCallback& cb) {
   QMMF_DEBUG("%s() TRACE", __func__);
   QMMF_VERBOSE("%s() INPARAM: params[%s]", __func__, params.ToString().c_str());
   PaStreamSuccessCbData cb_data;
@@ -446,7 +448,7 @@ status_t AudioPulseClient::Configure(const AudioTrackParams& params) {
   // initialize the pulseaudio format info for the stream
   pa_format_info_ = pa_format_info_new();
   pa_format_info_->encoding = PA_ENCODING_PCM;
-  switch (params.params.bit_depth) {
+  switch (params.bit_depth) {
     case 16:
       pa_format_info_set_sample_format(pa_format_info_, PA_SAMPLE_S16LE);
       break;
@@ -457,18 +459,16 @@ status_t AudioPulseClient::Configure(const AudioTrackParams& params) {
       pa_format_info_set_sample_format(pa_format_info_, PA_SAMPLE_S32LE);
       break;
     default:
-      QMMF_ERROR("%s() invalid sample size: %d", __func__,
-                 params.params.bit_depth);
+      QMMF_ERROR("%s() invalid sample size: %d", __func__, params.bit_depth);
       goto exit_format;
   }
-  pa_format_info_set_rate(pa_format_info_, params.params.sample_rate);
-  pa_format_info_set_channels(pa_format_info_, params.params.channels);
+  pa_format_info_set_rate(pa_format_info_, params.sample_rate);
+  pa_format_info_set_channels(pa_format_info_, params.channels);
 
   if (!pa_format_info_valid(pa_format_info_) ||
           !pa_format_info_is_pcm(pa_format_info_)) {
     QMMF_ERROR("%s() created PA format info is not valid PCM: size[%d] rate[%d] channels[%d]",
-               __func__, params.params.bit_depth, params.params.sample_rate,
-               params.params.channels);
+               __func__, params.bit_depth, params.sample_rate, params.channels);
     goto exit_format;
   }
 
@@ -517,9 +517,9 @@ status_t AudioPulseClient::Configure(const AudioTrackParams& params) {
 
   // initialize pulseaudio stream
   stream_name = kPaStreamName + "(";
-  stream_name += "Client " + to_string((params.track_id >> 24) & 0xFF) + ",";
-  stream_name += "Session " + to_string((params.track_id >> 16) & 0xFF) + ",";
-  stream_name += "Track " + to_string(params.track_id & 0xFFFF) + ")";
+  stream_name += "Client " + to_string((track_id >> 24) & 0xFF) + ",";
+  stream_name += "Session " + to_string((track_id >> 16) & 0xFF) + ",";
+  stream_name += "Track " + to_string(track_id & 0xFFFF) + ")";
   pa_stream_ = pa_stream_new_extended(pa_context_, stream_name.c_str(),
                                       &pa_format_info_, 1, pa_stream_props_);
   if (pa_stream_ == nullptr) {
@@ -1021,10 +1021,10 @@ void AudioPulseClient::Thread() {
 
       if (stop_received) {
         QMMF_DEBUG("%s() setting EOS flag", __func__);
-        buffer.flag |= static_cast<uint32_t>(BufferFlags::kFlagEOS);
+        buffer.flags |= static_cast<uint32_t>(BufferFlags::kFlagEOS);
         keep_running = false;
       } else {
-        buffer.flag = 0;
+        buffer.flags = 0;
       }
 
       NotifyBufferEvent(buffer);

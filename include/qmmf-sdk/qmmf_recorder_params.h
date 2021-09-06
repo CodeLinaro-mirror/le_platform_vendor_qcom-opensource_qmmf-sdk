@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -47,8 +47,6 @@
 #include <camera/CameraMetadata.h>
 
 #include "qmmf-sdk/qmmf_buffer.h"
-#include "qmmf-sdk/qmmf_codec.h"
-#include "qmmf-sdk/qmmf_device.h"
 
 namespace qmmf {
 
@@ -58,20 +56,110 @@ namespace recorder {
 
 #define MAX_AUDIO_INPUT_DEVICES (10)
 #define MAX_AUDIO_PROFILE (80)
-#define MAX_THUMBNAIL_IMAGE_PARAM (2)
 
 typedef int32_t status_t;
 
-enum class EventType {
-  kServerDied    = 1,
-  kCameraError   = 2,
-  kCameraOpened  = 3,
-  kCameraClosing = 4,
-  kCameraClosed  = 5,
+enum class EventType : uint32_t {
+  kUnknown       = 0, // Indicates a unknown event has occured.
+  kServerDied    = 1, // Indicates un-recoverable service crash.
+  kCameraError   = 2, // Indicates un-recoverable camera error.
+  kCameraOpened  = 3, // Indicates camera that has been opened.
+  kCameraClosing = 4, // Indicates camera that is about to be closed.
+  kCameraClosed  = 5, // Indicates camera that has been closed.
+  kFrameError    = 6, // Indicates a frame has been droped.
+  kMetadataError = 7, // Indicates metadata for a frame has been droped.
 };
 
-typedef std::function<void(EventType event_type, void *event_data,
-                           size_t event_data_size)> EventCb;
+enum class VideoFormat : uint32_t {
+  kJPEG,
+  kRGB,
+  kNV12,
+  kNV12UBWC,
+  kNV16,
+  kYUY2,
+  kBayerIdeal,
+  kBayerRDI8BIT,
+  kBayerRDI10BIT,
+  kBayerRDI12BIT,
+  kBayerRDI16BIT,
+};
+
+enum class ImageFormat : uint32_t {
+  kJPEG,
+  kNV12,
+  kNV21,
+  kBayerIdeal,
+  kBayerRDI8BIT,
+  kBayerRDI10BIT,
+  kBayerRDI12BIT,
+  kBayerRDI16BIT,
+};
+
+enum class AudioFormat : uint32_t {
+  kPCM,
+};
+
+enum class Rotation : uint32_t {
+  kNone,
+  k90,
+  k180,
+  k270,
+};
+
+/// @enum mapper::VideoFlags
+/// @brief A strongly typed enum class representing video configuration flags.
+enum class VideoFlags : uint64_t {
+  kNone     = 0,      /// No active configuration flags.
+  kIAEC     = 1 << 0, /// Wait Initial Auto Exposure Convergence.
+  kUncashed = 1 << 1, /// Allocated buffers are not cached.
+};
+
+inline VideoFlags operator | (VideoFlags lhs, VideoFlags rhs) {
+  using T = std::underlying_type_t<VideoFlags>;
+  return static_cast<VideoFlags>(static_cast<T>(lhs) | static_cast<T>(rhs));
+}
+
+inline VideoFlags& operator |= (VideoFlags& lhs, VideoFlags rhs) {
+  lhs = lhs | rhs;
+  return lhs;
+}
+
+inline VideoFlags operator & (VideoFlags lhs, VideoFlags rhs) {
+  using T = std::underlying_type_t<VideoFlags>;
+  return static_cast<VideoFlags>(static_cast<T>(lhs) & static_cast<T>(rhs));
+}
+
+inline VideoFlags& operator &= (VideoFlags& lhs, VideoFlags rhs) {
+  lhs = lhs & rhs;
+  return lhs;
+}
+
+inline VideoFlags operator ^ (VideoFlags lhs, VideoFlags rhs) {
+  using T = std::underlying_type_t<VideoFlags>;
+  return static_cast<VideoFlags>(static_cast<T>(lhs) ^ static_cast<T>(rhs));
+}
+
+inline VideoFlags& operator ^= (VideoFlags& lhs, VideoFlags rhs) {
+  lhs = lhs & rhs;
+  return lhs;
+}
+
+inline VideoFlags operator ~ (VideoFlags& rhs) {
+  using T = std::underlying_type_t<VideoFlags>;
+  return static_cast<VideoFlags> (~static_cast<T>(rhs));
+}
+
+enum class VideoParam {
+  kFrameRate,
+  kEnableFrameRepeat,
+};
+
+enum class AudioParam {
+  kAudioEffects,
+  kAudioVolume,
+};
+
+typedef std::function<void(EventType event, void *payload, size_t size)> EventCb;
 
 /// @brief Recorder callback is called to notify non track
 /// and non session specific event notifications
@@ -79,12 +167,6 @@ typedef std::function<void(EventType event_type, void *event_data,
 /// Only error event types are expected as of now
 struct RecorderCb {
   EventCb event_cb;
-};
-
-/// @brief RecorderErrorData is used to determine the type of recorer errors.
-struct RecorderErrorData {
-  uint32_t        camera_id;
-  int32_t         error_code;
 };
 
 /// @brief Session cb is used to return state changes i.e. to indicate
@@ -111,141 +193,6 @@ struct MetaData {
   uint32_t cam_meta_frame_number;
 };
 
-/// @brief Plugin related information exposed to the client
-struct PluginInfo {
-  /// plugin name
-  std::string name;
-  /// version of the underlying library
-  std::string version;
-  /// indicating whether runtime enable/disable is supported
-  bool        togglable;
-  /// tuning file name
-  std::string tuning_file_name;
-
-  PluginInfo()
-    : name(), version("0.0"), togglable(false), tuning_file_name() {}
-
-  PluginInfo(const std::string &name,
-             const std::string &version,
-             const bool togglable)
-      : name(name),
-        version(version),
-        togglable(togglable) {
-    // set default tuning file name
-    tuning_file_name = kTuningPrefix + name + kTuningSuffix;
-  }
-
-  PluginInfo(const void *blob, const size_t size) { FromBlob(blob, size); }
-
-  void SetTuningFile(const std::string &tuning) {
-    tuning_file_name = tuning;
-  }
-
-  std::string ToString(uint32_t indent = 0) const {
-    std::stringstream indentation;
-    for (uint32_t i = 0; i < indent; i++) indentation << '\t';
-    indent++;
-
-    std::stringstream stream;
-    stream << indentation.str()
-           << "\"name\" : " << name << '\n';
-    stream << indentation.str()
-           << "\"version\" : " << version << '\n';
-    stream << indentation.str()
-           << "\"togglable\" : " << togglable << '\n';
-    stream << indentation.str()
-           << "\"tuning file\" : " << tuning_file_name << '\n';
-    return stream.str();
-  }
-
-  std::shared_ptr<void> ToBlob() const {
-    std::shared_ptr<void> blob(new uint8_t[Size()],
-                               std::default_delete<uint8_t[]>() );
-
-    uint16_t name_size = (uint16_t)name.size();
-    uint16_t version_size = (uint16_t)version.size();
-    uint16_t tuning_size = (uint16_t)tuning_file_name.size();
-
-    uintptr_t dest = reinterpret_cast<uintptr_t>(blob.get());
-    memcpy(reinterpret_cast<void *>(dest),
-           reinterpret_cast<void *>(&name_size), sizeof(uint16_t));
-
-    dest += sizeof(uint16_t);
-    memcpy(reinterpret_cast<void *>(dest),
-           reinterpret_cast<void *>(&version_size), sizeof(uint16_t));
-
-    dest += sizeof(uint16_t);
-    memcpy(reinterpret_cast<void *>(dest),
-           reinterpret_cast<void *>(&tuning_size), sizeof(uint16_t));
-
-    dest += sizeof(uint16_t);
-    memcpy(reinterpret_cast<void *>(dest), name.data(), name.size());
-
-    dest += name.size();
-    memcpy(reinterpret_cast<void *>(dest), version.data(), version.size());
-
-    dest += version.size();
-    memcpy(reinterpret_cast<void *>(dest), &togglable, sizeof(togglable));
-
-    dest += sizeof(togglable);
-    memcpy(reinterpret_cast<void *>(dest), tuning_file_name.data(),
-           tuning_file_name.size());
-
-    return blob;
-  }
-
-  void FromBlob(const void *blob, const size_t size) {
-    uintptr_t src = reinterpret_cast<uintptr_t>(blob);
-    uint16_t name_size, version_size, tuning_size;
-    size_t remaining_size = size;
-    name = "Invalid blob";
-    version = "Invalid blob";
-    tuning_file_name = "Invalid blob";
-
-    if (remaining_size > sizeof(uint16_t) * 3) {
-      remaining_size -= sizeof(uint16_t) * 3;
-      memcpy(&name_size, reinterpret_cast<void *>(src), sizeof(uint16_t));
-
-      src += sizeof(uint16_t);
-      memcpy(&version_size, reinterpret_cast<void *>(src), sizeof(uint16_t));
-
-      src += sizeof(uint16_t);
-      memcpy(&tuning_size, reinterpret_cast<void *>(src), sizeof(uint16_t));
-
-      if (remaining_size >= version_size + name_size + tuning_size) {
-        src += sizeof(uint16_t);
-        name.assign(reinterpret_cast<const char *>(src), name_size);
-
-        src += name_size;
-        version.assign(reinterpret_cast<const char *>(src), version_size);
-
-        src += version_size;
-        memcpy(&togglable, reinterpret_cast<void *>(src), sizeof(togglable));
-
-        src += sizeof(togglable);
-        tuning_file_name.assign(reinterpret_cast<const char *>(src),
-            tuning_size);
-      }
-    }
-  }
-
-  size_t Size() const {
-    return (sizeof(uint16_t) + name.size() +
-            sizeof(uint16_t) + version.size() +
-            sizeof(togglable) +
-            sizeof(uint16_t) + tuning_file_name.size());
-  }
-
-private:
-
-  /// recommended tuning file prefix
-  const std::string kTuningPrefix = "qmmf_tuning_";
-  /// recommended tuning file suffix
-  const std::string kTuningSuffix = ".bin";
-};
-
-typedef std::vector<PluginInfo> SupportedPlugins;
-
 /// @brief Both data and event callbacks should be set by the client.
 /// event_cb is called to notify track specific errors and data_cb
 /// to notify availability of output data from track to clients
@@ -268,8 +215,8 @@ typedef std::vector<PluginInfo> SupportedPlugins;
 struct TrackCb {
   std::function<void(uint32_t track_id, ::std::vector<BufferDescriptor> buffers,
                      ::std::vector<MetaData> meta_data)> data_cb;
-  std::function<void(uint32_t track_id, EventType event_type, void *event_data,
-                     size_t event_data_size)> event_cb;
+  std::function<void(uint32_t track_id, EventType type, void *payload,
+                     size_t size)> event_cb;
 };
 
 /// @brief Createtime parameters for audio track
@@ -277,19 +224,18 @@ struct TrackCb {
 /// Audio output device is used for routing audio to output
 /// to external devices say through HDMI. In all other usecases
 /// out_device will be set to AUDIO_DEVICE_NONE
-struct AudioTrackCreateParam {
+struct AudioTrackParam {
   uint32_t                in_devices_num;
-  DeviceId                in_devices[MAX_AUDIO_INPUT_DEVICES];
+  uint32_t                in_devices[MAX_AUDIO_INPUT_DEVICES];
   uint32_t                sample_rate;
   uint32_t                channels;
   uint32_t                bit_depth;
   char                    profile[MAX_AUDIO_PROFILE];
   AudioFormat             format;
-  AudioCodecParams        codec_params;
-  DeviceId                out_device;
+  uint32_t                out_device;
   uint32_t                flags;
 
-  AudioTrackCreateParam() {
+  AudioTrackParam() {
     memset(profile, 0x0, sizeof(profile));
   }
 
@@ -306,176 +252,56 @@ struct AudioTrackCreateParam {
     stream << "format["
            << static_cast<::std::underlying_type<AudioFormat>::type>(format)
            << "] ";
-    stream << "codec_params[" << codec_params.ToString(format) << "] ";
     stream << "out_device[" << out_device << "] ";
     stream << "flags[" << flags << "]";
     return stream.str();
   }
 };
 
-/// @brief create time parameters for a video track
-/// For 360 degree capture, camera_id vector should contain the id of
-/// multiple cameras involved in 360 capture
-/// \TODO: define VideoOutDevice
-struct VideoTrackCreateParam {
+/// @brief Create time parameters for a video track
+struct VideoTrackParam {
   /// Video Track camera id
-  uint32_t camera_id;
+  uint32_t    camera_id;
   /// Video Track width
-  uint32_t width;
+  uint32_t    width;
   /// Video Track height
-  uint32_t height;
+  uint32_t    height;
   /// Video Track frame rate
-  float frame_rate;
-  VideoFormat format_type;
-  VideoCodecParams codec_param;
-  bool do_vqzip;
-  VQZipInfo vqzip_params;
+  float       framerate;
+  /// Video Track format
+  VideoFormat format;
+  /// Video Track rotation angle
+  Rotation    rotation;
+  /// Additional buffers allocated for the track
+  uint32_t    xtrabufs;
+  /// Video Track addtional flags
+  VideoFlags  flags;
 
-  VideoTrackCreateParam(uint32_t cam_id = 0,
-                        VideoFormat fmt = VideoFormat::kNV12, uint32_t w = 3840,
-                        uint32_t h = 2160, float frm_rate = 30) {
-    camera_id = cam_id;
-    width = w;
-    height = h;
-    frame_rate = frm_rate;
-    format_type = fmt;
-    switch (format_type) {
-      case VideoFormat::kAVC:
-        setAVCDefaultVideoParam();
-        break;
-      case VideoFormat::kHEVC:
-        setHEVCDefaultVideoParam();
-        break;
-      case VideoFormat::kJPEG:
-        setJPEGDefaultParam();
-        break;
-      default: {
-        // Nothing to do for other formats
-        codec_param = {};
-      }
-    }
-
-    // Setting VQZipInfo parameters
-    do_vqzip = false;
-    vqzip_params = {};
-  }
+  VideoTrackParam(uint32_t cam_id = 0, uint32_t w = 3840, uint32_t h = 2160,
+                  float fps = 30, VideoFormat fmt = VideoFormat::kNV12,
+                  Rotation rotate = Rotation::kNone, uint32_t extrabufs = 0,
+                  VideoFlags flgs = VideoFlags::kNone)
+      : camera_id(cam_id), width(w), height(h), framerate(fps), format(fmt),
+        rotation(rotate), xtrabufs(extrabufs), flags(flgs) {}
 
   ::std::string ToString() const {
     ::std::stringstream stream;
     stream << "camera_id[" << camera_id << "] ";
     stream << "width[" << width << "] ";
     stream << "height[" << height << "] ";
-    stream << "frame_rate[" << frame_rate << "] ";
-    stream << "format_type["
-           << static_cast<::std::underlying_type<VideoFormat>::type>(
-                  format_type)
+    stream << "framerate[" << framerate << "] ";
+    stream << "format["
+           << static_cast<::std::underlying_type<VideoFormat>::type>(format)
            << "] ";
-    stream << "codec_params[" << codec_param.ToString(format_type) << "] ";
-    stream << "do_vqzip[" << ::std::boolalpha << do_vqzip << ::std::noboolalpha
+    stream << "rotation["
+           << static_cast<::std::underlying_type<Rotation>::type>(rotation)
            << "] ";
-    stream << "vqzip_params[" << vqzip_params.ToString() << "]";
+    stream << "xtrabufs[" << xtrabufs << "] ";
+    stream << "flags[" << ::std::setbase(16)
+           << static_cast<::std::underlying_type<VideoFlags>::type>(flags)
+           << ::std::setbase(10) << "]";
     return stream.str();
   }
-
-  void setAVCDefaultVideoParam() {
-    // Setting default Parameters for AVC
-    codec_param.avc.idr_interval = 1;
-    codec_param.avc.bitrate = 6000000;
-    codec_param.avc.profile = AVCProfileType::kHigh;
-    codec_param.avc.level = AVCLevelType::kLevel5_1;
-    codec_param.avc.ratecontrol_type = VideoRateControlType::kMaxBitrate;
-    codec_param.avc.qp_params.enable_init_qp = true;
-    codec_param.avc.qp_params.init_qp.init_IQP = 27;
-    codec_param.avc.qp_params.init_qp.init_PQP = 28;
-    codec_param.avc.qp_params.init_qp.init_BQP = 28;
-    codec_param.avc.qp_params.init_qp.init_QP_mode = 0x7;
-    codec_param.avc.qp_params.enable_qp_range = true;
-    codec_param.avc.qp_params.qp_range.min_QP = 10;
-    codec_param.avc.qp_params.qp_range.max_QP = 51;
-    codec_param.avc.qp_params.enable_qp_IBP_range = true;
-    codec_param.avc.qp_params.qp_IBP_range.min_IQP = 10;
-    codec_param.avc.qp_params.qp_IBP_range.max_IQP = 51;
-    codec_param.avc.qp_params.qp_IBP_range.min_PQP = 10;
-    codec_param.avc.qp_params.qp_IBP_range.max_PQP = 51;
-    codec_param.avc.qp_params.qp_IBP_range.min_BQP = 10;
-    codec_param.avc.qp_params.qp_IBP_range.max_BQP = 51;
-    codec_param.avc.ltr_count = 0;
-    codec_param.avc.insert_aud_delimiter = true;
-    codec_param.avc.hier_layer = 0;
-    codec_param.avc.prepend_sps_pps_to_idr = false;
-    codec_param.avc.sar_enabled = false;
-    codec_param.avc.sar_width = 0;
-    codec_param.avc.sar_height = 0;
-    codec_param.avc.slice_enabled = false;
-    codec_param.avc.slice_header_spacing = 1024;
-  }
-
-  void setAVCVariableFramerateVideoParam() {
-    // Setting Variable Framerate Video Parameters for AVC
-    codec_param.avc.idr_interval = 1;
-    codec_param.avc.bitrate      = 10000000;
-    codec_param.avc.profile = AVCProfileType::kBaseline;
-    codec_param.avc.level   = AVCLevelType::kLevel3;
-    codec_param.avc.ratecontrol_type =
-        VideoRateControlType::kVariableSkipFrames;
-    codec_param.avc.qp_params.enable_init_qp = true;
-    codec_param.avc.qp_params.init_qp.init_IQP = 51;
-    codec_param.avc.qp_params.init_qp.init_PQP = 51;
-    codec_param.avc.qp_params.init_qp.init_BQP = 51;
-    codec_param.avc.qp_params.init_qp.init_QP_mode = 0x7;
-    codec_param.avc.qp_params.enable_qp_range = true;
-    codec_param.avc.qp_params.qp_range.min_QP = 26;
-    codec_param.avc.qp_params.qp_range.max_QP = 51;
-    codec_param.avc.qp_params.enable_qp_IBP_range = true;
-    codec_param.avc.qp_params.qp_IBP_range.min_IQP = 26;
-    codec_param.avc.qp_params.qp_IBP_range.max_IQP = 51;
-    codec_param.avc.qp_params.qp_IBP_range.min_PQP = 26;
-    codec_param.avc.qp_params.qp_IBP_range.max_PQP = 51;
-    codec_param.avc.qp_params.qp_IBP_range.min_BQP = 26;
-    codec_param.avc.qp_params.qp_IBP_range.max_BQP = 51;
-    codec_param.avc.insert_aud_delimiter = true;
-  }
-
-  void setHEVCDefaultVideoParam() {
-    // Setting default Parameters for HEVC
-    codec_param.hevc.idr_interval = 1;
-    codec_param.hevc.bitrate = 6000000;
-    codec_param.hevc.profile = HEVCProfileType::kMain;
-    codec_param.hevc.level = HEVCLevelType::kLevel5_1;
-    codec_param.hevc.ratecontrol_type = VideoRateControlType::kMaxBitrate;
-    codec_param.hevc.qp_params.enable_init_qp = true;
-    codec_param.hevc.qp_params.init_qp.init_IQP = 27;
-    codec_param.hevc.qp_params.init_qp.init_PQP = 28;
-    codec_param.hevc.qp_params.init_qp.init_BQP = 28;
-    codec_param.hevc.qp_params.init_qp.init_QP_mode = 0x7;
-    codec_param.hevc.qp_params.enable_qp_range = true;
-    codec_param.hevc.qp_params.qp_range.min_QP = 10;
-    codec_param.hevc.qp_params.qp_range.max_QP = 51;
-    codec_param.hevc.qp_params.enable_qp_IBP_range = true;
-    codec_param.hevc.qp_params.qp_IBP_range.min_IQP = 10;
-    codec_param.hevc.qp_params.qp_IBP_range.max_IQP = 51;
-    codec_param.hevc.qp_params.qp_IBP_range.min_PQP = 10;
-    codec_param.hevc.qp_params.qp_IBP_range.max_PQP = 51;
-    codec_param.hevc.qp_params.qp_IBP_range.min_BQP = 10;
-    codec_param.hevc.qp_params.qp_IBP_range.max_BQP = 51;
-    codec_param.hevc.ltr_count = 0;
-    codec_param.hevc.insert_aud_delimiter = true;
-    codec_param.hevc.hier_layer = 0;
-    codec_param.hevc.prepend_sps_pps_to_idr = false;
-    codec_param.hevc.sar_enabled = false;
-    codec_param.hevc.sar_width = 0;
-    codec_param.hevc.sar_height = 0;
-  }
-
-  void setJPEGDefaultParam() {
-
-    codec_param.jpeg.enable_thumbnail = false;
-    codec_param.jpeg.quality = 95;
-    codec_param.jpeg.thumbnail_quality = 75;
-    codec_param.jpeg.thumbnail_height = 240;
-    codec_param.jpeg.thumbnail_width = 320;
-  }
-
 };
 
 /// @brief Result callback passed to StartCamera API
@@ -493,23 +319,21 @@ struct ImageParam {
   uint32_t    width;
   /// Image height
   uint32_t    height;
-  /// Image image quality (ignored for YUV and Bayer formats)
-  uint32_t    image_quality;
   /// Image format
-  ImageFormat image_format;
+  ImageFormat format;
+  /// Image quality (ignored for YUV and Bayer formats)
+  uint32_t    quality;
 
-  ImageParam(): width(0), height(0), image_quality(95),
-      image_format(ImageFormat::kJPEG) {}
+  ImageParam(): width(0), height(0), format(ImageFormat::kJPEG), quality(95) {}
 
   ::std::string ToString() const {
     ::std::stringstream stream;
     stream << "width[" << width << "]";
     stream << "height[" << height << "] ";
-    stream << "image_quality[" << image_quality << "] ";
-    stream << "image_format["
-           << static_cast<::std::underlying_type<ImageFormat>::type>
-                         (image_format)
+    stream << "format["
+           << static_cast<::std::underlying_type<ImageFormat>::type>(format)
            << "]";
+    stream << "quality[" << quality << "] ";
     return stream.str();
   }
 };

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016, 2019, 2021, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -46,7 +46,6 @@
 #include "common/utils/qmmf_log.h"
 #include "common/utils/qmmf_tools.h"
 #include "include/qmmf-sdk/qmmf_recorder_params.h"
-#include "recorder/src/client/qmmf_recorder_params_internal.h"
 #include "recorder/src/client/qmmf_recorder_service_intf.h"
 
 namespace qmmf {
@@ -121,7 +120,7 @@ int32_t RecorderClientIon::Associate(uint32_t track_id,
         buffer->size = bn_buffer.size;
         buffer->offset = 0;
         buffer->timestamp = bn_buffer.timestamp;
-        buffer->flag = bn_buffer.flag;
+        buffer->flags = bn_buffer.flags;
         buffer->buf_id = bn_buffer.buffer_id;
         buffer->capacity = bn_buffer.capacity;
 
@@ -162,7 +161,7 @@ int32_t RecorderClientIon::Associate(uint32_t track_id,
   buffer->data = ion_buffer.data;
   buffer->size = bn_buffer.size;
   buffer->timestamp = bn_buffer.timestamp;
-  buffer->flag = bn_buffer.flag;
+  buffer->flags = bn_buffer.flags;
   buffer->buf_id = bn_buffer.buffer_id;
   buffer->capacity = bn_buffer.capacity;
   buffer->fd = bn_buffer.ion_fd;
