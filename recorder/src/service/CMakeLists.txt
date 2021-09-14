@@ -18,6 +18,7 @@ add_library(qmmf_recorder_service SHARED ${exclude}
   ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_camera_context.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_camera_rescaler.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_camera_frc.cc
+  ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_offline_jpegenc_impl.cc
   ${jpeg}
 )
 else()
