@@ -17,6 +17,10 @@ target_include_directories(qmmf-server
 target_include_directories(qmmf-server
  PRIVATE $<BUILD_INTERFACE:${KERNEL_INCDIR}/usr/include>)
 
+# Headers path for msm-5.4 media on qrbx210 targets.
+target_include_directories(qmmf-server
+ PRIVATE $<BUILD_INTERFACE:${KERNEL_INCDIR}/usr/include/vidc>)
+
 target_include_directories(qmmf-server
  PRIVATE ${WORKSPACE}/hardware/qcom/media/)
 
@@ -45,6 +49,8 @@ elseif (TARGET_BOARD_PLATFORM STREQUAL "qcs605")
 elseif (TARGET_BOARD_PLATFORM STREQUAL "sdmsteppe")
     install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/service/qmmf-server-cam-arch-v2-usrgrp.service DESTINATION ${QMMF_SYSTEMD_DIR} RENAME qmmf-server.service)
 elseif (TARGET_BOARD_PLATFORM STREQUAL "qrb5165")
+    install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/service/qmmf-server-cam-arch-v2-usrgrp.service DESTINATION ${QMMF_SYSTEMD_DIR} RENAME qmmf-server.service)
+elseif (TARGET_BOARD_PLATFORM STREQUAL "qrbx210")
     install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/service/qmmf-server-cam-arch-v2-usrgrp.service DESTINATION ${QMMF_SYSTEMD_DIR} RENAME qmmf-server.service)
 else()
     install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/service/qmmf-server-base.service DESTINATION ${QMMF_SYSTEMD_DIR} RENAME qmmf-server.service)
