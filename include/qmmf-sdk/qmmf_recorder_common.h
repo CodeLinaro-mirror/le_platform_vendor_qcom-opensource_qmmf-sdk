@@ -124,7 +124,7 @@ static const uint32_t kBitRate100Mbps = 100000000;
 static const uint32_t kBitRate10Mbps  = 10000000;
 
 template<class T>
-struct Rect {
+struct Rect_qmmf {
   T left;
   T top;
   T width;
@@ -134,7 +134,7 @@ struct Rect {
 struct FaceInfo {
   uint32_t fd_stream_height;
   uint32_t fd_stream_width;
-  std::vector<Rect<uint32_t>> face_rect;
+  std::vector<Rect_qmmf<uint32_t>> face_rect;
 };
 
 #define DEFAULT_YUV_DUMP_FREQ            "200"

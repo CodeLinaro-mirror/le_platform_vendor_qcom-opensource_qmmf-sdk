@@ -1450,7 +1450,7 @@ void RecorderCommon::VideoTrackDataCbMatchCameraMeta(uint32_t session_id,
 void RecorderCommon::ParseFaceInfo(const android::CameraMetadata &res,
                                   struct FaceInfo &info) {
   camera_metadata_ro_entry rect_entry, crop_entry;
-  Rect<uint32_t> rect;
+  Rect_qmmf<uint32_t> rect;
   uint32_t active_w = 0, active_h = 0;
 
   if (res.exists(ANDROID_STATISTICS_FACE_RECTANGLES)) {
