@@ -1001,42 +1001,10 @@ status_t TrackSource::Init() {
       " Created Successfully for Track(%x)",  __func__, this,
       params_.width, params_.height, id_);
 
-  QMMF_DEBUG("%s Exit Track(%x)", __func__, id_);
-  return ret;
-}
-
-status_t TrackSource::DeInit() {
-
-  QMMF_DEBUG("%s Enter Track(%x)", __func__, id_);
-  assert(camera_.get() != nullptr);
-  status_t ret = NO_ERROR;
-
-  if (slave_track_source_ == false) {
-    ret = camera_->DeleteStream(id_);
-  }
-  assert(ret == NO_ERROR);
-
-  rescaler_ = nullptr;
-
-  QMMF_DEBUG("%s Exit Track(%x)", __func__, id_);
-  return ret;
-}
-
-status_t TrackSource::StartTrack() {
-
-  QMMF_DEBUG("%s: Enter Track(%x)", __func__, id_);
-  std::lock_guard<std::mutex> lock(lock_);
-
-  assert(camera_.get() != nullptr);
-
-  std::lock_guard<std::mutex> stop_lock(stop_lock_);
-  is_stop_ = false;
-
   sp<IBufferConsumer> consumer;
   consumer = GetConsumer();
   assert(consumer.get() != nullptr);
 
-  status_t ret = NO_ERROR;
   ret = frc_->AddConsumer(consumer);
   assert(ret == NO_ERROR);
   consumer = frc_->GetConsumer();
@@ -1062,6 +1030,82 @@ status_t TrackSource::StartTrack() {
     assert(ret == NO_ERROR);
     ret = fsc_->AddConsumer(consumer);
     assert(ret == NO_ERROR);
+  }
+
+  QMMF_DEBUG("%s Exit Track(%x)", __func__, id_);
+  return ret;
+}
+
+status_t TrackSource::DeInit() {
+
+  QMMF_DEBUG("%s Enter Track(%x)", __func__, id_);
+  assert(camera_.get() != nullptr);
+  status_t ret = NO_ERROR;
+
+  sp<IBufferConsumer> consumer = frc_->GetConsumer();
+  assert(consumer.get() != nullptr);
+
+  if (slave_track_source_ == false) {
+    ret = fsc_->RemoveConsumer(consumer);
+    assert(ret == NO_ERROR);
+    ret = camera_->RemoveConsumer(id_, fsc_->GetConsumer());
+    assert(ret == NO_ERROR);
+  }
+
+  if (rescaler_.get() != nullptr) {
+    ret = rescaler_->RemoveConsumer(consumer);
+    assert(ret == NO_ERROR);
+    ret = fsc_->RemoveConsumer(rescaler_->GetConsumer());
+    assert(ret == NO_ERROR);
+    ret = master_track_->RemoveConsumer(fsc_->GetConsumer());
+    assert(ret == NO_ERROR);
+  } else if (slave_track_source_ == true) {
+    ret = fsc_->RemoveConsumer(consumer);
+    assert(ret == NO_ERROR);
+    ret = master_track_->RemoveConsumer(fsc_->GetConsumer());
+    assert(ret == NO_ERROR);
+  }
+
+  consumer = GetConsumer();
+  assert(consumer.get() != nullptr);
+  ret = frc_->RemoveConsumer(consumer);
+  assert(ret == NO_ERROR);
+
+  std::unique_lock<std::mutex> idle_lock(idle_lock_);
+  std::chrono::nanoseconds wait_time(kWaitDuration);
+
+  while (!is_idle_) {
+    auto ret = wait_for_idle_.WaitFor(idle_lock, wait_time);
+    if (ret != 0) {
+      QMMF_ERROR("%s: Track(%x): StopTrack Timed out happened! Encoder"
+          " failed to go in Idle state!",  __func__, id_);
+      return TIMED_OUT;
+    }
+  }
+
+  if (slave_track_source_ == false) {
+    ret = camera_->DeleteStream(id_);
+  }
+  assert(ret == NO_ERROR);
+
+  rescaler_ = nullptr;
+
+  QMMF_DEBUG("%s Exit Track(%x)", __func__, id_);
+  return ret;
+}
+
+status_t TrackSource::StartTrack() {
+
+  QMMF_DEBUG("%s: Enter Track(%x)", __func__, id_);
+  std::lock_guard<std::mutex> lock(lock_);
+
+  assert(camera_.get() != nullptr);
+
+  std::lock_guard<std::mutex> stop_lock(stop_lock_);
+  is_stop_ = false;
+
+  status_t ret = NO_ERROR;
+  if (slave_track_source_ == false) {
     ret = camera_->StartStream(id_);
     assert(ret == NO_ERROR);
   }
@@ -1130,36 +1174,10 @@ status_t TrackSource::StopTrack() {
     assert(ret == NO_ERROR);
   }
 
-  sp<IBufferConsumer> consumer = frc_->GetConsumer();
-  assert(consumer.get() != nullptr);
-
   if (slave_track_source_ == false) {
     ret = camera_->StopStream(id_);
     assert(ret == NO_ERROR);
-    ret = fsc_->RemoveConsumer(consumer);
-    assert(ret == NO_ERROR);
-    ret = camera_->RemoveConsumer(id_, fsc_->GetConsumer());
-    assert(ret == NO_ERROR);
   }
-
-  if (rescaler_.get() != nullptr) {
-    ret = rescaler_->RemoveConsumer(consumer);
-    assert(ret == NO_ERROR);
-    ret = fsc_->RemoveConsumer(rescaler_->GetConsumer());
-    assert(ret == NO_ERROR);
-    ret = master_track_->RemoveConsumer(fsc_->GetConsumer());
-    assert(ret == NO_ERROR);
-  } else if (slave_track_source_ == true) {
-    ret = fsc_->RemoveConsumer(consumer);
-    assert(ret == NO_ERROR);
-    ret = master_track_->RemoveConsumer(fsc_->GetConsumer());
-    assert(ret == NO_ERROR);
-  }
-
-  consumer = GetConsumer();
-  assert(consumer.get() != nullptr);
-  ret = frc_->RemoveConsumer(consumer);
-  assert(ret == NO_ERROR);
 
   QMMF_INFO("%s: Pipe stop done(%x)", __func__, id_);
   {
@@ -1168,17 +1186,6 @@ status_t TrackSource::StopTrack() {
         id_, buffer_list_.size());
   }
 
-  std::unique_lock<std::mutex> idle_lock(idle_lock_);
-  std::chrono::nanoseconds wait_time(kWaitDuration);
-
-  while (!is_idle_) {
-    auto ret = wait_for_idle_.WaitFor(idle_lock, wait_time);
-    if (ret != 0) {
-      QMMF_ERROR("%s: Track(%x): StopTrack Timed out happened! Encoder"
-          " failed to go in Idle state!",  __func__, id_);
-      return TIMED_OUT;
-    }
-  }
   QMMF_DEBUG("%s: Exit Track(%x)", __func__, id_);
   return NO_ERROR;
 }
