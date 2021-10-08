@@ -234,7 +234,7 @@ int GBMBuffer::GetUsage ()
   return cmn.flags;
 }
 
-int GBMBuffer::GetFD() { return gbm_bo_get_fd(generic_handle_); }
+int GBMBuffer::GetFD() { return generic_handle_->ion_fd; }
 
 int GBMBuffer::GetFormat() {
   int format = 0;
@@ -330,6 +330,7 @@ MemAllocError GBMDevice::AllocBuffer(IBufferHandle& handle, int32_t width,
   handle = new GBMBuffer;
   GBMBuffer* gbm_hnd = static_cast<GBMBuffer*>(handle);
   struct gbm_bo *bo;
+  int32_t ret;
   uint32_t local_usage = 0;
   uint32_t gbm_format = 0;
 
@@ -351,13 +352,6 @@ MemAllocError GBMDevice::AllocBuffer(IBufferHandle& handle, int32_t width,
 
   int32_t value = 0;
   ColorMetaData colormeta = {};
-
-  auto ret = gbm_perform(GBM_PERFORM_GET_METADATA, bo,
-                         GBM_METADATA_GET_COLOR_METADATA, &colormeta);
-  if (ret != GBM_ERROR_NONE) {
-    QMMF_ERROR("%s: Get metadata color space failed.", __func__);
-    return MemAllocError::kAllocFail;
-  }
 
   if (colorspace == "ITU_R_601") {
     value = GBM_METADATA_COLOR_SPACE_ITU_R_601;
