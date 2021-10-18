@@ -17,6 +17,10 @@ target_include_directories(qmmf_common_resizer_neon
 target_include_directories(qmmf_common_resizer_neon
  PRIVATE $<BUILD_INTERFACE:${KERNEL_INCDIR}/usr/include>)
 
+# Headers path for msm-5.4 media on qrbx210 targets.
+target_include_directories(qmmf_common_resizer_neon
+ PRIVATE $<BUILD_INTERFACE:${KERNEL_INCDIR}/usr/include/vidc>)
+
 target_include_directories(qmmf_common_resizer_neon
  PRIVATE ${TOP_DIRECTORY}/common/memory)
 
