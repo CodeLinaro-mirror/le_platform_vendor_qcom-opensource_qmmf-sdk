@@ -28,7 +28,7 @@
 *
 * Changes from Qualcomm Innovation Center are provided under the following license:
 *
-* Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
 *  
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted (subject to the limitations in the
@@ -284,9 +284,10 @@ class IRecorderService : public IInterface {
                                 const uint32_t client_id,
                                 const OfflineJpegCreateParams& params) = 0;
 
-  virtual status_t EncodeOfflineJPEG(
-                                const uint32_t client_id,
-                                const OfflineJpegProcessParams& params) = 0;
+  virtual status_t EncodeOfflineJPEG(const uint32_t client_id,
+                                     const BnBuffer& in_buf,
+                                     const BnBuffer& out_buf,
+                                     const OfflineJpegMeta& meta) = 0;
 
   virtual status_t DestroyOfflineJPEG(const uint32_t client_id) = 0;
 };

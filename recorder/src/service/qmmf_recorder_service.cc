@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
  *  
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -492,19 +492,34 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
         uint32_t client_id, meta_blob_size;
         OfflineJpegProcessParams params;
         data.readUint32(&client_id);
-        int32_t infd = data.readFileDescriptor();
-        params.in_buf_fd = dup(infd);
-        params.out_buf_fd = dup(data.readFileDescriptor());
-        // Storing client fd as int for mapping it to the corresponding fd
-        // in this process.
-        data.readInt32(&params.reserved);
+
+        uint32_t present;
+        BnBuffer in_buf = {};
+        BnBuffer out_buf = {};
+        in_buf.ion_fd = out_buf.ion_fd = -1;
+        OfflineJpegMeta metadata;
+        // Input buffer
+        data.readUint32(&present);
+        if (!present) {
+          in_buf.ion_fd = dup(data.readFileDescriptor());
+        }
+        data.readUint32(&in_buf.buffer_id);
+
+        // Output buffer
+        data.readUint32(&present);
+        if (!present) {
+          out_buf.ion_fd = dup(data.readFileDescriptor());
+        }
+        data.readUint32(&out_buf.buffer_id);
+
         data.readUint32(&meta_blob_size);
         android::Parcel::ReadableBlob meta_blob;
         data.readBlob(meta_blob_size, &meta_blob);
-        assert(meta_blob_size == sizeof(params.metadata));
-        memcpy(&params.metadata, meta_blob.data(), meta_blob_size);
+        assert(meta_blob_size == sizeof(metadata));
+        memcpy(&metadata, meta_blob.data(), meta_blob_size);
 
-        ret = EncodeOfflineJPEG(client_id, params);
+        ret = EncodeOfflineJPEG(client_id, in_buf, out_buf, metadata);
+        meta_blob.release();
         reply->writeInt32(ret);
 
         return NO_ERROR;
@@ -1100,9 +1115,10 @@ status_t RecorderService::CreateOfflineJPEG(
   return ret;
 }
 
-status_t RecorderService::EncodeOfflineJPEG(
-                                    const uint32_t client_id,
-                                    const OfflineJpegProcessParams &params) {
+status_t RecorderService::EncodeOfflineJPEG(const uint32_t client_id,
+                                            const BnBuffer& in_buf,
+                                            const BnBuffer& out_buf,
+                                            const OfflineJpegMeta& meta) {
 
   QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
 
@@ -1111,7 +1127,7 @@ status_t RecorderService::EncodeOfflineJPEG(
     return NO_INIT;
   }
 
-  auto ret = recorder_->EncodeOfflineJPEG(client_id, params);
+  auto ret = recorder_->EncodeOfflineJPEG(client_id, in_buf, out_buf, meta);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: Submitting request failed", __func__);
     return ret;

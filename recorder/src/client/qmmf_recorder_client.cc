@@ -28,7 +28,7 @@
 *
 * Changes from Qualcomm Innovation Center are provided under the following license:
 *
-* Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
 *  
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted (subject to the limitations in the
@@ -879,7 +879,27 @@ status_t RecorderClient::EncodeOfflineJPEG(
     return NO_INIT;
   }
   assert(client_id_ > 0);
-  auto ret = recorder_service_->EncodeOfflineJPEG(client_id_, params);
+
+  BnBuffer in_buf = {};
+  BnBuffer out_buf = {};
+  in_buf.ion_fd = out_buf.ion_fd = -1;
+
+  if (!IsJpegBufPresent(params.in_buf_fd)) {
+    in_buf.ion_fd = params.in_buf_fd;
+    offline_jpeg_buffers_.push_back(params.in_buf_fd);
+  }
+  in_buf.buffer_id = params.in_buf_fd;
+
+  if (!IsJpegBufPresent(params.out_buf_fd)) {
+    out_buf.ion_fd = params.out_buf_fd;
+    offline_jpeg_buffers_.push_back(params.out_buf_fd);
+  }
+  out_buf.buffer_id = params.out_buf_fd;
+
+  auto ret = recorder_service_->EncodeOfflineJPEG(client_id_,
+                                                  in_buf,
+                                                  out_buf,
+                                                  params.metadata);
   if (NO_ERROR != ret) {
     QMMF_ERROR("%s EncodeOfflineJPEG failed!", __func__);
   }
@@ -895,12 +915,25 @@ status_t RecorderClient::DestroyOfflineJPEG() {
     return NO_INIT;
   }
   assert(client_id_ > 0);
+  offline_jpeg_buffers_.clear();
   auto ret = recorder_service_->DestroyOfflineJPEG(client_id_);
   if (NO_ERROR != ret) {
     QMMF_ERROR("%s DestroyOfflineJPEG failed!", __func__);
   }
   QMMF_DEBUG("%s Exit ", __func__);
   return ret;
+}
+
+bool RecorderClient::IsJpegBufPresent(const int32_t& buf_fd) {
+  bool found = false;
+  for ( auto fd : offline_jpeg_buffers_) {
+    if (buf_fd == fd) {
+      found = true;
+      break;
+    }
+  }
+
+  return found;
 }
 
 #ifdef TARGET_USES_GBM
@@ -1780,22 +1813,34 @@ status_t DeleteVideoTrack(const uint32_t client_id,
   }
 
   status_t EncodeOfflineJPEG(const uint32_t client_id,
-                             const OfflineJpegProcessParams &params) {
+                             const BnBuffer& in_buf,
+                             const BnBuffer& out_buf,
+                             const OfflineJpegMeta& meta) {
     Parcel data, reply;
     data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
     data.writeUint32(client_id);
 
-    data.writeFileDescriptor(params.in_buf_fd);
-    data.writeFileDescriptor(params.out_buf_fd);
-    // Writing as int is needed for mapping client fd
-    // to the corresponding fd in service process.
-    data.writeInt32(params.out_buf_fd);
+    // Input buffer
+    bool present = (-1 == in_buf.ion_fd) ? true : false;
+    data.writeInt32(present);
+    if (!present) {
+      data.writeFileDescriptor(in_buf.ion_fd);
+    }
+    data.writeInt32(in_buf.buffer_id);
 
-    uint32_t meta_size = sizeof (params.metadata);
+    // Output buffer
+    present = (-1 == out_buf.ion_fd) ? true : false;
+    data.writeInt32(present);
+    if (!present) {
+      data.writeFileDescriptor(out_buf.ion_fd);
+    }
+    data.writeInt32(out_buf.buffer_id);
+
+    uint32_t meta_size = sizeof (meta);
     data.writeUint32(meta_size);
     android::Parcel::WritableBlob blob;
     data.writeBlob(meta_size, false, &blob);
-    memcpy(blob.data(), &params.metadata, meta_size);
+    memcpy(blob.data(), &meta, meta_size);
 
     remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
         RECORDER_ENCODE_OFFLINE_JPEG), data, &reply);

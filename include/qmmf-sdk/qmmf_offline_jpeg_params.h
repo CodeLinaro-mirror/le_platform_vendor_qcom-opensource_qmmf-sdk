@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
 *  
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted (subject to the limitations in the
@@ -58,7 +58,6 @@ struct OfflineJpegMeta {
 struct OfflineJpegProcessParams {
   int32_t                 in_buf_fd;
   int32_t                 out_buf_fd;
-  int32_t                 reserved;
   OfflineJpegMeta         metadata;
 };
 
