@@ -13,12 +13,10 @@ include $(CLEAR_VARS)
 
 include $(QMMF_SDK_TOP_SRCDIR)/common.mk
 
-LOCAL_C_INCLUDES += $(TOP)/system/media/camera/include
 LOCAL_C_INCLUDES += $(MEDIA_HAL_PATH)
 
 LOCAL_SRC_FILES := qmmf_recorder.cc
 LOCAL_SRC_FILES += qmmf_recorder_client.cc
-LOCAL_SRC_FILES += qmmf_recorder_client_ion.cc
 LOCAL_SRC_FILES += qmmf_recorder_extra_param.cc
 
 LOCAL_SHARED_LIBRARIES += libcamera_metadata libcamera_client

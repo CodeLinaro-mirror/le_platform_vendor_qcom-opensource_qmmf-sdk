@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2018, 2020, The Linux Foundation. All rights reserved.
+* Copyright (c) 2018, 2020-2021, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -116,8 +116,8 @@ RESIZER_STATUS NEONResizer::FillProcessParams(const StreamBuffer& src_buffer,
                                               neonresizer::Resn &params) {
   uint32_t x = 0;
   uint32_t y = 0 ;
-  uint32_t width = src_buffer.info.plane_info[0].width;
-  uint32_t height = src_buffer.info.plane_info[0].height;
+  uint32_t width = src_buffer.info.planes[0].width;
+  uint32_t height = src_buffer.info.planes[0].height;
 
   if (crop_.ValidateCropData(src_buffer)) {
     x = crop_.x;
@@ -127,23 +127,23 @@ RESIZER_STATUS NEONResizer::FillProcessParams(const StreamBuffer& src_buffer,
   } else if (aspect_ratio_preserve_) {
 
     double in_ar = static_cast<double>(width) / height;
-    double out_ar = static_cast<double>(dst_buffer.info.plane_info[0].width) /
-                                        dst_buffer.info.plane_info[0].height;
+    double out_ar = static_cast<double>(dst_buffer.info.planes[0].width) /
+                                        dst_buffer.info.planes[0].height;
     /*save aspect ratio*/
     if (in_ar > out_ar) {
       width = out_ar * height;
-      x = (src_buffer.info.plane_info[0].width - width) / 2;
+      x = (src_buffer.info.planes[0].width - width) / 2;
     } else if (in_ar < out_ar) {
       height = width / out_ar;
-      y = (src_buffer.info.plane_info[0].height - height) / 2;
+      y = (src_buffer.info.planes[0].height - height) / 2;
     }
   }
 
   //default tuning should be generate internaly
   params.resn_tuning = nullptr;
 
-  auto stride = VENUS_Y_STRIDE(COLOR_FMT_NV12, src_buffer.info.plane_info[0].width);
-  auto scanline = VENUS_Y_SCANLINES(COLOR_FMT_NV12, src_buffer.info.plane_info[0].height);
+  auto stride = VENUS_Y_STRIDE(COLOR_FMT_NV12, src_buffer.info.planes[0].width);
+  auto scanline = VENUS_Y_SCANLINES(COLOR_FMT_NV12, src_buffer.info.planes[0].height);
 
   auto luma_len = stride * scanline;
 
@@ -179,8 +179,8 @@ RESIZER_STATUS NEONResizer::FillProcessParams(const StreamBuffer& src_buffer,
   // Output data pointers
   params.dst_luma = reinterpret_cast<unsigned char *>(dst_buffer.data);
 
-  auto chroma_len = dst_buffer.info.plane_info[0].stride *
-                    dst_buffer.info.plane_info[0].scanline;
+  auto chroma_len = dst_buffer.info.planes[0].stride *
+                    dst_buffer.info.planes[0].scanline;
   if (chroma_len > dst_buffer.size) {
     QMMF_ERROR("%s: Failed: Iinvalid chroma len %d!", __func__, chroma_len);
     return RESIZER_STATUS_ERROR;
@@ -195,9 +195,9 @@ RESIZER_STATUS NEONResizer::FillProcessParams(const StreamBuffer& src_buffer,
   params.src_stride = stride;
 
   // Output buffer dimensions
-  params.dst_width = dst_buffer.info.plane_info[0].width;
-  params.dst_height = dst_buffer.info.plane_info[0].height;
-  params.dst_stride = dst_buffer.info.plane_info[0].stride;
+  params.dst_width = dst_buffer.info.planes[0].width;
+  params.dst_height = dst_buffer.info.planes[0].height;
+  params.dst_stride = dst_buffer.info.planes[0].stride;
 
   params.res_method = method_;
 
@@ -217,13 +217,13 @@ RESIZER_STATUS NEONResizer::ValidateInParams(const StreamBuffer& src_buffer,
   auto &src_info = src_buffer.info;
   auto &dst_info = dst_buffer.info;
 
-  if (src_info.num_planes == 0 || dst_info.num_planes == 0) {
+  if (src_info.n_planes == 0 || dst_info.n_planes == 0) {
     QMMF_ERROR("%s Bad planes number!!!", __func__);
     return RESIZER_STATUS_ERROR;
   }
 
-  auto &src_plane_info = src_info.plane_info[0];
-  auto &dst_plane_info = dst_info.plane_info[0];
+  auto &src_plane_info = src_info.planes[0];
+  auto &dst_plane_info = dst_info.planes[0];
 
   if (src_plane_info.width == 0 || src_plane_info.height == 0 ||
       dst_plane_info.width == 0 || dst_plane_info.height == 0) {

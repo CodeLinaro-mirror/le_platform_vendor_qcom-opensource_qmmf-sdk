@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, 2020, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016, 2020-2021, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -51,22 +51,14 @@ class RemoteCallBack : public RefBase {
     void NotifySessionEvent(EventType event_type, void *event_data,
                             size_t event_data_size);
 
-    void NotifySnapshotData(uint32_t camera_id, uint32_t image_sequence_count,
-                            BnBuffer& buffer, MetaData& meta_data);
+    void NotifySnapshotData(uint32_t camera_id, uint32_t imgcount,
+                            BnBuffer& buffer, BufferMeta& meta);
 
     void NotifyVideoTrackData(uint32_t session_id, uint32_t track_id,
                               std::vector<BnBuffer>& buffers,
-                              std::vector<MetaData>& meta_buffers);
+                              std::vector<BufferMeta>& metas);
 
     void NotifyVideoTrackEvent(uint32_t session_id, uint32_t track_id,
-                               EventType event_type,
-                               void *event_data, size_t event_data_size);
-
-    void NotifyAudioTrackData(uint32_t session_id, uint32_t track_id,
-                              std::vector<BnBuffer>& buffers,
-                              std::vector<MetaData>& meta_buffers);
-
-    void NotifyAudioTrackEvent(uint32_t session_id, uint32_t track_id,
                                EventType event_type,
                                void *event_data, size_t event_data_size);
 

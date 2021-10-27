@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+* Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -157,8 +157,8 @@ RESIZER_STATUS C2DResizer::Draw(StreamBuffer& src_buffer,
   C2D_SURFACE_TYPE type;
 
   uint32_t x = 0, y = 0;
-  uint32_t w = src_buffer.info.plane_info[0].width;
-  uint32_t h = src_buffer.info.plane_info[0].height;
+  uint32_t w = src_buffer.info.planes[0].width;
+  uint32_t h = src_buffer.info.planes[0].height;
   double in_ar = 0, out_ar = 0;
 
   QMMF_DEBUG("%s: src_buffer.fd = %d", __func__, src_buffer.fd);
@@ -187,8 +187,8 @@ RESIZER_STATUS C2DResizer::Draw(StreamBuffer& src_buffer,
   }
 
   //STEP4: Create source C2dSurface for input Camera stream buffer.
-  if ((src_buffer.info.plane_info[0].width == 0) ||
-      (src_buffer.info.plane_info[0].height == 0)) {
+  if ((src_buffer.info.planes[0].width == 0) ||
+      (src_buffer.info.planes[0].height == 0)) {
     QMMF_ERROR("%s: Invalid Src size!", __func__);
     status = RESIZER_STATUS_ERROR;
     goto EXIT;
@@ -203,15 +203,15 @@ RESIZER_STATUS C2DResizer::Draw(StreamBuffer& src_buffer,
   //destination format.
   src_surface.format  = c2d_color_format;
   //destination width.
-  src_surface.width   = src_buffer.info.plane_info[0].width;
+  src_surface.width   = src_buffer.info.planes[0].width;
   //destination height.
-  src_surface.height  = src_buffer.info.plane_info[0].height;
+  src_surface.height  = src_buffer.info.planes[0].height;
   //Y plane stride.
-  src_surface.stride0 = src_buffer.info.plane_info[0].stride;
+  src_surface.stride0 = src_buffer.info.planes[0].stride;
   //UV plane stride.
-  src_surface.stride1 = src_buffer.info.plane_info[0].stride;
+  src_surface.stride1 = src_buffer.info.planes[0].stride;
   //UV plane hostptr.
-  plane_y_len = src_surface.stride0 * src_buffer.info.plane_info[0].scanline;
+  plane_y_len = src_surface.stride0 * src_buffer.info.planes[0].scanline;
   //Y plane hostptr.
   src_surface.plane0 = src_buffer.data;
   //Y plane Gpu address.
@@ -285,15 +285,15 @@ RESIZER_STATUS C2DResizer::Draw(StreamBuffer& src_buffer,
     h = crop_.height;
   } else if (aspect_ratio_preserve_) {
     in_ar = static_cast<double>(w) / h;
-    out_ar = static_cast<double>(dst_buffer.info.plane_info[0].width) /
-                                 dst_buffer.info.plane_info[0].height;
+    out_ar = static_cast<double>(dst_buffer.info.planes[0].width) /
+                                 dst_buffer.info.planes[0].height;
 
     if (in_ar > out_ar) {
       w = out_ar * h;
-      x = (src_buffer.info.plane_info[0].width - w) / 2;
+      x = (src_buffer.info.planes[0].width - w) / 2;
     } else if (in_ar < out_ar) {
       h = w / out_ar;
-      y = (src_buffer.info.plane_info[0].height - h) / 2;
+      y = (src_buffer.info.planes[0].height - h) / 2;
     }
   }
 
@@ -303,8 +303,8 @@ RESIZER_STATUS C2DResizer::Draw(StreamBuffer& src_buffer,
   draw_obj[0].surface_id  = src_surface_id_;
   draw_obj[0].config_mask = C2D_ALPHA_BLEND_NONE | C2D_TARGET_RECT_BIT;
 
-  if ((0 < dst_buffer.info.plane_info[0].width) &&
-      (0 < dst_buffer.info.plane_info[0].height)) {
+  if ((0 < dst_buffer.info.planes[0].width) &&
+      (0 < dst_buffer.info.planes[0].height)) {
     {
       std::lock_guard<std::mutex> l(crop_lock_);
       draw_obj[0].config_mask |= C2D_SOURCE_RECT_BIT;
@@ -315,8 +315,8 @@ RESIZER_STATUS C2DResizer::Draw(StreamBuffer& src_buffer,
     }
   }
 
-  draw_obj[0].target_rect.width  = dst_buffer.info.plane_info[0].width << 16;
-  draw_obj[0].target_rect.height = dst_buffer.info.plane_info[0].height << 16;
+  draw_obj[0].target_rect.width  = dst_buffer.info.planes[0].width << 16;
+  draw_obj[0].target_rect.height = dst_buffer.info.planes[0].height << 16;
   draw_obj[0].target_rect.x      = 0;
   draw_obj[0].target_rect.y      = 0;
 
@@ -428,10 +428,10 @@ RESIZER_STATUS C2DResizer::UpdateRGBSurface(StreamBuffer& dst_buffer,
   //destination format.
   dst_surface.format  = c2d_color_format;
   //destination width.
-  dst_surface.width   = dst_buffer.info.plane_info[0].width;
+  dst_surface.width   = dst_buffer.info.planes[0].width;
   //destination height.
-  dst_surface.height  = dst_buffer.info.plane_info[0].height;
-  dst_surface.stride = dst_buffer.info.plane_info[0].stride * bpp;
+  dst_surface.height  = dst_buffer.info.planes[0].height;
+  dst_surface.stride = dst_buffer.info.planes[0].stride * bpp;
   dst_surface.buffer  = dst_buffer.data;
   dst_surface.phys  = dst_buf_gpu_addr;
 
@@ -459,20 +459,20 @@ RESIZER_STATUS C2DResizer::UpdateYUVSurface(StreamBuffer& src_buffer,
   //destination format.
   dst_surface.format  = c2d_color_format;
   //destination width.
-  dst_surface.width   = dst_buffer.info.plane_info[0].width;
+  dst_surface.width   = dst_buffer.info.planes[0].width;
   //destination height.
-  dst_surface.height  = dst_buffer.info.plane_info[0].height;
+  dst_surface.height  = dst_buffer.info.planes[0].height;
   //Y plane stride.
-  dst_surface.stride0 = dst_buffer.info.plane_info[0].stride;
+  dst_surface.stride0 = dst_buffer.info.planes[0].stride;
   //Y plane hostptr.
   dst_surface.plane0  = dst_buffer.data;
   //Y plane Gpu address.
   dst_surface.phys0   = dst_buf_gpu_addr;
   //UV plane stride.
-  dst_surface.stride1 = dst_buffer.info.plane_info[0].stride;
+  dst_surface.stride1 = dst_buffer.info.planes[0].stride;
   //UV plane hostptr.
   int32_t plane_y_len =
-      dst_surface.stride0 * dst_buffer.info.plane_info[0].scanline;
+      dst_surface.stride0 * dst_buffer.info.planes[0].scanline;
 
   if (dst_surface.format & C2D_FORMAT_UBWC_COMPRESSED) {
     plane_y_len =

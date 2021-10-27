@@ -79,11 +79,7 @@ CameraSource::CameraSource() {
 
   QMMF_INFO("%s: Enter", __func__);
 
-  char prop[PROPERTY_VALUE_MAX];
-  memset(prop, 0, sizeof(prop));
-
-  property_get("persist.qmmf.preload.cameras", prop, "0");
-  int32_t n_preload = std::stoi(prop);
+  int32_t n_preload = Property::Get("persist.qmmf.preload.cameras", 0);
 
   // Preload camera interefaces.
   for (int32_t idx = 0; idx < n_preload; ++idx) {
@@ -204,7 +200,7 @@ status_t CameraSource::CaptureImage(const uint32_t camera_id,
 
 status_t CameraSource::ConfigImageCapture(const uint32_t camera_id,
                                           const ImageParam &param,
-                                          const ImageConfigParam &config) {
+                                          const ImageExtraParam &config) {
 
   QMMF_DEBUG("%s: Enter", __func__);
 
@@ -387,7 +383,7 @@ ResizerCrop CameraSource::GetRescalerConfig(const VideoExtraParam& extraparams) 
 
 status_t CameraSource::CreateTrackSource(const uint32_t track_id,
                                          const VideoTrackParam& params,
-                                         const VideoExtraParam& extraparams,
+                                         const VideoExtraParam& xtraparam,
                                          const BnBufferCallback &cb) {
 
   QMMF_DEBUG("%s: Enter", __func__);
@@ -405,7 +401,7 @@ status_t CameraSource::CreateTrackSource(const uint32_t track_id,
   bool linked_mode = false;
   VideoTrackParam source_params {};
 
-  int32_t source_track_id = GetSourceTrackId(extraparams);
+  int32_t source_track_id = GetSourceTrackId(xtraparam);
   if (source_track_id != NAME_NOT_FOUND) {
     QMMF_INFO("%s: Master->slave 0x%x->0x%x", __func__, source_track_id,
         track_id);
@@ -428,7 +424,7 @@ status_t CameraSource::CreateTrackSource(const uint32_t track_id,
   // Create TrackSource and give it to CameraInterface, CameraConext in turn
   // would map it to its one of port.
   auto track_source = make_shared<TrackSource>(track_id, camera, params,
-                                               extraparams, cb);
+                                               xtraparam, cb);
   if (!track_source.get()) {
     QMMF_ERROR("%s: Can't create TrackSource Instance", __func__);
     return NO_MEMORY;
@@ -448,7 +444,7 @@ status_t CameraSource::CreateTrackSource(const uint32_t track_id,
         QMMF_ERROR("%s: Rescaler Init Failed", __func__);
         return BAD_VALUE;
       }
-      rescaler->Configure(GetRescalerConfig(extraparams));
+      rescaler->Configure(GetRescalerConfig(xtraparam));
       rescalers_.emplace(track_id, rescaler);
     }
 
@@ -715,13 +711,13 @@ status_t CameraSource::ParseThumb(uint8_t* vaddr, uint32_t size,
   uint32_t block_size = 0;
   uint32_t block_start = 0;
   uint32_t block_end = 0;
-  CameraBufferMetaData info = buffer.info;
+  BufferMeta info = buffer.info;
 
   // reset planes num
-  info.num_planes = 0;
-  info.plane_info[info.num_planes].offset = 0;
-  info.plane_info[info.num_planes].size = size;
-  info.num_planes++;
+  info.n_planes = 0;
+  info.planes[info.n_planes].offset = 0;
+  info.planes[info.n_planes].size = size;
+  info.n_planes++;
 
   QMMF_INFO("%s: Parse Thumbnail", __func__);
 
@@ -753,15 +749,15 @@ status_t CameraSource::ParseThumb(uint8_t* vaddr, uint32_t size,
 
         for (;;) {
 
-          if (info.num_planes == MAX_PLANE) {
-            QMMF_ERROR("%s: Fail to parse thumbnail num_plane: %d!!!", __func__,
-                info.num_planes);
+          if (info.n_planes == MAX_PLANE) {
+            QMMF_ERROR("%s: Fail to parse thumbnail num_plane: %d!!!",
+                __func__, info.n_planes);
             return BAD_VALUE;
           }
 
-          info.plane_info[info.num_planes].offset = i;
-          info.plane_info[info.num_planes].size = w_size;
-          info.num_planes++;
+          info.planes[info.n_planes].offset = i;
+          info.planes[info.n_planes].size = w_size;
+          info.n_planes++;
 
           // Move to end of block
           i += w_size;
@@ -795,11 +791,11 @@ status_t CameraSource::ParseThumb(uint8_t* vaddr, uint32_t size,
   }
 
   // main image
-  if (info.num_planes > 1) {
-    info.plane_info[0].offset =
-        info.plane_info[info.num_planes - 1].offset +
-        info.plane_info[info.num_planes - 1].size;
-    info.plane_info[0].size = size - info.plane_info[0].offset;
+  if (info.n_planes > 1) {
+    info.planes[0].offset =
+        info.planes[info.n_planes - 1].offset +
+        info.planes[info.n_planes - 1].size;
+    info.planes[0].size = size - info.planes[0].offset;
   }
 
   // restore plane info
@@ -820,17 +816,17 @@ void CameraSource::SnapshotCallback(uint32_t count, StreamBuffer& buffer) {
     case BufferFormat::kRAW10:
     case BufferFormat::kRAW12:
     case BufferFormat::kRAW16:
-      width  = buffer.info.plane_info[0].width;
-      height = buffer.info.plane_info[0].height;
+      width  = buffer.info.planes[0].width;
+      height = buffer.info.planes[0].height;
       content_size = buffer.size;
       break;
     case BufferFormat::kBLOB:
       vaddr = mmap(nullptr, buffer.size, PROT_READ | PROT_WRITE, MAP_SHARED,
           buffer.fd, 0);
       assert(vaddr != nullptr);
-      assert(0 < buffer.info.num_planes);
+      assert(0 < buffer.info.n_planes);
       content_size = GetJpegSize((uint8_t*) vaddr,
-                                 buffer.info.plane_info[0].size);
+                                 buffer.info.planes[0].size);
       QMMF_INFO("%s: jpeg buffer size(%d)", __func__, content_size);
       assert(0 < content_size);
       if (buffer.second_thumb) {
@@ -860,15 +856,12 @@ void CameraSource::SnapshotCallback(uint32_t count, StreamBuffer& buffer) {
   bn_buffer.ion_meta_fd = buffer.metafd;
   bn_buffer.size        = content_size;
   bn_buffer.timestamp   = buffer.timestamp;
-  bn_buffer.width       = width;
-  bn_buffer.height      = height;
+  bn_buffer.seqnum      = buffer.frame_number;
   bn_buffer.buffer_id   = buffer.fd;
   bn_buffer.capacity    = buffer.size;
 
-  MetaData meta_data{};
-  meta_data.meta_flag = static_cast<uint32_t>(MetaParamType::kCamBufMetaData);
-  meta_data.cam_buffer_meta_data = buffer.info;
-  client_snapshot_cb_(buffer.camera_id, count, bn_buffer, meta_data);
+  BufferMeta meta = buffer.info;
+  client_snapshot_cb_(buffer.camera_id, count, bn_buffer, meta);
 }
 
 TrackSource::TrackSource(const uint32_t id,
@@ -890,10 +883,6 @@ TrackSource::TrackSource(const uint32_t id,
       slave_track_source_(false) {
 
   QMMF_GET_LOG_LEVEL();
-  char prop[PROPERTY_VALUE_MAX];
-  memset(prop, 0, sizeof(prop));
-  property_get("persist.qmmf.yuv.dump.freq", prop, "0");
-  yuv_dump_freq_ = atoi(prop);
 
   BufferConsumerImpl<TrackSource> *consumer;
   consumer = new BufferConsumerImpl<TrackSource>(this);
@@ -1240,10 +1229,6 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
     buffer_map_.insert(std::make_pair(buffer.handle, 1));
   }
 
-  if (yuv_dump_freq_ > 0) {
-    DumpYUV(buffer);
-  }
-
   {
     std::lock_guard<std::mutex> lk(consumer_lock_);
     if (num_consumers_ > 0) {
@@ -1278,8 +1263,7 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
   bn_buffer.ion_meta_fd       = buffer.metafd;
   bn_buffer.size              = buffer.size;
   bn_buffer.timestamp         = buffer.timestamp;
-  bn_buffer.width             = buffer.info.plane_info[0].width;
-  bn_buffer.height            = buffer.info.plane_info[0].height;
+  bn_buffer.seqnum            = buffer.frame_number;
   bn_buffer.buffer_id         = buffer.fd;
   bn_buffer.flags             = 0x10;
   bn_buffer.capacity          = buffer.size;
@@ -1290,7 +1274,7 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
     assert(vaddr != nullptr);
 
     bn_buffer.size = CameraSource::GetJpegSize(
-        (uint8_t*) vaddr, buffer.info.plane_info[0].size);
+        (uint8_t*) vaddr, buffer.info.planes[0].size);
     QMMF_INFO("%s: JPEG buffer size: %d", __func__, bn_buffer.size);
 
     assert(0 < bn_buffer.size);
@@ -1309,17 +1293,10 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
   std::vector<BnBuffer> bn_buffers;
   bn_buffers.push_back(bn_buffer);
 
-  MetaData meta_data {};
-  meta_data.meta_flag = static_cast<uint32_t>(MetaParamType::kCamBufMetaData);
-  meta_data.meta_flag |=
-      static_cast<uint32_t>(MetaParamType::kCamMetaFrameNumber);
-  meta_data.cam_buffer_meta_data  = buffer.info;
-  meta_data.cam_meta_frame_number = buffer.frame_number;
+  std::vector<BufferMeta> metas;
+  metas.push_back(buffer.info);
 
-  std::vector<MetaData> meta_buffers;
-  meta_buffers.push_back(meta_data);
-
-  buffer_cb_(bn_buffers, meta_buffers);
+  buffer_cb_(bn_buffers, metas);
 }
 
 status_t TrackSource::ReturnTrackBuffer(std::vector<BnBuffer>& bn_buffers) {
@@ -1417,54 +1394,6 @@ void TrackSource::NotifyBufferReturned(StreamBuffer& buffer) {
       id_, buffer.fd, buffer.timestamp);
   std::unique_lock<std::mutex> lock(frame_lock_);
   ReturnBufferToProducer(buffer);
-}
-
-void TrackSource::DumpYUV(StreamBuffer& buffer) {
-
-  static uint32_t id;
-  ++id;
-
-  if (id == yuv_dump_freq_) {
-
-    void *buf_vaaddr = mmap(nullptr, buffer.size, PROT_READ  | PROT_WRITE,
-                            MAP_SHARED, buffer.fd, 0);
-    assert(buf_vaaddr != nullptr);
-
-    std::string file_path(FRAME_DUMP_PATH);
-    size_t written_len;
-    file_path += "/track_";
-    file_path += std::to_string(id_) + "_";
-    file_path += std::to_string(buffer.timestamp);
-    file_path += ".yuv";
-
-    FILE *file = fopen(file_path.c_str(), "w+");
-    if (!file) {
-      QMMF_ERROR("%s: Unable to open file(%s)", __func__,
-          file_path.c_str());
-      goto FAIL;
-    }
-    written_len = fwrite(buf_vaaddr, sizeof(uint8_t), buffer.size,
-        file);
-    QMMF_INFO("%s: written_len =%d", __func__, written_len);
-
-    if (buffer.size != written_len) {
-      QMMF_ERROR("%s: Bad Write error (%d):(%s)\n", __func__, errno,
-          strerror(errno));
-        goto FAIL;
-    }
-    QMMF_INFO("%s: Buffer(0x%p) Size(%u) Stored(%s)\n",__func__,
-        buf_vaaddr, written_len, file_path.c_str());
-
-FAIL:
-    if (file != nullptr) {
-      fclose(file);
-    }
-    if (buf_vaaddr != nullptr) {
-      munmap(buf_vaaddr, buffer.size);
-      buf_vaaddr = nullptr;
-    }
-    id = 0;
-  }
 }
 
 }; //namespace recorder

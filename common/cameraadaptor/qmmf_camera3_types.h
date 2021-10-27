@@ -48,8 +48,8 @@ enum class CamFeatureFlag : uint32_t {
   kForceSensorMode = 1 << 4,   /// Force Sensor Mode is on.
 };
 
-#define FORCE_SENSOR_MODE_MASK      (0x00FF0000)
-#define FORCE_SENSOR_MODE_DATA(idx) ((idx + 1) << 16)
+#define FORCE_SENSOR_MODE_MASK      (0x00F00000)
+#define FORCE_SENSOR_MODE_DATA(idx) ((idx + 1) << 20)
 
 struct CameraStreamParameters {
   uint32_t width;

@@ -12,13 +12,10 @@ include $(CLEAR_VARS)
 
 include $(QMMF_SDK_TOP_SRCDIR)/common.mk
 
-LOCAL_C_INCLUDES += $(TOP)/system/media/camera/include
-LOCAL_C_INCLUDES += $(CAMERA_HAL_PATH)/QCamera2/HAL3
 ifeq ($(IS_ANDROID_O_OR_ABOVE),true)
 LOCAL_C_INCLUDES += $(TOP)/system/core/base/include
 endif
 ifeq ($(TARGET_USES_GRALLOC1),true)
-LOCAL_C_INCLUDES += $(DISPLAY_HAL_PATH)
 LOCAL_C_INCLUDES += $(TOP)/system/core/libgrallocusage/include
 endif
 
@@ -46,12 +43,6 @@ include $(CLEAR_VARS)
 
 include $(QMMF_SDK_TOP_SRCDIR)/common.mk
 
-ifeq ($(TARGET_USES_GRALLOC1), true)
-LOCAL_C_INCLUDES += $(DISPLAY_HAL_PATH)
-endif
-LOCAL_C_INCLUDES += $(TOP)/system/media/camera/include
-LOCAL_C_INCLUDES += $(CAMERA_HAL_PATH)/QCamera2/HAL3
-
 LOCAL_SRC_FILES := gtest/qmmf_camera_adaptor_gtest.cc
 
 LOCAL_SHARED_LIBRARIES += libqmmf_camera_adaptor libcamera_client libqmmf_memory_interface
@@ -69,11 +60,6 @@ include $(BUILD_NATIVE_TEST)
 include $(CLEAR_VARS)
 
 include $(QMMF_SDK_TOP_SRCDIR)/common.mk
-
-ifeq ($(TARGET_USES_GRALLOC1), true)
-LOCAL_C_INCLUDES += $(DISPLAY_HAL_PATH)
-endif
-LOCAL_C_INCLUDES += $(TOP)/system/media/camera/include
 
 LOCAL_SRC_FILES := gtest/qmmf_dual_camera_adaptor_gtest.cc
 

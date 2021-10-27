@@ -13,46 +13,24 @@ include $(CLEAR_VARS)
 
 include $(QMMF_SDK_TOP_SRCDIR)/common.mk
 
-LOCAL_C_INCLUDES += $(CAMERA_HAL_PATH)/QCamera2/HAL3
 LOCAL_C_INCLUDES += $(MEDIA_HAL_PATH)
-ifeq ($(TARGET_USES_GRALLOC1),true)
-LOCAL_C_INCLUDES += $(DISPLAY_HAL_PATH)
-endif
-# reprocess-related includes
-LOCAL_C_INCLUDES += $(CAMERA_HAL_PATH)/QCamera2/stack/common
-LOCAL_C_INCLUDES += $(CAMERA_HAL_PATH)/mm-image-codec/qexif
 
 LOCAL_SRC_FILES := qmmf_recorder_service.cc
 LOCAL_SRC_FILES += qmmf_recorder_impl.cc
-LOCAL_SRC_FILES += qmmf_recorder_ion.cc
 LOCAL_SRC_FILES += qmmf_remote_cb.cc
 LOCAL_SRC_FILES += qmmf_camera_source.cc
 LOCAL_SRC_FILES += qmmf_camera_frc.cc
 LOCAL_SRC_FILES += qmmf_camera_context.cc
-LOCAL_SRC_FILES += qmmf_audio_pulse_client.cc
-LOCAL_SRC_FILES += qmmf_audio_source.cc
-LOCAL_SRC_FILES += qmmf_audio_raw_track_source.cc
-ifneq ($(DISABLE_PP_JPEG),1)
-LOCAL_SRC_FILES += qmmf_camera_jpeg.cc
-endif
-
 LOCAL_SRC_FILES += qmmf_camera_rescaler.cc
 
-LOCAL_SHARED_LIBRARIES += libqmmf_utils libqmmf_jpeg
+LOCAL_SHARED_LIBRARIES += libqmmf_utils
 LOCAL_SHARED_LIBRARIES += libqmmf_recorder_client libqmmf_camera_adaptor
-LOCAL_SHARED_LIBRARIES += libqmmf_audio_client
-LOCAL_SHARED_LIBRARIES += libqmmf_exif_generator
 LOCAL_SHARED_LIBRARIES += libqmmf_memory_interface
 LOCAL_SHARED_LIBRARIES += libcamera_client libbinder libhardware
 LOCAL_SHARED_LIBRARIES += libqmmf_common_resizer_fastcv
 LOCAL_SHARED_LIBRARIES += libfastcvopt
 LOCAL_SHARED_LIBRARIES += libqmmf_common_resizer_c2d
 LOCAL_SHARED_LIBRARIES += libqmmf_common_resizer_neon
-ifneq ($(DISABLE_PP_JPEG),1)
-LOCAL_SHARED_LIBRARIES += libqmmf_common_jpeg_encoder
-endif
-
-LOCAL_SHARED_LIBRARIES += $(LIB_JSONCPP)
 
 LOCAL_MODULE = libqmmf_recorder_service
 
