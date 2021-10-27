@@ -192,8 +192,7 @@ class IRecorderService : public IInterface {
   DECLARE_META_INTERFACE(RecorderService);
 
   virtual status_t Connect(const sp<IRecorderServiceCallback>& service_cb,
-                           uint32_t* client_id,
-                           bool is_offline_jpeg_mode) = 0;
+                           uint32_t* client_id) = 0;
 
   virtual status_t Disconnect(const uint32_t client_id) = 0;
 

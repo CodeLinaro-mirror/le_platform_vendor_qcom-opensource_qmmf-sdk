@@ -107,8 +107,7 @@ using namespace android;
 using ::std::underlying_type;
 
 RecorderClient::RecorderClient()
-    : is_jpeg_instance_(false),
-      recorder_service_(nullptr),
+    : recorder_service_(nullptr),
       death_notifier_(nullptr),
       ion_device_(-1),
       client_id_(0),
@@ -153,8 +152,7 @@ RecorderClient::~RecorderClient() {
   QMMF_INFO("%s Exit 0x%p", __func__, this);
 }
 
-status_t RecorderClient::Connect(const RecorderCb& cb,
-                                 bool is_offline_jpeg_mode) {
+status_t RecorderClient::Connect(const RecorderCb& cb) {
 
   QMMF_DEBUG("%s Enter ", __func__);
   QMMF_KPI_DETAIL();
@@ -196,16 +194,14 @@ status_t RecorderClient::Connect(const RecorderCb& cb,
 
   sp<ServiceCallbackHandler> handler = new ServiceCallbackHandler(this);
   uint32_t client_id;
-  auto ret = recorder_service_->Connect(handler, &client_id,
-                                        is_offline_jpeg_mode);
+  auto ret = recorder_service_->Connect(handler, &client_id);
   if (NO_ERROR != ret) {
     QMMF_ERROR("%s Can't connect to (%s) service", __func__,
         QMMF_RECORDER_SERVICE_NAME);
   }
-  is_jpeg_instance_ = is_offline_jpeg_mode;
+
   client_id_ = client_id;
-  QMMF_INFO("%s: client_id(%d) is_jpeg_instance %d", __func__, client_id,
-            is_jpeg_instance_);
+  QMMF_INFO("%s: client_id(%d)", __func__, client_id);
 
   session_cb_list_.clear();
   track_cb_list_.clear();
@@ -1385,15 +1381,13 @@ class BpRecorderService: public BpInterface<IRecorderService> {
   : BpInterface<IRecorderService>(impl) {}
 
   status_t Connect(const sp<IRecorderServiceCallback>& service_cb,
-                   uint32_t* client_id,
-                   bool is_offline_jpeg_mode) {
+                   uint32_t* client_id) {
     Parcel data, reply;
     data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
     //Register service callback to get callbacks from recorder service.
     //eg : JPEG buffer, Tracks elementry buffers, Recorder/Session status
     //callbacks etc.
     data.writeStrongBinder(IInterface::asBinder(service_cb));
-    data.writeUint32(is_offline_jpeg_mode);
     remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
                             RECORDER_CONNECT), data, &reply);
     *client_id = reply.readUint32();
