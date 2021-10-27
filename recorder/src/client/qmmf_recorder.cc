@@ -89,10 +89,9 @@ Recorder::~Recorder() {
   }
 }
 
-status_t Recorder::Connect(const RecorderCb& callback,
-                           bool is_offline_jpeg_mode) {
+status_t Recorder::Connect(const RecorderCb& callback) {
 
-  auto ret = recorder_client_->Connect(callback, is_offline_jpeg_mode);
+  auto ret = recorder_client_->Connect(callback);
   if (NO_ERROR != ret) {
     QMMF_ERROR("%s: Init failed!", __func__);
   }
@@ -373,10 +372,6 @@ status_t Recorder::CreateOfflineJPEG(
 
   QMMF_INFO("%s: Enter" ,__func__);
   assert(recorder_client_ != NULL);
-  if (!recorder_client_->is_jpeg_instance_) {
-    QMMF_ERROR("%s: Error: Not a JPEG instance");
-    return BAD_VALUE;
-  }
   auto ret = recorder_client_->CreateOfflineJPEG(params, cb);
   if (NO_ERROR != ret) {
     QMMF_ERROR("%s: CreateOfflineJPEG failed!", __func__);
@@ -388,10 +383,6 @@ status_t Recorder::CreateOfflineJPEG(
 status_t Recorder::EncodeOfflineJPEG(const OfflineJpegProcessParams& params) {
   QMMF_INFO("%s: Enter" ,__func__);
   assert(recorder_client_ != NULL);
-  if (!recorder_client_->is_jpeg_instance_) {
-    QMMF_ERROR("%s: Error: Not a JPEG instance");
-    return BAD_VALUE;
-  }
   auto ret = recorder_client_->EncodeOfflineJPEG(params);
   if (NO_ERROR != ret) {
     QMMF_ERROR("%s: EncodeOfflineJPEG failed!", __func__);
@@ -403,10 +394,6 @@ status_t Recorder::EncodeOfflineJPEG(const OfflineJpegProcessParams& params) {
 status_t Recorder::DestroyOfflineJPEG() {
   QMMF_INFO("%s: Enter" ,__func__);
   assert(recorder_client_ != NULL);
-  if (!recorder_client_->is_jpeg_instance_) {
-    QMMF_ERROR("%s: Error: Not a JPEG instance");
-    return BAD_VALUE;
-  }
   auto ret = recorder_client_->DestroyOfflineJPEG();
   if (NO_ERROR != ret) {
     QMMF_ERROR("%s: DestroyOfflineJPEG failed!", __func__);

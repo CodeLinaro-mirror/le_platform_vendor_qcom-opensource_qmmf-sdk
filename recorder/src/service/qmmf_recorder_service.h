@@ -108,8 +108,7 @@ class RecorderService : public BnInterface<IRecorderService> {
                                Parcel* reply, uint32_t flags = 0) override;
 
   status_t Connect(const sp<IRecorderServiceCallback>& service_cb,
-                   uint32_t* client_id,
-                   bool is_offline_jpeg_mode = false) override;
+                   uint32_t* client_id) override;
 
   status_t Disconnect(const uint32_t client_id) override;
 
@@ -206,10 +205,6 @@ class RecorderService : public BnInterface<IRecorderService> {
 
   bool IsRecorderInitialized();
 
-  bool IsOfflineJPEGInitialized();
-
-  bool IsClientOfflineJPEG(const uint32_t client_id);
-
   status_t DisconnectInternal(const uint32_t client_id);
 
   status_t GetVendorTagDescriptor(sp<VendorTagDescriptor> &desc) override;
@@ -217,7 +212,6 @@ class RecorderService : public BnInterface<IRecorderService> {
   status_t GetUniqueClientID(uint32_t *client_id);
 
   std::unique_ptr<RecorderImpl>           recorder_;
-  std::unique_ptr<OfflineJpegEncoder>     offline_jpeg_encoder_;
 
   // Map of client ids and their death notifiers.
   std::map<uint32_t, sp<DeathNotifier> >  death_notifier_list_;

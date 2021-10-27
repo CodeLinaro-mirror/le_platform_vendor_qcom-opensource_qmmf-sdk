@@ -114,7 +114,7 @@ class Recorder {
   ~Recorder();
 
   /// Connect to recoder service and set callback.
-  status_t Connect(const RecorderCb &cb, bool is_offline_jpeg_mode = false);
+  status_t Connect(const RecorderCb &cb);
 
   /// Disconnect from recorder service.
   status_t Disconnect();

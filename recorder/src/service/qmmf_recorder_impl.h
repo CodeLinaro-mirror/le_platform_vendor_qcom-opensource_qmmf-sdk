@@ -45,6 +45,7 @@
 #include "recorder/src/service/qmmf_recorder_common.h"
 #include "recorder/src/service/qmmf_camera_source.h"
 #include "recorder/src/service/qmmf_remote_cb.h"
+#include "recorder/src/service/qmmf_offline_jpegenc_impl.h"
 
 /// @namespace qmmf
 namespace qmmf {
@@ -175,6 +176,15 @@ class RecorderImpl {
                                     const uint32_t camera_id,
                                     CameraMetadata &meta);
 
+  status_t CreateOfflineJPEG(const uint32_t client_id,
+                             const OfflineJpegCreateParams& params);
+
+  status_t EncodeOfflineJPEG(const uint32_t client_id,
+                             const OfflineJpegProcessParams &params);
+
+  status_t DestroyOfflineJPEG(const uint32_t client_id);
+
+
   // Data callback handlers.
   /// Video Track buffer callback handler
   void VideoTrackBufferCb(uint32_t client_id, uint32_t session_id,
@@ -265,6 +275,8 @@ class RecorderImpl {
   status_t GetUniqueSessionID(const uint32_t& client_id, uint32_t* session_id);
 
   CameraSource*                 camera_source_;
+
+  OfflineJpegEncoder*           offline_jpeg_encoder_;
 
   RemoteCallbackHandle          remote_cb_handle_;
 

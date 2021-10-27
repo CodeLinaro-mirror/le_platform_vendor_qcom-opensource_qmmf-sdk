@@ -58,7 +58,8 @@ RecorderImpl* RecorderImpl::CreateRecorder() {
   return instance_;
 }
 
-RecorderImpl::RecorderImpl() : camera_source_(nullptr) {
+RecorderImpl::RecorderImpl() : camera_source_(nullptr),
+                               offline_jpeg_encoder_(nullptr) {
 
   QMMF_GET_LOG_LEVEL();
   QMMF_KPI_GET_MASK();
@@ -76,6 +77,11 @@ RecorderImpl::~RecorderImpl() {
   if (camera_source_) {
     delete camera_source_;
     camera_source_ = nullptr;
+  }
+
+  if (offline_jpeg_encoder_) {
+    delete offline_jpeg_encoder_;
+    offline_jpeg_encoder_ = nullptr;
   }
 
   instance_ = nullptr;
@@ -98,6 +104,20 @@ status_t RecorderImpl::Init(const RemoteCallbackHandle& remote_cb_handle) {
   QMMF_INFO("%s: CameraSource Instance Created Successfully!",
       __func__);
 
+  offline_jpeg_encoder_ = new OfflineJpegEncoder;
+  if (!offline_jpeg_encoder_) {
+    QMMF_ERROR("%s: Can't Create OfflineJpegEncoder Instance!", __func__);
+    return NO_MEMORY;
+  }
+
+  status_t ret = offline_jpeg_encoder_->Init(remote_cb_handle);
+  if (NO_ERROR != ret) {
+    QMMF_ERROR("%s: Offline JPEG lib initialization failed!", __func__);
+    delete offline_jpeg_encoder_;
+    offline_jpeg_encoder_ = nullptr;
+    return ret;
+  }
+
   QMMF_INFO("%s: Exit", __func__);
   return NO_ERROR;
 }
@@ -110,6 +130,12 @@ status_t RecorderImpl::DeInit() {
   if (camera_source_) {
     delete camera_source_;
     camera_source_ = nullptr;
+  }
+
+  if (offline_jpeg_encoder_) {
+    offline_jpeg_encoder_->DeInit();
+    delete offline_jpeg_encoder_;
+    offline_jpeg_encoder_ = nullptr;
   }
 
   QMMF_INFO("%s: Exit", __func__);
@@ -152,6 +178,11 @@ status_t RecorderImpl::RegisterClient(const uint32_t client_id) {
 
   std::lock_guard<std::mutex> camera_lock(camera_map_lock_);
   client_cameraid_map_.emplace(client_id, std::map<uint32_t, bool>());
+
+  if (offline_jpeg_encoder_) {
+    offline_jpeg_encoder_->RegisterClient(client_id);
+  }
+
   QMMF_INFO("%s: Exit client_id(%u)", __func__, client_id);
   return NO_ERROR;
 }
@@ -264,6 +295,10 @@ status_t RecorderImpl::DeRegisterClient(const uint32_t client_id,
 
   std::lock_guard<std::mutex> lock(client_state_lock_);
   client_state_.erase(client_id);
+
+  if (offline_jpeg_encoder_) {
+    offline_jpeg_encoder_->DeRegisterClient(client_id);
+  }
 
   QMMF_INFO("%s: Exit client_id(%u)", __func__, client_id);
   return NO_ERROR;
@@ -1360,6 +1395,65 @@ status_t RecorderImpl::GetCameraCharacteristics(const uint32_t client_id,
   }
   QMMF_DEBUG("%s: Exit client_id(%u):camera_id(%d)", __func__,
       client_id, camera_id);
+  return NO_ERROR;
+}
+
+status_t RecorderImpl::CreateOfflineJPEG(const uint32_t client_id,
+                                      const OfflineJpegCreateParams& params) {
+
+  QMMF_DEBUG("%s Enter client_id(%u)", __func__, client_id);
+
+  assert(offline_jpeg_encoder_ != nullptr);
+  if (!offline_jpeg_encoder_->IsClientFound(client_id)) {
+    QMMF_ERROR("%s: Client (%u) is not found", __func__, client_id);
+    return BAD_VALUE;
+  }
+  auto ret = offline_jpeg_encoder_->Create(client_id, params);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s: Offline JPEG encoder create failed!", __func__);
+    return ret;
+  }
+
+  QMMF_DEBUG("%s Exit client_id(%u)", __func__, client_id);
+  return NO_ERROR;
+}
+
+status_t RecorderImpl::EncodeOfflineJPEG(const uint32_t client_id,
+                                         const OfflineJpegProcessParams &params) {
+
+  QMMF_DEBUG("%s Enter client_id(%u)", __func__, client_id);
+
+  assert(offline_jpeg_encoder_ != nullptr);
+  if (!offline_jpeg_encoder_->IsClientFound(client_id)) {
+    QMMF_ERROR("%s: Client (%u) is not found", __func__, client_id);
+    return BAD_VALUE;
+  }
+  auto ret = offline_jpeg_encoder_->Process(client_id, params);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s: Offline JPEG encoder process failed!", __func__);
+    return ret;
+  }
+
+  QMMF_DEBUG("%s Exit client_id(%u)", __func__, client_id);
+  return NO_ERROR;
+}
+
+status_t RecorderImpl::DestroyOfflineJPEG(const uint32_t client_id) {
+
+  QMMF_DEBUG("%s Enter client_id(%u)", __func__, client_id);
+
+  assert(offline_jpeg_encoder_ != nullptr);
+  if (!offline_jpeg_encoder_->IsClientFound(client_id)) {
+    QMMF_ERROR("%s: Client (%u) is not found", __func__, client_id);
+    return BAD_VALUE;
+  }
+  auto ret = offline_jpeg_encoder_->Destroy(client_id);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s: Offline JPEG encoder destroy failed!", __func__);
+    return ret;
+  }
+
+  QMMF_DEBUG("%s Exit client_id(%u)", __func__, client_id);
   return NO_ERROR;
 }
 
