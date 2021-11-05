@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2017, The Linux Foundation. All rights reserved.
+* Copyright (c) 2017, 2021, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -55,9 +55,7 @@ Camera3SmoothZoom::Camera3SmoothZoom()
       top_step_(0.0f){
   crop_current_ = {};
 
-  char prop_val[PROPERTY_VALUE_MAX];
-  property_get("persist.qmmf.zoom.step", prop_val, "0.1");
-  zoom_step_size_ = atof(prop_val);
+  zoom_step_size_ = Property::Get("persist.qmmf.zoom.step", 0.1);
 }
 
 Camera3SmoothZoom::~Camera3SmoothZoom() {

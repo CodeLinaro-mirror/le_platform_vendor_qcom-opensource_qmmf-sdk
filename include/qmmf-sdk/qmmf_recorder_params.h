@@ -52,11 +52,6 @@ namespace qmmf {
 
 namespace recorder {
 
-#define MAX_IN_DEVICES 4
-
-#define MAX_AUDIO_INPUT_DEVICES (10)
-#define MAX_AUDIO_PROFILE (80)
-
 typedef int32_t status_t;
 
 enum class EventType : uint32_t {
@@ -93,10 +88,6 @@ enum class ImageFormat : uint32_t {
   kBayerRDI10BIT,
   kBayerRDI12BIT,
   kBayerRDI16BIT,
-};
-
-enum class AudioFormat : uint32_t {
-  kPCM,
 };
 
 enum class Rotation : uint32_t {
@@ -154,11 +145,6 @@ enum class VideoParam {
   kEnableFrameRepeat,
 };
 
-enum class AudioParam {
-  kAudioEffects,
-  kAudioVolume,
-};
-
 typedef std::function<void(EventType event, void *payload, size_t size)> EventCb;
 
 /// @brief Recorder callback is called to notify non track
@@ -173,24 +159,6 @@ struct RecorderCb {
 /// start, stop, pause state transition completions
 struct SessionCb {
   EventCb event_cb;
-};
-
-/// @brief MetaParamType flag is used to determine type of meta data set in
-/// MetaData structure.
-enum class MetaParamType {
-  kNone               = (1 << 0),
-  kCamBufMetaData     = (1 << 1),
-  kVideoFrameType     = (1 << 2),
-  kCamMetaFrameNumber = (1 << 3)
-};
-
-/// @brief This struct is used to report different types of meta data associated
-/// with BufferDescriptor.
-struct MetaData {
-  uint32_t meta_flag;
-  CameraBufferMetaData cam_buffer_meta_data;
-  uint32_t video_frame_type_info;
-  uint32_t cam_meta_frame_number;
 };
 
 /// @brief Both data and event callbacks should be set by the client.
@@ -214,48 +182,9 @@ struct MetaData {
 /// Note that both callback implementations need to be re-entrant.
 struct TrackCb {
   std::function<void(uint32_t track_id, ::std::vector<BufferDescriptor> buffers,
-                     ::std::vector<MetaData> meta_data)> data_cb;
+                     ::std::vector<BufferMeta> metas)> data_cb;
   std::function<void(uint32_t track_id, EventType type, void *payload,
                      size_t size)> event_cb;
-};
-
-/// @brief Createtime parameters for audio track
-///
-/// Audio output device is used for routing audio to output
-/// to external devices say through HDMI. In all other usecases
-/// out_device will be set to AUDIO_DEVICE_NONE
-struct AudioTrackParam {
-  uint32_t                in_devices_num;
-  uint32_t                in_devices[MAX_AUDIO_INPUT_DEVICES];
-  uint32_t                sample_rate;
-  uint32_t                channels;
-  uint32_t                bit_depth;
-  char                    profile[MAX_AUDIO_PROFILE];
-  AudioFormat             format;
-  uint32_t                out_device;
-  uint32_t                flags;
-
-  AudioTrackParam() {
-    memset(profile, 0x0, sizeof(profile));
-  }
-
-  ::std::string ToString() const {
-    ::std::stringstream stream;
-    stream << "in_devices[";
-    for (uint32_t i = 0; i < in_devices_num; i++)
-      stream << in_devices[i] << ", ";
-    stream << "SIZE[" << in_devices_num << "]], ";
-    stream << "sample_rate[" << sample_rate << "] ";
-    stream << "channels[" << channels << "] ";
-    stream << "bit_depth[" << bit_depth << "] ";
-    stream << "profile[" << ::std::string(profile) << "] ";
-    stream << "format["
-           << static_cast<::std::underlying_type<AudioFormat>::type>(format)
-           << "] ";
-    stream << "out_device[" << out_device << "] ";
-    stream << "flags[" << flags << "]";
-    return stream.str();
-  }
 };
 
 /// @brief Create time parameters for a video track
@@ -366,8 +295,8 @@ struct ZslQueueParam {
   }
 };
 
-typedef std::function<void(uint32_t camera_id, uint32_t image_sequence_count,
-                           BufferDescriptor buffer, MetaData meta_data)>
+typedef std::function<void(uint32_t camera_id, uint32_t imgcount,
+                           BufferDescriptor buffer, BufferMeta meta)>
     ImageCaptureCb;
 
 };

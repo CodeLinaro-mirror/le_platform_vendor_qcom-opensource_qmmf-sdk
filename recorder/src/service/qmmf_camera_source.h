@@ -92,7 +92,7 @@ class CameraSource {
   /// Configure Image Capture
   status_t ConfigImageCapture(const uint32_t camera_id,
                               const ImageParam &param,
-                              const ImageConfigParam &config);
+                              const ImageExtraParam &config);
 
   /// Cancel Image Capture
   status_t CancelCaptureImage(const uint32_t camera_id);
@@ -277,14 +277,11 @@ class TrackSource {
   /// Remove track source Consumer
   status_t RemoveConsumer(sp<IBufferConsumer>& consumer);
 
-  /// @cond PRIVATE
  private:
 
   // Method to provide consumer interface, it would be used by producer to
   // post buffers.
   sp<IBufferConsumer>& GetConsumer() { return buffer_consumer_; }
-
-  void DumpYUV(StreamBuffer& buffer);
 
   void ReturnBufferToProducer(StreamBuffer& buffer);
 
@@ -323,9 +320,6 @@ class TrackSource {
 
   std::shared_ptr<TrackSource> master_track_;
   bool  slave_track_source_;
-
-  uint32_t yuv_dump_freq_;
-  /// @endcond
 };
 
 }; //namespace recorder

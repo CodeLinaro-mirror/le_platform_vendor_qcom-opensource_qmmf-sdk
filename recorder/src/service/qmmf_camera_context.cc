@@ -82,12 +82,7 @@ CameraContext::CameraContext()
       snapshot_type_(SnapshotMode::kVideo),
       new_snapshot_type_(SnapshotMode::kVideo),
       raw_snapshot_format_(BufferFormat::kRAW10),
-      jpeg_input_format_(BufferFormat::kUnsupported),
-      new_jpeg_input_format_(BufferFormat::kUnsupported),
-      exif_en_(true),
       snapshot_stream_param_{},
-      restart_pipe_(true),
-      reconfig_pipe_(false),
       port_paused_(false),
       camera_parameters_{},
       continuous_mode_is_on(false) {
@@ -549,14 +544,12 @@ status_t CameraContext::SetUpCapture(const SnapshotParam& param) {
                            (snapshot_param_.width != param.width) ||
                            (snapshot_param_.height != param.height) ||
                            IsNeedReconfigSnapshotStream() ||
-                           (jpeg_input_format_ != new_jpeg_input_format_) ||
                            (snapshot_param_.format != param.format);
 
       QMMF_DEBUG("%s: reconfigure_needed=%d", __func__, reconfigure_needed);
 
       snapshot_param_ = param;
       snapshot_type_ = new_snapshot_type_;
-      jpeg_input_format_ = new_jpeg_input_format_;
     }
 
     if (reconfigure_needed) {
@@ -739,58 +732,10 @@ status_t CameraContext::CaptureImage(const uint32_t num_images,
   return ret;
 }
 
-status_t CameraContext::ValidateCaptureConfig(const ImageConfigParam &config) {
-  if (config.Exists(QMMF_EXIF) && config.Exists(QMMF_IMAGE_THUMBNAIL)) {
-    ImageExif exif;
-    config.Fetch(QMMF_EXIF, exif, 0);
-    if (exif.enable == false) {
-      QMMF_ERROR("%s: Unsupported configuration EXIF(disabled) + thumbnail !",
-          __func__);
-      return INVALID_OPERATION;
-    }
-  }
-  return NO_ERROR;
-}
-
-status_t CameraContext::ConfigImageCapture(const ImageConfigParam &config) {
-
-  if (ValidateCaptureConfig(config)) {
-    QMMF_ERROR("%s: Invalid Capture configuration", __func__);
-    return INVALID_OPERATION;
-  }
+status_t CameraContext::ConfigImageCapture(const ImageExtraParam &config) {
 
   // lock all capture configuration together
   std::unique_lock<std::mutex> lock(capture_lock_);
-
-  if (config.Exists(QMMF_IMAGE_THUMBNAIL)) {
-    thumbnails_.clear();
-    for (size_t i = 0; i < config.EntryCount(QMMF_IMAGE_THUMBNAIL); i++) {
-      thumbnails_.push_back(ImageThumbnail());
-      config.Fetch(QMMF_IMAGE_THUMBNAIL, thumbnails_[i], i);
-    }
-    reconfig_pipe_ = true;
-  }
-
-  if (config.Exists(QMMF_EXIF)) {
-    ImageExif exif;
-    config.Fetch(QMMF_EXIF, exif, 0);
-
-    if (exif_en_ != exif.enable) {
-      exif_en_ = exif.enable;
-      restart_pipe_ = true;
-    }
-  }
-
-  if (config.Exists(QMMF_JPEG_CAPTURE_SETUP)) {
-    HighQualityCaptureSetup setup;
-    config.Fetch(QMMF_JPEG_CAPTURE_SETUP, setup);
-
-    // if new jpeg input format is different than existing restart the pipe
-    if (new_jpeg_input_format_ != setup.jpeg_input_format) {
-      new_jpeg_input_format_ = setup.jpeg_input_format;
-      restart_pipe_ = true;
-    }
-  }
 
   if (config.Exists(QMMF_SNAPSHOT_TYPE)) {
     SnapshotType type;
@@ -828,9 +773,6 @@ status_t CameraContext::ConfigImageCapture(const ImageConfigParam &config) {
       snapshot_type_ = new_snapshot_type_;
     }
   }
-
-  QMMF_INFO("%s: E pipe restart %d pipe reconfigure %d", __func__,
-    restart_pipe_, reconfig_pipe_);
 
   return NO_ERROR;
 }
@@ -1957,18 +1899,7 @@ void CameraContext::SnapshotCaptureCallback(StreamBuffer &buffer) {
 
   QMMF_DEBUG("%s Enter ", __func__);
 
-  QMMF_DEBUG("%s format(0x%x):num_planes(%d) ", __func__,
-      buffer.info.format, buffer.info.num_planes);
-  for (uint32_t i = 0; i < buffer.info.num_planes; ++i) {
-    QMMF_DEBUG("%s plane_info[%d].stride=%d", __func__, i,
-        buffer.info.plane_info[i].stride);
-    QMMF_DEBUG("%s plane_info[%d].scanline=%d", __func__, i,
-        buffer.info.plane_info[i].scanline);
-    QMMF_DEBUG("%s plane_info[%d].width=%d", __func__, i,
-        buffer.info.plane_info[i].width);
-    QMMF_DEBUG("%s plane_info[%d].height=%d", __func__, i,
-        buffer.info.plane_info[i].height);
-  }
+  QMMF_DEBUG("%s %s", __func__, buffer.ToString().c_str());
   QMMF_DEBUG("%s fd(0x%x):size(%d) ", __func__, buffer.fd, buffer.size);
 
   uint32_t frame_number = 0;

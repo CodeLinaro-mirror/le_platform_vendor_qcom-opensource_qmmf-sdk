@@ -108,7 +108,7 @@ class CameraContext : public CameraInterface {
                         const std::vector<CameraMetadata> &meta,
                         const StreamSnapshotCb& cb) override;
 
-  status_t ConfigImageCapture(const ImageConfigParam &config) override;
+  status_t ConfigImageCapture(const ImageExtraParam &config) override;
 
   status_t CancelCaptureImage() override;
 
@@ -261,8 +261,6 @@ class CameraContext : public CameraInterface {
   bool IsRawOnly(const int32_t format);
 
 
-  status_t ValidateCaptureConfig(const ImageConfigParam &config);
-
   bool IsStreamParamsChanged(const CameraStreamParameters& stream_param);
 
   bool IsNeedReconfigSnapshotStream();
@@ -334,17 +332,10 @@ class CameraContext : public CameraInterface {
 
   // snapshot configuration
   SnapshotParam                 snapshot_param_;
-  std::vector<uint32_t>         capture_plugins_;
-  std::vector<ImageThumbnail>   thumbnails_;
   SnapshotMode                  snapshot_type_;
   SnapshotMode                  new_snapshot_type_;
   BufferFormat                  raw_snapshot_format_;
-  BufferFormat                  jpeg_input_format_;
-  BufferFormat                  new_jpeg_input_format_;
-  bool                          exif_en_;
   CameraStreamParameters        snapshot_stream_param_;
-  bool                          restart_pipe_;
-  bool                          reconfig_pipe_;
   bool                          port_paused_;
   std::set<int32_t>             stopped_stream_ids_;
   CameraParameters              camera_parameters_;

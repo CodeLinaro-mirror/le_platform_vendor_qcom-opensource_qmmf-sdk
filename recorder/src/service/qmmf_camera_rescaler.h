@@ -112,8 +112,7 @@ class CameraRescalerMemPool {
 
    status_t GetBufferLocked(StreamBuffer* buffer);
 
-   status_t PopulateMetaInfo(CameraBufferMetaData &info,
-                             IBufferHandle &handle);
+   status_t PopulateBufferMeta(BufferMeta &info, IBufferHandle &handle);
 
    status_t AllocHWMemBuffer(IBufferHandle &buf);
 

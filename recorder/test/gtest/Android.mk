@@ -11,21 +11,14 @@ ifneq (,$(BUILD_QMMMF))
 include $(CLEAR_VARS)
 
 include $(QMMF_SDK_TOP_SRCDIR)/common.mk
-LOCAL_CFLAGS += -DUSE_SKIA=1
-LOCAL_CFLAGS += -DUSE_CAIRO=0
 
-LOCAL_C_INCLUDES += $(TOP)/system/media/camera/include
 LOCAL_C_INCLUDES += $(TOP)/system/core/base/include
-LOCAL_C_INCLUDES += $(CAMERA_HAL_PATH)/QCamera2/HAL3
-LOCAL_C_INCLUDES += $(TOP)/external/skia/include/core/
 
 LOCAL_SRC_FILES := qmmf_gtest_common.cc
 LOCAL_SRC_FILES += qmmf_gtest.cc
 
 LOCAL_SHARED_LIBRARIES += libqmmf_recorder_client libqmmf_memory_interface
-LOCAL_SHARED_LIBRARIES += libcamera_client libskia
-
-LOCAL_SHARED_LIBRARIES += $(LIB_JSONCPP)
+LOCAL_SHARED_LIBRARIES += libcamera_client
 
 LOCAL_MODULE = qmmf_recorder_gtest
 
