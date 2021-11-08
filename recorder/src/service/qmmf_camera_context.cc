@@ -74,7 +74,6 @@ CameraContext::CameraContext()
       capture_cnt_(0),
       result_cb_(nullptr),
       error_cb_(nullptr),
-      flush_cb_(nullptr),
       zsl_port_id_(0x100),
       hfr_supported_(false),
       batch_stream_id_(-1),
@@ -82,12 +81,7 @@ CameraContext::CameraContext()
       snapshot_type_(SnapshotMode::kVideo),
       new_snapshot_type_(SnapshotMode::kVideo),
       raw_snapshot_format_(BufferFormat::kRAW10),
-      jpeg_input_format_(BufferFormat::kUnsupported),
-      new_jpeg_input_format_(BufferFormat::kUnsupported),
-      exif_en_(true),
       snapshot_stream_param_{},
-      restart_pipe_(true),
-      reconfig_pipe_(false),
       port_paused_(false),
       camera_parameters_{},
       continuous_mode_is_on(false) {
@@ -95,8 +89,8 @@ CameraContext::CameraContext()
   QMMF_INFO("%s: Enter", __func__);
 
   //Setup Camera3DeviceClient callbacks.
-  camera_callbacks_.errorCb = [&] (CameraErrorCode error_code,
-      const CaptureResultExtras &extras) { CameraErrorCb(error_code, extras);};
+  camera_callbacks_.errorCb = [&] (CameraErrorCode errcode,
+      const CaptureResultExtras &extras) { CameraErrorCb(errcode, extras);};
 
   camera_callbacks_.idleCb = [&] () { CameraIdleCb(); };
 
@@ -126,10 +120,6 @@ CameraContext::~CameraContext() {
   QMMF_INFO("%s: Enter", __func__);
   //TODO: check all active ports
   QMMF_INFO("%s: Exit", __func__);
-}
-
-void CameraContext::SetFlushCb(FlushCb &cb){
-  flush_cb_ = cb;
 }
 
 void CameraContext::InitSupportedFPS() {
@@ -343,6 +333,22 @@ status_t CameraContext::OpenCamera(const uint32_t camera_id,
     }
   }
 
+  if (extra_param.Exists(QMMF_LCAC)) {
+    size_t entry_count = extra_param.EntryCount(QMMF_LCAC);
+    if (entry_count == 1) {
+      LCACMode lcac_mode;
+      extra_param.Fetch(QMMF_LCAC, lcac_mode, 0);
+      if (lcac_mode.enable == true) {
+        QMMF_INFO("%s: LCAC is ON..", __func__);
+        camera_parameters_.cam_feature_flags |=
+            static_cast<uint32_t>(CamFeatureFlag::kLCAC);
+      }
+    } else {
+      QMMF_ERROR("%s: Invalid LCAC mode received", __func__);
+      return BAD_VALUE;
+    }
+  }
+
   if (extra_param.Exists(QMMF_PARTIAL_METADATA)) {
     size_t entry_count = extra_param.EntryCount(QMMF_PARTIAL_METADATA);
     if (entry_count == 1) {
@@ -537,14 +543,12 @@ status_t CameraContext::SetUpCapture(const SnapshotParam& param) {
                            (snapshot_param_.width != param.width) ||
                            (snapshot_param_.height != param.height) ||
                            IsNeedReconfigSnapshotStream() ||
-                           (jpeg_input_format_ != new_jpeg_input_format_) ||
                            (snapshot_param_.format != param.format);
 
       QMMF_DEBUG("%s: reconfigure_needed=%d", __func__, reconfigure_needed);
 
       snapshot_param_ = param;
       snapshot_type_ = new_snapshot_type_;
-      jpeg_input_format_ = new_jpeg_input_format_;
     }
 
     if (reconfigure_needed) {
@@ -727,58 +731,10 @@ status_t CameraContext::CaptureImage(const uint32_t num_images,
   return ret;
 }
 
-status_t CameraContext::ValidateCaptureConfig(const ImageConfigParam &config) {
-  if (config.Exists(QMMF_EXIF) && config.Exists(QMMF_IMAGE_THUMBNAIL)) {
-    ImageExif exif;
-    config.Fetch(QMMF_EXIF, exif, 0);
-    if (exif.enable == false) {
-      QMMF_ERROR("%s: Unsupported configuration EXIF(disabled) + thumbnail !",
-          __func__);
-      return INVALID_OPERATION;
-    }
-  }
-  return NO_ERROR;
-}
-
-status_t CameraContext::ConfigImageCapture(const ImageConfigParam &config) {
-
-  if (ValidateCaptureConfig(config)) {
-    QMMF_ERROR("%s: Invalid Capture configuration", __func__);
-    return INVALID_OPERATION;
-  }
+status_t CameraContext::ConfigImageCapture(const ImageExtraParam &config) {
 
   // lock all capture configuration together
   std::unique_lock<std::mutex> lock(capture_lock_);
-
-  if (config.Exists(QMMF_IMAGE_THUMBNAIL)) {
-    thumbnails_.clear();
-    for (size_t i = 0; i < config.EntryCount(QMMF_IMAGE_THUMBNAIL); i++) {
-      thumbnails_.push_back(ImageThumbnail());
-      config.Fetch(QMMF_IMAGE_THUMBNAIL, thumbnails_[i], i);
-    }
-    reconfig_pipe_ = true;
-  }
-
-  if (config.Exists(QMMF_EXIF)) {
-    ImageExif exif;
-    config.Fetch(QMMF_EXIF, exif, 0);
-
-    if (exif_en_ != exif.enable) {
-      exif_en_ = exif.enable;
-      restart_pipe_ = true;
-    }
-  }
-
-  if (config.Exists(QMMF_JPEG_CAPTURE_SETUP)) {
-    HighQualityCaptureSetup setup;
-    config.Fetch(QMMF_JPEG_CAPTURE_SETUP, setup);
-
-    // if new jpeg input format is different than existing restart the pipe
-    if (new_jpeg_input_format_ != setup.jpeg_input_format) {
-      new_jpeg_input_format_ = setup.jpeg_input_format;
-      restart_pipe_ = true;
-    }
-  }
 
   if (config.Exists(QMMF_SNAPSHOT_TYPE)) {
     SnapshotType type;
@@ -816,9 +772,6 @@ status_t CameraContext::ConfigImageCapture(const ImageConfigParam &config) {
       snapshot_type_ = new_snapshot_type_;
     }
   }
-
-  QMMF_INFO("%s: E pipe restart %d pipe reconfigure %d", __func__,
-    restart_pipe_, reconfig_pipe_);
 
   return NO_ERROR;
 }
@@ -1839,8 +1792,6 @@ status_t CameraContext::PauseActiveStreams(bool immedialtely) {
     ret = camera_device_->Flush(&last_frame_mumber);
     assert(ret == NO_ERROR);
 
-    flush_cb_(camera_id_);
-
     ret = camera_device_->WaitUntilIdle();
     assert(ret == NO_ERROR);
 
@@ -1944,18 +1895,7 @@ void CameraContext::SnapshotCaptureCallback(StreamBuffer &buffer) {
 
   QMMF_DEBUG("%s Enter ", __func__);
 
-  QMMF_DEBUG("%s format(0x%x):num_planes(%d) ", __func__,
-      buffer.info.format, buffer.info.num_planes);
-  for (uint32_t i = 0; i < buffer.info.num_planes; ++i) {
-    QMMF_DEBUG("%s plane_info[%d].stride=%d", __func__, i,
-        buffer.info.plane_info[i].stride);
-    QMMF_DEBUG("%s plane_info[%d].scanline=%d", __func__, i,
-        buffer.info.plane_info[i].scanline);
-    QMMF_DEBUG("%s plane_info[%d].width=%d", __func__, i,
-        buffer.info.plane_info[i].width);
-    QMMF_DEBUG("%s plane_info[%d].height=%d", __func__, i,
-        buffer.info.plane_info[i].height);
-  }
+  QMMF_DEBUG("%s %s", __func__, buffer.ToString().c_str());
   QMMF_DEBUG("%s fd(0x%x):size(%d) ", __func__, buffer.fd, buffer.size);
 
   uint32_t frame_number = 0;
@@ -1994,11 +1934,6 @@ status_t CameraContext::GetSnapshotStreamParams(const SnapshotParam &param,
                                     IMemAllocUsage::kSwReadOften;
   stream_param.cb               = GetStreamCb(param);
 
-  // For kNV12Encodable buffer format, set the encoder usage flag.
-  if (param.format == BufferFormat::kNV12Encodable) {
-    stream_param.allocFlags.flags |= IMemAllocUsage::kVideoEncoder;
-  }
-
   // Reserve buffers for continuous capture in order to avoid camera and pipe
   // restart if snapshot mode is switched. Buffer are just reserved, not
   // allocated because buffer are allocated on demand in camera adapter.
@@ -2021,13 +1956,13 @@ status_t CameraContext::StartZSL(SnapshotType &param) {
   BufferFormat zsl_format =
       Common::FromImageToQmmfFormat(param.zsl_queue_params.image_format);
   BufferFormat img_format =
-      Common::FromImageToQmmfFormat(param.zsl_image_param.image_format);
+      Common::FromImageToQmmfFormat(param.zsl_image_param.format);
 
   snapshot_param_ = {};
   snapshot_param_.width   = param.zsl_image_param.width;
   snapshot_param_.height  = param.zsl_image_param.height;
   snapshot_param_.format  = img_format;
-  snapshot_param_.quality = param.zsl_image_param.image_quality;
+  snapshot_param_.quality = param.zsl_image_param.quality;
 
   QMMF_INFO("%s zsl_format %d img_format %d", __func__,
       zsl_format, img_format);
@@ -2252,13 +2187,13 @@ status_t CameraContext::DisableFlushRestart(const bool& disable,
 
 #endif
 //Camera device callbacks
-void CameraContext::CameraErrorCb(CameraErrorCode error_code,
+void CameraContext::CameraErrorCb(CameraErrorCode errcode,
                                   const CaptureResultExtras &result) {
 
   QMMF_WARN("%s: Camera: %d, Error: %d, Request: %d, FrameNumber: %d",
-      __func__, camera_id_, error_code, result.requestId, result.frameNumber);
+      __func__, camera_id_, errcode, result.requestId, result.frameNumber);
 
-  switch (error_code) {
+  switch (errcode) {
     case ERROR_CAMERA_DEVICE:
       QMMF_ERROR("%s: Camera device faced an unrecoverable error!", __func__);
       break;
@@ -2290,15 +2225,12 @@ void CameraContext::CameraErrorCb(CameraErrorCode error_code,
     }
     default:
       QMMF_WARN("%s: Camera: %d, Error %d won't be handled by CameraContext!",
-          __func__, camera_id_, error_code);
+          __func__, camera_id_, errcode);
       break;
   }
 
   if (nullptr != error_cb_) {
-    RecorderErrorData data {};
-    data.camera_id = camera_id_;
-    data.error_code = error_code;
-    error_cb_(data);
+    error_cb_(camera_id_, errcode);
   }
 }
 
@@ -2570,13 +2502,19 @@ status_t CameraPort::Init() {
     }
 
     cam_stream_params_.allocFlags.flags |=
-        static_cast<bool>(params_.flags & StreamFlags::kUncashed) ?
+        static_cast<bool>(params_.flags & VideoFlags::kUncashed) ?
             IMemAllocUsage::kPrivateUncached : 0;
 
-    cam_stream_params_.bufferCount =
-        static_cast<bool>(params_.flags & StreamFlags::kEncoded) ?
-            VIDEO_STREAM_BUFFER_COUNT + GetExtraBufferCount() :
-            PREVIEW_STREAM_BUFFER_COUNT;
+    // round extra buffer count to batch size
+    params_.xtrabufs =
+        ((params_.xtrabufs + camera_parameters_.batch_size - 1) /
+          camera_parameters_.batch_size) * camera_parameters_.batch_size;
+
+    cam_stream_params_.bufferCount = STREAM_BUFFER_COUNT +
+        GetExtraBufferCount() + params_.xtrabufs;
+
+    QMMF_INFO ("%s: track_id(0%x) total buffer count(%d)", __func__,
+        params_.id, cam_stream_params_.bufferCount);
 
     cam_stream_params_.cam_feature_flags = camera_parameters_.cam_feature_flags;
   }
@@ -2792,7 +2730,7 @@ void CameraPort::StreamCallback(StreamBuffer buffer) {
 
   bool skip_frame = false;
 
-  if (static_cast<bool>(params_.flags & StreamFlags::kIAEC)) {
+  if (static_cast<bool>(params_.flags & VideoFlags::kIAEC)) {
     // Get auto exposure data and check if initial AE has converged.
     std::lock_guard<std::mutex> lock(aec_lock_);
     if (!aec_converged_) {
@@ -2818,26 +2756,19 @@ void CameraPort::StreamCallback(StreamBuffer buffer) {
 
 uint32_t CameraPort::GetExtraBufferCount() {
   uint32_t extra_buffer_count = 0;
-  switch (static_cast<uint32_t>(params_.framerate)) {
-    case 24:
-    case 30:
-    case 48:
-      extra_buffer_count = EXTRA_DCVS_BUFFERS;
-      break;
-    case 60:
-    case 90:
-      extra_buffer_count = EXTRA_HFR_BUFFERS;
-      break;
-    case 120:
-      extra_buffer_count = 2 * EXTRA_HFR_BUFFERS;
-      break;
-    case 240:
-      extra_buffer_count = 3 * EXTRA_HFR_BUFFERS;
-      break;
-    default:
-      QMMF_WARN("%s: FPS is not present in the list", __func__);
-      break;
+
+  if (params_.framerate < 24.0) {
+    extra_buffer_count = 0;
+  } else if (params_.framerate < 60.0) {
+    extra_buffer_count = EXTRA_DCVS_BUFFERS;
+  } else if (params_.framerate < 120.0) {
+    extra_buffer_count = EXTRA_HFR_BUFFERS;
+  } else if (params_.framerate < 240.0) {
+    extra_buffer_count = 2 * EXTRA_HFR_BUFFERS;
+  } else {
+    extra_buffer_count = 3 * EXTRA_HFR_BUFFERS;
   }
+
   QMMF_DEBUG("%s: Number of extra buffers added: %u", __func__,
              extra_buffer_count);
   return extra_buffer_count;
@@ -3110,7 +3041,7 @@ status_t ZslPort::SetUpZSL() {
 
   // Create ZSL stream
   CameraStreamParameters zsl_stream_params{};
-  zsl_stream_params.bufferCount = zsl_queue_depth_ + VIDEO_STREAM_BUFFER_COUNT;
+  zsl_stream_params.bufferCount = zsl_queue_depth_ + STREAM_BUFFER_COUNT;
   zsl_stream_params.format = Common::FromQmmfToHalFormat(params_.format);
   zsl_stream_params.width  = params_.width;
   zsl_stream_params.height = params_.height;

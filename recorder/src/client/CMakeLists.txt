@@ -11,17 +11,13 @@ else()
     ${TOP_DIRECTORY}/include/qmmf-sdk/qmmf_recorder_params.h
     ${TOP_DIRECTORY}/include/qmmf-sdk/qmmf_recorder_extra_param.h
     ${TOP_DIRECTORY}/include/qmmf-sdk/qmmf_recorder_extra_param_tags.h
-    ${TOP_DIRECTORY}/include/qmmf-sdk/qmmf_device.h
-    ${TOP_DIRECTORY}/include/qmmf-sdk/qmmf_codec.h
     ${TOP_DIRECTORY}/include/qmmf-sdk/qmmf_buffer.h
-    ${TOP_DIRECTORY}/include/qmmf-sdk/qmmf_avcodec_params.h
     DESTINATION include/qmmf-sdk)
 endif()
 
 add_library(qmmf_recorder_client SHARED ${exclude}
 ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_recorder.cc
 ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_recorder_client.cc
-${CMAKE_CURRENT_SOURCE_DIR}/qmmf_recorder_client_ion.cc
 ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_recorder_extra_param.cc
 )
 
@@ -33,10 +29,6 @@ target_include_directories(qmmf_recorder_client
 
 target_include_directories(qmmf_recorder_client
  PRIVATE ${TOP_DIRECTORY}/common/memory)
-
-# TODO remove this hack when camx issue with propagating c and cpp glags is solved
-target_include_directories(qmmf_recorder_client
- PRIVATE ${PKG_CONFIG_SYSROOT_DIR}/usr/include/ion_headers)
 
 install(TARGETS qmmf_recorder_client DESTINATION lib OPTIONAL)
 target_link_libraries(qmmf_recorder_client log binder utils cutils dl

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -39,48 +39,20 @@ namespace qmmf {
 
 namespace recorder {
 
-/// @enum mapper::StreamFlags
-/// @brief A strongly typed enum class representing stream configuration flags.
-enum class StreamFlags : uint64_t {
-  kNone     = 0,      /// No active configuration flags.
-  kIAEC     = 1 << 0, /// Wait Initial Auto Exposure Convergence.
-  kUncashed = 1 << 1, /// Allocated buffers are not cached.
-  kEncoded  = 1 << 2, /// Stream buffers are going to be encoded.
-};
-
-inline StreamFlags operator | (StreamFlags lhs, StreamFlags rhs) {
-  using T = std::underlying_type_t<StreamFlags>;
-  return static_cast<StreamFlags>(static_cast<T>(lhs) | static_cast<T>(rhs));
-}
-
-inline StreamFlags& operator |= (StreamFlags& lhs, StreamFlags rhs) {
-  lhs = lhs | rhs;
-  return lhs;
-}
-
-inline StreamFlags operator & (StreamFlags lhs, StreamFlags rhs) {
-  using T = std::underlying_type_t<StreamFlags>;
-  return static_cast<StreamFlags>(static_cast<T>(lhs) & static_cast<T>(rhs));
-}
-
-inline StreamFlags& operator &= (StreamFlags& lhs, StreamFlags rhs) {
-  lhs = lhs & rhs;
-  return lhs;
-}
-
 struct StreamParam {
   uint32_t     id;
   uint32_t     width;
   uint32_t     height;
-  uint32_t     rotation;
   BufferFormat format;
   float        framerate;
-  StreamFlags  flags;
+  Rotation     rotation;
+  uint32_t     xtrabufs;
+  VideoFlags   flags;
 
   StreamParam()
-      :  id(0), width(0), height(0), rotation(0),
-         format(BufferFormat::kUnsupported), framerate(0.0),
-         flags(StreamFlags::kNone) {}
+      :  id(0), width(0), height(0), format(BufferFormat::kUnsupported),
+         framerate(0.0), rotation(Rotation::kNone), xtrabufs(0),
+         flags(VideoFlags::kNone) {}
 };
 
 struct SnapshotParam {
@@ -101,7 +73,7 @@ class CameraInterface {
 
   /// Open the camera
   virtual status_t OpenCamera(const uint32_t camera_id,
-                              const float frame_rate,
+                              const float framerate,
                               const CameraExtraParam& extra_param,
                               const ResultCb &cb = nullptr,
                               const ErrorCb &errcb = nullptr) = 0;
@@ -121,7 +93,7 @@ class CameraInterface {
                                 const StreamSnapshotCb& cb) = 0;
 
   /// Configure Image Capture. Configuration is applied by SetUpCapture.
-  virtual status_t ConfigImageCapture(const ImageConfigParam &config) = 0;
+  virtual status_t ConfigImageCapture(const ImageExtraParam &config) = 0;
 
   /// Abort ongoing Image Capture. This blocking API and returns when
   /// image capture is stopped and all buffers are returned
@@ -174,9 +146,6 @@ class CameraInterface {
 
   /// Return supported fps
   virtual std::vector<int32_t>& GetSupportedFps() = 0;
-
-  /// Register Flush Callback
-  virtual void SetFlushCb(FlushCb &cb) = 0;
 };
 
 }; //namespace recorder.

@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.1)
 
 project(recorder-gtest)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DUSE_CAIRO -D_FILE_OFFSET_BITS=64")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_FILE_OFFSET_BITS=64")
 
 if (NOT RECORDER_GTEST_ENABLED)
   set(exclude EXCLUDE_FROM_ALL)
@@ -10,16 +10,16 @@ endif()
 
 if (NOT CAMERA_HAL1_SUPPORT)
 add_executable(qmmf_recorder_gtest ${exclude}
-qmmf_gtest_common.cc
-qmmf_gtest.cc
+  qmmf_gtest_common.cc
+  qmmf_gtest.cc
 )
 else()
 add_executable(qmmf_recorder_gtest ${exclude}
-qmmf_gtest_common.cc
-qmmf_hal1_gtest.cc
+  qmmf_gtest_common.cc
+  qmmf_hal1_gtest.cc
 )
 endif()
-add_dependencies(qmmf_recorder_gtest qmmf_recorder_client qmmf_utils qmmf_av_queue)
+add_dependencies(qmmf_recorder_gtest qmmf_recorder_client qmmf_utils)
 
 target_include_directories(qmmf_recorder_gtest
  PRIVATE ${TOP_DIRECTORY})
@@ -34,7 +34,7 @@ target_include_directories(qmmf_recorder_gtest
  PRIVATE ${TOP_DIRECTORY}/common/memory)
 
 install(TARGETS qmmf_recorder_gtest DESTINATION bin OPTIONAL)
-target_link_libraries(qmmf_recorder_gtest log cutils utils cairo gtest gtest_main camera_metadata qmmf_recorder_client qmmf_av_queue)
+target_link_libraries(qmmf_recorder_gtest log cutils utils gtest gtest_main camera_metadata qmmf_recorder_client)
 if(NOT CAMERA_CLIENT_DISABLED)
 target_link_libraries(qmmf_recorder_gtest camera_client)
 endif()

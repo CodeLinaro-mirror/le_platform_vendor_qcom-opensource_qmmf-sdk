@@ -78,7 +78,7 @@ class RecorderService : public BnInterface<IRecorderService> {
   status_t Disconnect(const uint32_t client_id) override;
 
   status_t StartCamera(const uint32_t client_id, const uint32_t camera_id,
-                       const float frame_rate,
+                       const float framerate,
                        const CameraExtraParam& extra_param,
                        bool enable_result_cb = false) override;
 
@@ -103,25 +103,11 @@ class RecorderService : public BnInterface<IRecorderService> {
   status_t ResumeSession(const uint32_t client_id,
                          const uint32_t session_id) override;
 
-  status_t CreateAudioTrack(const uint32_t client_id,
-                            const uint32_t session_id,
-                            const uint32_t track_id,
-                            const AudioTrackCreateParam& param) override;
-
   status_t CreateVideoTrack(const uint32_t client_id,
                             const uint32_t session_id,
                             const uint32_t track_id,
-                            const VideoTrackCreateParam& param) override;
-
-  status_t CreateVideoTrack(const uint32_t client_id,
-                            const uint32_t session_id,
-                            const uint32_t track_id,
-                            const VideoTrackCreateParam& param,
-                            const VideoExtraParam& extra_param) override;
-
-  status_t DeleteAudioTrack(const uint32_t client_id,
-                            const uint32_t session_id,
-                            const uint32_t track_id) override;
+                            const VideoTrackParam& param,
+                            const VideoExtraParam& xtraparam) override;
 
   status_t DeleteVideoTrack(const uint32_t client_id,
                             const uint32_t session_id,
@@ -132,19 +118,12 @@ class RecorderService : public BnInterface<IRecorderService> {
                              const uint32_t track_id,
                              std::vector<BnBuffer> &buffers) override;
 
-  status_t SetAudioTrackParam(const uint32_t client_id,
-                              const uint32_t session_id,
-                              const uint32_t track_id,
-                              CodecParamType type,
-                              void *param,
-                              size_t param_size) override;
-
   status_t SetVideoTrackParam(const uint32_t client_id,
                               const uint32_t session_id,
                               const uint32_t track_id,
-                              CodecParamType type,
+                              VideoParam type,
                               void *param,
-                              size_t param_size) override;
+                              size_t size) override;
 
   status_t CaptureImage(const uint32_t client_id,
                         const uint32_t camera_id,
@@ -154,7 +133,7 @@ class RecorderService : public BnInterface<IRecorderService> {
   status_t ConfigImageCapture(const uint32_t client_id,
                               const uint32_t camera_id,
                               const ImageParam &param,
-                              const ImageConfigParam &config) override;
+                              const ImageExtraParam &config) override;
 
   status_t CancelCaptureImage(const uint32_t client_id,
                               const uint32_t camera_id) override;

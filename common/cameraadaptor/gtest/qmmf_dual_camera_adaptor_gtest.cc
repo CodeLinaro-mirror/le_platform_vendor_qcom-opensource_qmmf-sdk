@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2019, 2021, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -77,18 +77,18 @@ void DualCamera3Gtest::StreamCb(StreamBuffer buffer) {
   if (!(buffer.frame_number % 10)) {
     if (buffer.info.format < BufferFormat::kBLOB ) {
        path.appendFormat("/data/misc/qmmf/frame_%d_dim_%dx%d.yuv", buffer.frame_number,
-          buffer.info.plane_info[0].width, buffer.info.plane_info[0].height);
+          buffer.info.planes[0].width, buffer.info.planes[0].height);
     } else if (buffer.info.format > BufferFormat::kBLOB ) {
        path.appendFormat("/data/misc/qmmf/frame_%d_dim_%dx%d.raw", buffer.frame_number,
-          buffer.info.plane_info[0].width, buffer.info.plane_info[0].height);
+          buffer.info.planes[0].width, buffer.info.planes[0].height);
     }
     FILE *file = fopen(path.string(), "w+");
     uint8_t *mappedBuffer = NULL;
     MemAllocError mret = device_client_->alloc_device_interface_->MapBuffer(
                             buffer.handle,
                             IMemAllocUsage::kSwReadOften, 0,
-                            0, buffer.info.plane_info[0].width,
-                            buffer.info.plane_info[0].height,
+                            0, buffer.info.planes[0].width,
+                            buffer.info.planes[0].height,
                             (void **)&mappedBuffer);
     if ((MemAllocError::kAllocOk != mret) || (NULL == mappedBuffer)) {
        printf("%s: Unable to map buffer: %p res: %d\n", __func__,
@@ -116,7 +116,7 @@ void DualCamera3Gtest::StreamCb(StreamBuffer buffer) {
 void DualCamera3Gtest::ErrorCb(CameraErrorCode errorCode,
                                const CaptureResultExtras &) {
   printf("%s: ErrorCode: %d\n", __func__, errorCode);
-  if (ERROR_CAMERA_SERVICE >= errorCode) {
+  if (ERROR_CAMERA_DEVICE >= errorCode) {
     camera_error_ = true;  // Unrecoverable error
   }
 }

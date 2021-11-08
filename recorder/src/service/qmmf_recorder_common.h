@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2019, 2021, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -43,8 +43,6 @@
 
 #define REMAP_ALL_BUFFERS 0x55555555
 
-//#define NO_FRAME_PROCESS
-
 // Enable DUMP_BITSTREAM to enable encoded data at TrackEncoder layer.
 //#define DUMP_BITSTREAM
 
@@ -55,49 +53,22 @@ namespace qmmf {
 
 namespace recorder {
 
-enum class TrackType {
-  kVideo,
-  kAudio
-};
-
 typedef std::function<void(std::vector<BnBuffer>& buffers,
-    std::vector<MetaData>& meta_buffers)> buffer_callback;
+    std::vector<BufferMeta>& metas)> BnBufferCallback;
 
-typedef std::function<void(uint32_t camera_id, uint32_t image_sequence_count,
-    BnBuffer& buffer, MetaData& meta_data)>  SnapshotCb;
+typedef std::function<void(uint32_t camera_id, uint32_t imgcount,
+    BnBuffer& buffer, BufferMeta& meta)>  SnapshotCb;
 
-typedef std::function<void(uint32_t image_sequence_count,
+typedef std::function<void(uint32_t imgcount,
     StreamBuffer& buffer)> StreamSnapshotCb;
 
 typedef std::function<void(uint32_t camera_id,
     const CameraMetadata &result)> ResultCb;
 
-typedef std::function<void(uint32_t camera_id)> FlushCb;
-
 typedef std::function< const sp<RemoteCallBack>& (uint32_t client_id)>
     RemoteCallbackHandle;
 
-typedef std::function<void(RecorderErrorData &error)> ErrorCb;
-
-struct VideoTrackParams {
-  VideoTrackCreateParam  params;
-  VideoExtraParam        extra_param;
-  uint32_t               track_id;
-  buffer_callback        data_cb;
-};
-
-struct AudioTrackParams {
-  AudioTrackCreateParam  params;
-  uint32_t               track_id;
-  buffer_callback        data_cb;
-
-  string ToString() const {
-    stringstream stream;
-    stream << "params[" << params.ToString() << "] ";
-    stream << "track_id[" << track_id << "] ";
-    return stream.str();
-  }
-};
+typedef std::function<void(uint32_t camera_id, int32_t errcode)> ErrorCb;
 
 }; //namespace recorder.
 

@@ -49,21 +49,22 @@
 #include <hardware/camera3.h>
 #endif
 
+#include "qmmf-sdk/qmmf_recorder_params.h"
 #include "common/utils/qmmf_log.h"
 #include "common/utils/qmmf_condition.h"
 #include "qmmf_memory_interface.h"
-#include "qmmf-sdk/qmmf_codec.h"
 
 namespace qmmf {
 
 using namespace android;
+using namespace recorder;
 
 typedef int32_t status_t;
 
 const int64_t kWaitDelay = 2000000000;  // 2 sec
 
 struct StreamBuffer {
-  CameraBufferMetaData info;
+  BufferMeta info;
   int64_t  timestamp;
   uint32_t frame_number;
   uint32_t camera_id;
@@ -75,11 +76,6 @@ struct StreamBuffer {
   int32_t metafd;
   void *data;
   uint32_t flags;
-  uint32_t filled_length;
-  uint32_t frame_length;
-  uint32_t pending_encodes_per_frame;
-  uint32_t encodes_per_frame_count;
-  bool needs_return;
   bool second_thumb;
 
   ::std::string ToString() const {
@@ -92,12 +88,56 @@ struct StreamBuffer {
     stream << "timestamp[" << timestamp << "] ";
     stream << "flags[" << ::std::setbase(16) << flags << ::std::setbase(10)
            << "]";
-    stream << "pending_encodes_per_frame[" << pending_encodes_per_frame << "] ";
-    stream << "encodes_per_frame_count[" << encodes_per_frame_count << "] ";
-    stream << "needs_return[" << ::std::boolalpha << needs_return
-           << ::std::noboolalpha << "] ";
     stream << "second_thumb[" << second_thumb << "] ";
     return stream.str();
+  }
+};
+
+/** Property:
+ *
+ *  This class defines property operations
+ **/
+class Property {
+ public:
+  /** Get
+   *    @property: property
+   *    @default_value: default value
+   *
+   * Gets requested property value
+   *
+   * return: property value
+   **/
+  template <typename T>
+  static T Get(std::string property, T default_value) {
+
+    T value = default_value;
+    char prop_val[PROPERTY_VALUE_MAX];
+
+    std::stringstream s;
+    s << default_value;
+
+    property_get(property.c_str(), prop_val, s.str().c_str());
+
+    std::stringstream output(prop_val);
+    output >> value;
+    return value;
+  }
+
+  /** Set
+   *    @property: property
+   *    @value: value
+   *
+   * Sets requested property value
+   *
+   * return: nothing
+   **/
+  template <typename T>
+  static void Set(std::string property, T value) {
+
+    std::stringstream s;
+    s << value;
+
+    property_set(property.c_str(), s.str().c_str());
   }
 };
 
@@ -119,7 +159,6 @@ class Common {
         break;
       case BufferFormat::kNV12UBWC:
       case BufferFormat::kNV12:
-      case BufferFormat::kNV12Encodable:
         return HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
         break;
       case BufferFormat::kNV21:
@@ -227,9 +266,6 @@ class Common {
       case ImageFormat::kBayerRDI16BIT:
         return BufferFormat::kRAW16;
         break;
-      case ImageFormat::kNV12Encodable:
-        return BufferFormat::kNV12Encodable;
-        break;
       default:
         /* Format not supported */
         QMMF_ERROR("%s: error: unsupported format %d (0x%x)", __func__,
@@ -247,15 +283,14 @@ class Common {
    **/
   static BufferFormat FromVideoToQmmfFormat(const VideoFormat& format) {
     switch (format) {
-      case VideoFormat::kAVC:
-      case VideoFormat::kHEVC:
-        return BufferFormat::kNV12UBWC;
-        break;
       case VideoFormat::kNV12:
         return BufferFormat::kNV12;
         break;
       case VideoFormat::kNV12UBWC:
         return BufferFormat::kNV12UBWC;
+        break;
+      case VideoFormat::kNV16:
+        return BufferFormat::kNV16;
         break;
       case VideoFormat::kJPEG:
         return BufferFormat::kBLOB;
@@ -274,6 +309,9 @@ class Common {
         break;
       case VideoFormat::kBayerRDI12BIT:
         return BufferFormat::kRAW12;
+        break;
+      case VideoFormat::kBayerRDI16BIT:
+        return BufferFormat::kRAW16;
         break;
       default:
         /* Format not supported */
@@ -629,7 +667,6 @@ class Common {
         break;
 
       case BufferFormat::kNV12:
-      case BufferFormat::kNV12Encodable:
       case BufferFormat::kNV12UBWC:
       case BufferFormat::kNV21:
       case BufferFormat::kNV16:
@@ -789,293 +826,7 @@ class Common {
 #endif
     return found;
   }
-
-  /** DumpStreamBuffer
-   *
-   * Dump stream buffer in /data/misc/qmmf
-   *
-   * return: none
-   **/
-  static void DumpStreamBuffer(StreamBuffer &buf,
-                               std::string name = "",
-                               bool input = false) {
-    std::string file_name = "/data/misc/qmmf/img_" + name + "_";
-
-    switch (buf.info.format) {
-      case BufferFormat::kNV12:
-        file_name += "nv12";
-        break;
-      case BufferFormat::kNV12UBWC:
-        file_name += "nv12ubwc";
-        break;
-      case BufferFormat::kNV21:
-        file_name += "nv21";
-        break;
-      case BufferFormat::kNV16:
-        file_name += "nv16";
-        break;
-      case BufferFormat::kBLOB:
-        file_name += "jpeg";
-        break;
-      case BufferFormat::kRAW10:
-        file_name += "raw10";
-        break;
-      case BufferFormat::kRAW12:
-        file_name += "raw12";
-        break;
-      case BufferFormat::kRAW16:
-        file_name += "raw16";
-        break;
-      default:
-        std::stringstream sstream;
-        sstream << std::hex << (int)buf.info.format;
-        file_name += sstream.str();
-        break;
-    }
-
-    file_name +=
-        "_dim_"      + std::to_string(buf.info.plane_info[0].width) +
-        "x"          + std::to_string(buf.info.plane_info[0].height) +
-        "_stride_"   + std::to_string(buf.info.plane_info[0].stride) +
-        "_scanline_" + std::to_string(buf.info.plane_info[0].scanline) +
-        "_frame_"    + std::to_string(buf.frame_number) +
-        "_"          + (input ? "input" : "output");
-
-    switch (buf.info.format) {
-      case BufferFormat::kRAW10:
-      case BufferFormat::kRAW12:
-      case BufferFormat::kRAW16:
-        file_name += ".raw";
-        break;
-      case BufferFormat::kNV12:
-      case BufferFormat::kNV12UBWC:
-      case BufferFormat::kNV21:
-      case BufferFormat::kNV16:
-        file_name += ".yuv";
-        break;
-      case BufferFormat::kBLOB:
-        file_name += ".jpg";
-        break;
-      default:
-        file_name += ".bin";
-        break;
-    }
-
-    FILE *file = fopen(file_name.c_str(), "w+");
-    if (!file) {
-      QMMF_ERROR("%s:%s Unable to open: %s", __func__, name.c_str(),
-          file_name.c_str());
-      return;
-    }
-
-    void *vaaddr = mmap(nullptr, buf.size, PROT_READ  | PROT_WRITE, MAP_SHARED,
-        buf.fd, 0);
-    if (vaaddr == MAP_FAILED) {
-      QMMF_ERROR("%s:%s: ION mmap failed: error(%s):(%d) size: %d fd: %d",
-          __func__, name.c_str(), strerror(errno), errno, buf.size, buf.fd);
-      fclose(file);
-      return;
-    }
-
-    auto written_len = fwrite(vaaddr, sizeof(uint8_t), buf.size, file);
-    if (buf.size != written_len) {
-      QMMF_ERROR("%s:%s Bad Write error %d size %d written %d", __func__,
-          name.c_str(), errno, buf.size, written_len);
-      munmap(vaaddr, buf.size);
-      fclose(file);
-      return;
-    }
-
-    QMMF_INFO("%s:%s: Dump %s frame to %s\n", __func__, name.c_str(),
-        input ? "input" : "output", file_name.c_str());
-
-    munmap(vaaddr, buf.size);
-    fclose(file);
-  }
 };  // class Common
-
-// Thread safe Queue
-template <class T>
-class TSQueue {
- public:
-  typedef typename ::std::list<T>::iterator iterator;
-
-  iterator Begin() {
-    ::std::lock_guard<::std::mutex> lg(lock_);
-    return queue_.begin();
-  }
-
-  void PushBack(const T& item) {
-    ::std::lock_guard<::std::mutex> lg(lock_);
-    queue_.push_back(item);
-  }
-
-  int32_t Size() {
-    ::std::lock_guard<::std::mutex> lg(lock_);
-    return queue_.size();
-  }
-
-  bool Empty() {
-    ::std::lock_guard<::std::mutex> lg(lock_);
-    return queue_.empty();
-  }
-
-  iterator End() {
-    ::std::lock_guard<::std::mutex> lg(lock_);
-    return queue_.end();
-  }
-
-  void Erase(iterator it) {
-    ::std::lock_guard<::std::mutex> lg(lock_);
-    queue_.erase(it);
-  }
-
-  void Clear() {
-    ::std::lock_guard<::std::mutex> lg(lock_);
-    queue_.clear();
-  }
-
- private:
-  ::std::list<T> queue_;
-  ::std::mutex lock_;
-};
-
-template <class T>
-class SignalQueue {
- public:
-  explicit SignalQueue(uint32_t size) : max_size_(size) {
-    QMMF_DEBUG("%s: Enter", __func__);
-    QMMF_DEBUG("%s: Exit", __func__);
-  }
-
-  ~SignalQueue() {
-    QMMF_DEBUG("%s: Enter", __func__);
-    QMMF_DEBUG("%s: Exit", __func__);
-  }
-
-  uint32_t Size() {
-    QMMF_DEBUG("%s: Enter", __func__);
-    ::std::lock_guard<::std::mutex> lg(cmd_queue_mutex_);
-    QMMF_DEBUG("%s: Exit", __func__);
-    return cmd_queue_.size();
-  }
-
-  status_t Pop(T* item) {
-    QMMF_DEBUG("%s: Enter", __func__);
-    if (!item) {
-      QMMF_ERROR("%s: Invalid Parameters", __func__);
-      return -1;
-    }
-    {
-      ::std::unique_lock<::std::mutex> lock(cmd_queue_mutex_);
-      auto ret = wait_for_cmd_.wait_for(lock,
-          ::std::chrono::nanoseconds(kWaitDelay),
-          [this]{return (cmd_queue_.size() > 0);});
-      if (!ret) {
-        QMMF_ERROR("%s: Wait for cmd.. timed out", __func__);
-        return -1;
-      } else {
-        *item  = cmd_queue_.front();
-        cmd_queue_.pop();
-        QMMF_DEBUG("%s: Updated SignalQueue Size = %u", __func__,
-            cmd_queue_.size());
-      }
-    }
-    QMMF_DEBUG("%s: Exit", __func__);
-    return 0;
-  }
-
-  status_t Push(const T& item) {
-    QMMF_DEBUG("%s: Enter", __func__);
-    {
-      ::std::lock_guard<::std::mutex> lg(cmd_queue_mutex_);
-      uint32_t size = cmd_queue_.size();
-      if (max_size_ <= size) {
-        QMMF_ERROR("%s: command queue size full", __func__);
-        return -1;
-      }
-      cmd_queue_.push(item);
-      QMMF_DEBUG("%s: Updated SignalQueue Size = %u", __func__,
-          cmd_queue_.size());
-    }
-    wait_for_cmd_.notify_one();
-    QMMF_DEBUG("%s: Exit", __func__);
-    return 0;
-  }
-
-  void Clear() {
-    QMMF_INFO("%s: Enter", __func__);
-    ::std::lock_guard<::std::mutex> lg(cmd_queue_mutex_);
-    while(!cmd_queue_.empty())
-      cmd_queue_.pop();
-    QMMF_INFO("%s: Exit", __func__);
-  }
-
- private:
-  ::std::condition_variable  wait_for_cmd_;
-  ::std::mutex               cmd_queue_mutex_;
-  ::std::queue<T>            cmd_queue_;
-  uint32_t                   max_size_;
-};  // SignalQueue
-
-// Thread safe KeyedVector
-template <class T1, class T2>
-class TSKeyedVector {
- public:
-  void Add(StreamBuffer& buffer) {
-    ::std::lock_guard<::std::mutex> lg(lock_);
-    map_.insert(std::make_pair(buffer.handle, 1));
-  }
-
-  uint32_t ValueFor(StreamBuffer& buffer) {
-    ::std::lock_guard<::std::mutex> lg(lock_);
-    return map_.at(buffer.handle);
-  }
-
-  void RemoveItem(StreamBuffer& buffer) {
-    ::std::lock_guard<::std::mutex> lg(lock_);
-    map_.erase(buffer.handle);
-  }
-
-  int32_t Size() {
-    ::std::lock_guard<::std::mutex> lg(lock_);
-    return map_.size();
-  }
-
-  bool IsEmpty() {
-    ::std::lock_guard<::std::mutex> lg(lock_);
-    return map_.empty();
-  }
-
-  void ReplaceValueFor(StreamBuffer& buffer, uint32_t value) {
-    ::std::lock_guard<::std::mutex> lg(lock_);
-    map_[buffer.handle] = value;
-  }
-
-  void Clear() {
-    ::std::lock_guard<::std::mutex> lg(lock_);
-    map_.clear();
-  }
-
-  bool IsExist(const StreamBuffer& buffer) {
-    ::std::lock_guard<::std::mutex> lg(lock_);
-    auto search = map_.find(buffer.handle);
-    if(search != map_.end()) {
-      return true;
-    } else {
-      return false;
-    }
-  }
-
- private:
-  ::std::map<T1, T2> map_;
-  ::std::mutex lock_;
-};
-
-#define FRC_CHANGE_THRESHOLD  (0.5)
-#define FRC_THRESHOLD_PERCENT (0.05)
-#define FRC_TIME_INTERVAL 3000000
-
 
 };  // namespace qmmf.
 

@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016-2018, 2021, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -194,7 +194,7 @@ void BufferProducerImpl<_type>::NotifyBuffer(StreamBuffer& buffer) {
     QMMF_VERBOSE("%s: Buffer(%p) with reference count(%d)", __func__,
         buffer.handle, buffers_[buffer.handle]);
 
-    QMMF_VERBOSE("%s: Notify buffer to %d-consumers", __func__,
+    QMMF_VERBOSE("%s: Notify buffer to %lu-consumers", __func__,
         buffer_consumers_.size());
   }
 
@@ -244,7 +244,7 @@ void BufferProducerImpl<_type>::AddConsumer(const sp<IBufferConsumer>&
   uintptr_t key = reinterpret_cast<uintptr_t>(consumer.get());
   buffer_consumers_.emplace(key, consumer);
 
-  QMMF_VERBOSE("%s: Consumer(0x%x) added successfully!", __func__, key);
+  QMMF_VERBOSE("%s: Consumer(0x%lx) added successfully!", __func__, key);
 }
 
 template <typename _type>
@@ -261,7 +261,7 @@ void BufferProducerImpl<_type>::RemoveConsumer(sp<IBufferConsumer>& consumer) {
   uintptr_t key = reinterpret_cast<uintptr_t>(consumer.get());
   buffer_consumers_.erase(key);
 
-  QMMF_VERBOSE("%s: Consumer(0x%x) removed successfully!", __func__, key);
+  QMMF_VERBOSE("%s: Consumer(0x%lx) removed successfully!", __func__, key);
 }
 
 template <typename _type>
@@ -271,7 +271,7 @@ status_t BufferProducerImpl<_type>::CheckAndWaitPendingBuffers() {
   std::chrono::nanoseconds wait_time(kWaitDelay);
 
   while (!buffers_.empty()) {
-    QMMF_VERBOSE("%s: There are still %u pending buffers, waiting for them"
+    QMMF_VERBOSE("%s: There are still %lu pending buffers, waiting for them"
         " to return!", __func__, buffers_.size());
 
     auto ret = buffer_received_.WaitFor(lock, wait_time);

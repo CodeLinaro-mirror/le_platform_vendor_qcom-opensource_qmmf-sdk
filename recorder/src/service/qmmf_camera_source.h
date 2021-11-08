@@ -39,7 +39,6 @@
 #include <qmmf-sdk/qmmf_recorder_extra_param_tags.h>
 
 #include "common/utils/qmmf_condition.h"
-#include "common/codecadaptor/src/qmmf_avcodec.h"
 #include "recorder/src/service/qmmf_recorder_common.h"
 #include "recorder/src/service/qmmf_camera_interface.h"
 #ifndef CAMERA_HAL1_SUPPORT
@@ -57,12 +56,8 @@ namespace qmmf {
 using namespace cameraadaptor;
 #endif
 using namespace android;
-using namespace avcodec;
 
 namespace recorder {
-
-#define FPS_CHANGE_THRESHOLD  (0.5)
-#define FRAME_SKIP_THRESHOLD_PERCENT (0.05)
 
 class TrackSource;
 
@@ -80,7 +75,7 @@ class CameraSource {
 
   /// Open Camera.
   status_t StartCamera(const uint32_t camera_id,
-                       const float frame_rate,
+                       const float framerate,
                        const CameraExtraParam& extra_param,
                        const ResultCb &cb = nullptr,
                        const ErrorCb &errcb = nullptr);
@@ -97,7 +92,7 @@ class CameraSource {
   /// Configure Image Capture
   status_t ConfigImageCapture(const uint32_t camera_id,
                               const ImageParam &param,
-                              const ImageConfigParam &config);
+                              const ImageExtraParam &config);
 
   /// Cancel Image Capture
   status_t CancelCaptureImage(const uint32_t camera_id);
@@ -111,7 +106,9 @@ class CameraSource {
 
   /// Create Track Source
   status_t CreateTrackSource(const uint32_t track_id,
-                             const VideoTrackParams& param);
+                             const VideoTrackParam& params,
+                             const VideoExtraParam& extraparams,
+                             const BnBufferCallback &cb);
   /// Delete Track Source
   status_t DeleteTrackSource(const uint32_t track_id);
 
@@ -150,23 +147,17 @@ class CameraSource {
 
   /// UpdateTrackFrameRate
   status_t UpdateTrackFrameRate(const uint32_t track_id,
-                                const float frame_rate);
+                                const float framerate);
 
   /// Enable repeating of frames to ensure target frame rate
   status_t EnableFrameRepeat(const uint32_t track_id,
-                             const bool enable_frame_repeat);
-
-  /// Register Flush Callback
-  status_t SetFlushCb(const uint32_t camera_id, FlushCb &cb);
-
-  /// Clear Track input queue
-  status_t FlushTrack(const uint32_t track_id);
+                             const bool enable);
 
   /// Return instance for track source for given ID
   const ::std::shared_ptr<TrackSource>& GetTrackSource(uint32_t track_id);
 
   /// Get Rescaller configuration parameters
-  ResizerCrop GetRescalerConfig(const VideoTrackParams& track_params);
+  ResizerCrop GetRescalerConfig(const VideoExtraParam& extraparams);
 
   /// Get calculated JPEG size
   static uint32_t GetJpegSize(uint8_t *blobBuffer, uint32_t width);
@@ -177,23 +168,16 @@ class CameraSource {
   void SnapshotCallback(uint32_t count, StreamBuffer& buffer);
 
   bool ValidateSlaveTrackParam(
-    const VideoTrackParams& slave_track,
-    const VideoTrackParams& master_track);
+    const VideoTrackParam& slave_params,
+    const VideoTrackParam& master_params);
 
   bool CheckLinkedStream(
-    const VideoTrackParams& slave_track,
-    const VideoTrackParams& master_track);
+    const VideoTrackParam& slave_params,
+    const VideoTrackParam& master_params);
 
   int32_t GetSourceTrackId(const VideoExtraParam& extra_param);
 
   status_t ParseThumb(uint8_t* vaddr, uint32_t size, StreamBuffer& buffer);
-
-  status_t DetectCameras();
-
-  VideoFormat GetYUVFormatType(VideoFormat format_tpye);
-
-  bool IsFormatChanged(VideoFormat src_format_type,
-                       VideoFormat dst_format_type);
 
   std::list<std::shared_ptr<CameraInterface>> preloaded_cameras_;
 
@@ -219,13 +203,14 @@ class CameraSource {
 
 /// @brief This class behaves as producer and consumer both, at one end
 /// it takes YUV buffers from camera stream and another end it provides buffers
-/// to Encoder, and manages buffer circulation, frame skip etc.
-class TrackSource : public ICodecSource {
+/// and manages buffer circulation, frame skip etc.
+class TrackSource {
  public:
 
   /// TrackSource Constructor
-  TrackSource(const VideoTrackParams& params,
-              const std::shared_ptr<CameraInterface>& camera_intf);
+  TrackSource(const uint32_t id, const std::shared_ptr<CameraInterface>& camera,
+              const VideoTrackParam& params, const VideoExtraParam& extraparams,
+              const BnBufferCallback& cb);
 
   /// TrackSource Destructor
   ~TrackSource();
@@ -251,24 +236,10 @@ class TrackSource : public ICodecSource {
   /// Resume track source
   status_t ResumeTrack();
 
-  // Methods of IInputCodecSource
-  // This method to provide input buffer to Encoder.
-  /// Provide input buffer to Encoder
-  status_t GetBuffer(BufferDescriptor& buffer, void* client_data) override;
-
-  // This method is used by Encoder to provide buffer back after encoding.
-  /// Return buffer from Encoder
-  status_t ReturnBuffer(BufferDescriptor& buffer, void* client_data) override;
-
-  // This method is used by Encoder to notify stop.
-  /// Used by Encoder to notify stop.
-  status_t NotifyPortEvent(PortEventType event_type,
-                           void* event_data) override;
-
   // Global track specific params can be query from TrackSource during its life
   // cycle.
   /// Get Track parameters
-  VideoTrackParams& getParams() { return track_params_; }
+  VideoTrackParam& GetParams() { return params_; }
 
   // This method to handle incoming buffers from producer, producer can be
   // anyone, Camera context's port or rescaler.
@@ -284,19 +255,14 @@ class TrackSource : public ICodecSource {
   /// Return true if current state is different then running
   bool IsPaused();
 
-  /// Return buffers to producer
-  void ClearInputQueue();
-
   /// Change frame rate
-  void UpdateFrameRate(const float frame_rate);
+  void UpdateFrameRate(const float framerate);
 
   /// Enable frame repeat
-  void EnableFrameRepeat(const bool enable_frame_repeat);
+  void EnableFrameRepeat(const bool enable);
 
   /// Callback to handle returned buffers
   void NotifyBufferReturned(StreamBuffer& buffer);
-
-  //status_t GetStreamParam(CameraStreamParam& stream_param);
 
   /// Sets source track and enable track duplication
   status_t InitCopy(std::shared_ptr<TrackSource> track_source,
@@ -311,42 +277,22 @@ class TrackSource : public ICodecSource {
   /// Remove track source Consumer
   status_t RemoveConsumer(sp<IBufferConsumer>& consumer);
 
-  /// @cond PRIVATE
  private:
 
   // Method to provide consumer interface, it would be used by producer to
   // post buffers.
-  sp<IBufferConsumer>& GetConsumerIntf() { return buffer_consumer_impl_; }
-
-  void PushFrameToQueue(StreamBuffer& buffer);
-
-  uint32_t TrackId() { return track_params_.track_id; }
-
-  bool IsEnableFrameSkip();
-
-  bool IsFrameSkip();
-
-  uint32_t CalculateEncodesPerFrame();
-
-  void DumpYUV(StreamBuffer& buffer);
+  sp<IBufferConsumer>& GetConsumer() { return buffer_consumer_; }
 
   void ReturnBufferToProducer(StreamBuffer& buffer);
 
-  bool IsNeedScaler(const VideoTrackParams& slave_track,
-                    const VideoTrackParams& master_track);
+  uint32_t                 id_;
+  VideoTrackParam          params_;
+  VideoExtraParam          extraparams_;
+  BnBufferCallback         buffer_cb_;
 
-  uint64_t GetWaitTime();
-
-  VideoTrackParams         track_params_;
-  sp<IBufferConsumer>      buffer_consumer_impl_;
   bool                     is_stop_;
   std::atomic<bool>        is_paused_;
   std::mutex               stop_lock_;
-  bool                     eos_acked_;
-  std::mutex               eos_lock_;
-
-  std::mutex               frame_lock_;
-  QCondition               wait_for_frame_;
 
   std::mutex               lock_;
 
@@ -357,59 +303,23 @@ class TrackSource : public ICodecSource {
 
   // Maps of Unique buffer Id and Buffer.
   std::map<uint32_t, StreamBuffer> buffer_list_;
-
-  // Maps AVCodec and TrackSource description of image buffers
-  std::unordered_map <void*, IBufferHandle> buffers_map_;
-
   std::mutex buffer_list_lock_;
 
-  // Input buffer list, to feed buffers to encoder.
-  TSQueue<StreamBuffer> frames_received_;
+  std::map<IBufferHandle, uint32_t >  buffer_map_;
+  std::mutex frame_lock_;
 
-  // List of buffers held by encoder.
-  TSQueue<StreamBuffer> frames_being_encoded_;
-
-  std::shared_ptr<CameraInterface>   camera_interface_;
-  float   input_frame_rate_;
-  double  input_frame_interval_;
-  double  output_frame_interval_;
-  double  remaining_frame_skip_time_;
-  std::mutex frame_skip_lock_;
-
-  uint32_t debug_fps_;
-  struct timeval input_prevtv_;
-  uint32_t input_count_;
-  struct timeval prevtv_;
-  uint32_t count_;
-
-  float      pending_encodes_per_frame_ratio_;
-  uint64_t   frame_repeat_ts_prev_;
-  uint64_t   frame_repeat_ts_curr_;
-  bool       enable_frame_repeat_;
-  std::mutex frame_repeat_lock_;
+  std::shared_ptr<CameraInterface>     camera_;
   std::shared_ptr<FrameRateController> fsc_;
   std::shared_ptr<FrameRateController> frc_;
-  std::shared_ptr<CameraRescaler>  rescaler_;
+  std::shared_ptr<CameraRescaler>      rescaler_;
 
-  bool  slave_track_source_;
-
-  sp<IBufferProducer>    buffer_producer_impl_;
+  sp<IBufferConsumer>    buffer_consumer_;
+  sp<IBufferProducer>    buffer_producer_;
   std::mutex             consumer_lock_;
+  uint32_t               num_consumers_;
+
   std::shared_ptr<TrackSource> master_track_;
-
-  std::map<IBufferHandle, uint32_t >  buffer_map_;
-  std::map<IBufferHandle, StreamBuffer > stream_buffer_map_;
-
-  bool time_lapse_mode_;
-  uint32_t time_lapse_interval_;
-  uint64_t time_stamp_;
-
-  uint32_t num_consumers_;
-
-  uint64_t wait_duration_;
-  static const uint32_t kWaitNumFrames_;
-  uint32_t yuv_dump_freq_;
-  /// @endcond
+  bool  slave_track_source_;
 };
 
 }; //namespace recorder

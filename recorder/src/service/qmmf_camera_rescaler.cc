@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+* Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -265,7 +265,7 @@ void CameraRescalerBase::UnMapBufs() {
   for (auto iter : mapped_buffs_) {
     auto map = iter.second;
     if (map.addr) {
-      QMMF_INFO("%s: Unmap addr(%p) size(%d)", __func__,
+      QMMF_INFO("%s: Unmap addr(%p) size(%lu)", __func__,
           map.addr, map.size);
       munmap(map.addr, map.size);
     }
@@ -555,7 +555,7 @@ status_t CameraRescalerMemPool::GetBufferLocked(StreamBuffer* buffer) {
 
   if (nullptr != buffer) {
     buffer->handle = mem_alloc_slots_[idx];
-    ret = PopulateMetaInfo(buffer->info, buffer->handle);
+    ret = PopulateBufferMeta(buffer->info, buffer->handle);
     if (NO_ERROR != ret) {
       QMMF_ERROR("%s: Failed to populate buffer meta info", __func__);
       return ret;
@@ -571,8 +571,8 @@ status_t CameraRescalerMemPool::GetBufferLocked(StreamBuffer* buffer) {
   return ret;
 }
 
-status_t CameraRescalerMemPool::PopulateMetaInfo(CameraBufferMetaData &info,
-                                   IBufferHandle &handle) {
+status_t CameraRescalerMemPool::PopulateBufferMeta(BufferMeta &info,
+                                                   IBufferHandle &handle) {
 
   int alignedW, alignedH;
   auto ret = alloc_device_interface_->Perform(handle,
@@ -599,75 +599,75 @@ status_t CameraRescalerMemPool::PopulateMetaInfo(CameraBufferMetaData &info,
     case HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS:
     case HAL_PIXEL_FORMAT_NV12_ENCODEABLE:
       info.format = BufferFormat::kNV12;
-      info.num_planes = 2;
-      info.plane_info[0].width = init_params_.width;
-      info.plane_info[0].height = init_params_.height;
-      info.plane_info[0].stride = alignedW;
-      info.plane_info[0].scanline = alignedH;
-      info.plane_info[0].size = alignedW * alignedH;
-      info.plane_info[0].offset = 0;
-      info.plane_info[1].width = init_params_.width;
-      info.plane_info[1].height = init_params_.height/2;
-      info.plane_info[1].stride = alignedW;
-      info.plane_info[1].scanline = alignedH/2;
-      info.plane_info[1].size = alignedW * (alignedH / 2);
-      info.plane_info[1].offset = alignedW * alignedH;
+      info.n_planes = 2;
+      info.planes[0].width = init_params_.width;
+      info.planes[0].height = init_params_.height;
+      info.planes[0].stride = alignedW;
+      info.planes[0].scanline = alignedH;
+      info.planes[0].size = alignedW * alignedH;
+      info.planes[0].offset = 0;
+      info.planes[1].width = init_params_.width;
+      info.planes[1].height = init_params_.height/2;
+      info.planes[1].stride = alignedW;
+      info.planes[1].scanline = alignedH/2;
+      info.planes[1].size = alignedW * (alignedH / 2);
+      info.planes[1].offset = alignedW * alignedH;
       break;
     case HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS_UBWC:
       info.format = BufferFormat::kNV12UBWC;
-      info.num_planes = 2;
-      info.plane_info[0].width = init_params_.width;
-      info.plane_info[0].height = init_params_.height;
-      info.plane_info[0].stride = alignedW;
-      info.plane_info[0].scanline = alignedH;
-      info.plane_info[0].size = alignedW * alignedH;
-      info.plane_info[0].offset = 0;
-      info.plane_info[1].width = init_params_.width;
-      info.plane_info[1].height = init_params_.height/2;
-      info.plane_info[1].stride = alignedW;
-      info.plane_info[1].scanline = alignedH/2;
-      info.plane_info[1].size = alignedW * (alignedH / 2);
-      info.plane_info[1].offset = alignedW * alignedH;
+      info.n_planes = 2;
+      info.planes[0].width = init_params_.width;
+      info.planes[0].height = init_params_.height;
+      info.planes[0].stride = alignedW;
+      info.planes[0].scanline = alignedH;
+      info.planes[0].size = alignedW * alignedH;
+      info.planes[0].offset = 0;
+      info.planes[1].width = init_params_.width;
+      info.planes[1].height = init_params_.height/2;
+      info.planes[1].stride = alignedW;
+      info.planes[1].scanline = alignedH/2;
+      info.planes[1].size = alignedW * (alignedH / 2);
+      info.planes[1].offset = alignedW * alignedH;
       break;
     case HAL_PIXEL_FORMAT_RGB_888:
       info.format = BufferFormat::kRGB;
-      info.num_planes = 1;
-      info.plane_info[0].width = init_params_.width;
-      info.plane_info[0].height = init_params_.height;
-      info.plane_info[0].stride = alignedW;
-      info.plane_info[0].scanline = alignedH;
+      info.n_planes = 1;
+      info.planes[0].width = init_params_.width;
+      info.planes[0].height = init_params_.height;
+      info.planes[0].stride = alignedW;
+      info.planes[0].scanline = alignedH;
       break;
     case HAL_PIXEL_FORMAT_NV21_ZSL:
       info.format = BufferFormat::kNV21;
-      info.num_planes = 2;
-      info.plane_info[0].width = init_params_.width;
-      info.plane_info[0].height = init_params_.height;
-      info.plane_info[0].stride = alignedW;
-      info.plane_info[0].scanline = alignedH;
-      info.plane_info[0].size = alignedW * alignedH;
-      info.plane_info[0].offset = 0;
-      info.plane_info[1].width = init_params_.width;
-      info.plane_info[1].height = init_params_.height/2;
-      info.plane_info[1].stride = alignedW;
-      info.plane_info[1].scanline = alignedH/2;
-      info.plane_info[1].size = alignedW * (alignedH / 2);
-      info.plane_info[1].offset = alignedW * alignedH;
+      info.n_planes = 2;
+      info.planes[0].width = init_params_.width;
+      info.planes[0].height = init_params_.height;
+      info.planes[0].stride = alignedW;
+      info.planes[0].scanline = alignedH;
+      info.planes[0].size = alignedW * alignedH;
+      info.planes[0].offset = 0;
+      info.planes[1].width = init_params_.width;
+      info.planes[1].height = init_params_.height/2;
+      info.planes[1].stride = alignedW;
+      info.planes[1].scanline = alignedH/2;
+      info.planes[1].size = alignedW * (alignedH / 2);
+      info.planes[1].offset = alignedW * alignedH;
       break;
     case HAL_PIXEL_FORMAT_YCbCr_422_888:
       info.format = BufferFormat::kNV16;
-      info.num_planes = 2;
-      info.plane_info[0].width = init_params_.width;
-      info.plane_info[0].height = init_params_.height;
-      info.plane_info[0].stride = alignedW;
-      info.plane_info[0].scanline = alignedH;
-      info.plane_info[0].size = alignedW * alignedH;
-      info.plane_info[0].offset = 0;
-      info.plane_info[1].width = init_params_.width;
-      info.plane_info[1].height = init_params_.height;
-      info.plane_info[1].stride = alignedW;
-      info.plane_info[1].scanline = alignedH;
-      info.plane_info[1].size = alignedW * alignedH;
-      info.plane_info[1].offset = alignedW * alignedH;
+      info.n_planes = 2;
+      info.planes[0].width = init_params_.width;
+      info.planes[0].height = init_params_.height;
+      info.planes[0].stride = alignedW;
+      info.planes[0].scanline = alignedH;
+      info.planes[0].size = alignedW * alignedH;
+      info.planes[0].offset = 0;
+      info.planes[1].width = init_params_.width;
+      info.planes[1].height = init_params_.height;
+      info.planes[1].stride = alignedW;
+      info.planes[1].scanline = alignedH;
+      info.planes[1].size = alignedW * alignedH;
+      info.planes[1].offset = alignedW * alignedH;
       break;
     default:
       QMMF_ERROR("%s: Unsupported format: %d", __func__,
@@ -788,7 +788,7 @@ status_t CameraRescaler::RemoveConsumer(sp<IBufferConsumer>& consumer) {
   return NO_ERROR;
 }
 
-sp<IBufferConsumer>& CameraRescaler::GetCopyConsumerIntf() {
+sp<IBufferConsumer>& CameraRescaler::GetConsumer() {
   return buffer_consumer_impl_;
 }
 

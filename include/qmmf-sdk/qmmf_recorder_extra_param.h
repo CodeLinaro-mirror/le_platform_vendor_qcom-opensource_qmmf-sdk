@@ -316,15 +316,15 @@ class VideoExtraParam : public ExtraParam {
 
 };
 
-class ImageConfigParam : public ExtraParam {
+class ImageExtraParam : public ExtraParam {
  public:
-  ImageConfigParam()
+  ImageExtraParam()
       : ExtraParam() {};
 
-  ImageConfigParam(const void *data, const size_t &size)
+  ImageExtraParam(const void *data, const size_t &size)
       : ExtraParam(data, size) {};
 
-  ImageConfigParam(const ImageConfigParam &other)
+  ImageExtraParam(const ImageExtraParam &other)
   : ExtraParam(static_cast<ExtraParam>(other)) {};
 
 };

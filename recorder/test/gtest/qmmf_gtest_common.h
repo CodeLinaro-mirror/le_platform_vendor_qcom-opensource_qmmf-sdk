@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+* Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -45,9 +45,7 @@
 #include <cutils/properties.h>
 #include <random>
 #include <fstream>
-//#include <system/graphics.h>
 
-#include <qmmf-sdk/qmmf_queue.h>
 #include <qmmf-sdk/qmmf_recorder.h>
 #include <qmmf-sdk/qmmf_recorder_params.h>
 #include <qmmf-sdk/qmmf_recorder_extra_param_tags.h>
@@ -64,13 +62,6 @@
 #ifdef USE_SURFACEFLINGER
 #include <sys/mman.h>
 #include <android/native_window.h>
-#endif
-
-#if USE_SKIA
-#include <SkCanvas.h>
-#include <SkString.h>
-#elif USE_CAIRO
-#include <cairo/cairo.h>
 #endif
 
 #ifdef QCAMERA3_TAG_LOCAL_COPY
@@ -162,31 +153,31 @@ struct FaceInfo {
 #define DEFAULT_FIRST_STREAM_WIDTH       "1920"
 #define DEFAULT_FIRST_STREAM_HEIGHT      "1080"
 #define DEFAULT_FIRST_STREAM_FPS         "30.0"
-#define DEFAULT_FIRST_STREAM_FORMAT      "AVC"
+#define DEFAULT_FIRST_STREAM_FORMAT      "NV12"
 
 // Default Values for Second Stream
 #define DEFAULT_SECOND_STREAM_WIDTH      "1280"
 #define DEFAULT_SECOND_STREAM_HEIGHT     "720"
 #define DEFAULT_SECOND_STREAM_FPS        "30.0"
-#define DEFAULT_SECOND_STREAM_FORMAT     "AVC"
+#define DEFAULT_SECOND_STREAM_FORMAT     "NV12"
 
 // Default Values for Third Stream
 #define DEFAULT_THIRD_STREAM_WIDTH       "1280"
 #define DEFAULT_THIRD_STREAM_HEIGHT      "720"
 #define DEFAULT_THIRD_STREAM_FPS         "30.0"
-#define DEFAULT_THIRD_STREAM_FORMAT      "AVC"
+#define DEFAULT_THIRD_STREAM_FORMAT      "NV12"
 
 // Default Values for fourth Stream
 #define DEFAULT_FOURTH_STREAM_WIDTH      "720"
 #define DEFAULT_FOURTH_STREAM_HEIGHT     "480"
 #define DEFAULT_FOURTH_STREAM_FPS        "30.0"
-#define DEFAULT_FOURTH_STREAM_FORMAT     "AVC"
+#define DEFAULT_FOURTH_STREAM_FORMAT     "NV12"
 
 // Default Values for Fifth Stream
 #define DEFAULT_FIFTH_STREAM_WIDTH       "320"
 #define DEFAULT_FIFTH_STREAM_HEIGHT      "240"
 #define DEFAULT_FIFTH_STREAM_FPS         "30.0"
-#define DEFAULT_FIFTH_STREAM_FORMAT      "AVC"
+#define DEFAULT_FIFTH_STREAM_FORMAT      "NV12"
 
 // Default Values of Snapshot Stream
 #define DEFAULT_SNAPSHOT_STREAM_WIDTH    "1920"
@@ -198,8 +189,6 @@ struct FaceInfo {
 #define PROP_DUMP_TO_EXT            "persist.qmmf.gtest.dumptoext"
 // Prop to enable YUV data dumping from YUV track
 #define PROP_DUMP_YUV_FRAMES        "persist.qmmf.rec.gtest.dumpyuv"
-// Prop to enable encoded bitstream data dumping
-#define PROP_DUMP_BITSTREAM         "persist.qmmf.rec.gtest.dumpstrm"
 // Prop to enable JPEG (BLOB) dumping
 #define PROP_DUMP_JPEG              "persist.qmmf.rec.gtest.dumpjpeg"
 // Prop to enable RAW Snapshot dumping
@@ -224,10 +213,6 @@ struct FaceInfo {
 #define PROP_EIS_H_MARGIN           "persist.qmmf.rec.gtest.eis.h.mrg"
 // Prop to override default EIS vertical margin
 #define PROP_EIS_V_MARGIN           "persist.qmmf.rec.gtest.eis.v.mrg"
-// Prop to enable/disable display usage
-#define PROP_TOGGLE_DISPLAY_USAGE   "persist.qmmf.rec.gtest.display"
-// Prop to set video timelapse interval
-#define PROP_TIMELAPSE_INTERVAL     "persist.qmmf.rec.gtest.tlapse"
 // Prop to enable debugging frames
 #define PROP_FRAME_DEBUG            "persist.qmmf.rec.gtest.frm.dbg"
 // Prop to set force sensor mode config file
@@ -245,6 +230,8 @@ struct FaceInfo {
 #define PROP_SHDR                   "persist.qmmf.gtest.shdr"
 // Prop to set LDC
 #define PROP_LDC                    "persist.qmmf.gtest.ldc"
+// Prop to set LCAC
+#define PROP_LCAC                    "persist.qmmf.gtest.lcac"
 // Prop to enable Snapshot Stream
 #define PROP_SNAPSHOT_STREAM_ON     "persist.qmmf.snapshot.stream.on"
 // Prop to set number of snpshot in a test
@@ -496,8 +483,7 @@ class SFDisplaySink
 
   ~SFDisplaySink();
 
-  void HandlePreviewBuffer(BufferDescriptor &buffer,
-      CameraBufferMetaData &meta_data);
+  void HandlePreviewBuffer(BufferDescriptor &buffer, BufferMeta &meta);
 
  private:
   int32_t CreatePreviewSurface(uint32_t width, uint32_t height);
@@ -509,52 +495,6 @@ class SFDisplaySink
   sp<SurfaceControl>        surface_control_;
 };
 #endif
-
-class DumpBitStream {
- public:
-  DumpBitStream() : is_enabled_(false) {};
-
-  ~DumpBitStream() {split_file_info_.clear();}
-
-  bool IsEnabled() {return is_enabled_;}
-
-  bool IsUsed() {return (is_enabled_ && split_file_info_.size());}
-
-  void Enable(const bool enable) {is_enabled_ = enable;}
-
-  status_t SetUp(const StreamDumpInfo& dumpinfo);
-
-  status_t Dump(const std::vector<BufferDescriptor>& buffers,
-    const uint32_t &session_id, const uint32_t &track_id);
-
-  int32_t GetFileFd(const uint32_t &session_id, const uint32_t &track_id) {
-    uint8_t key_by_session_track_id = GenerateKey(session_id, track_id);
-    EXPECT_TRUE(split_file_info_.count(key_by_session_track_id));
-    return split_file_info_[key_by_session_track_id].file_fd;
-  }
-
-  void Close(const uint32_t &session_id, const uint32_t &track_id);
-
-  void CloseAll();
- private:
-  bool is_enabled_;
-
-  std::map<uint8_t, SplitFileInfo> split_file_info_;
-
-  status_t SplitFile(const uint8_t file_index);
-
-  uint8_t GenerateKey(const uint32_t &session_id, const uint32_t &track_id) {
-    return static_cast<uint8_t>(session_id << 4 | track_id);
-  }
-
-  std::string GetFileName(const SplitFileInfo& file_info);
-
-  uint64_t GetFileSize(const int32_t file_fd) {
-    off_t fsize = lseek(file_fd, 0, SEEK_END);
-    EXPECT_TRUE(fsize >= 0);
-    return static_cast<uint64_t>(fsize);
-  }
-};
 
 class FrameTrace {
  public:
@@ -638,48 +578,32 @@ class GtestCommon : public ::testing::Test {
 
   void VideoTrackRGBDataCb(uint32_t session_id, uint32_t track_id,
                            std::vector<BufferDescriptor> buffers,
-                           std::vector<MetaData> meta_buffers);
+                           std::vector<BufferMeta> metas);
 
   void VideoTrackYUVDataCb(uint32_t session_id, uint32_t track_id,
                            std::vector<BufferDescriptor> buffers,
-                           std::vector<MetaData> meta_buffers);
+                           std::vector<BufferMeta> metas);
 
   void VideoTrackRawDataCb(uint32_t session_id, uint32_t track_id,
                            std::vector<BufferDescriptor> buffers,
-                           std::vector<MetaData> meta_buffers);
-
-  void VideoTrackEncDataCb(uint32_t session_id, uint32_t track_id,
-                              std::vector<BufferDescriptor> &buffers,
-                              std::vector<MetaData> &meta_buffers);
+                           std::vector<BufferMeta> metas);
 
   void VideoTrackEventCb(uint32_t track_id, EventType event_type,
                          void *event_data, size_t event_data_size);
 
-  void SnapshotCb(uint32_t camera_id, uint32_t image_sequence_count,
-                  BufferDescriptor buffer, MetaData meta_data);
-
-  status_t QueueVideoFrame(VideoFormat format_type,
-                           const uint8_t *buffer, size_t size,
-                           int64_t timestamp, AVQueue *que);
-
-  void VideoCachedDataCb(uint32_t session_id, uint32_t track_id,
-                         std::vector<BufferDescriptor> buffers,
-                         std::vector<MetaData> meta_buffers,
-                         VideoFormat format_type,
-                         AVQueue *que);
+  void SnapshotCb(uint32_t camera_id, uint32_t imgcount,
+                  BufferDescriptor buffer, BufferMeta meta);
 
   void ResultCallbackHandlerMatchCameraMeta(uint32_t camera_id,
                                        const CameraMetadata &result);
 
   void VideoTrackDataCbMatchCameraMeta(uint32_t session_id, uint32_t track_id,
                                        std::vector<BufferDescriptor> buffers,
-                                       std::vector<MetaData> meta_buffers);
-
-  status_t DumpQueue(AVQueue *queue, int32_t file_fd);
+                                       std::vector<BufferMeta> metas);
 
   status_t DumpThumbnail(BufferDescriptor buffer,
-                         const CameraBufferMetaData& meta_data,
-                         uint32_t image_sequence_count,
+                         const BufferMeta& meta,
+                         uint32_t imgcount,
                          uint64_t tv_ms);
 
   status_t SetCameraFocalLength(const float focal_length);
@@ -758,8 +682,6 @@ class GtestCommon : public ::testing::Test {
 
   void ExtractColorValues(uint32_t hex_color, RGBAValues* color);
 
-  void ClearSurface();
-
   status_t FillCropMetadata(CameraMetadata& meta, int32_t sensor_mode_w,
                             int32_t sensor_mode_h, int32_t crop_x,
                             int32_t crop_y, int32_t crop_w, int32_t crop_h);
@@ -781,12 +703,6 @@ class GtestCommon : public ::testing::Test {
   bool face_bbox_active_;
   uint32_t face_track_id_;
   struct FaceInfo face_info_;
-#if USE_SKIA
-  SkCanvas*            canvas_;
-#elif USE_CAIRO
-  cairo_surface_t*     cr_surface_;
-  cairo_t*             cr_context_;
-#endif
 
   typedef std::vector<uint8_t> nr_modes_;
   typedef std::vector<int32_t> vhdr_modes_;
@@ -809,7 +725,6 @@ class GtestCommon : public ::testing::Test {
   std::mutex               camera_state_lock_;
   std::map<uint32_t, GtestCameraState> camera_state_;
 
-  DumpBitStream         dump_bitstream_;
   bool                  is_dump_jpeg_enabled_;
   bool                  is_dump_raw_enabled_;
   bool                  is_dump_yuv_enabled_;
@@ -823,7 +738,6 @@ class GtestCommon : public ::testing::Test {
   bool                  camera_error_;
   float                 eis_h_margin_;
   float                 eis_v_margin_;
-  float                 timelapse_interval_;
   bool                  is_frame_debug_enabled_;
   std::string           sensor_mode_file_name_;
 
@@ -836,6 +750,7 @@ class GtestCommon : public ::testing::Test {
   bool                  is_eis_on_;
   bool                  is_shdr_on_;
   bool                  is_ldc_on_;
+  bool                  is_lcac_on_;
 
   bool                  is_snap_stream_on_;
   uint32_t              snap_width_;

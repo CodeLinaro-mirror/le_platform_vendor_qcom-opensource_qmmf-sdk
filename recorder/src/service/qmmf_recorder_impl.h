@@ -43,12 +43,7 @@
 
 #include "recorder/src/client/qmmf_recorder_service_intf.h"
 #include "recorder/src/service/qmmf_recorder_common.h"
-#ifdef PULSE_AUDIO_ENABLE
-#include "recorder/src/service/qmmf_audio_source.h"
-#include "recorder/src/service/qmmf_audio_encoder_core.h"
-#endif
 #include "recorder/src/service/qmmf_camera_source.h"
-#include "recorder/src/service/qmmf_encoder_core.h"
 #include "recorder/src/service/qmmf_remote_cb.h"
 
 /// @namespace qmmf
@@ -72,8 +67,7 @@ class RecorderImpl {
   /// RecorderImpl Destructor
   ~RecorderImpl();
 
-  /// Create CameraSource, EncoderCore Instance, AudioSource
-  /// and AudioEncoderCore instances
+  /// Create CameraSource instances
   status_t Init(const RemoteCallbackHandle& remote_cb_handler);
 
   /// Destroys all instances created in Init
@@ -89,7 +83,7 @@ class RecorderImpl {
 
   /// Start(open) the Camera
   status_t StartCamera(const uint32_t client_id, const uint32_t camera_id,
-                       const float frame_rate,
+                       const float framerate,
                        const CameraExtraParam& extra_param,
                        bool enable_result_cb = false);
 
@@ -115,58 +109,32 @@ class RecorderImpl {
   /// Resume the session
   status_t ResumeSession(const uint32_t client_id, const uint32_t session_id);
 
-  /// Create Audio Track and associates it to the session.
-  status_t CreateAudioTrack(const uint32_t client_id,
-                            const uint32_t session_id,
-                            const uint32_t track_id,
-                            const AudioTrackCreateParam& param);
-
-  /// Create Video Track and associates it to the session.
-  status_t CreateVideoTrack(const uint32_t client_id,
-                            const uint32_t session_id,
-                            const uint32_t track_id,
-                            const VideoTrackCreateParam& param);
-
   /// Create Video Track and associates it to the session with
   /// additional configure parameters
   status_t CreateVideoTrack(const uint32_t client_id,
                             const uint32_t session_id,
                             const uint32_t track_id,
-                            const VideoTrackCreateParam& param,
-                            const VideoExtraParam& extra_param);
-
-  /// Delete Audio Track from the session.
-  status_t DeleteAudioTrack(const uint32_t client_id,
-                            const uint32_t session_id,
-                            const uint32_t track_id);
+                            const VideoTrackParam& param,
+                            const VideoExtraParam& xtraparam);
 
   /// Delete Video Track from the session.
   status_t DeleteVideoTrack(const uint32_t client_id,
                             const uint32_t session_id,
                             const uint32_t track_id);
 
-  /// Return Track buffers to Encoder, Camera Source, Audio Encoder
-  /// or Audio Source
+  /// Return Track buffers to Camera Source.
   status_t ReturnTrackBuffer(const uint32_t client_id,
                              const uint32_t session_id,
                              const uint32_t track_id,
                              std::vector<BnBuffer> &buffers);
 
-  /// Set Audio Track parameters
-  status_t SetAudioTrackParam(const uint32_t client_id,
-                              const uint32_t session_id,
-                              const uint32_t track_id,
-                              CodecParamType type,
-                              void *param,
-                              size_t param_size);
-
   /// Set Video Track parameters
   status_t SetVideoTrackParam(const uint32_t client_id,
                               const uint32_t session_id,
                               const uint32_t track_id,
-                              CodecParamType type,
+                              VideoParam type,
                               void *param,
-                              size_t param_size);
+                              size_t size);
 
   /// Image Capture
   status_t CaptureImage(const uint32_t client_id,
@@ -178,7 +146,7 @@ class RecorderImpl {
   status_t ConfigImageCapture(const uint32_t client_id,
                               const uint32_t camera_id,
                               const ImageParam &param,
-                              const ImageConfigParam &config);
+                              const ImageExtraParam &config);
 
   /// Cancel Image Capture
   status_t CancelCaptureImage(const uint32_t client_id,
@@ -211,28 +179,20 @@ class RecorderImpl {
   /// Video Track buffer callback handler
   void VideoTrackBufferCb(uint32_t client_id, uint32_t session_id,
                           uint32_t track_id, std::vector<BnBuffer>& buffers,
-                          std::vector<MetaData>& meta_buffers);
-
-  /// Audio Track buffer callback handler
-  void AudioTrackBufferCb(uint32_t client_id, uint32_t session_id,
-                          uint32_t track_id, std::vector<BnBuffer>& buffers,
-                          std::vector<MetaData>& meta_buffers);
+                          std::vector<BufferMeta>& metas);
 
   /// Camera Snapshot callback handler
   void CameraSnapshotCb(uint32_t client_id, uint32_t camera_id, uint32_t count,
-                        BnBuffer& buffer, MetaData& meta_data);
+                        BnBuffer& buffer, BufferMeta& meta);
 
   /// Camera Result callback handler
   void CameraResultCb(uint32_t camera_id, const CameraMetadata &result);
 
   /// Camera Error callback handler
-  void CameraErrorCb(RecorderErrorData &error);
-
-  // Camera Flush Callback Handler
-  void CameraFlushCb(const uint32_t camera_id);
+  void CameraErrorCb(uint32_t camera_id, uint32_t errcode);
 
   // Get suitable trackid for linked stream
-  uint32_t FindSuitableIdForLinkedTrack(const VideoTrackCreateParam& params);
+  uint32_t FindSuitableIdForLinkedTrack(const VideoTrackParam& params);
 
 /// @cond PRIVATE
  private:
@@ -247,19 +207,10 @@ class RecorderImpl {
     kIdle,
   };
 
-  struct TrackInfo {
-    uint32_t         track_id;
-    TrackType        type;
-    union {
-      VideoFormat video;
-      AudioFormat audio;
-    } format;
-  };
-
-  // <client track id, TrackInfo>
-  typedef std::map<uint32_t, TrackInfo> TrackInfoMap;
+  // <client track id, service track id>
+  typedef std::map<uint32_t, uint32_t> TrackMap;
   // <session id, map <tracks> >
-  typedef std::map<uint32_t, TrackInfoMap> SessionTrackMap;
+  typedef std::map<uint32_t, TrackMap> SessionTrackMap;
   // <client id, <session_id, vector<client track id, service track id> > >
   typedef std::map<uint32_t, SessionTrackMap> ClientSessionMap;
 
@@ -280,9 +231,6 @@ class RecorderImpl {
   typedef std::map<uint32_t, SessionMutexMap> ClientSessionMutexMap;
 
 
-  // <camera id, set <track id> >
-  typedef std::map<uint32_t, std::set<uint32_t>> CameraTrackIdsMap;
-
   bool IsClientValid(const uint32_t& client_id);
   bool IsClientAlive(const uint32_t& client_id);
   bool IsSessionValid(const uint32_t& client_id, const uint32_t& session_id);
@@ -299,16 +247,13 @@ class RecorderImpl {
                           const uint32_t& session_id,
                           const SessionState& state);
 
-  //Validate the input params during CreateAudioTrack requests.
-  bool IsAudioTrackCreateParamValid(const AudioTrackCreateParam& param);
-
   uint32_t GetUniqueServiceTrackId(const uint32_t& client_id,
                                    const uint32_t& session_id,
                                    const uint32_t& track_id);
 
-  TrackInfo GetServiceTrackInfo(const uint32_t& client_id,
-                                const uint32_t& session_id,
-                                const uint32_t& track_id);
+  uint32_t GetServiceTrackId(const uint32_t& client_id,
+                             const uint32_t& session_id,
+                             const uint32_t& track_id);
 
   uint32_t GetServiceTrackId(const uint32_t& client_id,
                              const uint32_t& track_id);
@@ -320,14 +265,8 @@ class RecorderImpl {
   status_t GetUniqueSessionID(const uint32_t& client_id, uint32_t* session_id);
 
   CameraSource*                 camera_source_;
-  EncoderCore*                  encoder_core_;
-#ifdef PULSE_AUDIO_ENABLE
-  AudioSource*                  audio_source_;
-  AudioEncoderCore*             audio_encoder_core_;
-#endif
-  RemoteCallbackHandle          remote_cb_handle_;
 
-  std::map<uint32_t, bool>      timelapse_mode_;
+  RemoteCallbackHandle          remote_cb_handle_;
 
   ClientSessionMap              client_session_map_;
   std::mutex                    client_session_lock_;
@@ -335,9 +274,6 @@ class RecorderImpl {
   ClientCameraIdMap             client_cameraid_map_;
   QCondition                    slave_camera_closed_;
   std::mutex                    camera_map_lock_;
-
-  CameraTrackIdsMap             camera_tracks_map_;
-  std::mutex                    camera_tracks_lock_;
 
   ClientStateMap                client_state_;
   std::mutex                    client_state_lock_;

@@ -28,12 +28,9 @@ LOCAL_C_INCLUDES += $(TOP)/frameworks/native/libs/nativebase/include
 LOCAL_C_INCLUDES += $(TOP)/frameworks/native/libs/arect/include
 endif
 
-LOCAL_C_INCLUDES += $(TOP)/system/core/libion/include
-LOCAL_C_INCLUDES += $(TOP)/system/core/libion/kernel-headers
-
 LOCAL_ADDITIONAL_DEPENDENCIES += $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr
 
-LOCAL_SHARED_LIBRARIES := libcutils libutils libdl liblog libion
+LOCAL_SHARED_LIBRARIES := libcutils libutils libdl liblog
 
 LOCAL_EXPORT_C_INCLUDE_DIRS := $(QMMF_SDK_TOP_SRCDIR)/include
 
@@ -49,22 +46,6 @@ ifeq ($(TARGET_BOARD_PLATFORM),qcs605)
 CAM_ARCH_V2 := 1
 LOCAL_CFLAGS += -DCAM_ARCH_V2
 endif #CAM_ARCH_V2
-
-# Disable jpeg postproc
-ifeq ($(TARGET_BOARD_PLATFORM),qcs605)
-DISABLE_PP_JPEG := 1
-LOCAL_CFLAGS += -DDISABLE_PP_JPEG
-endif #DISABLE_PP_JPEG
-
-# Disable Video LPM
-ifeq ($(TARGET_BOARD_PLATFORM),qcs605)
-LOCAL_CFLAGS += -DDISABLE_VID_LPM
-endif #DISABLE_VID_LPM
-
-# Disable Video QP Range
-ifeq ($(TARGET_BOARD_PLATFORM),qcs605)
-LOCAL_CFLAGS += -DDISABLE_VID_QP_RANGE
-endif #DISABLE_VID_QP_RANGE
 
 # Disable Op Modes
 ifeq ($(TARGET_BOARD_PLATFORM),qcs605)
@@ -94,11 +75,6 @@ else
 LOCAL_CFLAGS += -DJPEG_BLOB_OFFSET=1
 endif #JPEG_BLOB_OFFSET
 
-# Enable MPEGH encoder support
-ifeq ($(TARGET_BOARD_PLATFORM),qcs605)
-LOCAL_CFLAGS += -DMPEGH_ENCODER_SUPPORT
-endif #MPEGH_ENCODER_SUPPORT
-
 # AEC timeout value in ms (if not set here, default value is set in src)
 ifeq ($(TARGET_BOARD_PLATFORM),qcs605)
 LOCAL_CFLAGS += -DAEC_WAIT_TIMEOUT=750000000
@@ -126,11 +102,7 @@ endif #DISABLE_RESCALER_COLORSPACE
 ifeq ($(PRODUCT_BRAND),Things)
 CAMERA_HAL_PATH := $(TOP)/hardware/qcom/camera/$(TARGET_BOARD_PLATFORM)
 MEDIA_HAL_PATH := $(TOP)/hardware/qcom/media/$(TARGET_BOARD_PLATFORM)
-DISPLAY_HAL_PATH := $(TOP)/hardware/qcom/display/$(TARGET_BOARD_PLATFORM)
-LIB_JSONCPP := libjsoncpp
 else
 CAMERA_HAL_PATH := $(TOP)/hardware/qcom/camera
 MEDIA_HAL_PATH := $(TOP)/hardware/qcom/media
-DISPLAY_HAL_PATH := $(TOP)/hardware/qcom/display
-LIB_JSONCPP := libjsoncpp_vendor
 endif

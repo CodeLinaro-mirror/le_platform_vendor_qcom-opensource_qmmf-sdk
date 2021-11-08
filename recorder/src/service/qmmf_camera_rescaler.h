@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018, 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2018, 2020-2021, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -112,8 +112,7 @@ class CameraRescalerMemPool {
 
    status_t GetBufferLocked(StreamBuffer* buffer);
 
-   status_t PopulateMetaInfo(CameraBufferMetaData &info,
-                             IBufferHandle &handle);
+   status_t PopulateBufferMeta(BufferMeta &info, IBufferHandle &handle);
 
    status_t AllocHWMemBuffer(IBufferHandle &buf);
 
@@ -204,7 +203,7 @@ class CameraRescaler: public CameraRescalerBase {
 
   // Method to provide consumer interface, it would be used by a CameraContext
   // port producer to post buffers.
-  sp<IBufferConsumer>& GetCopyConsumerIntf();
+  sp<IBufferConsumer>& GetConsumer();
 
   // Method for handling incoming buffers from CameraPort buffer producer.
   void OnFrameAvailable(StreamBuffer& buffer);

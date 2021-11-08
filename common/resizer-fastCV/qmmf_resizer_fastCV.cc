@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2018, 2020, The Linux Foundation. All rights reserved.
+* Copyright (c) 2018, 2020-2021, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -98,23 +98,23 @@ RESIZER_STATUS FastCVResizer::Draw(StreamBuffer& src_buffer,
 
   src_buffer_y = reinterpret_cast<uint8_t*>(src_buffer.data);
 
-  src_stride_y = src_buffer.info.plane_info[0].stride;
-  src_plane_y_len = src_stride_y * src_buffer.info.plane_info[0].scanline;
+  src_stride_y = src_buffer.info.planes[0].stride;
+  src_plane_y_len = src_stride_y * src_buffer.info.planes[0].scanline;
 
   src_buffer_uv = src_buffer_y + src_plane_y_len;
 
   dst_buffer_y = reinterpret_cast<uint8_t*>(dst_buffer.data);
-  dst_stride_y = dst_buffer.info.plane_info[0].stride;
-  dst_plane_y_len = dst_stride_y * dst_buffer.info.plane_info[0].scanline;
+  dst_stride_y = dst_buffer.info.planes[0].stride;
+  dst_plane_y_len = dst_stride_y * dst_buffer.info.planes[0].scanline;
   dst_buffer_uv = dst_buffer_y + dst_plane_y_len;
 
   //STEP2: Scale down the two planes
   fcvScaleu8_v2(src_buffer_y,
-      src_buffer.info.plane_info[0].width,
-      src_buffer.info.plane_info[0].height,
+      src_buffer.info.planes[0].width,
+      src_buffer.info.planes[0].height,
       src_stride_y,
-      dst_buffer_y, dst_buffer.info.plane_info[0].width ,
-      dst_buffer.info.plane_info[0].height,
+      dst_buffer_y, dst_buffer.info.planes[0].width ,
+      dst_buffer.info.planes[0].height,
       dst_stride_y
       ,FASTCV_INTERPOLATION_TYPE_NEAREST_NEIGHBOR ,
       FASTCV_BORDER_REPLICATE,
@@ -122,11 +122,11 @@ RESIZER_STATUS FastCVResizer::Draw(StreamBuffer& src_buffer,
       );
 
   fcvScaleDownMNInterleaveu8(src_buffer_uv,
-      src_buffer.info.plane_info[0].width >> 1,
-      src_buffer.info.plane_info[0].height >> 1,
+      src_buffer.info.planes[0].width >> 1,
+      src_buffer.info.planes[0].height >> 1,
       src_stride_y,
-      dst_buffer_uv, dst_buffer.info.plane_info[0].width >> 1,
-      dst_buffer.info.plane_info[0].height >> 1, dst_stride_y
+      dst_buffer_uv, dst_buffer.info.planes[0].width >> 1,
+      dst_buffer.info.planes[0].height >> 1, dst_stride_y
       );
 
   return RESIZER_STATUS_OK;
