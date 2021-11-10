@@ -164,6 +164,7 @@ status_t CameraSource::StopCamera(const uint32_t camera_id) {
     QMMF_ERROR("%s: Failed to close camera(%d)!", __func__, camera_id);
     return FAILED_TRANSACTION;
   }
+
   active_cameras_.erase(camera_id);
   QMMF_INFO("%s: Camera(%d) successfully closed!", __func__, camera_id);
 
@@ -490,7 +491,10 @@ status_t CameraSource::DeleteTrackSource(const uint32_t track_id) {
   auto const& track = track_sources_[track_id];
 
   auto ret = track->DeInit();
-  assert(ret == NO_ERROR);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s: Track(%x): DeInit failed !!", __func__, track_id);
+    return ret;
+  }
 
   track_sources_.erase(track_id);
   rescalers_.erase(track_id);
@@ -544,7 +548,10 @@ status_t CameraSource::StopTrackSource(const uint32_t track_id) {
   auto const& track = track_sources_[track_id];
 
   auto ret = track->StopTrack();
-  assert(ret == NO_ERROR);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s: Track(%x): Stop failed !!", __func__, track_id);
+    return ret;
+  }
 
   QMMF_VERBOSE("%s: TrackSource id(%x) Stopped Successfully!", __func__,
       track_id);
@@ -1085,8 +1092,11 @@ status_t TrackSource::DeInit() {
 
   if (slave_track_source_ == false) {
     ret = camera_->DeleteStream(id_);
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s: Track(%x): DeleteStream failed", __func__, id_);
+      return ret;
+    }
   }
-  assert(ret == NO_ERROR);
 
   rescaler_ = nullptr;
 

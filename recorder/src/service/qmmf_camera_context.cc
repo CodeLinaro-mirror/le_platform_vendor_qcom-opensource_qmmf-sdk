@@ -84,7 +84,8 @@ CameraContext::CameraContext()
       snapshot_stream_param_{},
       port_paused_(false),
       camera_parameters_{},
-      continuous_mode_is_on(false) {
+      continuous_mode_is_on(false),
+      is_camera_dead(false) {
 
   QMMF_INFO("%s: Enter", __func__);
 
@@ -119,6 +120,7 @@ CameraContext::~CameraContext() {
 
   QMMF_INFO("%s: Enter", __func__);
   //TODO: check all active ports
+  is_camera_dead = false;
   QMMF_INFO("%s: Exit", __func__);
 }
 
@@ -464,7 +466,6 @@ status_t CameraContext::CloseCamera(const uint32_t camera_id) {
   }
 
   ret = camera_device_->WaitUntilIdle();
-  assert(ret == NO_ERROR);
 
   last_frame_number_ = NO_IN_FLIGHT_REPEATING_FRAMES;
 
@@ -962,7 +963,10 @@ status_t CameraContext::DeleteStream(const uint32_t track_id) {
   }
 
   auto ret = port->DeInit();
-  assert(ret == NO_ERROR);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s: Port DeInit failed!!", __func__);
+    return ret;
+  }
 
   RestoreBatchStreamId(port);
   active_ports_.erase(track_id);
@@ -1026,9 +1030,13 @@ status_t CameraContext::StopStream(const uint32_t track_id) {
   }
 
   auto ret = port->Stop();
-  assert(ret == NO_ERROR);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s: Port Stop failed!!", __func__);
+    return ret;
+  }
+
   QMMF_DEBUG("%s: Exit", __func__);
-  return NO_ERROR;
+  return ret;
 }
 
 status_t CameraContext::PauseStream(const uint32_t track_id) {
@@ -1478,15 +1486,20 @@ status_t CameraContext::DeleteDeviceStream(int32_t stream_id, bool cache) {
     assert(ret == NO_ERROR);
   }
 
-  ret = camera_device_->DeleteStream(stream_id, cache);
-  assert(ret == NO_ERROR);
+  if (!is_camera_dead) {
+    ret = camera_device_->DeleteStream(stream_id, cache);
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s: DeleteStream failed!", __func__);
+      return ret;
+    }
+  }
+
   QMMF_INFO("%s: Camera Device Stream(%d) deleted successfully!",
       __func__, stream_id);
 
   if (snapshot_type_ == SnapshotMode::kZsl
       && GetPort(zsl_port_id_).get() != nullptr) {
     ret = camera_device_->EndConfigure();
-    assert(ret == NO_ERROR);
 
     auto zsl_port = std::static_pointer_cast<ZslPort>(GetPort(zsl_port_id_));
     zsl_port->ResumeZSL();
@@ -1494,9 +1507,12 @@ status_t CameraContext::DeleteDeviceStream(int32_t stream_id, bool cache) {
     if (resume_streaming) {
       ret = camera_device_->SubmitRequest(streaming_active_requests_[0], true,
                                           &last_frame_mumber);
-      assert(ret >= 0);
+      if (ret != NO_ERROR) {
+        QMMF_ERROR("%s: SubmitRequest failed!!", __func__);
+        return ret;
+      }
+
       streaming_request_id_ = ret;
-      ret = NO_ERROR;
     }
   }
 
@@ -2196,6 +2212,11 @@ void CameraContext::CameraErrorCb(CameraErrorCode errcode,
   switch (errcode) {
     case ERROR_CAMERA_DEVICE:
       QMMF_ERROR("%s: Camera device faced an unrecoverable error!", __func__);
+      // Clearing active requests to ensure the stop sequence calls goes through
+      // without error and all necessary clean up of this and layers above is
+      // done when the client calls subsequent APIs (StopSession, DeleteDeviceStream, etc)
+      streaming_active_requests_.clear();
+      is_camera_dead = true;
       break;
     case ERROR_CAMERA_REQUEST:
     case ERROR_CAMERA_BUFFER: {
@@ -2623,7 +2644,7 @@ status_t CameraPort::Stop() {
       __func__, port_id_, this);
 
   port_state_ = PortState::PORT_STOPPED;
-  return NO_ERROR;
+  return ret;
 }
 
 status_t CameraPort::Pause() {
