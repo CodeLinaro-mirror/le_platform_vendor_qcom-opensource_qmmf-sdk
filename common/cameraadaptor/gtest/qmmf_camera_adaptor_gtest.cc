@@ -537,16 +537,16 @@ int32_t Camera3Gtest::StoreBuffer(String8 path, uint64_t &idx,
   }
   if ((BufferFormat::kNV12 == buffer.info.format) ||
       (BufferFormat::kNV21 == buffer.info.format)) {
-    if (2 != buffer.info.num_planes) {
+    if (2 != buffer.info.n_planes) {
       printf("%s: Unexpected number of planes: %d for NVXX format!\n",
-             __func__, buffer.info.num_planes);
+             __func__, buffer.info.n_planes);
       return -EINVAL;
     }
     uint8_t *mapped_buffer = nullptr;
     auto mret = device_client_->alloc_device_interface_->MapBuffer(
                           buffer.handle, IMemAllocUsage::kSwReadOften, 0,
-                          0, buffer.info.plane_info[0].width,
-                          buffer.info.plane_info[0].height,
+                          0, buffer.info.planes[0].width,
+                          buffer.info.planes[0].height,
                           (void **)&mapped_buffer);
     if ((MemAllocError::kAllocOk != mret) || (NULL == mapped_buffer)) {
       printf("%s: Unable to map buffer: %p res: %d\n", __func__,
@@ -554,9 +554,9 @@ int32_t Camera3Gtest::StoreBuffer(String8 path, uint64_t &idx,
       return -1;
     }
 
-    uint64_t size = buffer.info.plane_info[0].stride *
-        buffer.info.plane_info[0].scanline + buffer.info.plane_info[1].stride *
-        buffer.info.plane_info[1].scanline;
+    uint64_t size = buffer.info.planes[0].stride *
+        buffer.info.planes[0].scanline + buffer.info.planes[1].stride *
+        buffer.info.planes[1].scanline;
 
     if (size != fwrite(mapped_buffer, 1, size, f)) {
       ret = ferror(f);
@@ -568,17 +568,17 @@ int32_t Camera3Gtest::StoreBuffer(String8 path, uint64_t &idx,
     printf("%s: %s Size=%" PRIo64 " Stored\n", __func__, path.string(),
            size);
   } else {
-    if (0 == buffer.info.num_planes) {
+    if (0 == buffer.info.n_planes) {
       printf("%s: Unexpected number of planes: %d!\n",
-             __func__, buffer.info.num_planes);
+             __func__, buffer.info.n_planes);
       return -EINVAL;
     }
     uint8_t *mapped_buffer = nullptr;
     auto mret =
       device_client_->alloc_device_interface_->MapBuffer(buffer.handle,
                           IMemAllocUsage::kSwReadOften, 0,
-                          0, buffer.info.plane_info[0].width,
-                          buffer.info.plane_info[0].height,
+                          0, buffer.info.planes[0].width,
+                          buffer.info.planes[0].height,
                           (void **)&mapped_buffer);
     if ((MemAllocError::kAllocOk != mret) || (NULL == mapped_buffer)) {
       printf("%s: Unable to map buffer: %p res: %d\n", __func__,
@@ -590,9 +590,9 @@ int32_t Camera3Gtest::StoreBuffer(String8 path, uint64_t &idx,
     if (BufferFormat::kNV12UBWC == buffer.info.format) {
       size = buffer.size;
     } else {
-      size = calcSize(mapped_buffer, buffer.info.plane_info[0].width,
-                 buffer.info.plane_info[0].height,
-                 buffer.info.plane_info[0].stride);
+      size = calcSize(mapped_buffer, buffer.info.planes[0].width,
+                 buffer.info.planes[0].height,
+                 buffer.info.planes[0].stride);
     }
 
     if (size != fwrite(mapped_buffer, sizeof(uint8_t), size, f)) {

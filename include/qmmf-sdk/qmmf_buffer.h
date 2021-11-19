@@ -62,17 +62,8 @@ enum class BufferFormat : uint32_t {
  *
  *  BufferFlags will be used to determine the type of encoded frame
  */
-enum class BufferFlags {
-  kFlagNone = 0,
-  kFlagEOF = (1 << 0),        /**< EOF: End of Frame */ //  EOF: End of Frame
-  kFlagEOS = (1 << 1),        /**< EOS: End of Stream */ //  EOS: End of Stream
-  kFlagCodecConfig = (1 << 2),
-  kFlagIDRFrame = (1 << 3),
-  kFlagIFrame = (1 << 4),
-  kFlagPFrame = (1 << 5),
-  kFlagBFrame = (1 << 6),
-  kFlagExtraData = (1 << 7),
-  kFlagDataCorrupt = (1<<8)
+enum class BufferFlags : uint64_t {
+  kNone = 0,
 };
 
 struct PlaneInfo {
@@ -103,7 +94,8 @@ struct BufferDescriptor {
   uint32_t capacity;
   uint32_t offset;
   uint64_t timestamp;
-  uint32_t flags;
+  uint64_t seqnum;
+  uint64_t flags;
 
   ::std::string ToString() const {
     ::std::stringstream stream;
@@ -114,26 +106,31 @@ struct BufferDescriptor {
     stream << "capacity[" << capacity << "] ";
     stream << "offset[" << offset << "] ";
     stream << "timestamp[" << timestamp << "] ";
-    stream << "flags[" << ::std::setbase(16) << flags << ::std::setbase(10)
-           << "]";
+    stream << "seqnum[" << seqnum << "] ";
+    stream << "flags[" << ::std::setbase(16) << flags
+           << ::std::setbase(10) << "]";
     return stream.str();
   }
 };
 
-struct CameraBufferMetaData {
+/// @brief Meta data associated with BufferDescriptor.
+struct BufferMeta {
+  /// Buffer format.
   BufferFormat format;
-  uint32_t  num_planes;
-  PlaneInfo plane_info[MAX_PLANE];
+  /// Number of buffer planes.
+  uint32_t     n_planes;
+  /// Buffer plane information.
+  PlaneInfo    planes[MAX_PLANE];
 
   ::std::string ToString() const {
     ::std::stringstream stream;
     stream << "format["
            << static_cast<::std::underlying_type<BufferFormat>::type>(format)
            << "] ";
-    stream << "num_planes[" << num_planes << "] ";
-    stream << "plane_info[";
-    for (uint32_t idx = 0; idx < num_planes; ++idx)
-      stream << "[" << plane_info[idx].ToString() << "], ";
+    stream << "n_planes[" << n_planes << "] ";
+    stream << "planes[";
+    for (uint32_t idx = 0; idx < n_planes; ++idx)
+      stream << "[" << planes[idx].ToString() << "], ";
     return stream.str();
   }
 };

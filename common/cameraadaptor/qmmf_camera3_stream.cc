@@ -453,8 +453,8 @@ exit:
   return res;
 }
 
-int32_t Camera3Stream::PopulateMetaInfo(CameraBufferMetaData &info,
-                                        IBufferHandle &handle) {
+int32_t Camera3Stream::PopulateBufferMeta(BufferMeta &info,
+                                          IBufferHandle &handle) {
   int alignedW, alignedH;
   auto ret = mem_alloc_interface_->Perform(handle,
                                       IAllocDevice::AllocDeviceAction::GetStride,
@@ -479,136 +479,136 @@ int32_t Camera3Stream::PopulateMetaInfo(CameraBufferMetaData &info,
   switch (handle->GetFormat()) {
     case HAL_PIXEL_FORMAT_BLOB:
       info.format = BufferFormat::kBLOB;
-      info.num_planes = 1;
-      info.plane_info[0].width = width;
-      info.plane_info[0].height = height;
-      info.plane_info[0].stride = alignedW;
-      info.plane_info[0].scanline = alignedH;
-      info.plane_info[0].size = max_size_;
-      info.plane_info[0].offset = 0;
+      info.n_planes = 1;
+      info.planes[0].width = width;
+      info.planes[0].height = height;
+      info.planes[0].stride = alignedW;
+      info.planes[0].scanline = alignedH;
+      info.planes[0].size = max_size_;
+      info.planes[0].offset = 0;
       break;
     case HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS:
     case HAL_PIXEL_FORMAT_NV12_ENCODEABLE:
     case HAL_PIXEL_FORMAT_YCbCr_420_888:
     case HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED:
       info.format = BufferFormat::kNV12;
-      info.num_planes = 2;
-      info.plane_info[0].width = width;
-      info.plane_info[0].height = height;
-      info.plane_info[0].stride = alignedW;
-      info.plane_info[0].scanline = alignedH;
-      info.plane_info[0].size = alignedW * alignedH;
-      info.plane_info[0].offset = 0;
-      info.plane_info[1].width = width;
-      info.plane_info[1].height = height/2;
-      info.plane_info[1].stride = alignedW;
-      info.plane_info[1].scanline = alignedH/2;
-      info.plane_info[1].size = alignedW * (alignedH / 2);
-      info.plane_info[1].offset = alignedW * alignedH;
+      info.n_planes = 2;
+      info.planes[0].width = width;
+      info.planes[0].height = height;
+      info.planes[0].stride = alignedW;
+      info.planes[0].scanline = alignedH;
+      info.planes[0].size = alignedW * alignedH;
+      info.planes[0].offset = 0;
+      info.planes[1].width = width;
+      info.planes[1].height = height/2;
+      info.planes[1].stride = alignedW;
+      info.planes[1].scanline = alignedH/2;
+      info.planes[1].size = alignedW * (alignedH / 2);
+      info.planes[1].offset = alignedW * alignedH;
       break;
     case HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS_UBWC:
       info.format = BufferFormat::kNV12UBWC;
-      info.num_planes = 2;
-      info.plane_info[0].width = width;
-      info.plane_info[0].height = height;
-      info.plane_info[0].stride = alignedW;
-      info.plane_info[0].scanline = alignedH;
-      info.plane_info[0].size = MSM_MEDIA_ALIGN((alignedW * alignedH), 4096) +
+      info.n_planes = 2;
+      info.planes[0].width = width;
+      info.planes[0].height = height;
+      info.planes[0].stride = alignedW;
+      info.planes[0].scanline = alignedH;
+      info.planes[0].size = MSM_MEDIA_ALIGN((alignedW * alignedH), 4096) +
           MSM_MEDIA_ALIGN((VENUS_Y_META_STRIDE(COLOR_FMT_NV12_UBWC, width) *
           VENUS_Y_META_SCANLINES(COLOR_FMT_NV12_UBWC, height)), 4096);
-      info.plane_info[0].offset = 0;
-      info.plane_info[1].width = width;
-      info.plane_info[1].height = height/2;
-      info.plane_info[1].stride = alignedW;
-      info.plane_info[1].scanline = alignedH/2;
-      info.plane_info[1].size = MSM_MEDIA_ALIGN((alignedW * alignedH / 2), 4096) +
+      info.planes[0].offset = 0;
+      info.planes[1].width = width;
+      info.planes[1].height = height/2;
+      info.planes[1].stride = alignedW;
+      info.planes[1].scanline = alignedH/2;
+      info.planes[1].size = MSM_MEDIA_ALIGN((alignedW * alignedH / 2), 4096) +
           MSM_MEDIA_ALIGN((VENUS_UV_META_STRIDE(COLOR_FMT_NV12_UBWC, width) *
           VENUS_UV_META_SCANLINES(COLOR_FMT_NV12_UBWC, height)), 4096);
-      info.plane_info[1].offset =
-          info.plane_info[0].offset + info.plane_info[0].size;
+      info.planes[1].offset =
+          info.planes[0].offset + info.planes[0].size;
       break;
     case HAL_PIXEL_FORMAT_YCbCr_422_888:
     case HAL_PIXEL_FORMAT_YCbCr_422_SP:
       info.format = BufferFormat::kNV16;
-      info.num_planes = 2;
-      info.plane_info[0].width = width;
-      info.plane_info[0].height = height;
-      info.plane_info[0].stride = alignedW;
-      info.plane_info[0].scanline = alignedH;
-      info.plane_info[0].size = alignedW * alignedH;
-      info.plane_info[0].offset = 0;
-      info.plane_info[1].width = width;
-      info.plane_info[1].height = height;
-      info.plane_info[1].stride = alignedW;
-      info.plane_info[1].scanline = alignedH;
-      info.plane_info[1].size = alignedW * alignedH;
-      info.plane_info[1].offset = alignedW * alignedH;
+      info.n_planes = 2;
+      info.planes[0].width = width;
+      info.planes[0].height = height;
+      info.planes[0].stride = alignedW;
+      info.planes[0].scanline = alignedH;
+      info.planes[0].size = alignedW * alignedH;
+      info.planes[0].offset = 0;
+      info.planes[1].width = width;
+      info.planes[1].height = height;
+      info.planes[1].stride = alignedW;
+      info.planes[1].scanline = alignedH;
+      info.planes[1].size = alignedW * alignedH;
+      info.planes[1].offset = alignedW * alignedH;
       break;
     case HAL_PIXEL_FORMAT_NV21_ZSL:
       info.format = BufferFormat::kNV21;
-      info.num_planes = 2;
-      info.plane_info[0].width = width;
-      info.plane_info[0].height = height;
-      info.plane_info[0].stride = alignedW;
-      info.plane_info[0].scanline = alignedH;
-      info.plane_info[0].size = alignedW * alignedH;
-      info.plane_info[0].offset = 0;
-      info.plane_info[1].width = width;
-      info.plane_info[1].height = height/2;
-      info.plane_info[1].stride = alignedW;
-      info.plane_info[1].scanline = alignedH/2;
-      info.plane_info[1].size = alignedW * (alignedH / 2);
-      info.plane_info[1].offset = alignedW * alignedH;
+      info.n_planes = 2;
+      info.planes[0].width = width;
+      info.planes[0].height = height;
+      info.planes[0].stride = alignedW;
+      info.planes[0].scanline = alignedH;
+      info.planes[0].size = alignedW * alignedH;
+      info.planes[0].offset = 0;
+      info.planes[1].width = width;
+      info.planes[1].height = height/2;
+      info.planes[1].stride = alignedW;
+      info.planes[1].scanline = alignedH/2;
+      info.planes[1].size = alignedW * (alignedH / 2);
+      info.planes[1].offset = alignedW * alignedH;
       break;
     case HAL_PIXEL_FORMAT_RAW8:
       info.format = BufferFormat::kRAW8;
-      info.num_planes = 1;
-      info.plane_info[0].width = width;
-      info.plane_info[0].height = height;
-      info.plane_info[0].stride = alignedW;
-      info.plane_info[0].scanline = alignedH;
-      info.plane_info[0].size = alignedW * alignedH;
-      info.plane_info[0].offset = 0;
+      info.n_planes = 1;
+      info.planes[0].width = width;
+      info.planes[0].height = height;
+      info.planes[0].stride = alignedW;
+      info.planes[0].scanline = alignedH;
+      info.planes[0].size = alignedW * alignedH;
+      info.planes[0].offset = 0;
       break;
     case HAL_PIXEL_FORMAT_RAW10:
       info.format = BufferFormat::kRAW10;
-      info.num_planes = 1;
-      info.plane_info[0].width = width;
-      info.plane_info[0].height = height;
-      info.plane_info[0].stride = alignedW;
-      info.plane_info[0].scanline = alignedH;
-      info.plane_info[0].size = alignedW * alignedH;
-      info.plane_info[0].offset = 0;
+      info.n_planes = 1;
+      info.planes[0].width = width;
+      info.planes[0].height = height;
+      info.planes[0].stride = alignedW;
+      info.planes[0].scanline = alignedH;
+      info.planes[0].size = alignedW * alignedH;
+      info.planes[0].offset = 0;
       break;
     case HAL_PIXEL_FORMAT_RAW12:
       info.format = BufferFormat::kRAW12;
-      info.num_planes = 1;
-      info.plane_info[0].width = width;
-      info.plane_info[0].height = height;
-      info.plane_info[0].stride = alignedW;
-      info.plane_info[0].scanline = alignedH;
-      info.plane_info[0].size = alignedW * alignedH;
-      info.plane_info[0].offset = 0;
+      info.n_planes = 1;
+      info.planes[0].width = width;
+      info.planes[0].height = height;
+      info.planes[0].stride = alignedW;
+      info.planes[0].scanline = alignedH;
+      info.planes[0].size = alignedW * alignedH;
+      info.planes[0].offset = 0;
       break;
     case HAL_PIXEL_FORMAT_RAW16:
       info.format = BufferFormat::kRAW16;
-      info.num_planes = 1;
-      info.plane_info[0].width = width;
-      info.plane_info[0].height = height;
-      info.plane_info[0].stride = alignedW;
-      info.plane_info[0].scanline = alignedH;
-      info.plane_info[0].size = alignedW * alignedH;
-      info.plane_info[0].offset = 0;
+      info.n_planes = 1;
+      info.planes[0].width = width;
+      info.planes[0].height = height;
+      info.planes[0].stride = alignedW;
+      info.planes[0].scanline = alignedH;
+      info.planes[0].size = alignedW * alignedH;
+      info.planes[0].offset = 0;
       break;
     case HAL_PIXEL_FORMAT_YCbCr_422_I:
       info.format = BufferFormat::kYUY2;
-      info.num_planes = 1;
-      info.plane_info[0].width = width;
-      info.plane_info[0].height = height;
-      info.plane_info[0].stride = alignedW;
-      info.plane_info[0].scanline = alignedH;
-      info.plane_info[0].size = alignedW * alignedH;
-      info.plane_info[0].offset = 0;
+      info.n_planes = 1;
+      info.planes[0].width = width;
+      info.planes[0].height = height;
+      info.planes[0].stride = alignedW;
+      info.planes[0].scanline = alignedH;
+      info.planes[0].size = alignedW * alignedH;
+      info.planes[0].offset = 0;
       break;
     default:
       QMMF_ERROR("%s: Unsupported format: %d\n", __func__,
@@ -639,7 +639,7 @@ void Camera3Stream::ReturnBufferToClient(const camera3_stream_buffer &buffer,
   assert(b.handle != nullptr);
   b.fd = b.handle->GetFD();
   b.size = b.handle->GetSize();
-  PopulateMetaInfo(b.info, b.handle);
+  PopulateBufferMeta(b.info, b.handle);
   is_stream_active_ = true;
 
   mem_alloc_interface_->Perform(

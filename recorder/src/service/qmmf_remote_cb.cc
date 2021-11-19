@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2016, 2020, The Linux Foundation. All rights reserved.
+* Copyright (c) 2016, 2020-2021, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -68,23 +68,20 @@ void RemoteCallBack::NotifySessionEvent(EventType event_type, void *event_data,
                                         event_data_size);
 }
 
-void RemoteCallBack::NotifySnapshotData(uint32_t camera_id,
-                                        uint32_t sequence_count,
-                                        BnBuffer& buffer, MetaData& meta_data) {
+void RemoteCallBack::NotifySnapshotData(uint32_t camera_id, uint32_t imgcount,
+                                        BnBuffer& buffer, BufferMeta& meta) {
 
   assert(client_cb_handle_.get() != NULL);
-  client_cb_handle_->NotifySnapshotData(camera_id, sequence_count, buffer,
-                                        meta_data);
+  client_cb_handle_->NotifySnapshotData(camera_id, imgcount, buffer, meta);
 }
 
 void RemoteCallBack::NotifyVideoTrackData(uint32_t session_id,
                                           uint32_t track_id,
                                           std::vector<BnBuffer> &buffers,
-                                          std::vector<MetaData>& meta_buffers) {
+                                          std::vector<BufferMeta>& metas) {
 
   assert(client_cb_handle_.get() != nullptr);
-  client_cb_handle_->NotifyVideoTrackData(session_id, track_id, buffers,
-                                          meta_buffers);
+  client_cb_handle_->NotifyVideoTrackData(session_id, track_id, buffers, metas);
 }
 
 void RemoteCallBack::NotifyVideoTrackEvent(uint32_t session_id,
@@ -95,28 +92,6 @@ void RemoteCallBack::NotifyVideoTrackEvent(uint32_t session_id,
 
   assert(client_cb_handle_.get() != nullptr);
   client_cb_handle_->NotifyVideoTrackEvent(session_id, track_id, event_type,
-                                           event_data,
-                                           event_data_size);
-}
-
-void RemoteCallBack::NotifyAudioTrackData(uint32_t session_id,
-                                          uint32_t track_id,
-                                          std::vector<BnBuffer> &buffers,
-                                          std::vector<MetaData>& meta_buffers) {
-
-  assert(client_cb_handle_.get() != nullptr);
-  client_cb_handle_->NotifyAudioTrackData(session_id, track_id, buffers,
-                                          meta_buffers);
-}
-
-void RemoteCallBack::NotifyAudioTrackEvent(uint32_t session_id,
-                                           uint32_t track_id,
-                                           EventType event_type,
-                                           void *event_data,
-                                           size_t event_data_size) {
-
-  assert(client_cb_handle_.get() != nullptr);
-  client_cb_handle_->NotifyAudioTrackEvent(session_id, track_id, event_type,
                                            event_data,
                                            event_data_size);
 }

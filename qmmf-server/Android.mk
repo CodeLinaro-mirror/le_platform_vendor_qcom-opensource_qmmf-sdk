@@ -12,15 +12,7 @@ include $(CLEAR_VARS)
 
 include $(QMMF_SDK_TOP_SRCDIR)/common.mk
 
-LOCAL_C_INCLUDES += $(TOP)/system/media/camera/include
 LOCAL_C_INCLUDES += $(MEDIA_HAL_PATH)
-LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/qcom/display
-LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/qcom/display/sdm
-LOCAL_C_INCLUDES += $(QMMF_SDK_TOP_SRCDIR)/recorder/src/service/post-process
-
-ifeq ($(TARGET_USES_GRALLOC1),true)
-LOCAL_C_INCLUDES += $(DISPLAY_HAL_PATH)
-endif
 
 LOCAL_SRC_FILES := qmmf_server_main.cc
 

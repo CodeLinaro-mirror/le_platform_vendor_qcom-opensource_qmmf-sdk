@@ -12,13 +12,11 @@ include $(CLEAR_VARS)
 
 include $(QMMF_SDK_TOP_SRCDIR)/common.mk
 
-LOCAL_C_INCLUDES += $(TOP)/system/media/camera/include
 LOCAL_C_INCLUDES += $(QMMF_SDK_TOP_SRCDIR)/common/utils
 ifeq ($(IS_ANDROID_O_OR_ABOVE),true)
 LOCAL_C_INCLUDES += $(TOP)/system/core/base/include
 endif
 ifeq ($(TARGET_USES_GRALLOC1),true)
-LOCAL_C_INCLUDES += $(TOP)/hardware/qcom/display
 LOCAL_C_INCLUDES += $(TOP)/system/core/libgrallocusage/include
 endif
 
@@ -47,7 +45,6 @@ LOCAL_MODULE = libqmmf_memory_interface
 LOCAL_EXPORT_C_INCLUDE_DIRS := $(QMMF_SDK_TOP_SRCDIR)/common/memory
 LOCAL_EXPORT_C_INCLUDE_DIRS += $(QMMF_SDK_TOP_SRCDIR)/include
 ifeq ($(TARGET_USES_GRALLOC1),true)
-LOCAL_EXPORT_C_INCLUDE_DIRS += $(TOP)/hardware/qcom/display
 LOCAL_EXPORT_C_INCLUDE_DIRS += $(TOP)/system/core/libgrallocusage/include
 endif
 

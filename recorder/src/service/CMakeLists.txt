@@ -5,80 +5,38 @@ project(qmmf_recorder_service)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DAEC_WAIT_TIMEOUT=500000000")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-c++11-narrowing")
 
-# Enable PA.
-if (PULSE_AUDIO_ENABLE)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DPULSE_AUDIO_ENABLE")
-endif()
-
 if (NOT RECORDER_SERVICE_ENABLED)
   set(exclude EXCLUDE_FROM_ALL)
 endif()
 
 if (NOT CAMERA_HAL1_SUPPORT)
-if (PULSE_AUDIO_ENABLE)
 add_library(qmmf_recorder_service SHARED ${exclude}
-${CMAKE_CURRENT_SOURCE_DIR}/qmmf_recorder_service.cc
-${CMAKE_CURRENT_SOURCE_DIR}/qmmf_recorder_impl.cc
-${CMAKE_CURRENT_SOURCE_DIR}/qmmf_recorder_ion.cc
-${CMAKE_CURRENT_SOURCE_DIR}/qmmf_remote_cb.cc
-${CMAKE_CURRENT_SOURCE_DIR}/qmmf_camera_source.cc
-${CMAKE_CURRENT_SOURCE_DIR}/qmmf_camera_context.cc
-${CMAKE_CURRENT_SOURCE_DIR}/qmmf_audio_pulse_client.cc
-${CMAKE_CURRENT_SOURCE_DIR}/qmmf_audio_source.cc
-${CMAKE_CURRENT_SOURCE_DIR}/qmmf_audio_raw_track_source.cc
-${CMAKE_CURRENT_SOURCE_DIR}/qmmf_camera_rescaler.cc
-${CMAKE_CURRENT_SOURCE_DIR}/qmmf_camera_frc.cc
-${jpeg}
+  ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_recorder_service.cc
+  ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_recorder_impl.cc
+  ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_remote_cb.cc
+  ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_camera_source.cc
+  ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_camera_context.cc
+  ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_camera_rescaler.cc
+  ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_camera_frc.cc
+  ${jpeg}
 )
 else()
 add_library(qmmf_recorder_service SHARED ${exclude}
-${CMAKE_CURRENT_SOURCE_DIR}/qmmf_recorder_service.cc
-${CMAKE_CURRENT_SOURCE_DIR}/qmmf_recorder_impl.cc
-${CMAKE_CURRENT_SOURCE_DIR}/qmmf_recorder_ion.cc
-${CMAKE_CURRENT_SOURCE_DIR}/qmmf_remote_cb.cc
-${CMAKE_CURRENT_SOURCE_DIR}/qmmf_camera_source.cc
-${CMAKE_CURRENT_SOURCE_DIR}/qmmf_camera_context.cc
-${CMAKE_CURRENT_SOURCE_DIR}/qmmf_camera_rescaler.cc
-${CMAKE_CURRENT_SOURCE_DIR}/qmmf_camera_frc.cc
-${jpeg}
+  ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_recorder_service.cc
+  ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_recorder_impl.cc
+  ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_remote_cb.cc
+  ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_camera_source.cc
+  ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_camera_context_hal1.cc
+  ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_camera_rescaler.cc
+  ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_camera_frc.cc
+  ${jpeg}
 )
-endif()
-else()
-if (PULSE_AUDIO_ENABLE)
-add_library(qmmf_recorder_service SHARED ${exclude}
-${CMAKE_CURRENT_SOURCE_DIR}/qmmf_recorder_service.cc
-${CMAKE_CURRENT_SOURCE_DIR}/qmmf_recorder_impl.cc
-${CMAKE_CURRENT_SOURCE_DIR}/qmmf_recorder_ion.cc
-${CMAKE_CURRENT_SOURCE_DIR}/qmmf_remote_cb.cc
-${CMAKE_CURRENT_SOURCE_DIR}/qmmf_camera_source.cc
-${CMAKE_CURRENT_SOURCE_DIR}/qmmf_camera_context_hal1.cc
-${CMAKE_CURRENT_SOURCE_DIR}/qmmf_audio_pulse_client.cc
-${CMAKE_CURRENT_SOURCE_DIR}/qmmf_audio_source.cc
-${CMAKE_CURRENT_SOURCE_DIR}/qmmf_audio_raw_track_source.cc
-${CMAKE_CURRENT_SOURCE_DIR}/qmmf_camera_rescaler.cc
-${CMAKE_CURRENT_SOURCE_DIR}/qmmf_camera_frc.cc
-${jpeg}
-)
-else()
-add_library(qmmf_recorder_service SHARED ${exclude}
-${CMAKE_CURRENT_SOURCE_DIR}/qmmf_recorder_service.cc
-${CMAKE_CURRENT_SOURCE_DIR}/qmmf_recorder_impl.cc
-${CMAKE_CURRENT_SOURCE_DIR}/qmmf_recorder_ion.cc
-${CMAKE_CURRENT_SOURCE_DIR}/qmmf_remote_cb.cc
-${CMAKE_CURRENT_SOURCE_DIR}/qmmf_camera_source.cc
-${CMAKE_CURRENT_SOURCE_DIR}/qmmf_camera_context_hal1.cc
-${CMAKE_CURRENT_SOURCE_DIR}/qmmf_camera_rescaler.cc
-${CMAKE_CURRENT_SOURCE_DIR}/qmmf_camera_frc.cc
-${jpeg}
-)
-endif()
 endif()
 if (NOT CAMERA_HAL1_SUPPORT)
 add_dependencies(
   qmmf_recorder_service
   qmmf_utils
   qmmf_camera_adaptor
-  qmmf_exif_generator
   qmmf_common_resizer_c2d
   qmmf_recorder_client
 )
@@ -98,7 +56,6 @@ else()
 add_dependencies(
   qmmf_recorder_service
   qmmf_utils
-  qmmf_exif_generator
   qmmf_common_resizer_neon
   qmmf_common_resizer_c2d
   qmmf_recorder_client
@@ -107,32 +64,25 @@ endif()
 if (NOT DISABLE_RESCALER_COLORSPACE)
 add_dependencies(qmmf_recorder_service qdMetaData)
 endif()
-if (NOT DISABLE_PP_JPEG)
-add_dependencies(qmmf_recorder_service qmmf_common_jpeg_encoder qmmf_jpeg)
-endif()
 
 target_include_directories(qmmf_recorder_service
  PRIVATE ${TOP_DIRECTORY})
 
 target_include_directories(qmmf_recorder_service
- PRIVATE ${WORKSPACE}/hardware/qcom/media/)
-
-target_include_directories(qmmf_recorder_service
  PRIVATE $<BUILD_INTERFACE:${KERNEL_INCDIR}/usr/include>)
+
+# Headers path for msm-5.4 media on qrbx210 targets.
+target_include_directories(qmmf_recorder_service
+ PRIVATE $<BUILD_INTERFACE:${KERNEL_INCDIR}/usr/include/vidc>)
 
 target_include_directories(qmmf_recorder_service
  PRIVATE ${TOP_DIRECTORY}/common/memory)
-
-# TODO remove this hack when camx issue with propagating c and cpp glags is solved
-target_include_directories(qmmf_recorder_service
- PRIVATE ${PKG_CONFIG_SYSROOT_DIR}/usr/include/ion_headers)
 
 install(TARGETS qmmf_recorder_service DESTINATION lib OPTIONAL)
 if (NOT CAMERA_HAL1_SUPPORT)
 target_link_libraries(qmmf_recorder_service dl log utils cutils binder
   pthread camera_metadata hardware qmmf_recorder_client
-  qmmf_utils qmmf_camera_adaptor
-  qmmf_exif_generator qmmf_common_resizer_c2d )
+  qmmf_utils qmmf_camera_adaptor qmmf_common_resizer_c2d )
 if(NOT CAMERA_CLIENT_DISABLED)
 target_link_libraries(qmmf_recorder_service camera_client )
 endif()
@@ -150,18 +100,11 @@ target_link_libraries(
 endif()
 else()
 target_link_libraries(qmmf_recorder_service dl log utils cutils binder
-  pthread camera_metadata hardware qmmf_recorder_client
-  qmmf_utils qmmf_exif_generator qmmf_memory_interface
-  qmmf_common_resizer_neon qmmf_common_resizer_c2d)
+  pthread camera_metadata hardware qmmf_recorder_client qmmf_utils
+  qmmf_memory_interface qmmf_common_resizer_neon qmmf_common_resizer_c2d)
 if(NOT CAMERA_CLIENT_DISABLED)
 target_link_libraries(qmmf_recorder_service camera_client )
 endif()
-endif()
-if (NOT DISABLE_PP_JPEG)
-target_link_libraries(qmmf_recorder_service qmmf_common_jpeg_encoder qmmf_jpeg)
-endif()
-if (PULSE_AUDIO_ENABLE)
-target_link_libraries(qmmf_recorder_service pulse)
 endif()
 
 # TODO remove this hack when camx issue with propagating c and cpp glags is solved

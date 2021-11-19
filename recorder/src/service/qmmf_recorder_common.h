@@ -53,18 +53,13 @@ namespace qmmf {
 
 namespace recorder {
 
-enum class TrackType {
-  kVideo,
-  kAudio
-};
-
 typedef std::function<void(std::vector<BnBuffer>& buffers,
-    std::vector<MetaData>& meta_buffers)> BnBufferCallback;
+    std::vector<BufferMeta>& metas)> BnBufferCallback;
 
-typedef std::function<void(uint32_t camera_id, uint32_t image_sequence_count,
-    BnBuffer& buffer, MetaData& meta_data)>  SnapshotCb;
+typedef std::function<void(uint32_t camera_id, uint32_t imgcount,
+    BnBuffer& buffer, BufferMeta& meta)>  SnapshotCb;
 
-typedef std::function<void(uint32_t image_sequence_count,
+typedef std::function<void(uint32_t imgcount,
     StreamBuffer& buffer)> StreamSnapshotCb;
 
 typedef std::function<void(uint32_t camera_id,

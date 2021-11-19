@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, 2018, 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016, 2018, 2019,, 2021 The Linux Foundation. All rights reserved.
  * Not a Contribution.
  */
 
@@ -87,8 +87,7 @@ class Camera3Stream : public camera3_stream {
   int32_t CloseLocked();
 
   int32_t EndPrepareLocked();
-  int32_t PopulateMetaInfo(CameraBufferMetaData &info,
-                           IBufferHandle &handle);
+  int32_t PopulateBufferMeta(BufferMeta &info, IBufferHandle &handle);
 
   void PrintBuffersInfoLocked();
 

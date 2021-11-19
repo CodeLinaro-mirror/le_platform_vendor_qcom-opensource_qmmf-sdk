@@ -65,13 +65,9 @@ enum QMMF_RECORDER_SERVICE_CMDS {
   RECORDER_PAUSE_SESSION,
   RECORDER_RESUME_SESSION,
   RECORDER_GET_NUMBER_OF_CAMERAS,
-  RECORDER_CREATE_AUDIOTRACK,
   RECORDER_CREATE_VIDEOTRACK,
-  RECORDER_CREATE_VIDEOTRACK_EXTRAPARAMS,
-  RECORDER_DELETE_AUDIOTRACK,
   RECORDER_DELETE_VIDEOTRACK,
   RECORDER_RETURN_TRACKBUFFER,
-  RECORDER_SET_AUDIOTRACK_PARAMS,
   RECORDER_SET_VIDEOTRACK_PARAMS,
   RECORDER_CAPTURE_IMAGE,
   RECORDER_CONFIG_IMAGECAPTURE,
@@ -89,10 +85,9 @@ struct BnBuffer {
   int32_t   ion_meta_fd;
   uint32_t  size;
   uint64_t  timestamp;
-  uint32_t  width;
-  uint32_t  height;
+  uint64_t  seqnum;
   uint32_t  buffer_id;
-  uint32_t  flags;
+  uint64_t  flags;
   uint32_t  capacity;
 
   string ToString() const {
@@ -101,8 +96,7 @@ struct BnBuffer {
     stream << "ion_meta_fd[" << ion_meta_fd << "] ";
     stream << "size[" << size << "] ";
     stream << "timestamp[" << timestamp << "] ";
-    stream << "width[" << width << "] ";
-    stream << "height[" << height << "] ";
+    stream << "seqnum[" << seqnum << "] ";
     stream << "buffer_id[" << buffer_id << "] ";
     stream << "flag[" << setbase(16) << flags << setbase(10) << "] ";
     stream << "capacity[" << capacity << "]";
@@ -125,8 +119,7 @@ struct BnBuffer {
     }
     parcel->writeUint32(size);
     parcel->writeInt64(timestamp);
-    parcel->writeUint32(width);
-    parcel->writeUint32(height);
+    parcel->writeInt64(seqnum);
     parcel->writeUint32(buffer_id);
     parcel->writeUint32(flags);
     parcel->writeUint32(capacity);
@@ -148,8 +141,7 @@ struct BnBuffer {
     }
     size = parcel.readUint32();
     timestamp = parcel.readInt64();
-    width = parcel.readUint32();
-    height = parcel.readUint32();
+    seqnum = parcel.readInt64();
     buffer_id = parcel.readUint32();
     flags = parcel.readUint32();
     capacity = parcel.readUint32();
@@ -193,25 +185,11 @@ class IRecorderService : public IInterface {
   virtual status_t ResumeSession(const uint32_t client_id,
                                  const uint32_t session_id) = 0;
 
-  virtual status_t CreateAudioTrack(const uint32_t client_id,
-                                    const uint32_t session_id,
-                                    const uint32_t track_id,
-                                    const AudioTrackParam& param) = 0;
-
-  virtual status_t CreateVideoTrack(const uint32_t client_id,
-                                    const uint32_t session_id,
-                                    const uint32_t track_id,
-                                    const VideoTrackParam& param) = 0;
-
   virtual status_t CreateVideoTrack(const uint32_t client_id,
                                     const uint32_t session_id,
                                     const uint32_t track_id,
                                     const VideoTrackParam& param,
-                                    const VideoExtraParam& extra_param) = 0;
-
-  virtual status_t DeleteAudioTrack(const uint32_t client_id,
-                                    const uint32_t session_id,
-                                    const uint32_t track_id) = 0;
+                                    const VideoExtraParam& xtraparam) = 0;
 
   virtual status_t DeleteVideoTrack(const uint32_t client_id,
                                     const uint32_t session_id,
@@ -221,13 +199,6 @@ class IRecorderService : public IInterface {
                                      const uint32_t session_id,
                                      const uint32_t track_id,
                                      std::vector<BnBuffer> &buffers) = 0;
-
-  virtual status_t SetAudioTrackParam(const uint32_t client_id,
-                                      const uint32_t session_id,
-                                      const uint32_t track_id,
-                                      AudioParam type,
-                                      void *param,
-                                      size_t size) = 0;
 
   virtual status_t SetVideoTrackParam(const uint32_t client_id,
                                       const uint32_t session_id,
@@ -244,7 +215,7 @@ class IRecorderService : public IInterface {
   virtual status_t ConfigImageCapture(const uint32_t client_id,
                                       const uint32_t camera_id,
                                       const ImageParam &param,
-                                      const ImageConfigParam &config) = 0;
+                                      const ImageExtraParam &config) = 0;
 
   virtual status_t CancelCaptureImage(const uint32_t client_id,
                                       const uint32_t camera_id) = 0;
@@ -278,8 +249,6 @@ enum RECORDER_SERVICE_CB_CMDS{
   RECORDER_NOTIFY_SNAPSHOT_DATA,
   RECORDER_NOTIFY_VIDEO_TRACK_DATA,
   RECORDER_NOTIFY_VIDEO_TRACK_EVENT,
-  RECORDER_NOTIFY_AUDIO_TRACK_DATA,
-  RECORDER_NOTIFY_AUDIO_TRACK_EVENT,
   RECORDER_NOTIFY_CAMERA_RESULT,
 };
 
@@ -294,25 +263,14 @@ class IRecorderServiceCallback : public IInterface {
   virtual void NotifySessionEvent(EventType event_type, void *event_data,
                                   size_t event_data_size) = 0;
 
-  virtual void NotifySnapshotData(uint32_t camera_id,
-                                  uint32_t image_sequence_count,
-                                  BnBuffer& buffer, MetaData& meta_data) = 0;
+  virtual void NotifySnapshotData(uint32_t camera_id, uint32_t imgcount,
+                                  BnBuffer& buffer, BufferMeta& meta) = 0;
 
   virtual void NotifyVideoTrackData(uint32_t session_id, uint32_t track_id,
                                     std::vector<BnBuffer>& buffers,
-                                    std::vector<MetaData>& meta_buffers) = 0;
+                                    std::vector<BufferMeta>& metas) = 0;
 
   virtual void NotifyVideoTrackEvent(uint32_t session_id, uint32_t track_id,
-                                     EventType event_type,
-                                     void *event_data,
-                                     size_t event_data_size) = 0;
-
-  virtual void NotifyAudioTrackData(uint32_t session_id, uint32_t track_id,
-                                    const std::vector<BnBuffer>& buffers,
-                                    const std::vector<MetaData>&
-                                    meta_buffers) = 0;
-
-  virtual void NotifyAudioTrackEvent(uint32_t session_id, uint32_t track_id,
                                      EventType event_type,
                                      void *event_data,
                                      size_t event_data_size) = 0;
