@@ -102,17 +102,22 @@ status_t OfflineJpegEncoder::Init(
 
 status_t OfflineJpegEncoder::DeInit() {
   QMMF_INFO("%s: Enter ", __func__);
+  {
+    std::lock_guard<std::mutex> lock(buffer_lock_);
+    exit_pending_ = true;
+    buffer_signal_.Signal();
+  }
+
+  RequestExitAndWait();
 
   pCameraPostProcCreate = nullptr;
   pCameraPostProcProcess = nullptr;
   pCameraPostProcDestroy = nullptr;
 
-  if(jpeg_lib_) {
+  if (jpeg_lib_) {
     dlclose(jpeg_lib_);
     jpeg_lib_ = nullptr;
   }
-
-  RequestExitAndWait();
 
   clients_list_.clear();
   client_fd_map_.clear();
