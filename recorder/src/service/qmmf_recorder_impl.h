@@ -45,7 +45,10 @@
 #include "recorder/src/service/qmmf_recorder_common.h"
 #include "recorder/src/service/qmmf_camera_source.h"
 #include "recorder/src/service/qmmf_remote_cb.h"
+
+#ifdef ENABLE_OFFLINE_JPEG
 #include "recorder/src/service/qmmf_offline_jpegenc_impl.h"
+#endif
 
 /// @namespace qmmf
 namespace qmmf {
@@ -276,7 +279,9 @@ class RecorderImpl {
 
   CameraSource*                 camera_source_;
 
+#ifdef ENABLE_OFFLINE_JPEG
   OfflineJpegEncoder*           offline_jpeg_encoder_;
+#endif
 
   RemoteCallbackHandle          remote_cb_handle_;
 

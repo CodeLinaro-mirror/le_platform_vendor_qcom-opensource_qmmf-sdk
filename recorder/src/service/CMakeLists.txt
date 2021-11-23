@@ -9,6 +9,10 @@ if (NOT RECORDER_SERVICE_ENABLED)
   set(exclude EXCLUDE_FROM_ALL)
 endif()
 
+if (ENABLE_OFFLINE_JPEG)
+  list(APPEND jpeg "${CMAKE_CURRENT_SOURCE_DIR}/qmmf_offline_jpegenc_impl.cc")
+endif()
+
 if (NOT CAMERA_HAL1_SUPPORT)
 add_library(qmmf_recorder_service SHARED ${exclude}
   ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_recorder_service.cc
@@ -18,7 +22,6 @@ add_library(qmmf_recorder_service SHARED ${exclude}
   ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_camera_context.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_camera_rescaler.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_camera_frc.cc
-  ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_offline_jpegenc_impl.cc
   ${jpeg}
 )
 else()
@@ -30,7 +33,6 @@ add_library(qmmf_recorder_service SHARED ${exclude}
   ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_camera_context_hal1.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_camera_rescaler.cc
   ${CMAKE_CURRENT_SOURCE_DIR}/qmmf_camera_frc.cc
-  ${jpeg}
 )
 endif()
 if (NOT CAMERA_HAL1_SUPPORT)

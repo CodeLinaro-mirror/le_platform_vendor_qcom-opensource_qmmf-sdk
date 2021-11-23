@@ -69,7 +69,6 @@
 
 #include "recorder/src/client/qmmf_recorder_service_intf.h"
 #include "recorder/src/service/qmmf_recorder_impl.h"
-#include "recorder/src/service/qmmf_offline_jpegenc_impl.h"
 
 namespace qmmf {
 
