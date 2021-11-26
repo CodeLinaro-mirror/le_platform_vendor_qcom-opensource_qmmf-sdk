@@ -968,6 +968,37 @@ status_t TrackSource::InitCopy(shared_ptr<TrackSource> master_track_source,
     rescaler_ = rescaler;
   }
 
+  sp<IBufferConsumer> consumer;
+  consumer = GetConsumer();
+  assert(consumer.get() != nullptr);
+
+  result = frc_->AddConsumer(consumer);
+  assert(result == NO_ERROR);
+  consumer = frc_->GetConsumer();
+  assert(consumer.get() != nullptr);
+
+  if (rescaler_.get() != nullptr) {
+    result = master_track_->AddConsumer(fsc_->GetConsumer());
+    assert(result == NO_ERROR);
+    result = fsc_->AddConsumer(rescaler_->GetConsumer());
+    assert(result == NO_ERROR);
+    result = rescaler_->AddConsumer(consumer);
+    assert(result == NO_ERROR);
+  } else if (slave_track_source_ == true) {
+    assert(nullptr != fsc_);
+    result = master_track_->AddConsumer(fsc_->GetConsumer());
+    assert(result == NO_ERROR);
+    result = fsc_->AddConsumer(consumer);
+    assert(result == NO_ERROR);
+  }
+
+  if (slave_track_source_ == false) {
+    result = camera_->AddConsumer(id_, fsc_->GetConsumer());
+    assert(result == NO_ERROR);
+    result = fsc_->AddConsumer(consumer);
+    assert(result == NO_ERROR);
+  }
+
   QMMF_DEBUG("%s: Exit Track(%x)", __func__, id_);
   return result;
 }
