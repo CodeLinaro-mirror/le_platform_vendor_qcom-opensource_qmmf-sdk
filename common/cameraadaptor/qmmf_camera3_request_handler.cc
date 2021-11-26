@@ -337,6 +337,7 @@ void Camera3RequestHandler::ReprocLoop(Camera3RequestHandler *ctx) {
       auto ret = ctx->SubmitRequest(nextRequest, &camera3_in_buf);
       if (ret == -ENODEV) {
         QMMF_ERROR("%s: Camera encountered serious error!", __func__);
+        ctx->run_worker_ = false;
         break;
       }
 
