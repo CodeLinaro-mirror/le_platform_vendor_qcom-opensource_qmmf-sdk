@@ -267,6 +267,7 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
                                  static_cast<VideoParam>(param_type),
                                  param, blob_size);
         reply->writeInt32(ret);
+        blob.release();
         return NO_ERROR;
       }
       break;
@@ -320,6 +321,8 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
         ImageExtraParam xtraparam(blob.data(), blob_size);
         ret = ConfigImageCapture(client_id, camera_id, param, xtraparam);
         reply->writeInt32(ret);
+        blob.release();
+        img_param_blob.release();
         return NO_ERROR;
       }
       break;
@@ -381,6 +384,7 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
                        __func__, ret);
           }
         }
+        meta.clear();
         return NO_ERROR;
       }
       break;
@@ -398,6 +402,7 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
                        __func__, ret);
           }
         }
+        meta.clear();
         return NO_ERROR;
       }
       break;
@@ -415,6 +420,7 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
                        __func__, ret);
           }
         }
+        meta.clear();
         return NO_ERROR;
       }
       break;
@@ -429,6 +435,7 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
                        __func__, ret);
           }
         }
+        desc.clear();
         return NO_ERROR;
       }
       break;

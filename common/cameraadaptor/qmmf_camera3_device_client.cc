@@ -143,6 +143,8 @@ Camera3DeviceClient::~Camera3DeviceClient() {
     std::lock_guard<std::mutex> lk(vendor_tag_mutex_);
     if (--client_count_ == 0) {
       VendorTagDescriptor::clearGlobalVendorTagDescriptor();
+      if (vendor_tag_desc_.get() != nullptr)
+        vendor_tag_desc_.clear();
     }
   }
 
@@ -239,6 +241,8 @@ exit:
     std::lock_guard<std::mutex> lk(vendor_tag_mutex_);
     if (client_count_ == 0) {
       VendorTagDescriptor::clearGlobalVendorTagDescriptor();
+      if (vendor_tag_desc_.get() != nullptr)
+        vendor_tag_desc_.clear();
     }
   }
 
