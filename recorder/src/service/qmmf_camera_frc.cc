@@ -154,13 +154,6 @@ status_t FrameRateController::Stop() {
     previous_input_ts_    = 0;
   }
 
-  auto ret = buffer_producer_->CheckAndWaitPendingBuffers();
-  if (ret == -ETIMEDOUT) {
-    QMMF_WARN("%s: %s: Waiting for submitted frames to return, timed out!",
-        __func__, name_.c_str());
-    return ret;
-  }
-
   QMMF_INFO("%s: %s: Stopped successfully!", __func__, name_.c_str());
   return 0;
 }
@@ -216,6 +209,14 @@ status_t FrameRateController::RemoveConsumer(sp<IBufferConsumer>& consumer) {
         __func__, name_.c_str(), consumer.get());
     return -ENOENT;
   }
+
+  auto ret = buffer_producer_->CheckAndWaitPendingBuffers();
+  if (ret == -ETIMEDOUT) {
+    QMMF_WARN("%s: %s: Waiting for submitted frames to return, timed out!",
+        __func__, name_.c_str());
+    return ret;
+  }
+
   buffer_producer_->RemoveConsumer(consumer);
   consumer->ClearProducerHandle();
 
