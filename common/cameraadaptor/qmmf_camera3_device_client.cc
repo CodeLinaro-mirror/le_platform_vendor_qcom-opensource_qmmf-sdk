@@ -569,6 +569,7 @@ int32_t Camera3DeviceClient::DeleteStream(int streamId, bool cache) {
 
   if (streamId == input_stream_.stream_id) {
     input_stream_.stream_id = -1;
+    // todo: wait for stream idle
   } else {
     outputStreamIdx = streams_.indexOfKey(streamId);
     if (outputStreamIdx == -ENOENT) {
@@ -591,6 +592,10 @@ int32_t Camera3DeviceClient::DeleteStream(int streamId, bool cache) {
       cam_feature_flags_ = static_cast<uint32_t>(CamFeatureFlag::kNone);
     }
 
+    // If this point is reached then state is Idle. Idle means that HAL idle i.e.
+    // HAL is returned all requests/buffers. But we still must wait client
+    // to return buffer before we can delete stream.
+    stream->WaitForIdle();
     res = stream->Close();
     if (0 != res) {
       QMMF_ERROR("%s: Can't close deleted stream %d\n", __func__, streamId);
