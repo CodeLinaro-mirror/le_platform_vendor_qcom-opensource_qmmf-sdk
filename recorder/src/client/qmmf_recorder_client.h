@@ -93,7 +93,7 @@ class RecorderClient {
 
   ~RecorderClient();
 
-  status_t Connect(const RecorderCb& cb, bool is_offline_jpeg_mode = false);
+  status_t Connect(const RecorderCb& cb);
 
   status_t Disconnect();
 
@@ -165,8 +165,6 @@ class RecorderClient {
   status_t EncodeOfflineJPEG(const OfflineJpegProcessParams &params);
 
   status_t DestroyOfflineJPEG();
-
-  bool                              is_jpeg_instance_;
 
   // Callback handlers from service.ap
   void NotifyRecorderEvent(EventType event_type, void *event_data,

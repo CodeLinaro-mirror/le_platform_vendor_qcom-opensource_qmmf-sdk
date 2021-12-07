@@ -115,9 +115,7 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
       sp<IRecorderServiceCallback> client_cb_handle = interface_cast
           <IRecorderServiceCallback>(data.readStrongBinder());
       uint32_t client_id;
-      uint32_t is_offline_jpeg_mode = false;
-      data.readUint32(&is_offline_jpeg_mode);
-      ret = Connect(client_cb_handle, &client_id, is_offline_jpeg_mode);
+      ret = Connect(client_cb_handle, &client_id);
       reply->writeUint32(client_id);
       reply->writeInt32(ret);
       return NO_ERROR;
@@ -531,8 +529,7 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
 }
 
 status_t RecorderService::Connect(const sp<IRecorderServiceCallback>&
-                                  service_cb, uint32_t* client_id,
-                                  bool is_offline_jpeg_mode) {
+                                  service_cb, uint32_t* client_id) {
 
   QMMF_DEBUG("%s: Enter ", __func__);
   QMMF_KPI_DETAIL();
@@ -540,48 +537,24 @@ status_t RecorderService::Connect(const sp<IRecorderServiceCallback>&
 
   std::lock_guard<std::mutex> lock(lock_);
 
-  if (!is_offline_jpeg_mode) {
+  if (!recorder_) {
+    recorder_.reset(RecorderImpl::CreateRecorder());
     if (!recorder_) {
-      recorder_.reset(RecorderImpl::CreateRecorder());
-      if (!recorder_) {
-        QMMF_ERROR("%s: Can't create Recorder Instance!!", __func__);
-        return NO_MEMORY;
-      }
-      std::function< const sp<RemoteCallBack>& (uint32_t id)>
-        remote_cb_handle = [&] (uint32_t id) -> sp<RemoteCallBack>& {
-          QMMF_VERBOSE("%s: Client(%u): RemoteCallback request!",
-                       __func__, id);
-          assert(remote_cb_list_.count(id) != 0);
-          return remote_cb_list_[id];
-      };
-      ret = recorder_->Init(remote_cb_handle);
-      if (ret != NO_ERROR) {
-        QMMF_ERROR("%s: Recorder initialization failed!", __func__);
-        recorder_.reset();
-        return ret;
-      }
-    }
-  } else {
-    QMMF_INFO("%s: Offline JPEG mode is selected!", __func__);
-    if (!offline_jpeg_encoder_) {
-      offline_jpeg_encoder_.reset(new OfflineJpegEncoder);
-      if (!offline_jpeg_encoder_) {
-        QMMF_ERROR("%s: Can't create Offline JPEG Encoder Instance", __func__);
-        return NO_MEMORY;
-      }
+      QMMF_ERROR("%s: Can't create Recorder Instance!!", __func__);
+      return NO_MEMORY;
     }
     std::function< const sp<RemoteCallBack>& (uint32_t id)>
       remote_cb_handle = [&] (uint32_t id) -> sp<RemoteCallBack>& {
-        QMMF_VERBOSE("%s: Remote Callback request for client(%d)",
-                     __func__, id);
+        QMMF_VERBOSE("%s: Client(%u): RemoteCallback request!",
+                      __func__, id);
         assert(remote_cb_list_.count(id) != 0);
         return remote_cb_list_[id];
     };
-    auto status = offline_jpeg_encoder_->Init(remote_cb_handle);
-    if (status != NO_ERROR) {
-      QMMF_ERROR("%s: Offline JPEG lib initialization failed!", __func__);
-      offline_jpeg_encoder_.reset();
-      return status;
+    ret = recorder_->Init(remote_cb_handle);
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s: Recorder initialization failed!", __func__);
+      recorder_.reset();
+      return ret;
     }
   }
 
@@ -615,11 +588,7 @@ status_t RecorderService::Connect(const sp<IRecorderServiceCallback>&
   remote_cb_list_.emplace(*client_id, remote_callback);
   death_notifier_list_.emplace(*client_id, death_notifier);
 
-  if (is_offline_jpeg_mode) {
-    offline_jpeg_encoder_->RegisterClient(*client_id);
-  } else {
-    recorder_->RegisterClient(*client_id);
-  }
+  recorder_->RegisterClient(*client_id);
 
   QMMF_INFO("%s: Service is connected with client (%d)", __func__, *client_id);
 
@@ -633,8 +602,8 @@ status_t RecorderService::Disconnect(uint32_t client_id) {
   QMMF_KPI_DETAIL();
   std::lock_guard<std::mutex> lock(lock_);
 
-  if (!recorder_ && !offline_jpeg_encoder_) {
-    QMMF_ERROR("%s: Instance not initialized!", __func__);
+  if (!recorder_) {
+    QMMF_ERROR("%s: Recorder not initialized!", __func__);
     return NO_INIT;
   }
 
@@ -650,11 +619,7 @@ status_t RecorderService::Disconnect(uint32_t client_id) {
     return BAD_VALUE;
   }
 
-  if (IsClientOfflineJPEG(client_id)) {
-    offline_jpeg_encoder_->DeRegisterClient(client_id);
-  } else {
-    recorder_->DeRegisterClient(client_id);
-  }
+  recorder_->DeRegisterClient(client_id);
 
   sp<DeathNotifier> notifier = death_notifier_list_[client_id];
   sp<RemoteCallBack> callback = remote_cb_list_[client_id];
@@ -669,12 +634,6 @@ status_t RecorderService::Disconnect(uint32_t client_id) {
       QMMF_INFO("%s: No client is connected! de-init the recorder!", __func__);
       recorder_->DeInit();
       recorder_.reset();
-    }
-
-    if (offline_jpeg_encoder_) {
-      QMMF_INFO("%s: De-init offline jpeg encoder", __func__);
-      offline_jpeg_encoder_->DeInit();
-      offline_jpeg_encoder_.reset();
     }
   }
 
@@ -1127,11 +1086,11 @@ status_t RecorderService::CreateOfflineJPEG(
 
   QMMF_INFO("%s:Enter client_id(%d)", __func__, client_id);
 
-  if (!IsOfflineJPEGInitialized()) {
-    QMMF_ERROR("%s: Offline JPEG not initialized!", __func__);
+  if (!IsRecorderInitialized()) {
+    QMMF_ERROR("%s: Recorder not initialized!", __func__);
     return NO_INIT;
   }
-  auto ret = offline_jpeg_encoder_->Create(client_id, params);
+  auto ret = recorder_->CreateOfflineJPEG(client_id, params);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: Can't create Offline JPEG PostProcessor!", __func__);
     return ret;
@@ -1147,11 +1106,12 @@ status_t RecorderService::EncodeOfflineJPEG(
 
   QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
 
-  if (!IsOfflineJPEGInitialized()) {
-    QMMF_ERROR("%s: Offline JPEG not initialized!", __func__);
+  if (!IsRecorderInitialized()) {
+    QMMF_ERROR("%s: Recorder not initialized!", __func__);
     return NO_INIT;
   }
-  auto ret = offline_jpeg_encoder_->Process(client_id, params);
+
+  auto ret = recorder_->EncodeOfflineJPEG(client_id, params);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: Submitting request failed", __func__);
     return ret;
@@ -1166,11 +1126,11 @@ status_t RecorderService::DestroyOfflineJPEG(const uint32_t client_id) {
 
   QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
 
-  if (!IsOfflineJPEGInitialized()) {
-    QMMF_ERROR("%s: Offline JPEG not initialized!", __func__);
+  if (!IsRecorderInitialized()) {
+    QMMF_ERROR("%s: Recorder not initialized!", __func__);
     return NO_INIT;
   }
-  auto ret = offline_jpeg_encoder_->Destroy(client_id);
+  auto ret = recorder_->DestroyOfflineJPEG(client_id);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: Destroy failed", __func__);
     return ret;
@@ -1194,28 +1154,13 @@ bool RecorderService::IsRecorderInitialized() {
   return (recorder_) ? true : false;
 }
 
-bool RecorderService::IsOfflineJPEGInitialized() {
-
-  std::lock_guard<std::mutex> lock(lock_);
-  return (offline_jpeg_encoder_) ? true : false;
-}
-
-bool RecorderService::IsClientOfflineJPEG(const uint32_t client_id) {
-  if (offline_jpeg_encoder_) {
-    if (offline_jpeg_encoder_->IsClientFound(client_id)) {
-      return true;
-    }
-  }
-  return false;
-}
-
 status_t RecorderService::DisconnectInternal(const uint32_t client_id) {
 
   QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
   std::lock_guard<std::mutex> lock(lock_);
 
-  if (!recorder_ && !offline_jpeg_encoder_) {
-    QMMF_ERROR("%s: Instance not initialized!", __func__);
+  if (!recorder_) {
+    QMMF_ERROR("%s: Recorder not initialized!", __func__);
     return NO_INIT;
   }
 
@@ -1231,12 +1176,8 @@ status_t RecorderService::DisconnectInternal(const uint32_t client_id) {
     return BAD_VALUE;
   }
 
-  if (IsClientOfflineJPEG(client_id)) {
-    offline_jpeg_encoder_->DeRegisterClient(client_id);
-  } else {
-    // Forceful cleanup.
-    recorder_->DeRegisterClient(client_id, true);
-  }
+  // Forceful cleanup.
+  recorder_->DeRegisterClient(client_id, true);
 
   sp<DeathNotifier> notifier = death_notifier_list_[client_id];
   sp<RemoteCallBack> callback = remote_cb_list_[client_id];
@@ -1251,12 +1192,6 @@ status_t RecorderService::DisconnectInternal(const uint32_t client_id) {
       QMMF_INFO("%s: No client is connected! de-init the recorder!", __func__);
       recorder_->DeInit();
       recorder_.reset();
-    }
-
-    if (offline_jpeg_encoder_) {
-      QMMF_INFO("%s: De-init offline jpeg encoder", __func__);
-      offline_jpeg_encoder_->DeInit();
-      offline_jpeg_encoder_.reset();
     }
   }
 
