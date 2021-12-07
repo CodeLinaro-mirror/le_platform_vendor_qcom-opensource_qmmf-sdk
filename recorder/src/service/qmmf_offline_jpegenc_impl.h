@@ -89,6 +89,8 @@ class OfflineJpegEncoder {
 
   void ReleaseRequestData(PostProcSessionParams* params);
 
+  camera_module_t*                        camera_module_;
+  int32_t                                 nubmer_of_cameras_;
   void*                                   jpeg_lib_;
   PFN_CameraPostProc_Create               pCameraPostProcCreate;
   PFN_CameraPostProc_Process              pCameraPostProcProcess;

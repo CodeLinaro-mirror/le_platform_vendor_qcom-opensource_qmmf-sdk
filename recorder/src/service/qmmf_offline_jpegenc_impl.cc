@@ -46,6 +46,8 @@ namespace qmmf {
 static const uint64_t kWaitDuration = 1000000000; // 1 s.
 
 OfflineJpegEncoder::OfflineJpegEncoder() :
+                    camera_module_(nullptr),
+                    nubmer_of_cameras_(-1),
                     jpeg_lib_(nullptr),
                     pCameraPostProcCreate(nullptr),
                     pCameraPostProcProcess(nullptr),
@@ -63,6 +65,15 @@ status_t OfflineJpegEncoder::Init(
   remote_cb_handle_ = remote_cb_handle;
 
   int32_t ret = NO_ERROR;
+
+  // This is required for proper working of the jpeg lib
+  ret = hw_get_module(CAMERA_HARDWARE_MODULE_ID,
+                      (const hw_module_t **)&camera_module_);
+  if (0 != ret || nullptr == camera_module_) {
+    QMMF_ERROR("%s: Unable to load Hal module: %d\n", __func__, ret);
+    return ret;
+  }
+
   jpeg_lib_ = dlopen(JPEG_POSTPROC_LIB, RTLD_NOW | RTLD_LOCAL);
   if (!jpeg_lib_) {
     QMMF_ERROR("%s: No postproc lib, dlopen failed with: %s.",
@@ -101,6 +112,11 @@ status_t OfflineJpegEncoder::DeInit() {
   if (jpeg_lib_) {
     dlclose(jpeg_lib_);
     jpeg_lib_ = nullptr;
+  }
+
+  if (nullptr != camera_module_) {
+    dlclose(camera_module_->common.dso);
+    camera_module_ = nullptr;
   }
 
   {
@@ -199,6 +215,13 @@ status_t OfflineJpegEncoder::Create(const uint32_t client_id,
   QMMF_INFO("%s: Enter client_id %d", __func__, client_id);
 
   std::lock_guard<std::mutex> client_lock(client_pproc_lock_);
+
+  // get_number_of_cameras() must be called once prior using jpeg lib
+  if (-1 == nubmer_of_cameras_) {
+    nubmer_of_cameras_ = camera_module_->get_number_of_cameras();
+    QMMF_DEBUG("%s: number of cameras %d", __func__, nubmer_of_cameras_);
+  }
+
   if(!IsClientFound(client_id)) {
     QMMF_ERROR("%s Error: Client %d not found.", __func__, client_id);
     return BAD_VALUE;
