@@ -184,6 +184,10 @@ class RecorderService : public BnInterface<IRecorderService> {
                           const uint32_t camera_id,
                           CameraMetadata &meta) override;
 
+  status_t SetSHDR(const uint32_t client_id,
+                   const uint32_t camera_id,
+                   const bool enable) override;
+
   status_t GetDefaultCaptureParam(const uint32_t client_id,
                                   const uint32_t camera_id,
                                   CameraMetadata &meta) override;
