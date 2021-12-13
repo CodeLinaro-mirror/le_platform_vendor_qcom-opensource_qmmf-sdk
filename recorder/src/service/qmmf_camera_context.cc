@@ -120,7 +120,8 @@ CameraContext::CameraContext()
       camera_parameters_{},
       is_partial_metadata_enabled_(false),
       continuous_mode_is_on_(false),
-      is_camera_dead_(false) {
+      is_camera_dead_(false),
+      is_shdr_enable_(false) {
 
   QMMF_INFO("%s: Enter", __func__);
 
@@ -1252,6 +1253,45 @@ std::vector<int32_t>& CameraContext::GetSupportedFps() {
   return supported_fps_;
 }
 
+status_t CameraContext::SetSHDR(const bool enable) {
+
+  QMMF_DEBUG("%s: Enter", __func__);
+
+  if (is_shdr_enable_ == enable) {
+    QMMF_DEBUG("%s: SHDR is already %d", __func__, enable);
+    return NO_ERROR;
+  }
+
+  if (enable) {
+    camera_parameters_.cam_feature_flags |=
+        static_cast<uint32_t>(CamFeatureFlag::kHDR);
+  } else  {
+    camera_parameters_.cam_feature_flags &=
+        ~(static_cast<uint32_t>(CamFeatureFlag::kHDR));
+  }
+
+  if (!streaming_active_requests_[0].streamIds.size()) {
+    QMMF_DEBUG("%s: No active streams. Update only cam params.", __func__);
+    return NO_ERROR;
+  }
+
+  PauseActiveStreams();
+
+  {
+    std::lock_guard<std::mutex> lock(device_access_lock_);
+    camera_device_->UpdateCameraParams(camera_parameters_);
+
+    is_shdr_enable_ = !!(camera_parameters_.cam_feature_flags &
+                        static_cast<uint32_t>(CamFeatureFlag::kHDR));
+    QMMF_DEBUG("%s: SHDR enable: %d", __func__, is_shdr_enable_);
+  }
+
+  ResumeActiveStreams();
+
+  QMMF_DEBUG("%s: Exit", __func__);
+  return NO_ERROR;
+}
+
 bool CameraContext::IsRawOnly(const int32_t format) {
   switch(format) {
     case HAL_PIXEL_FORMAT_RAW8:
@@ -1356,6 +1396,9 @@ status_t CameraContext::CreateDeviceStream(CameraStreamParameters& params,
 
     ret = camera_device_->EndConfigure(camera_parameters_);
     assert(ret == NO_ERROR);
+
+    is_shdr_enable_ = !!(camera_parameters_.cam_feature_flags &
+                          static_cast<uint32_t>(CamFeatureFlag::kHDR));
 
     // By default stream is prepared.
     stream_prepared_[id] = true;

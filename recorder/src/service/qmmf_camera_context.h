@@ -167,6 +167,8 @@ class CameraContext : public CameraInterface {
 
   std::vector<int32_t>& GetSupportedFps() override;
 
+  status_t SetSHDR(const bool enable) override;
+
   status_t ReturnStreamBuffer(StreamBuffer buffer);
 
   status_t CreateDeviceInputStream(CameraInputStreamParameters& params,
@@ -361,6 +363,7 @@ class CameraContext : public CameraInterface {
   bool                          is_partial_metadata_enabled_;
   bool                          continuous_mode_is_on_;
   bool                          is_camera_dead_;
+  bool                          is_shdr_enable_;
 };
 
 enum class CameraPortType {
