@@ -78,6 +78,8 @@ class Camera3Stream : public camera3_stream {
 
   int32_t TearDown();
 
+  void WaitForIdle();
+
  private:
   int32_t ConfigureLocked();
   int32_t GetBufferLocked(camera3_stream_buffer *buffer = NULL);
@@ -123,6 +125,7 @@ class Camera3Stream : public camera3_stream {
   MemAllocFlags old_usage_, client_usage_;
   uint32_t old_max_buffers_, client_max_buffers_;
   pthread_cond_t output_buffer_returned_signal_;
+  pthread_cond_t idle_signal_;
   static const int64_t BUFFER_WAIT_TIMEOUT = 1e9;  // 1 sec.
 
   KeyedVector<IBufferHandle , bool> mem_alloc_buffers_;

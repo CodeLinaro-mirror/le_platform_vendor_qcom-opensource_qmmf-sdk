@@ -338,6 +338,7 @@ class CameraContext : public CameraInterface {
   std::set<int32_t>             stopped_stream_ids_;
   CameraParameters              camera_parameters_;
   bool                          continuous_mode_is_on;
+  bool                          is_camera_dead;
 };
 
 enum class CameraPortType {

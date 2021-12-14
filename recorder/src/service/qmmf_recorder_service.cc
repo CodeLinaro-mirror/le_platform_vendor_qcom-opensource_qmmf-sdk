@@ -25,6 +25,40 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted (subject to the limitations in the
+ * disclaimer below) provided that the following conditions are met:
+ *  
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *  
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials provided
+ *       with the distribution.
+ *  
+ *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
+ *  
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #define LOG_TAG "RecorderService"
@@ -432,6 +466,52 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
         return NO_ERROR;
       }
       break;
+      case RECORDER_CONFIGURE_OFFLINE_JPEG: {
+        uint32_t client_id, jpeg_params_blob_size;
+        data.readUint32(&client_id);
+        data.readUint32(&jpeg_params_blob_size);
+        android::Parcel::ReadableBlob jpeg_params_blob;
+        data.readBlob(jpeg_params_blob_size, &jpeg_params_blob);
+        OfflineJpegCreateParams params;
+        assert(jpeg_params_blob_size == sizeof(params));
+        memcpy(&params, jpeg_params_blob.data(), jpeg_params_blob_size);
+
+        ret = CreateOfflineJPEG(client_id, params);
+        reply->writeInt32(ret);
+        return NO_ERROR;
+      }
+      break;
+      case RECORDER_ENCODE_OFFLINE_JPEG: {
+        uint32_t client_id, meta_blob_size;
+        OfflineJpegProcessParams params;
+        data.readUint32(&client_id);
+        int32_t infd = data.readFileDescriptor();
+        params.in_buf_fd = dup(infd);
+        params.out_buf_fd = dup(data.readFileDescriptor());
+        // Storing client fd as int for mapping it to the corresponding fd
+        // in this process.
+        data.readInt32(&params.reserved);
+        data.readUint32(&meta_blob_size);
+        android::Parcel::ReadableBlob meta_blob;
+        data.readBlob(meta_blob_size, &meta_blob);
+        assert(meta_blob_size == sizeof(params.metadata));
+        memcpy(&params.metadata, meta_blob.data(), meta_blob_size);
+
+        ret = EncodeOfflineJPEG(client_id, params);
+        reply->writeInt32(ret);
+
+        return NO_ERROR;
+      }
+      break;
+      case RECORDER_DESTROY_OFFLINE_JPEG: {
+        uint32_t client_id;
+        data.readUint32(&client_id);
+        ret = DestroyOfflineJPEG(client_id);
+        reply->writeInt32(ret);
+
+        return NO_ERROR;
+      }
+      break;
       default: {
         QMMF_ERROR("RecorderService:%s:Method is not supported !",__func__);
         reply->writeInt32(-1);
@@ -458,7 +538,8 @@ status_t RecorderService::Connect(const sp<IRecorderServiceCallback>&
     }
     std::function< const sp<RemoteCallBack>& (uint32_t id)>
       remote_cb_handle = [&] (uint32_t id) -> sp<RemoteCallBack>& {
-        QMMF_VERBOSE("%s: Client(%u): RemoteCallback request!", __func__, id);
+        QMMF_VERBOSE("%s: Client(%u): RemoteCallback request!",
+                      __func__, id);
         assert(remote_cb_list_.count(id) != 0);
         return remote_cb_list_[id];
     };
@@ -542,9 +623,11 @@ status_t RecorderService::Disconnect(uint32_t client_id) {
   remote_cb_list_.erase(client_id);
 
   if (death_notifier_list_.empty() && remote_cb_list_.empty()) {
-    QMMF_INFO("%s: No client is connected! de-init the recorder!", __func__);
-    recorder_->DeInit();
-    recorder_.reset();
+    if (recorder_) {
+      QMMF_INFO("%s: No client is connected! de-init the recorder!", __func__);
+      recorder_->DeInit();
+      recorder_.reset();
+    }
   }
 
   QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
@@ -990,6 +1073,67 @@ status_t RecorderService::GetCameraCharacteristics(const uint32_t client_id,
   return NO_ERROR;
 }
 
+status_t RecorderService::CreateOfflineJPEG(
+                                      const uint32_t client_id,
+                                      const OfflineJpegCreateParams &params) {
+
+  QMMF_INFO("%s:Enter client_id(%d)", __func__, client_id);
+
+  if (!IsRecorderInitialized()) {
+    QMMF_ERROR("%s: Recorder not initialized!", __func__);
+    return NO_INIT;
+  }
+  auto ret = recorder_->CreateOfflineJPEG(client_id, params);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s: Can't create Offline JPEG PostProcessor!", __func__);
+    return ret;
+  }
+
+  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
+  return ret;
+}
+
+status_t RecorderService::EncodeOfflineJPEG(
+                                    const uint32_t client_id,
+                                    const OfflineJpegProcessParams &params) {
+
+  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
+
+  if (!IsRecorderInitialized()) {
+    QMMF_ERROR("%s: Recorder not initialized!", __func__);
+    return NO_INIT;
+  }
+
+  auto ret = recorder_->EncodeOfflineJPEG(client_id, params);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s: Submitting request failed", __func__);
+    return ret;
+  }
+
+  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
+
+  return ret;
+}
+
+status_t RecorderService::DestroyOfflineJPEG(const uint32_t client_id) {
+
+  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
+
+  if (!IsRecorderInitialized()) {
+    QMMF_ERROR("%s: Recorder not initialized!", __func__);
+    return NO_INIT;
+  }
+  auto ret = recorder_->DestroyOfflineJPEG(client_id);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s: Destroy failed", __func__);
+    return ret;
+  }
+
+  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
+
+  return ret;
+}
+
 void RecorderService::ClientDeathHandler(const uint32_t client_id) {
   QMMF_INFO("%s: client_id(%d) died in battle!", __func__, client_id);
   // Internal disconnect, it would trigger resource cleanup belongs to died
@@ -1037,9 +1181,11 @@ status_t RecorderService::DisconnectInternal(const uint32_t client_id) {
   remote_cb_list_.erase(client_id);
 
   if (death_notifier_list_.empty() && remote_cb_list_.empty()) {
-    QMMF_INFO("%s: No client is connected! de-init the recorder!", __func__);
-    recorder_->DeInit();
-    recorder_.reset();
+    if (recorder_) {
+      QMMF_INFO("%s: No client is connected! de-init the recorder!", __func__);
+      recorder_->DeInit();
+      recorder_.reset();
+    }
   }
 
   QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
