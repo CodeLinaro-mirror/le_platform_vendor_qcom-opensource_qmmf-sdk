@@ -573,6 +573,8 @@ status_t RecorderImpl::DeleteSession(const uint32_t client_id,
 
   session_track_map.erase(session_id);
   sessions_state_map.erase(session_id);
+  if (sessions_mutex_map.count(session_id) != 0)
+    delete sessions_mutex_map[session_id];
   sessions_mutex_map.erase(session_id);
 
 

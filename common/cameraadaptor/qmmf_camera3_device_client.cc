@@ -143,6 +143,8 @@ Camera3DeviceClient::~Camera3DeviceClient() {
     std::lock_guard<std::mutex> lk(vendor_tag_mutex_);
     if (--client_count_ == 0) {
       VendorTagDescriptor::clearGlobalVendorTagDescriptor();
+      if (vendor_tag_desc_.get() != nullptr)
+        vendor_tag_desc_.clear();
     }
   }
 
@@ -239,6 +241,8 @@ exit:
     std::lock_guard<std::mutex> lk(vendor_tag_mutex_);
     if (client_count_ == 0) {
       VendorTagDescriptor::clearGlobalVendorTagDescriptor();
+      if (vendor_tag_desc_.get() != nullptr)
+        vendor_tag_desc_.clear();
     }
   }
 
@@ -1237,6 +1241,19 @@ void Camera3DeviceClient::NotifyError(const camera3_error_msg_t &msg) {
       SET_ERR("Camera HAL reported serious device error");
       break;
     case ERROR_CAMERA_REQUEST:
+      if (state_ == STATE_ERROR) {
+        // Here we are removing request when the camera is error state
+        // to handle camera unplug scenario, in other scenarios this
+        // error will be processed as usual.
+        QMMF_ERROR("%s: Error request for camera id:%d, frame_number:%u\n",
+            __func__, id_, msg.frame_number);
+        pthread_mutex_lock(&pending_requests_lock_);
+        if (pending_requests_vector_.count(msg.frame_number)) {
+          pending_requests_vector_.erase(msg.frame_number);
+        }
+        pthread_mutex_unlock(&pending_requests_lock_);
+        break;
+      }
     case ERROR_CAMERA_RESULT:
     case ERROR_CAMERA_BUFFER:
       pthread_mutex_lock(&pending_requests_lock_);

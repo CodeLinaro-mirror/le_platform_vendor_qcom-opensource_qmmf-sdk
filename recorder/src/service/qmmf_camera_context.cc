@@ -1498,7 +1498,8 @@ status_t CameraContext::DeleteDeviceStream(int32_t stream_id, bool cache) {
       __func__, stream_id);
 
   if (snapshot_type_ == SnapshotMode::kZsl
-      && GetPort(zsl_port_id_).get() != nullptr) {
+      && GetPort(zsl_port_id_).get() != nullptr
+      && streaming_active_requests_.size() > 0) {
     ret = camera_device_->EndConfigure();
 
     auto zsl_port = std::static_pointer_cast<ZslPort>(GetPort(zsl_port_id_));

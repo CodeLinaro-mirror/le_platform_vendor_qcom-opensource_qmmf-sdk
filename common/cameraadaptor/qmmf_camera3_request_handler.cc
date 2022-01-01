@@ -337,6 +337,7 @@ void Camera3RequestHandler::ReprocLoop(Camera3RequestHandler *ctx) {
       auto ret = ctx->SubmitRequest(nextRequest, &camera3_in_buf);
       if (ret == -ENODEV) {
         QMMF_ERROR("%s: Camera encountered serious error!", __func__);
+        ctx->run_worker_ = false;
         break;
       }
 
@@ -411,21 +412,21 @@ int32_t Camera3RequestHandler::SubmitRequest(CaptureRequest &nextRequest,
     totalNumBuffers++;
   }
 
-  // send capture request
-  res = hal3_device_->ops->process_capture_request(hal3_device_, &request);
-  if (0 != res) {
-    SIG_ERROR("%s: Unable to submit request %d in CameraHal : %s (%d)",
-              __func__, request.frame_number, strerror(-res), res);
-    HandleErrorRequest(request, nextRequest, outputBuffers);
-    return res;
-  }
-
   // Register capture request
   res = mark_cb_(request.frame_number, totalNumBuffers,
                  nextRequest.resultExtras);
   if (0 > res) {
     SIG_ERROR("%s: Unable to register new request: %s (%d)", __func__,
               strerror(-res), res);
+    HandleErrorRequest(request, nextRequest, outputBuffers);
+    return res;
+  }
+
+  // Send capture request
+  res = hal3_device_->ops->process_capture_request(hal3_device_, &request);
+  if (0 != res) {
+    SIG_ERROR("%s: Unable to submit request %d in CameraHal : %s (%d)",
+              __func__, request.frame_number, strerror(-res), res);
     HandleErrorRequest(request, nextRequest, outputBuffers);
     return res;
   }
