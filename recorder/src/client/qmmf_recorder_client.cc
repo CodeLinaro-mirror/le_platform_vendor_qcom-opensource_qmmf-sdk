@@ -981,6 +981,9 @@ void RecorderClient::ImportBuffer(int32_t fd, int32_t metafd,
     case BufferFormat::kYUY2:
       format = GBM_FORMAT_YCrCb_422_I;
       break;
+    case BufferFormat::kUYVY:
+      format = GBM_FORMAT_UYVY;
+      break;
     default:
       format = 0;
   }
