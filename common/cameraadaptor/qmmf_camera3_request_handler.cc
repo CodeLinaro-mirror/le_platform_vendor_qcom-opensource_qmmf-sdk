@@ -265,7 +265,12 @@ bool Camera3RequestHandler::ThreadLoop() {
 
   res = SubmitRequest(nextRequest);
   if (0 != res) {
-    return true;
+    if (res == -ENODEV) {
+      // Stop submitting requests if the camera does not exist
+      return false;
+    } else {
+      return true;
+    }
   }
 
   return true;
@@ -329,7 +334,12 @@ void Camera3RequestHandler::ReprocLoop(Camera3RequestHandler *ctx) {
       camera3_in_buf.status = CAMERA3_BUFFER_STATUS_OK;
       camera3_in_buf.stream = nextRequest.input;
 
-      ctx->SubmitRequest(nextRequest, &camera3_in_buf);
+      auto ret = ctx->SubmitRequest(nextRequest, &camera3_in_buf);
+      if (ret == -ENODEV) {
+        QMMF_ERROR("%s: Camera encountered serious error!", __func__);
+        ctx->run_worker_ = false;
+        break;
+      }
 
       QMMF_INFO("%s: Submit reprocess request X", __func__);
     }
@@ -402,7 +412,7 @@ int32_t Camera3RequestHandler::SubmitRequest(CaptureRequest &nextRequest,
     totalNumBuffers++;
   }
 
-  // Register and send capture request
+  // Register capture request
   res = mark_cb_(request.frame_number, totalNumBuffers,
                  nextRequest.resultExtras);
   if (0 > res) {
@@ -412,6 +422,7 @@ int32_t Camera3RequestHandler::SubmitRequest(CaptureRequest &nextRequest,
     return res;
   }
 
+  // Send capture request
   res = hal3_device_->ops->process_capture_request(hal3_device_, &request);
   if (0 != res) {
     SIG_ERROR("%s: Unable to submit request %d in CameraHal : %s (%d)",

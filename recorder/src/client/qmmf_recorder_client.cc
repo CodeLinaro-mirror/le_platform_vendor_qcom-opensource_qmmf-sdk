@@ -25,6 +25,40 @@
 * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
 * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*
+* Changes from Qualcomm Innovation Center are provided under the following license:
+*
+* Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
+*  
+* Redistribution and use in source and binary forms, with or without
+* modification, are permitted (subject to the limitations in the
+* disclaimer below) provided that the following conditions are met:
+*  
+*     * Redistributions of source code must retain the above copyright
+*       notice, this list of conditions and the following disclaimer.
+*  
+*     * Redistributions in binary form must reproduce the above
+*       copyright notice, this list of conditions and the following
+*       disclaimer in the documentation and/or other materials provided
+*       with the distribution.
+*  
+*     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+*       contributors may be used to endorse or promote products derived
+*       from this software without specific prior written permission.
+*  
+* NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+* GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+* HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+* WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+* MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+* IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+* ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+* DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+* GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+* INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+* IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+* OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+* IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #define LOG_TAG "RecorderClient"
@@ -165,6 +199,7 @@ status_t RecorderClient::Connect(const RecorderCb& cb) {
     QMMF_ERROR("%s Can't connect to (%s) service", __func__,
         QMMF_RECORDER_SERVICE_NAME);
   }
+
   client_id_ = client_id;
   QMMF_INFO("%s: client_id(%d)", __func__, client_id);
 
@@ -811,6 +846,96 @@ status_t RecorderClient::GetVendorTagDescriptor(sp<VendorTagDescriptor> &desc) {
   return ret;
 }
 
+status_t RecorderClient::CreateOfflineJPEG(
+                          const OfflineJpegCreateParams &params,
+                          const OfflineJpegCb &cb) {
+
+  QMMF_DEBUG("%s Enter ", __func__);
+  std::lock_guard<std::mutex> lock(lock_);
+  if (!CheckServiceStatus()) {
+    return NO_INIT;
+  }
+  assert(client_id_ > 0);
+
+  if (nullptr == cb) {
+    QMMF_ERROR("%s: Error. Client callback is null.", __func__);
+    return BAD_VALUE;
+  }
+  auto ret = recorder_service_->CreateOfflineJPEG(client_id_, params);
+  if (NO_ERROR != ret) {
+    QMMF_ERROR("%s CreateOfflineJPEG failed!", __func__);
+  }
+  offline_jpeg_cb_ = cb;
+  QMMF_DEBUG("%s Exit ", __func__);
+  return ret;
+}
+
+status_t RecorderClient::EncodeOfflineJPEG(
+                            const OfflineJpegProcessParams &params) {
+
+  QMMF_DEBUG("%s Enter ", __func__);
+  std::lock_guard<std::mutex> lock(lock_);
+  if (!CheckServiceStatus()) {
+    return NO_INIT;
+  }
+  assert(client_id_ > 0);
+
+  BnBuffer in_buf = {};
+  BnBuffer out_buf = {};
+  in_buf.ion_fd = out_buf.ion_fd = -1;
+
+  if (!IsJpegBufPresent(params.in_buf_fd)) {
+    in_buf.ion_fd = params.in_buf_fd;
+    offline_jpeg_buffers_.push_back(params.in_buf_fd);
+  }
+  in_buf.buffer_id = params.in_buf_fd;
+
+  if (!IsJpegBufPresent(params.out_buf_fd)) {
+    out_buf.ion_fd = params.out_buf_fd;
+    offline_jpeg_buffers_.push_back(params.out_buf_fd);
+  }
+  out_buf.buffer_id = params.out_buf_fd;
+
+  auto ret = recorder_service_->EncodeOfflineJPEG(client_id_,
+                                                  in_buf,
+                                                  out_buf,
+                                                  params.metadata);
+  if (NO_ERROR != ret) {
+    QMMF_ERROR("%s EncodeOfflineJPEG failed!", __func__);
+  }
+  QMMF_DEBUG("%s Exit ", __func__);
+  return ret;
+}
+
+status_t RecorderClient::DestroyOfflineJPEG() {
+
+  QMMF_DEBUG("%s Enter ", __func__);
+  std::lock_guard<std::mutex> lock(lock_);
+  if (!CheckServiceStatus()) {
+    return NO_INIT;
+  }
+  assert(client_id_ > 0);
+  offline_jpeg_buffers_.clear();
+  auto ret = recorder_service_->DestroyOfflineJPEG(client_id_);
+  if (NO_ERROR != ret) {
+    QMMF_ERROR("%s DestroyOfflineJPEG failed!", __func__);
+  }
+  QMMF_DEBUG("%s Exit ", __func__);
+  return ret;
+}
+
+bool RecorderClient::IsJpegBufPresent(const int32_t& buf_fd) {
+  bool found = false;
+  for ( auto fd : offline_jpeg_buffers_) {
+    if (buf_fd == fd) {
+      found = true;
+      break;
+    }
+  }
+
+  return found;
+}
+
 #ifdef TARGET_USES_GBM
 void RecorderClient::ImportBuffer(int32_t fd, int32_t metafd,
                                   const BufferMeta& meta) {
@@ -1039,6 +1164,7 @@ void RecorderClient::ServiceDeathHandler() {
 
   image_capture_cb_ = nullptr;
   metadata_cb_ = nullptr;
+  offline_jpeg_cb_ = nullptr;
 
   if (ion_device_ > 0) {
     close(ion_device_);
@@ -1136,6 +1262,14 @@ void RecorderClient::NotifySnapshotData(uint32_t camera_id, uint32_t imgcount,
   QMMF_KPI_ASYNC_BEGIN("SnapShot-Shot", camera_id);
 
   image_capture_cb_(camera_id, imgcount, buffer, meta);
+  QMMF_DEBUG("%s Exit ", __func__);
+}
+
+void RecorderClient::NotifyOfflineJpegData(int32_t buf_fd,
+                                           uint32_t encoded_size) {
+  QMMF_DEBUG("%s Enter ", __func__);
+  assert(offline_jpeg_cb_ != nullptr);
+  offline_jpeg_cb_(buf_fd, encoded_size);
   QMMF_DEBUG("%s Exit ", __func__);
 }
 
@@ -1660,6 +1794,68 @@ status_t DeleteVideoTrack(const uint32_t client_id,
     }
     return ret;
   }
+
+  status_t CreateOfflineJPEG(const uint32_t client_id,
+                             const OfflineJpegCreateParams &params) {
+    Parcel data, reply;
+    data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
+    data.writeUint32(client_id);
+
+    uint32_t param_size = sizeof (params);
+    data.writeUint32(param_size);
+    android::Parcel::WritableBlob blob;
+    data.writeBlob(param_size, false, &blob);
+    memcpy(blob.data(), &params, param_size);
+
+    remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
+        RECORDER_CONFIGURE_OFFLINE_JPEG), data, &reply);
+    return reply.readInt32();
+  }
+
+  status_t EncodeOfflineJPEG(const uint32_t client_id,
+                             const BnBuffer& in_buf,
+                             const BnBuffer& out_buf,
+                             const OfflineJpegMeta& meta) {
+    Parcel data, reply;
+    data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
+    data.writeUint32(client_id);
+
+    // Input buffer
+    bool present = (-1 == in_buf.ion_fd) ? true : false;
+    data.writeInt32(present);
+    if (!present) {
+      data.writeFileDescriptor(in_buf.ion_fd);
+    }
+    data.writeInt32(in_buf.buffer_id);
+
+    // Output buffer
+    present = (-1 == out_buf.ion_fd) ? true : false;
+    data.writeInt32(present);
+    if (!present) {
+      data.writeFileDescriptor(out_buf.ion_fd);
+    }
+    data.writeInt32(out_buf.buffer_id);
+
+    uint32_t meta_size = sizeof (meta);
+    data.writeUint32(meta_size);
+    android::Parcel::WritableBlob blob;
+    data.writeBlob(meta_size, false, &blob);
+    memcpy(blob.data(), &meta, meta_size);
+
+    remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
+        RECORDER_ENCODE_OFFLINE_JPEG), data, &reply);
+    return reply.readInt32();
+  }
+
+  status_t DestroyOfflineJPEG(const uint32_t client_id) {
+    Parcel data, reply;
+    data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
+    data.writeUint32(client_id);
+
+    remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
+        RECORDER_DESTROY_OFFLINE_JPEG), data, &reply);
+    return reply.readInt32();
+  }
 };
 
 IMPLEMENT_META_INTERFACE(RecorderService, QMMF_RECORDER_SERVICE_NAME);
@@ -1697,6 +1893,12 @@ void ServiceCallbackHandler::NotifySnapshotData(uint32_t camera_id,
                                                 BufferMeta& meta) {
   assert(client_ != nullptr);
   client_->NotifySnapshotData(camera_id, imgcount, buffer, meta);
+}
+
+void ServiceCallbackHandler::NotifyOfflineJpegData(int32_t buf_fd,
+                                                   uint32_t encoded_size) {
+  assert(client_ != nullptr);
+  client_->NotifyOfflineJpegData(buf_fd, encoded_size);
 }
 
 
@@ -1806,6 +2008,19 @@ class BpRecorderServiceCallback: public BpInterface<IRecorderServiceCallback> {
 
     blob.release();
     meta_blob.release();
+  }
+
+  void NotifyOfflineJpegData(int32_t buf_fd, uint32_t encoded_size) {
+
+    Parcel data, reply;
+    data.writeInterfaceToken(IRecorderServiceCallback::
+        getInterfaceDescriptor());
+    // This is the client fd and thus passing it as int
+    data.writeInt32(buf_fd);
+    data.writeUint32(encoded_size);
+
+    remote()->transact(uint32_t(RECORDER_SERVICE_CB_CMDS::
+        RECORDER_NOTIFY_OFFLINE_JPEG_DATA), data, &reply, IBinder::FLAG_ONEWAY);
   }
 
   void NotifyVideoTrackData(uint32_t session_id, uint32_t track_id,
@@ -1976,6 +2191,16 @@ status_t BnRecorderServiceCallback::onTransact(uint32_t code,
       if (meta_size > 0) {
         meta_blob.release();
       }
+      return NO_ERROR;
+    }
+    break;
+    case RECORDER_SERVICE_CB_CMDS::RECORDER_NOTIFY_OFFLINE_JPEG_DATA: {
+      uint32_t encoded_size;
+      int32_t buf_fd;
+      // This is the client fd
+      data.readInt32(&buf_fd);
+      data.readUint32(&encoded_size);
+      NotifyOfflineJpegData(buf_fd, encoded_size);
       return NO_ERROR;
     }
     break;
