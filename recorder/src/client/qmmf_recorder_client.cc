@@ -794,6 +794,24 @@ status_t RecorderClient::GetCameraParam(const uint32_t camera_id,
   return ret;
 }
 
+status_t RecorderClient::SetSHDR(const uint32_t camera_id,
+                                 const bool enable) {
+
+  QMMF_DEBUG("%s Enter ", __func__);
+
+  std::lock_guard<std::mutex> lock(lock_);
+  if (!CheckServiceStatus()) {
+    return NO_INIT;
+  }
+  assert(client_id_ > 0);
+  auto ret = recorder_service_->SetSHDR(client_id_, camera_id, enable);
+  if (NO_ERROR != ret) {
+    QMMF_ERROR("%s SetSHDR failed!", __func__);
+  }
+  QMMF_DEBUG("%s Exit ", __func__);
+  return ret;
+}
+
 status_t RecorderClient::GetDefaultCaptureParam(const uint32_t camera_id,
                                                 CameraMetadata &meta) {
 
@@ -980,6 +998,9 @@ void RecorderClient::ImportBuffer(int32_t fd, int32_t metafd,
       break;
     case BufferFormat::kYUY2:
       format = GBM_FORMAT_YCrCb_422_I;
+      break;
+    case BufferFormat::kUYVY:
+      format = GBM_FORMAT_UYVY;
       break;
     default:
       format = 0;
@@ -1747,6 +1768,19 @@ status_t DeleteVideoTrack(const uint32_t client_id,
       ret = meta.readFromParcel(&reply);
     }
     return ret;
+  }
+
+  status_t SetSHDR(const uint32_t client_id,
+                   const uint32_t camera_id,
+                   const bool enable) {
+    Parcel data, reply;
+    data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
+    data.writeUint32(client_id);
+    data.writeUint32(camera_id);
+    data.writeInt32(enable);
+    remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
+        RECORDER_SET_SHDR), data, &reply);
+    return reply.readInt32();
   }
 
   status_t GetDefaultCaptureParam(const uint32_t client_id,

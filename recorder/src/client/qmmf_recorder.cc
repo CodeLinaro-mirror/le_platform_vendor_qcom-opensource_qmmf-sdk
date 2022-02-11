@@ -28,8 +28,8 @@
 *
 * Changes from Qualcomm Innovation Center are provided under the following license:
 *
-* Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
-*  
+* Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
+*
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted (subject to the limitations in the
 * disclaimer below) provided that the following conditions are met:
@@ -332,6 +332,20 @@ status_t Recorder::GetCameraParam(const uint32_t camera_id,
   auto ret = recorder_client_->GetCameraParam(camera_id, meta);
   if (NO_ERROR != ret) {
       QMMF_ERROR("%s: GetCameraParam failed!", __func__);
+  }
+
+  QMMF_INFO("%s: Exit", __func__);
+  return ret;
+}
+
+status_t Recorder::SetSHDR(const uint32_t camera_id,
+                           const bool enable) {
+
+  QMMF_INFO("%s: Enter" ,__func__);
+  assert(recorder_client_ != NULL);
+  auto ret = recorder_client_->SetSHDR(camera_id, enable);
+  if (NO_ERROR != ret) {
+      QMMF_ERROR("%s: SetSHDR failed!", __func__);
   }
 
   QMMF_INFO("%s: Exit", __func__);

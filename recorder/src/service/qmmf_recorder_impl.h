@@ -59,7 +59,7 @@
  * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-*/
+ */
 
 /*! @file qmmf_recorder_impl.h
 */
@@ -202,6 +202,11 @@ class RecorderImpl {
   /// Get Camera parameters
   status_t GetCameraParam(const uint32_t client_id,
                           const uint32_t camera_id, CameraMetadata &meta);
+
+  /// Set Camera SHDR mode
+  status_t SetSHDR(const uint32_t client_id,
+                   const uint32_t camera_id,
+                   const bool enable);
 
   /// Get default Capture parameters
   status_t GetDefaultCaptureParam(const uint32_t client_id,

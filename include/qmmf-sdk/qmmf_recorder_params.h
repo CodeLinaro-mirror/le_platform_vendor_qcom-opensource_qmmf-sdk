@@ -28,7 +28,7 @@
 *
 * Changes from Qualcomm Innovation Center are provided under the following license:
 *
-* Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
 *  
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted (subject to the limitations in the
@@ -106,6 +106,7 @@ enum class VideoFormat : uint32_t {
   kNV12UBWC,
   kNV16,
   kYUY2,
+  kUYVY,
   kBayerIdeal,
   kBayerRDI8BIT,
   kBayerRDI10BIT,

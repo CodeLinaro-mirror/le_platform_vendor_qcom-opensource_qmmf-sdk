@@ -28,8 +28,8 @@
 *
 * Changes from Qualcomm Innovation Center are provided under the following license:
 *
-* Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
-*  
+* Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
+*
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted (subject to the limitations in the
 * disclaimer below) provided that the following conditions are met:
@@ -290,6 +290,10 @@ class Recorder {
   /// GetCameraParam to get default camerametadata params
   status_t GetCameraParam(const uint32_t camera_id,
                           android::CameraMetadata &meta);
+
+  /// Set Camera SHDR mode
+  status_t SetSHDR(const uint32_t camera_id,
+                   const bool enable);
 
   /// Complementary API of CaptureImage. Clients generally calls
   /// GetDefaultCaptureParam to get default capture params. this API is
