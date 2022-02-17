@@ -25,7 +25,42 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- */
+ *
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted (subject to the limitations in the
+ * disclaimer below) provided that the following conditions are met:
+ *  
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *  
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials provided
+ *       with the distribution.
+ *  
+ *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
+ *  
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*/
+
 
 #define LOG_TAG "RecorderImpl"
 
@@ -208,6 +243,12 @@ status_t RecorderImpl::DeRegisterClient(const uint32_t client_id,
     return BAD_VALUE;
   }
 
+#ifdef ENABLE_OFFLINE_JPEG
+  if (offline_jpeg_encoder_) {
+    offline_jpeg_encoder_->DeRegisterClient(client_id);
+  }
+#endif
+
   if (!force_cleanup) {
     QMMF_WARN("%s Resources belonging to client(%d) are not released!",
         __func__, client_id);
@@ -305,12 +346,6 @@ status_t RecorderImpl::DeRegisterClient(const uint32_t client_id,
 
   std::lock_guard<std::mutex> lock(client_state_lock_);
   client_state_.erase(client_id);
-
-#ifdef ENABLE_OFFLINE_JPEG
-  if (offline_jpeg_encoder_) {
-    offline_jpeg_encoder_->DeRegisterClient(client_id);
-  }
-#endif
 
   QMMF_INFO("%s: Exit client_id(%u)", __func__, client_id);
   return NO_ERROR;
@@ -1354,6 +1389,36 @@ status_t RecorderImpl::GetCameraParam(const uint32_t client_id,
   return NO_ERROR;
 }
 
+status_t RecorderImpl::SetSHDR(const uint32_t client_id,
+                               const uint32_t camera_id,
+                               const bool enable) {
+  QMMF_DEBUG("%s: Enter client_id(%u):camera_id(%d)", __func__,
+      client_id, camera_id);
+
+  if (!IsClientValid(client_id)) {
+    QMMF_ERROR("%s: Client(%u) is not connected!", __func__, client_id);
+    return BAD_VALUE;
+  }
+
+  if (!IsCameraValid(client_id, camera_id)) {
+    QMMF_ERROR("%s Client(%u): Camera(%u) is not owned by this client,"
+        " operation not allowed!", __func__, client_id, camera_id);
+    return INVALID_OPERATION;
+  }
+
+  assert(camera_source_ != nullptr);
+  auto ret = camera_source_->SetSHDR(camera_id, enable);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s: client_id(%u) Failed to set SHDR to TrackSource!",
+        __func__, client_id);
+    return ret;
+  }
+
+  QMMF_DEBUG("%s: Exit client_id(%u):camera_id(%d)", __func__,
+      client_id, camera_id);
+  return NO_ERROR;
+}
+
 status_t RecorderImpl::GetDefaultCaptureParam(const uint32_t client_id,
                                               const uint32_t camera_id,
                                               CameraMetadata &meta) {
@@ -1438,7 +1503,9 @@ status_t RecorderImpl::CreateOfflineJPEG(const uint32_t client_id,
 }
 
 status_t RecorderImpl::EncodeOfflineJPEG(const uint32_t client_id,
-                                         const OfflineJpegProcessParams &params) {
+                                         const BnBuffer& in_buf,
+                                         const BnBuffer& out_buf,
+                                         const OfflineJpegMeta& meta) {
 
   QMMF_DEBUG("%s Enter client_id(%u)", __func__, client_id);
 
@@ -1448,7 +1515,7 @@ status_t RecorderImpl::EncodeOfflineJPEG(const uint32_t client_id,
     QMMF_ERROR("%s: Client (%u) is not found", __func__, client_id);
     return BAD_VALUE;
   }
-  auto ret = offline_jpeg_encoder_->Process(client_id, params);
+  auto ret = offline_jpeg_encoder_->Process(client_id, in_buf, out_buf, meta);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: Offline JPEG encoder process failed!", __func__);
     return ret;

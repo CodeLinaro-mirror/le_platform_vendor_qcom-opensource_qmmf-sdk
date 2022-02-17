@@ -1,6 +1,64 @@
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
- * Not a Contribution.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are
+ * met:
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials provided
+ *       with the distribution.
+ *     * Neither the name of The Linux Foundation nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
+ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted (subject to the limitations in the
+ * disclaimer below) provided that the following conditions are met:
+ *
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials provided
+ *       with the distribution.
+ *
+ *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
+ *
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 /*
@@ -377,7 +435,7 @@ exit:
   return res;
 }
 
-int32_t Camera3DeviceClient::EndConfigure(const StreamConfiguration& stream_config) {
+int32_t Camera3DeviceClient::EndConfigure(const CameraParameters& stream_config) {
 
   if (NULL == camera_module_) {
     return -ENODEV;
@@ -389,10 +447,25 @@ int32_t Camera3DeviceClient::EndConfigure(const StreamConfiguration& stream_conf
   }
 
   return ConfigureStreams(stream_config);
-
 }
 
-int32_t Camera3DeviceClient::ConfigureStreams(const StreamConfiguration& stream_config) {
+int32_t Camera3DeviceClient::UpdateCameraParams(
+    const CameraParameters& stream_config) {
+
+  if (NULL == camera_module_) {
+    return -ENODEV;
+  }
+
+  if (stream_config.is_constrained_high_speed && !is_hfr_supported_) {
+    QMMF_ERROR("%s: HFR mode is not supported by this camera!\n", __func__);
+    return -EINVAL;
+  }
+
+  return ConfigureStreams(stream_config, true);
+}
+
+int32_t Camera3DeviceClient::ConfigureStreams(
+    const CameraParameters& stream_config, bool force_reconfiguration) {
 
   pthread_mutex_lock(&lock_);
 
@@ -402,29 +475,35 @@ int32_t Camera3DeviceClient::ConfigureStreams(const StreamConfiguration& stream_
   frame_rate_range_[0] = stream_config.frame_rate_range[0];
   frame_rate_range_[1] = stream_config.frame_rate_range[1];
 
-  if (stream_config.params) {
-    cam_feature_flags_ |= stream_config.params->cam_feature_flags;
+  if (force_reconfiguration) {
+    cam_feature_flags_ = stream_config.cam_feature_flags;
+  } else {
+    cam_feature_flags_ |= stream_config.cam_feature_flags;
   }
 
 #ifdef USE_FPS_IDX
   fps_sensormode_index_ = stream_config.fps_sensormode_index;
 #endif
-  bool res = ConfigureStreamsLocked();
+
+  bool res = ConfigureStreamsLocked(force_reconfiguration);
 
   pthread_mutex_unlock(&lock_);
 
   return res;
 }
 
-int32_t Camera3DeviceClient::ConfigureStreamsLocked() {
+int32_t Camera3DeviceClient::ConfigureStreamsLocked(
+    bool force_reconfiguration) {
+
   status_t res;
 
-  if (state_ != STATE_NOT_CONFIGURED && state_ != STATE_CONFIGURED) {
+  if (state_ != STATE_NOT_CONFIGURED && state_ != STATE_CONFIGURED &&
+      !force_reconfiguration) {
     QMMF_ERROR("%s: Not idle\n", __func__);
     return -ENOSYS;
   }
 
-  if (!reconfig_) {
+  if (!reconfig_ && !force_reconfiguration) {
     QMMF_ERROR("%s: Skipping config, no stream changes\n", __func__);
     return 0;
   }
@@ -716,8 +795,7 @@ exit:
 
 int32_t Camera3DeviceClient::CreateStream(
     const CameraStreamParameters &outputConfiguration) {
-  QMMF_DEBUG("%s: QMMF Camera Flags: %x\n", __func__,
-      outputConfiguration.cam_feature_flags);
+
   int32_t res = 0;
   Camera3Stream *newStream = NULL;
   int32_t blobBufferSize = 0;

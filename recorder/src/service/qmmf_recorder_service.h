@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
  *  
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -184,6 +184,10 @@ class RecorderService : public BnInterface<IRecorderService> {
                           const uint32_t camera_id,
                           CameraMetadata &meta) override;
 
+  status_t SetSHDR(const uint32_t client_id,
+                   const uint32_t camera_id,
+                   const bool enable) override;
+
   status_t GetDefaultCaptureParam(const uint32_t client_id,
                                   const uint32_t camera_id,
                                   CameraMetadata &meta) override;
@@ -196,7 +200,9 @@ class RecorderService : public BnInterface<IRecorderService> {
                              const OfflineJpegCreateParams& params) override;
 
   status_t EncodeOfflineJPEG(const uint32_t client_id,
-                             const OfflineJpegProcessParams& params) override;
+                             const BnBuffer& in_buf,
+                             const BnBuffer& out_buf,
+                             const OfflineJpegMeta& meta) override;
 
   status_t DestroyOfflineJPEG(const uint32_t client_id) override;
 
