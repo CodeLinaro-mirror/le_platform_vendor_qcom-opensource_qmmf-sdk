@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
 *  
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted (subject to the limitations in the
@@ -47,7 +47,19 @@ namespace qmmf {
 
 struct JpegCbData;
 
-class OfflineJpegEncoder : public ThreadHelper {
+struct JpegCreateParams {
+  void* pproc_instance;
+  JpegCbData* cb_data;
+  PostProcCreateParams config;
+};
+
+struct JpegRequests {
+  uint32_t request_id;
+  uint32_t npr;
+  bool destroy_pending;
+};
+
+class OfflineJpegEncoder {
  public:
   OfflineJpegEncoder();
   ~OfflineJpegEncoder(){}
@@ -56,7 +68,9 @@ class OfflineJpegEncoder : public ThreadHelper {
   status_t Create(const uint32_t client_id,
                   const OfflineJpegCreateParams& params);
   status_t Process(const uint32_t client_id,
-                   const OfflineJpegProcessParams& process_params);
+                   const BnBuffer& in_buf,
+                   const BnBuffer& out_buf,
+                   const OfflineJpegMeta& meta);
   status_t Destroy(const uint32_t client_id);
   status_t RegisterClient(const uint32_t client_id);
   status_t DeRegisterClient(const uint32_t client_id);
@@ -67,30 +81,36 @@ class OfflineJpegEncoder : public ThreadHelper {
                   PostProcSessionParams* pproc_params);
 
  private:
-  void* jpeg_lib_;
-  PFN_CameraPostProc_Create   pCameraPostProcCreate;
-  PFN_CameraPostProc_Process  pCameraPostProcProcess;
-  PFN_CameraPostProc_Destroy  pCameraPostProcDestroy;
+  // Map between buffer id and fd
+  typedef std::map<int32_t, int32_t> FdMap;
 
-  // offline post processing instance
-  void* pproc_instance_;
+  int32_t GetBufferId(const uint32_t& client_id, const int32_t& buffer_fd);
+  int32_t GetBufferFd(const uint32_t& client_id, const int32_t& buffer_id);
 
-  PostProcCreateParams create_params_;
-  std::deque<PostProcSessionParams*> pproc_queue_;
-  JpegCbData* cb_data_;
-  uint32_t frame_number_;
   void ReleaseRequestData(PostProcSessionParams* params);
-  // Map between fd in current process and client fd
-  std::map<int32_t, int32_t> client_fd_map_;
 
-  std::vector<uint32_t> clients_list_;
-  //TODO: map <client id, list of request ids>
-  // std::map<uint32_t, std::vector<uint32_t> > ClientRequestMap;
+  camera_module_t*                        camera_module_;
+  int32_t                                 nubmer_of_cameras_;
+  void*                                   jpeg_lib_;
+  PFN_CameraPostProc_Create               pCameraPostProcCreate;
+  PFN_CameraPostProc_Process              pCameraPostProcProcess;
+  PFN_CameraPostProc_Destroy              pCameraPostProcDestroy;
 
-  bool ThreadLoop() override;
-  std::mutex               buffer_lock_;
-  QCondition               buffer_signal_;
-  bool                     exit_pending_;
+  // <client id, FdMap>
+  std::map<uint32_t, FdMap>               client_fd_map_;
+  std::mutex                              client_fd_lock_;
+
+  // <client id, JpegCreateParams>
+  std::map<uint32_t, JpegCreateParams>    client_pproc_map_;
+  std::mutex                              client_pproc_lock_;
+
+  std::vector<uint32_t>                   clients_list_;
+
+  std::mutex                              requests_lock_;
+  QCondition                              requests_signal_;
+
+  // <client id, JpegRequests>
+  std::map<uint32_t, JpegRequests>        client_requests_map_;
 
   recorder::RemoteCallbackHandle          remote_cb_handle_;
 

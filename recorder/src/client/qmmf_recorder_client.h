@@ -28,7 +28,7 @@
 *
 * Changes from Qualcomm Innovation Center are provided under the following license:
 *
-* Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
 *  
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted (subject to the limitations in the
@@ -151,6 +151,8 @@ class RecorderClient {
 
   status_t GetCameraParam(const uint32_t camera_id, CameraMetadata &meta);
 
+  status_t SetSHDR(const uint32_t camera_id, const bool enable);
+
   status_t GetDefaultCaptureParam(const uint32_t camera_id,
                                   CameraMetadata &meta);
 
@@ -230,6 +232,8 @@ class RecorderClient {
 
   void ServiceDeathHandler();
 
+  bool IsJpegBufPresent(const int32_t& buf_fd);
+
   sp<IRecorderService>              recorder_service_;
   sp<DeathNotifier>                 death_notifier_;
 
@@ -250,6 +254,8 @@ class RecorderClient {
   ImageCaptureCb                    image_capture_cb_;
   CameraResultCb                    metadata_cb_;
   OfflineJpegCb                     offline_jpeg_cb_;
+
+  std::vector<int32_t>              offline_jpeg_buffers_;
 
   // List of information regarding the buffers in a track.
   std::map<uint32_t, BufferInfoMap> track_buffers_map_;
