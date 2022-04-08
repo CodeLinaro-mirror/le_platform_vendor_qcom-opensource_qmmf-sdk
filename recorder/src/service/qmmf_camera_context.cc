@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -2916,6 +2917,11 @@ status_t CameraPort::Init() {
 
     cam_stream_params_.bufferCount = STREAM_BUFFER_COUNT +
         GetExtraBufferCount() + params_.xtrabufs;
+
+    if(params_.stream_mode == 1) {
+        cam_stream_params_.allocFlags.flags = IMemAllocUsage::kHwTexture;
+        cam_stream_params_.allocFlags.flags |= IMemAllocUsage::kHwComposer;
+    }
 
     QMMF_INFO ("%s: track_id(0%x) total buffer count(%d)", __func__,
         params_.id, cam_stream_params_.bufferCount);

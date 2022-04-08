@@ -1,5 +1,6 @@
 /*
 * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
+* Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -83,11 +84,12 @@ struct StreamParam {
   Rotation          rotation;
   uint32_t          xtrabufs;
   VideoFlags        flags;
+  int32_t      stream_mode;
 
   StreamParam()
       :  id(0), width(0), height(0), format(BufferFormat::kUnsupported),
          colorimetry(VideoColorimetry::kBT601), framerate(0.0),
-         rotation(Rotation::kNone), xtrabufs(0), flags(VideoFlags::kNone) {}
+         rotation(Rotation::kNone), xtrabufs(0), flags(VideoFlags::kNone), stream_mode(0) {}
 };
 
 struct SnapshotParam {

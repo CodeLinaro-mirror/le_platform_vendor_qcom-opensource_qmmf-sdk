@@ -1,5 +1,6 @@
 /*
 * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
+* Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -279,14 +280,16 @@ struct VideoTrackParam {
   /// Video Track addtional flags
   VideoFlags  flags;
 
+  int32_t    stream_mode;
+
   VideoTrackParam(uint32_t cam_id = 0, uint32_t w = 3840, uint32_t h = 2160,
                   float fps = 30, VideoFormat fmt = VideoFormat::kNV12,
                   VideoColorimetry color = VideoColorimetry::kBT601,
                   Rotation rotate = Rotation::kNone, uint32_t extrabufs = 0,
-                  VideoFlags flgs = VideoFlags::kNone)
+                  VideoFlags flgs = VideoFlags::kNone, int32_t mode = 0)
       : camera_id(cam_id), width(w), height(h), framerate(fps), format(fmt),
         colorimetry(color), rotation(rotate), xtrabufs(extrabufs),
-        flags(flgs) {}
+        flags(flgs), stream_mode(mode){}
 
   ::std::string ToString() const {
     ::std::stringstream stream;
@@ -307,6 +310,7 @@ struct VideoTrackParam {
     stream << "flags[" << ::std::setbase(16)
            << static_cast<::std::underlying_type<VideoFlags>::type>(flags)
            << ::std::setbase(10) << "]";
+    stream << "stream_mode[" << stream_mode << "] ";
     return stream.str();
   }
 };
