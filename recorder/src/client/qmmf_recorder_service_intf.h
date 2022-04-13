@@ -28,7 +28,7 @@
 *
 * Changes from Qualcomm Innovation Center are provided under the following license:
 *
-* Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
 *  
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted (subject to the limitations in the
@@ -110,6 +110,7 @@ enum QMMF_RECORDER_SERVICE_CMDS {
   RECORDER_RETURN_IMAGECAPTURE_BUFFER,
   RECORDER_SET_CAMERA_PARAMS,
   RECORDER_GET_CAMERA_PARAMS,
+  RECORDER_SET_SHDR,
   RECORDER_GET_DEFAULT_CAPTURE_PARAMS,
   RECORDER_GET_CAMERA_CHARACTERISTICS,
   RECORDER_GET_VENDOR_TAG_DESCRIPTOR,
@@ -192,8 +193,7 @@ class IRecorderService : public IInterface {
   DECLARE_META_INTERFACE(RecorderService);
 
   virtual status_t Connect(const sp<IRecorderServiceCallback>& service_cb,
-                           uint32_t* client_id,
-                           bool is_offline_jpeg_mode) = 0;
+                           uint32_t* client_id) = 0;
 
   virtual status_t Disconnect(const uint32_t client_id) = 0;
 
@@ -271,6 +271,10 @@ class IRecorderService : public IInterface {
                                   const uint32_t camera_id,
                                   CameraMetadata &meta) = 0;
 
+  virtual status_t SetSHDR(const uint32_t client_id,
+                           const uint32_t camera_id,
+                           const bool enable) = 0;
+
   virtual status_t GetDefaultCaptureParam(const uint32_t client_id,
                                           const uint32_t camera_id,
                                           CameraMetadata &meta) = 0;
@@ -285,9 +289,10 @@ class IRecorderService : public IInterface {
                                 const uint32_t client_id,
                                 const OfflineJpegCreateParams& params) = 0;
 
-  virtual status_t EncodeOfflineJPEG(
-                                const uint32_t client_id,
-                                const OfflineJpegProcessParams& params) = 0;
+  virtual status_t EncodeOfflineJPEG(const uint32_t client_id,
+                                     const BnBuffer& in_buf,
+                                     const BnBuffer& out_buf,
+                                     const OfflineJpegMeta& meta) = 0;
 
   virtual status_t DestroyOfflineJPEG(const uint32_t client_id) = 0;
 };

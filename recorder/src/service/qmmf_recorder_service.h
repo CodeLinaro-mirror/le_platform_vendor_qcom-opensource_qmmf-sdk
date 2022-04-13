@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
  *  
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -69,7 +69,6 @@
 
 #include "recorder/src/client/qmmf_recorder_service_intf.h"
 #include "recorder/src/service/qmmf_recorder_impl.h"
-#include "recorder/src/service/qmmf_offline_jpegenc_impl.h"
 
 namespace qmmf {
 
@@ -108,8 +107,7 @@ class RecorderService : public BnInterface<IRecorderService> {
                                Parcel* reply, uint32_t flags = 0) override;
 
   status_t Connect(const sp<IRecorderServiceCallback>& service_cb,
-                   uint32_t* client_id,
-                   bool is_offline_jpeg_mode = false) override;
+                   uint32_t* client_id) override;
 
   status_t Disconnect(const uint32_t client_id) override;
 
@@ -186,6 +184,10 @@ class RecorderService : public BnInterface<IRecorderService> {
                           const uint32_t camera_id,
                           CameraMetadata &meta) override;
 
+  status_t SetSHDR(const uint32_t client_id,
+                   const uint32_t camera_id,
+                   const bool enable) override;
+
   status_t GetDefaultCaptureParam(const uint32_t client_id,
                                   const uint32_t camera_id,
                                   CameraMetadata &meta) override;
@@ -198,17 +200,15 @@ class RecorderService : public BnInterface<IRecorderService> {
                              const OfflineJpegCreateParams& params) override;
 
   status_t EncodeOfflineJPEG(const uint32_t client_id,
-                             const OfflineJpegProcessParams& params) override;
+                             const BnBuffer& in_buf,
+                             const BnBuffer& out_buf,
+                             const OfflineJpegMeta& meta) override;
 
   status_t DestroyOfflineJPEG(const uint32_t client_id) override;
 
   void ClientDeathHandler(const uint32_t client_id);
 
   bool IsRecorderInitialized();
-
-  bool IsOfflineJPEGInitialized();
-
-  bool IsClientOfflineJPEG(const uint32_t client_id);
 
   status_t DisconnectInternal(const uint32_t client_id);
 
@@ -217,7 +217,6 @@ class RecorderService : public BnInterface<IRecorderService> {
   status_t GetUniqueClientID(uint32_t *client_id);
 
   std::unique_ptr<RecorderImpl>           recorder_;
-  std::unique_ptr<OfflineJpegEncoder>     offline_jpeg_encoder_;
 
   // Map of client ids and their death notifiers.
   std::map<uint32_t, sp<DeathNotifier> >  death_notifier_list_;

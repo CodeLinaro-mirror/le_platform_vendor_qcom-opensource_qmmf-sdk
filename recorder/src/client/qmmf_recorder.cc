@@ -28,8 +28,8 @@
 *
 * Changes from Qualcomm Innovation Center are provided under the following license:
 *
-* Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
-*  
+* Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
+*
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted (subject to the limitations in the
 * disclaimer below) provided that the following conditions are met:
@@ -89,10 +89,9 @@ Recorder::~Recorder() {
   }
 }
 
-status_t Recorder::Connect(const RecorderCb& callback,
-                           bool is_offline_jpeg_mode) {
+status_t Recorder::Connect(const RecorderCb& callback) {
 
-  auto ret = recorder_client_->Connect(callback, is_offline_jpeg_mode);
+  auto ret = recorder_client_->Connect(callback);
   if (NO_ERROR != ret) {
     QMMF_ERROR("%s: Init failed!", __func__);
   }
@@ -339,6 +338,20 @@ status_t Recorder::GetCameraParam(const uint32_t camera_id,
   return ret;
 }
 
+status_t Recorder::SetSHDR(const uint32_t camera_id,
+                           const bool enable) {
+
+  QMMF_INFO("%s: Enter" ,__func__);
+  assert(recorder_client_ != NULL);
+  auto ret = recorder_client_->SetSHDR(camera_id, enable);
+  if (NO_ERROR != ret) {
+      QMMF_ERROR("%s: SetSHDR failed!", __func__);
+  }
+
+  QMMF_INFO("%s: Exit", __func__);
+  return ret;
+}
+
 status_t Recorder::GetDefaultCaptureParam(const uint32_t camera_id,
                                           CameraMetadata &meta) {
 
@@ -373,10 +386,6 @@ status_t Recorder::CreateOfflineJPEG(
 
   QMMF_INFO("%s: Enter" ,__func__);
   assert(recorder_client_ != NULL);
-  if (!recorder_client_->is_jpeg_instance_) {
-    QMMF_ERROR("%s: Error: Not a JPEG instance");
-    return BAD_VALUE;
-  }
   auto ret = recorder_client_->CreateOfflineJPEG(params, cb);
   if (NO_ERROR != ret) {
     QMMF_ERROR("%s: CreateOfflineJPEG failed!", __func__);
@@ -388,10 +397,6 @@ status_t Recorder::CreateOfflineJPEG(
 status_t Recorder::EncodeOfflineJPEG(const OfflineJpegProcessParams& params) {
   QMMF_INFO("%s: Enter" ,__func__);
   assert(recorder_client_ != NULL);
-  if (!recorder_client_->is_jpeg_instance_) {
-    QMMF_ERROR("%s: Error: Not a JPEG instance");
-    return BAD_VALUE;
-  }
   auto ret = recorder_client_->EncodeOfflineJPEG(params);
   if (NO_ERROR != ret) {
     QMMF_ERROR("%s: EncodeOfflineJPEG failed!", __func__);
@@ -403,10 +408,6 @@ status_t Recorder::EncodeOfflineJPEG(const OfflineJpegProcessParams& params) {
 status_t Recorder::DestroyOfflineJPEG() {
   QMMF_INFO("%s: Enter" ,__func__);
   assert(recorder_client_ != NULL);
-  if (!recorder_client_->is_jpeg_instance_) {
-    QMMF_ERROR("%s: Error: Not a JPEG instance");
-    return BAD_VALUE;
-  }
   auto ret = recorder_client_->DestroyOfflineJPEG();
   if (NO_ERROR != ret) {
     QMMF_ERROR("%s: DestroyOfflineJPEG failed!", __func__);

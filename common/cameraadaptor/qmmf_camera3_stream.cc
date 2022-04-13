@@ -90,6 +90,7 @@ Camera3Stream::Camera3Stream(int id, size_t maxSize,
 
   pthread_mutex_init(&lock_, NULL);
   cond_init(&output_buffer_returned_signal_);
+  cond_init(&idle_signal_);
 }
 
 Camera3Stream::~Camera3Stream() {
@@ -102,6 +103,7 @@ Camera3Stream::~Camera3Stream() {
 
   pthread_mutex_destroy(&lock_);
   pthread_cond_destroy(&output_buffer_returned_signal_);
+  pthread_cond_destroy(&idle_signal_);
   if (NULL != mem_alloc_slots_) {
     delete[] mem_alloc_slots_;
   }
@@ -713,13 +715,39 @@ int32_t Camera3Stream::ReturnBufferLocked(const StreamBuffer &buffer) {
   QMMF_DEBUG("%s: Stream(%d): pending_buffer_count_(%u)", __func__, id_,
       pending_buffer_count_);
 
-  if (pending_buffer_count_ == 0 && status_ != STATUS_CONFIG_ACTIVE &&
-      status_ != STATUS_RECONFIG_ACTIVE) {
-    QMMF_DEBUG("%s: Stream(%d): Changing state to idle", __func__, id_);
-    monitor_.ChangeStateToIdle(monitor_id_);
+  if (status_ != STATUS_CONFIG_ACTIVE && status_ != STATUS_RECONFIG_ACTIVE) {
+    if (pending_buffer_count_ == client_buffer_cnt_) {
+      // notify hal is idle for this stream i.e. buffers are returned by hal
+      QMMF_DEBUG("%s: Stream(%d): Changing state to idle", __func__, id_);
+      monitor_.ChangeStateToIdle(monitor_id_);
+    }
+
+    if (pending_buffer_count_ == 0) {
+      // notify stream is idle i.e. all buffers are returned
+      QMMF_DEBUG("%s: Stream(%d): Stream is idle", __func__, id_);
+      pthread_cond_signal(&idle_signal_);
+    }
   }
 
   return 0;
+}
+
+void Camera3Stream::WaitForIdle() {
+  int32_t res = 0;
+
+  pthread_mutex_lock(&lock_);
+  while (pending_buffer_count_) {
+    auto res = cond_wait_relative(&idle_signal_, &lock_, BUFFER_WAIT_TIMEOUT);
+    if (0 != res) {
+      if (-ETIMEDOUT != res) {
+        QMMF_ERROR("%s: wait for output buffer return timed out \n", __func__);
+      } else {
+        QMMF_ERROR("%s: Error during state change wait: %s (%d)\n", __func__,
+                   strerror(res), res);
+      }
+    }
+  }
+  pthread_mutex_unlock(&lock_);
 }
 
 int32_t Camera3Stream::GetBufferLocked(camera3_stream_buffer *streamBuffer) {
