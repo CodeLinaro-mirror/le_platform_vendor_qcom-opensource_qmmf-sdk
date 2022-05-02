@@ -433,14 +433,12 @@ int32_t Camera3DeviceClient::ConfigureStreamsLocked() {
   QMMF_INFO("%s: operation_mode: 0x%x \n", __func__, config.operation_mode);
 
 #if defined(CAMERA_HAL_API_VERSION) && (CAMERA_HAL_API_VERSION >= 0x0305)
-  if (hfr_mode_enabled_) {
-    camera_metadata_t *session_parameters = allocate_camera_metadata(1, 128);
-    add_camera_metadata_entry(session_parameters,
-                              ANDROID_CONTROL_AE_TARGET_FPS_RANGE,
-                              frame_rate_range_, 2);
+  camera_metadata_t *session_parameters = allocate_camera_metadata(1, 128);
+  add_camera_metadata_entry(session_parameters,
+                            ANDROID_CONTROL_AE_TARGET_FPS_RANGE,
+                            frame_rate_range_, 2);
 
-    config.session_parameters = session_parameters;
-  }
+  config.session_parameters = session_parameters;
 #endif
 
   Vector<camera3_stream_t *> streams;
