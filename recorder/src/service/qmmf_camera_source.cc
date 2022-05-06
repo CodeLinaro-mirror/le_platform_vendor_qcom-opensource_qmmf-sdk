@@ -574,6 +574,8 @@ status_t CameraSource::FlushTrackSource(const uint32_t track_id) {
 
 status_t CameraSource::StopTrackSource(const uint32_t track_id) {
 
+  status_t ret = NO_ERROR;
+
   QMMF_KPI_DETAIL();
   if (!IsTrackIdValid(track_id)) {
     QMMF_ERROR("%s: Track(%x): does not exist !!", __func__, track_id);
@@ -581,9 +583,15 @@ status_t CameraSource::StopTrackSource(const uint32_t track_id) {
   }
   auto const& track = track_sources_[track_id];
 
-  auto ret = track->StopTrack();
+  ret = track->StopTrack();
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: Track(%x): Stop failed !!", __func__, track_id);
+    return ret;
+  }
+
+  ret = FlushTrackSource(track_id);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s: Track(%x): Flush failed !!", __func__, track_id);
     return ret;
   }
 
