@@ -1412,7 +1412,12 @@ status_t TrackSource::ReturnTrackBuffer(std::vector<BnBuffer>& bn_buffers) {
 
     std::lock_guard<std::mutex> autoLock(buffer_list_lock_);
     auto it = buffer_list_.find(bn_buffers[i].ion_fd);
-    assert(it != buffer_list_.end());
+
+    if (it == buffer_list_.end())
+    {
+      QMMF_INFO("MITO: ReturnTrackBuffer assert/continue");
+      continue;
+    }
 
     StreamBuffer buffer = it->second;
 
