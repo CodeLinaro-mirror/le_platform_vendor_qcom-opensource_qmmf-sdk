@@ -51,6 +51,7 @@ enum ParamTag {
   QMMF_USE_LINKED_TRACK_IN_SLAVE_MODE,
   QMMF_LDC,
   QMMF_LCAC,
+  QMMF_FRAME_RATE_CONTROL,
 };
 
 enum class SnapshotMode {
@@ -84,6 +85,14 @@ enum class SlaveMode {
   kMaster,
   /**< Camera Slave mode */
   kSlave,
+};
+
+
+enum class FrameRateControlMode {
+  /**< control stream frame rate by frame skip */
+  kFrameSkip,
+  /**< control stream frame rate by HAL3 capture requests */
+  kCaptureRequest
 };
 
 struct SourceVideoTrack : DataTagBase {
@@ -214,6 +223,15 @@ struct LCACMode : DataTagBase {
   bool enable;
   LCACMode() :
     DataTagBase(QMMF_LCAC), enable(false) {
+  }
+};
+
+struct FrameRateControl : DataTagBase {
+  /**< Add support for stream frame rate control mode  */
+  FrameRateControlMode mode;
+  FrameRateControl() :
+    DataTagBase(QMMF_FRAME_RATE_CONTROL),
+    mode(FrameRateControlMode::kFrameSkip) {
   }
 };
 

@@ -106,7 +106,9 @@ CameraSource* CameraSource::CreateCameraSource() {
   return instance_;
 }
 
-CameraSource::CameraSource() {
+CameraSource::CameraSource()
+    : frame_rate_control_(true) {
+
   QMMF_GET_LOG_LEVEL();
   QMMF_KPI_GET_MASK();
   QMMF_KPI_DETAIL();
@@ -175,6 +177,22 @@ status_t CameraSource::StartCamera(const uint32_t camera_id,
     QMMF_ERROR("%s: OpenCamera(%d) Failed!", __func__, camera_id);
     active_cameras_.erase(camera_id);
     return ret;
+  }
+
+  if (extra_param.Exists(QMMF_FRAME_RATE_CONTROL)) {
+    size_t entry_count = extra_param.EntryCount(QMMF_FRAME_RATE_CONTROL);
+    if (entry_count == 1) {
+      FrameRateControl frc_mode;
+      extra_param.Fetch(QMMF_FRAME_RATE_CONTROL, frc_mode, 0);
+      if (frc_mode.mode == FrameRateControlMode::kCaptureRequest) {
+        // Stream frame rate will be control by PCR
+        QMMF_INFO("%s: PCR FRC enable", __func__);
+        frame_rate_control_ = false;
+      }
+    } else {
+      QMMF_ERROR("%s: Invalid FRC mode received", __func__);
+      return BAD_VALUE;
+    }
   }
 
   QMMF_INFO("%s: Camera(%d) opened successfully!", __func__, camera_id);
@@ -456,10 +474,15 @@ status_t CameraSource::CreateTrackSource(const uint32_t track_id,
     QMMF_INFO("%s: Normal stream should be create.", __func__);
   }
 
+  // Enfroce frame rate cotrol in track for linked and copy streams
+  bool fr_control = frame_rate_control_ | copy_stream_mode;
+
+  QMMF_DEBUG ("%s: frame_rate_contol %d ", __func__, fr_control);
+
   // Create TrackSource and give it to CameraInterface, CameraConext in turn
   // would map it to its one of port.
   auto track_source = make_shared<TrackSource>(track_id, camera, params,
-                                               xtraparam, cb);
+                                               xtraparam, fr_control, cb);
   if (!track_source.get()) {
     QMMF_ERROR("%s: Can't create TrackSource Instance", __func__);
     return NO_MEMORY;
@@ -927,6 +950,7 @@ TrackSource::TrackSource(const uint32_t id,
                          const std::shared_ptr<CameraInterface>& camera,
                          const VideoTrackParam& params,
                          const VideoExtraParam& extraparams,
+                         const bool frame_rate_cotrol,
                          const BnBufferCallback& cb)
     : id_(id),
       params_(params),
@@ -957,13 +981,15 @@ TrackSource::TrackSource(const uint32_t id,
   std::stringstream name;
   name << "Track(" << std::hex << id_ << ")";
 
-  fsc_ = std::make_shared<FrameRateController>("FrameSkip: " + name.str());
-  assert(fsc_.get() != nullptr);
-  fsc_->SetFrameRate(params_.framerate);
+  if (frame_rate_cotrol) {
+    fsc_ = std::make_shared<FrameRateController>("FrameSkip: " + name.str());
+    assert(fsc_.get() != nullptr);
+    fsc_->SetFrameRate(params_.framerate);
 
-  frc_ = std::make_shared<FrameRateController>("FrameRepeat: " + name.str());
-  assert(frc_.get() != nullptr);
-  frc_->SetFrameRate(params_.framerate);
+    frc_ = std::make_shared<FrameRateController>("FrameRepeat: " + name.str());
+    assert(frc_.get() != nullptr);
+    frc_->SetFrameRate(params_.framerate);
+  }
 
   QMMF_INFO("%s: TrackSource (0x%p)", __func__, this);
 }
@@ -1022,7 +1048,7 @@ status_t TrackSource::InitCopy(shared_ptr<TrackSource> master_track_source,
   slave_track_source_ = true;
 
   if (rescaler.get() == nullptr) {
-    QMMF_INFO("%s Linked stream", __func__);
+    QMMF_INFO("%s Linked stream without down scale", __func__);
   } else {
     rescaler_ = rescaler;
   }
@@ -1031,32 +1057,29 @@ status_t TrackSource::InitCopy(shared_ptr<TrackSource> master_track_source,
   consumer = GetConsumer();
   assert(consumer.get() != nullptr);
 
-  result = frc_->AddConsumer(consumer);
-  assert(result == NO_ERROR);
-  consumer = frc_->GetConsumer();
-  assert(consumer.get() != nullptr);
+  if (frc_.get() != nullptr) {
+    result = frc_->AddConsumer(consumer);
+    assert(result == NO_ERROR);
+    consumer = frc_->GetConsumer();
+    assert(consumer.get() != nullptr);
+  }
 
   if (rescaler_.get() != nullptr) {
-    result = master_track_->AddConsumer(fsc_->GetConsumer());
-    assert(result == NO_ERROR);
-    result = fsc_->AddConsumer(rescaler_->GetConsumer());
-    assert(result == NO_ERROR);
     result = rescaler_->AddConsumer(consumer);
     assert(result == NO_ERROR);
-  } else if (slave_track_source_ == true) {
-    assert(nullptr != fsc_);
-    result = master_track_->AddConsumer(fsc_->GetConsumer());
-    assert(result == NO_ERROR);
-    result = fsc_->AddConsumer(consumer);
-    assert(result == NO_ERROR);
+    consumer = rescaler_->GetConsumer();
+    assert(consumer.get() != nullptr);
   }
 
-  if (slave_track_source_ == false) {
-    result = camera_->AddConsumer(id_, fsc_->GetConsumer());
-    assert(result == NO_ERROR);
+  if (fsc_.get() != nullptr) {
     result = fsc_->AddConsumer(consumer);
     assert(result == NO_ERROR);
+    consumer = fsc_->GetConsumer();
+    assert(consumer.get() != nullptr);
   }
+
+  result = master_track_->AddConsumer(consumer);
+  assert(result == NO_ERROR);
 
   QMMF_DEBUG("%s: Exit Track(%x)", __func__, id_);
   return result;
@@ -1067,7 +1090,6 @@ status_t TrackSource::Init() {
   QMMF_DEBUG("%s Enter Track(%x)", __func__, id_);
 
   slave_track_source_ = false;
-  rescaler_ = nullptr;
   master_track_ = nullptr;
 
   StreamParam param{};
@@ -1095,32 +1117,22 @@ status_t TrackSource::Init() {
   consumer = GetConsumer();
   assert(consumer.get() != nullptr);
 
-  ret = frc_->AddConsumer(consumer);
+  if (frc_.get() != nullptr) {
+    ret = frc_->AddConsumer(consumer);
+    assert(ret == NO_ERROR);
+    consumer = frc_->GetConsumer();
+    assert(consumer.get() != nullptr);
+  }
+
+  if (fsc_.get() != nullptr) {
+    ret = fsc_->AddConsumer(consumer);
+    assert(ret == NO_ERROR);
+    consumer = fsc_->GetConsumer();
+    assert(consumer.get() != nullptr);
+  }
+
+  ret = camera_->AddConsumer(id_, consumer);
   assert(ret == NO_ERROR);
-  consumer = frc_->GetConsumer();
-  assert(consumer.get() != nullptr);
-
-  if (rescaler_.get() != nullptr) {
-    ret = master_track_->AddConsumer(fsc_->GetConsumer());
-    assert(ret == NO_ERROR);
-    ret = fsc_->AddConsumer(rescaler_->GetConsumer());
-    assert(ret == NO_ERROR);
-    ret = rescaler_->AddConsumer(consumer);
-    assert(ret == NO_ERROR);
-  } else if (slave_track_source_ == true) {
-    assert(nullptr != fsc_);
-    ret = master_track_->AddConsumer(fsc_->GetConsumer());
-    assert(ret == NO_ERROR);
-    ret = fsc_->AddConsumer(consumer);
-    assert(ret == NO_ERROR);
-  }
-
-  if (slave_track_source_ == false) {
-    ret = camera_->AddConsumer(id_, fsc_->GetConsumer());
-    assert(ret == NO_ERROR);
-    ret = fsc_->AddConsumer(consumer);
-    assert(ret == NO_ERROR);
-  }
 
   QMMF_DEBUG("%s Exit Track(%x)", __func__, id_);
   return ret;
@@ -1132,34 +1144,37 @@ status_t TrackSource::DeInit() {
   assert(camera_.get() != nullptr);
   status_t ret = NO_ERROR;
 
-  sp<IBufferConsumer> consumer = frc_->GetConsumer();
+  sp<IBufferConsumer> consumer = GetConsumer();
   assert(consumer.get() != nullptr);
 
-  if (slave_track_source_ == false) {
-    ret = fsc_->RemoveConsumer(consumer);
+  if (frc_.get() != nullptr) {
+    ret = frc_->RemoveConsumer(consumer);
     assert(ret == NO_ERROR);
-    ret = camera_->RemoveConsumer(id_, fsc_->GetConsumer());
-    assert(ret == NO_ERROR);
+    consumer = frc_->GetConsumer();
+    assert(consumer.get() != nullptr);
   }
 
   if (rescaler_.get() != nullptr) {
     ret = rescaler_->RemoveConsumer(consumer);
     assert(ret == NO_ERROR);
-    ret = fsc_->RemoveConsumer(rescaler_->GetConsumer());
-    assert(ret == NO_ERROR);
-    ret = master_track_->RemoveConsumer(fsc_->GetConsumer());
-    assert(ret == NO_ERROR);
-  } else if (slave_track_source_ == true) {
-    ret = fsc_->RemoveConsumer(consumer);
-    assert(ret == NO_ERROR);
-    ret = master_track_->RemoveConsumer(fsc_->GetConsumer());
-    assert(ret == NO_ERROR);
+    consumer = rescaler_->GetConsumer();
+    assert(consumer.get() != nullptr);
   }
 
-  consumer = GetConsumer();
-  assert(consumer.get() != nullptr);
-  ret = frc_->RemoveConsumer(consumer);
-  assert(ret == NO_ERROR);
+  if (fsc_.get() != nullptr) {
+    ret = fsc_->RemoveConsumer(consumer);
+    assert(ret == NO_ERROR);
+    consumer = fsc_->GetConsumer();
+    assert(consumer.get() != nullptr);
+  }
+
+  if (slave_track_source_) {
+    ret = master_track_->RemoveConsumer(consumer);
+    assert(ret == NO_ERROR);
+  } else {
+    ret = camera_->RemoveConsumer(id_, consumer);
+    assert(ret == NO_ERROR);
+  }
 
   std::unique_lock<std::mutex> idle_lock(idle_lock_);
   std::chrono::nanoseconds wait_time(kWaitDuration);
@@ -1208,11 +1223,15 @@ status_t TrackSource::StartTrack() {
     assert(ret == NO_ERROR);
   }
 
-  ret = fsc_->Start();
-  assert(ret == NO_ERROR);
+  if (fsc_.get() != nullptr) {
+    ret = fsc_->Start();
+    assert(ret == NO_ERROR);
+  }
 
-  ret = frc_->Start();
-  assert(ret == NO_ERROR);
+  if (frc_.get() != nullptr) {
+    ret = frc_->Start();
+    assert(ret == NO_ERROR);
+  }
 
   QMMF_DEBUG("%s: Exit Track(%x)", __func__, id_);
   return NO_ERROR;
@@ -1256,11 +1275,15 @@ status_t TrackSource::StopTrack() {
 
   assert(camera_.get() != nullptr);
 
-  ret = frc_->Stop();
-  assert(ret == NO_ERROR);
+  if (frc_.get() != nullptr) {
+    ret = frc_->Stop();
+    assert(ret == NO_ERROR);
+  }
 
-  ret = fsc_->Stop();
-  assert(ret == NO_ERROR);
+  if (fsc_.get() != nullptr) {
+    ret = fsc_->Stop();
+    assert(ret == NO_ERROR);
+  }
 
   if (rescaler_.get() != nullptr) {
     ret = rescaler_->Stop();
@@ -1457,15 +1480,21 @@ bool TrackSource::IsPaused() {
 void TrackSource::UpdateFrameRate(const float framerate) {
 
   if (fabs(params_.framerate - framerate) > 0.1f) {
-    fsc_->SetFrameRate(framerate);
-    frc_->SetFrameRate(framerate);
+    if (fsc_.get() != nullptr) {
+      fsc_->SetFrameRate(framerate);
+    }
+    if (frc_.get() != nullptr) {
+      frc_->SetFrameRate(framerate);
+    }
     params_.framerate = framerate;
   }
 }
 
 void TrackSource::EnableFrameRepeat(const bool enable) {
 
-  frc_->EnableFrameRepeat(enable);
+  if (frc_.get() != nullptr) {
+    frc_->EnableFrameRepeat(enable);
+  }
 }
 
 void TrackSource::ReturnBufferToProducer(StreamBuffer& buffer) {
