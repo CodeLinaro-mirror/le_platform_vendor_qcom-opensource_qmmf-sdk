@@ -228,6 +228,8 @@ class CameraSource {
 
   CameraExtraParam start_cam_param_;
 
+  bool frame_rate_control_;
+
   // Not allowed
   CameraSource();
   CameraSource(const CameraSource&);
@@ -247,7 +249,7 @@ class TrackSource {
   /// TrackSource Constructor
   TrackSource(const uint32_t id, const std::shared_ptr<CameraInterface>& camera,
               const VideoTrackParam& params, const VideoExtraParam& extraparams,
-              const BnBufferCallback& cb);
+              const bool frame_rate_cotrol, const BnBufferCallback& cb);
 
   /// TrackSource Destructor
   ~TrackSource();

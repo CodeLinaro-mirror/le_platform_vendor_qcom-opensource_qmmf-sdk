@@ -1496,11 +1496,19 @@ int32_t Camera3DeviceClient::ReturnStreamBuffer(StreamBuffer buffer) {
   int32_t res = 0;
   pthread_mutex_lock(&lock_);
 
+  streamIdx = streams_.indexOfKey(buffer.stream_id);
+
   switch (state_) {
     case STATE_ERROR:
-      QMMF_ERROR("%s: Device has encountered a serious error\n", __func__);
-      res = -ENOSYS;
-      goto exit;
+      if (streamIdx == -ENOENT) {
+        QMMF_ERROR("%s: Device has encountered a serious error\n", __func__);
+        res = -ENOSYS;
+        goto exit;
+      } else {
+        //Successful buffer received after unplug, so even though the Camera in
+        //error state we need to handle this buffer.
+        break;
+      }
     case STATE_NOT_INITIALIZED:
     case STATE_CLOSED:
     case STATE_NOT_CONFIGURED:
@@ -1516,7 +1524,6 @@ int32_t Camera3DeviceClient::ReturnStreamBuffer(StreamBuffer buffer) {
       goto exit;
   }
 
-  streamIdx = streams_.indexOfKey(buffer.stream_id);
   if (streamIdx == -ENOENT) {
     QMMF_ERROR("%s: Stream %d does not exist\n", __func__, buffer.stream_id);
     res = -EINVAL;
