@@ -223,6 +223,8 @@ class CameraContext : public CameraInterface {
 
   status_t DeleteSnapshotStream(bool cache = false);
 
+  status_t SetPerStreamFrameRate();
+
   status_t UpdateRequest(bool is_streaming);
 
   status_t CancelRequest();
@@ -361,6 +363,7 @@ class CameraContext : public CameraInterface {
   std::set<int32_t>             stopped_stream_ids_;
   CameraParameters              camera_parameters_;
   bool                          is_partial_metadata_enabled_;
+  bool                          pcr_frc_enabled_;
   bool                          continuous_mode_is_on_;
   bool                          is_camera_dead_;
   bool                          is_shdr_enable_;
