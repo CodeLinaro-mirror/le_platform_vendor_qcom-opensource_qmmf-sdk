@@ -1743,7 +1743,7 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
           QMMF_DEBUG("%s: CameraPort(0x%p):camera_stream_id(%d) is adding to "
               "active stream !", __func__, port.get(), cam_stream_id);
         }
-        if ((1 < i) && (streaming_active_requests_[i].metadata.isEmpty())) {
+        if ((1 <= i) && (streaming_active_requests_[i].metadata.isEmpty())) {
           assert(!streaming_active_requests_[0].metadata.isEmpty());
           streaming_active_requests_[i].metadata.append(
               streaming_active_requests_[0].metadata);
