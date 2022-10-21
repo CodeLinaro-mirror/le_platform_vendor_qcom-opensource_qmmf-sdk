@@ -2697,10 +2697,27 @@ status_t CameraPort::Init() {
     // video streams. This is why this flag is needed.
     cam_stream_params_.allocFlags.flags = IMemAllocUsage::kVideoEncoder;
 
-    cam_stream_params_.allocFlags.flags |=
-        (params_.format != BufferFormat::kNV12UBWC) ?
-            (IMemAllocUsage::kSwReadOften | IMemAllocUsage::kSwWriteOften) :
+    switch (params_.format) {
+      case BufferFormat::kNV12UBWC:
+        cam_stream_params_.allocFlags.flags |=
             IMemAllocUsage::kPrivateAllocUbwc;
+        break;
+      case BufferFormat::kP010:
+        cam_stream_params_.data_space = HAL_DATASPACE_TRANSFER_GAMMA2_8;
+        cam_stream_params_.allocFlags.flags |=
+            IMemAllocUsage::kPrivateAllocP010;
+        break;
+      case BufferFormat::kTP10UBWC:
+        cam_stream_params_.data_space = HAL_DATASPACE_TRANSFER_GAMMA2_8;
+        cam_stream_params_.allocFlags.flags |=
+            IMemAllocUsage::kPrivateAllocTP10 |
+              IMemAllocUsage::kPrivateAllocUbwc;
+        break;
+      default:
+        cam_stream_params_.allocFlags.flags |=
+            IMemAllocUsage::kSwReadOften | IMemAllocUsage::kSwWriteOften;
+        break;
+    }
 
     //TODO: This needs to be rework and provide proper solution to
     //      set UBWC per stream basis.
