@@ -107,6 +107,8 @@ enum class VideoFormat : uint32_t {
   kNV16,
   kYUY2,
   kUYVY,
+  kP010,
+  kTP10UBWC,
   kBayerIdeal,
   kBayerRDI8BIT,
   kBayerRDI10BIT,

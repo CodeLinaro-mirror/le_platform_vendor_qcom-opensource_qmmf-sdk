@@ -998,6 +998,12 @@ void RecorderClient::ImportBuffer(int32_t fd, int32_t metafd,
     case BufferFormat::kNV12UBWC:
       format = GBM_FORMAT_YCbCr_420_SP_VENUS_UBWC;
       break;
+    case BufferFormat::kP010:
+      format = GBM_FORMAT_YCbCr_420_P010_VENUS;
+      break;
+    case BufferFormat::kTP10UBWC:
+      format = GBM_FORMAT_YCbCr_420_TP10_UBWC;
+      break;
     case BufferFormat::kYUY2:
       format = GBM_FORMAT_YCrCb_422_I;
       break;
