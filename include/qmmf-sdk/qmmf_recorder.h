@@ -33,19 +33,19 @@
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted (subject to the limitations in the
 * disclaimer below) provided that the following conditions are met:
-*  
+*
 *     * Redistributions of source code must retain the above copyright
 *       notice, this list of conditions and the following disclaimer.
-*  
+*
 *     * Redistributions in binary form must reproduce the above
 *       copyright notice, this list of conditions and the following
 *       disclaimer in the documentation and/or other materials provided
 *       with the distribution.
-*  
+*
 *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
 *       contributors may be used to endorse or promote products derived
 *       from this software without specific prior written permission.
-*  
+*
 * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
 * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
 * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
@@ -241,13 +241,15 @@ class Recorder {
   /// an event indicating CANCEL is complete
   ///
   /// @param camera_id: ID of camera
-  /// @param num_images: Number of images to be captured
+  /// @param type: The type of snapshot capture request
+  /// @param n_images: Number of images to be captured
   /// @param meta: Optional camera meta parameter for each image to be captured
   ///        If this vector is empty default parameters are used for for image
   ///        capture.
   /// @param cb: Callbacks for data and error notifications
   status_t CaptureImage(const uint32_t camera_id,
-                        const uint32_t num_images,
+                        const SnapshotType type,
+                        const uint32_t n_images,
                         const std::vector<::android::CameraMetadata> &meta,
                         const ImageCaptureCb &cb);
 
@@ -262,13 +264,13 @@ class Recorder {
   ///        plugins, multi-camera mode, etc.
   status_t ConfigImageCapture(const uint32_t camera_id,
                               const ImageParam &param,
-                              const ImageExtraParam &config);
+                              const ImageExtraParam &xtraparam);
 
   /// @brief Cancels an ongoing image capture
   ///
   /// CaptureImage is a async API. Clients can call CancelCaptureImage anytime
   /// after CaptureImage to cancel pending image captures
-  status_t CancelCaptureImage(const uint32_t camera_id);
+  status_t CancelCaptureImage(const uint32_t camera_id, const bool cache = false);
 
   /// @brief Returns image buffer back to recoder
   ///
