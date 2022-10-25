@@ -70,6 +70,7 @@
 #include <chrono>
 #include <fcntl.h>
 #include <math.h>
+#include <algorithm>
 #include <sys/mman.h>
 #ifdef QCAMERA3_TAG_LOCAL_COPY
 #include "common/utils/qmmf_common_utils.h"
@@ -120,6 +121,7 @@ CameraContext::CameraContext()
       port_paused_(false),
       camera_parameters_{},
       is_partial_metadata_enabled_(false),
+      pcr_frc_enabled_(false),
       continuous_mode_is_on_(false),
       is_camera_dead_(false),
       is_shdr_enable_(false) {
@@ -402,6 +404,24 @@ status_t CameraContext::OpenCamera(const uint32_t camera_id,
       }
     } else {
       QMMF_ERROR("%s: Invalid partial metadata received", __func__);
+      return BAD_VALUE;
+    }
+  }
+
+  if (extra_param.Exists(QMMF_FRAME_RATE_CONTROL)) {
+    size_t entry_count = extra_param.EntryCount(QMMF_FRAME_RATE_CONTROL);
+    if (entry_count == 1) {
+      FrameRateControl frc_mode;
+      extra_param.Fetch(QMMF_FRAME_RATE_CONTROL, frc_mode, 0);
+      if (frc_mode.mode == FrameRateControlMode::kCaptureRequest) {
+        QMMF_INFO("%s: PCR FRC enable", __func__);
+        pcr_frc_enabled_ = true;
+      } else {
+        QMMF_INFO("%s: PCR FRC disable", __func__);
+        pcr_frc_enabled_ = false;
+      }
+    } else {
+      QMMF_ERROR("%s: Invalid FRC mode received", __func__);
       return BAD_VALUE;
     }
   }
@@ -1610,6 +1630,83 @@ CameraMetadata CameraContext::GetCameraStaticMeta() {
   return static_meta_;
 }
 
+status_t CameraContext::SetPerStreamFrameRate() {
+
+  float max_fps = 0;
+
+  if (active_ports_.size() <= 1) {
+    // There is only one stream in total. Skip per stream control.
+    return NO_ERROR;
+  }
+
+  // We need to calculate frame rate even there is only one active stream
+  // because first stream could have lower frame rate then max frame rate.
+
+  std::vector<std::pair<uint32_t, uint32_t>> frame_rate_map;
+  for (auto const& it : active_ports_) {
+    auto& port = it.second;
+    frame_rate_map.push_back(std::pair<uint32_t, uint32_t>(
+        port->GetCameraStreamId(), ceil(port->GetPortFramerate() - 0.5)));
+
+    if (max_fps < port->GetPortFramerate()) {
+      max_fps = port->GetPortFramerate();
+    }
+  }
+
+  auto gcd = std::__gcd (frame_rate_map[0].second, frame_rate_map[1].second);
+  for (size_t i = 2; i < frame_rate_map.size(); i++) {
+    gcd = std::__gcd (gcd, frame_rate_map[i].second);
+  }
+  uint32_t max_frame_rate = ceil(max_fps - 0.5);
+  uint32_t request_count = max_frame_rate / gcd;
+
+  std::vector<std::vector<uint32_t>> request_map;
+  request_map.resize(request_count);
+  for (auto const& it : frame_rate_map) {
+    auto stream_id = it.first;
+    auto stream_frame_rate = it.second;
+
+    float frames = stream_frame_rate / gcd;
+    float gaps = request_count - frames;
+    float ratio = frames / gaps;
+
+    // All streams are part for first request. Start calulation
+    // from the second request
+    frames--;
+    for (size_t i = 1; i < request_count; i++) {
+      if (frames / gaps >= ratio) {
+        request_map[i].push_back(stream_id);
+        frames--;
+      } else {
+        gaps--;
+      }
+    }
+  }
+
+  streaming_active_requests_.resize(request_map.size());
+
+  for (size_t i = 1; i < request_map.size(); i++) {
+    if (streaming_active_requests_[i].metadata.isEmpty()) {
+      assert(!streaming_active_requests_[0].metadata.isEmpty());
+
+      streaming_active_requests_[i].metadata.append(
+          streaming_active_requests_[0].metadata);
+
+      for (auto stream_id : request_map[i]) {
+        streaming_active_requests_[i].streamIds.add(stream_id);
+      }
+    }
+  }
+
+  for (size_t i = 0; i < streaming_active_requests_.size(); i++) {
+    for (auto id : streaming_active_requests_[i].streamIds) {
+      QMMF_INFO ("%s: request %d stream-id %d ", __func__, i, id);
+    }
+  }
+
+  return NO_ERROR;
+}
+
 status_t CameraContext::UpdateRequest(bool is_streaming) {
 
   QMMF_DEBUG("%s: Enter", __func__);
@@ -1654,6 +1751,12 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
         }
       }
       stream_ids.emplace(cam_stream_id);
+
+      // Batchiing is use for HFR. HFR and per-stream frame rate control are
+      // mutual exclusive.
+      if (pcr_frc_enabled_ && batch_size <= 1) {
+        SetPerStreamFrameRate();
+      }
     } else if (port->getPortState() == PortState::PORT_READYTOSTOP) {
 
       QMMF_INFO("%s: CameraPort(0x%p):camera_stream_id(%d) is stopped ",
@@ -1699,14 +1802,12 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
   size_t stale_count = 0;
   //Check for any stale batch requests and remove if present
   for (size_t i = 1; i < streaming_active_requests_.size(); i++) {
-    if(streaming_active_requests_[i].streamIds.isEmpty()) {
+    if (streaming_active_requests_[i].streamIds.isEmpty()) {
       if (!stale_batches_present) {
         stale_batches_present = true;
         stale_idx = i;
       }
       stale_count++;
-    } else {
-      assert(!stale_batches_present);
     }
   }
 
