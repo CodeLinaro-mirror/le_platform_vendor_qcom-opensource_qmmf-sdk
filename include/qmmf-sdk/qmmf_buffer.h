@@ -129,6 +129,15 @@ struct BufferDescriptor {
   uint32_t capacity;
   uint32_t offset;
   uint64_t timestamp;
+  uint64_t ts_soe;
+  uint64_t ts_eoe;
+  uint64_t ts_sof;
+  uint64_t ts_eof;
+  uint64_t ts_hal;
+  uint64_t ts_qmf;
+  uint64_t td_exp;
+  uint64_t ts_aux;
+  uint64_t td_aux;
   uint64_t seqnum;
   uint64_t flags;
 
@@ -141,6 +150,15 @@ struct BufferDescriptor {
     stream << "capacity[" << capacity << "] ";
     stream << "offset[" << offset << "] ";
     stream << "timestamp[" << timestamp << "] ";
+    stream << "ts_soe[" << ts_soe << "] ";
+    stream << "ts_eoe[" << ts_eoe << "] ";
+    stream << "ts_sof[" << ts_sof << "] ";
+    stream << "ts_eof[" << ts_eof << "] ";
+    stream << "ts_hal[" << ts_hal << "] ";
+    stream << "ts_qmf[" << ts_qmf << "] ";
+    stream << "td_exp[" << td_exp << "] ";
+    stream << "ts_aux[" << ts_aux << "] ";
+    stream << "td_aux[" << td_aux << "] ";
     stream << "seqnum[" << seqnum << "] ";
     stream << "flags[" << ::std::setbase(16) << flags
            << ::std::setbase(10) << "]";

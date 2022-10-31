@@ -667,6 +667,15 @@ int32_t Camera3Stream::PopulateBufferMeta(BufferMeta &info,
 
 void Camera3Stream::ReturnBufferToClient(const camera3_stream_buffer &buffer,
                                          int64_t timestamp,
+                                         int64_t ts_soe,
+                                         int64_t ts_eoe,
+                                         int64_t ts_sof,
+                                         int64_t ts_eof,
+                                         int64_t ts_hal,
+                                         int64_t ts_qmf,
+                                         int64_t td_exp,
+                                         int64_t ts_aux,
+                                         int64_t td_aux,
                                          int64_t frame_number) {
   assert(nullptr != callbacks_);
 
@@ -678,6 +687,15 @@ void Camera3Stream::ReturnBufferToClient(const camera3_stream_buffer &buffer,
   StreamBuffer b;
   memset(&b, 0, sizeof(b));
   b.timestamp = timestamp;
+  b.ts_soe = ts_soe;
+  b.ts_eoe = ts_eoe;
+  b.ts_sof = ts_sof;
+  b.ts_eof = ts_eof;
+  b.ts_hal = ts_hal;
+  b.ts_qmf = ts_qmf;
+  b.td_exp = td_exp;
+  b.ts_aux = ts_aux;
+  b.td_aux = td_aux;
   b.frame_number = frame_number;
   b.stream_id = id_;
   b.data_space = data_space;
@@ -699,8 +717,12 @@ void Camera3Stream::ReturnBufferToClient(const camera3_stream_buffer &buffer,
     callbacks_(b);
   } else {
     QMMF_WARN("%s: Got buffer(%p) from stream(%d), frame_number(%u) and "
-        " ts(%lld) with error status!", __func__, b.handle, b.stream_id,
-        b.frame_number, b.timestamp);
+        " ts(%lld) ts_soe(%lld) ts_eoe(%lld) ts_sof(%lld) ts_eof(%lld) "
+        " ts_hal(%lld) ts_qmf(%lld) td_exp(%lld) ts_aux(%lld) td_aux(%lld)"
+        " with error status!", 
+        __func__, b.handle, b.stream_id, b.frame_number, b.timestamp,
+        b.ts_soe, b.ts_eoe, b.ts_sof, b.ts_eof, b.ts_hal, b.ts_qmf,
+        b.td_exp, b.ts_aux, b.td_aux);
     ReturnBuffer(b);
   }
 }
