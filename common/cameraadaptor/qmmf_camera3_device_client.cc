@@ -84,6 +84,7 @@
 #include <dlfcn.h>
 #include <string.h>
 #include <utils/String8.h>
+#include <time.h>
 
 #include "recorder/src/service/qmmf_recorder_common.h"
 #include "qmmf_camera3_utils.h"
@@ -1158,6 +1159,19 @@ void Camera3DeviceClient::HandleCaptureResult(
   uint32_t numBuffersReturned;
 
   int64_t shutterTimestamp = 0;
+  int64_t ts_ref = 0;
+  int64_t ts_soe = 0;
+  int64_t ts_eoe = 0;
+  int64_t ts_sof = 0;
+  int64_t ts_eof = 0;
+  int64_t ts_hal = 0;
+  int64_t ts_qmf = 0;
+  int64_t td_exp = 0;
+  int64_t ts_aux = 0;
+  int64_t td_aux = 0;
+  uint32_t tag = 0;
+  sp<VendorTagDescriptor> vTags =
+      VendorTagDescriptor::getGlobalVendorTagDescriptor();
 
   pthread_mutex_lock(&pending_requests_lock_);
   if (!pending_requests_vector_.count(frameNumber)) {
@@ -1204,7 +1218,27 @@ void Camera3DeviceClient::HandleCaptureResult(
     }
   }
 
-  shutterTimestamp = request.shutterTS;
+  CameraMetadata::getTagFromName("org.quic.camera.monotimer.reftimestamp",
+                  vTags.get(), &tag);
+  res = find_camera_metadata_ro_entry(result->result, tag, &entry);
+  if ((0 == res) && (entry.count > 0)) {
+    ts_ref = entry.data.i64[0];
+    QMMF_DEBUG(
+      "%s: Received requestId = %d, frameNumber = %d,"
+      "ts_ref = %lld\n",
+      __func__, request.resultExtras.requestId, frameNumber,
+      ts_ref);
+    ts_ref_frameNumber = frameNumber;
+    ts_ref_meta = ts_ref;
+	shutterTimestamp = ts_ref;
+  } else {
+    if (ts_ref_frameNumber == frameNumber && ts_ref <= 0 && ts_ref_meta > 0) {
+      ts_ref = ts_ref_meta;
+      shutterTimestamp = ts_ref;
+    } else {
+      shutterTimestamp = request.shutterTS;
+    }
+  }
 
   if (result->result != NULL && !isPartialResult) {
     if (request.isMetaPresent) {
@@ -1251,10 +1285,125 @@ void Camera3DeviceClient::HandleCaptureResult(
                         frameNumber);
     }
   }
+  res = find_camera_metadata_ro_entry(result->result, ANDROID_SENSOR_EXPOSURE_TIME,
+                                      &entry);
+  if ((0 == res) && (entry.count == 1)) {
+    td_exp = entry.data.i64[0];
+    ts_soe = request.shutterTS;
+    ts_eoe = ts_soe + td_exp;
+    QMMF_DEBUG(
+      "%s: Received requestId = %d, frameNumber = %d,"
+      "td_exp = %lld\n", "ts_soe = %lld\n", "ts_eoe = %lld\n",
+      __func__, request.resultExtras.requestId, frameNumber,
+      td_exp, ts_soe, ts_eoe);
+    td_exp_frameNumber = frameNumber;
+    td_exp_meta = td_exp;
+    ts_soe_meta = ts_soe;
+    ts_eoe_meta = ts_eoe;
+  } else {
+    if (td_exp_frameNumber == frameNumber && td_exp <= 0 && td_exp_meta > 0) {
+      td_exp = td_exp_meta;
+      ts_soe = ts_soe_meta;
+      ts_eoe = ts_eoe_meta;
+    }
+  }
+
+  CameraMetadata::getTagFromName("org.quic.camera.monotimer.softimestamp",
+              vTags.get(), &tag);
+  res = find_camera_metadata_ro_entry(result->result, tag, &entry);
+  if ((0 == res) && (entry.count > 0)) {
+    ts_sof = entry.data.i64[0];
+    QMMF_DEBUG(
+      "%s: Received requestId = %d, frameNumber = %d,"
+      "ts_sof = %lld\n",
+      __func__, request.resultExtras.requestId, frameNumber,
+      ts_sof);
+    ts_sof_frameNumber = frameNumber;
+    ts_sof_meta = ts_sof;
+  } else {
+    if (ts_sof_frameNumber == frameNumber && ts_sof <= 0 && ts_sof_meta > 0)
+      ts_sof = ts_sof_meta;
+  }
+
+  CameraMetadata::getTagFromName("org.quic.camera.monotimer.eoftimestamp",
+              vTags.get(), &tag);
+  res = find_camera_metadata_ro_entry(result->result, tag, &entry);
+  if ((0 == res) && (entry.count > 0)) {
+    ts_eof = entry.data.i64[0];
+    QMMF_DEBUG(
+      "%s: Received requestId = %d, frameNumber = %d,"
+      "ts_eof = %lld\n",
+      __func__, request.resultExtras.requestId, frameNumber,
+      ts_eof);
+    ts_eof_frameNumber = frameNumber;
+    ts_eof_meta = ts_eof;
+  } else {
+    if (ts_eof_frameNumber == frameNumber && ts_eof <= 0 && ts_eof_meta > 0)
+      ts_eof = ts_eof_meta;
+  }
+
+  CameraMetadata::getTagFromName("org.quic.camera.monotimer.SlavecameraSoftimestamp",
+              vTags.get(), &tag);
+  res = find_camera_metadata_ro_entry(result->result, tag, &entry);
+  if ((0 == res) && (entry.count > 0)) {
+    ts_aux = entry.data.i64[0];
+    QMMF_DEBUG(
+      "%s: Received requestId = %d, frameNumber = %d,"
+      "ts_aux = %lld\n",
+      __func__, request.resultExtras.requestId, frameNumber,
+      ts_aux);
+    ts_aux_frameNumber = frameNumber;
+    ts_aux_meta = ts_aux;
+  } else {
+    if (ts_aux_frameNumber == frameNumber && ts_aux <= 0 && ts_aux_meta > 0)
+      ts_aux = ts_aux_meta;
+  }
+
+  CameraMetadata::getTagFromName("org.quic.camera.monotimer.SlavecameraExposureTime",
+              vTags.get(), &tag);
+  res = find_camera_metadata_ro_entry(result->result, tag, &entry);
+  if ((0 == res) && (entry.count > 0)) {
+    td_aux = entry.data.i64[0];
+    QMMF_DEBUG(
+      "%s: Received requestId = %d, frameNumber = %d,"
+      "td_aux = %lld\n",
+      __func__, request.resultExtras.requestId, frameNumber,
+      td_aux);
+    td_aux_frameNumber = frameNumber;
+    td_aux_meta = td_aux;
+  } else {
+    if (td_aux_frameNumber == frameNumber && td_aux <= 0 && td_aux_meta > 0)
+      td_aux = td_aux_meta;
+  }
+
+  if (result->num_output_buffers > 0) {
+    struct timespec t0;
+
+    ts_hal = result->timestamp;
+
+    clock_gettime(CLOCK_MONOTONIC, &t0);
+    ts_qmf = (((uint64_t)t0.tv_sec) * 1000000000ULL) + ((uint64_t)t0.tv_nsec);
+
+    QMMF_DEBUG(
+      "%s: Received requestId = %d, frameNumber = %d,"
+      "ts_hal = %lld, ts_qmf = %lld\n",
+      __func__, request.resultExtras.requestId, frameNumber,
+      ts_hal, ts_qmf);
+    ts_hal_frameNumber = frameNumber;
+    ts_hal_meta = ts_hal;
+    ts_qmf_meta = ts_qmf;
+  } else {
+    if (ts_hal_frameNumber == frameNumber && ts_hal_meta > 0) {
+        ts_hal = ts_hal_meta;
+        ts_qmf = ts_qmf_meta;
+    }
+  }
 
   if (0 < shutterTimestamp) {
     ReturnOutputBuffers(result->output_buffers, result->num_output_buffers,
-                        shutterTimestamp, result->frame_number);
+                        shutterTimestamp, ts_soe, ts_eoe, ts_sof, ts_eof, 
+                        ts_hal, ts_qmf, td_exp, ts_aux, td_aux,
+                        result->frame_number);
   }
 
   RemovePendingRequestLocked(frameNumber);
@@ -1398,7 +1547,8 @@ void Camera3DeviceClient::NotifyShutter(const camera3_shutter_msg_t &msg) {
     SendCaptureResult(r.pendingMetadata, r.resultExtras,
                       r.partialResult.composedResult, msg.frame_number);
     ReturnOutputBuffers(r.pendingBuffers.array(), r.pendingBuffers.size(),
-                        r.shutterTS, msg.frame_number);
+                        r.shutterTS, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                        msg.frame_number);
     r.pendingBuffers.clear();
 
     RemovePendingRequestLocked(msg.frame_number);
@@ -1468,10 +1618,14 @@ void Camera3DeviceClient::SendCaptureResult(
 
 void Camera3DeviceClient::ReturnOutputBuffers(
     const camera3_stream_buffer_t *outputBuffers, size_t numBuffers,
-    int64_t timestamp, int64_t frame_number) {
+    int64_t timestamp, int64_t ts_soe, int64_t ts_eoe, int64_t ts_sof,
+    int64_t ts_eof, int64_t ts_hal, int64_t ts_qmf, int64_t td_exp,
+    int64_t ts_aux, int64_t td_aux, int64_t frame_number) {
   for (size_t i = 0; i < numBuffers; i++) {
     Camera3Stream *stream = Camera3Stream::CastTo(outputBuffers[i].stream);
-    stream->ReturnBufferToClient(outputBuffers[i], timestamp, frame_number);
+    stream->ReturnBufferToClient(outputBuffers[i], timestamp, ts_soe, ts_eoe,
+                                 ts_sof, ts_eof, ts_hal,ts_qmf, td_exp,
+                                 ts_aux, td_aux, frame_number);
 
     if (CAMERA3_BUFFER_STATUS_ERROR == outputBuffers[i].status &&
         flush_on_going_ == false) {
@@ -1560,8 +1714,8 @@ void Camera3DeviceClient::RemovePendingRequestLocked(uint32_t frameNumber) {
     }
 
     ReturnOutputBuffers(request.pendingBuffers.array(),
-                        request.pendingBuffers.size(), 0,
-                        frameNumber);
+                        request.pendingBuffers.size(), 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, frameNumber);
 
     if (0 != request.status && (!request.isMetaPresent || shutterTS == 0)) {
       QMMF_INFO("%s: Received error in the capture request. Added to the error"

@@ -552,6 +552,15 @@ status_t RecorderClient::ReturnTrackBuffer(const uint32_t session_id,
       -1,                                  // ion_meta_fd
       buffer.size,                         // size
       buffer.timestamp,                    // timestamp
+      buffer.ts_soe,                       // SOE timestamp
+      buffer.ts_eoe,                       // EOE timestamp
+      buffer.ts_sof,                       // SOF timestamp
+      buffer.ts_eof,                       // EOF timestamp
+      buffer.ts_hal,                       // HAL timestamp
+      buffer.ts_qmf,                       // QMMF timestamp
+      buffer.td_exp,                       // Exposure time duration
+      buffer.ts_aux,                       // T2 of slave camera
+      buffer.td_aux,                       // Texp of slave camera
       buffer.seqnum,                       // seqnum
       buffer.buf_id,                       // buffer_id
       buffer.flags,                        // flags
@@ -1268,6 +1277,15 @@ void RecorderClient::NotifySnapshotData(uint32_t camera_id, uint32_t imgcount,
   buffer.data      = buffer_info.vaddr;
   buffer.size      = bn_buffer.size;
   buffer.timestamp = bn_buffer.timestamp;
+  buffer.ts_soe   = bn_buffer.ts_soe;
+  buffer.ts_eoe   = bn_buffer.ts_eoe;
+  buffer.ts_sof   = bn_buffer.ts_sof;
+  buffer.ts_eof   = bn_buffer.ts_eof;
+  buffer.ts_hal   = bn_buffer.ts_hal;
+  buffer.ts_qmf   = bn_buffer.ts_qmf;
+  buffer.td_exp   = bn_buffer.td_exp;
+  buffer.ts_aux   = bn_buffer.ts_aux;
+  buffer.td_aux   = bn_buffer.td_aux;
   buffer.seqnum    = bn_buffer.seqnum;
   buffer.flags     = bn_buffer.flags;
   buffer.capacity  = bn_buffer.capacity;
@@ -1372,6 +1390,15 @@ void RecorderClient::NotifyVideoTrackData(uint32_t session_id,
     buffer.data      = buffer_info.vaddr;
     buffer.size      = bn_buffer.size;
     buffer.timestamp = bn_buffer.timestamp;
+    buffer.ts_soe   = bn_buffer.ts_soe;
+    buffer.ts_eoe   = bn_buffer.ts_eoe;
+    buffer.ts_sof   = bn_buffer.ts_sof;
+    buffer.ts_eof   = bn_buffer.ts_eof;
+    buffer.ts_hal   = bn_buffer.ts_hal;
+    buffer.ts_qmf  = bn_buffer.ts_qmf;
+    buffer.td_exp  = bn_buffer.td_exp;
+    buffer.ts_aux  = bn_buffer.ts_aux;
+    buffer.td_aux  = bn_buffer.td_aux;
     buffer.seqnum    = bn_buffer.seqnum;
     buffer.flags     = bn_buffer.flags;
     buffer.buf_id    = bn_buffer.buffer_id;
