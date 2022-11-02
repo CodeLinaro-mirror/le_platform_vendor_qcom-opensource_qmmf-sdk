@@ -230,6 +230,8 @@ class CameraSource {
 
   bool frame_rate_control_;
 
+  std::mutex lock_;
+
   // Not allowed
   CameraSource();
   CameraSource(const CameraSource&);
