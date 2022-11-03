@@ -53,6 +53,7 @@ enum ParamTag {
   QMMF_LDC,
   QMMF_LCAC,
   QMMF_FRAME_RATE_CONTROL,
+  QMMF_HFR_SYNC_MODE,
 };
 
 enum class SlaveMode {
@@ -212,6 +213,16 @@ struct FrameRateControl : DataTagBase {
   FrameRateControl() :
     DataTagBase(QMMF_FRAME_RATE_CONTROL),
     mode(FrameRateControlMode::kFrameSkip) {
+  }
+};
+
+struct HFRSyncMode : DataTagBase {
+  /**< Add support for client to enable/disable */
+  /**< HFRSyncMode (enable HFR Sycn mode). */
+  /**< Default: False */
+  bool enable;
+  HFRSyncMode() :
+    DataTagBase(QMMF_HFR_SYNC_MODE), enable(false) {
   }
 };
 

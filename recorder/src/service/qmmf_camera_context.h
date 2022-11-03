@@ -363,6 +363,9 @@ class CameraContext : public CameraInterface {
   bool                          continuous_mode_is_on_;
   bool                          is_camera_dead_;
   bool                          pending_cached_stream_;
+
+  bool                          hfr_sync_mode_;
+  bool                          all_ports_ready_;
 };
 
 enum class CameraPortType {
