@@ -392,6 +392,22 @@ status_t CameraContext::OpenCamera(const uint32_t camera_id,
     }
   }
 
+  if (extra_param.Exists(QMMF_IFE_DIRECT_STREAM)) {
+    size_t entry_count = extra_param.EntryCount(QMMF_IFE_DIRECT_STREAM);
+    if (entry_count == 1) {
+      IFEDirectStream ife_direct_stream;
+      extra_param.Fetch(QMMF_IFE_DIRECT_STREAM, ife_direct_stream, 0);
+      if (ife_direct_stream.enable == true) {
+        QMMF_INFO("%s: IFE Direct Stream is ON..", __func__);
+        camera_parameters_.cam_feature_flags |=
+            static_cast<uint32_t>(CamFeatureFlag::kIFEDirectStream);
+      }
+    } else {
+      QMMF_ERROR("%s: Invalid IFE Direct Stream param received", __func__);
+      return BAD_VALUE;
+    }
+  }
+
   camera_parameters_.batch_size = 1;
 
   if (!camera_device_) {
