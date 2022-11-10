@@ -64,12 +64,7 @@ class Camera3Stream : public camera3_stream {
   std::unordered_map <buffer_handle_t, IBufferHandle> buffers_map;
 
   void ReturnBufferToClient(const camera3_stream_buffer &buffer,
-                            int64_t timestamp, int64_t ts_soe,
-                            int64_t ts_eoe, int64_t ts_sof,
-                            int64_t ts_eof, int64_t ts_hal,
-                            int64_t ts_qmf, int64_t td_exp,
-                            int64_t ts_aux, int64_t td_aux,
-                            int64_t frame_number);
+                            int64_t timestamp, int64_t frame_number);
 
   int32_t Close();
 

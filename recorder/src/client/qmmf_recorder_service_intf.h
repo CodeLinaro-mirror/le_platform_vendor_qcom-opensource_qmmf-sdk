@@ -124,15 +124,6 @@ struct BnBuffer {
   int32_t   ion_meta_fd;
   uint32_t  size;
   uint64_t  timestamp;
-  uint64_t  ts_soe;
-  uint64_t  ts_eoe;
-  uint64_t  ts_sof;
-  uint64_t  ts_eof;
-  uint64_t  ts_hal;
-  uint64_t  ts_qmf;
-  uint64_t  td_exp;
-  uint64_t  ts_aux;
-  uint64_t  td_aux;
   uint64_t  seqnum;
   uint32_t  buffer_id;
   uint64_t  flags;
@@ -144,15 +135,6 @@ struct BnBuffer {
     stream << "ion_meta_fd[" << ion_meta_fd << "] ";
     stream << "size[" << size << "] ";
     stream << "timestamp[" << timestamp << "] ";
-    stream << "ts_soe[" << ts_soe << "] ";
-    stream << "ts_eoe[" << ts_eoe << "] ";
-    stream << "ts_sof[" << ts_sof << "] ";
-    stream << "ts_eof[" << ts_eof << "] ";
-    stream << "ts_hal[" << ts_hal << "] ";
-    stream << "ts_qmf[" << ts_qmf << "] ";
-    stream << "td_exp[" << td_exp << "] ";
-    stream << "ts_aux[" << ts_aux << "] ";
-    stream << "td_aux[" << td_aux << "] ";
     stream << "seqnum[" << seqnum << "] ";
     stream << "buffer_id[" << buffer_id << "] ";
     stream << "flag[" << setbase(16) << flags << setbase(10) << "] ";
@@ -176,15 +158,6 @@ struct BnBuffer {
     }
     parcel->writeUint32(size);
     parcel->writeInt64(timestamp);
-    parcel->writeInt64(ts_soe);
-    parcel->writeInt64(ts_eoe);
-    parcel->writeInt64(ts_sof);
-    parcel->writeInt64(ts_eof);
-    parcel->writeInt64(ts_hal);
-    parcel->writeInt64(ts_qmf);
-    parcel->writeInt64(td_exp);
-    parcel->writeInt64(ts_aux);
-    parcel->writeInt64(td_aux);
     parcel->writeInt64(seqnum);
     parcel->writeUint32(buffer_id);
     parcel->writeUint32(flags);
@@ -207,15 +180,6 @@ struct BnBuffer {
     }
     size = parcel.readUint32();
     timestamp = parcel.readInt64();
-    ts_soe = parcel.readInt64();
-    ts_eoe = parcel.readInt64();
-    ts_sof = parcel.readInt64();
-    ts_eof = parcel.readInt64();
-    ts_hal = parcel.readInt64();
-    ts_qmf = parcel.readInt64();
-    td_exp = parcel.readInt64();
-    ts_aux = parcel.readInt64();
-    td_aux = parcel.readInt64();
     seqnum = parcel.readInt64();
     buffer_id = parcel.readUint32();
     flags = parcel.readUint32();
