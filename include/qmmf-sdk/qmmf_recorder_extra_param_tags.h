@@ -54,6 +54,7 @@ enum ParamTag {
   QMMF_LCAC,
   QMMF_FRAME_RATE_CONTROL,
   QMMF_HFR_SYNC_MODE,
+  QMMF_YUVCALLBACK,
 };
 
 enum class SlaveMode {
@@ -223,6 +224,16 @@ struct HFRSyncMode : DataTagBase {
   bool enable;
   HFRSyncMode() :
     DataTagBase(QMMF_HFR_SYNC_MODE), enable(false) {
+  }
+};
+
+struct YUVCallbackMode: DataTagBase {
+  /**< Add support for client to enable/disable */
+  /**< YUVCallback (support YUVCallback IFE Stream). */
+  /**< Default: False */
+  bool enable;
+  YUVCallbackMode() :
+    DataTagBase(QMMF_YUVCALLBACK), enable(false) {
   }
 };
 

@@ -412,6 +412,23 @@ status_t CameraContext::OpenCamera(const uint32_t camera_id,
     }
   }
 
+
+  if (extra_param.Exists(QMMF_YUVCALLBACK)) {
+    size_t entry_count = extra_param.EntryCount(QMMF_YUVCALLBACK);
+    if (entry_count == 1) {
+      YUVCallbackMode yuv_cb;
+      extra_param.Fetch(QMMF_YUVCALLBACK, yuv_cb, 0);
+      if (yuv_cb.enable == true) {
+        QMMF_INFO("%s: YUV Callback is ON..", __func__);
+        camera_parameters_.cam_feature_flags |=
+            static_cast<uint32_t>(CamFeatureFlag::kYUVCALLBACK);
+      }
+    } else {
+      QMMF_ERROR("%s: Invalid YUV Callback param received", __func__);
+      return BAD_VALUE;
+    }
+  }
+
   camera_parameters_.batch_size = 1;
 
   if (!camera_device_) {

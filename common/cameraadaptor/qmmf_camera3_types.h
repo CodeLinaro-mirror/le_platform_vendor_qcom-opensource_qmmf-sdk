@@ -104,6 +104,7 @@ enum class CamFeatureFlag : uint32_t {
   kLDC = 1 << 2,               /// LDC is on.
   kLCAC = 1 << 3,              /// LCAC is on.
   kForceSensorMode = 1 << 4,   /// Force Sensor Mode is on.
+  kYUVCALLBACK = 1 << 5,       /// Enable YUV Callback stream
 };
 
 #define FORCE_SENSOR_MODE_MASK      (0x00F00000)
