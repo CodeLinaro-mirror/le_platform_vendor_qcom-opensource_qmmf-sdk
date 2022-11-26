@@ -167,7 +167,6 @@ status_t CameraSource::StartCamera(const uint32_t camera_id,
   }
 
   // Add contexts to map when in regular camera case.
-  std::lock_guard<std::mutex> lock(lock_);
   active_cameras_.emplace(camera_id, camera);
 
   // This is required to send it to rescaler to take decision on UBWC.
@@ -218,7 +217,6 @@ status_t CameraSource::StopCamera(const uint32_t camera_id) {
     return FAILED_TRANSACTION;
   }
 
-  std::lock_guard<std::mutex> lock(lock_);
   active_cameras_.erase(camera_id);
   QMMF_INFO("%s: Camera(%d) successfully closed!", __func__, camera_id);
 
@@ -502,7 +500,6 @@ status_t CameraSource::CreateTrackSource(const uint32_t track_id,
         return BAD_VALUE;
       }
       rescaler->Configure(GetRescalerConfig(xtraparam));
-      std::lock_guard<std::mutex> lock(lock_);
       rescalers_.emplace(track_id, rescaler);
     }
 
@@ -514,7 +511,6 @@ status_t CameraSource::CreateTrackSource(const uint32_t track_id,
     if (ret != NO_ERROR) {
       QMMF_ERROR("%s: Track(%x): TrackSource InitCopy failed!", __func__,
          track_id);
-      std::lock_guard<std::mutex> lock(lock_);
       rescalers_.erase(track_id);
       goto FAIL;
     }
@@ -531,9 +527,7 @@ status_t CameraSource::CreateTrackSource(const uint32_t track_id,
     }
   }
 
-  lock_.lock();
   track_sources_.emplace(track_id, track_source);
-  lock_.unlock();
 
   QMMF_DEBUG("%s: Exit", __func__);
   return ret;
@@ -556,7 +550,6 @@ status_t CameraSource::DeleteTrackSource(const uint32_t track_id) {
     return ret;
   }
 
-  std::lock_guard<std::mutex> lock(lock_);
   track_sources_.erase(track_id);
   rescalers_.erase(track_id);
 
