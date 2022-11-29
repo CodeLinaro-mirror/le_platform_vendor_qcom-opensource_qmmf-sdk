@@ -1307,10 +1307,10 @@ status_t CameraContext::PopulateBufferMeta(BufferMeta &info,
                                            IBufferHandle &handle,
                                            uint32_t width,
                                            uint32_t height) {
-  uint32_t alignedW, alignedH;
+  uint32_t stride, scanline;
   auto ret = alloc_device_interface_->Perform(handle,
-                              IAllocDevice::AllocDeviceAction::GetAlignedWidth,
-                              static_cast<void*>(&alignedW));
+                              IAllocDevice::AllocDeviceAction::GetStride,
+                              static_cast<void*>(&stride));
 
   if (MemAllocError::kAllocOk != ret) {
     QMMF_ERROR("%s: Error in GetStrideAndHeightFromHandle() : %d\n", __func__,
@@ -1320,7 +1320,7 @@ status_t CameraContext::PopulateBufferMeta(BufferMeta &info,
 
   ret = alloc_device_interface_->Perform(handle,
                               IAllocDevice::AllocDeviceAction::GetAlignedHeight,
-                              static_cast<void*>(&alignedH));
+                              static_cast<void*>(&scanline));
   if (MemAllocError::kAllocOk != ret) {
     QMMF_ERROR("%s: Error in GetStrideAndHeightFromHandle() : %d\n", __func__,
       (int32_t) ret);
@@ -1335,9 +1335,9 @@ status_t CameraContext::PopulateBufferMeta(BufferMeta &info,
       info.n_planes = 1;
       info.planes[0].width = width;
       info.planes[0].height = height;
-      info.planes[0].stride = alignedW;
-      info.planes[0].scanline = alignedH;
-      info.planes[0].size = alignedW * alignedH;
+      info.planes[0].stride = stride;
+      info.planes[0].scanline = scanline;
+      info.planes[0].size = stride * scanline;
       info.planes[0].offset = 0;
       break;
     case HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS:
@@ -1348,32 +1348,32 @@ status_t CameraContext::PopulateBufferMeta(BufferMeta &info,
       info.n_planes = 2;
       info.planes[0].width = width;
       info.planes[0].height = height;
-      info.planes[0].stride = alignedW;
-      info.planes[0].scanline = alignedH;
-      info.planes[0].size = alignedW * alignedH;
+      info.planes[0].stride = stride;
+      info.planes[0].scanline = scanline;
+      info.planes[0].size = stride * scanline;
       info.planes[0].offset = 0;
       info.planes[1].width = width;
       info.planes[1].height = height / 2;
-      info.planes[1].stride = alignedW;
-      info.planes[1].scanline = alignedH/2;
-      info.planes[1].size = alignedW * (alignedH / 2);
-      info.planes[1].offset = alignedW * alignedH;
+      info.planes[1].stride = stride;
+      info.planes[1].scanline = scanline / 2;
+      info.planes[1].size = stride * (scanline / 2);
+      info.planes[1].offset = stride * scanline;
       break;
     case HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS_UBWC:
       info.format = BufferFormat::kNV12UBWC;
       info.n_planes = 2;
       info.planes[0].width = width;
       info.planes[0].height = height;
-      info.planes[0].stride = alignedW;
-      info.planes[0].scanline = alignedH;
-      info.planes[0].size = alignedW * alignedH;
+      info.planes[0].stride = stride;
+      info.planes[0].scanline = scanline;
+      info.planes[0].size = stride * scanline;
       info.planes[0].offset = 0;
       info.planes[1].width = width;
       info.planes[1].height = height / 2;
-      info.planes[1].stride = alignedW;
-      info.planes[1].scanline = alignedH/2;
-      info.planes[1].size = alignedW * (alignedH / 2);
-      info.planes[1].offset = alignedW * alignedH;
+      info.planes[1].stride = stride;
+      info.planes[1].scanline = scanline / 2;
+      info.planes[1].size = stride * (scanline / 2);
+      info.planes[1].offset = stride * scanline;
       break;
     case HAL_PIXEL_FORMAT_YCbCr_422_888:
     case HAL_PIXEL_FORMAT_YCbCr_422_SP:
@@ -1381,41 +1381,41 @@ status_t CameraContext::PopulateBufferMeta(BufferMeta &info,
       info.n_planes = 2;
       info.planes[0].width = width;
       info.planes[0].height = height;
-      info.planes[0].stride = alignedW;
-      info.planes[0].scanline = alignedH;
-      info.planes[0].size = alignedW * alignedH;
+      info.planes[0].stride = stride;
+      info.planes[0].scanline = scanline;
+      info.planes[0].size = stride * scanline;
       info.planes[0].offset = 0;
       info.planes[1].width = width;
       info.planes[1].height = height;
-      info.planes[1].stride = alignedW;
-      info.planes[1].scanline = alignedH;
-      info.planes[1].size = alignedW * alignedH;
-      info.planes[1].offset = alignedW * alignedH;
+      info.planes[1].stride = stride;
+      info.planes[1].scanline = scanline;
+      info.planes[1].size = stride * scanline;
+      info.planes[1].offset = stride * scanline;
       break;
     case HAL_PIXEL_FORMAT_NV21_ZSL:
       info.format = BufferFormat::kNV21;
       info.n_planes = 2;
       info.planes[0].width = width;
       info.planes[0].height = height;
-      info.planes[0].stride = alignedW;
-      info.planes[0].scanline = alignedH;
-      info.planes[0].size = alignedW * alignedH;
+      info.planes[0].stride = stride;
+      info.planes[0].scanline = scanline;
+      info.planes[0].size = stride * scanline;
       info.planes[0].offset = 0;
       info.planes[1].width = width;
-      info.planes[1].height = height/2;
-      info.planes[1].stride = alignedW;
-      info.planes[1].scanline = alignedH/2;
-      info.planes[1].size = alignedW * (alignedH / 2);
-      info.planes[1].offset = alignedW * alignedH;
+      info.planes[1].height = height / 2;
+      info.planes[1].stride = stride;
+      info.planes[1].scanline = scanline / 2;
+      info.planes[1].size = stride * (scanline / 2);
+      info.planes[1].offset = stride * scanline;
       break;
     case HAL_PIXEL_FORMAT_RAW8:
       info.format = BufferFormat::kRAW8;
       info.n_planes = 1;
       info.planes[0].width = width;
       info.planes[0].height = height;
-      info.planes[0].stride = alignedW;
-      info.planes[0].scanline = alignedH;
-      info.planes[0].size = alignedW * alignedH;
+      info.planes[0].stride = stride;
+      info.planes[0].scanline = scanline;
+      info.planes[0].size = stride * scanline;
       info.planes[0].offset = 0;
       break;
     case HAL_PIXEL_FORMAT_RAW10:
@@ -1423,9 +1423,9 @@ status_t CameraContext::PopulateBufferMeta(BufferMeta &info,
       info.n_planes = 1;
       info.planes[0].width = width;
       info.planes[0].height = height;
-      info.planes[0].stride = alignedW;
-      info.planes[0].scanline = alignedH;
-      info.planes[0].size = alignedW * alignedH;
+      info.planes[0].stride = stride;
+      info.planes[0].scanline = scanline;
+      info.planes[0].size = stride * scanline;
       info.planes[0].offset = 0;
       break;
     case HAL_PIXEL_FORMAT_RAW12:
@@ -1433,9 +1433,9 @@ status_t CameraContext::PopulateBufferMeta(BufferMeta &info,
       info.n_planes = 1;
       info.planes[0].width = width;
       info.planes[0].height = height;
-      info.planes[0].stride = alignedW;
-      info.planes[0].scanline = alignedH;
-      info.planes[0].size = alignedW * alignedH;
+      info.planes[0].stride = stride;
+      info.planes[0].scanline = scanline;
+      info.planes[0].size = stride * scanline;
       info.planes[0].offset = 0;
       break;
     case HAL_PIXEL_FORMAT_RAW16:
@@ -1443,9 +1443,9 @@ status_t CameraContext::PopulateBufferMeta(BufferMeta &info,
       info.n_planes = 1;
       info.planes[0].width = width;
       info.planes[0].height = height;
-      info.planes[0].stride = alignedW;
-      info.planes[0].scanline = alignedH;
-      info.planes[0].size = alignedW * alignedH;
+      info.planes[0].stride = stride;
+      info.planes[0].scanline = scanline;
+      info.planes[0].size = stride * scanline;
       info.planes[0].offset = 0;
       break;
     default:
