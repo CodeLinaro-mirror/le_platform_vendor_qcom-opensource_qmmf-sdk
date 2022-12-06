@@ -366,7 +366,7 @@ class CameraContext : public CameraInterface {
   bool                          pcr_frc_enabled_;
   bool                          continuous_mode_is_on_;
   bool                          is_camera_dead_;
-  bool                          is_shdr_enable_;
+  bool                          pending_cached_stream_;
 };
 
 enum class CameraPortType {

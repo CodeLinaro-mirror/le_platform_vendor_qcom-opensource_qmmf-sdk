@@ -193,6 +193,8 @@ class Common {
         break;
       case BufferFormat::kNV12UBWC:
       case BufferFormat::kNV12:
+      case BufferFormat::kP010:
+      case BufferFormat::kTP10UBWC:
         return HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
         break;
       case BufferFormat::kNV21:
@@ -244,6 +246,12 @@ class Common {
         break;
       case HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED:
         return BufferFormat::kNV12;
+        break;
+      case HAL_PIXEL_FORMAT_YCbCr_422_I_10BIT:
+        return BufferFormat::kP010;
+        break;
+      case HAL_PIXEL_FORMAT_YCbCr_420_TP10_UBWC:
+        return BufferFormat::kTP10UBWC;
         break;
       case HAL_PIXEL_FORMAT_YCbCr_420_888:
         return BufferFormat::kNV21;
@@ -328,6 +336,12 @@ class Common {
         break;
       case VideoFormat::kNV12UBWC:
         return BufferFormat::kNV12UBWC;
+        break;
+      case VideoFormat::kP010:
+        return BufferFormat::kP010;
+        break;
+      case VideoFormat::kTP10UBWC:
+        return BufferFormat::kTP10UBWC;
         break;
       case VideoFormat::kNV16:
         return BufferFormat::kNV16;
@@ -715,6 +729,8 @@ class Common {
       case BufferFormat::kNV16:
       case BufferFormat::kYUY2:
       case BufferFormat::kUYVY:
+      case BufferFormat::kP010:
+      case BufferFormat::kTP10UBWC:
       case BufferFormat::kRGB:
         is_supported = ValidateResFromProcessedSizes(meta, width, height);
         break;
