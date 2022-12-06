@@ -40,9 +40,14 @@ add_dependencies(
   qmmf_recorder_service
   qmmf_utils
   qmmf_camera_adaptor
-  qmmf_common_resizer_c2d
   qmmf_recorder_client
 )
+if (RESIZER_C2D_ENABLED)
+add_dependencies(
+  qmmf_recorder_service
+  qmmf_common_resizer_c2d
+)
+endif()
 if (RESIZER_FASTCV_ENABLED)
 add_dependencies(
   qmmf_recorder_service
@@ -85,7 +90,7 @@ install(TARGETS qmmf_recorder_service DESTINATION lib OPTIONAL)
 if (NOT CAMERA_HAL1_SUPPORT)
 target_link_libraries(qmmf_recorder_service dl log utils cutils binder
   pthread camera_metadata hardware qmmf_recorder_client
-  qmmf_utils qmmf_camera_adaptor qmmf_common_resizer_c2d )
+  qmmf_utils qmmf_camera_adaptor )
 if(NOT CAMERA_CLIENT_DISABLED)
 target_link_libraries(qmmf_recorder_service camera_client )
 endif()
@@ -93,6 +98,12 @@ if (RESIZER_FASTCV_ENABLED)
 target_link_libraries(
   qmmf_recorder_service
   qmmf_common_resizer_fastcv
+)
+endif()
+if (RESIZER_C2D_ENABLED)
+target_link_libraries(
+  qmmf_recorder_service
+  qmmf_common_resizer_c2d
 )
 endif()
 if (RESIZER_NEON_ENABLED)
