@@ -27,6 +27,18 @@ add_subdirectory(config/LE-${TARGET_BOARD_PLATFORM})
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${PLATFORM_CXX_FLAGS}")
 
+if (RESIZER_FASTCV_ENABLED)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DENABLE_RESCALER_FASTCV")
+endif()
+
+if (RESIZER_C2D_ENABLED)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DENABLE_RESCALER_C2D")
+endif()
+
+if (RESIZER_NEON_ENABLED)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DENABLE_RESCALER_NEON")
+endif()
+
 add_subdirectory(qmmf-server)
 
 add_subdirectory(recorder/src/service)
@@ -47,11 +59,12 @@ if (RESIZER_FASTCV_ENABLED)
 add_subdirectory(common/resizer-fastCV)
 endif()
 
+if (RESIZER_C2D_ENABLED)
 add_subdirectory(common/resizer-c2d)
+endif()
 
 if (RESIZER_NEON_ENABLED)
 add_subdirectory(common/resizer-neon)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DENABLE_RESCALER_NEON")
 endif()
 
 add_subdirectory(common/utils)
