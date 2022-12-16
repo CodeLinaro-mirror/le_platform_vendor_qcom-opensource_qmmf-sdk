@@ -69,6 +69,7 @@
 #include <chrono>
 #include <fcntl.h>
 #include <math.h>
+#include <algorithm>
 #include <sys/mman.h>
 #ifdef QCAMERA3_TAG_LOCAL_COPY
 #include "common/utils/qmmf_common_utils.h"
@@ -119,9 +120,10 @@ CameraContext::CameraContext()
       port_paused_(false),
       camera_parameters_{},
       is_partial_metadata_enabled_(false),
+      pcr_frc_enabled_(false),
       continuous_mode_is_on_(false),
       is_camera_dead_(false),
-      is_shdr_enable_(false) {
+      pending_cached_stream_(false) {
 
   QMMF_INFO("%s: Enter", __func__);
 
@@ -401,6 +403,24 @@ status_t CameraContext::OpenCamera(const uint32_t camera_id,
       }
     } else {
       QMMF_ERROR("%s: Invalid partial metadata received", __func__);
+      return BAD_VALUE;
+    }
+  }
+
+  if (extra_param.Exists(QMMF_FRAME_RATE_CONTROL)) {
+    size_t entry_count = extra_param.EntryCount(QMMF_FRAME_RATE_CONTROL);
+    if (entry_count == 1) {
+      FrameRateControl frc_mode;
+      extra_param.Fetch(QMMF_FRAME_RATE_CONTROL, frc_mode, 0);
+      if (frc_mode.mode == FrameRateControlMode::kCaptureRequest) {
+        QMMF_INFO("%s: PCR FRC enable", __func__);
+        pcr_frc_enabled_ = true;
+      } else {
+        QMMF_INFO("%s: PCR FRC disable", __func__);
+        pcr_frc_enabled_ = false;
+      }
+    } else {
+      QMMF_ERROR("%s: Invalid FRC mode received", __func__);
       return BAD_VALUE;
     }
   }
@@ -1257,7 +1277,10 @@ status_t CameraContext::SetSHDR(const bool enable) {
 
   QMMF_DEBUG("%s: Enter", __func__);
 
-  if (is_shdr_enable_ == enable) {
+  bool is_shdr_enable = (camera_parameters_.cam_feature_flags &
+                        static_cast<uint32_t>(CamFeatureFlag::kHDR));
+
+  if (is_shdr_enable == enable) {
     QMMF_DEBUG("%s: SHDR is already %d", __func__, enable);
     return NO_ERROR;
   }
@@ -1281,9 +1304,7 @@ status_t CameraContext::SetSHDR(const bool enable) {
     std::lock_guard<std::mutex> lock(device_access_lock_);
     camera_device_->UpdateCameraParams(camera_parameters_);
 
-    is_shdr_enable_ = !!(camera_parameters_.cam_feature_flags &
-                        static_cast<uint32_t>(CamFeatureFlag::kHDR));
-    QMMF_DEBUG("%s: SHDR enable: %d", __func__, is_shdr_enable_);
+    QMMF_DEBUG("%s: SHDR enable: %d", __func__, enable);
   }
 
   ResumeActiveStreams();
@@ -1348,9 +1369,11 @@ status_t CameraContext::CreateDeviceStream(CameraStreamParameters& params,
   }
   *stream_id = id;
 
-  // At this point stream is created but it is not added to request, it will be
-  // added once corresponding port will get the start cmd from it's consumer.
-  if (streaming_request_id_ < 0 && !cache) {
+  // At this point stream is created but it is not added to request.
+  // If streaming is active camera adapter trigger configure
+  // stream automatically. Because of that we cannot call
+  // EndConfigure in this situation.
+  if (streaming_request_id_ < 0) {
     if (hfr_supported_) {
       if (kConstrainedModeThreshold <= frame_rate) {
         camera_parameters_.is_constrained_high_speed = true;
@@ -1394,14 +1417,16 @@ status_t CameraContext::CreateDeviceStream(CameraStreamParameters& params,
     camera_parameters_.frame_rate_range[1] = max_frame_rate;
     camera_parameters_.is_raw_only = IsRawOnly(params.format);
 
-    ret = camera_device_->EndConfigure(camera_parameters_);
-    assert(ret == NO_ERROR);
+    if (!cache) {
+      pending_cached_stream_ = false;
+      ret = camera_device_->EndConfigure(camera_parameters_);
+      assert(ret == NO_ERROR);
 
-    is_shdr_enable_ = !!(camera_parameters_.cam_feature_flags &
-                          static_cast<uint32_t>(CamFeatureFlag::kHDR));
-
-    // By default stream is prepared.
-    stream_prepared_[id] = true;
+      // By default stream is prepared.
+      stream_prepared_[id] = true;
+    } else {
+      pending_cached_stream_ = true;
+    }
   }
 
   if (snapshot_type_ == SnapshotMode::kZsl &&
@@ -1506,9 +1531,14 @@ status_t CameraContext::CreateDeviceInputStream(
 
   // At this point stream is created but it is not added to request, it will be
   // added once corresponding port will get the start cmd from it's consumer.
-  if (streaming_request_id_ < 0 && !cache) {
-    ret = camera_device_->EndConfigure();
-    assert(ret == NO_ERROR);
+  if (streaming_request_id_ < 0) {
+    if (!cache) {
+      pending_cached_stream_ = false;
+      ret = camera_device_->EndConfigure(camera_parameters_);
+      assert(ret == NO_ERROR);
+    } else {
+      pending_cached_stream_ = true;
+    }
   }
 
   QMMF_INFO("%s: Exit", __func__);
@@ -1609,6 +1639,83 @@ CameraMetadata CameraContext::GetCameraStaticMeta() {
   return static_meta_;
 }
 
+status_t CameraContext::SetPerStreamFrameRate() {
+
+  float max_fps = 0;
+
+  if (active_ports_.size() <= 1) {
+    // There is only one stream in total. Skip per stream control.
+    return NO_ERROR;
+  }
+
+  // We need to calculate frame rate even there is only one active stream
+  // because first stream could have lower frame rate then max frame rate.
+
+  std::vector<std::pair<uint32_t, uint32_t>> frame_rate_map;
+  for (auto const& it : active_ports_) {
+    auto& port = it.second;
+    frame_rate_map.push_back(std::pair<uint32_t, uint32_t>(
+        port->GetCameraStreamId(), ceil(port->GetPortFramerate() - 0.5)));
+
+    if (max_fps < port->GetPortFramerate()) {
+      max_fps = port->GetPortFramerate();
+    }
+  }
+
+  auto gcd = std::__gcd (frame_rate_map[0].second, frame_rate_map[1].second);
+  for (size_t i = 2; i < frame_rate_map.size(); i++) {
+    gcd = std::__gcd (gcd, frame_rate_map[i].second);
+  }
+  uint32_t max_frame_rate = ceil(max_fps - 0.5);
+  uint32_t request_count = max_frame_rate / gcd;
+
+  std::vector<std::vector<uint32_t>> request_map;
+  request_map.resize(request_count);
+  for (auto const& it : frame_rate_map) {
+    auto stream_id = it.first;
+    auto stream_frame_rate = it.second;
+
+    float frames = stream_frame_rate / gcd;
+    float gaps = request_count - frames;
+    float ratio = frames / gaps;
+
+    // All streams are part for first request. Start calulation
+    // from the second request
+    frames--;
+    for (size_t i = 1; i < request_count; i++) {
+      if (frames / gaps >= ratio) {
+        request_map[i].push_back(stream_id);
+        frames--;
+      } else {
+        gaps--;
+      }
+    }
+  }
+
+  streaming_active_requests_.resize(request_map.size());
+
+  for (size_t i = 1; i < request_map.size(); i++) {
+    if (streaming_active_requests_[i].metadata.isEmpty()) {
+      assert(!streaming_active_requests_[0].metadata.isEmpty());
+
+      streaming_active_requests_[i].metadata.append(
+          streaming_active_requests_[0].metadata);
+
+      for (auto stream_id : request_map[i]) {
+        streaming_active_requests_[i].streamIds.add(stream_id);
+      }
+    }
+  }
+
+  for (size_t i = 0; i < streaming_active_requests_.size(); i++) {
+    for (auto id : streaming_active_requests_[i].streamIds) {
+      QMMF_INFO ("%s: request %d stream-id %d ", __func__, i, id);
+    }
+  }
+
+  return NO_ERROR;
+}
+
 status_t CameraContext::UpdateRequest(bool is_streaming) {
 
   QMMF_DEBUG("%s: Enter", __func__);
@@ -1646,13 +1753,19 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
           QMMF_DEBUG("%s: CameraPort(0x%p):camera_stream_id(%d) is adding to "
               "active stream !", __func__, port.get(), cam_stream_id);
         }
-        if ((1 < i) && (streaming_active_requests_[i].metadata.isEmpty())) {
+        if ((1 <= i) && (streaming_active_requests_[i].metadata.isEmpty())) {
           assert(!streaming_active_requests_[0].metadata.isEmpty());
           streaming_active_requests_[i].metadata.append(
               streaming_active_requests_[0].metadata);
         }
       }
       stream_ids.emplace(cam_stream_id);
+
+      // Batchiing is use for HFR. HFR and per-stream frame rate control are
+      // mutual exclusive.
+      if (pcr_frc_enabled_ && batch_size <= 1) {
+        SetPerStreamFrameRate();
+      }
     } else if (port->getPortState() == PortState::PORT_READYTOSTOP) {
 
       QMMF_INFO("%s: CameraPort(0x%p):camera_stream_id(%d) is stopped ",
@@ -1698,14 +1811,12 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
   size_t stale_count = 0;
   //Check for any stale batch requests and remove if present
   for (size_t i = 1; i < streaming_active_requests_.size(); i++) {
-    if(streaming_active_requests_[i].streamIds.isEmpty()) {
+    if (streaming_active_requests_[i].streamIds.isEmpty()) {
       if (!stale_batches_present) {
         stale_batches_present = true;
         stale_idx = i;
       }
       stale_count++;
-    } else {
-      assert(!stale_batches_present);
     }
   }
 
@@ -1748,6 +1859,12 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
     for (ssize_t i = (streaming_active_requests_.size() - 1); i >= 0; --i) {
       request_list.push_back(streaming_active_requests_[i]);
       assert(!streaming_active_requests_[i].metadata.isEmpty());
+    }
+
+    // Configure streams for the first request in cached stream case
+    if (streaming_request_id_ < 0 && pending_cached_stream_) {
+      assert(NO_ERROR == camera_device_->EndConfigure(camera_parameters_));
+      pending_cached_stream_ = false;
     }
 
     for (auto const& stream_id : streaming_active_requests_[0].streamIds) {
@@ -2580,10 +2697,27 @@ status_t CameraPort::Init() {
     // video streams. This is why this flag is needed.
     cam_stream_params_.allocFlags.flags = IMemAllocUsage::kVideoEncoder;
 
-    cam_stream_params_.allocFlags.flags |=
-        (params_.format != BufferFormat::kNV12UBWC) ?
-            (IMemAllocUsage::kSwReadOften | IMemAllocUsage::kSwWriteOften) :
+    switch (params_.format) {
+      case BufferFormat::kNV12UBWC:
+        cam_stream_params_.allocFlags.flags |=
             IMemAllocUsage::kPrivateAllocUbwc;
+        break;
+      case BufferFormat::kP010:
+        cam_stream_params_.data_space = HAL_DATASPACE_TRANSFER_GAMMA2_8;
+        cam_stream_params_.allocFlags.flags |=
+            IMemAllocUsage::kPrivateAllocP010;
+        break;
+      case BufferFormat::kTP10UBWC:
+        cam_stream_params_.data_space = HAL_DATASPACE_TRANSFER_GAMMA2_8;
+        cam_stream_params_.allocFlags.flags |=
+            IMemAllocUsage::kPrivateAllocTP10 |
+              IMemAllocUsage::kPrivateAllocUbwc;
+        break;
+      default:
+        cam_stream_params_.allocFlags.flags |=
+            IMemAllocUsage::kSwReadOften | IMemAllocUsage::kSwWriteOften;
+        break;
+    }
 
     //TODO: This needs to be rework and provide proper solution to
     //      set UBWC per stream basis.
@@ -2617,7 +2751,7 @@ status_t CameraPort::Init() {
 
   int32_t stream_id;
   auto ret = context_->CreateDeviceStream(cam_stream_params_,
-                                          params_.framerate, &stream_id);
+                                          params_.framerate, &stream_id, true);
   if (ret != NO_ERROR || stream_id < 0) {
     QMMF_ERROR("%s: CreateDeviceStream failed!!", __func__);
     return BAD_VALUE;

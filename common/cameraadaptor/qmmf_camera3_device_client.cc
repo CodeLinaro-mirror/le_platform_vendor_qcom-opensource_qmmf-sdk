@@ -516,14 +516,12 @@ int32_t Camera3DeviceClient::ConfigureStreamsLocked(
   QMMF_INFO("%s: operation_mode: 0x%x \n", __func__, config.operation_mode);
 
 #if defined(CAMERA_HAL_API_VERSION) && (CAMERA_HAL_API_VERSION >= 0x0305)
-  if (hfr_mode_enabled_) {
-    camera_metadata_t *session_parameters = allocate_camera_metadata(1, 128);
-    add_camera_metadata_entry(session_parameters,
-                              ANDROID_CONTROL_AE_TARGET_FPS_RANGE,
-                              frame_rate_range_, 2);
+  camera_metadata_t *session_parameters = allocate_camera_metadata(1, 128);
+  add_camera_metadata_entry(session_parameters,
+                            ANDROID_CONTROL_AE_TARGET_FPS_RANGE,
+                            frame_rate_range_, 2);
 
-    config.session_parameters = session_parameters;
-  }
+  config.session_parameters = session_parameters;
 #endif
 
   Vector<camera3_stream_t *> streams;
@@ -1498,11 +1496,19 @@ int32_t Camera3DeviceClient::ReturnStreamBuffer(StreamBuffer buffer) {
   int32_t res = 0;
   pthread_mutex_lock(&lock_);
 
+  streamIdx = streams_.indexOfKey(buffer.stream_id);
+
   switch (state_) {
     case STATE_ERROR:
-      QMMF_ERROR("%s: Device has encountered a serious error\n", __func__);
-      res = -ENOSYS;
-      goto exit;
+      if (streamIdx == -ENOENT) {
+        QMMF_ERROR("%s: Device has encountered a serious error\n", __func__);
+        res = -ENOSYS;
+        goto exit;
+      } else {
+        //Successful buffer received after unplug, so even though the Camera in
+        //error state we need to handle this buffer.
+        break;
+      }
     case STATE_NOT_INITIALIZED:
     case STATE_CLOSED:
     case STATE_NOT_CONFIGURED:
@@ -1518,7 +1524,6 @@ int32_t Camera3DeviceClient::ReturnStreamBuffer(StreamBuffer buffer) {
       goto exit;
   }
 
-  streamIdx = streams_.indexOfKey(buffer.stream_id);
   if (streamIdx == -ENOENT) {
     QMMF_ERROR("%s: Stream %d does not exist\n", __func__, buffer.stream_id);
     res = -EINVAL;
