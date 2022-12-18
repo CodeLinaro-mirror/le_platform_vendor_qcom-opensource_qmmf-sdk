@@ -183,7 +183,8 @@ struct FaceInfo {
 #define DEFAULT_SNAPSHOT_STREAM_WIDTH    "1920"
 #define DEFAULT_SNAPSHOT_STREAM_HEIGHT   "1080"
 #define DEFAULT_SNAPSHOT_STREAM_FORMAT   "JPEG"
-#define DEFAULT_PROP_SNAPSHOT_MODE       "Video"
+#define DEFAULT_PROP_SNAPSHOT_MODE       "Snapshot"
+#define DEFAULT_PROP_SNAPSHOT_TYPE       "Video"
 
 // Prop to enable the dump to external storage
 #define PROP_DUMP_TO_EXT            "persist.qmmf.gtest.dumptoext"
@@ -276,6 +277,7 @@ struct FaceInfo {
 #define PROP_SNAPSHOT_STREAM_HEIGHT  "persist.qmmf.snap.stream.h"
 #define PROP_SNAPSHOT_STREAM_FORMAT  "persist.qmmf.snap.stream.fmt"
 #define PROP_SNAPSHOT_MODE           "persist.qmmf.snapshot.mode"
+#define PROP_SNAPSHOT_TYPE           "persist.qmmf.snapshot.type"
 
 #ifndef MAX
 #define MAX(a,b) ((a) > (b) ? (a) : (b))
@@ -551,11 +553,15 @@ class GtestCommon : public ::testing::Test {
 
   void SetSnapshotMode(char prop[]);
 
+  void SetSnapshotType(char prop[]);
+
   std::string GetSnapshotStreamFormat ();
 
   std::string GetVideoStreamFormat (VideoFormat &fmt);
 
   std::string GetSnapshotMode();
+
+  std::string GetSnapshotType();
 
   void SetCameraExtraParam(CameraExtraParam &param);
 
@@ -756,8 +762,9 @@ class GtestCommon : public ::testing::Test {
   uint32_t              snap_width_;
   uint32_t              snap_height_;
   uint32_t              snap_count_;
+  ImageMode             snap_mode_;
   ImageFormat           snap_format_;
-  SnapshotMode          snap_mode_;
+  SnapshotType          snap_type_;
 
   // Map of Stream and its Parameter
   std::map<uint32_t, VideoStreamInfo> stream_info_map_;
