@@ -52,6 +52,7 @@ enum ParamTag {
   QMMF_LDC,
   QMMF_LCAC,
   QMMF_FRAME_RATE_CONTROL,
+  QMMF_HFR_SYNC_MODE,
 };
 
 enum class SnapshotMode {
@@ -234,6 +235,17 @@ struct FrameRateControl : DataTagBase {
     mode(FrameRateControlMode::kFrameSkip) {
   }
 };
+
+struct HFRSyncMode : DataTagBase {
+  /**< Add support for client to enable/disable */
+  /**< HFRSyncMode (enable HFR Sycn mode). */
+  /**< Default: False */
+  bool enable;
+  HFRSyncMode() :
+    DataTagBase(QMMF_HFR_SYNC_MODE), enable(false) {
+    }
+};
+
 
 }; //namespace recorder.
 
