@@ -604,6 +604,13 @@ status_t CameraContext::ConfigImageCapture(const SnapshotParam& param,
       ret = GetSnapshotStreamParams(param, stream_param);
       assert(ret == NO_ERROR);
 
+      if (param.format == BufferFormat::kNV12) {
+        stream_param.allocFlags.flags |= IMemAllocUsage::kHwCameraWrite |
+                IMemAllocUsage::kVideoEncoder;
+         stream_param.data_space = static_cast<android_dataspace_t>
+                                    (HAL_DATASPACE_HEIF);
+      }
+
       ret = CreateSnapshotStream(stream_param, true);
       if (NO_ERROR != ret) {
         QMMF_ERROR("%s Failed during snapshot re-configure", __func__);
