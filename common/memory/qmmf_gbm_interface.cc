@@ -362,7 +362,7 @@ GBMDevice::GBMDevice() {
   gbm_fd_ = open("/dev/dri/renderD128", O_RDWR);
   if (gbm_fd_ < 0) {
     QMMF_WARN("%s: Falling back to /dev/ion \n", __func__);
-    gbm_fd_ = open("/dev/ion", O_RDWR);
+    gbm_fd_ = open(GBM_DEV_NAME, O_RDWR);
   }
   assert(gbm_fd_ >= 0);
   gbm_device_ = gbm_create_device(gbm_fd_);
