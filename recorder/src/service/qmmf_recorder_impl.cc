@@ -398,7 +398,7 @@ status_t RecorderImpl::StartCamera(const uint32_t client_id,
   }
 
   assert(camera_source_ != nullptr);
-  ResultCb cb = [&] (uint32_t camera_id, const CameraMetadata &result) {
+  ResultCb cb = [&] (uint32_t camera_id, const ::camera::CameraMetadata &result) {
     CameraResultCb(camera_id, result);
   };
 
@@ -1220,7 +1220,7 @@ status_t RecorderImpl::CaptureImage(const uint32_t client_id,
                                     const uint32_t camera_id,
                                     const SnapshotType type,
                                     const uint32_t n_images,
-                                    const std::vector<CameraMetadata> &meta) {
+                                    const std::vector<::camera::CameraMetadata> &meta) {
 
   QMMF_DEBUG("%s: Enter client_id(%u):camera_id(%d)", __func__,
       client_id, camera_id);
@@ -1334,7 +1334,7 @@ status_t RecorderImpl::ReturnImageCaptureBuffer(const uint32_t client_id,
 
 status_t RecorderImpl::SetCameraParam(const uint32_t client_id,
                                       const uint32_t camera_id,
-                                      const CameraMetadata &meta) {
+                                      const ::camera::CameraMetadata &meta) {
 
   QMMF_DEBUG("%s: Enter client_id(%u):camera_id(%d)", __func__,
       client_id, camera_id);
@@ -1363,7 +1363,7 @@ status_t RecorderImpl::SetCameraParam(const uint32_t client_id,
 
 status_t RecorderImpl::GetCameraParam(const uint32_t client_id,
                                       const uint32_t camera_id,
-                                      CameraMetadata &meta) {
+                                      ::camera::CameraMetadata &meta) {
 
   QMMF_DEBUG("%s: Enter client_id(%u):camera_id(%d)", __func__,
       client_id, camera_id);
@@ -1422,7 +1422,7 @@ status_t RecorderImpl::SetSHDR(const uint32_t client_id,
 
 status_t RecorderImpl::GetDefaultCaptureParam(const uint32_t client_id,
                                               const uint32_t camera_id,
-                                              CameraMetadata &meta) {
+                                              ::camera::CameraMetadata &meta) {
 
   QMMF_DEBUG("%s: Enter client_id(%u):camera_id(%d)", __func__,
       client_id, camera_id);
@@ -1451,7 +1451,7 @@ status_t RecorderImpl::GetDefaultCaptureParam(const uint32_t client_id,
 
 status_t RecorderImpl::GetCameraCharacteristics(const uint32_t client_id,
                                                 const uint32_t camera_id,
-                                                CameraMetadata &meta) {
+                                                ::camera::CameraMetadata &meta) {
 
   QMMF_DEBUG("%s: Enter client_id(%u):camera_id(%d)", __func__,
       client_id, camera_id);
@@ -1591,7 +1591,7 @@ void RecorderImpl::CameraSnapshotCb(uint32_t client_id, uint32_t camera_id,
 }
 
 void RecorderImpl::CameraResultCb(uint32_t camera_id,
-                                  const CameraMetadata &result) {
+                                  const ::camera::CameraMetadata &result) {
 
   QMMF_DEBUG("%s Enter camera_id(%u)", __func__, camera_id);
   assert(remote_cb_handle_ != nullptr);

@@ -385,7 +385,7 @@ class Common {
    *
    * return: true if available
    **/
-  static bool ValidateStreamFormat(const CameraMetadata& meta,
+  static bool ValidateStreamFormat(const ::camera::CameraMetadata& meta,
                                    const BufferFormat format,
                                    bool input = false) {
     bool is_supported = false;
@@ -431,7 +431,7 @@ class Common {
    *
    * return: true if available
    **/
-  static bool ValidateInputFormat(const CameraMetadata& meta,
+  static bool ValidateInputFormat(const ::camera::CameraMetadata& meta,
                                   const BufferFormat in_format,
                                   const BufferFormat out_format) {
     bool is_supported = false;
@@ -480,7 +480,7 @@ class Common {
   *
   * return: true if available
   **/
-  static bool ValidateResFromStreamConfigs(const CameraMetadata& meta,
+  static bool ValidateResFromStreamConfigs(const ::camera::CameraMetadata& meta,
                                            const uint32_t width,
                                            const uint32_t height) {
     bool is_supported = false;
@@ -512,7 +512,7 @@ class Common {
   *
   * return: true if available
   **/
-  static bool GetMaxResFromStreamConfigs(const CameraMetadata& meta,
+  static bool GetMaxResFromStreamConfigs(const ::camera::CameraMetadata& meta,
                                          uint32_t &width,
                                          uint32_t &height) {
     bool found = false;
@@ -548,7 +548,7 @@ class Common {
   *
   * return: true if available
   **/
-  static bool GetMinResFromStreamConfigs(const CameraMetadata& meta,
+  static bool GetMinResFromStreamConfigs(const ::camera::CameraMetadata& meta,
                                          uint32_t &width,
                                          uint32_t &height) {
     bool found = false;
@@ -587,7 +587,7 @@ class Common {
    *
    * return: true if available
    **/
-  static bool ValidateResFromProcessedSizes(const CameraMetadata& meta,
+  static bool ValidateResFromProcessedSizes(const ::camera::CameraMetadata& meta,
                                             const uint32_t width,
                                             const uint32_t height) {
     bool is_supported = false;
@@ -622,7 +622,7 @@ class Common {
    *
    * return: true if available
    **/
-  static bool ValidateResFromJpegSizes(const CameraMetadata& meta,
+  static bool ValidateResFromJpegSizes(const ::camera::CameraMetadata& meta,
                                        const uint32_t width,
                                        const uint32_t height) {
     bool is_supported = false;
@@ -655,7 +655,7 @@ class Common {
    *
    * return: true if available
    **/
-  static bool ValidateResFromRawSizes(const CameraMetadata& meta,
+  static bool ValidateResFromRawSizes(const ::camera::CameraMetadata& meta,
                                       const uint32_t width,
                                       const uint32_t height) {
     bool is_supported = false;
@@ -709,7 +709,7 @@ class Common {
    *
    * return: true if available
    **/
-  static bool ValidateResolution(const CameraMetadata& meta,
+  static bool ValidateResolution(const ::camera::CameraMetadata& meta,
                                   const BufferFormat format,
                                   const uint32_t width,
                                   const uint32_t height) {
@@ -753,7 +753,7 @@ class Common {
    *
    * return: true if available
    **/
-  static bool GetMaxSupportedCameraRes(const CameraMetadata& meta,
+  static bool GetMaxSupportedCameraRes(const ::camera::CameraMetadata& meta,
       uint32_t &width, uint32_t &height,
       const BufferFormat format = BufferFormat::kRAW10) {
     bool found = false;
@@ -820,7 +820,7 @@ class Common {
    *
    * return: true if available
    **/
-  static bool GetMinSupportedCameraRes(const CameraMetadata& meta,
+  static bool GetMinSupportedCameraRes(const ::camera::CameraMetadata& meta,
                                       uint32_t &width,
                                       uint32_t &height) {
     bool found = false;
@@ -855,7 +855,7 @@ class Common {
    *
    * return: true if available
    **/
-  static bool GetSupportedCameraFormats(const CameraMetadata& meta,
+  static bool GetSupportedCameraFormats(const ::camera::CameraMetadata& meta,
                                         std::set<BufferFormat> &formats,
                                         bool input = false) {
 

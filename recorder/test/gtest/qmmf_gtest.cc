@@ -1411,7 +1411,7 @@ TEST_F(VideoGtest, SessionWithThreeConcurrentCam1080pAndRawStream) {
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t raw_width, raw_height;
-  CameraMetadata static_meta;
+  ::camera::CameraMetadata static_meta;
   ret = recorder_.GetCameraCharacteristics(cam2_id, static_meta);
   ASSERT_TRUE(ret == NO_ERROR);
   GtestCommon::GetMaxSupportedCameraRes(static_meta, raw_width, raw_height);
@@ -1653,7 +1653,7 @@ TEST_F(VideoGtest, SessionWith1080pYUVTrackMatchCameraMetaData) {
   ASSERT_TRUE(ret == NO_ERROR);
 
   CameraResultCb result_cb = [&](uint32_t camera_id,
-                                 const CameraMetadata &result) {
+                                 const ::camera::CameraMetadata &result) {
     ResultCallbackHandlerMatchCameraMeta(camera_id, result);
   };
 
@@ -2046,7 +2046,7 @@ TEST_F(VideoGtest, SessionWith1080pTrackPartialMeta) {
   uint32_t height = 1080;
 
   CameraResultCb result_cb = [&](uint32_t camera_id,
-                                 const CameraMetadata &result) {
+                                 const ::camera::CameraMetadata &result) {
     if (result.exists(ANDROID_REQUEST_FRAME_COUNT)) {
       TEST_INFO("%s: MetaData FrameNumber=%d", __func__,
                 result.find(ANDROID_REQUEST_FRAME_COUNT).data.i32[0]);
