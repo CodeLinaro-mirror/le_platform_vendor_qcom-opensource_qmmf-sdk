@@ -580,7 +580,7 @@ class GtestCommon : public ::testing::Test {
                               size_t event_data_size);
 
   void CameraResultCallbackHandler(uint32_t camera_id,
-                                   const CameraMetadata &result);
+                                   const ::camera::CameraMetadata &result);
 
   void VideoTrackRGBDataCb(uint32_t session_id, uint32_t track_id,
                            std::vector<BufferDescriptor> buffers,
@@ -601,7 +601,7 @@ class GtestCommon : public ::testing::Test {
                   BufferDescriptor buffer, BufferMeta meta);
 
   void ResultCallbackHandlerMatchCameraMeta(uint32_t camera_id,
-                                       const CameraMetadata &result);
+                                       const ::camera::CameraMetadata &result);
 
   void VideoTrackDataCbMatchCameraMeta(uint32_t session_id, uint32_t track_id,
                                        std::vector<BufferDescriptor> buffers,
@@ -634,7 +634,7 @@ class GtestCommon : public ::testing::Test {
   bool VendorTagSupported(const String8& name, const String8& section,
                           uint32_t* tag_id);
 
-  bool VendorTagExistsInMeta(const CameraMetadata& meta, const String8& name,
+  bool VendorTagExistsInMeta(const ::camera::CameraMetadata& meta, const String8& name,
                              const String8& section, uint32_t* tag_id);
 #endif
 
@@ -647,48 +647,48 @@ class GtestCommon : public ::testing::Test {
   std::map<uint32_t,uint32_t> track_frame_count_map_;
   static const std::string    kQmmfFolderPath;
 
-  void ParseFaceInfo(const android::CameraMetadata &res,
+  void ParseFaceInfo(const ::camera::CameraMetadata &res,
                      struct FaceInfo &info);
 
   void ApplyFaceOveralyOnStream(struct FaceInfo &info);
 
-  static bool ValidateResFromStreamConfigs(const CameraMetadata& meta,
+  static bool ValidateResFromStreamConfigs(const ::camera::CameraMetadata& meta,
                                             const uint32_t width,
                                             const uint32_t height);
 
-  static bool GetMinResFromStreamConfigs(const CameraMetadata& meta,
+  static bool GetMinResFromStreamConfigs(const ::camera::CameraMetadata& meta,
                                           uint32_t &width,
                                           uint32_t &height);
 
-  static bool ValidateResFromProcessedSizes(const CameraMetadata& meta,
+  static bool ValidateResFromProcessedSizes(const ::camera::CameraMetadata& meta,
                                             const uint32_t width,
                                             const uint32_t height);
 
-  static bool ValidateResFromJpegSizes(const CameraMetadata& meta,
+  static bool ValidateResFromJpegSizes(const ::camera::CameraMetadata& meta,
                                         const uint32_t width,
                                         const uint32_t height);
 
-  static bool ValidateResFromRawSizes(const CameraMetadata& meta,
+  static bool ValidateResFromRawSizes(const ::camera::CameraMetadata& meta,
                                       const uint32_t width,
                                       const uint32_t height);
 
 #ifdef __LIBGBM__
-  static bool GetMaxSupportedCameraRes(const CameraMetadata& meta,
+  static bool GetMaxSupportedCameraRes(const ::camera::CameraMetadata& meta,
                                       uint32_t &width, uint32_t &height,
                                 const int32_t format = GBM_FORMAT_RAW10);
 #else
-  static bool GetMaxSupportedCameraRes(const CameraMetadata& meta,
+  static bool GetMaxSupportedCameraRes(const ::camera::CameraMetadata& meta,
                                       uint32_t &width, uint32_t &height,
                                 const int32_t format = HAL_PIXEL_FORMAT_RAW10);
 #endif
 
-  static bool GetMinSupportedCameraRes(const CameraMetadata& meta,
+  static bool GetMinSupportedCameraRes(const ::camera::CameraMetadata& meta,
                                         uint32_t &width,
                                         uint32_t &height);
 
   void ExtractColorValues(uint32_t hex_color, RGBAValues* color);
 
-  status_t FillCropMetadata(CameraMetadata& meta, int32_t sensor_mode_w,
+  status_t FillCropMetadata(::camera::CameraMetadata& meta, int32_t sensor_mode_w,
                             int32_t sensor_mode_h, int32_t crop_x,
                             int32_t crop_y, int32_t crop_w, int32_t crop_h);
 
@@ -712,11 +712,11 @@ class GtestCommon : public ::testing::Test {
 
   typedef std::vector<uint8_t> nr_modes_;
   typedef std::vector<int32_t> vhdr_modes_;
-  CameraMetadata       static_info_;
+  ::camera::CameraMetadata       static_info_;
   nr_modes_            supported_nr_modes_;
   vhdr_modes_          supported_hdr_modes_;
 
-  typedef std::tuple<BufferDescriptor, CameraMetadata, uint32_t, uint32_t>
+  typedef std::tuple<BufferDescriptor, ::camera::CameraMetadata, uint32_t, uint32_t>
       BufferMetaDataTuple;
   std::map <uint32_t, BufferMetaDataTuple > buffer_metadata_map_;
   std::mutex buffer_metadata_lock_;
@@ -770,7 +770,7 @@ class GtestCommon : public ::testing::Test {
   std::map<uint32_t, VideoStreamInfo> stream_info_map_;
 #ifndef CAMERA_HAL1_SUPPORT
 #ifdef QCAMERA3_TAG_LOCAL_COPY
-  sp<VendorTagDescriptor> vendor_tag_desc_;
+  sp<::camera::VendorTagDescriptor> vendor_tag_desc_;
 #endif
 #endif
 

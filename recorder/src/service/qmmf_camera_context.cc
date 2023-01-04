@@ -659,7 +659,7 @@ status_t CameraContext::ConfigImageCapture(const SnapshotParam& param,
 
 status_t CameraContext::CaptureImage(const SnapshotType type,
                                      const uint32_t n_images,
-                                     const std::vector<CameraMetadata> &meta,
+                                     const std::vector<::camera::CameraMetadata> &meta,
                                      const StreamSnapshotCb& cb) {
 
   QMMF_INFO("%s: Enter", __func__);
@@ -687,7 +687,7 @@ status_t CameraContext::CaptureImage(const SnapshotType type,
     int64_t last_frame_number;
     uint8_t jpeg_quality = snapshot_param_.quality;
     std::list<Camera3Request> requests;
-    std::vector<CameraMetadata>::const_iterator it = meta.begin();
+    std::vector<::camera::CameraMetadata>::const_iterator it = meta.begin();
     for (uint32_t i = 0; i < imgcnt; i++) {
       if (streaming_active_requests_.size() > 0 &&
           !streaming_active_requests_[0].metadata.isEmpty() &&
@@ -1081,7 +1081,7 @@ status_t CameraContext::ResumeStream(const uint32_t track_id) {
   return NO_ERROR;
 }
 
-status_t CameraContext::SetCameraParam(const CameraMetadata &meta) {
+status_t CameraContext::SetCameraParam(const ::camera::CameraMetadata &meta) {
 
   QMMF_DEBUG("%s: Enter", __func__);
 
@@ -1125,7 +1125,7 @@ status_t CameraContext::SetCameraParam(const CameraMetadata &meta) {
   return NO_ERROR;
 }
 
-status_t CameraContext::GetCameraParam(CameraMetadata &meta) {
+status_t CameraContext::GetCameraParam(::camera::CameraMetadata &meta) {
 
   QMMF_DEBUG("%s: Enter", __func__);
   meta.clear();
@@ -1140,7 +1140,7 @@ status_t CameraContext::GetCameraParam(CameraMetadata &meta) {
   return NO_ERROR;
 }
 
-status_t CameraContext::GetDefaultCaptureParam(CameraMetadata &meta) {
+status_t CameraContext::GetDefaultCaptureParam(::camera::CameraMetadata &meta) {
 
   QMMF_DEBUG("%s: Enter", __func__);
   auto ret = NO_ERROR;
@@ -1157,7 +1157,7 @@ status_t CameraContext::GetDefaultCaptureParam(CameraMetadata &meta) {
   return ret;
 }
 
-status_t CameraContext::GetCameraCharacteristics(CameraMetadata &meta) {
+status_t CameraContext::GetCameraCharacteristics(::camera::CameraMetadata &meta) {
 
   QMMF_DEBUG("%s: Enter", __func__);
   meta.clear();
@@ -1399,8 +1399,8 @@ uint32_t CameraContext::GetSensorModeIndex(uint32_t width, uint32_t height,
   String8 tag_name("SensorModeTable");
   String8 section_name("org.quic.camera2.sensormode.info");
   uint32_t sensor_mode_table_tagid;
-  sp<VendorTagDescriptor> vendor_tag_desc =
-      VendorTagDescriptor::getGlobalVendorTagDescriptor();
+  sp<::camera::VendorTagDescriptor> vendor_tag_desc =
+      ::camera::VendorTagDescriptor::getGlobalVendorTagDescriptor();
   if (nullptr == vendor_tag_desc.get()) {
     QMMF_INFO("%s: no global vendor tag descriptor", __func__);
     return 0;
@@ -1587,7 +1587,7 @@ status_t CameraContext::CreateCaptureRequest(Camera3Request& request,
   return ret;
 }
 
-CameraMetadata CameraContext::GetCameraStaticMeta() {
+::camera::CameraMetadata CameraContext::GetCameraStaticMeta() {
   return static_meta_;
 }
 
@@ -2319,7 +2319,7 @@ status_t CameraContext::CaptureZSLImage(const SnapshotType type) {
 
 #ifndef FLUSH_RESTART_NOTAVAILABLE
 status_t CameraContext::DisableFlushRestart(const bool& disable,
-                                            CameraMetadata& meta) {
+                                            ::camera::CameraMetadata& meta) {
 
   // Disable restart of the streams on HAL flush in order to save power and
   // optimize the API execution. All streams will be in OFF state after this.
@@ -2407,7 +2407,7 @@ void CameraContext::CameraPreparedCb(int32_t stream_id) {
 }
 
 template <typename T>
-bool CameraContext::UpdatePartialTag(CameraMetadata &result, int32_t tag,
+bool CameraContext::UpdatePartialTag(::camera::CameraMetadata &result, int32_t tag,
                                      const T *value,
                                      uint32_t frame_number) {
   if (0 != result.update(tag, value, 1)) {
@@ -2417,7 +2417,7 @@ bool CameraContext::UpdatePartialTag(CameraMetadata &result, int32_t tag,
 }
 
 template <typename T>
-bool CameraContext::QueryPartialTag(const CameraMetadata &result,
+bool CameraContext::QueryPartialTag(const ::camera::CameraMetadata &result,
                                     int32_t tag, T *value,
                                     uint32_t frame_number) {
   (void)frame_number;
@@ -2506,7 +2506,7 @@ void CameraContext::CameraResultCb(const CaptureResult &result) {
     if (complete_result) {
       CaptureResult captureResult;
       captureResult.resultExtras = result.resultExtras;
-      captureResult.metadata = CameraMetadata(10, 0);
+      captureResult.metadata = ::camera::CameraMetadata(10, 0);
 
       if (!UpdatePartialTag(captureResult.metadata, ANDROID_REQUEST_FRAME_COUNT,
                             reinterpret_cast<int32_t *>(&frame_number),
