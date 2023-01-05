@@ -104,7 +104,7 @@
 #define EIS_ENABLE                            (0xF200)
 #define LDC_ENABLE                            (0xF800)
 #define LCAC_ENABLE                           (0x100000)
-#define YUVCALLBACK                           (1 << 25)
+#define IFE_DIRECT_STREAM                     (1 << 25)
 #endif
 
 // Convenience macros for transitioning to the error state
@@ -2263,12 +2263,13 @@ uint32_t Camera3DeviceClient::GetOpMode() {
     operation_mode |= (fps_sensormode_index_ << 16);
     QMMF_INFO("%s: 60+ FPS OpMode is Set 0x%x \n", __func__, operation_mode);
   }
-#endif
-  // Handle YUVCallback stream
-  if (cam_feature_flags_ & static_cast<uint32_t>(CamFeatureFlag::kYUVCALLBACK)) {
-    operation_mode |= YUVCALLBACK;
+
+  // Handle IFE Direct Stream
+  if (cam_feature_flags_ & static_cast<uint32_t>(CamFeatureFlag::kIFEDirectStream)) {
+    operation_mode |= IFE_DIRECT_STREAM;
     QMMF_INFO("%s: YUVCallback OpMode Set, operation_mode = 0x%x \n", __func__, operation_mode);
   }
+#endif
 
   QMMF_DEBUG("%s: Exit: \n", __func__);
 
