@@ -120,9 +120,7 @@ CameraContext::CameraContext()
       pcr_frc_enabled_(false),
       continuous_mode_is_on_(false),
       is_camera_dead_(false),
-      pending_cached_stream_(false),
-      hfr_sync_mode_(false),
-      all_ports_ready_(false) {
+      pending_cached_stream_(false) {
 
   QMMF_INFO("%s: Enter", __func__);
 
@@ -390,41 +388,6 @@ status_t CameraContext::OpenCamera(const uint32_t camera_id,
       }
     } else {
       QMMF_ERROR("%s: Invalid FRC mode received", __func__);
-      return BAD_VALUE;
-    }
-  }
-
-  if (extra_param.Exists(QMMF_HFR_SYNC_MODE)) {
-    size_t entry_count = extra_param.EntryCount(QMMF_HFR_SYNC_MODE);
-    if (entry_count == 1) {
-      HFRSyncMode hfr_sync_mode;
-      extra_param.Fetch(QMMF_HFR_SYNC_MODE, hfr_sync_mode, 0);
-      if (hfr_sync_mode.enable == true) {
-        hfr_sync_mode_ = true;
-        QMMF_INFO("%s: HFR Sync Mode enable", __func__);
-      } else {
-        QMMF_INFO("%s: HFR Sync Mode disable", __func__);
-        hfr_sync_mode_ = false;
-      }
-    } else {
-      QMMF_ERROR("%s: Invalid HFR Sync Mode received", __func__);
-      return BAD_VALUE;
-    }
-  }
-
-
-  if (extra_param.Exists(QMMF_YUVCALLBACK)) {
-    size_t entry_count = extra_param.EntryCount(QMMF_YUVCALLBACK);
-    if (entry_count == 1) {
-      YUVCallbackMode yuv_cb;
-      extra_param.Fetch(QMMF_YUVCALLBACK, yuv_cb, 0);
-      if (yuv_cb.enable == true) {
-        QMMF_INFO("%s: YUV Callback is ON..", __func__);
-        camera_parameters_.cam_feature_flags |=
-            static_cast<uint32_t>(CamFeatureFlag::kYUVCALLBACK);
-      }
-    } else {
-      QMMF_ERROR("%s: Invalid YUV Callback param received", __func__);
       return BAD_VALUE;
     }
   }
@@ -1132,31 +1095,27 @@ status_t CameraContext::SetCameraParam(const CameraMetadata &meta) {
       req.metadata.append(meta);
       request_list.push_back(req);
     }
+    // Submit request with updated camera meta data only if streaming is
+    // started, if not then just update default meta data and leave it to
+    // startSession -> startStream to submit request.
+    std::unique_lock<std::mutex> pending_frames_lock(pending_frames_lock_);
+    if (streaming_request_id_ >= 0 && !continuous_mode_is_on_) {
+      int64_t last_frame_number;
+      auto ret = camera_device_->SubmitRequestList(request_list, true,
+                                                   &last_frame_number);
 
-    if ((hfr_sync_mode_ == false) || 
-          ((hfr_sync_mode_ == true) && (all_ports_ready_ == true))) {
-      // Submit request with updated camera meta data only if streaming is
-      // started, if not then just update default meta data and leave it to
-      // startSession -> startStream to submit request.
-      std::unique_lock<std::mutex> pending_frames_lock(pending_frames_lock_);
-      if (streaming_request_id_ >= 0 && !continuous_mode_is_on_) {
-        int64_t last_frame_number;
-        auto ret = camera_device_->SubmitRequestList(request_list, true,
-                                                     &last_frame_number);
+      QMMF_INFO("%s: last_frame_number: current=%lld previous=%lld", __func__,
+          last_frame_number, last_frame_number_);
 
-        QMMF_INFO("%s: last_frame_number: current=%lld previous=%lld", __func__,
-            last_frame_number, last_frame_number_);
-
-        // SubmitRequestList returns NO_IN_FLIGHT_REPEATING_FRAMES when there is
-        // no previous request or when previous request is not submitted to HAL
-        // yet.
-        if (last_frame_number != NO_IN_FLIGHT_REPEATING_FRAMES) {
-          last_frame_number_ = last_frame_number;
-        }
-
-        assert(ret >= 0);
-        streaming_request_id_ = ret;
+      // SubmitRequestList returns NO_IN_FLIGHT_REPEATING_FRAMES when there is
+      // no previous request or when previous request is not submitted to HAL
+      // yet.
+      if (last_frame_number != NO_IN_FLIGHT_REPEATING_FRAMES) {
+        last_frame_number_ = last_frame_number;
       }
+
+      assert(ret >= 0);
+      streaming_request_id_ = ret;
     }
   } else {
     QMMF_ERROR("%s: No active requests present!\n", __func__);
@@ -1718,8 +1677,6 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
 
   //Get all camera stream ids from all active ports which are ready to start.
   size_t size = active_ports_.size();
-  size_t active_ports_number = size;
-
   QMMF_INFO("%s: Number of active_ports(%d)", __func__, size);
 
   for (auto const& it : active_ports_) {
@@ -1822,19 +1779,9 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
         + stale_idx + stale_count);
   }
   size = streaming_active_requests_[0].streamIds.size();
-
-  if (active_ports_number == size) {
-    all_ports_ready_ = true;
-  } else {
-    all_ports_ready_ = false;
-  }
-
   QMMF_INFO("%s: Number of streams(%d) to start", __func__, size);
   if (size == 0) {
     QMMF_INFO("%s:Cancelling the request, no pending stream!", __func__);
-    return CancelRequest();
-  } else if ((hfr_sync_mode_ == true) && (all_ports_ready_ == false)) {
-    QMMF_INFO("%s:[HFR Sync Mode] Cancelling the request, not all ports ready", __func__);
     return CancelRequest();
   }
 
@@ -1861,7 +1808,7 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
 
     }
     std::list<Camera3Request> request_list;
-    for (ssize_t i = 0; i < streaming_active_requests_.size(); i++) {
+    for (ssize_t i = (streaming_active_requests_.size() - 1); i >= 0; --i) {
       request_list.push_back(streaming_active_requests_[i]);
       assert(!streaming_active_requests_[i].metadata.isEmpty());
     }
