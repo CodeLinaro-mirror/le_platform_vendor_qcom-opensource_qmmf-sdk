@@ -29,23 +29,23 @@
 * Changes from Qualcomm Innovation Center are provided under the following license:
 *
 * Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
-*  
+*
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted (subject to the limitations in the
 * disclaimer below) provided that the following conditions are met:
-*  
+*
 *     * Redistributions of source code must retain the above copyright
 *       notice, this list of conditions and the following disclaimer.
-*  
+*
 *     * Redistributions in binary form must reproduce the above
 *       copyright notice, this list of conditions and the following
 *       disclaimer in the documentation and/or other materials provided
 *       with the distribution.
-*  
+*
 *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
 *       contributors may be used to endorse or promote products derived
 *       from this software without specific prior written permission.
-*  
+*
 * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
 * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
 * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
@@ -107,11 +107,27 @@ enum class VideoFormat : uint32_t {
   kNV16,
   kYUY2,
   kUYVY,
+  kP010,
+  kTP10UBWC,
   kBayerIdeal,
   kBayerRDI8BIT,
   kBayerRDI10BIT,
   kBayerRDI12BIT,
   kBayerRDI16BIT,
+};
+
+enum class ImageMode : uint32_t {
+  // Single snapshot image stream. Default configuration.
+  kSnapshot,
+  // In conjunction to the image stream an additional RAW stream is be created.
+  // Default RAW format is kBayerRDI10BIT and can be configured with the extra
+  // parameter tag
+  kSnapshotPlusRaw,
+  // Zero Shutter Lag capture. QMMF starts ZSL continuous stream. Frames
+  // from continuous stream are stored in ZSL queue. Last good frame in
+  // ZSL queue will be used when user call CaptureImage API. ZSL stream
+  // will be stopped when mode is changed or CancelCaptureImage is called.
+  kZsl,
 };
 
 enum class ImageFormat : uint32_t {
@@ -123,6 +139,21 @@ enum class ImageFormat : uint32_t {
   kBayerRDI10BIT,
   kBayerRDI12BIT,
   kBayerRDI16BIT,
+};
+
+enum class SnapshotType : uint32_t {
+  // High quality snapshot. Video recording will be interrupted.
+  kStill,
+  // High quality snapshot plus RAW dump. Image capture must be configured in
+  // ImageMode::kSnapshotPlusRaw mode. Video recording will be interrupted.
+  kStillPlusRaw,
+  // Snapshot is captured with video settings. Video recording won't be
+  // interrupted.
+  kVideo,
+  // It is the combination of kVideo and RAW snapshot. Image capture must be
+  // configured in ImageMode::kSnapshotPlusRaw mode. Video recording won't be
+  // interrupted.
+  kVideoPlusRaw
 };
 
 enum class Rotation : uint32_t {
@@ -279,6 +310,8 @@ typedef std::function<void(uint32_t camera_id,
 /// @brief For thumbnail images only kJPEG is supported
 /// For YUV and Bayer formats, quality is ignored
 struct ImageParam {
+  /// Capture mode
+  ImageMode   mode;
   /// Image width
   uint32_t    width;
   /// Image height
@@ -292,40 +325,15 @@ struct ImageParam {
 
   ::std::string ToString() const {
     ::std::stringstream stream;
+    stream << "mode["
+           << static_cast<::std::underlying_type<ImageMode>::type>(mode)
+           << "]";
     stream << "width[" << width << "]";
     stream << "height[" << height << "] ";
     stream << "format["
            << static_cast<::std::underlying_type<ImageFormat>::type>(format)
            << "]";
     stream << "quality[" << quality << "] ";
-    return stream.str();
-  }
-};
-
-/// \brief ZSL queue parameters
-///
-/// Images in ZSL queue might have different dimension than final image.
-struct ZslQueueParam {
-  uint32_t    width;
-  uint32_t    height;
-  uint32_t    queue_depth;
-  ImageFormat image_format;
-
-  ZslQueueParam()
-    : width(3840),
-      height(2160),
-      queue_depth(4),
-      image_format(ImageFormat::kNV21) {}
-
-  ::std::string ToString() const {
-    ::std::stringstream stream;
-    stream << "width[" << width << "]";
-    stream << "height[" << height << "] ";
-    stream << "queue_depth[" << queue_depth << "] ";
-    stream << "image_format["
-           << static_cast<::std::underlying_type<ImageFormat>::type>
-                         (image_format)
-           << "]";
     return stream.str();
   }
 };

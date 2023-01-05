@@ -89,10 +89,13 @@
 #define GRALLOC_USAGE_HW_VIDEO_ENCODER           0x00010000
 #define GRALLOC_USAGE_HW_CAMERA_WRITE            0x00020000
 #define GRALLOC_USAGE_HW_CAMERA_READ             0x00040000
-#define GRALLOC_USAGE_PRIVATE_ALLOC_UBWC         0x10000000
+#define GRALLOC_USAGE_PRIVATE_ALLOC_UBWC         0x10000000 // GRALLOC_USAGE_PRIVATE_0
+#define GRALLOC_USAGE_PRIVATE_ALLOC_10BIT        0x40000000 // GRALLOC_USAGE_PRIVATE_2
 #define GRALLOC_USAGE_PRIVATE_UNCACHED           0x02000000
 #define HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS      0x7FA30C04
 #define HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS_UBWC 0x7FA30C06
+#define HAL_PIXEL_FORMAT_YCbCr_422_I_10BIT       0x4C595559
+#define HAL_PIXEL_FORMAT_YCbCr_420_TP10_UBWC     0x7FA30C09
 
 #ifdef __LIBGBM__
 struct private_handle_t : public gbm_bo {
@@ -176,6 +179,9 @@ class MemAllocFlags {
   *
   **/
   bool Equals(const MemAllocFlags& to) const { return flags == to.flags; }
+
+
+  bool Exists(const int flag) const { return flags & flag; }
 };
 
 /** MemAllocFlags
@@ -198,6 +204,8 @@ class IMemAllocUsage {
  public:
   static const int kHwCameraZsl;
   static const int kPrivateAllocUbwc;
+  static const int kPrivateAllocP010;
+  static const int kPrivateAllocTP10;
   static const int kPrivateIommUHeap;
   static const int kPrivateMmHeap;
   static const int kPrivateUncached;

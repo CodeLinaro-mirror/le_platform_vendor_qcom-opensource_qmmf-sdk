@@ -224,7 +224,8 @@ status_t CameraSource::StopCamera(const uint32_t camera_id) {
 }
 
 status_t CameraSource::CaptureImage(const uint32_t camera_id,
-                                    const uint32_t num_images,
+                                    const SnapshotType type,
+                                    const uint32_t n_images,
                                     const std::vector<CameraMetadata> &meta,
                                     const SnapshotCb& cb) {
 
@@ -241,7 +242,7 @@ status_t CameraSource::CaptureImage(const uint32_t camera_id,
   StreamSnapshotCb stream_cb = [&] (uint32_t count, StreamBuffer& buf) {
     SnapshotCallback(count, buf);
   };
-  auto ret = camera->CaptureImage(num_images, meta, stream_cb);
+  auto ret = camera->CaptureImage(type, n_images, meta, stream_cb);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: CaptureImage Failed!", __func__);
     return ret;
@@ -253,7 +254,7 @@ status_t CameraSource::CaptureImage(const uint32_t camera_id,
 
 status_t CameraSource::ConfigImageCapture(const uint32_t camera_id,
                                           const ImageParam &param,
-                                          const ImageExtraParam &config) {
+                                          const ImageExtraParam &xtraparam) {
 
   QMMF_DEBUG("%s: Enter", __func__);
 
@@ -263,21 +264,16 @@ status_t CameraSource::ConfigImageCapture(const uint32_t camera_id,
   }
   auto const& camera = active_cameras_[camera_id];
 
-  auto ret = camera->ConfigImageCapture(config);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: ConfigImageCapture Failed!", __func__);
-    return ret;
-  }
-
   SnapshotParam sparam {};
+  sparam.mode    = param.mode;
   sparam.width   = param.width;
   sparam.height  = param.height;
   sparam.format  = Common::FromImageToQmmfFormat(param.format);
   sparam.quality = param.quality;
 
-  ret = camera->SetUpCapture(sparam);
+  auto ret = camera->ConfigImageCapture(sparam, xtraparam);
   if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: SetUpCapture Failed!", __func__);
+    QMMF_ERROR("%s: ConfigImageCapture Failed!", __func__);
     return ret;
   }
 
@@ -285,7 +281,8 @@ status_t CameraSource::ConfigImageCapture(const uint32_t camera_id,
   return NO_ERROR;
 }
 
-status_t CameraSource::CancelCaptureImage(const uint32_t camera_id) {
+status_t CameraSource::CancelCaptureImage(const uint32_t camera_id,
+                                          const bool cache) {
 
   QMMF_DEBUG("%s: Enter", __func__);
   QMMF_KPI_DETAIL();
@@ -296,7 +293,7 @@ status_t CameraSource::CancelCaptureImage(const uint32_t camera_id) {
   }
   auto const& camera = active_cameras_[camera_id];
 
-  auto ret = camera->CancelCaptureImage();
+  auto ret = camera->CancelCaptureImage(cache);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: CancelCaptureImage Failed!", __func__);
     return ret;
