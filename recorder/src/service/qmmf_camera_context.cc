@@ -603,15 +603,12 @@ status_t CameraContext::ConfigImageCapture(const SnapshotParam& param,
         }
 
         CameraStreamParameters raw_stream_param = stream_param;
+        raw_stream_param.width = rawparam.width;
+        raw_stream_param.height = rawparam.height;
         raw_stream_param.format = Common::FromQmmfToHalFormat(format);
         raw_stream_param.allocFlags.flags = IMemAllocUsage::kSwWriteOften |
                                             IMemAllocUsage::kSwReadOften;
         raw_stream_param.bufferCount  = MAX_SNAPSHOT_BUFFER_COUNT;
-
-        Common::GetMaxSupportedCameraRes(static_meta_,
-                                         raw_stream_param.width,
-                                         raw_stream_param.height,
-                                         format);
 
         QMMF_INFO("%s: Raw Snapshot W(%d) & H(%d) Fmt(0x%x)", __func__,
             raw_stream_param.width, raw_stream_param.height,

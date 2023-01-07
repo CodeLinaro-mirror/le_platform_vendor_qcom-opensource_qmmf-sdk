@@ -117,6 +117,8 @@ struct SnapshotRawSetup : DataTagBase {
   /**< RAW format takes place only if image mode type is kSnapshotPlusRaw. */
   /**< Default RAW format is kBayerRDI10BIT. */
   ImageFormat format;
+  uint32_t     width;
+  uint32_t     height;
 
   SnapshotRawSetup()
     : DataTagBase(QMMF_SNAPSHOT_RAW_SETUP),
