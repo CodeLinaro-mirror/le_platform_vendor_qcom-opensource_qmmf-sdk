@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
 *  
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted (subject to the limitations in the
@@ -337,9 +337,7 @@ status_t OfflineJpegEncoder::Process(const uint32_t client_id,
   pproc_params->valid = true;
 
   camera_metadata_t *metadata = allocate_camera_metadata(1, 128);
-  //TODO check client parameters as meta.quality
-  //If set by client fill the corresponding metadata entry.
-
+  add_camera_metadata_entry(metadata, ANDROID_JPEG_QUALITY, &meta.quality, 1);
   pproc_params->pMetadata = metadata;
 
   auto pproc_instance = client_pproc_map_.at(client_id).pproc_instance;
