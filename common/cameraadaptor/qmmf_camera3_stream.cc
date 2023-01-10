@@ -109,6 +109,9 @@ Camera3Stream::Camera3Stream(int id, size_t maxSize,
   }
   camera3_stream::priv = nullptr;
 #endif
+#if defined(CAMERA_HAL_API_VERSION) && (CAMERA_HAL_API_VERSION >= 0x0307)
+  camera3_stream::group_id  = -1;
+#endif
 
   if ((HAL_PIXEL_FORMAT_BLOB == format) && (0 == maxSize)) {
     QMMF_ERROR("%s: blob with zero size\n", __func__);
