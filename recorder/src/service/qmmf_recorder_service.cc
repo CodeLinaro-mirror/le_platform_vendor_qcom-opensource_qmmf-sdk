@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -617,7 +617,7 @@ status_t RecorderService::Disconnect(uint32_t client_id) {
     return BAD_VALUE;
   }
 
-  recorder_->DeRegisterClient(client_id);
+  recorder_->DeRegisterClient(client_id, true);
 
   sp<DeathNotifier> notifier = death_notifier_list_[client_id];
   sp<RemoteCallBack> callback = remote_cb_list_[client_id];
