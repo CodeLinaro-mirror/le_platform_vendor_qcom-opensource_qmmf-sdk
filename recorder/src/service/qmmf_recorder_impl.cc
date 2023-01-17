@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -243,11 +243,6 @@ status_t RecorderImpl::DeRegisterClient(const uint32_t client_id,
     return BAD_VALUE;
   }
 
-#ifdef ENABLE_OFFLINE_JPEG
-  if (offline_jpeg_encoder_) {
-    offline_jpeg_encoder_->DeRegisterClient(client_id);
-  }
-#endif
 
   if (!force_cleanup) {
     QMMF_WARN("%s Resources belonging to client(%d) are not released!",
@@ -258,6 +253,12 @@ status_t RecorderImpl::DeRegisterClient(const uint32_t client_id,
     }
     return NO_ERROR;
   }
+
+#ifdef ENABLE_OFFLINE_JPEG
+  if (offline_jpeg_encoder_) {
+    offline_jpeg_encoder_->DeRegisterClient(client_id);
+  }
+#endif
 
   // This is the case when client is dead before releasing its acquired
   // resources, service is trying to free up his resources to avoid
