@@ -25,6 +25,40 @@
 * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
 * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*
+* Changes from Qualcomm Innovation Center are provided under the following license:
+*
+* Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+*
+* Redistribution and use in source and binary forms, with or without
+* modification, are permitted (subject to the limitations in the
+* disclaimer below) provided that the following conditions are met:
+*
+*     * Redistributions of source code must retain the above copyright
+*       notice, this list of conditions and the following disclaimer.
+*
+*     * Redistributions in binary form must reproduce the above
+*       copyright notice, this list of conditions and the following
+*       disclaimer in the documentation and/or other materials provided
+*       with the distribution.
+*
+*     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+*       contributors may be used to endorse or promote products derived
+*       from this software without specific prior written permission.
+*
+* NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+* GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+* HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+* WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+* MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+* IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+* ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+* DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+* GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+* INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+* IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+* OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+* IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 /*! @file qmmf_camera_interface.h
@@ -56,12 +90,13 @@ struct StreamParam {
 };
 
 struct SnapshotParam {
+  ImageMode    mode;
   uint32_t     width;
   uint32_t     height;
   uint32_t     quality;
   BufferFormat format;
 
-  SnapshotParam(): width(0), height(0), quality(95),
+  SnapshotParam(): mode(ImageMode::kSnapshot), width(0), height(0), quality(95),
       format(BufferFormat::kBLOB) {}
 };
 
@@ -84,20 +119,18 @@ class CameraInterface {
   /// Wait AEC to converge
   virtual status_t WaitAecToConverge(const uint32_t timeout) = 0;
 
-  /// Apply image configuration
-  virtual status_t SetUpCapture(const SnapshotParam& param) = 0;
+  /// Configure Image Capture.
+  virtual status_t ConfigImageCapture(const SnapshotParam& param,
+                                      const ImageExtraParam &xtraparam) = 0;
 
   /// Image Capture
-  virtual status_t CaptureImage(const uint32_t num_images,
+  virtual status_t CaptureImage(const SnapshotType type, const uint32_t n_images,
                                 const std::vector<CameraMetadata> &meta,
                                 const StreamSnapshotCb& cb) = 0;
 
-  /// Configure Image Capture. Configuration is applied by SetUpCapture.
-  virtual status_t ConfigImageCapture(const ImageExtraParam &config) = 0;
-
   /// Abort ongoing Image Capture. This blocking API and returns when
   /// image capture is stopped and all buffers are returned
-  virtual status_t CancelCaptureImage() = 0;
+  virtual status_t CancelCaptureImage(const bool cache) = 0;
 
   /// Create stream
   virtual status_t CreateStream(const StreamParam& param,
@@ -146,6 +179,9 @@ class CameraInterface {
 
   /// Return supported fps
   virtual std::vector<int32_t>& GetSupportedFps() = 0;
+
+  /// Set Camera SHDR mode
+  virtual status_t SetSHDR(const bool enable) = 0;
 };
 
 }; //namespace recorder.

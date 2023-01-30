@@ -25,6 +25,40 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted (subject to the limitations in the
+ * disclaimer below) provided that the following conditions are met:
+ *
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials provided
+ *       with the distribution.
+ *
+ *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
+ *
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #pragma once
@@ -48,16 +82,20 @@
 #define HAL_PIXEL_FORMAT_RAW8                    0x123
 #define HAL_PIXEL_FORMAT_NV12_ENCODEABLE         0x102
 #define HAL_PIXEL_FORMAT_NV21_ZSL                0x113
+#define HAL_PIXEL_FORMAT_CbYCrY_422_I            0x120
 #define GRALLOC_USAGE_HW_TEXTURE                 0x00000100
 #define GRALLOC_USAGE_HW_RENDER                  0x00000200
 #define GRALLOC_USAGE_HW_COMPOSER                0x00000800
 #define GRALLOC_USAGE_HW_VIDEO_ENCODER           0x00010000
 #define GRALLOC_USAGE_HW_CAMERA_WRITE            0x00020000
 #define GRALLOC_USAGE_HW_CAMERA_READ             0x00040000
-#define GRALLOC_USAGE_PRIVATE_ALLOC_UBWC         0x10000000
+#define GRALLOC_USAGE_PRIVATE_ALLOC_UBWC         0x10000000 // GRALLOC_USAGE_PRIVATE_0
+#define GRALLOC_USAGE_PRIVATE_ALLOC_10BIT        0x40000000 // GRALLOC_USAGE_PRIVATE_2
 #define GRALLOC_USAGE_PRIVATE_UNCACHED           0x02000000
 #define HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS      0x7FA30C04
 #define HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS_UBWC 0x7FA30C06
+#define HAL_PIXEL_FORMAT_YCbCr_422_I_10BIT       0x4C595559
+#define HAL_PIXEL_FORMAT_YCbCr_420_TP10_UBWC     0x7FA30C09
 
 #ifdef __LIBGBM__
 struct private_handle_t : public gbm_bo {
@@ -141,6 +179,9 @@ class MemAllocFlags {
   *
   **/
   bool Equals(const MemAllocFlags& to) const { return flags == to.flags; }
+
+
+  bool Exists(const int flag) const { return flags & flag; }
 };
 
 /** MemAllocFlags
@@ -163,6 +204,8 @@ class IMemAllocUsage {
  public:
   static const int kHwCameraZsl;
   static const int kPrivateAllocUbwc;
+  static const int kPrivateAllocP010;
+  static const int kPrivateAllocTP10;
   static const int kPrivateIommUHeap;
   static const int kPrivateMmHeap;
   static const int kPrivateUncached;

@@ -25,6 +25,40 @@
 * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
 * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*
+* Changes from Qualcomm Innovation Center are provided under the following license:
+*
+* Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+*
+* Redistribution and use in source and binary forms, with or without
+* modification, are permitted (subject to the limitations in the
+* disclaimer below) provided that the following conditions are met:
+*
+*     * Redistributions of source code must retain the above copyright
+*       notice, this list of conditions and the following disclaimer.
+*
+*     * Redistributions in binary form must reproduce the above
+*       copyright notice, this list of conditions and the following
+*       disclaimer in the documentation and/or other materials provided
+*       with the distribution.
+*
+*     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+*       contributors may be used to endorse or promote products derived
+*       from this software without specific prior written permission.
+*
+* NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+* GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+* HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+* WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+* MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+* IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+* ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+* DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+* GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+* INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+* IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+* OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+* IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #define LOG_TAG "RecorderGTest"
@@ -110,6 +144,7 @@ float GetFormatBpp(int32_t format) {
     case HAL_PIXEL_FORMAT_RGBA_4444:
     case HAL_PIXEL_FORMAT_YCbCr_422_SP:
     case HAL_PIXEL_FORMAT_YCbCr_422_I:
+    case HAL_PIXEL_FORMAT_CbYCrY_422_I:
       return 2;
     case HAL_PIXEL_FORMAT_YV12:
     case HAL_PIXEL_FORMAT_YCrCb_420_SP:
@@ -404,6 +439,10 @@ void GtestCommon::SetUp() {
   // Insert Fifth stream into Map. Taking stream ID as 5.
   stream_info_map_.emplace(kFifthStreamID, stream);
 
+  property_get(PROP_SNAPSHOT_MODE, prop_val,
+               DEFAULT_PROP_SNAPSHOT_MODE);
+  SetSnapshotMode(prop_val);
+
   // Read JPEG Snapshot Stream
   property_get(PROP_SNAPSHOT_STREAM_WIDTH, prop_val,
                DEFAULT_SNAPSHOT_STREAM_WIDTH);
@@ -421,9 +460,9 @@ void GtestCommon::SetUp() {
                DEFAULT_SNAPSHOT_COUNT);
   snap_count_ = atoi(prop_val);
 
-  property_get(PROP_SNAPSHOT_MODE, prop_val,
-               DEFAULT_PROP_SNAPSHOT_MODE);
-  SetSnapshotMode(prop_val);
+  property_get(PROP_SNAPSHOT_TYPE, prop_val,
+               DEFAULT_PROP_SNAPSHOT_TYPE);
+  SetSnapshotType(prop_val);
 
 #ifdef QCAMERA3_TAG_LOCAL_COPY
   vendor_tag_desc_ = nullptr;
@@ -434,33 +473,48 @@ void GtestCommon::SetUp() {
 
 void GtestCommon::SetSnapshotMode(char prop[]) {
   std::string value = prop;
-  if (value == "Video") {
-    snap_mode_ = SnapshotMode::kVideo;
-  } else if (value == "Still") {
-    snap_mode_ = SnapshotMode::kStill;
-  } else if (value == "StillPlusRaw") {
-    snap_mode_ = SnapshotMode::kStillPlusRaw;
-  } else if (value == "Continuous") {
-    snap_mode_ = SnapshotMode::kContinuous;
+  if (value == "SnapshotPlusRaw") {
+    snap_mode_ = ImageMode::kSnapshotPlusRaw;
   } else if (value == "Zsl") {
-    snap_mode_ = SnapshotMode::kZsl;
-  } else if (value == "VideoPlusRaw") {
-    snap_mode_ = SnapshotMode::kVideoPlusRaw;
+    snap_mode_ = ImageMode::kZsl;
+  } else if (value == "Snapshot") {
+    snap_mode_ = ImageMode::kSnapshot;
   }
 }
 
 std::string GtestCommon::GetSnapshotMode() {
-  if (snap_mode_ == SnapshotMode::kVideo) {
+  if (snap_mode_ == ImageMode::kSnapshotPlusRaw) {
+    return "SnapshotPlusRaw";
+  } else if (snap_mode_ == ImageMode::kZsl) {
+    return "Zsl";
+  } else if (snap_mode_ == ImageMode::kSnapshot) {
+    return "Snapshot";
+  } else {
+    return "Invalid Mode";
+  }
+}
+
+void GtestCommon::SetSnapshotType(char prop[]) {
+  std::string value = prop;
+  if (value == "Video") {
+    snap_type_ = SnapshotType::kVideo;
+  } else if (value == "Still") {
+    snap_type_ = SnapshotType::kStill;
+  } else if (value == "StillPlusRaw") {
+    snap_type_ = SnapshotType::kStillPlusRaw;
+  } else if (value == "VideoPlusRaw") {
+    snap_type_ = SnapshotType::kVideoPlusRaw;
+  }
+}
+
+std::string GtestCommon::GetSnapshotType() {
+  if (snap_type_ == SnapshotType::kVideo) {
     return "Video";
-  } else if (snap_mode_ == SnapshotMode::kStill) {
+  } else if (snap_type_ == SnapshotType::kStill) {
     return "Still";
-  } else if (snap_mode_ == SnapshotMode::kStillPlusRaw) {
+  } else if (snap_type_ == SnapshotType::kStillPlusRaw) {
     return "StillPlusRaw";
-  } else if (snap_mode_ == SnapshotMode::kContinuous) {
-    return "Continuous";
-  } else if (snap_mode_ == SnapshotMode::kZsl) {
-    return "ZSL";
-  } else if (snap_mode_ == SnapshotMode::kVideoPlusRaw) {
+  } else if (snap_type_ == SnapshotType::kVideoPlusRaw) {
     return "VideoPlusRaw";
   } else {
     return "Invalid Mode";
@@ -519,8 +573,9 @@ void GtestCommon::PrintStreamInfo(uint32_t num) {
   if (is_snap_stream_on_) {
     std::cout << "Snapshot Stream Info:" << " Width:" << snap_width_
         << " Height:" << snap_height_ << " Format:"
-        << GetSnapshotStreamFormat() << " Mode:" <<
-        GetSnapshotMode() << std::endl;
+        << GetSnapshotStreamFormat() << " Mode:" << GetSnapshotMode()
+        << " Type:" << GetSnapshotType() << " Count:" << snap_count_
+        << std::endl;
   }
 }
 
@@ -1952,11 +2007,7 @@ void GtestCommon::ConfigureImageParam() {
   ASSERT_TRUE(ret == NO_ERROR);
 
   // Configure Snapshot Mode And Image Param
-  ImageExtraParam image_config;
-  SnapshotType snapshot_type;
-  snapshot_type.type = snap_mode_;
-  snapshot_type.raw_format = snap_format_;
-  image_config.Update(QMMF_SNAPSHOT_TYPE, snapshot_type);
+  ImageExtraParam xtraparam;
 
   ImageParam image_param{};
   image_param.format = snap_format_;
@@ -1981,12 +2032,17 @@ void GtestCommon::ConfigureImageParam() {
               image_param.width, image_param.height);
     ASSERT_TRUE(image_param.width > 0 && image_param.height > 0);
 
-    if (snap_mode_ == SnapshotMode::kStillPlusRaw || snap_mode_
-        == SnapshotMode::kVideoPlusRaw) {
+    if (snap_mode_ == ImageMode::kSnapshotPlusRaw) {
+      image_param.mode = ImageMode::kSnapshotPlusRaw;
       image_param.format = ImageFormat::kJPEG;
       image_param.width = snap_width_;
       image_param.height = snap_height_;
       image_param.quality = default_jpeg_quality_;
+
+      SnapshotRawSetup rawparam;
+      rawparam.format = snap_format_;
+
+      xtraparam.Update (QMMF_SNAPSHOT_RAW_SETUP, rawparam, 0);
     }
   } else if (snap_format_ == ImageFormat::kNV12 ||
              snap_format_ == ImageFormat::kNV21) {
@@ -1997,7 +2053,7 @@ void GtestCommon::ConfigureImageParam() {
     ASSERT_TRUE(res_supported != false);
   }
 
-  ret = recorder_.ConfigImageCapture(camera_id_, image_param, image_config);
+  ret = recorder_.ConfigImageCapture(camera_id_, image_param, xtraparam);
   ASSERT_TRUE(ret == NO_ERROR);
 }
 
@@ -2015,19 +2071,13 @@ void GtestCommon::TakeSnapshot() {
       SnapshotCb(camera_id, image_count, buffer, meta);
   };
 
-  for (uint32_t i = 0; i < snap_count_; i++) {
+  ret = recorder_.CaptureImage(camera_id_, snap_type_, snap_count_, meta_array, cb);
+  ASSERT_TRUE(ret == NO_ERROR);
 
-    ret = recorder_.CaptureImage(camera_id_, 1, meta_array, cb);
-    ASSERT_TRUE(ret == NO_ERROR);
+  // Wait time depending on whether it is continous snapshot or not.
+  uint32_t time = (snap_count_ == 0) ? (record_duration_ / 2) : 5;
 
-    if (snap_mode_ == SnapshotMode::kContinuous) {
-      // Continuous Snapshot requires only one call to CaptureImage()
-      sleep(record_duration_ / 2);
-      break;
-    }
-    // Take Snapshot with every 5 sec.
-    sleep(5);
-  }
+  sleep(time);
 
   ret = recorder_.CancelCaptureImage(camera_id_);
   ASSERT_TRUE(ret == NO_ERROR);

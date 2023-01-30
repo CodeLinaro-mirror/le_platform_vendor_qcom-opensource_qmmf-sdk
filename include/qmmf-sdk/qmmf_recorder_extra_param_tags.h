@@ -41,7 +41,8 @@ namespace recorder {
 
 enum ParamTag {
   QMMF_SOURCE_VIDEO_TRACK_ID = (1 << 16),
-  QMMF_SNAPSHOT_TYPE,
+  QMMF_SNAPSHOT_RAW_SETUP,
+  QMMF_SNAPSHOT_ZSL_SETUP,
   QMMF_VIDEO_HDR_MODE,
   QMMF_TRACK_CROP,
   QMMF_FORCE_SENSOR_MODE,
@@ -51,30 +52,7 @@ enum ParamTag {
   QMMF_USE_LINKED_TRACK_IN_SLAVE_MODE,
   QMMF_LDC,
   QMMF_LCAC,
-};
-
-enum class SnapshotMode {
-  /**< this is not valid mode */
-  kNone,
-  /**< High quality snapshot. This snapshot */
-  /**< will interrupt video streaming if any */
-  kStill,
-  /**< High quality snapshot plus RAW dump. If kStillPlusRaw is enabled then */
-  /**< RAW reprocessing (RAW plugins) cannot be supported.                   */
-  kStillPlusRaw,
-  /**< Video snapshot is captured with video settings. Video recording will  */
-  /**< not be interrupted in this mode. */
-  kVideo,
-  /**< Continuous capture. QMMF will take images until CancelCaptureImage.   */
-  /**< Capture rate could be set by QMMF_POSTPROCESS_FRAME_SKIP tag.         */
-  kContinuous,
-  /**< Zero Shutter Lag capture. QMMF starts ZSL continuous stream. Frames   */
-  /**< from continuous stream are stored in ZSL queue. Last good frame in    */
-  /**< ZSL queue will be used when user call CaptureImage API. ZSL stream    */
-  /**< will be stopped when mode is changed or CancelCaptureImage is called. */
-  kZsl,
-  /**< It is the combination of kVideo and RAW snapshot. */
-  kVideoPlusRaw
+  QMMF_FRAME_RATE_CONTROL,
 };
 
 enum class SlaveMode {
@@ -86,6 +64,14 @@ enum class SlaveMode {
   kSlave,
 };
 
+
+enum class FrameRateControlMode {
+  /**< control stream frame rate by frame skip */
+  kFrameSkip,
+  /**< control stream frame rate by HAL3 capture requests */
+  kCaptureRequest
+};
+
 struct SourceVideoTrack : DataTagBase {
   int32_t source_track_id;  // Default: -1
   SourceVideoTrack()
@@ -93,26 +79,29 @@ struct SourceVideoTrack : DataTagBase {
       source_track_id(-1) {}
 };
 
-struct SnapshotType : DataTagBase {
-  /**< This is to change the Snapshot type */
-  /**< Supported Modes are: kStill, kStillPlusRaw, kVideo, kContinuous. */
-  /**< Default snapshot mode is kVideo. */
-  SnapshotMode type;
-  /**< RAW format takes place only if snapshot type is kStillPlusRaw. */
+struct SnapshotRawSetup : DataTagBase {
+  /**< RAW format takes place only if image mode type is kSnapshotPlusRaw. */
   /**< Default RAW format is kBayerRDI10BIT. */
-  ImageFormat raw_format;
-  /**< This is ZSL queue configuration. */
-  ZslQueueParam zsl_queue_params;
-  /**< This is output images configuration in kZsl snapshot mode. */
-  ImageParam    zsl_image_param;
+  ImageFormat format;
 
-  SnapshotType()
-    : DataTagBase(QMMF_SNAPSHOT_TYPE),
-      type(SnapshotMode::kVideo),
-      raw_format(ImageFormat::kBayerRDI10BIT),
-      zsl_queue_params{},
-      zsl_image_param{} {}
+  SnapshotRawSetup()
+    : DataTagBase(QMMF_SNAPSHOT_RAW_SETUP),
+      format(ImageFormat::kBayerRDI10BIT) {}
+};
 
+struct SnapshotZslSetup : DataTagBase {
+  /**< This is output images width in kZsl image mode. */
+  uint32_t    width;
+  /**< This is output images height in kZsl image mode. */
+  uint32_t    height;
+  /**< This is output images format in kZsl image mode. */
+  ImageFormat format;
+  /**< This is depth if the image queue in kZsl image mode. */
+  uint32_t    qdepth;
+
+  SnapshotZslSetup()
+    : DataTagBase(QMMF_SNAPSHOT_ZSL_SETUP),
+      width(3840), height(2160), format(ImageFormat::kNV21), qdepth(4) {}
 };
 
 struct VideoHDRMode : DataTagBase {
@@ -214,6 +203,15 @@ struct LCACMode : DataTagBase {
   bool enable;
   LCACMode() :
     DataTagBase(QMMF_LCAC), enable(false) {
+  }
+};
+
+struct FrameRateControl : DataTagBase {
+  /**< Add support for stream frame rate control mode  */
+  FrameRateControlMode mode;
+  FrameRateControl() :
+    DataTagBase(QMMF_FRAME_RATE_CONTROL),
+    mode(FrameRateControlMode::kFrameSkip) {
   }
 };
 

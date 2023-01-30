@@ -25,6 +25,40 @@
 * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
 * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*
+* Changes from Qualcomm Innovation Center are provided under the following license:
+*
+* Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+*
+* Redistribution and use in source and binary forms, with or without
+* modification, are permitted (subject to the limitations in the
+* disclaimer below) provided that the following conditions are met:
+*
+*     * Redistributions of source code must retain the above copyright
+*       notice, this list of conditions and the following disclaimer.
+*
+*     * Redistributions in binary form must reproduce the above
+*       copyright notice, this list of conditions and the following
+*       disclaimer in the documentation and/or other materials provided
+*       with the distribution.
+*
+*     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+*       contributors may be used to endorse or promote products derived
+*       from this software without specific prior written permission.
+*
+* NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+* GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+* HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+* WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+* MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+* IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+* ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+* DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+* GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+* INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+* IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+* OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+* IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #define LOG_TAG "RecorderCameraSource"
@@ -72,7 +106,9 @@ CameraSource* CameraSource::CreateCameraSource() {
   return instance_;
 }
 
-CameraSource::CameraSource() {
+CameraSource::CameraSource()
+    : frame_rate_control_(true) {
+
   QMMF_GET_LOG_LEVEL();
   QMMF_KPI_GET_MASK();
   QMMF_KPI_DETAIL();
@@ -143,6 +179,22 @@ status_t CameraSource::StartCamera(const uint32_t camera_id,
     return ret;
   }
 
+  if (extra_param.Exists(QMMF_FRAME_RATE_CONTROL)) {
+    size_t entry_count = extra_param.EntryCount(QMMF_FRAME_RATE_CONTROL);
+    if (entry_count == 1) {
+      FrameRateControl frc_mode;
+      extra_param.Fetch(QMMF_FRAME_RATE_CONTROL, frc_mode, 0);
+      if (frc_mode.mode == FrameRateControlMode::kCaptureRequest) {
+        // Stream frame rate will be control by PCR
+        QMMF_INFO("%s: PCR FRC enable", __func__);
+        frame_rate_control_ = false;
+      }
+    } else {
+      QMMF_ERROR("%s: Invalid FRC mode received", __func__);
+      return BAD_VALUE;
+    }
+  }
+
   QMMF_INFO("%s: Camera(%d) opened successfully!", __func__, camera_id);
   return NO_ERROR;
 }
@@ -164,6 +216,7 @@ status_t CameraSource::StopCamera(const uint32_t camera_id) {
     QMMF_ERROR("%s: Failed to close camera(%d)!", __func__, camera_id);
     return FAILED_TRANSACTION;
   }
+
   active_cameras_.erase(camera_id);
   QMMF_INFO("%s: Camera(%d) successfully closed!", __func__, camera_id);
 
@@ -171,7 +224,8 @@ status_t CameraSource::StopCamera(const uint32_t camera_id) {
 }
 
 status_t CameraSource::CaptureImage(const uint32_t camera_id,
-                                    const uint32_t num_images,
+                                    const SnapshotType type,
+                                    const uint32_t n_images,
                                     const std::vector<CameraMetadata> &meta,
                                     const SnapshotCb& cb) {
 
@@ -188,7 +242,7 @@ status_t CameraSource::CaptureImage(const uint32_t camera_id,
   StreamSnapshotCb stream_cb = [&] (uint32_t count, StreamBuffer& buf) {
     SnapshotCallback(count, buf);
   };
-  auto ret = camera->CaptureImage(num_images, meta, stream_cb);
+  auto ret = camera->CaptureImage(type, n_images, meta, stream_cb);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: CaptureImage Failed!", __func__);
     return ret;
@@ -200,7 +254,7 @@ status_t CameraSource::CaptureImage(const uint32_t camera_id,
 
 status_t CameraSource::ConfigImageCapture(const uint32_t camera_id,
                                           const ImageParam &param,
-                                          const ImageExtraParam &config) {
+                                          const ImageExtraParam &xtraparam) {
 
   QMMF_DEBUG("%s: Enter", __func__);
 
@@ -210,21 +264,16 @@ status_t CameraSource::ConfigImageCapture(const uint32_t camera_id,
   }
   auto const& camera = active_cameras_[camera_id];
 
-  auto ret = camera->ConfigImageCapture(config);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: ConfigImageCapture Failed!", __func__);
-    return ret;
-  }
-
   SnapshotParam sparam {};
+  sparam.mode    = param.mode;
   sparam.width   = param.width;
   sparam.height  = param.height;
   sparam.format  = Common::FromImageToQmmfFormat(param.format);
   sparam.quality = param.quality;
 
-  ret = camera->SetUpCapture(sparam);
+  auto ret = camera->ConfigImageCapture(sparam, xtraparam);
   if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: SetUpCapture Failed!", __func__);
+    QMMF_ERROR("%s: ConfigImageCapture Failed!", __func__);
     return ret;
   }
 
@@ -232,7 +281,8 @@ status_t CameraSource::ConfigImageCapture(const uint32_t camera_id,
   return NO_ERROR;
 }
 
-status_t CameraSource::CancelCaptureImage(const uint32_t camera_id) {
+status_t CameraSource::CancelCaptureImage(const uint32_t camera_id,
+                                          const bool cache) {
 
   QMMF_DEBUG("%s: Enter", __func__);
   QMMF_KPI_DETAIL();
@@ -243,7 +293,7 @@ status_t CameraSource::CancelCaptureImage(const uint32_t camera_id) {
   }
   auto const& camera = active_cameras_[camera_id];
 
-  auto ret = camera->CancelCaptureImage();
+  auto ret = camera->CancelCaptureImage(cache);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: CancelCaptureImage Failed!", __func__);
     return ret;
@@ -421,10 +471,15 @@ status_t CameraSource::CreateTrackSource(const uint32_t track_id,
     QMMF_INFO("%s: Normal stream should be create.", __func__);
   }
 
+  // Enfroce frame rate cotrol in track for linked and copy streams
+  bool fr_control = frame_rate_control_ | copy_stream_mode;
+
+  QMMF_DEBUG ("%s: frame_rate_contol %d ", __func__, fr_control);
+
   // Create TrackSource and give it to CameraInterface, CameraConext in turn
   // would map it to its one of port.
   auto track_source = make_shared<TrackSource>(track_id, camera, params,
-                                               xtraparam, cb);
+                                               xtraparam, fr_control, cb);
   if (!track_source.get()) {
     QMMF_ERROR("%s: Can't create TrackSource Instance", __func__);
     return NO_MEMORY;
@@ -490,7 +545,10 @@ status_t CameraSource::DeleteTrackSource(const uint32_t track_id) {
   auto const& track = track_sources_[track_id];
 
   auto ret = track->DeInit();
-  assert(ret == NO_ERROR);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s: Track(%x): DeInit failed !!", __func__, track_id);
+    return ret;
+  }
 
   track_sources_.erase(track_id);
   rescalers_.erase(track_id);
@@ -544,7 +602,10 @@ status_t CameraSource::StopTrackSource(const uint32_t track_id) {
   auto const& track = track_sources_[track_id];
 
   auto ret = track->StopTrack();
-  assert(ret == NO_ERROR);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s: Track(%x): Stop failed !!", __func__, track_id);
+    return ret;
+  }
 
   QMMF_VERBOSE("%s: TrackSource id(%x) Stopped Successfully!", __func__,
       track_id);
@@ -617,6 +678,16 @@ status_t CameraSource::GetCameraParam(const uint32_t camera_id,
     return BAD_VALUE;
   }
   return active_cameras_[camera_id]->GetCameraParam(meta);
+}
+
+status_t CameraSource::SetSHDR(const uint32_t camera_id,
+                               const bool enable) {
+
+  if (active_cameras_.count(camera_id) == 0) {
+    QMMF_ERROR("%s: Invalid Camera Id(%d)", __func__, camera_id);
+    return BAD_VALUE;
+  }
+  return active_cameras_[camera_id]->SetSHDR(enable);
 }
 
 status_t CameraSource::GetDefaultCaptureParam(const uint32_t camera_id,
@@ -868,6 +939,7 @@ TrackSource::TrackSource(const uint32_t id,
                          const std::shared_ptr<CameraInterface>& camera,
                          const VideoTrackParam& params,
                          const VideoExtraParam& extraparams,
+                         const bool frame_rate_cotrol,
                          const BnBufferCallback& cb)
     : id_(id),
       params_(params),
@@ -898,13 +970,15 @@ TrackSource::TrackSource(const uint32_t id,
   std::stringstream name;
   name << "Track(" << std::hex << id_ << ")";
 
-  fsc_ = std::make_shared<FrameRateController>("FrameSkip: " + name.str());
-  assert(fsc_.get() != nullptr);
-  fsc_->SetFrameRate(params_.framerate);
+  if (frame_rate_cotrol) {
+    fsc_ = std::make_shared<FrameRateController>("FrameSkip: " + name.str());
+    assert(fsc_.get() != nullptr);
+    fsc_->SetFrameRate(params_.framerate);
 
-  frc_ = std::make_shared<FrameRateController>("FrameRepeat: " + name.str());
-  assert(frc_.get() != nullptr);
-  frc_->SetFrameRate(params_.framerate);
+    frc_ = std::make_shared<FrameRateController>("FrameRepeat: " + name.str());
+    assert(frc_.get() != nullptr);
+    frc_->SetFrameRate(params_.framerate);
+  }
 
   QMMF_INFO("%s: TrackSource (0x%p)", __func__, this);
 }
@@ -963,10 +1037,38 @@ status_t TrackSource::InitCopy(shared_ptr<TrackSource> master_track_source,
   slave_track_source_ = true;
 
   if (rescaler.get() == nullptr) {
-    QMMF_INFO("%s Linked stream", __func__);
+    QMMF_INFO("%s Linked stream without down scale", __func__);
   } else {
     rescaler_ = rescaler;
   }
+
+  sp<IBufferConsumer> consumer;
+  consumer = GetConsumer();
+  assert(consumer.get() != nullptr);
+
+  if (frc_.get() != nullptr) {
+    result = frc_->AddConsumer(consumer);
+    assert(result == NO_ERROR);
+    consumer = frc_->GetConsumer();
+    assert(consumer.get() != nullptr);
+  }
+
+  if (rescaler_.get() != nullptr) {
+    result = rescaler_->AddConsumer(consumer);
+    assert(result == NO_ERROR);
+    consumer = rescaler_->GetConsumer();
+    assert(consumer.get() != nullptr);
+  }
+
+  if (fsc_.get() != nullptr) {
+    result = fsc_->AddConsumer(consumer);
+    assert(result == NO_ERROR);
+    consumer = fsc_->GetConsumer();
+    assert(consumer.get() != nullptr);
+  }
+
+  result = master_track_->AddConsumer(consumer);
+  assert(result == NO_ERROR);
 
   QMMF_DEBUG("%s: Exit Track(%x)", __func__, id_);
   return result;
@@ -977,7 +1079,6 @@ status_t TrackSource::Init() {
   QMMF_DEBUG("%s Enter Track(%x)", __func__, id_);
 
   slave_track_source_ = false;
-  rescaler_ = nullptr;
   master_track_ = nullptr;
 
   StreamParam param{};
@@ -1001,6 +1102,27 @@ status_t TrackSource::Init() {
       " Created Successfully for Track(%x)",  __func__, this,
       params_.width, params_.height, id_);
 
+  sp<IBufferConsumer> consumer;
+  consumer = GetConsumer();
+  assert(consumer.get() != nullptr);
+
+  if (frc_.get() != nullptr) {
+    ret = frc_->AddConsumer(consumer);
+    assert(ret == NO_ERROR);
+    consumer = frc_->GetConsumer();
+    assert(consumer.get() != nullptr);
+  }
+
+  if (fsc_.get() != nullptr) {
+    ret = fsc_->AddConsumer(consumer);
+    assert(ret == NO_ERROR);
+    consumer = fsc_->GetConsumer();
+    assert(consumer.get() != nullptr);
+  }
+
+  ret = camera_->AddConsumer(id_, consumer);
+  assert(ret == NO_ERROR);
+
   QMMF_DEBUG("%s Exit Track(%x)", __func__, id_);
   return ret;
 }
@@ -1011,10 +1133,57 @@ status_t TrackSource::DeInit() {
   assert(camera_.get() != nullptr);
   status_t ret = NO_ERROR;
 
+  sp<IBufferConsumer> consumer = GetConsumer();
+  assert(consumer.get() != nullptr);
+
+  if (frc_.get() != nullptr) {
+    ret = frc_->RemoveConsumer(consumer);
+    assert(ret == NO_ERROR);
+    consumer = frc_->GetConsumer();
+    assert(consumer.get() != nullptr);
+  }
+
+  if (rescaler_.get() != nullptr) {
+    ret = rescaler_->RemoveConsumer(consumer);
+    assert(ret == NO_ERROR);
+    consumer = rescaler_->GetConsumer();
+    assert(consumer.get() != nullptr);
+  }
+
+  if (fsc_.get() != nullptr) {
+    ret = fsc_->RemoveConsumer(consumer);
+    assert(ret == NO_ERROR);
+    consumer = fsc_->GetConsumer();
+    assert(consumer.get() != nullptr);
+  }
+
+  if (slave_track_source_) {
+    ret = master_track_->RemoveConsumer(consumer);
+    assert(ret == NO_ERROR);
+  } else {
+    ret = camera_->RemoveConsumer(id_, consumer);
+    assert(ret == NO_ERROR);
+  }
+
+  std::unique_lock<std::mutex> idle_lock(idle_lock_);
+  std::chrono::nanoseconds wait_time(kWaitDuration);
+
+  while (!is_idle_) {
+    auto ret = wait_for_idle_.WaitFor(idle_lock, wait_time);
+    if (ret != 0) {
+      QMMF_ERROR("%s: Track(%x): StopTrack Timed out happened! Encoder"
+          " failed to go in Idle state!",  __func__, id_);
+      return TIMED_OUT;
+    }
+  }
+
   if (slave_track_source_ == false) {
     ret = camera_->DeleteStream(id_);
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s: Track(%x): DeleteStream failed", __func__, id_);
+      return ret;
+    }
   }
-  assert(ret == NO_ERROR);
 
   rescaler_ = nullptr;
 
@@ -1032,36 +1201,8 @@ status_t TrackSource::StartTrack() {
   std::lock_guard<std::mutex> stop_lock(stop_lock_);
   is_stop_ = false;
 
-  sp<IBufferConsumer> consumer;
-  consumer = GetConsumer();
-  assert(consumer.get() != nullptr);
-
   status_t ret = NO_ERROR;
-  ret = frc_->AddConsumer(consumer);
-  assert(ret == NO_ERROR);
-  consumer = frc_->GetConsumer();
-  assert(consumer.get() != nullptr);
-
-  if (rescaler_.get() != nullptr) {
-    ret = master_track_->AddConsumer(fsc_->GetConsumer());
-    assert(ret == NO_ERROR);
-    ret = fsc_->AddConsumer(rescaler_->GetConsumer());
-    assert(ret == NO_ERROR);
-    ret = rescaler_->AddConsumer(consumer);
-    assert(ret == NO_ERROR);
-  } else if (slave_track_source_ == true) {
-    assert(nullptr != fsc_);
-    ret = master_track_->AddConsumer(fsc_->GetConsumer());
-    assert(ret == NO_ERROR);
-    ret = fsc_->AddConsumer(consumer);
-    assert(ret == NO_ERROR);
-  }
-
   if (slave_track_source_ == false) {
-    ret = camera_->AddConsumer(id_, fsc_->GetConsumer());
-    assert(ret == NO_ERROR);
-    ret = fsc_->AddConsumer(consumer);
-    assert(ret == NO_ERROR);
     ret = camera_->StartStream(id_);
     assert(ret == NO_ERROR);
   }
@@ -1071,11 +1212,15 @@ status_t TrackSource::StartTrack() {
     assert(ret == NO_ERROR);
   }
 
-  ret = fsc_->Start();
-  assert(ret == NO_ERROR);
+  if (fsc_.get() != nullptr) {
+    ret = fsc_->Start();
+    assert(ret == NO_ERROR);
+  }
 
-  ret = frc_->Start();
-  assert(ret == NO_ERROR);
+  if (frc_.get() != nullptr) {
+    ret = frc_->Start();
+    assert(ret == NO_ERROR);
+  }
 
   QMMF_DEBUG("%s: Exit Track(%x)", __func__, id_);
   return NO_ERROR;
@@ -1119,47 +1264,25 @@ status_t TrackSource::StopTrack() {
 
   assert(camera_.get() != nullptr);
 
-  ret = frc_->Stop();
-  assert(ret == NO_ERROR);
+  if (frc_.get() != nullptr) {
+    ret = frc_->Stop();
+    assert(ret == NO_ERROR);
+  }
 
-  ret = fsc_->Stop();
-  assert(ret == NO_ERROR);
+  if (fsc_.get() != nullptr) {
+    ret = fsc_->Stop();
+    assert(ret == NO_ERROR);
+  }
 
   if (rescaler_.get() != nullptr) {
     ret = rescaler_->Stop();
     assert(ret == NO_ERROR);
   }
 
-  sp<IBufferConsumer> consumer = frc_->GetConsumer();
-  assert(consumer.get() != nullptr);
-
   if (slave_track_source_ == false) {
     ret = camera_->StopStream(id_);
     assert(ret == NO_ERROR);
-    ret = fsc_->RemoveConsumer(consumer);
-    assert(ret == NO_ERROR);
-    ret = camera_->RemoveConsumer(id_, fsc_->GetConsumer());
-    assert(ret == NO_ERROR);
   }
-
-  if (rescaler_.get() != nullptr) {
-    ret = rescaler_->RemoveConsumer(consumer);
-    assert(ret == NO_ERROR);
-    ret = fsc_->RemoveConsumer(rescaler_->GetConsumer());
-    assert(ret == NO_ERROR);
-    ret = master_track_->RemoveConsumer(fsc_->GetConsumer());
-    assert(ret == NO_ERROR);
-  } else if (slave_track_source_ == true) {
-    ret = fsc_->RemoveConsumer(consumer);
-    assert(ret == NO_ERROR);
-    ret = master_track_->RemoveConsumer(fsc_->GetConsumer());
-    assert(ret == NO_ERROR);
-  }
-
-  consumer = GetConsumer();
-  assert(consumer.get() != nullptr);
-  ret = frc_->RemoveConsumer(consumer);
-  assert(ret == NO_ERROR);
 
   QMMF_INFO("%s: Pipe stop done(%x)", __func__, id_);
   {
@@ -1168,17 +1291,6 @@ status_t TrackSource::StopTrack() {
         id_, buffer_list_.size());
   }
 
-  std::unique_lock<std::mutex> idle_lock(idle_lock_);
-  std::chrono::nanoseconds wait_time(kWaitDuration);
-
-  while (!is_idle_) {
-    auto ret = wait_for_idle_.WaitFor(idle_lock, wait_time);
-    if (ret != 0) {
-      QMMF_ERROR("%s: Track(%x): StopTrack Timed out happened! Encoder"
-          " failed to go in Idle state!",  __func__, id_);
-      return TIMED_OUT;
-    }
-  }
   QMMF_DEBUG("%s: Exit Track(%x)", __func__, id_);
   return NO_ERROR;
 }
@@ -1352,15 +1464,21 @@ bool TrackSource::IsPaused() {
 void TrackSource::UpdateFrameRate(const float framerate) {
 
   if (fabs(params_.framerate - framerate) > 0.1f) {
-    fsc_->SetFrameRate(framerate);
-    frc_->SetFrameRate(framerate);
+    if (fsc_.get() != nullptr) {
+      fsc_->SetFrameRate(framerate);
+    }
+    if (frc_.get() != nullptr) {
+      frc_->SetFrameRate(framerate);
+    }
     params_.framerate = framerate;
   }
 }
 
 void TrackSource::EnableFrameRepeat(const bool enable) {
 
-  frc_->EnableFrameRepeat(enable);
+  if (frc_.get() != nullptr) {
+    frc_->EnableFrameRepeat(enable);
+  }
 }
 
 void TrackSource::ReturnBufferToProducer(StreamBuffer& buffer) {

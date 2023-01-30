@@ -25,6 +25,40 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted (subject to the limitations in the
+ * disclaimer below) provided that the following conditions are met:
+ *
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials provided
+ *       with the distribution.
+ *
+ *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
+ *
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #define LOG_TAG "RecorderService"
@@ -267,14 +301,16 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
                                  static_cast<VideoParam>(param_type),
                                  param, blob_size);
         reply->writeInt32(ret);
+        blob.release();
         return NO_ERROR;
       }
       break;
       case RECORDER_CAPTURE_IMAGE: {
-        uint32_t client_id, camera_id, num_images, meta_size;
+        uint32_t client_id, camera_id, type, n_images, meta_size;
         data.readUint32(&client_id);
         data.readUint32(&camera_id);
-        data.readUint32(&num_images);
+        data.readUint32(&type);
+        data.readUint32(&n_images);
         data.readUint32(&meta_size);
         std::vector<CameraMetadata> meta_array;
         for (uint32_t i = 0; i < meta_size; ++i) {
@@ -293,7 +329,9 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
           //We need to release this memory as meta.append() makes copy of this memory
           free(m);
         }
-        ret = CaptureImage(client_id, camera_id, num_images, meta_array);
+        ret = CaptureImage(client_id, camera_id,
+                           static_cast<SnapshotType>(type), n_images,
+                           meta_array);
 
         // Clear the metadata buffers and free all storage used by it
         for (auto meta:meta_array) {
@@ -320,14 +358,17 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
         ImageExtraParam xtraparam(blob.data(), blob_size);
         ret = ConfigImageCapture(client_id, camera_id, param, xtraparam);
         reply->writeInt32(ret);
+        blob.release();
+        img_param_blob.release();
         return NO_ERROR;
       }
       break;
       case RECORDER_CANCEL_IMAGECAPTURE: {
-        uint32_t client_id, camera_id;
+        uint32_t client_id, camera_id, cache;
         data.readUint32(&client_id);
         data.readUint32(&camera_id);
-        ret = CancelCaptureImage(client_id, camera_id);
+        data.readUint32(&cache);
+        ret = CancelCaptureImage(client_id, camera_id, cache);
         reply->writeInt32(ret);
         return NO_ERROR;
       }
@@ -381,6 +422,18 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
                        __func__, ret);
           }
         }
+        meta.clear();
+        return NO_ERROR;
+      }
+      break;
+      case RECORDER_SET_SHDR: {
+        uint32_t client_id, camera_id;
+        int32_t enable;
+        data.readUint32(&client_id);
+        data.readUint32(&camera_id);
+        data.readInt32(&enable);
+        ret = SetSHDR(client_id, camera_id, enable);
+        reply->writeInt32(ret);
         return NO_ERROR;
       }
       break;
@@ -398,6 +451,7 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
                        __func__, ret);
           }
         }
+        meta.clear();
         return NO_ERROR;
       }
       break;
@@ -415,6 +469,7 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
                        __func__, ret);
           }
         }
+        meta.clear();
         return NO_ERROR;
       }
       break;
@@ -429,6 +484,68 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
                        __func__, ret);
           }
         }
+        desc.clear();
+        return NO_ERROR;
+      }
+      break;
+      case RECORDER_CONFIGURE_OFFLINE_JPEG: {
+        uint32_t client_id, jpeg_params_blob_size;
+        data.readUint32(&client_id);
+        data.readUint32(&jpeg_params_blob_size);
+        android::Parcel::ReadableBlob jpeg_params_blob;
+        data.readBlob(jpeg_params_blob_size, &jpeg_params_blob);
+        OfflineJpegCreateParams params;
+        assert(jpeg_params_blob_size == sizeof(params));
+        memcpy(&params, jpeg_params_blob.data(), jpeg_params_blob_size);
+
+        ret = CreateOfflineJPEG(client_id, params);
+        reply->writeInt32(ret);
+        return NO_ERROR;
+      }
+      break;
+      case RECORDER_ENCODE_OFFLINE_JPEG: {
+        uint32_t client_id, meta_blob_size;
+        OfflineJpegProcessParams params;
+        data.readUint32(&client_id);
+
+        uint32_t present;
+        BnBuffer in_buf = {};
+        BnBuffer out_buf = {};
+        in_buf.ion_fd = out_buf.ion_fd = -1;
+        OfflineJpegMeta metadata;
+        // Input buffer
+        data.readUint32(&present);
+        if (!present) {
+          in_buf.ion_fd = dup(data.readFileDescriptor());
+        }
+        data.readUint32(&in_buf.buffer_id);
+
+        // Output buffer
+        data.readUint32(&present);
+        if (!present) {
+          out_buf.ion_fd = dup(data.readFileDescriptor());
+        }
+        data.readUint32(&out_buf.buffer_id);
+
+        data.readUint32(&meta_blob_size);
+        android::Parcel::ReadableBlob meta_blob;
+        data.readBlob(meta_blob_size, &meta_blob);
+        assert(meta_blob_size == sizeof(metadata));
+        memcpy(&metadata, meta_blob.data(), meta_blob_size);
+
+        ret = EncodeOfflineJPEG(client_id, in_buf, out_buf, metadata);
+        meta_blob.release();
+        reply->writeInt32(ret);
+
+        return NO_ERROR;
+      }
+      break;
+      case RECORDER_DESTROY_OFFLINE_JPEG: {
+        uint32_t client_id;
+        data.readUint32(&client_id);
+        ret = DestroyOfflineJPEG(client_id);
+        reply->writeInt32(ret);
+
         return NO_ERROR;
       }
       break;
@@ -458,7 +575,8 @@ status_t RecorderService::Connect(const sp<IRecorderServiceCallback>&
     }
     std::function< const sp<RemoteCallBack>& (uint32_t id)>
       remote_cb_handle = [&] (uint32_t id) -> sp<RemoteCallBack>& {
-        QMMF_VERBOSE("%s: Client(%u): RemoteCallback request!", __func__, id);
+        QMMF_VERBOSE("%s: Client(%u): RemoteCallback request!",
+                      __func__, id);
         assert(remote_cb_list_.count(id) != 0);
         return remote_cb_list_[id];
     };
@@ -542,9 +660,11 @@ status_t RecorderService::Disconnect(uint32_t client_id) {
   remote_cb_list_.erase(client_id);
 
   if (death_notifier_list_.empty() && remote_cb_list_.empty()) {
-    QMMF_INFO("%s: No client is connected! de-init the recorder!", __func__);
-    recorder_->DeInit();
-    recorder_.reset();
+    if (recorder_) {
+      QMMF_INFO("%s: No client is connected! de-init the recorder!", __func__);
+      recorder_->DeInit();
+      recorder_.reset();
+    }
   }
 
   QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
@@ -828,8 +948,9 @@ status_t RecorderService::SetVideoTrackParam(const uint32_t client_id,
 
 status_t RecorderService::CaptureImage(const uint32_t client_id,
                                        const uint32_t camera_id,
-                                       const uint32_t num_images, const
-                                       std::vector<CameraMetadata> &meta) {
+                                       const SnapshotType type,
+                                       const uint32_t n_images,
+                                       const std::vector<CameraMetadata> &meta) {
 
   QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
 
@@ -838,8 +959,7 @@ status_t RecorderService::CaptureImage(const uint32_t client_id,
     return NO_INIT;
   }
 
-  auto ret = recorder_->CaptureImage(client_id, camera_id,
-                                     num_images, meta);
+  auto ret = recorder_->CaptureImage(client_id, camera_id, type, n_images, meta);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: CaptureImage failed!", __func__);
     return ret;
@@ -851,7 +971,7 @@ status_t RecorderService::CaptureImage(const uint32_t client_id,
 status_t RecorderService::ConfigImageCapture(const uint32_t client_id,
                                              const uint32_t camera_id,
                                              const ImageParam &param,
-                                             const ImageExtraParam &config) {
+                                             const ImageExtraParam &xtrapram) {
 
   QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
 
@@ -860,7 +980,7 @@ status_t RecorderService::ConfigImageCapture(const uint32_t client_id,
     return NO_INIT;
   }
 
-  auto ret = recorder_->ConfigImageCapture(client_id, camera_id, param, config);
+  auto ret = recorder_->ConfigImageCapture(client_id, camera_id, param, xtrapram);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: ConfigImageCapture failed!", __func__);
     return ret;
@@ -870,7 +990,8 @@ status_t RecorderService::ConfigImageCapture(const uint32_t client_id,
 }
 
 status_t RecorderService::CancelCaptureImage(const uint32_t client_id,
-                                             const uint32_t camera_id) {
+                                             const uint32_t camera_id,
+                                             const bool cache) {
 
   QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
 
@@ -879,7 +1000,7 @@ status_t RecorderService::CancelCaptureImage(const uint32_t client_id,
     return NO_INIT;
   }
 
-  auto ret = recorder_->CancelCaptureImage(client_id, camera_id);
+  auto ret = recorder_->CancelCaptureImage(client_id, camera_id, cache);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: CancelCaptureImage failed!", __func__);
     return ret;
@@ -950,6 +1071,26 @@ status_t RecorderService::GetCameraParam(const uint32_t client_id,
   return NO_ERROR;
 }
 
+status_t RecorderService::SetSHDR(const uint32_t client_id,
+                                     const uint32_t camera_id,
+                                     const bool enable) {
+
+  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
+
+  if (!IsRecorderInitialized()) {
+    QMMF_ERROR("%s: Recorder not initialized!", __func__);
+    return NO_INIT;
+  }
+
+  auto ret = recorder_->SetSHDR(client_id, camera_id, enable);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s: GetCameraParam failed!", __func__);
+    return ret;
+  }
+  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
+  return NO_ERROR;
+}
+
 status_t RecorderService::GetDefaultCaptureParam(const uint32_t client_id,
                                                  const uint32_t camera_id,
                                                  CameraMetadata &meta) {
@@ -988,6 +1129,68 @@ status_t RecorderService::GetCameraCharacteristics(const uint32_t client_id,
   }
   QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
   return NO_ERROR;
+}
+
+status_t RecorderService::CreateOfflineJPEG(
+                                      const uint32_t client_id,
+                                      const OfflineJpegCreateParams &params) {
+
+  QMMF_INFO("%s:Enter client_id(%d)", __func__, client_id);
+
+  if (!IsRecorderInitialized()) {
+    QMMF_ERROR("%s: Recorder not initialized!", __func__);
+    return NO_INIT;
+  }
+  auto ret = recorder_->CreateOfflineJPEG(client_id, params);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s: Can't create Offline JPEG PostProcessor!", __func__);
+    return ret;
+  }
+
+  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
+  return ret;
+}
+
+status_t RecorderService::EncodeOfflineJPEG(const uint32_t client_id,
+                                            const BnBuffer& in_buf,
+                                            const BnBuffer& out_buf,
+                                            const OfflineJpegMeta& meta) {
+
+  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
+
+  if (!IsRecorderInitialized()) {
+    QMMF_ERROR("%s: Recorder not initialized!", __func__);
+    return NO_INIT;
+  }
+
+  auto ret = recorder_->EncodeOfflineJPEG(client_id, in_buf, out_buf, meta);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s: Submitting request failed", __func__);
+    return ret;
+  }
+
+  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
+
+  return ret;
+}
+
+status_t RecorderService::DestroyOfflineJPEG(const uint32_t client_id) {
+
+  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
+
+  if (!IsRecorderInitialized()) {
+    QMMF_ERROR("%s: Recorder not initialized!", __func__);
+    return NO_INIT;
+  }
+  auto ret = recorder_->DestroyOfflineJPEG(client_id);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s: Destroy failed", __func__);
+    return ret;
+  }
+
+  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
+
+  return ret;
 }
 
 void RecorderService::ClientDeathHandler(const uint32_t client_id) {
@@ -1037,9 +1240,11 @@ status_t RecorderService::DisconnectInternal(const uint32_t client_id) {
   remote_cb_list_.erase(client_id);
 
   if (death_notifier_list_.empty() && remote_cb_list_.empty()) {
-    QMMF_INFO("%s: No client is connected! de-init the recorder!", __func__);
-    recorder_->DeInit();
-    recorder_.reset();
+    if (recorder_) {
+      QMMF_INFO("%s: No client is connected! de-init the recorder!", __func__);
+      recorder_->DeInit();
+      recorder_.reset();
+    }
   }
 
   QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);

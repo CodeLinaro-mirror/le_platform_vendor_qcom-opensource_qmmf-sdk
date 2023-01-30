@@ -25,6 +25,40 @@
 * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
 * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*
+* Changes from Qualcomm Innovation Center are provided under the following license:
+*
+* Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+*
+* Redistribution and use in source and binary forms, with or without
+* modification, are permitted (subject to the limitations in the
+* disclaimer below) provided that the following conditions are met:
+*
+*     * Redistributions of source code must retain the above copyright
+*       notice, this list of conditions and the following disclaimer.
+*
+*     * Redistributions in binary form must reproduce the above
+*       copyright notice, this list of conditions and the following
+*       disclaimer in the documentation and/or other materials provided
+*       with the distribution.
+*
+*     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+*       contributors may be used to endorse or promote products derived
+*       from this software without specific prior written permission.
+*
+* NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+* GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+* HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+* WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+* MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+* IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+* ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+* DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+* GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+* INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+* IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+* OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+* IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #pragma once
@@ -70,19 +104,6 @@ struct AECData {
   }
 };
 
-struct CameraParameters {
-  bool is_partial_metadata_enabled;
-  int32_t frame_rate;
-  size_t batch_size;
-  uint32_t cam_feature_flags;
-
-  CameraParameters()
-    : is_partial_metadata_enabled(false),
-      frame_rate(30),
-      batch_size(1),
-      cam_feature_flags(static_cast<uint32_t>(CamFeatureFlag::kNone)) {}
-};
-
 // This class deals with Camera3DeviceClient, and exposes simple Apis to create
 // Different types of streams (preview, video, and snashot). this class has a
 // Concept of ports, maintains vector of ports, each port is mapped one-to-one
@@ -102,15 +123,14 @@ class CameraContext : public CameraInterface {
 
   status_t WaitAecToConverge(const uint32_t timeout) override;
 
-  status_t SetUpCapture(const SnapshotParam& param) override;
+  status_t ConfigImageCapture(const SnapshotParam& param,
+                              const ImageExtraParam &xtraparam) override;
 
-  status_t CaptureImage(const uint32_t num_images,
+  status_t CaptureImage(const SnapshotType type, const uint32_t n_images,
                         const std::vector<CameraMetadata> &meta,
                         const StreamSnapshotCb& cb) override;
 
-  status_t ConfigImageCapture(const ImageExtraParam &config) override;
-
-  status_t CancelCaptureImage() override;
+  status_t CancelCaptureImage(const bool cache) override;
 
   status_t CreateStream(const StreamParam& param,
                         const VideoExtraParam& extra_param) override;
@@ -145,6 +165,8 @@ class CameraContext : public CameraInterface {
                                     const int32_t buffer_id) override;
 
   std::vector<int32_t>& GetSupportedFps() override;
+
+  status_t SetSHDR(const bool enable) override;
 
   status_t ReturnStreamBuffer(StreamBuffer buffer);
 
@@ -200,6 +222,8 @@ class CameraContext : public CameraInterface {
 
   status_t DeleteSnapshotStream(bool cache = false);
 
+  status_t SetPerStreamFrameRate();
+
   status_t UpdateRequest(bool is_streaming);
 
   status_t CancelRequest();
@@ -221,11 +245,11 @@ class CameraContext : public CameraInterface {
 
   void InitHFRModes();
 
-  status_t StartZSL(SnapshotType &param);
+  status_t StartZSL(const SnapshotParam& param, const SnapshotZslSetup &zslparam);
 
   status_t StopZSL();
 
-  status_t CaptureZSLImage();
+  status_t CaptureZSLImage(const SnapshotType type);
 
 #ifndef FLUSH_RESTART_NOTAVAILABLE
   status_t DisableFlushRestart(const bool& disable, CameraMetadata& meta);
@@ -270,8 +294,6 @@ class CameraContext : public CameraInterface {
   uint32_t                              camera_id_;
   std::mutex                            device_access_lock_;
   CameraMetadata                        static_meta_;
-
-  uint32_t GetVendorTagByName (const char *section, const char *name);
 
   std::map<uint32_t, bool> stream_prepared_;
   QCondition               prepare_done_;
@@ -332,15 +354,15 @@ class CameraContext : public CameraInterface {
 
   // snapshot configuration
   SnapshotParam                 snapshot_param_;
-  SnapshotMode                  snapshot_type_;
-  SnapshotMode                  new_snapshot_type_;
-  BufferFormat                  raw_snapshot_format_;
   CameraStreamParameters        snapshot_stream_param_;
   bool                          port_paused_;
   std::set<int32_t>             stopped_stream_ids_;
   CameraParameters              camera_parameters_;
-  bool                          continuous_mode_is_on;
-  uint32_t                      tag_id_temperature;
+  bool                          is_partial_metadata_enabled_;
+  bool                          pcr_frc_enabled_;
+  bool                          continuous_mode_is_on_;
+  bool                          is_camera_dead_;
+  bool                          pending_cached_stream_;
 };
 
 enum class CameraPortType {

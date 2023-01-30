@@ -25,6 +25,40 @@
 * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
 * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*
+* Changes from Qualcomm Innovation Center are provided under the following license:
+*
+* Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
+*
+* Redistribution and use in source and binary forms, with or without
+* modification, are permitted (subject to the limitations in the
+* disclaimer below) provided that the following conditions are met:
+*
+*     * Redistributions of source code must retain the above copyright
+*       notice, this list of conditions and the following disclaimer.
+*
+*     * Redistributions in binary form must reproduce the above
+*       copyright notice, this list of conditions and the following
+*       disclaimer in the documentation and/or other materials provided
+*       with the distribution.
+*
+*     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+*       contributors may be used to endorse or promote products derived
+*       from this software without specific prior written permission.
+*
+* NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+* GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+* HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+* WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+* MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+* IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+* ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+* DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+* GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+* INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+* IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+* OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+* IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 //! @file qmmf_recorder.h
@@ -40,6 +74,7 @@
 
 #include "qmmf-sdk/qmmf_recorder_params.h"
 #include "qmmf-sdk/qmmf_recorder_extra_param.h"
+#include "qmmf-sdk/qmmf_offline_jpeg_params.h"
 
 namespace qmmf {
 namespace recorder {
@@ -206,13 +241,15 @@ class Recorder {
   /// an event indicating CANCEL is complete
   ///
   /// @param camera_id: ID of camera
-  /// @param num_images: Number of images to be captured
+  /// @param type: The type of snapshot capture request
+  /// @param n_images: Number of images to be captured
   /// @param meta: Optional camera meta parameter for each image to be captured
   ///        If this vector is empty default parameters are used for for image
   ///        capture.
   /// @param cb: Callbacks for data and error notifications
   status_t CaptureImage(const uint32_t camera_id,
-                        const uint32_t num_images,
+                        const SnapshotType type,
+                        const uint32_t n_images,
                         const std::vector<::android::CameraMetadata> &meta,
                         const ImageCaptureCb &cb);
 
@@ -227,13 +264,13 @@ class Recorder {
   ///        plugins, multi-camera mode, etc.
   status_t ConfigImageCapture(const uint32_t camera_id,
                               const ImageParam &param,
-                              const ImageExtraParam &config);
+                              const ImageExtraParam &xtraparam);
 
   /// @brief Cancels an ongoing image capture
   ///
   /// CaptureImage is a async API. Clients can call CancelCaptureImage anytime
   /// after CaptureImage to cancel pending image captures
-  status_t CancelCaptureImage(const uint32_t camera_id);
+  status_t CancelCaptureImage(const uint32_t camera_id, const bool cache = false);
 
   /// @brief Returns image buffer back to recoder
   ///
@@ -256,6 +293,10 @@ class Recorder {
   status_t GetCameraParam(const uint32_t camera_id,
                           android::CameraMetadata &meta);
 
+  /// Set Camera SHDR mode
+  status_t SetSHDR(const uint32_t camera_id,
+                   const bool enable);
+
   /// Complementary API of CaptureImage. Clients generally calls
   /// GetDefaultCaptureParam to get default capture params. this API is
   /// Different then GetCameraParam, it gives default params for image capture
@@ -268,6 +309,31 @@ class Recorder {
   /// static camerametadata params.
   status_t GetCameraCharacteristics(const uint32_t camera_id,
                                     android::CameraMetadata &meta);
+
+  /// @brief Create Offline JPEG
+  ///
+  /// When creation is ready, clients can submit requests
+  /// to Offline JPEG via EncodeOfflineJPEG() API.
+  ///
+  /// @param params: Input and output buffers details: dimensions and format.
+  /// @param cb: Client callback for data and error notifications
+  status_t CreateOfflineJPEG(const OfflineJpegCreateParams &params,
+                             const OfflineJpegCb &cb);
+
+  /// @brief Submit request to Offline JPEG
+  ///
+  /// This is an async API. When encoding is ready, client callback specified
+  /// through CreateOfflineJPEG() will be called.
+  ///
+  /// @param params: Input and output buffers details:
+  /// dimensions, format and fds, metadata and request id.
+  /// Client is the owner of the buffers.
+  status_t EncodeOfflineJPEG(const OfflineJpegProcessParams &params);
+
+  /// @brief Destroy Offline JPEG
+  ///
+  /// This API destroys offline JPEG, created with CreateOfflineJPEG()
+  status_t DestroyOfflineJPEG();
 
  private:
   RecorderClient* recorder_client_;

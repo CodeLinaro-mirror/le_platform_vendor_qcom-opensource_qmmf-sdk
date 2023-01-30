@@ -17,6 +17,40 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted (subject to the limitations in the
+ * disclaimer below) provided that the following conditions are met:
+ *
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials provided
+ *       with the distribution.
+ *
+ *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
+ *
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "qmmf_camera3_utils.h"
@@ -90,6 +124,7 @@ Camera3Stream::Camera3Stream(int id, size_t maxSize,
 
   pthread_mutex_init(&lock_, NULL);
   cond_init(&output_buffer_returned_signal_);
+  cond_init(&idle_signal_);
 }
 
 Camera3Stream::~Camera3Stream() {
@@ -102,6 +137,7 @@ Camera3Stream::~Camera3Stream() {
 
   pthread_mutex_destroy(&lock_);
   pthread_cond_destroy(&output_buffer_returned_signal_);
+  pthread_cond_destroy(&idle_signal_);
   if (NULL != mem_alloc_slots_) {
     delete[] mem_alloc_slots_;
   }
@@ -527,6 +563,48 @@ int32_t Camera3Stream::PopulateBufferMeta(BufferMeta &info,
       info.planes[1].offset =
           info.planes[0].offset + info.planes[0].size;
       break;
+    case HAL_PIXEL_FORMAT_YCbCr_422_I_10BIT:
+      info.format = BufferFormat::kP010;
+      info.n_planes = 2;
+      info.planes[0].width = width;
+      info.planes[0].height = height;
+      info.planes[0].stride = alignedW;
+      info.planes[0].scanline = alignedH;
+      info.planes[0].size = MSM_MEDIA_ALIGN((alignedW * alignedH), 4096) +
+          MSM_MEDIA_ALIGN((VENUS_Y_META_STRIDE(COLOR_FMT_NV12_UBWC, width) *
+          VENUS_Y_META_SCANLINES(COLOR_FMT_NV12_UBWC, height)), 4096);
+      info.planes[0].offset = 0;
+      info.planes[1].width = width;
+      info.planes[1].height = height/2;
+      info.planes[1].stride = alignedW;
+      info.planes[1].scanline = alignedH/2;
+      info.planes[1].size = MSM_MEDIA_ALIGN((alignedW * alignedH / 2), 4096) +
+          MSM_MEDIA_ALIGN((VENUS_UV_META_STRIDE(COLOR_FMT_NV12_UBWC, width) *
+          VENUS_UV_META_SCANLINES(COLOR_FMT_NV12_UBWC, height)), 4096);
+      info.planes[1].offset =
+          info.planes[0].offset + info.planes[0].size;
+      break;
+    case HAL_PIXEL_FORMAT_YCbCr_420_TP10_UBWC:
+      info.format = BufferFormat::kTP10UBWC;
+      info.n_planes = 2;
+      info.planes[0].width = width;
+      info.planes[0].height = height;
+      info.planes[0].stride = alignedW;
+      info.planes[0].scanline = alignedH;
+      info.planes[0].size = MSM_MEDIA_ALIGN((alignedW * alignedH), 4096) +
+          MSM_MEDIA_ALIGN((VENUS_Y_META_STRIDE(COLOR_FMT_NV12_UBWC, width) *
+          VENUS_Y_META_SCANLINES(COLOR_FMT_NV12_UBWC, height)), 4096);
+      info.planes[0].offset = 0;
+      info.planes[1].width = width;
+      info.planes[1].height = height/2;
+      info.planes[1].stride = alignedW;
+      info.planes[1].scanline = alignedH/2;
+      info.planes[1].size = MSM_MEDIA_ALIGN((alignedW * alignedH / 2), 4096) +
+          MSM_MEDIA_ALIGN((VENUS_UV_META_STRIDE(COLOR_FMT_NV12_UBWC, width) *
+          VENUS_UV_META_SCANLINES(COLOR_FMT_NV12_UBWC, height)), 4096);
+      info.planes[1].offset =
+          info.planes[0].offset + info.planes[0].size;
+      break;
     case HAL_PIXEL_FORMAT_YCbCr_422_888:
     case HAL_PIXEL_FORMAT_YCbCr_422_SP:
       info.format = BufferFormat::kNV16;
@@ -602,6 +680,16 @@ int32_t Camera3Stream::PopulateBufferMeta(BufferMeta &info,
       break;
     case HAL_PIXEL_FORMAT_YCbCr_422_I:
       info.format = BufferFormat::kYUY2;
+      info.n_planes = 1;
+      info.planes[0].width = width;
+      info.planes[0].height = height;
+      info.planes[0].stride = alignedW;
+      info.planes[0].scanline = alignedH;
+      info.planes[0].size = alignedW * alignedH;
+      info.planes[0].offset = 0;
+      break;
+    case HAL_PIXEL_FORMAT_CbYCrY_422_I:
+      info.format = BufferFormat::kUYVY;
       info.n_planes = 1;
       info.planes[0].width = width;
       info.planes[0].height = height;
@@ -713,13 +801,39 @@ int32_t Camera3Stream::ReturnBufferLocked(const StreamBuffer &buffer) {
   QMMF_DEBUG("%s: Stream(%d): pending_buffer_count_(%u)", __func__, id_,
       pending_buffer_count_);
 
-  if (pending_buffer_count_ == 0 && status_ != STATUS_CONFIG_ACTIVE &&
-      status_ != STATUS_RECONFIG_ACTIVE) {
-    QMMF_DEBUG("%s: Stream(%d): Changing state to idle", __func__, id_);
-    monitor_.ChangeStateToIdle(monitor_id_);
+  if (status_ != STATUS_CONFIG_ACTIVE && status_ != STATUS_RECONFIG_ACTIVE) {
+    if (pending_buffer_count_ == client_buffer_cnt_) {
+      // notify hal is idle for this stream i.e. buffers are returned by hal
+      QMMF_DEBUG("%s: Stream(%d): Changing state to idle", __func__, id_);
+      monitor_.ChangeStateToIdle(monitor_id_);
+    }
+
+    if (pending_buffer_count_ == 0) {
+      // notify stream is idle i.e. all buffers are returned
+      QMMF_DEBUG("%s: Stream(%d): Stream is idle", __func__, id_);
+      pthread_cond_signal(&idle_signal_);
+    }
   }
 
   return 0;
+}
+
+void Camera3Stream::WaitForIdle() {
+  int32_t res = 0;
+
+  pthread_mutex_lock(&lock_);
+  while (pending_buffer_count_) {
+    auto res = cond_wait_relative(&idle_signal_, &lock_, BUFFER_WAIT_TIMEOUT);
+    if (0 != res) {
+      if (-ETIMEDOUT != res) {
+        QMMF_ERROR("%s: wait for output buffer return timed out \n", __func__);
+      } else {
+        QMMF_ERROR("%s: Error during state change wait: %s (%d)\n", __func__,
+                   strerror(res), res);
+      }
+    }
+  }
+  pthread_mutex_unlock(&lock_);
 }
 
 int32_t Camera3Stream::GetBufferLocked(camera3_stream_buffer *streamBuffer) {
