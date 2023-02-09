@@ -59,7 +59,17 @@
 #include "qmmf_memory_interface.h"
 #include "recorder/src/service/qmmf_recorder_common.h"
 
+#ifndef DISPLAY_MEDIA_HEADER_2
 #include <media/msm_media_info.h>
+#else
+#include <display/media/mmm_color_fmt.h>
+#define COLOR_FMT_NV12_UBWC      MMM_COLOR_FMT_NV12_UBWC
+#define MSM_MEDIA_ALIGN          MMM_COLOR_FMT_ALIGN
+#define VENUS_Y_META_STRIDE      MMM_COLOR_FMT_Y_META_STRIDE
+#define VENUS_Y_META_SCANLINES   MMM_COLOR_FMT_Y_META_SCANLINES
+#define VENUS_UV_META_STRIDE     MMM_COLOR_FMT_UV_META_STRIDE
+#define VENUS_UV_META_SCANLINES  MMM_COLOR_FMT_UV_META_SCANLINES
+#endif
 
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 
