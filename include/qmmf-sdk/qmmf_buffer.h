@@ -83,6 +83,8 @@ enum class BufferFormat : uint32_t {
   kNV16,
   kYUY2,
   kUYVY,
+  kP010,
+  kTP10UBWC,
   kBLOB,
   kRAW8,
   kRAW10,

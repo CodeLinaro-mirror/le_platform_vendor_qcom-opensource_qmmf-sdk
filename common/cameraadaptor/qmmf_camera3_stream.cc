@@ -563,6 +563,48 @@ int32_t Camera3Stream::PopulateBufferMeta(BufferMeta &info,
       info.planes[1].offset =
           info.planes[0].offset + info.planes[0].size;
       break;
+    case HAL_PIXEL_FORMAT_YCbCr_422_I_10BIT:
+      info.format = BufferFormat::kP010;
+      info.n_planes = 2;
+      info.planes[0].width = width;
+      info.planes[0].height = height;
+      info.planes[0].stride = alignedW;
+      info.planes[0].scanline = alignedH;
+      info.planes[0].size = MSM_MEDIA_ALIGN((alignedW * alignedH), 4096) +
+          MSM_MEDIA_ALIGN((VENUS_Y_META_STRIDE(COLOR_FMT_NV12_UBWC, width) *
+          VENUS_Y_META_SCANLINES(COLOR_FMT_NV12_UBWC, height)), 4096);
+      info.planes[0].offset = 0;
+      info.planes[1].width = width;
+      info.planes[1].height = height/2;
+      info.planes[1].stride = alignedW;
+      info.planes[1].scanline = alignedH/2;
+      info.planes[1].size = MSM_MEDIA_ALIGN((alignedW * alignedH / 2), 4096) +
+          MSM_MEDIA_ALIGN((VENUS_UV_META_STRIDE(COLOR_FMT_NV12_UBWC, width) *
+          VENUS_UV_META_SCANLINES(COLOR_FMT_NV12_UBWC, height)), 4096);
+      info.planes[1].offset =
+          info.planes[0].offset + info.planes[0].size;
+      break;
+    case HAL_PIXEL_FORMAT_YCbCr_420_TP10_UBWC:
+      info.format = BufferFormat::kTP10UBWC;
+      info.n_planes = 2;
+      info.planes[0].width = width;
+      info.planes[0].height = height;
+      info.planes[0].stride = alignedW;
+      info.planes[0].scanline = alignedH;
+      info.planes[0].size = MSM_MEDIA_ALIGN((alignedW * alignedH), 4096) +
+          MSM_MEDIA_ALIGN((VENUS_Y_META_STRIDE(COLOR_FMT_NV12_UBWC, width) *
+          VENUS_Y_META_SCANLINES(COLOR_FMT_NV12_UBWC, height)), 4096);
+      info.planes[0].offset = 0;
+      info.planes[1].width = width;
+      info.planes[1].height = height/2;
+      info.planes[1].stride = alignedW;
+      info.planes[1].scanline = alignedH/2;
+      info.planes[1].size = MSM_MEDIA_ALIGN((alignedW * alignedH / 2), 4096) +
+          MSM_MEDIA_ALIGN((VENUS_UV_META_STRIDE(COLOR_FMT_NV12_UBWC, width) *
+          VENUS_UV_META_SCANLINES(COLOR_FMT_NV12_UBWC, height)), 4096);
+      info.planes[1].offset =
+          info.planes[0].offset + info.planes[0].size;
+      break;
     case HAL_PIXEL_FORMAT_YCbCr_422_888:
     case HAL_PIXEL_FORMAT_YCbCr_422_SP:
       info.format = BufferFormat::kNV16;

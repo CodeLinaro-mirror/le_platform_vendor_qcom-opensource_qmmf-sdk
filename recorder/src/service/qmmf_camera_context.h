@@ -123,15 +123,14 @@ class CameraContext : public CameraInterface {
 
   status_t WaitAecToConverge(const uint32_t timeout) override;
 
-  status_t SetUpCapture(const SnapshotParam& param) override;
+  status_t ConfigImageCapture(const SnapshotParam& param,
+                              const ImageExtraParam &xtraparam) override;
 
-  status_t CaptureImage(const uint32_t num_images,
+  status_t CaptureImage(const SnapshotType type, const uint32_t n_images,
                         const std::vector<CameraMetadata> &meta,
                         const StreamSnapshotCb& cb) override;
 
-  status_t ConfigImageCapture(const ImageExtraParam &config) override;
-
-  status_t CancelCaptureImage() override;
+  status_t CancelCaptureImage(const bool cache) override;
 
   status_t CreateStream(const StreamParam& param,
                         const VideoExtraParam& extra_param) override;
@@ -246,11 +245,11 @@ class CameraContext : public CameraInterface {
 
   void InitHFRModes();
 
-  status_t StartZSL(SnapshotType &param);
+  status_t StartZSL(const SnapshotParam& param, const SnapshotZslSetup &zslparam);
 
   status_t StopZSL();
 
-  status_t CaptureZSLImage();
+  status_t CaptureZSLImage(const SnapshotType type);
 
 #ifndef FLUSH_RESTART_NOTAVAILABLE
   status_t DisableFlushRestart(const bool& disable, CameraMetadata& meta);
@@ -355,9 +354,6 @@ class CameraContext : public CameraInterface {
 
   // snapshot configuration
   SnapshotParam                 snapshot_param_;
-  SnapshotMode                  snapshot_type_;
-  SnapshotMode                  new_snapshot_type_;
-  BufferFormat                  raw_snapshot_format_;
   CameraStreamParameters        snapshot_stream_param_;
   bool                          port_paused_;
   std::set<int32_t>             stopped_stream_ids_;
@@ -369,6 +365,7 @@ class CameraContext : public CameraInterface {
   bool                          is_shdr_enable_;
   bool                          hfr_sync_mode_;
   bool                          all_ports_ready_;
+  bool                          pending_cached_stream_;
 };
 
 enum class CameraPortType {

@@ -119,17 +119,18 @@ class CameraSource {
 
   /// Image Capture
   status_t CaptureImage(const uint32_t camera_id,
-                        const uint32_t num_images,
+                        const SnapshotType type,
+                        const uint32_t n_images,
                         const std::vector<CameraMetadata> &meta,
                         const SnapshotCb &cb);
 
   /// Configure Image Capture
   status_t ConfigImageCapture(const uint32_t camera_id,
                               const ImageParam &param,
-                              const ImageExtraParam &config);
+                              const ImageExtraParam &xtraparam);
 
   /// Cancel Image Capture
-  status_t CancelCaptureImage(const uint32_t camera_id);
+  status_t CancelCaptureImage(const uint32_t camera_id, const bool cache);
 
   /// Return All Image Capture buffers
   status_t ReturnAllImageCaptureBuffers(const uint32_t camera_id);

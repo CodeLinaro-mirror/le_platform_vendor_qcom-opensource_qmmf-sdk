@@ -25,6 +25,40 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted (subject to the limitations in the
+ * disclaimer below) provided that the following conditions are met:
+ *
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials provided
+ *       with the distribution.
+ *
+ *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
+ *
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "qmmf_gralloc_interface.h"
@@ -33,21 +67,23 @@
 using namespace qmmf;
 
 const std::unordered_map<int32_t, int32_t> GrallocUsage::usage_flag_map_ = {
-    {IMemAllocUsage::kHwCameraZsl,      GRALLOC_USAGE_HW_CAMERA_ZSL},
-    {IMemAllocUsage::kPrivateAllocUbwc, GRALLOC_USAGE_PRIVATE_ALLOC_UBWC},
-    {IMemAllocUsage::kPrivateIommUHeap, GRALLOC_USAGE_PRIVATE_IOMMU_HEAP},
-    {IMemAllocUsage::kPrivateMmHeap,    GRALLOC_USAGE_PRIVATE_MM_HEAP},
-    {IMemAllocUsage::kPrivateUncached,  GRALLOC_USAGE_PRIVATE_UNCACHED},
-    {IMemAllocUsage::kProtected,        GRALLOC_USAGE_PROTECTED},
-    {IMemAllocUsage::kSwReadOften,      GRALLOC_USAGE_SW_READ_OFTEN},
-    {IMemAllocUsage::kSwWriteOften,     GRALLOC_USAGE_SW_WRITE_OFTEN},
-    {IMemAllocUsage::kVideoEncoder,     GRALLOC_USAGE_HW_VIDEO_ENCODER},
-    {IMemAllocUsage::kHwFb,             GRALLOC_USAGE_HW_FB},
-    {IMemAllocUsage::kHwTexture,        GRALLOC_USAGE_HW_TEXTURE},
-    {IMemAllocUsage::kHwRender,         GRALLOC_USAGE_HW_RENDER},
-    {IMemAllocUsage::kHwComposer,       GRALLOC_USAGE_HW_COMPOSER},
-    {IMemAllocUsage::kHwCameraRead,     GRALLOC_USAGE_HW_CAMERA_READ},
-    {IMemAllocUsage::kHwCameraWrite,    GRALLOC_USAGE_HW_CAMERA_WRITE}};
+  {IMemAllocUsage::kHwCameraZsl,          GRALLOC_USAGE_HW_CAMERA_ZSL},
+  {IMemAllocUsage::kPrivateAllocUbwc,     GRALLOC_USAGE_PRIVATE_ALLOC_UBWC},
+  {IMemAllocUsage::kPrivateAllocP010,     GRALLOC_USAGE_PRIVATE_ALLOC_10BIT},
+  {IMemAllocUsage::kPrivateAllocTP10,     GRALLOC_USAGE_PRIVATE_ALLOC_10BIT},
+  {IMemAllocUsage::kPrivateIommUHeap,     GRALLOC_USAGE_PRIVATE_IOMMU_HEAP},
+  {IMemAllocUsage::kPrivateMmHeap,        GRALLOC_USAGE_PRIVATE_MM_HEAP},
+  {IMemAllocUsage::kPrivateUncached,      GRALLOC_USAGE_PRIVATE_UNCACHED},
+  {IMemAllocUsage::kProtected,            GRALLOC_USAGE_PROTECTED},
+  {IMemAllocUsage::kSwReadOften,          GRALLOC_USAGE_SW_READ_OFTEN},
+  {IMemAllocUsage::kSwWriteOften,         GRALLOC_USAGE_SW_WRITE_OFTEN},
+  {IMemAllocUsage::kVideoEncoder,         GRALLOC_USAGE_HW_VIDEO_ENCODER},
+  {IMemAllocUsage::kHwFb,                 GRALLOC_USAGE_HW_FB},
+  {IMemAllocUsage::kHwTexture,            GRALLOC_USAGE_HW_TEXTURE},
+  {IMemAllocUsage::kHwRender,             GRALLOC_USAGE_HW_RENDER},
+  {IMemAllocUsage::kHwComposer,           GRALLOC_USAGE_HW_COMPOSER},
+  {IMemAllocUsage::kHwCameraRead,         GRALLOC_USAGE_HW_CAMERA_READ},
+  {IMemAllocUsage::kHwCameraWrite,        GRALLOC_USAGE_HW_CAMERA_WRITE}};
 
 int32_t GrallocUsage::ToLocal(int32_t common) const {
   int32_t local_usage = 0;
