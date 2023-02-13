@@ -123,7 +123,7 @@ CameraContext::CameraContext()
       is_camera_dead_(false),
       is_shdr_enable_(false),
       hfr_sync_mode_(false),
-      all_ports_ready_(false) {
+      all_ports_ready_(false),
       pending_cached_stream_(false) {
 
   QMMF_INFO("%s: Enter", __func__);
