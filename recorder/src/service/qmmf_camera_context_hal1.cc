@@ -548,14 +548,15 @@ status_t CameraContext::WaitAecToConverge(const uint32_t timeout) {
   return NO_ERROR;
 }
 
-status_t CameraContext::SetUpCapture(const SnapshotParam& param) {
+status_t CameraContext::ConfigImageCapture(const SnapshotParam& param,
+                                           const ImageExtraParam &xtraparam) {
 
   QMMF_DEBUG("%s Enter ", __func__);
-  if (snapshot_type_ != SnapshotMode::kZsl) {
+
+  if (param.mode == ImageMode::kSnapshot) {
     std::unique_lock<std::mutex> lock(capture_lock_);
 
     snapshot_param_ = param;
-    snapshot_type_ = new_snapshot_type_;
 
     if(param.format == BufferFormat::kBLOB) {
       mParameters_.setPictureFormat(CameraParameters::PIXEL_FORMAT_JPEG);
@@ -568,31 +569,27 @@ status_t CameraContext::SetUpCapture(const SnapshotParam& param) {
   }
 
   QMMF_INFO("%s: Exit", __func__);
-
   return NO_ERROR;
 }
 
-status_t CameraContext::CaptureImage(const uint32_t num_images,
+status_t CameraContext::CaptureImage(const SnapshotType type,
+                                     const uint32_t n_images,
                                      const std::vector<CameraMetadata> &meta,
                                      const StreamSnapshotCb& cb) {
 
-  QMMF_INFO("%s: Enter num_images - %d", __func__, num_images);
+  QMMF_INFO("%s: Enter num_images - %d", __func__, n_images);
 
   int32_t ret = NO_ERROR;
   client_snapshot_cb_ = cb;
   capture_cnt_ = 0;
-  uint32_t img_cnt = num_images;
+  uint32_t img_cnt = (n_images == 0) ? 1 : n_images;
 
   if (snapshot_param_.width == 0 || snapshot_param_.height == 0) {
     QMMF_ERROR("%s: No snapshot stream available", __func__);
     return BAD_VALUE;
   }
 
-  if (snapshot_type_ == SnapshotMode::kContinuous) {
-    img_cnt = 1;
-  }
-
-  if (snapshot_type_ != SnapshotMode::kZsl) {
+  if (snapshot_param_.mode == ImageMode::kSnapshot) {
     int64_t last_frame_number;
     for (uint32_t i = 0; i < img_cnt; i++) {
       QMMF_INFO("%s: HAL take picture", __func__);
@@ -606,35 +603,7 @@ status_t CameraContext::CaptureImage(const uint32_t num_images,
   return NO_ERROR;
 }
 
-status_t CameraContext::ConfigImageCapture(const ImageExtraParam &config) {
-
-
-  QMMF_INFO("%s: Enter", __func__);
-
-  if (config.Exists(QMMF_SNAPSHOT_TYPE)) {
-    SnapshotType type;
-    config.Fetch(QMMF_SNAPSHOT_TYPE, type);
-
-    if ((type.type == SnapshotMode::kStillPlusRaw) ||
-        (type.type == SnapshotMode::kVideoPlusRaw)) {
-      BufferFormat format = Common::FromImageToQmmfFormat(type.raw_format);
-      if (format != BufferFormat::kRAW8 && format != BufferFormat::kRAW10 &&
-          format != BufferFormat::kRAW12 && format != BufferFormat::kRAW16) {
-        QMMF_ERROR("%s: Image format %d is not RAW format", __func__,
-            type.raw_format);
-        return BAD_VALUE;
-      }
-    }
-    new_snapshot_type_ = type.type;
-  }
-
-
-  QMMF_INFO("%s: Exit", __func__);
-
-  return NO_ERROR;
-}
-
-status_t CameraContext::CancelCaptureImage() {
+status_t CameraContext::CancelCaptureImage(const bool cache) {
 
   // todo wait until image capture is done
 
