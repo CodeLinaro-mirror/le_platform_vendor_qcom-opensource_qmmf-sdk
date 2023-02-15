@@ -73,15 +73,14 @@ class CameraContext : public CameraInterface {
 
   status_t WaitAecToConverge(const uint32_t timeout) override;
 
-  status_t SetUpCapture(const SnapshotParam& param) override;
+  status_t ConfigImageCapture(const SnapshotParam& param,
+                              const ImageExtraParam &xtraparam) override;
 
-  status_t CaptureImage(const uint32_t num_images,
+  status_t CaptureImage(const SnapshotType type, const uint32_t n_images,
                         const std::vector<CameraMetadata> &meta,
                         const StreamSnapshotCb& cb) override;
 
-  status_t ConfigImageCapture(const ImageExtraParam &config) override;
-
-  status_t CancelCaptureImage() override;
+  status_t CancelCaptureImage(const bool cache) override;
 
   status_t CreateStream(const StreamParam& param,
                         const VideoExtraParam& extra_param) override;
@@ -194,8 +193,6 @@ private:
   std::map<uint32_t, const camera_memory_t *> snapshot_hal_buff_list_;
   uint32_t                         snapshot_frame_id_;
 
-  SnapshotMode                  snapshot_type_;
-  SnapshotMode                  new_snapshot_type_;
   std::mutex                    capture_lock_;
   SnapshotParam                 snapshot_param_;
   StreamSnapshotCb              client_snapshot_cb_;
