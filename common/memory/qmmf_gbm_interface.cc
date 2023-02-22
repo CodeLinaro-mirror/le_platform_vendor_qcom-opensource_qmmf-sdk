@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -258,12 +258,30 @@ const std::unordered_map<int32_t, int32_t> GBMBuffer::from_gbm_ = {
   {GBM_FORMAT_NV21_ZSL,                 HAL_PIXEL_FORMAT_NV21_ZSL},
 };
 
+GBMBuffer::~GBMBuffer() {
+  if (!imported_) {
+    close(fd_);
+    gbm_bo_destroy(generic_handle_);
+  }
+  if (nullptr != gralloc_handle_) {
+    delete gralloc_handle_;
+  }
+}
+
 struct gbm_bo *GBMBuffer::GetNativeHandle() const{
   return generic_handle_;
 }
 
 void GBMBuffer::SetNativeHandle(struct gbm_bo *bo) {
   generic_handle_ = bo;
+  fd_ = gbm_bo_get_fd(bo);
+  imported_ = false;
+}
+
+void GBMBuffer::ImportBuffer(struct gbm_bo *bo, int fd) {
+  generic_handle_ = bo;
+  fd_ = fd;
+  imported_ = true;
 }
 
 buffer_handle_t &GBMBuffer::RepackToGralloc()
@@ -285,7 +303,7 @@ int GBMBuffer::GetUsage ()
   return cmn.flags;
 }
 
-int GBMBuffer::GetFD() { return gbm_bo_get_fd(generic_handle_); }
+int GBMBuffer::GetFD() { return fd_; }
 
 int GBMBuffer::GetFormat() {
   int format = 0;
@@ -499,32 +517,17 @@ MemAllocError GBMDevice::AllocBuffer(IBufferHandle& handle, int32_t width,
 }
 
 MemAllocError GBMDevice::ImportBuffer(IBufferHandle& handle,
-                                      void* buffer_handle) {
+                                      void* buffer_handle, int fd) {
   handle = new GBMBuffer;
   GBMBuffer* gbm_hnd = static_cast<GBMBuffer*>(handle);
   struct gbm_bo *bo = static_cast<struct gbm_bo *>(buffer_handle);
 
-  gbm_hnd->SetNativeHandle(bo);
-
-  if (imported_buffers_map_.count(bo)) {
-    imported_buffers_map_.at(bo) = true;
-  } else {
-    imported_buffers_map_.emplace(bo, true);
-  }
+  gbm_hnd->ImportBuffer(bo, fd);
 
   return MemAllocError::kAllocOk;
 }
 
 MemAllocError GBMDevice::FreeBuffer(IBufferHandle handle) {
-  GBMBuffer *b = static_cast<GBMBuffer *>(handle);
-  assert(b != nullptr);
-  struct gbm_bo *bo = b->GetNativeHandle();
-
-  if (imported_buffers_map_.count(bo) && imported_buffers_map_.at(bo)) {
-    imported_buffers_map_.at(bo) = false;
-  } else {
-    gbm_bo_destroy(b->GetNativeHandle());
-  }
   delete handle;
   return MemAllocError::kAllocOk;
 }
