@@ -95,6 +95,10 @@ using namespace recorder;
 
 typedef int32_t status_t;
 
+// available stream metadata tags callback
+// params: format, width, height, direction, tag id
+typedef std::function<bool(int32_t,int32_t,int32_t,int32_t,int32_t)> AvailableStreamConfigCb;
+
 const int64_t kWaitDelay = 2000000000;  // 2 sec
 
 struct StreamBuffer {
@@ -177,6 +181,58 @@ class Property {
 
 class Common {
  public:
+  /** AvailableStreamIterator
+   *
+   * iterate all available stream configurations
+   *
+   * return: void
+   **/
+  static void AvailableStreamIterator(const ::camera::CameraMetadata& meta,
+                                        AvailableStreamConfigCb cb) {
+    uint32_t i;
+    int32_t f, w, h, d;
+
+    if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
+      auto entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
+
+      for (i = 0; i < entry.count; i += 4) {
+        f = entry.data.i32[i];
+        w = entry.data.i32[i + 1];
+        h = entry.data.i32[i + 2];
+        d = entry.data.i32[i + 3];
+
+        if (cb(f, w, h, d, ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS))
+          return;
+      }
+    } else {
+      QMMF_WARN("%s: ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS"
+          " not available", __func__);
+    }
+
+#if defined(CAMERA_HAL_API_VERSION) && (CAMERA_HAL_API_VERSION >= 0x0307)
+    if (meta.exists(
+          ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_MAXIMUM_RESOLUTION)) {
+      auto entry = meta.find(
+          ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_MAXIMUM_RESOLUTION);
+
+      for (i = 0; i < entry.count; i += 4) {
+        f = entry.data.i32[i];
+        w = entry.data.i32[i + 1];
+        h = entry.data.i32[i + 2];
+        d = entry.data.i32[i + 3];
+
+        if (cb(f, w, h, d,
+            ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_MAXIMUM_RESOLUTION))
+          return;
+      }
+    } else {
+      QMMF_WARN("%s: "
+          "ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_MAXIMUM_RESOLUTION"
+          " not available", __func__);
+    }
+#endif
+  }
+
   /** FromQmmfToHalFormat
    *
    * Translates QMMF format to HAL format
@@ -391,21 +447,17 @@ class Common {
     bool is_supported = false;
     int32_t hal_format = FromQmmfToHalFormat(format);
 #ifdef CAM_ARCH_V2
-    if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-      auto entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-      for (uint32_t i = 0 ; i < entry.count; i += 4) {
-        if (hal_format == entry.data.i32[i] &&
-            input == (entry.data.i32[i + 3] ==
-              ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_INPUT)) {
-          is_supported = true;
-          break;
-        }
+    auto fn = [&](int32_t f, int32_t w, int32_t h, int32_t d, int32_t t) {
+      if (f == hal_format &&
+          input ==
+            (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_INPUT == d)) {
+        is_supported = true;
+        return true;
       }
-    } else {
-      QMMF_ERROR("%s: Metadata ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS"
-                 " not available", __func__);
       return false;
-    }
+    };
+
+    AvailableStreamIterator(meta, fn);
 #else
     assert(input == false);
     if (meta.exists(ANDROID_SCALER_AVAILABLE_FORMATS)) {
@@ -484,25 +536,21 @@ class Common {
                                            const uint32_t width,
                                            const uint32_t height) {
     bool is_supported = false;
-    if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-      auto entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-      for (uint32_t i = 0 ; i < entry.count; i += 4) {
-        if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
-          if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-              entry.data.i32[i+3]) {
-            if (width == static_cast<uint32_t>(entry.data.i32[i+1])
-                && height == static_cast<uint32_t>(entry.data.i32[i+2])) {
-              is_supported = true;
-              break;
-            }
-          }
+
+    auto fn = [&](int32_t f, int32_t w, int32_t h, int32_t d, int32_t t) {
+      if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == f &&
+          ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT == d) {
+        if (width == static_cast<uint32_t>(w) &&
+            height == static_cast<uint32_t>(h)) {
+          is_supported = true;
+          return true;
         }
       }
-    } else {
-      QMMF_ERROR("%s: Metadata ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS"
-                 " not available", __func__);
       return false;
-    }
+    };
+
+    AvailableStreamIterator(meta, fn);
+
     return is_supported;
   }
 
@@ -519,25 +567,20 @@ class Common {
     width = 0;
     height = 0;
 
-    if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-      auto entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-      for (uint32_t i = 0; i < entry.count; i += 4) {
-        if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i] &&
-            ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-              entry.data.i32[i+3]) {
-          if (width < static_cast<uint32_t>(entry.data.i32[i + 1]) &&
-              height < static_cast<uint32_t>(entry.data.i32[i + 2])) {
-            width = static_cast<uint32_t>(entry.data.i32[i + 1]);
-            height = static_cast<uint32_t>(entry.data.i32[i + 2]);
-            found = true;
-          }
+    auto fn = [&](int32_t f, int32_t w, int32_t h, int32_t d, int32_t t) {
+      if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == f &&
+          ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT == d) {
+        if (width < static_cast<uint32_t>(w) &&
+            height < static_cast<uint32_t>(h)) {
+          width = static_cast<uint32_t>(w);
+          height = static_cast<uint32_t>(h);
+          found = true;
         }
       }
-    } else {
-      QMMF_ERROR("%s: Metadata ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS"
-                 " not available", __func__);
       return false;
-    }
+    };
+
+    AvailableStreamIterator(meta, fn);
 
     return found;
   }
@@ -555,25 +598,20 @@ class Common {
     width = 0xFFFF;
     height = 0xFFFF;
 
-    if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-      auto entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-      for (uint32_t i = 0; i < entry.count; i += 4) {
-        if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i] &&
-            ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-              entry.data.i32[i+3]) {
-          if (width > static_cast<uint32_t>(entry.data.i32[i + 1]) &&
-              height > static_cast<uint32_t>(entry.data.i32[i + 2])) {
-            width = static_cast<uint32_t>(entry.data.i32[i + 1]);
-            height = static_cast<uint32_t>(entry.data.i32[i + 2]);
-            found = true;
-          }
+    auto fn = [&](int32_t f, int32_t w, int32_t h, int32_t d, int32_t t) {
+      if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == f &&
+          ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT == d) {
+        if (width > static_cast<uint32_t>(w) &&
+            height > static_cast<uint32_t>(h)) {
+          width = static_cast<uint32_t>(w);
+          height = static_cast<uint32_t>(h);
+          found = true;
         }
       }
-    } else {
-      QMMF_ERROR("%s: Metadata ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS"
-                 " not available", __func__);
       return false;
-    }
+    };
+
+    AvailableStreamIterator(meta, fn);
 
     return found;
   }
@@ -626,25 +664,21 @@ class Common {
                                        const uint32_t width,
                                        const uint32_t height) {
     bool is_supported = false;
-    if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-      auto entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-      for (uint32_t i = 0 ; i < entry.count; i += 4) {
-        if (HAL_PIXEL_FORMAT_BLOB == entry.data.i32[i]) {
-          if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-              entry.data.i32[i+3]) {
-            if (width == static_cast<uint32_t>(entry.data.i32[i+1])
-                && height == static_cast<uint32_t>(entry.data.i32[i+2])) {
-              is_supported = true;
-              break;
-            }
-          }
+
+    auto fn = [&](int32_t f, int32_t w, int32_t h, int32_t d, int32_t t) {
+      if (HAL_PIXEL_FORMAT_BLOB == f &&
+          ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT == d) {
+        if (width == static_cast<uint32_t>(w) &&
+            height ==  static_cast<uint32_t>(h)) {
+          is_supported = true;
+          return true;
         }
       }
-    } else {
-      QMMF_ERROR("%s: Metadata ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS"
-                 " not available", __func__);
       return false;
-    }
+    };
+
+    AvailableStreamIterator(meta, fn);
+
     return is_supported;
   }
 
@@ -660,30 +694,23 @@ class Common {
                                       const uint32_t height) {
     bool is_supported = false;
 #ifdef CAM_ARCH_V2
-    if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-      auto entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-      for (uint32_t i = 0 ; i < entry.count; i += 4) {
-        if (HAL_PIXEL_FORMAT_RAW8 == entry.data.i32[i] ||
-            HAL_PIXEL_FORMAT_RAW10 == entry.data.i32[i] ||
-            HAL_PIXEL_FORMAT_RAW12 == entry.data.i32[i] ||
-            HAL_PIXEL_FORMAT_RAW16 == entry.data.i32[i] ) {
-          if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-              entry.data.i32[i+3]) {
-            uint32_t w = static_cast<uint32_t>(entry.data.i32[i+1]);
-            uint32_t h = static_cast<uint32_t>(entry.data.i32[i+2]);
-            QMMF_DEBUG("%s: Supported width: %d, height: %d", __func__, w, h);
-            if (width == w && height == h) {
-              is_supported = true;
-              break;
-            }
+    auto fn = [&](int32_t f, int32_t w, int32_t h, int32_t d, int32_t t) {
+      if (HAL_PIXEL_FORMAT_RAW8 == f ||
+          HAL_PIXEL_FORMAT_RAW10 == f ||
+          HAL_PIXEL_FORMAT_RAW12 == f ||
+          HAL_PIXEL_FORMAT_RAW16 == f) {
+        if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT == d)  {
+          if (width == static_cast<uint32_t>(w) &&
+              height ==  static_cast<uint32_t>(h)) {
+            is_supported = true;
+            return true;
           }
         }
       }
-    } else {
-      QMMF_ERROR("%s: Metadata ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS"
-                 " not available", __func__);
       return false;
-    }
+    };
+
+    AvailableStreamIterator(meta, fn);
 #else
     if (meta.exists(ANDROID_SCALER_AVAILABLE_RAW_SIZES)) {
       auto entry = meta.find(ANDROID_SCALER_AVAILABLE_RAW_SIZES);
@@ -761,26 +788,20 @@ class Common {
     height = 0;
     camera_metadata_ro_entry entry;
 #ifdef CAM_ARCH_V2
-    if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-      entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-      for (uint32_t i = 0; i < entry.count; i += 4) {
-        if (HAL_PIXEL_FORMAT_RAW10 == entry.data.i32[i] &&
-            ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-              entry.data.i32[i+3]) {
-          if (width < static_cast<uint32_t>(entry.data.i32[i + 1]) &&
-              height < static_cast<uint32_t>(entry.data.i32[i + 2])) {
-            width = static_cast<uint32_t>(entry.data.i32[i + 1]);
-            height = static_cast<uint32_t>(entry.data.i32[i + 2]);
-            found = true;
-          }
+    auto fn = [&](int32_t f, int32_t w, int32_t h, int32_t d, int32_t t) {
+      if (HAL_PIXEL_FORMAT_RAW10 == f &&
+          ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT == d) {
+        if (width < static_cast<uint32_t>(w) &&
+            height < static_cast<uint32_t>(h)) {
+          width = static_cast<uint32_t>(w);
+          height = static_cast<uint32_t>(h);
+          found = true;
         }
       }
-      QMMF_INFO("%s: width=%d, height=%d", __func__, width, height);
-    } else {
-      QMMF_ERROR("%s: Metadata ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS"
-                 " not available", __func__);
       return false;
-    }
+    };
+
+    AvailableStreamIterator(meta, fn);
 #else
     int32_t hal_format = Common::FromQmmfToHalFormat(format);
     if (HAL_PIXEL_FORMAT_RAW8  == hal_format ||
@@ -861,18 +882,22 @@ class Common {
 
     bool found = false;
 #ifdef CAM_ARCH_V2
+
     assert(meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS));
-    auto entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-    for (uint32_t i = 0 ; i < entry.count; i += 4) {
-      if (input == (entry.data.i32[i + 3] ==
-                    ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_INPUT)) {
-        auto format = FromHalToQmmfFormat(entry.data.i32[i]);
+
+    auto fn = [&](int32_t f, int32_t w, int32_t h, int32_t d, int32_t t) {
+      if (input ==
+          (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_INPUT == d)) {
+        auto format = FromHalToQmmfFormat(f);
         if (format != BufferFormat::kUnsupported && !formats.count(format)) {
           formats.insert(format);
           found = true;
         }
       }
-    }
+      return false;
+    };
+
+    AvailableStreamIterator(meta, fn);
 #else
     assert(meta.exists(ANDROID_SCALER_AVAILABLE_FORMATS));
     auto entry = meta.find(ANDROID_SCALER_AVAILABLE_FORMATS);
