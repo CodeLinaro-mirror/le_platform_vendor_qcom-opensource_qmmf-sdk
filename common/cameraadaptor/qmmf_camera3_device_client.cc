@@ -901,31 +901,91 @@ int32_t Camera3DeviceClient::QueryMaxBlobSize(int32_t &maxBlobWidth,
   return 0;
 }
 
-int32_t Camera3DeviceClient::CaclulateBlobSize(int32_t width, int32_t height) {
-  // Get max jpeg size (area-wise).
-  int32_t maxJpegSizeWidth = 0;
-  int32_t maxJpegSizeHeight = 0;
-  QueryMaxBlobSize(maxJpegSizeWidth, maxJpegSizeHeight);
-  if (maxJpegSizeWidth == 0) {
-    QMMF_ERROR(
-        "%s: Camera %d: Can't find valid available jpeg sizes in "
-        "static metadata!\n",
-        __func__, id_);
-    return -EINVAL;
-  }
+int32_t Camera3DeviceClient::UpdateJpegSizeInfo(int32_t width,
+                                                int32_t height,
+                                                int32_t &maxJpegBufferSize,
+                                                int32_t &maxJpegSizeWidth,
+                                                int32_t &maxJpegSizeHeight) {
+  camera_metadata_entry entry;
+  int32_t maxWidth, maxHeight;
+  int32_t maxUHRWidth, maxUHRHeight;
 
-  // Get max jpeg buffer size
-  int32_t maxJpegBufferSize = 0;
-  camera_metadata_entry jpegBufMaxSize =
-      device_info_.find(ANDROID_JPEG_MAX_SIZE);
-  if (jpegBufMaxSize.count == 0) {
+  entry = device_info_.find(ANDROID_JPEG_MAX_SIZE);
+  if (entry.count == 0) {
     QMMF_ERROR(
         "%s: Camera %d: Can't find maximum JPEG size in static"
         " metadata!\n",
         __func__, id_);
     return -EINVAL;
   }
-  maxJpegBufferSize = jpegBufMaxSize.data.i32[0];
+  maxJpegBufferSize = entry.data.i32[0];
+  assert(JPEG_BUFFER_SIZE_MIN < maxJpegBufferSize);
+
+  QMMF_INFO("%s: default maxJpegBufferSize=%d",
+      __func__, maxJpegBufferSize);
+
+  //for default resolution
+  maxWidth = maxHeight = 0;
+
+  //for ultra high resolution
+  maxUHRWidth = maxUHRHeight = 0;
+
+  auto fn = [&](int32_t f, int32_t w, int32_t h, int32_t d, int32_t t) {
+    if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_MAXIMUM_RESOLUTION == t) {
+      if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT == d &&
+          HAL_PIXEL_FORMAT_BLOB == f &&
+          (w * h > maxUHRWidth * maxUHRHeight)) {
+        maxUHRWidth = w;
+        maxUHRHeight = h;
+      }
+    } else if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS == t) {
+      if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT == d &&
+          HAL_PIXEL_FORMAT_BLOB == f &&
+          (w * h > maxWidth * maxHeight)) {
+        maxWidth = w;
+        maxHeight = h;
+      }
+    }
+    return false;
+  };
+
+  Common::AvailableStreamIterator(device_info_, fn);
+
+  QMMF_INFO("%s: maxUHRWidth=%d maxUHRHeight=%d maxWidth=%d maxHeight=%d",
+      __func__, maxUHRWidth, maxUHRHeight, maxWidth, maxHeight);
+
+  // if input width * height is larger than default max width * height,
+  // it means ultra hight resolution has been selected, to make scaleFactor
+  // calculation work correctly, we need to update buffersize, max width and
+  // max height accordingly
+  if ((maxUHRWidth != 0) && ((width * height) > (maxWidth * maxHeight))) {
+    maxJpegSizeWidth = maxUHRWidth;
+    maxJpegSizeHeight = maxUHRHeight;
+    maxJpegBufferSize =
+      ((maxUHRWidth * 1.0f * maxUHRHeight) / (maxWidth * maxHeight)) *
+        maxJpegBufferSize;
+  } else {
+    maxJpegSizeWidth = maxWidth;
+    maxJpegSizeHeight = maxHeight;
+  }
+
+  QMMF_INFO("%s: input width=%d height=%d"
+      " maxJpegBufferSize=%d maxJpegSizeWidth=%d maxJpegSizeHeight=%d",
+      __func__, width, height,
+      maxJpegBufferSize, maxJpegSizeWidth, maxJpegSizeHeight);
+
+  return 0;
+}
+
+int32_t Camera3DeviceClient::CaclulateBlobSize(int32_t width, int32_t height) {
+  int32_t maxJpegBufferSize, maxJpegSizeWidth, maxJpegSizeHeight;
+  int32_t ret;
+
+  ret = UpdateJpegSizeInfo(width, height,
+        maxJpegBufferSize, maxJpegSizeWidth, maxJpegSizeHeight);
+  if (ret != 0)
+    return ret;
+
   assert(JPEG_BUFFER_SIZE_MIN < maxJpegBufferSize);
 
   // Calculate final jpeg buffer size for the given resolution.
@@ -937,6 +997,9 @@ int32_t Camera3DeviceClient::CaclulateBlobSize(int32_t width, int32_t height) {
   if (jpegBufferSize > maxJpegBufferSize) {
     jpegBufferSize = maxJpegBufferSize;
   }
+
+  QMMF_INFO("%s: scaleFactor=%f jpegBufferSize=%d",
+      __func__, scaleFactor, jpegBufferSize);
 
   return jpegBufferSize;
 }

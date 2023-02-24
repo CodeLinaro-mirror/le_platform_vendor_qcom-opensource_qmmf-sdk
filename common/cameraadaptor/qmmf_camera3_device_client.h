@@ -209,6 +209,11 @@ class Camera3DeviceClient : public camera3_callback_ops,
   int32_t CaclulateBlobSize(int32_t width, int32_t height);
   int32_t QueryMaxBlobSize(int32_t &maxJpegSizeWidth,
                            int32_t &maxJpegSizeHeight);
+  int32_t UpdateJpegSizeInfo(int32_t width,
+                              int32_t height,
+                              int32_t &maxJpegBufferSize,
+                              int32_t &maxJpegSizeWidth,
+                              int32_t &maxJpegSizeHeight);
 
   int32_t ConfigureStreams(
         const CameraParameters& camera_parameters = CameraParameters(),
