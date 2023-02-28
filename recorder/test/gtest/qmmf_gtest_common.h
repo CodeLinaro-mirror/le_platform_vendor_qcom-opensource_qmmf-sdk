@@ -106,6 +106,7 @@ static const uint32_t kSecondStreamID = 2;
 static const uint32_t kThirdStreamID  = 3;
 static const uint32_t kFourthStreamID = 4;
 static const uint32_t kFifthStreamID  = 5;
+static const uint32_t kHFRStreamID    = 16;
 
 #define TEXT_SIZE                 40
 #define DATETIME_PIXEL_SIZE       30
@@ -185,6 +186,12 @@ struct FaceInfo {
 #define DEFAULT_SNAPSHOT_STREAM_FORMAT   "JPEG"
 #define DEFAULT_PROP_SNAPSHOT_MODE       "Snapshot"
 #define DEFAULT_PROP_SNAPSHOT_TYPE       "Video"
+
+// Default Values for HFR Stream
+#define DEFAULT_HFR_STREAM_WIDTH         "1920"
+#define DEFAULT_HFR_STREAM_HEIGHT        "1080"
+#define DEFAULT_HFR_STREAM_FPS           "120.0"
+#define DEFAULT_HFR_STREAM_FORMAT        "NV12"
 
 // Prop to enable the dump to external storage
 #define PROP_DUMP_TO_EXT            "persist.qmmf.gtest.dumptoext"
@@ -278,6 +285,13 @@ struct FaceInfo {
 #define PROP_SNAPSHOT_STREAM_FORMAT  "persist.qmmf.snap.stream.fmt"
 #define PROP_SNAPSHOT_MODE           "persist.qmmf.snapshot.mode"
 #define PROP_SNAPSHOT_TYPE           "persist.qmmf.snapshot.type"
+
+// Prop for HFR Stream
+#define PROP_HFR_STREAM_WIDTH      "persist.qmmf.stream.hfr.w"
+#define PROP_HFR_STREAM_HEIGHT     "persist.qmmf.stream.hfr.h"
+#define PROP_HFR_STREAM_FPS        "persist.qmmf.stream.hfr.fps"
+#define PROP_HFR_STREAM_FORMAT     "persist.qmmf.stream.hfr.fmt"
+#define PROP_HFR_STREAM_SOURCE_ID  "persist.qmmf.stream.hfr.src.id"
 
 #ifndef MAX
 #define MAX(a,b) ((a) > (b) ? (a) : (b))
