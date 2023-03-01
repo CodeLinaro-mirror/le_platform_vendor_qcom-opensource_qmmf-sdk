@@ -1136,7 +1136,14 @@ status_t CameraContext::SetCameraParam(const CameraMetadata &meta) {
       request_list.push_back(req);
     }
 
-    if ((hfr_sync_mode_ == false) || 
+    // when there're multiple streams with HFR stremas invovled
+    // batch size will be more than one, in this case, camx requires
+    // strict order of buffer numbers
+    // SetcameraParam will be trigger when one stream is ready
+    // and it will submit request to provide buffers into camx
+    // this violate rules of camx
+    // adding hfr_sync_mode to control the submit requests
+    if ((hfr_sync_mode_ == false) ||
           ((hfr_sync_mode_ == true) && (all_ports_ready_ == true))) {
       // Submit request with updated camera meta data only if streaming is
       // started, if not then just update default meta data and leave it to

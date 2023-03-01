@@ -541,13 +541,7 @@ MemAllocError GBMDevice::Perform(const IBufferHandle& handle,
       return MemAllocError::kAllocOk;
     }
     case AllocDeviceAction::GetStride: {
-      if (bo->GetUsage() & IMemAllocUsage::kPrivateAllocUbwc) {
-        *static_cast<int32_t*>(result) =
-            gbm_bo_get_stride_for_plane(bo->GetNativeHandle(), 1);
-      } else {
-        *static_cast<int32_t*>(result) =
-            gbm_bo_get_stride_for_plane(bo->GetNativeHandle(), 0);
-      }
+      *static_cast<int32_t*>(result) = gbm_bo_get_stride(bo->GetNativeHandle());
       return MemAllocError::kAllocOk;
     }
     case AllocDeviceAction::GetAlignedWidth: {

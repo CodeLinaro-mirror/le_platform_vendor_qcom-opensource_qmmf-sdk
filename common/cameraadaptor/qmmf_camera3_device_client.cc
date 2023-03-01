@@ -2265,9 +2265,11 @@ uint32_t Camera3DeviceClient::GetOpMode() {
   }
 
   // Handle IFE Direct Stream
-  if (cam_feature_flags_ & static_cast<uint32_t>(CamFeatureFlag::kIFEDirectStream)) {
+  if (cam_feature_flags_ &
+      static_cast<uint32_t>(CamFeatureFlag::kIFEDirectStream)) {
     operation_mode |= IFE_DIRECT_STREAM;
-    QMMF_INFO("%s: YUVCallback OpMode Set, operation_mode = 0x%x \n", __func__, operation_mode);
+    QMMF_INFO("%s: IFEDirectStream OpMode Set, operation_mode = 0x%x \n",
+        __func__, operation_mode);
   }
 #endif
 
