@@ -439,6 +439,25 @@ void GtestCommon::SetUp() {
   // Insert Fifth stream into Map. Taking stream ID as 5.
   stream_info_map_.emplace(kFifthStreamID, stream);
 
+  // Read HFR Video Stream Params
+  property_get(PROP_HFR_STREAM_WIDTH, prop_val, DEFAULT_HFR_STREAM_WIDTH);
+  stream.width = atoi(prop_val);
+
+  property_get(PROP_HFR_STREAM_HEIGHT, prop_val, DEFAULT_HFR_STREAM_HEIGHT);
+  stream.height = atoi(prop_val);
+
+  property_get(PROP_HFR_STREAM_FPS, prop_val, DEFAULT_HFR_STREAM_FPS);
+  stream.fps = atof(prop_val);
+
+  property_get(PROP_HFR_STREAM_SOURCE_ID, prop_val, "0");
+  stream.source_stream_id = atoi(prop_val);
+
+  property_get(PROP_HFR_STREAM_FORMAT, prop_val, DEFAULT_HFR_STREAM_FORMAT);
+  SetVideoStreamFormat(prop_val, stream.format);
+
+  // Insert HFR stream into Map. Taking stream ID as 16.
+  stream_info_map_.emplace(kHFRStreamID, stream);
+
   property_get(PROP_SNAPSHOT_MODE, prop_val,
                DEFAULT_PROP_SNAPSHOT_MODE);
   SetSnapshotMode(prop_val);
