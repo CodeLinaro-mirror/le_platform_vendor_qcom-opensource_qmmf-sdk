@@ -60,7 +60,9 @@ class Camera3Stream : public camera3_stream {
   bool IsPrepareActive();
 
   int32_t GetBuffer(camera3_stream_buffer *buffer);
+  int32_t GetDummyBuffer(camera3_stream_buffer *buffer);
   int32_t ReturnBuffer(const StreamBuffer &buffer);
+  void ReturnBuffer(const buffer_handle_t &buffer);
   std::unordered_map <buffer_handle_t, IBufferHandle> buffers_map;
 
   void ReturnBufferToClient(const camera3_stream_buffer &buffer,
@@ -127,6 +129,7 @@ class Camera3Stream : public camera3_stream {
   pthread_cond_t output_buffer_returned_signal_;
   pthread_cond_t idle_signal_;
   static const int64_t BUFFER_WAIT_TIMEOUT = 1e9;  // 1 sec.
+  static buffer_handle_t* DUMMY_BUFFER;
 
   KeyedVector<IBufferHandle , bool> mem_alloc_buffers_;
   IBufferHandle *mem_alloc_slots_;
@@ -136,7 +139,10 @@ class Camera3Stream : public camera3_stream {
   int32_t monitor_id_;
 
   bool is_stream_active_;
+  bool is_stream_idle_;
   uint32_t prepared_buffers_count_;
+
+  camera3_stream_buffer dummy_buffer_;
 };
 
 }  // namespace cameraadaptor ends here
