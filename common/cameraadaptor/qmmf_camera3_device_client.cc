@@ -548,22 +548,7 @@ int32_t Camera3DeviceClient::ConfigureStreamsLocked(
   config.streams = streams.editArray();
   config.num_streams = streams.size();
 
-#ifdef TARGET_USES_GBM
-  for (uint32_t i = 0; i < config.num_streams; i++) {
-    config.streams[i]->usage =
-        GBMUsage().LocalToGralloc(config.streams[i]->usage);
-  }
-#endif
-
   res = device_->ops->configure_streams(device_, &config);
-
-#ifdef TARGET_USES_GBM
-  for (uint32_t i = 0; i < config.num_streams; i++) {
-    config.streams[i]->usage =
-        GBMUsage().GrallocToLocal(config.streams[i]->usage);
-  }
-#endif
-
   if (res == -EINVAL) {
     for (uint32_t i = 0; i < streams_.size(); i++) {
       Camera3Stream *stream = streams_.editValueAt(i);

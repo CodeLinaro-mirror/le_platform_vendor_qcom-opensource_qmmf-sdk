@@ -240,6 +240,14 @@ class IMemAllocUsage {
   *
   **/
   virtual MemAllocFlags ToCommon(int32_t local) const = 0;
+
+  /** IMemAllocUsage::ToGralloc
+  *
+  * Converts native usage flags to Gralloc flags
+  *
+  **/
+  virtual int32_t ToGralloc(MemAllocFlags common) const = 0;
+
   virtual ~IMemAllocUsage(){};
 };
 

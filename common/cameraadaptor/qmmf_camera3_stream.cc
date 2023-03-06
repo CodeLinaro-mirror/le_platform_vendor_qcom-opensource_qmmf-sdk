@@ -112,7 +112,7 @@ Camera3Stream::Camera3Stream(int id, size_t maxSize,
   camera3_stream::data_space = outputConfiguration.data_space;
   camera3_stream::rotation = outputConfiguration.rotation;
   camera3_stream::usage =
-    AllocUsageFactory::GetAllocUsage().ToLocal(outputConfiguration.allocFlags);
+    AllocUsageFactory::GetAllocUsage().ToGralloc(outputConfiguration.allocFlags);
   camera3_stream::max_buffers = outputConfiguration.bufferCount;
 #ifdef CAM_ARCH_V2
   if (HAL_PIXEL_FORMAT_BLOB == outputConfiguration.format) {
@@ -177,7 +177,7 @@ camera3_stream *Camera3Stream::BeginConfigure() {
   }
 
   camera3_stream::usage =
-    AllocUsageFactory::GetAllocUsage().ToLocal(client_usage_);
+    AllocUsageFactory::GetAllocUsage().ToGralloc(client_usage_);
   camera3_stream::max_buffers = client_max_buffers_;
 
   if (monitor_id_ != Camera3Monitor::INVALID_ID) {
@@ -243,8 +243,7 @@ int32_t Camera3Stream::EndConfigure() {
   }
 
   if (status_ == STATUS_RECONFIG_ACTIVE &&
-      AllocUsageFactory::GetAllocUsage().ToCommon(camera3_stream::usage).
-        Equals(old_usage_) &&
+      client_usage_.Equals(old_usage_) &&
       old_max_buffers_ == camera3_stream::max_buffers) {
     status_ = STATUS_CONFIGURED;
     res = 0;
@@ -259,8 +258,7 @@ int32_t Camera3Stream::EndConfigure() {
   }
 
   status_ = STATUS_CONFIGURED;
-  old_usage_ =
-    AllocUsageFactory::GetAllocUsage().ToCommon(camera3_stream::usage);
+  old_usage_ = client_usage_;
   old_max_buffers_ = camera3_stream::max_buffers;
 
 exit:
@@ -291,8 +289,9 @@ int32_t Camera3Stream::AbortConfigure() {
       goto exit;
   }
 
+  client_usage_ = old_usage_;
   camera3_stream::usage =
-    AllocUsageFactory::GetAllocUsage().ToLocal(old_usage_);
+    AllocUsageFactory::GetAllocUsage().ToGralloc(old_usage_);
   camera3_stream::max_buffers = old_max_buffers_;
 
   status_ = (status_ == STATUS_RECONFIG_ACTIVE) ? STATUS_CONFIGURED
@@ -888,8 +887,7 @@ int32_t Camera3Stream::GetBufferLocked(camera3_stream_buffer *streamBuffer) {
       buf_width = camera3_stream::width;
       buf_height = camera3_stream::height;
     }
-    MemAllocFlags memusage =
-        AllocUsageFactory::GetAllocUsage().ToCommon(camera3_stream::usage);
+    MemAllocFlags memusage = client_usage_;
 
     // Remove the CPU read/write flags set by CamX since they are confusing GBM
     // when UBWC flag is set which causes the allocated buffer to be plain NV12.
