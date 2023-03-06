@@ -38,6 +38,7 @@ class Gralloc1Usage : public IMemAllocUsage {
  public:
   int32_t ToLocal(int32_t common) const;
   int32_t ToLocal(MemAllocFlags common) const;
+  int32_t ToGralloc(MemAllocFlags common) const;
   MemAllocFlags ToCommon(int32_t local) const;
 
  private:
