@@ -33,6 +33,10 @@ target_include_directories(qmmf_camera_adaptor
 target_include_directories(qmmf_camera_adaptor
  PRIVATE ${TOP_DIRECTORY}/common/memory)
 
+target_compile_definitions(qmmf_camera_adaptor PRIVATE
+  $<$<BOOL:${HAVE_MMM_COLOR_FMT_H}>:HAVE_MMM_COLOR_FMT_H>
+)
+
 install(TARGETS qmmf_camera_adaptor DESTINATION lib OPTIONAL)
 target_link_libraries(qmmf_camera_adaptor camera_metadata log binder qmmf_utils utils
 cutils pthread dl hardware qmmf_memory_interface)

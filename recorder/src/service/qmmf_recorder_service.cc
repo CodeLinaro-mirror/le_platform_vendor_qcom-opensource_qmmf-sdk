@@ -29,23 +29,23 @@
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
  * Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
- *  
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
  * disclaimer below) provided that the following conditions are met:
- *  
+ *
  *     * Redistributions of source code must retain the above copyright
  *       notice, this list of conditions and the following disclaimer.
- *  
+ *
  *     * Redistributions in binary form must reproduce the above
  *       copyright notice, this list of conditions and the following
  *       disclaimer in the documentation and/or other materials provided
  *       with the distribution.
- *  
+ *
  *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
  *       contributors may be used to endorse or promote products derived
  *       from this software without specific prior written permission.
- *  
+ *
  * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
  * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
  * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
@@ -306,14 +306,15 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
       }
       break;
       case RECORDER_CAPTURE_IMAGE: {
-        uint32_t client_id, camera_id, num_images, meta_size;
+        uint32_t client_id, camera_id, type, n_images, meta_size;
         data.readUint32(&client_id);
         data.readUint32(&camera_id);
-        data.readUint32(&num_images);
+        data.readUint32(&type);
+        data.readUint32(&n_images);
         data.readUint32(&meta_size);
-        std::vector<CameraMetadata> meta_array;
+        std::vector<::camera::CameraMetadata> meta_array;
         for (uint32_t i = 0; i < meta_size; ++i) {
-          CameraMetadata meta;
+          ::camera::CameraMetadata meta;
           camera_metadata_t *m = nullptr;
           ret = meta.readFromParcel(data, &m);
           if ((NO_ERROR != ret) || (nullptr == m)) {
@@ -328,7 +329,9 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
           //We need to release this memory as meta.append() makes copy of this memory
           free(m);
         }
-        ret = CaptureImage(client_id, camera_id, num_images, meta_array);
+        ret = CaptureImage(client_id, camera_id,
+                           static_cast<SnapshotType>(type), n_images,
+                           meta_array);
 
         // Clear the metadata buffers and free all storage used by it
         for (auto meta:meta_array) {
@@ -361,10 +364,11 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
       }
       break;
       case RECORDER_CANCEL_IMAGECAPTURE: {
-        uint32_t client_id, camera_id;
+        uint32_t client_id, camera_id, cache;
         data.readUint32(&client_id);
         data.readUint32(&camera_id);
-        ret = CancelCaptureImage(client_id, camera_id);
+        data.readUint32(&cache);
+        ret = CancelCaptureImage(client_id, camera_id, cache);
         reply->writeInt32(ret);
         return NO_ERROR;
       }
@@ -382,7 +386,7 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
       case RECORDER_SET_CAMERA_PARAMS: {
         uint32_t client_id, camera_id;
         data.readUint32(&client_id);
-        CameraMetadata meta;
+        ::camera::CameraMetadata meta;
         camera_metadata_t *m = nullptr;
         data.readUint32(&camera_id);
         ret = meta.readFromParcel(data, &m);
@@ -408,7 +412,7 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
         uint32_t client_id, camera_id;
         data.readUint32(&client_id);
         data.readUint32(&camera_id);
-        CameraMetadata meta;
+        ::camera::CameraMetadata meta;
         ret = GetCameraParam(client_id, camera_id, meta);
         reply->writeInt32(ret);
         if (NO_ERROR == ret) {
@@ -437,7 +441,7 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
         uint32_t client_id, camera_id;
         data.readUint32(&client_id);
         data.readUint32(&camera_id);
-        CameraMetadata meta;
+        ::camera::CameraMetadata meta;
         ret = GetDefaultCaptureParam(client_id, camera_id, meta);
         reply->writeInt32(ret);
         if (NO_ERROR == ret) {
@@ -455,7 +459,7 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
         uint32_t client_id, camera_id;
         data.readUint32(&client_id);
         data.readUint32(&camera_id);
-        CameraMetadata meta;
+        ::camera::CameraMetadata meta;
         ret = GetCameraCharacteristics(client_id, camera_id, meta);
         reply->writeInt32(ret);
         if (NO_ERROR == ret) {
@@ -470,7 +474,7 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
       }
       break;
       case RECORDER_GET_VENDOR_TAG_DESCRIPTOR: {
-        sp<VendorTagDescriptor> desc;
+        sp<::camera::VendorTagDescriptor> desc;
         ret = GetVendorTagDescriptor(desc);
         reply->writeInt32(ret);
         if (NO_ERROR == ret) {
@@ -944,8 +948,9 @@ status_t RecorderService::SetVideoTrackParam(const uint32_t client_id,
 
 status_t RecorderService::CaptureImage(const uint32_t client_id,
                                        const uint32_t camera_id,
-                                       const uint32_t num_images, const
-                                       std::vector<CameraMetadata> &meta) {
+                                       const SnapshotType type,
+                                       const uint32_t n_images,
+                                       const std::vector<::camera::CameraMetadata> &meta) {
 
   QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
 
@@ -954,8 +959,7 @@ status_t RecorderService::CaptureImage(const uint32_t client_id,
     return NO_INIT;
   }
 
-  auto ret = recorder_->CaptureImage(client_id, camera_id,
-                                     num_images, meta);
+  auto ret = recorder_->CaptureImage(client_id, camera_id, type, n_images, meta);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: CaptureImage failed!", __func__);
     return ret;
@@ -967,7 +971,7 @@ status_t RecorderService::CaptureImage(const uint32_t client_id,
 status_t RecorderService::ConfigImageCapture(const uint32_t client_id,
                                              const uint32_t camera_id,
                                              const ImageParam &param,
-                                             const ImageExtraParam &config) {
+                                             const ImageExtraParam &xtrapram) {
 
   QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
 
@@ -976,7 +980,7 @@ status_t RecorderService::ConfigImageCapture(const uint32_t client_id,
     return NO_INIT;
   }
 
-  auto ret = recorder_->ConfigImageCapture(client_id, camera_id, param, config);
+  auto ret = recorder_->ConfigImageCapture(client_id, camera_id, param, xtrapram);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: ConfigImageCapture failed!", __func__);
     return ret;
@@ -986,7 +990,8 @@ status_t RecorderService::ConfigImageCapture(const uint32_t client_id,
 }
 
 status_t RecorderService::CancelCaptureImage(const uint32_t client_id,
-                                             const uint32_t camera_id) {
+                                             const uint32_t camera_id,
+                                             const bool cache) {
 
   QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
 
@@ -995,7 +1000,7 @@ status_t RecorderService::CancelCaptureImage(const uint32_t client_id,
     return NO_INIT;
   }
 
-  auto ret = recorder_->CancelCaptureImage(client_id, camera_id);
+  auto ret = recorder_->CancelCaptureImage(client_id, camera_id, cache);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: CancelCaptureImage failed!", __func__);
     return ret;
@@ -1028,7 +1033,7 @@ status_t RecorderService::ReturnImageCaptureBuffer(const uint32_t client_id,
 
 status_t RecorderService::SetCameraParam(const uint32_t client_id,
                                          const uint32_t camera_id,
-                                         const CameraMetadata &meta) {
+                                         const ::camera::CameraMetadata &meta) {
 
   QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
 
@@ -1048,7 +1053,7 @@ status_t RecorderService::SetCameraParam(const uint32_t client_id,
 
 status_t RecorderService::GetCameraParam(const uint32_t client_id,
                                          const uint32_t camera_id,
-                                         CameraMetadata &meta) {
+                                         ::camera::CameraMetadata &meta) {
 
   QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
 
@@ -1088,7 +1093,7 @@ status_t RecorderService::SetSHDR(const uint32_t client_id,
 
 status_t RecorderService::GetDefaultCaptureParam(const uint32_t client_id,
                                                  const uint32_t camera_id,
-                                                 CameraMetadata &meta) {
+                                                 ::camera::CameraMetadata &meta) {
 
   QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
 
@@ -1108,7 +1113,7 @@ status_t RecorderService::GetDefaultCaptureParam(const uint32_t client_id,
 
 status_t RecorderService::GetCameraCharacteristics(const uint32_t client_id,
                                                    const uint32_t camera_id,
-                                                   CameraMetadata &meta) {
+                                                   ::camera::CameraMetadata &meta) {
 
   QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
 
@@ -1246,9 +1251,9 @@ status_t RecorderService::DisconnectInternal(const uint32_t client_id) {
   return NO_ERROR;
 }
 
-status_t RecorderService::GetVendorTagDescriptor(sp<VendorTagDescriptor> &desc) {
+status_t RecorderService::GetVendorTagDescriptor(sp<::camera::VendorTagDescriptor> &desc) {
 
-  desc = VendorTagDescriptor::getGlobalVendorTagDescriptor();
+  desc = ::camera::VendorTagDescriptor::getGlobalVendorTagDescriptor();
   return (desc == nullptr) ? BAD_VALUE : NO_ERROR;
 }
 

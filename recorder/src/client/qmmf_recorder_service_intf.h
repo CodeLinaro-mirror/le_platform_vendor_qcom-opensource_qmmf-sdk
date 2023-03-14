@@ -29,23 +29,23 @@
 * Changes from Qualcomm Innovation Center are provided under the following license:
 *
 * Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
-*  
+*
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted (subject to the limitations in the
 * disclaimer below) provided that the following conditions are met:
-*  
+*
 *     * Redistributions of source code must retain the above copyright
 *       notice, this list of conditions and the following disclaimer.
-*  
+*
 *     * Redistributions in binary form must reproduce the above
 *       copyright notice, this list of conditions and the following
 *       disclaimer in the documentation and/or other materials provided
 *       with the distribution.
-*  
+*
 *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
 *       contributors may be used to endorse or promote products derived
 *       from this software without specific prior written permission.
-*  
+*
 * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
 * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
 * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
@@ -248,16 +248,18 @@ class IRecorderService : public IInterface {
 
   virtual status_t CaptureImage(const uint32_t client_id,
                                 const uint32_t camera_id,
-                                const uint32_t num_images,
-                                const std::vector<CameraMetadata> &meta) = 0;
+                                const SnapshotType type,
+                                const uint32_t n_images,
+                                const std::vector<::camera::CameraMetadata> &meta) = 0;
 
   virtual status_t ConfigImageCapture(const uint32_t client_id,
                                       const uint32_t camera_id,
                                       const ImageParam &param,
-                                      const ImageExtraParam &config) = 0;
+                                      const ImageExtraParam &xtraparam) = 0;
 
   virtual status_t CancelCaptureImage(const uint32_t client_id,
-                                      const uint32_t camera_id) = 0;
+                                      const uint32_t camera_id,
+                                      const bool cache) = 0;
 
   virtual status_t ReturnImageCaptureBuffer(const uint32_t client_id,
                                             const uint32_t camera_id,
@@ -265,11 +267,11 @@ class IRecorderService : public IInterface {
 
   virtual status_t SetCameraParam(const uint32_t client_id,
                                   const uint32_t camera_id,
-                                  const CameraMetadata &meta) = 0;
+                                  const ::camera::CameraMetadata &meta) = 0;
 
   virtual status_t GetCameraParam(const uint32_t client_id,
                                   const uint32_t camera_id,
-                                  CameraMetadata &meta) = 0;
+                                  ::camera::CameraMetadata &meta) = 0;
 
   virtual status_t SetSHDR(const uint32_t client_id,
                            const uint32_t camera_id,
@@ -277,13 +279,13 @@ class IRecorderService : public IInterface {
 
   virtual status_t GetDefaultCaptureParam(const uint32_t client_id,
                                           const uint32_t camera_id,
-                                          CameraMetadata &meta) = 0;
+                                          ::camera::CameraMetadata &meta) = 0;
 
   virtual status_t GetCameraCharacteristics(const uint32_t client_id,
                                             const uint32_t camera_id,
-                                            CameraMetadata &meta) = 0;
+                                            ::camera::CameraMetadata &meta) = 0;
 
-  virtual status_t GetVendorTagDescriptor(sp<VendorTagDescriptor> &desc) = 0;
+  virtual status_t GetVendorTagDescriptor(sp<::camera::VendorTagDescriptor> &desc) = 0;
 
   virtual status_t CreateOfflineJPEG(
                                 const uint32_t client_id,
@@ -334,7 +336,7 @@ class IRecorderServiceCallback : public IInterface {
                                      size_t event_data_size) = 0;
 
   virtual void NotifyCameraResult(uint32_t camera_id,
-                                  const CameraMetadata &result) = 0;
+                                  const ::camera::CameraMetadata &result) = 0;
 
   // This method is not exposed to client as a callback, it is just to update
   // Internal data structure, ServiceCallbackHandler is not forced to implement

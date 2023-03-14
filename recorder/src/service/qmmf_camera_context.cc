@@ -113,9 +113,6 @@ CameraContext::CameraContext()
       hfr_supported_(false),
       batch_stream_id_(-1),
       partial_result_count_(0),
-      snapshot_type_(SnapshotMode::kVideo),
-      new_snapshot_type_(SnapshotMode::kVideo),
-      raw_snapshot_format_(BufferFormat::kRAW10),
       snapshot_stream_param_{},
       port_paused_(false),
       camera_parameters_{},
@@ -123,7 +120,9 @@ CameraContext::CameraContext()
       pcr_frc_enabled_(false),
       continuous_mode_is_on_(false),
       is_camera_dead_(false),
-      pending_cached_stream_(false) {
+      pending_cached_stream_(false),
+      hfr_detected_(false),
+      hfr_wait_ports_ready_(false) {
 
   QMMF_INFO("%s: Enter", __func__);
 
@@ -237,35 +236,6 @@ status_t CameraContext::CreateSnapshotStream(
     snapshot_request_.streamIds.add(stream_id);
   }
 
-  if (snapshot_type_ == SnapshotMode::kStillPlusRaw ||
-      snapshot_type_ == SnapshotMode::kVideoPlusRaw) {
-    CameraStreamParameters raw_stream_param = stream_param;
-    raw_stream_param.format = Common::FromQmmfToHalFormat(raw_snapshot_format_);
-    Common::GetMaxSupportedCameraRes(static_meta_,
-                                     raw_stream_param.width,
-                                     raw_stream_param.height,
-                                     raw_snapshot_format_);
-    raw_stream_param.allocFlags.flags  = IMemAllocUsage::kSwWriteOften |
-                                           IMemAllocUsage::kSwReadOften;
-    raw_stream_param.bufferCount  = MAX_SNAPSHOT_BUFFER_COUNT;
-
-    QMMF_INFO("%s: Raw Snapshot W(%d) & H(%d) Fmt(0x%x)", __func__,
-        raw_stream_param.width, raw_stream_param.height,
-        raw_stream_param.format);
-
-    ret = CreateDeviceStream(raw_stream_param,
-                             camera_parameters_.frame_rate_range[1],
-                             &stream_id, cache);
-    if (ret != NO_ERROR) {
-      QMMF_ERROR("%s: Failed creating snapshot stream: %d!",
-                 __func__, ret);
-      return ret;
-    }
-
-    QMMF_INFO("%s Raw Snapshot stream_id(%d)", __func__, stream_id);
-    snapshot_request_.streamIds.add(stream_id);
-  }
-
   QMMF_INFO("%s: Exit", __func__);
   return ret;
 }
@@ -285,7 +255,6 @@ status_t CameraContext::DeleteSnapshotStream(bool cache) {
   }
   snapshot_request_.streamIds.clear();
   snapshot_stream_param_ = {};
-  snapshot_type_ = SnapshotMode::kNone;
   capture_request_id_ = -1;
 
   QMMF_INFO("%s Exit", __func__);
@@ -421,6 +390,22 @@ status_t CameraContext::OpenCamera(const uint32_t camera_id,
       }
     } else {
       QMMF_ERROR("%s: Invalid FRC mode received", __func__);
+      return BAD_VALUE;
+    }
+  }
+
+  if (extra_param.Exists(QMMF_IFE_DIRECT_STREAM)) {
+    size_t entry_count = extra_param.EntryCount(QMMF_IFE_DIRECT_STREAM);
+    if (entry_count == 1) {
+      IFEDirectStream ife_direct_stream;
+      extra_param.Fetch(QMMF_IFE_DIRECT_STREAM, ife_direct_stream, 0);
+      if (ife_direct_stream.enable == true) {
+        QMMF_INFO("%s: IFE Direct Stream is ON..", __func__);
+        camera_parameters_.cam_feature_flags |=
+            static_cast<uint32_t>(CamFeatureFlag::kIFEDirectStream);
+      }
+    } else {
+      QMMF_ERROR("%s: Invalid IFE Direct Stream param received", __func__);
       return BAD_VALUE;
     }
   }
@@ -571,45 +556,21 @@ status_t CameraContext::ValidateResolution(const BufferFormat format,
   return NO_ERROR;
 }
 
-bool CameraContext::IsNeedReconfigSnapshotStream() {
-  bool reconfiguration = true;
+status_t CameraContext::ConfigImageCapture(const SnapshotParam& param,
+                                           const ImageExtraParam &xtraparam) {
 
-  if (snapshot_type_ == new_snapshot_type_) {
-    reconfiguration = false;
-  } else if ((new_snapshot_type_ == SnapshotMode::kStillPlusRaw ||
-              snapshot_type_ == SnapshotMode::kStillPlusRaw) ||
-             (new_snapshot_type_ == SnapshotMode::kVideoPlusRaw ||
-              snapshot_type_ == SnapshotMode::kVideoPlusRaw)) {
-    // only kStillPlusRaw/kVideoPlusRaw requires pipe restart
-    reconfiguration = true;
-  } else {
-    reconfiguration = false;
-  }
-
-  QMMF_VERBOSE("%s curr mode %d new mode %d need reconfiguration %d", __func__,
-               snapshot_type_, new_snapshot_type_, reconfiguration);
-
-  return reconfiguration;
-}
-
-status_t CameraContext::SetUpCapture(const SnapshotParam& param) {
   QMMF_DEBUG("%s Enter ", __func__);
-  if (snapshot_type_ != SnapshotMode::kZsl) {
-    bool reconfigure_needed = false;
-    {
-      std::unique_lock<std::mutex> lock(capture_lock_);
 
-      reconfigure_needed = snapshot_request_.streamIds.empty() ||
-                           (snapshot_param_.width != param.width) ||
-                           (snapshot_param_.height != param.height) ||
-                           IsNeedReconfigSnapshotStream() ||
-                           (snapshot_param_.format != param.format);
+  std::unique_lock<std::mutex> lock(capture_lock_);
 
-      QMMF_DEBUG("%s: reconfigure_needed=%d", __func__, reconfigure_needed);
+  if (param.mode != ImageMode::kZsl) {
+    bool reconfigure_needed = snapshot_request_.streamIds.empty() ||
+                              (snapshot_param_.mode != param.mode) ||
+                              (snapshot_param_.width != param.width) ||
+                              (snapshot_param_.height != param.height) ||
+                              (snapshot_param_.format != param.format);
 
-      snapshot_param_ = param;
-      snapshot_type_ = new_snapshot_type_;
-    }
+    QMMF_DEBUG("%s: reconfigure_needed=%d", __func__, reconfigure_needed);
 
     if (reconfigure_needed) {
       auto ret = ValidateResolution(param.format, param.width, param.height);
@@ -624,10 +585,59 @@ status_t CameraContext::SetUpCapture(const SnapshotParam& param) {
       ret = GetSnapshotStreamParams(param, stream_param);
       assert(ret == NO_ERROR);
 
-      ret = CreateSnapshotStream(stream_param);
+      ret = CreateSnapshotStream(stream_param, true);
       if (NO_ERROR != ret) {
         QMMF_ERROR("%s Failed during snapshot re-configure", __func__);
         return ret;
+      }
+
+      if (param.mode == ImageMode::kSnapshotPlusRaw) {
+        SnapshotRawSetup rawparam;
+
+        if (xtraparam.Exists(QMMF_SNAPSHOT_RAW_SETUP)) {
+          xtraparam.Fetch(QMMF_SNAPSHOT_RAW_SETUP, rawparam);
+        }
+
+        BufferFormat format = Common::FromImageToQmmfFormat(rawparam.format);
+
+        if (format != BufferFormat::kRAW8 && format != BufferFormat::kRAW10 &&
+            format != BufferFormat::kRAW12 && format != BufferFormat::kRAW16) {
+          QMMF_ERROR("%s: Image format %d is not RAW format", __func__,
+              rawparam.format);
+          return BAD_VALUE;
+        }
+
+        bool supported = Common::ValidateStreamFormat(static_meta_, format);
+        if (supported == false) {
+          QMMF_ERROR("%s: Format %d is not supported!", __func__, format);
+          return BAD_VALUE;
+        }
+
+        CameraStreamParameters raw_stream_param = stream_param;
+        raw_stream_param.width = rawparam.width;
+        raw_stream_param.height = rawparam.height;
+        raw_stream_param.format = Common::FromQmmfToHalFormat(format);
+        raw_stream_param.allocFlags.flags = IMemAllocUsage::kSwWriteOften |
+                                            IMemAllocUsage::kSwReadOften;
+        raw_stream_param.bufferCount  = MAX_SNAPSHOT_BUFFER_COUNT;
+
+        QMMF_INFO("%s: Raw Snapshot W(%d) & H(%d) Fmt(0x%x)", __func__,
+            raw_stream_param.width, raw_stream_param.height,
+            raw_stream_param.format);
+
+        int32_t stream_id = -1;
+
+        ret = CreateDeviceStream(raw_stream_param,
+                                camera_parameters_.frame_rate_range[1],
+                                &stream_id, false);
+        if (ret != NO_ERROR) {
+          QMMF_ERROR("%s: Failed creating snapshot stream: %d!",
+                    __func__, ret);
+          return ret;
+        }
+
+        QMMF_INFO("%s Raw Snapshot stream_id(%d)", __func__, stream_id);
+        snapshot_request_.streamIds.add(stream_id);
       }
 
       // Store current capture configuration. This is used for
@@ -639,11 +649,19 @@ status_t CameraContext::SetUpCapture(const SnapshotParam& param) {
       WaitAecToConverge(kWaitAecTimeout);
     }
   } else {
+    SnapshotZslSetup zslparam;
+
+    if (xtraparam.Exists(QMMF_SNAPSHOT_ZSL_SETUP)) {
+      xtraparam.Fetch(QMMF_SNAPSHOT_ZSL_SETUP, zslparam);
+    }
+
+    auto ret = StartZSL(param, zslparam);
+    assert(ret == NO_ERROR);
+
     auto zsl_port = std::static_pointer_cast<ZslPort>(GetPort(zsl_port_id_));
     assert(zsl_port.get() != nullptr);
 
-    auto ret = zsl_port->ValidateCaptureParams(param.width, param.height,
-        param.format);
+    ret = zsl_port->ValidateCaptureParams(param.width, param.height, param.format);
     if (ret != NO_ERROR) {
       QMMF_ERROR("%s ZSL validation fails! Stream dim: %dx%d format: %x",
           __func__, param.width, param.height, param.format);
@@ -654,15 +672,16 @@ status_t CameraContext::SetUpCapture(const SnapshotParam& param) {
   return NO_ERROR;
 }
 
-status_t CameraContext::CaptureImage(const uint32_t num_images,
-                                     const std::vector<CameraMetadata> &meta,
+status_t CameraContext::CaptureImage(const SnapshotType type,
+                                     const uint32_t n_images,
+                                     const std::vector<::camera::CameraMetadata> &meta,
                                      const StreamSnapshotCb& cb) {
 
   QMMF_INFO("%s: Enter", __func__);
   int32_t ret = NO_ERROR;
+  uint32_t imgcnt = 0;
   client_snapshot_cb_ = cb;
   capture_cnt_ = 0;
-  uint32_t img_cnt = num_images;
 
   if (snapshot_request_.streamIds.empty()) {
     QMMF_ERROR("%s: No snapshot stream available", __func__);
@@ -675,22 +694,19 @@ status_t CameraContext::CaptureImage(const uint32_t num_images,
     return NO_ERROR;
   }
 
-  if (snapshot_type_ == SnapshotMode::kContinuous) {
-    img_cnt = 1;
-    continuous_mode_is_on_ = true;
-  }
+  continuous_mode_is_on_ = (n_images == 0) ? true : false;
+  imgcnt = (n_images == 0) ? 1 : n_images;
 
-  if (snapshot_type_ != SnapshotMode::kZsl) {
+  if (snapshot_param_.mode != ImageMode::kZsl) {
     device_access_lock_.lock();
     int64_t last_frame_number;
     uint8_t jpeg_quality = snapshot_param_.quality;
     std::list<Camera3Request> requests;
-    std::vector<CameraMetadata>::const_iterator it = meta.begin();
-    for (uint32_t i = 0; i < img_cnt; i++) {
+    std::vector<::camera::CameraMetadata>::const_iterator it = meta.begin();
+    for (uint32_t i = 0; i < imgcnt; i++) {
       if (streaming_active_requests_.size() > 0 &&
           !streaming_active_requests_[0].metadata.isEmpty() &&
-          (snapshot_type_ == SnapshotMode::kVideo ||
-           snapshot_type_ == SnapshotMode::kVideoPlusRaw)) {
+          (type == SnapshotType::kVideo || type == SnapshotType::kVideoPlusRaw)) {
         snapshot_request_.metadata.clear();
         snapshot_request_.metadata.append(streaming_active_requests_[0].metadata);
       } else if (it != meta.end()) {
@@ -700,10 +716,8 @@ status_t CameraContext::CaptureImage(const uint32_t num_images,
       snapshot_request_.metadata.update(ANDROID_JPEG_QUALITY, &jpeg_quality, 1);
       uint32_t active_streamid_count = 0;
 
-      if (snapshot_type_ == SnapshotMode::kVideo ||
-          snapshot_type_ == SnapshotMode::kContinuous ||
-          snapshot_type_ == SnapshotMode::kVideoPlusRaw) {
-
+      if (continuous_mode_is_on_ || type == SnapshotType::kVideo ||
+          type == SnapshotType::kVideoPlusRaw) {
         if (streaming_active_requests_.size() == 1) {
           if (port_paused_ == true) {
             QMMF_INFO("%s: streaming request is paused need to resume!",
@@ -745,17 +759,13 @@ status_t CameraContext::CaptureImage(const uint32_t num_images,
         resize(snapshot_request_.streamIds.size() - active_streamid_count);
     }
 
-    bool streaming = false;
-    if (snapshot_type_ == SnapshotMode::kContinuous) {
-      streaming = true;
-    }
+    bool streaming = continuous_mode_is_on_ ? true : false;
 
     {
       std::unique_lock<std::mutex> lock(capture_lock_);
       std::unique_lock<std::mutex> pending_frames_lock(pending_frames_lock_);
       cancel_capture_ = false;
-      auto request_id = camera_device_->SubmitRequestList(requests,
-                                                          streaming,
+      auto request_id = camera_device_->SubmitRequestList(requests, streaming,
                                                           &last_frame_number);
 
       QMMF_INFO("%s: last_frame_number: current=%lld previous=%lld", __func__,
@@ -781,7 +791,7 @@ status_t CameraContext::CaptureImage(const uint32_t num_images,
 
     ResumeActiveStreams(streaming);
   } else {
-    ret = CaptureZSLImage();
+    ret = CaptureZSLImage(type);
     if (ret != NO_ERROR) {
       QMMF_ERROR("%s: CaptureImage Failed in ZSL mode!", __func__);
       return ret;
@@ -791,62 +801,17 @@ status_t CameraContext::CaptureImage(const uint32_t num_images,
   return ret;
 }
 
-status_t CameraContext::ConfigImageCapture(const ImageExtraParam &config) {
-
-  // lock all capture configuration together
-  std::unique_lock<std::mutex> lock(capture_lock_);
-
-  if (config.Exists(QMMF_SNAPSHOT_TYPE)) {
-    SnapshotType type;
-    config.Fetch(QMMF_SNAPSHOT_TYPE, type);
-
-    if ((type.type == SnapshotMode::kStillPlusRaw) ||
-        (type.type == SnapshotMode::kVideoPlusRaw)) {
-      BufferFormat format = Common::FromImageToQmmfFormat(type.raw_format);
-      if (format != BufferFormat::kRAW8 && format != BufferFormat::kRAW10 &&
-          format != BufferFormat::kRAW12 && format != BufferFormat::kRAW16) {
-        QMMF_ERROR("%s: Image format %d is not RAW format", __func__,
-            type.raw_format);
-        return BAD_VALUE;
-      }
-
-      bool supported = Common::ValidateStreamFormat(static_meta_, format);
-      if (supported == false) {
-        QMMF_ERROR("%s: Format %d is not supported!", __func__, format);
-        return BAD_VALUE;
-      }
-      raw_snapshot_format_ = format;
-    }
-    new_snapshot_type_ = type.type;
-
-    // Enable/Disable ZSL
-    if (snapshot_type_ != SnapshotMode::kZsl &&
-        new_snapshot_type_ == SnapshotMode::kZsl) {
-      auto ret = StartZSL(type);
-      assert(ret == NO_ERROR);
-      snapshot_type_ = new_snapshot_type_;
-    } else if (snapshot_type_ == SnapshotMode::kZsl &&
-               new_snapshot_type_ != SnapshotMode::kZsl) {
-      auto ret = StopZSL();
-      assert(ret == NO_ERROR);
-      snapshot_type_ = new_snapshot_type_;
-    }
-  }
-
-  return NO_ERROR;
-}
-
-status_t CameraContext::CancelCaptureImage() {
+status_t CameraContext::CancelCaptureImage(const bool cache) {
 
   QMMF_INFO("%s: Enter", __func__);
 
-  if (snapshot_type_ == SnapshotMode::kZsl) {
+  if (snapshot_param_.mode == ImageMode::kZsl) {
     auto ret = StopZSL();
     assert(ret == NO_ERROR);
 
     // After cancel image capture snapshot mode is not ZSL anymore.
     // Switch mode to default.
-    snapshot_type_ = SnapshotMode::kStill;
+    snapshot_param_.mode = ImageMode::kSnapshot;
   } else if (!snapshot_request_.streamIds.empty()) {
     {
       std::unique_lock<std::mutex> lock(capture_lock_);
@@ -854,8 +819,11 @@ status_t CameraContext::CancelCaptureImage() {
     }
 
     continuous_mode_is_on_ = false;
-    PauseActiveStreams();
-    DeleteSnapshotStream();
+
+    PauseActiveStreams(!cache);
+    if (!cache) {
+      DeleteSnapshotStream();
+    }
     ResumeActiveStreams();
   }
 
@@ -903,7 +871,7 @@ status_t CameraContext::GetBatchSize(const StreamParam& param,
   }
 
   if ((kConstrainedModeThreshold <= param.framerate) &&
-      (snapshot_type_ == SnapshotMode::kZsl)) {
+      (snapshot_param_.mode == ImageMode::kZsl)) {
     QMMF_ERROR("%s: HFR and ZSL are mutually exclusive!",
                __func__);
     return BAD_VALUE;
@@ -960,6 +928,12 @@ status_t CameraContext::CreateStream(const StreamParam& param,
   }
 
   camera_parameters_.batch_size = batch;
+
+  if ((hfr_detected_ == false) && (batch > 1)) {
+    QMMF_INFO("%s: HFR stream detected!"
+        "track_id = %x", __func__, param.id);
+    hfr_detected_ = true;
+  }
 
   std::shared_ptr<CameraPort> port =
       std::make_shared<CameraPort>(param, camera_parameters_,
@@ -1128,7 +1102,7 @@ status_t CameraContext::ResumeStream(const uint32_t track_id) {
   return NO_ERROR;
 }
 
-status_t CameraContext::SetCameraParam(const CameraMetadata &meta) {
+status_t CameraContext::SetCameraParam(const ::camera::CameraMetadata &meta) {
 
   QMMF_DEBUG("%s: Enter", __func__);
 
@@ -1142,28 +1116,39 @@ status_t CameraContext::SetCameraParam(const CameraMetadata &meta) {
       req.metadata.append(meta);
       request_list.push_back(req);
     }
-    // Submit request with updated camera meta data only if streaming is
-    // started, if not then just update default meta data and leave it to
-    // startSession -> startStream to submit request.
-    std::unique_lock<std::mutex> pending_frames_lock(pending_frames_lock_);
-    if (streaming_request_id_ >= 0 &&
-        snapshot_type_ != SnapshotMode::kContinuous) {
-      int64_t last_frame_number;
-      auto ret = camera_device_->SubmitRequestList(request_list, true,
-                                                   &last_frame_number);
 
-      QMMF_INFO("%s: last_frame_number: current=%lld previous=%lld", __func__,
-          last_frame_number, last_frame_number_);
+    // when there're multiple streams with HFR stremas invovled
+    // batch size will be more than one, in this case, camx requires
+    // strict order of buffer numbers
+    // SetcameraParam will be triggered after one stream is ready
+    // and it will submit request to capture-request handler which will
+    // provide buffers into camx, this violate rule for camx
+    // adding hfr_detected_ to block requests untill all ports are ready
+    if ((hfr_detected_ == false) ||
+          ((hfr_detected_ == true) && (hfr_wait_ports_ready_ == true))) {
 
-      // SubmitRequestList returns NO_IN_FLIGHT_REPEATING_FRAMES when there is
-      // no previous request or when previous request is not submitted to HAL
-      // yet.
-      if (last_frame_number != NO_IN_FLIGHT_REPEATING_FRAMES) {
-        last_frame_number_ = last_frame_number;
+      // Submit request with updated camera meta data only if streaming is
+      // started, if not then just update default meta data and leave it to
+      // startSession -> startStream to submit request.
+      std::unique_lock<std::mutex> pending_frames_lock(pending_frames_lock_);
+      if (streaming_request_id_ >= 0 && !continuous_mode_is_on_) {
+        int64_t last_frame_number;
+        auto ret = camera_device_->SubmitRequestList(request_list, true,
+                                                     &last_frame_number);
+
+        QMMF_INFO("%s: last_frame_number: current=%lld previous=%lld", __func__,
+            last_frame_number, last_frame_number_);
+
+        // SubmitRequestList returns NO_IN_FLIGHT_REPEATING_FRAMES when there is
+        // no previous request or when previous request is not submitted to HAL
+        // yet.
+        if (last_frame_number != NO_IN_FLIGHT_REPEATING_FRAMES) {
+          last_frame_number_ = last_frame_number;
+        }
+
+        assert(ret >= 0);
+        streaming_request_id_ = ret;
       }
-
-      assert(ret >= 0);
-      streaming_request_id_ = ret;
     }
   } else {
     QMMF_ERROR("%s: No active requests present!\n", __func__);
@@ -1173,7 +1158,7 @@ status_t CameraContext::SetCameraParam(const CameraMetadata &meta) {
   return NO_ERROR;
 }
 
-status_t CameraContext::GetCameraParam(CameraMetadata &meta) {
+status_t CameraContext::GetCameraParam(::camera::CameraMetadata &meta) {
 
   QMMF_DEBUG("%s: Enter", __func__);
   meta.clear();
@@ -1188,7 +1173,7 @@ status_t CameraContext::GetCameraParam(CameraMetadata &meta) {
   return NO_ERROR;
 }
 
-status_t CameraContext::GetDefaultCaptureParam(CameraMetadata &meta) {
+status_t CameraContext::GetDefaultCaptureParam(::camera::CameraMetadata &meta) {
 
   QMMF_DEBUG("%s: Enter", __func__);
   auto ret = NO_ERROR;
@@ -1205,7 +1190,7 @@ status_t CameraContext::GetDefaultCaptureParam(CameraMetadata &meta) {
   return ret;
 }
 
-status_t CameraContext::GetCameraCharacteristics(CameraMetadata &meta) {
+status_t CameraContext::GetCameraCharacteristics(::camera::CameraMetadata &meta) {
 
   QMMF_DEBUG("%s: Enter", __func__);
   meta.clear();
@@ -1339,7 +1324,7 @@ status_t CameraContext::CreateDeviceStream(CameraStreamParameters& params,
     return NO_INIT;
   }
 
-  if (snapshot_type_ == SnapshotMode::kZsl
+  if (snapshot_param_.mode == ImageMode::kZsl
       && GetPort(zsl_port_id_).get() != nullptr) {
     auto zsl_port = std::static_pointer_cast<ZslPort>(GetPort(zsl_port_id_));
     if (zsl_port->IsRunning()) {
@@ -1429,7 +1414,7 @@ status_t CameraContext::CreateDeviceStream(CameraStreamParameters& params,
     }
   }
 
-  if (snapshot_type_ == SnapshotMode::kZsl &&
+  if (snapshot_param_.mode == ImageMode::kZsl &&
       GetPort(zsl_port_id_).get() != nullptr && !cache) {
     auto zsl_port = std::static_pointer_cast<ZslPort>(GetPort(zsl_port_id_));
     QMMF_INFO("%s: Resume ZSL!", __func__);
@@ -1447,8 +1432,8 @@ uint32_t CameraContext::GetSensorModeIndex(uint32_t width, uint32_t height,
   String8 tag_name("SensorModeTable");
   String8 section_name("org.quic.camera2.sensormode.info");
   uint32_t sensor_mode_table_tagid;
-  sp<VendorTagDescriptor> vendor_tag_desc =
-      VendorTagDescriptor::getGlobalVendorTagDescriptor();
+  sp<::camera::VendorTagDescriptor> vendor_tag_desc =
+      ::camera::VendorTagDescriptor::getGlobalVendorTagDescriptor();
   if (nullptr == vendor_tag_desc.get()) {
     QMMF_INFO("%s: no global vendor tag descriptor", __func__);
     return 0;
@@ -1557,7 +1542,7 @@ status_t CameraContext::DeleteDeviceStream(int32_t stream_id, bool cache) {
   }
 
   bool resume_streaming = false;
-  if (snapshot_type_ == SnapshotMode::kZsl
+  if (snapshot_param_.mode == ImageMode::kZsl
       && GetPort(zsl_port_id_).get() != nullptr
       && (0 <= streaming_request_id_)) {
 
@@ -1582,7 +1567,7 @@ status_t CameraContext::DeleteDeviceStream(int32_t stream_id, bool cache) {
 
   std::lock_guard<std::mutex> lock(device_access_lock_);
 
-  if (snapshot_type_ == SnapshotMode::kZsl
+  if (snapshot_param_.mode == ImageMode::kZsl
       && GetPort(zsl_port_id_).get() != nullptr) {
     ret = camera_device_->BeginConfigure();
     assert(ret == NO_ERROR);
@@ -1599,7 +1584,7 @@ status_t CameraContext::DeleteDeviceStream(int32_t stream_id, bool cache) {
   QMMF_INFO("%s: Camera Device Stream(%d) deleted successfully!",
       __func__, stream_id);
 
-  if (snapshot_type_ == SnapshotMode::kZsl
+  if (snapshot_param_.mode == ImageMode::kZsl
       && GetPort(zsl_port_id_).get() != nullptr
       && streaming_active_requests_.size() > 0) {
     ret = camera_device_->EndConfigure();
@@ -1635,7 +1620,7 @@ status_t CameraContext::CreateCaptureRequest(Camera3Request& request,
   return ret;
 }
 
-CameraMetadata CameraContext::GetCameraStaticMeta() {
+::camera::CameraMetadata CameraContext::GetCameraStaticMeta() {
   return static_meta_;
 }
 
@@ -1725,6 +1710,8 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
 
   //Get all camera stream ids from all active ports which are ready to start.
   size_t size = active_ports_.size();
+  size_t active_ports_number = size;
+
   QMMF_INFO("%s: Number of active_ports(%d)", __func__, size);
 
   for (auto const& it : active_ports_) {
@@ -1827,9 +1814,18 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
         + stale_idx + stale_count);
   }
   size = streaming_active_requests_[0].streamIds.size();
+
+  //TODO: this logic only works when static stream configurations are applied
+  //in dynamic switch case, there will be extra streams created by application
+  //so that all ports will not be ready forever
+  hfr_wait_ports_ready_ = (active_ports_number == size) ? true : false;
+
   QMMF_INFO("%s: Number of streams(%d) to start", __func__, size);
   if (size == 0) {
     QMMF_INFO("%s:Cancelling the request, no pending stream!", __func__);
+    return CancelRequest();
+  } else if ((hfr_detected_ == true) && (hfr_wait_ports_ready_ == false)) {
+    QMMF_INFO("%s: hfr enabled, cancelling the request", __func__);
     return CancelRequest();
   }
 
@@ -1856,7 +1852,7 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
 
     }
     std::list<Camera3Request> request_list;
-    for (ssize_t i = (streaming_active_requests_.size() - 1); i >= 0; --i) {
+    for (size_t i = 0; i < streaming_active_requests_.size(); i++) {
       request_list.push_back(streaming_active_requests_[i]);
       assert(!streaming_active_requests_[i].metadata.isEmpty());
     }
@@ -2012,7 +2008,7 @@ status_t CameraContext::PauseActiveStreams(bool immedialtely) {
   } else {
     for (auto const& it : active_ports_) {
       auto& port = it.second;
-      ret = port->Stop();
+      ret = port->Pause();
       assert(ret == NO_ERROR);
     }
   }
@@ -2149,7 +2145,8 @@ status_t CameraContext::GetSnapshotStreamParams(const SnapshotParam &param,
   return NO_ERROR;
 }
 
-status_t CameraContext::StartZSL(SnapshotType &param) {
+status_t CameraContext::StartZSL(const SnapshotParam& param,
+                                 const SnapshotZslSetup &zslparam) {
 
   QMMF_VERBOSE("%s Enter ", __func__);
 
@@ -2159,19 +2156,10 @@ status_t CameraContext::StartZSL(SnapshotType &param) {
     return BAD_VALUE;
   }
 
-  BufferFormat zsl_format =
-      Common::FromImageToQmmfFormat(param.zsl_queue_params.image_format);
-  BufferFormat img_format =
-      Common::FromImageToQmmfFormat(param.zsl_image_param.format);
+  snapshot_param_ = param;
+  BufferFormat zslfmt = Common::FromImageToQmmfFormat(zslparam.format);
 
-  snapshot_param_ = {};
-  snapshot_param_.width   = param.zsl_image_param.width;
-  snapshot_param_.height  = param.zsl_image_param.height;
-  snapshot_param_.format  = img_format;
-  snapshot_param_.quality = param.zsl_image_param.quality;
-
-  QMMF_INFO("%s zsl_format %d img_format %d", __func__,
-      zsl_format, img_format);
+  QMMF_INFO("%s zsl_format %d img_format %d", __func__, zslfmt, param.format);
 
   CameraStreamParameters stream_param{};
   auto ret = GetSnapshotStreamParams(snapshot_param_, stream_param);
@@ -2223,8 +2211,7 @@ status_t CameraContext::StartZSL(SnapshotType &param) {
 
   auto zsl_port = std::make_shared<ZslPort>(zsl_param, camera_parameters_,
                                             CameraPortType::kZSL,
-                                            this,
-                                            param.zsl_queue_params.queue_depth);
+                                            this, zslparam.qdepth);
   assert(zsl_port.get() != nullptr);
 
   ret = zsl_port->Init();
@@ -2294,7 +2281,7 @@ status_t CameraContext::StopZSL() {
   return ret;
 }
 
-status_t CameraContext::CaptureZSLImage() {
+status_t CameraContext::CaptureZSLImage(const SnapshotType type) {
 
   QMMF_INFO("%s: Enter", __func__);
   status_t ret = NO_ERROR;
@@ -2324,7 +2311,7 @@ status_t CameraContext::CaptureZSLImage() {
     reprocess_request.metadata = zsl_port->GetInputBuffer().result;
     reprocess_request.metadata.update(ANDROID_JPEG_QUALITY, &jpeg_quality,
                                       1);
-    if (snapshot_type_ == SnapshotMode::kVideo) {
+    if (type == SnapshotType::kVideo) {
       if (streaming_active_requests_.size() == 1) {
         auto request = streaming_active_requests_[0];
         for (auto stream_id : request.streamIds) {
@@ -2346,7 +2333,7 @@ status_t CameraContext::CaptureZSLImage() {
     QMMF_INFO("%s: Submit Reguar snapshot request!", __func__);
 
     uint32_t active_streamid_count = 0;
-    if (snapshot_type_ == SnapshotMode::kVideo) {
+    if (type == SnapshotType::kVideo) {
       if (streaming_active_requests_.size() == 1) {
         auto request = streaming_active_requests_[0];
         for (auto stream_id : request.streamIds) {
@@ -2376,7 +2363,7 @@ status_t CameraContext::CaptureZSLImage() {
 
 #ifndef FLUSH_RESTART_NOTAVAILABLE
 status_t CameraContext::DisableFlushRestart(const bool& disable,
-                                            CameraMetadata& meta) {
+                                            ::camera::CameraMetadata& meta) {
 
   // Disable restart of the streams on HAL flush in order to save power and
   // optimize the API execution. All streams will be in OFF state after this.
@@ -2464,7 +2451,7 @@ void CameraContext::CameraPreparedCb(int32_t stream_id) {
 }
 
 template <typename T>
-bool CameraContext::UpdatePartialTag(CameraMetadata &result, int32_t tag,
+bool CameraContext::UpdatePartialTag(::camera::CameraMetadata &result, int32_t tag,
                                      const T *value,
                                      uint32_t frame_number) {
   if (0 != result.update(tag, value, 1)) {
@@ -2474,7 +2461,7 @@ bool CameraContext::UpdatePartialTag(CameraMetadata &result, int32_t tag,
 }
 
 template <typename T>
-bool CameraContext::QueryPartialTag(const CameraMetadata &result,
+bool CameraContext::QueryPartialTag(const ::camera::CameraMetadata &result,
                                     int32_t tag, T *value,
                                     uint32_t frame_number) {
   (void)frame_number;
@@ -2515,7 +2502,7 @@ void CameraContext::HandleFinalResult(const CaptureResult &result) {
     }
   }
 
-  if (snapshot_type_ == SnapshotMode::kZsl) {
+  if (snapshot_param_.mode == ImageMode::kZsl) {
     auto zsl_port = std::static_pointer_cast<ZslPort>(GetPort(zsl_port_id_));
     assert(zsl_port.get() != nullptr);
     zsl_port->HandleZSLCaptureResult(result);
@@ -2563,7 +2550,7 @@ void CameraContext::CameraResultCb(const CaptureResult &result) {
     if (complete_result) {
       CaptureResult captureResult;
       captureResult.resultExtras = result.resultExtras;
-      captureResult.metadata = CameraMetadata(10, 0);
+      captureResult.metadata = ::camera::CameraMetadata(10, 0);
 
       if (!UpdatePartialTag(captureResult.metadata, ANDROID_REQUEST_FRAME_COUNT,
                             reinterpret_cast<int32_t *>(&frame_number),
@@ -2631,7 +2618,7 @@ void CameraContext::NotifyBufferReturned(StreamBuffer& buffer) {
       __func__, buffer.handle, buffer.fd, buffer.stream_id,
       buffer.timestamp);
 
-  if (snapshot_type_ == SnapshotMode::kZsl) {
+  if (snapshot_param_.mode == ImageMode::kZsl) {
     auto zsl_port = std::static_pointer_cast<ZslPort>(GetPort(zsl_port_id_));
     assert(zsl_port.get() != nullptr);
     zsl_port->ReturnZSLInputBuffer(buffer);

@@ -29,23 +29,23 @@
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
  * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
- *  
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
  * disclaimer below) provided that the following conditions are met:
- *  
+ *
  *     * Redistributions of source code must retain the above copyright
  *       notice, this list of conditions and the following disclaimer.
- *  
+ *
  *     * Redistributions in binary form must reproduce the above
  *       copyright notice, this list of conditions and the following
  *       disclaimer in the documentation and/or other materials provided
  *       with the distribution.
- *  
+ *
  *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
  *       contributors may be used to endorse or promote products derived
  *       from this software without specific prior written permission.
- *  
+ *
  * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
  * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
  * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
@@ -177,18 +177,20 @@ class RecorderImpl {
   /// Image Capture
   status_t CaptureImage(const uint32_t client_id,
                         const uint32_t camera_id,
-                        const uint32_t num_images,
-                        const std::vector<CameraMetadata> &meta);
+                        const SnapshotType type,
+                        const uint32_t n_images,
+                        const std::vector<::camera::CameraMetadata> &meta);
 
   /// Configuration for Image Capture
   status_t ConfigImageCapture(const uint32_t client_id,
                               const uint32_t camera_id,
                               const ImageParam &param,
-                              const ImageExtraParam &config);
+                              const ImageExtraParam &xtraparam);
 
   /// Cancel Image Capture
   status_t CancelCaptureImage(const uint32_t client_id,
-                              const uint32_t camera_id);
+                              const uint32_t camera_id,
+                              const bool cache);
 
   /// Return Image Capture buffer
   status_t ReturnImageCaptureBuffer(const uint32_t client_id,
@@ -197,11 +199,11 @@ class RecorderImpl {
 
   /// Set Camera parameters
   status_t SetCameraParam(const uint32_t client_id,
-                          const uint32_t camera_id, const CameraMetadata &meta);
+                          const uint32_t camera_id, const ::camera::CameraMetadata &meta);
 
   /// Get Camera parameters
   status_t GetCameraParam(const uint32_t client_id,
-                          const uint32_t camera_id, CameraMetadata &meta);
+                          const uint32_t camera_id, ::camera::CameraMetadata &meta);
 
   /// Set Camera SHDR mode
   status_t SetSHDR(const uint32_t client_id,
@@ -211,12 +213,12 @@ class RecorderImpl {
   /// Get default Capture parameters
   status_t GetDefaultCaptureParam(const uint32_t client_id,
                                   const uint32_t camera_id,
-                                  CameraMetadata &meta);
+                                  ::camera::CameraMetadata &meta);
 
   /// Get static metadata
   status_t GetCameraCharacteristics(const uint32_t client_id,
                                     const uint32_t camera_id,
-                                    CameraMetadata &meta);
+                                    ::camera::CameraMetadata &meta);
 
   status_t CreateOfflineJPEG(const uint32_t client_id,
                              const OfflineJpegCreateParams& params);
@@ -240,7 +242,7 @@ class RecorderImpl {
                         BnBuffer& buffer, BufferMeta& meta);
 
   /// Camera Result callback handler
-  void CameraResultCb(uint32_t camera_id, const CameraMetadata &result);
+  void CameraResultCb(uint32_t camera_id, const ::camera::CameraMetadata &result);
 
   /// Camera Error callback handler
   void CameraErrorCb(uint32_t camera_id, uint32_t errcode);

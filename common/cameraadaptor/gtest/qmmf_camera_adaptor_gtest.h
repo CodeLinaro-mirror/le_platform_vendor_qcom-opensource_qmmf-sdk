@@ -110,7 +110,7 @@ class Camera3Gtest : public ::testing::Test {
 
   pthread_mutex_t meta_lock_;
   pthread_cond_t meta_cond_;
-  CameraMetadata last_meta_;
+  ::camera::CameraMetadata last_meta_;
   bool cache_last_meta_;
 
   pthread_mutex_t reprocess_lock_;

@@ -44,7 +44,7 @@ typedef struct : public camera3_stream_t {
 } Camera3InputStream;
 
 typedef struct CaptureRequest_t {
-  CameraMetadata metadata;
+  ::camera::CameraMetadata metadata;
   Vector<Camera3Stream *> streams;
   CaptureResultExtras resultExtras;
   Camera3InputStream *input;
@@ -59,12 +59,12 @@ struct PendingRequest {
   int status;
   bool isMetaPresent;
   int buffersRemaining;
-  CameraMetadata pendingMetadata;
+  ::camera::CameraMetadata pendingMetadata;
   Vector<camera3_stream_buffer_t> pendingBuffers;
 
   struct PartialResult {
     bool partial3AReceived;
-    CameraMetadata composedResult;
+    ::camera::CameraMetadata composedResult;
 
     PartialResult() : partial3AReceived(false) {}
   } partialResult;

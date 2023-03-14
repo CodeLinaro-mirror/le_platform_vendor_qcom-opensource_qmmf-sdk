@@ -90,12 +90,13 @@ struct StreamParam {
 };
 
 struct SnapshotParam {
+  ImageMode    mode;
   uint32_t     width;
   uint32_t     height;
   uint32_t     quality;
   BufferFormat format;
 
-  SnapshotParam(): width(0), height(0), quality(95),
+  SnapshotParam(): mode(ImageMode::kSnapshot), width(0), height(0), quality(95),
       format(BufferFormat::kBLOB) {}
 };
 
@@ -118,20 +119,18 @@ class CameraInterface {
   /// Wait AEC to converge
   virtual status_t WaitAecToConverge(const uint32_t timeout) = 0;
 
-  /// Apply image configuration
-  virtual status_t SetUpCapture(const SnapshotParam& param) = 0;
+  /// Configure Image Capture.
+  virtual status_t ConfigImageCapture(const SnapshotParam& param,
+                                      const ImageExtraParam &xtraparam) = 0;
 
   /// Image Capture
-  virtual status_t CaptureImage(const uint32_t num_images,
-                                const std::vector<CameraMetadata> &meta,
+  virtual status_t CaptureImage(const SnapshotType type, const uint32_t n_images,
+                                const std::vector<::camera::CameraMetadata> &meta,
                                 const StreamSnapshotCb& cb) = 0;
-
-  /// Configure Image Capture. Configuration is applied by SetUpCapture.
-  virtual status_t ConfigImageCapture(const ImageExtraParam &config) = 0;
 
   /// Abort ongoing Image Capture. This blocking API and returns when
   /// image capture is stopped and all buffers are returned
-  virtual status_t CancelCaptureImage() = 0;
+  virtual status_t CancelCaptureImage(const bool cache) = 0;
 
   /// Create stream
   virtual status_t CreateStream(const StreamParam& param,
@@ -161,15 +160,15 @@ class CameraInterface {
   virtual status_t ResumeStream(const uint32_t track_id) = 0;
 
   /// Set camera parameters
-  virtual status_t SetCameraParam(const CameraMetadata &meta) = 0;
+  virtual status_t SetCameraParam(const ::camera::CameraMetadata &meta) = 0;
 
   /// Return camera parameters
-  virtual status_t GetCameraParam(CameraMetadata &meta) = 0;
+  virtual status_t GetCameraParam(::camera::CameraMetadata &meta) = 0;
 
   /// Return default capture parameters
-  virtual status_t GetDefaultCaptureParam(CameraMetadata &meta) = 0;
+  virtual status_t GetDefaultCaptureParam(::camera::CameraMetadata &meta) = 0;
 
-  virtual status_t GetCameraCharacteristics(CameraMetadata &meta) = 0;
+  virtual status_t GetCameraCharacteristics(::camera::CameraMetadata &meta) = 0;
 
   /// Return All Image Capture buffers
   virtual status_t ReturnAllImageCaptureBuffers() = 0;

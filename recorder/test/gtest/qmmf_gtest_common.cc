@@ -439,6 +439,29 @@ void GtestCommon::SetUp() {
   // Insert Fifth stream into Map. Taking stream ID as 5.
   stream_info_map_.emplace(kFifthStreamID, stream);
 
+  // Read HFR Video Stream Params
+  property_get(PROP_HFR_STREAM_WIDTH, prop_val, DEFAULT_HFR_STREAM_WIDTH);
+  stream.width = atoi(prop_val);
+
+  property_get(PROP_HFR_STREAM_HEIGHT, prop_val, DEFAULT_HFR_STREAM_HEIGHT);
+  stream.height = atoi(prop_val);
+
+  property_get(PROP_HFR_STREAM_FPS, prop_val, DEFAULT_HFR_STREAM_FPS);
+  stream.fps = atof(prop_val);
+
+  property_get(PROP_HFR_STREAM_SOURCE_ID, prop_val, "0");
+  stream.source_stream_id = atoi(prop_val);
+
+  property_get(PROP_HFR_STREAM_FORMAT, prop_val, DEFAULT_HFR_STREAM_FORMAT);
+  SetVideoStreamFormat(prop_val, stream.format);
+
+  // Insert HFR stream into Map. Taking stream ID as 16.
+  stream_info_map_.emplace(kHFRStreamID, stream);
+
+  property_get(PROP_SNAPSHOT_MODE, prop_val,
+               DEFAULT_PROP_SNAPSHOT_MODE);
+  SetSnapshotMode(prop_val);
+
   // Read JPEG Snapshot Stream
   property_get(PROP_SNAPSHOT_STREAM_WIDTH, prop_val,
                DEFAULT_SNAPSHOT_STREAM_WIDTH);
@@ -456,9 +479,9 @@ void GtestCommon::SetUp() {
                DEFAULT_SNAPSHOT_COUNT);
   snap_count_ = atoi(prop_val);
 
-  property_get(PROP_SNAPSHOT_MODE, prop_val,
-               DEFAULT_PROP_SNAPSHOT_MODE);
-  SetSnapshotMode(prop_val);
+  property_get(PROP_SNAPSHOT_TYPE, prop_val,
+               DEFAULT_PROP_SNAPSHOT_TYPE);
+  SetSnapshotType(prop_val);
 
 #ifdef QCAMERA3_TAG_LOCAL_COPY
   vendor_tag_desc_ = nullptr;
@@ -469,33 +492,48 @@ void GtestCommon::SetUp() {
 
 void GtestCommon::SetSnapshotMode(char prop[]) {
   std::string value = prop;
-  if (value == "Video") {
-    snap_mode_ = SnapshotMode::kVideo;
-  } else if (value == "Still") {
-    snap_mode_ = SnapshotMode::kStill;
-  } else if (value == "StillPlusRaw") {
-    snap_mode_ = SnapshotMode::kStillPlusRaw;
-  } else if (value == "Continuous") {
-    snap_mode_ = SnapshotMode::kContinuous;
+  if (value == "SnapshotPlusRaw") {
+    snap_mode_ = ImageMode::kSnapshotPlusRaw;
   } else if (value == "Zsl") {
-    snap_mode_ = SnapshotMode::kZsl;
-  } else if (value == "VideoPlusRaw") {
-    snap_mode_ = SnapshotMode::kVideoPlusRaw;
+    snap_mode_ = ImageMode::kZsl;
+  } else if (value == "Snapshot") {
+    snap_mode_ = ImageMode::kSnapshot;
   }
 }
 
 std::string GtestCommon::GetSnapshotMode() {
-  if (snap_mode_ == SnapshotMode::kVideo) {
+  if (snap_mode_ == ImageMode::kSnapshotPlusRaw) {
+    return "SnapshotPlusRaw";
+  } else if (snap_mode_ == ImageMode::kZsl) {
+    return "Zsl";
+  } else if (snap_mode_ == ImageMode::kSnapshot) {
+    return "Snapshot";
+  } else {
+    return "Invalid Mode";
+  }
+}
+
+void GtestCommon::SetSnapshotType(char prop[]) {
+  std::string value = prop;
+  if (value == "Video") {
+    snap_type_ = SnapshotType::kVideo;
+  } else if (value == "Still") {
+    snap_type_ = SnapshotType::kStill;
+  } else if (value == "StillPlusRaw") {
+    snap_type_ = SnapshotType::kStillPlusRaw;
+  } else if (value == "VideoPlusRaw") {
+    snap_type_ = SnapshotType::kVideoPlusRaw;
+  }
+}
+
+std::string GtestCommon::GetSnapshotType() {
+  if (snap_type_ == SnapshotType::kVideo) {
     return "Video";
-  } else if (snap_mode_ == SnapshotMode::kStill) {
+  } else if (snap_type_ == SnapshotType::kStill) {
     return "Still";
-  } else if (snap_mode_ == SnapshotMode::kStillPlusRaw) {
+  } else if (snap_type_ == SnapshotType::kStillPlusRaw) {
     return "StillPlusRaw";
-  } else if (snap_mode_ == SnapshotMode::kContinuous) {
-    return "Continuous";
-  } else if (snap_mode_ == SnapshotMode::kZsl) {
-    return "ZSL";
-  } else if (snap_mode_ == SnapshotMode::kVideoPlusRaw) {
+  } else if (snap_type_ == SnapshotType::kVideoPlusRaw) {
     return "VideoPlusRaw";
   } else {
     return "Invalid Mode";
@@ -554,8 +592,9 @@ void GtestCommon::PrintStreamInfo(uint32_t num) {
   if (is_snap_stream_on_) {
     std::cout << "Snapshot Stream Info:" << " Width:" << snap_width_
         << " Height:" << snap_height_ << " Format:"
-        << GetSnapshotStreamFormat() << " Mode:" <<
-        GetSnapshotMode() << std::endl;
+        << GetSnapshotStreamFormat() << " Mode:" << GetSnapshotMode()
+        << " Type:" << GetSnapshotType() << " Count:" << snap_count_
+        << std::endl;
   }
 }
 
@@ -709,7 +748,7 @@ void GtestCommon::SessionCallbackHandler(EventType event_type,
 }
 
 void GtestCommon::CameraResultCallbackHandler(uint32_t camera_id,
-                                   const CameraMetadata &result) {
+                                   const ::camera::CameraMetadata &result) {
   TEST_DBG(stderr,"%s: camera_id: %d\n", __func__, camera_id);
   camera_metadata_ro_entry entry;
   entry = result.find(ANDROID_CONTROL_AWB_MODE);
@@ -1002,7 +1041,7 @@ void GtestCommon::ClearSessions() {
 }
 
 void GtestCommon::ResultCallbackHandlerMatchCameraMeta(uint32_t camera_id,
-                                                const CameraMetadata &result) {
+                                                const ::camera::CameraMetadata &result) {
   uint32_t meta_frame_number =
       result.find(ANDROID_REQUEST_FRAME_COUNT).data.i32[0];
   TEST_INFO("%s meta frame number =%d", __func__, meta_frame_number);
@@ -1015,7 +1054,7 @@ void GtestCommon::ResultCallbackHandlerMatchCameraMeta(uint32_t camera_id,
   if (append) {
     // New entry, camera meta arrived first.
     auto buffer_meta_tuple = std::make_tuple(BufferDescriptor(),
-     CameraMetadata(result), 0, 0);
+     ::camera::CameraMetadata(result), 0, 0);
     buffer_metadata_map_.insert( { meta_frame_number, buffer_meta_tuple} );
   } else {
     // Buffer already arrived for this meta.
@@ -1057,7 +1096,7 @@ void GtestCommon::VideoTrackDataCbMatchCameraMeta(uint32_t session_id,
   if (append) {
     // New entry, buffer arrived first.
     auto buffer_meta_tuple = std::make_tuple(BufferDescriptor(buffers[0]),
-        CameraMetadata(), session_id, track_id);
+        ::camera::CameraMetadata(), session_id, track_id);
     buffer_metadata_map_.insert( {meta_frame_number, buffer_meta_tuple} );
   } else {
     // BufferMeta already arrived for this buffer.
@@ -1083,7 +1122,7 @@ void GtestCommon::VideoTrackDataCbMatchCameraMeta(uint32_t session_id,
   TEST_DBG("%s: Exit", __func__);
 }
 
-void GtestCommon::ParseFaceInfo(const android::CameraMetadata &res,
+void GtestCommon::ParseFaceInfo(const ::camera::CameraMetadata &res,
                                   struct FaceInfo &info) {
   camera_metadata_ro_entry rect_entry, crop_entry;
   Rect<uint32_t> rect;
@@ -1132,7 +1171,7 @@ void GtestCommon::ParseFaceInfo(const android::CameraMetadata &res,
 *
 * return: true if available
 **/
-bool GtestCommon::ValidateResFromStreamConfigs(const CameraMetadata& meta,
+bool GtestCommon::ValidateResFromStreamConfigs(const ::camera::CameraMetadata& meta,
                                                 const uint32_t width,
                                                 const uint32_t height) {
   bool is_supported = false;
@@ -1168,7 +1207,7 @@ bool GtestCommon::ValidateResFromStreamConfigs(const CameraMetadata& meta,
 *
 * return: true if available
 **/
-bool GtestCommon::GetMinResFromStreamConfigs(const CameraMetadata& meta,
+bool GtestCommon::GetMinResFromStreamConfigs(const ::camera::CameraMetadata& meta,
                                               uint32_t &width,
                                               uint32_t &height) {
   bool found = false;
@@ -1211,7 +1250,7 @@ bool GtestCommon::GetMinResFromStreamConfigs(const CameraMetadata& meta,
 *
 * return: true if available
 **/
-bool GtestCommon::ValidateResFromProcessedSizes(const CameraMetadata& meta,
+bool GtestCommon::ValidateResFromProcessedSizes(const ::camera::CameraMetadata& meta,
                                           const uint32_t width,
                                           const uint32_t height) {
   bool is_supported = false;
@@ -1246,7 +1285,7 @@ bool GtestCommon::ValidateResFromProcessedSizes(const CameraMetadata& meta,
 *
 * return: true if available
 **/
-bool GtestCommon::ValidateResFromJpegSizes(const CameraMetadata& meta,
+bool GtestCommon::ValidateResFromJpegSizes(const ::camera::CameraMetadata& meta,
                                                   const uint32_t width,
                                                   const uint32_t height) {
   bool is_supported = false;
@@ -1283,7 +1322,7 @@ bool GtestCommon::ValidateResFromJpegSizes(const CameraMetadata& meta,
 *
 * return: true if available
 **/
-bool GtestCommon::ValidateResFromRawSizes(const CameraMetadata& meta,
+bool GtestCommon::ValidateResFromRawSizes(const ::camera::CameraMetadata& meta,
                                                     const uint32_t width,
                                                     const uint32_t height) {
   bool is_supported = false;
@@ -1336,7 +1375,7 @@ bool GtestCommon::ValidateResFromRawSizes(const CameraMetadata& meta,
 *
 * return: true if available
 **/
-bool GtestCommon::GetMaxSupportedCameraRes(const CameraMetadata& meta,
+bool GtestCommon::GetMaxSupportedCameraRes(const ::camera::CameraMetadata& meta,
                                       uint32_t &width, uint32_t &height,
                                       const int32_t format) {
   bool found = false;
@@ -1410,7 +1449,7 @@ bool GtestCommon::GetMaxSupportedCameraRes(const CameraMetadata& meta,
 *
 * return: true if available
 **/
-bool GtestCommon::GetMinSupportedCameraRes(const CameraMetadata& meta,
+bool GtestCommon::GetMinSupportedCameraRes(const ::camera::CameraMetadata& meta,
                                                   uint32_t &width,
                                                   uint32_t &height) {
   bool found = false;
@@ -1440,7 +1479,7 @@ bool GtestCommon::GetMinSupportedCameraRes(const CameraMetadata& meta,
 }
 
 status_t GtestCommon::SetCameraFocalLength(const float focal_length) {
-  CameraMetadata meta;
+  ::camera::CameraMetadata meta;
   auto ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
   EXPECT_TRUE(ret == NO_ERROR);
 
@@ -1462,7 +1501,7 @@ status_t GtestCommon::SetCameraFocalLength(const float focal_length) {
 }
 
 status_t GtestCommon::SetCameraZoom(const float zoom) {
-  CameraMetadata meta;
+  ::camera::CameraMetadata meta;
   auto ret = recorder_.GetCameraParam(camera_id_, meta);
   EXPECT_TRUE(ret == NO_ERROR);
 
@@ -1770,7 +1809,7 @@ bool GtestCommon::VendorTagSupported(const String8& name,
   }
 
   if (nullptr == vendor_tag_desc_.get()) {
-    vendor_tag_desc_ = VendorTagDescriptor::getGlobalVendorTagDescriptor();
+    vendor_tag_desc_ = ::camera::VendorTagDescriptor::getGlobalVendorTagDescriptor();
     if (nullptr == vendor_tag_desc_.get()) {
       TEST_ERROR("%s: Failed in fetching vendor tag descriptor", __func__);
       return false;
@@ -1796,7 +1835,7 @@ bool GtestCommon::VendorTagSupported(const String8& name,
  * tag_id is present in given meta, on success, returns true and fills
  * vendor tag_id. On failure, returns false.
  */
-bool GtestCommon::VendorTagExistsInMeta(const CameraMetadata& meta,
+bool GtestCommon::VendorTagExistsInMeta(const ::camera::CameraMetadata& meta,
                                          const String8& name,
                                          const String8& section,
                                          uint32_t* tag_id) {
@@ -1933,13 +1972,13 @@ void GtestCommon::ExtractColorValues(uint32_t hex_color, RGBAValues* color) {
   color->alpha = ((hex_color) & 0xff) / 255.0;
 }
 
-status_t GtestCommon::FillCropMetadata(CameraMetadata& meta,
+status_t GtestCommon::FillCropMetadata(::camera::CameraMetadata& meta,
                                             int32_t sensor_mode_w,
                                             int32_t sensor_mode_h,
                                             int32_t crop_x, int32_t crop_y,
                                             int32_t crop_w, int32_t crop_h) {
 
-  CameraMetadata static_meta;
+  ::camera::CameraMetadata static_meta;
   auto ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
   if (NO_ERROR != ret) {
     TEST_ERROR("%s: GetCameraCharacteristics failed!", __func__);
@@ -1981,17 +2020,13 @@ status_t GtestCommon::FillCropMetadata(CameraMetadata& meta,
 void GtestCommon::ConfigureImageParam() {
 
   bool res_supported = false;
-  CameraMetadata static_meta;
+  ::camera::CameraMetadata static_meta;
 
   auto ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
   ASSERT_TRUE(ret == NO_ERROR);
 
   // Configure Snapshot Mode And Image Param
-  ImageExtraParam image_config;
-  SnapshotType snapshot_type;
-  snapshot_type.type = snap_mode_;
-  snapshot_type.raw_format = snap_format_;
-  image_config.Update(QMMF_SNAPSHOT_TYPE, snapshot_type);
+  ImageExtraParam xtraparam;
 
   ImageParam image_param{};
   image_param.format = snap_format_;
@@ -2016,12 +2051,17 @@ void GtestCommon::ConfigureImageParam() {
               image_param.width, image_param.height);
     ASSERT_TRUE(image_param.width > 0 && image_param.height > 0);
 
-    if (snap_mode_ == SnapshotMode::kStillPlusRaw || snap_mode_
-        == SnapshotMode::kVideoPlusRaw) {
+    if (snap_mode_ == ImageMode::kSnapshotPlusRaw) {
+      image_param.mode = ImageMode::kSnapshotPlusRaw;
       image_param.format = ImageFormat::kJPEG;
       image_param.width = snap_width_;
       image_param.height = snap_height_;
       image_param.quality = default_jpeg_quality_;
+
+      SnapshotRawSetup rawparam;
+      rawparam.format = snap_format_;
+
+      xtraparam.Update (QMMF_SNAPSHOT_RAW_SETUP, rawparam, 0);
     }
   } else if (snap_format_ == ImageFormat::kNV12 ||
              snap_format_ == ImageFormat::kNV21) {
@@ -2032,13 +2072,13 @@ void GtestCommon::ConfigureImageParam() {
     ASSERT_TRUE(res_supported != false);
   }
 
-  ret = recorder_.ConfigImageCapture(camera_id_, image_param, image_config);
+  ret = recorder_.ConfigImageCapture(camera_id_, image_param, xtraparam);
   ASSERT_TRUE(ret == NO_ERROR);
 }
 
 void GtestCommon::TakeSnapshot() {
-  std::vector < CameraMetadata > meta_array;
-  CameraMetadata meta;
+  std::vector < ::camera::CameraMetadata > meta_array;
+  ::camera::CameraMetadata meta;
 
   auto ret = recorder_.GetDefaultCaptureParam(camera_id_, meta);
   ASSERT_TRUE(ret == NO_ERROR);
@@ -2050,19 +2090,13 @@ void GtestCommon::TakeSnapshot() {
       SnapshotCb(camera_id, image_count, buffer, meta);
   };
 
-  for (uint32_t i = 0; i < snap_count_; i++) {
+  ret = recorder_.CaptureImage(camera_id_, snap_type_, snap_count_, meta_array, cb);
+  ASSERT_TRUE(ret == NO_ERROR);
 
-    ret = recorder_.CaptureImage(camera_id_, 1, meta_array, cb);
-    ASSERT_TRUE(ret == NO_ERROR);
+  // Wait time depending on whether it is continous snapshot or not.
+  uint32_t time = (snap_count_ == 0) ? (record_duration_ / 2) : 5;
 
-    if (snap_mode_ == SnapshotMode::kContinuous) {
-      // Continuous Snapshot requires only one call to CaptureImage()
-      sleep(record_duration_ / 2);
-      break;
-    }
-    // Take Snapshot with every 5 sec.
-    sleep(5);
-  }
+  sleep(time);
 
   ret = recorder_.CancelCaptureImage(camera_id_);
   ASSERT_TRUE(ret == NO_ERROR);
