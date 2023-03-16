@@ -1487,7 +1487,7 @@ status_t CameraContext::SnapshotCallback(const camera_memory_t *data,
   buffer.frame_number = ++snapshot_frame_id_;
   buffer.timestamp = timestamp;
   buffer.camera_id = camera_id_;
-  alloc_device_interface_->ImportBuffer(buffer.handle, bo);
+  alloc_device_interface_->ImportBuffer(buffer.handle, bo, fd);
   auto ret = PopulateBufferMeta(buffer.info, buffer.handle, data->size, 1);
   assert(ret == NO_ERROR);
 
@@ -1767,7 +1767,7 @@ void CameraPort::StreamCallback(const void *data, int64_t timestamp) {
     buffer.size = bo->size;
     buffer.frame_number = ++frame_number_;
     buffer.timestamp = timestamp;
-    context_->alloc_device_interface_->ImportBuffer(buffer.handle, bo);
+    context_->alloc_device_interface_->ImportBuffer(buffer.handle, bo, fd);
     auto ret =
         context_->PopulateBufferMeta(buffer.info, buffer.handle, width_, height_);
     assert(ret == NO_ERROR);
