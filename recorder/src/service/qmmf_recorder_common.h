@@ -63,7 +63,7 @@ typedef std::function<void(uint32_t imgcount,
     StreamBuffer& buffer)> StreamSnapshotCb;
 
 typedef std::function<void(uint32_t camera_id,
-    const CameraMetadata &result)> ResultCb;
+    const ::camera::CameraMetadata &result)> ResultCb;
 
 typedef std::function< const sp<RemoteCallBack>& (uint32_t client_id)>
     RemoteCallbackHandle;

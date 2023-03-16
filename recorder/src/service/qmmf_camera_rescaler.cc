@@ -43,7 +43,9 @@
 #include "common/resizer-neon/qmmf_resizer_neon.h"
 #include "common/resizer-c2d/qmmf_resizer_c2d.h"
 #ifndef CAMERA_HAL1_SUPPORT
+#ifdef ENABLE_RESCALER_FASTCV
 #include "common/resizer-fastCV/qmmf_resizer_fastCV.h"
+#endif
 #endif
 
 namespace qmmf {
@@ -73,11 +75,13 @@ CameraRescalerBase::CameraRescalerBase()
       rescaler_ = new NEONResizer();
 #endif
   } else if (name == "FastCV") {
-#ifndef DISABLE_RESCALER_FASTCV
+#ifdef ENABLE_RESCALER_FASTCV
     rescaler_ = new FastCVResizer();
 #endif
   } else {
+#ifdef ENABLE_RESCALER_C2D
     rescaler_ = new C2DResizer();
+#endif
   }
 #else
   if (name == "Neon") {
