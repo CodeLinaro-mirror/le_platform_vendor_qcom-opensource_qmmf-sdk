@@ -889,12 +889,43 @@ int32_t Camera3DeviceClient::QueryMaxBlobSize(int32_t &maxBlobWidth,
                                               int32_t &maxBlobHeight) {
   maxBlobWidth = 0;
   maxBlobHeight = 0;
+
+#if defined(CAMERA_HAL_API_VERSION) && (CAMERA_HAL_API_VERSION >= 0x0307)
+  camera_metadata_entry_t availableStreamConfigs;
+
+  if (device_info_.exists(
+      ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_MAXIMUM_RESOLUTION)) {
+    availableStreamConfigs = device_info_.find(
+      ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_MAXIMUM_RESOLUTION);
+
+    for (uint32_t i = 0; i < availableStreamConfigs.count; i += 4) {
+      int32_t format = availableStreamConfigs.data.i32[i];
+      int32_t width = availableStreamConfigs.data.i32[i + 1];
+      int32_t height = availableStreamConfigs.data.i32[i + 2];
+      int32_t isInput = availableStreamConfigs.data.i32[i + 3];
+      if (isInput == ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT &&
+          format == HAL_PIXEL_FORMAT_BLOB &&
+          (width * height > maxBlobWidth * maxBlobHeight)) {
+        maxBlobWidth = width;
+        maxBlobHeight = height;
+      }
+    }
+  }
+
+  if (device_info_.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
+    availableStreamConfigs = device_info_.find(
+      ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
+  } else {
+    return 0;
+  }
+#else
   camera_metadata_entry_t availableStreamConfigs =
       device_info_.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
   if (availableStreamConfigs.count == 0 ||
       availableStreamConfigs.count % 4 != 0) {
     return 0;
   }
+#endif
 
   for (uint32_t i = 0; i < availableStreamConfigs.count; i += 4) {
     int32_t format = availableStreamConfigs.data.i32[i];
