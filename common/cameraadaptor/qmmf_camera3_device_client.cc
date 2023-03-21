@@ -885,89 +885,94 @@ exit:
   return res;
 }
 
-int32_t Camera3DeviceClient::QueryMaxBlobSize(int32_t &maxBlobWidth,
-                                              int32_t &maxBlobHeight) {
-  maxBlobWidth = 0;
-  maxBlobHeight = 0;
-
-#if defined(CAMERA_HAL_API_VERSION) && (CAMERA_HAL_API_VERSION >= 0x0307)
-  camera_metadata_entry_t availableStreamConfigs;
-
-  if (device_info_.exists(
-      ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_MAXIMUM_RESOLUTION)) {
-    availableStreamConfigs = device_info_.find(
-      ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_MAXIMUM_RESOLUTION);
-
-    for (uint32_t i = 0; i < availableStreamConfigs.count; i += 4) {
-      int32_t format = availableStreamConfigs.data.i32[i];
-      int32_t width = availableStreamConfigs.data.i32[i + 1];
-      int32_t height = availableStreamConfigs.data.i32[i + 2];
-      int32_t isInput = availableStreamConfigs.data.i32[i + 3];
-      if (isInput == ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT &&
-          format == HAL_PIXEL_FORMAT_BLOB &&
-          (width * height > maxBlobWidth * maxBlobHeight)) {
-        maxBlobWidth = width;
-        maxBlobHeight = height;
-      }
-    }
-  }
-
-  if (device_info_.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
-    availableStreamConfigs = device_info_.find(
-      ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-  } else {
-    return 0;
-  }
-#else
-  camera_metadata_entry_t availableStreamConfigs =
-      device_info_.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-  if (availableStreamConfigs.count == 0 ||
-      availableStreamConfigs.count % 4 != 0) {
-    return 0;
-  }
-#endif
-
-  for (uint32_t i = 0; i < availableStreamConfigs.count; i += 4) {
-    int32_t format = availableStreamConfigs.data.i32[i];
-    int32_t width = availableStreamConfigs.data.i32[i + 1];
-    int32_t height = availableStreamConfigs.data.i32[i + 2];
-    int32_t isInput = availableStreamConfigs.data.i32[i + 3];
-    if (isInput == ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT &&
-        format == HAL_PIXEL_FORMAT_BLOB &&
-        (width * height > maxBlobWidth * maxBlobHeight)) {
-      maxBlobWidth = width;
-      maxBlobHeight = height;
-    }
-  }
-
-  return 0;
-}
-
 int32_t Camera3DeviceClient::CaclulateBlobSize(int32_t width, int32_t height) {
-  // Get max jpeg size (area-wise).
-  int32_t maxJpegSizeWidth = 0;
-  int32_t maxJpegSizeHeight = 0;
-  QueryMaxBlobSize(maxJpegSizeWidth, maxJpegSizeHeight);
-  if (maxJpegSizeWidth == 0) {
-    QMMF_ERROR(
-        "%s: Camera %d: Can't find valid available jpeg sizes in "
-        "static metadata!\n",
-        __func__, id_);
-    return -EINVAL;
-  }
+  int32_t maxJpegBufferSize, maxJpegSizeWidth, maxJpegSizeHeight;
+  int32_t maxWidth, maxHeight;
+  int32_t maxUHRWidth, maxUHRHeight;
+  int32_t ret;
+  camera_metadata_entry entry;
 
-  // Get max jpeg buffer size
-  int32_t maxJpegBufferSize = 0;
-  camera_metadata_entry jpegBufMaxSize =
-      device_info_.find(ANDROID_JPEG_MAX_SIZE);
-  if (jpegBufMaxSize.count == 0) {
+  maxWidth = maxHeight = maxUHRWidth = maxUHRHeight = 0;
+
+  entry = device_info_.find(ANDROID_JPEG_MAX_SIZE);
+  if (entry.count == 0) {
     QMMF_ERROR(
         "%s: Camera %d: Can't find maximum JPEG size in static"
         " metadata!\n",
         __func__, id_);
     return -EINVAL;
   }
-  maxJpegBufferSize = jpegBufMaxSize.data.i32[0];
+  maxJpegBufferSize = entry.data.i32[0];
+  assert(JPEG_BUFFER_SIZE_MIN < maxJpegBufferSize);
+
+  QMMF_INFO("%s: default maxJpegBufferSize=%d", __func__, maxJpegBufferSize);
+
+
+#if defined(CAMERA_HAL_API_VERSION) && (CAMERA_HAL_API_VERSION >= 0x0307)
+  if (device_info_.exists(
+      ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_MAXIMUM_RESOLUTION)) {
+    auto entry = device_info_.find(
+      ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_MAXIMUM_RESOLUTION);
+    for (uint32_t i = 0; i < entry.count; i += 4) {
+      if (HAL_PIXEL_FORMAT_BLOB == entry.data.i32[i] &&
+          ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
+            entry.data.i32[i+3]) {
+        int32_t w = entry.data.i32[i + 1];
+        int32_t h = entry.data.i32[i + 2];
+
+        if (w * h > maxUHRWidth * maxUHRHeight) {
+          maxUHRWidth = w;
+          maxUHRHeight = h;
+        }
+      }
+    }
+  }
+#endif
+
+  if (device_info_.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
+    auto entry = device_info_.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
+    for (uint32_t i = 0; i < entry.count; i += 4) {
+      if (HAL_PIXEL_FORMAT_BLOB == entry.data.i32[i] &&
+          ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
+            entry.data.i32[i+3]) {
+        int32_t w = entry.data.i32[i + 1];
+        int32_t h = entry.data.i32[i + 2];
+
+        if (w * h > maxWidth * maxHeight) {
+          maxWidth = w;
+          maxHeight = h;
+        }
+      }
+    }
+  } else {
+    QMMF_ERROR(
+        "%s: Camera %d: Can't find available stream configs", __func__, id_);
+    return -EINVAL;
+  }
+
+  QMMF_INFO("%s: maxUHRWidth=%d maxUHRHeight=%d maxWidth=%d maxHeight=%d",
+      __func__, maxUHRWidth, maxUHRHeight, maxWidth, maxHeight);
+
+  // if input width * height is larger than default max width * height,
+  // it means ultra hight resolution has been selected, to make scaleFactor
+  // calculation work correctly, we need to update buffersize, max width and
+  // max height accordingly
+  if ((maxUHRWidth != 0) && ((width * height) > (maxWidth * maxHeight))) {
+    maxJpegSizeWidth = maxUHRWidth;
+    maxJpegSizeHeight = maxUHRHeight;
+    maxJpegBufferSize =
+      ((maxUHRWidth * 1.0f * maxUHRHeight) / (maxWidth * maxHeight)) *
+        maxJpegBufferSize;
+  } else {
+    maxJpegSizeWidth = maxWidth;
+    maxJpegSizeHeight = maxHeight;
+  }
+
+  QMMF_INFO("%s: input width=%d height=%d"
+      " maxJpegBufferSize=%d maxJpegSizeWidth=%d maxJpegSizeHeight=%d",
+      __func__, width, height,
+      maxJpegBufferSize, maxJpegSizeWidth, maxJpegSizeHeight);
+
   assert(JPEG_BUFFER_SIZE_MIN < maxJpegBufferSize);
 
   // Calculate final jpeg buffer size for the given resolution.
@@ -979,6 +984,9 @@ int32_t Camera3DeviceClient::CaclulateBlobSize(int32_t width, int32_t height) {
   if (jpegBufferSize > maxJpegBufferSize) {
     jpegBufferSize = maxJpegBufferSize;
   }
+
+  QMMF_INFO("%s: scaleFactor=%f jpegBufferSize=%d",
+      __func__, scaleFactor, jpegBufferSize);
 
   return jpegBufferSize;
 }

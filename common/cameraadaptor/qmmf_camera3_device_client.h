@@ -213,8 +213,6 @@ class Camera3DeviceClient : public camera3_callback_ops,
   int32_t WaitUntilStateThenRelock(bool active, int64_t timeout);
 
   int32_t CaclulateBlobSize(int32_t width, int32_t height);
-  int32_t QueryMaxBlobSize(int32_t &maxJpegSizeWidth,
-                           int32_t &maxJpegSizeHeight);
 
   int32_t ConfigureStreams(
         const CameraParameters& camera_parameters = CameraParameters(),
