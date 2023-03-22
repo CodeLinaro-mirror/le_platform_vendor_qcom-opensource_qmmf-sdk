@@ -104,6 +104,7 @@ enum class CamFeatureFlag : uint32_t {
   kLDC = 1 << 2,               /// LDC is on.
   kLCAC = 1 << 3,              /// LCAC is on.
   kForceSensorMode = 1 << 4,   /// Force Sensor Mode is on.
+  kIFEDirectStream = 1 << 5,   /// IFE Direct Stream is on.
 };
 
 #define FORCE_SENSOR_MODE_MASK      (0x00F00000)
@@ -138,7 +139,7 @@ struct CameraParameters {
 };
 
 typedef struct Camera3Request_t {
-  CameraMetadata metadata;
+  ::camera::CameraMetadata metadata;
   Vector<int32_t> streamIds;
 } Camera3Request;
 
@@ -151,7 +152,7 @@ typedef struct {
 } CaptureResultExtras;
 
 typedef struct {
-  CameraMetadata metadata;
+  ::camera::CameraMetadata metadata;
   CaptureResultExtras resultExtras;
 } CaptureResult;
 
