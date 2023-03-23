@@ -104,6 +104,7 @@
 #define EIS_ENABLE                            (0xF200)
 #define LDC_ENABLE                            (0xF800)
 #define LCAC_ENABLE                           (0x100000)
+#define IFE_DIRECT_STREAM                     (1 << 25)
 #endif
 
 // Convenience macros for transitioning to the error state
@@ -156,10 +157,6 @@ Camera3DeviceClient::Camera3DeviceClient(CameraClientCallbacks clientCb)
   QMMF_GET_LOG_LEVEL();
   camera3_callback_ops::notify = &notifyFromHal;
   camera3_callback_ops::process_capture_result = &processCaptureResult;
-#if defined(CAMERA_HAL_API_VERSION) && (CAMERA_HAL_API_VERSION >= 0x0307)
-  camera3_callback_ops_t::request_stream_buffers = &requestStreamBuffers;
-  camera3_callback_ops_t::return_stream_buffers = &returnStreamBuffers;
-#endif
   camera_module_callbacks_t::camera_device_status_change = &deviceStatusChange;
   camera_module_callbacks_t::torch_mode_status_change = &torchModeStatusChange;
   pthread_mutex_init(&lock_, NULL);
@@ -1415,21 +1412,6 @@ void Camera3DeviceClient::NotifyShutter(const camera3_shutter_msg_t &msg) {
   }
 }
 
-#if defined(CAMERA_HAL_API_VERSION) && (CAMERA_HAL_API_VERSION >= 0x0307)
-void Camera3DeviceClient::ReturnStreamBuffers(uint32_t num_buffers, const camera3_stream_buffer_t* const* buffers) {
-  QMMF_ERROR("%s: return buffer %d: not supported", __func__, num_buffers);
-}
-
-camera3_buffer_request_status_t Camera3DeviceClient::RequestStreamBuffers(uint32_t num_buffer_reqs,
-    const camera3_buffer_request_t *buffer_reqs, uint32_t *num_returned_buf_reqs,
-    camera3_stream_buffer_ret_t *returned_buf_reqs) {
-  QMMF_ERROR("%s: request buffer %d: not supported", __func__, num_buffer_reqs);
-
-  *num_returned_buf_reqs = 0;
-  return CAMERA3_BUF_REQ_FAILED_UNKNOWN;
-}
-#endif
-
 void Camera3DeviceClient::SendCaptureResult(
     ::camera::CameraMetadata &pendingMetadata, CaptureResultExtras &resultExtras,
     ::camera::CameraMetadata &collectedPartialResult, uint32_t frameNumber) {
@@ -2219,30 +2201,6 @@ void Camera3DeviceClient::notifyFromHal(const camera3_callback_ops *cb,
   ctx->Notify(msg);
 }
 
-#if defined(CAMERA_HAL_API_VERSION) && (CAMERA_HAL_API_VERSION >= 0x0307)
-camera3_buffer_request_status_t Camera3DeviceClient::requestStreamBuffers(
-    const struct camera3_callback_ops *cb, uint32_t num_buffer_reqs,
-    const camera3_buffer_request_t *buffer_reqs, uint32_t *num_returned_buf_reqs,
-    camera3_stream_buffer_ret_t *returned_buf_reqs) {
-  Camera3DeviceClient *ctx = const_cast<Camera3DeviceClient *>(
-      static_cast<const Camera3DeviceClient *>(cb));
-  if (num_buffer_reqs == 0 || buffer_reqs == nullptr || num_returned_buf_reqs == nullptr || returned_buf_reqs == nullptr)
-  {
-    return CAMERA3_BUF_REQ_FAILED_ILLEGAL_ARGUMENTS;
-  }
-
-  return ctx->RequestStreamBuffers(num_buffer_reqs, buffer_reqs, num_returned_buf_reqs, returned_buf_reqs);
-}
-
-void Camera3DeviceClient::returnStreamBuffers(
-    const struct camera3_callback_ops *cb, uint32_t num_buffers,
-    const camera3_stream_buffer_t* const* buffers) {
-  Camera3DeviceClient *ctx = const_cast<Camera3DeviceClient *>(
-      static_cast<const Camera3DeviceClient *>(cb));
-  ctx->ReturnStreamBuffers(num_buffers, buffers);
-}
-#endif
-
 void Camera3DeviceClient::deviceStatusChange(
     const struct camera_module_callbacks *, int camera_id, int new_status) {
   // TODO: No implementation yet
@@ -2304,6 +2262,14 @@ uint32_t Camera3DeviceClient::GetOpMode() {
   } else if (fps_sensormode_index_ > QCAMERA3_SENSORMODE_FPS_DEFAULT_INDEX) {
     operation_mode |= (fps_sensormode_index_ << 16);
     QMMF_INFO("%s: 60+ FPS OpMode is Set 0x%x \n", __func__, operation_mode);
+  }
+
+  // Handle IFE Direct Stream
+  if (cam_feature_flags_ &
+      static_cast<uint32_t>(CamFeatureFlag::kIFEDirectStream)) {
+    operation_mode |= IFE_DIRECT_STREAM;
+    QMMF_INFO("%s: IFEDirectStream OpMode Set, operation_mode = 0x%x \n",
+        __func__, operation_mode);
   }
 #endif
 

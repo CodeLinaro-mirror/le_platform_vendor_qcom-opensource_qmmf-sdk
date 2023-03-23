@@ -33,11 +33,6 @@
 #include <thread>
 
 #include <utils/Timers.h>
-#ifndef DISPLAY_MEDIA_HEADER_2
-#include <media/msm_media_info.h>
-#else
-#include <display/media/mmm_color_fmt.h>
-#endif
 #include <qmmf-sdk/qmmf_recorder_extra_param_tags.h>
 
 #include "common/utils/qmmf_common_utils.h"

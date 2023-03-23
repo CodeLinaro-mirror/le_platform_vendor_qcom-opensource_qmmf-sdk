@@ -59,16 +59,16 @@
 #include "qmmf_memory_interface.h"
 #include "recorder/src/service/qmmf_recorder_common.h"
 
-#ifndef DISPLAY_MEDIA_HEADER_2
-#include <media/msm_media_info.h>
-#else
+#ifdef HAVE_MMM_COLOR_FMT_H
 #include <display/media/mmm_color_fmt.h>
-#define COLOR_FMT_NV12_UBWC      MMM_COLOR_FMT_NV12_UBWC
-#define MSM_MEDIA_ALIGN          MMM_COLOR_FMT_ALIGN
-#define VENUS_Y_META_STRIDE      MMM_COLOR_FMT_Y_META_STRIDE
-#define VENUS_Y_META_SCANLINES   MMM_COLOR_FMT_Y_META_SCANLINES
-#define VENUS_UV_META_STRIDE     MMM_COLOR_FMT_UV_META_STRIDE
-#define VENUS_UV_META_SCANLINES  MMM_COLOR_FMT_UV_META_SCANLINES
+#else
+#include <media/msm_media_info.h>
+#define MMM_COLOR_FMT_NV12_UBWC COLOR_FMT_NV12_UBWC
+#define MMM_COLOR_FMT_ALIGN MSM_MEDIA_ALIGN
+#define MMM_COLOR_FMT_Y_META_STRIDE VENUS_Y_META_STRIDE
+#define MMM_COLOR_FMT_Y_META_SCANLINES VENUS_Y_META_SCANLINES
+#define MMM_COLOR_FMT_UV_META_STRIDE VENUS_UV_META_STRIDE
+#define MMM_COLOR_FMT_UV_META_SCANLINES VENUS_UV_META_SCANLINES
 #endif
 
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
@@ -562,17 +562,17 @@ int32_t Camera3Stream::PopulateBufferMeta(BufferMeta &info,
       info.planes[0].height = height;
       info.planes[0].stride = alignedW;
       info.planes[0].scanline = alignedH;
-      info.planes[0].size = MSM_MEDIA_ALIGN((alignedW * alignedH), 4096) +
-          MSM_MEDIA_ALIGN((VENUS_Y_META_STRIDE(COLOR_FMT_NV12_UBWC, width) *
-          VENUS_Y_META_SCANLINES(COLOR_FMT_NV12_UBWC, height)), 4096);
+      info.planes[0].size = MMM_COLOR_FMT_ALIGN((alignedW * alignedH), 4096) +
+          MMM_COLOR_FMT_ALIGN((MMM_COLOR_FMT_Y_META_STRIDE(MMM_COLOR_FMT_NV12_UBWC, width) *
+          MMM_COLOR_FMT_Y_META_SCANLINES(MMM_COLOR_FMT_NV12_UBWC, height)), 4096);
       info.planes[0].offset = 0;
       info.planes[1].width = width;
       info.planes[1].height = height/2;
       info.planes[1].stride = alignedW;
       info.planes[1].scanline = alignedH/2;
-      info.planes[1].size = MSM_MEDIA_ALIGN((alignedW * alignedH / 2), 4096) +
-          MSM_MEDIA_ALIGN((VENUS_UV_META_STRIDE(COLOR_FMT_NV12_UBWC, width) *
-          VENUS_UV_META_SCANLINES(COLOR_FMT_NV12_UBWC, height)), 4096);
+      info.planes[1].size = MMM_COLOR_FMT_ALIGN((alignedW * alignedH / 2), 4096) +
+          MMM_COLOR_FMT_ALIGN((MMM_COLOR_FMT_UV_META_STRIDE(MMM_COLOR_FMT_NV12_UBWC, width) *
+          MMM_COLOR_FMT_UV_META_SCANLINES(MMM_COLOR_FMT_NV12_UBWC, height)), 4096);
       info.planes[1].offset =
           info.planes[0].offset + info.planes[0].size;
       break;
@@ -583,17 +583,17 @@ int32_t Camera3Stream::PopulateBufferMeta(BufferMeta &info,
       info.planes[0].height = height;
       info.planes[0].stride = alignedW;
       info.planes[0].scanline = alignedH;
-      info.planes[0].size = MSM_MEDIA_ALIGN((alignedW * alignedH), 4096) +
-          MSM_MEDIA_ALIGN((VENUS_Y_META_STRIDE(COLOR_FMT_NV12_UBWC, width) *
-          VENUS_Y_META_SCANLINES(COLOR_FMT_NV12_UBWC, height)), 4096);
+      info.planes[0].size = MMM_COLOR_FMT_ALIGN((alignedW * alignedH), 4096) +
+          MMM_COLOR_FMT_ALIGN((MMM_COLOR_FMT_Y_META_STRIDE(MMM_COLOR_FMT_NV12_UBWC, width) *
+          MMM_COLOR_FMT_Y_META_SCANLINES(MMM_COLOR_FMT_NV12_UBWC, height)), 4096);
       info.planes[0].offset = 0;
       info.planes[1].width = width;
       info.planes[1].height = height/2;
       info.planes[1].stride = alignedW;
       info.planes[1].scanline = alignedH/2;
-      info.planes[1].size = MSM_MEDIA_ALIGN((alignedW * alignedH / 2), 4096) +
-          MSM_MEDIA_ALIGN((VENUS_UV_META_STRIDE(COLOR_FMT_NV12_UBWC, width) *
-          VENUS_UV_META_SCANLINES(COLOR_FMT_NV12_UBWC, height)), 4096);
+      info.planes[1].size = MMM_COLOR_FMT_ALIGN((alignedW * alignedH / 2), 4096) +
+          MMM_COLOR_FMT_ALIGN((MMM_COLOR_FMT_UV_META_STRIDE(MMM_COLOR_FMT_NV12_UBWC, width) *
+          MMM_COLOR_FMT_UV_META_SCANLINES(MMM_COLOR_FMT_NV12_UBWC, height)), 4096);
       info.planes[1].offset =
           info.planes[0].offset + info.planes[0].size;
       break;
@@ -604,17 +604,17 @@ int32_t Camera3Stream::PopulateBufferMeta(BufferMeta &info,
       info.planes[0].height = height;
       info.planes[0].stride = alignedW;
       info.planes[0].scanline = alignedH;
-      info.planes[0].size = MSM_MEDIA_ALIGN((alignedW * alignedH), 4096) +
-          MSM_MEDIA_ALIGN((VENUS_Y_META_STRIDE(COLOR_FMT_NV12_UBWC, width) *
-          VENUS_Y_META_SCANLINES(COLOR_FMT_NV12_UBWC, height)), 4096);
+      info.planes[0].size = MMM_COLOR_FMT_ALIGN((alignedW * alignedH), 4096) +
+          MMM_COLOR_FMT_ALIGN((MMM_COLOR_FMT_Y_META_STRIDE(MMM_COLOR_FMT_NV12_UBWC, width) *
+          MMM_COLOR_FMT_Y_META_SCANLINES(MMM_COLOR_FMT_NV12_UBWC, height)), 4096);
       info.planes[0].offset = 0;
       info.planes[1].width = width;
       info.planes[1].height = height/2;
       info.planes[1].stride = alignedW;
       info.planes[1].scanline = alignedH/2;
-      info.planes[1].size = MSM_MEDIA_ALIGN((alignedW * alignedH / 2), 4096) +
-          MSM_MEDIA_ALIGN((VENUS_UV_META_STRIDE(COLOR_FMT_NV12_UBWC, width) *
-          VENUS_UV_META_SCANLINES(COLOR_FMT_NV12_UBWC, height)), 4096);
+      info.planes[1].size = MMM_COLOR_FMT_ALIGN((alignedW * alignedH / 2), 4096) +
+          MMM_COLOR_FMT_ALIGN((MMM_COLOR_FMT_UV_META_STRIDE(MMM_COLOR_FMT_NV12_UBWC, width) *
+          MMM_COLOR_FMT_UV_META_SCANLINES(MMM_COLOR_FMT_NV12_UBWC, height)), 4096);
       info.planes[1].offset =
           info.planes[0].offset + info.planes[0].size;
       break;

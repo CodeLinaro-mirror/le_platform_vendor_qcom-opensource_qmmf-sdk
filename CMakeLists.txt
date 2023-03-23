@@ -12,6 +12,10 @@ set(TOP_DIRECTORY ${CMAKE_CURRENT_LIST_DIR})
 
 include_directories(${TOP_DIRECTORY}/include)
 
+# Check whether MMM color format header is present.
+include(CheckIncludeFile)
+check_include_file("display/media/mmm_color_fmt.h" HAVE_MMM_COLOR_FMT_H)
+
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fexceptions -fno-short-enums -O2 -DANDROID")
 # uncomment to generate debug information
 # set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")

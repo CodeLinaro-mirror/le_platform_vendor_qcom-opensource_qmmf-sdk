@@ -187,12 +187,6 @@ class Camera3DeviceClient : public camera3_callback_ops,
                                bool streaming, int64_t *lastFrameNumber = NULL);
 
   void HandleCaptureResult(const camera3_capture_result *result);
-#if defined(CAMERA_HAL_API_VERSION) && (CAMERA_HAL_API_VERSION >= 0x0307)
-  void ReturnStreamBuffers(uint32_t num_buffers, const camera3_stream_buffer_t* const* buffers);
-  camera3_buffer_request_status_t RequestStreamBuffers(uint32_t num_buffer_reqs,
-          const camera3_buffer_request_t *buffer_reqs, uint32_t *num_returned_buf_reqs,
-          camera3_stream_buffer_ret_t *returned_buf_reqs);
-#endif
   void Notify(const camera3_notify_msg *msg);
   void NotifyError(const camera3_error_msg_t &msg);
   void NotifyShutter(const camera3_shutter_msg_t &msg);
@@ -229,15 +223,6 @@ class Camera3DeviceClient : public camera3_callback_ops,
 
   static callbacks_process_capture_result_t processCaptureResult;
   static callbacks_notify_t notifyFromHal;
-#if defined(CAMERA_HAL_API_VERSION) && (CAMERA_HAL_API_VERSION >= 0x0307)
-  static camera3_buffer_request_status_t requestStreamBuffers(
-            const struct camera3_callback_ops *cb, uint32_t num_buffer_reqs,
-            const camera3_buffer_request_t *buffer_reqs, uint32_t *num_returned_buf_reqs,
-            camera3_stream_buffer_ret_t *returned_buf_reqs);
-  static void returnStreamBuffers(
-            const struct camera3_callback_ops *cb, uint32_t num_buffers,
-            const camera3_stream_buffer_t* const* buffers);
-#endif
   static camera_device_status_change_t deviceStatusChange;
   static torch_mode_status_change_t torchModeStatusChange;
 
