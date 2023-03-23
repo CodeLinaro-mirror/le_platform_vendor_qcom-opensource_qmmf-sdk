@@ -179,7 +179,7 @@ class RecorderImpl {
                         const uint32_t camera_id,
                         const SnapshotType type,
                         const uint32_t n_images,
-                        const std::vector<CameraMetadata> &meta);
+                        const std::vector<::camera::CameraMetadata> &meta);
 
   /// Configuration for Image Capture
   status_t ConfigImageCapture(const uint32_t client_id,
@@ -199,11 +199,11 @@ class RecorderImpl {
 
   /// Set Camera parameters
   status_t SetCameraParam(const uint32_t client_id,
-                          const uint32_t camera_id, const CameraMetadata &meta);
+                          const uint32_t camera_id, const ::camera::CameraMetadata &meta);
 
   /// Get Camera parameters
   status_t GetCameraParam(const uint32_t client_id,
-                          const uint32_t camera_id, CameraMetadata &meta);
+                          const uint32_t camera_id, ::camera::CameraMetadata &meta);
 
   /// Set Camera SHDR mode
   status_t SetSHDR(const uint32_t client_id,
@@ -213,12 +213,12 @@ class RecorderImpl {
   /// Get default Capture parameters
   status_t GetDefaultCaptureParam(const uint32_t client_id,
                                   const uint32_t camera_id,
-                                  CameraMetadata &meta);
+                                  ::camera::CameraMetadata &meta);
 
   /// Get static metadata
   status_t GetCameraCharacteristics(const uint32_t client_id,
                                     const uint32_t camera_id,
-                                    CameraMetadata &meta);
+                                    ::camera::CameraMetadata &meta);
 
   status_t CreateOfflineJPEG(const uint32_t client_id,
                              const OfflineJpegCreateParams& params);
@@ -242,7 +242,7 @@ class RecorderImpl {
                         BnBuffer& buffer, BufferMeta& meta);
 
   /// Camera Result callback handler
-  void CameraResultCb(uint32_t camera_id, const CameraMetadata &result);
+  void CameraResultCb(uint32_t camera_id, const ::camera::CameraMetadata &result);
 
   /// Camera Error callback handler
   void CameraErrorCb(uint32_t camera_id, uint32_t errcode);

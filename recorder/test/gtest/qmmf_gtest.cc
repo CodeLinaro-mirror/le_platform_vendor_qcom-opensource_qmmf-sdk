@@ -1411,7 +1411,7 @@ TEST_F(VideoGtest, SessionWithThreeConcurrentCam1080pAndRawStream) {
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t raw_width, raw_height;
-  CameraMetadata static_meta;
+  ::camera::CameraMetadata static_meta;
   ret = recorder_.GetCameraCharacteristics(cam2_id, static_meta);
   ASSERT_TRUE(ret == NO_ERROR);
   GtestCommon::GetMaxSupportedCameraRes(static_meta, raw_width, raw_height);
@@ -1653,7 +1653,7 @@ TEST_F(VideoGtest, SessionWith1080pYUVTrackMatchCameraMetaData) {
   ASSERT_TRUE(ret == NO_ERROR);
 
   CameraResultCb result_cb = [&](uint32_t camera_id,
-                                 const CameraMetadata &result) {
+                                 const ::camera::CameraMetadata &result) {
     ResultCallbackHandlerMatchCameraMeta(camera_id, result);
   };
 
@@ -2046,7 +2046,7 @@ TEST_F(VideoGtest, SessionWith1080pTrackPartialMeta) {
   uint32_t height = 1080;
 
   CameraResultCb result_cb = [&](uint32_t camera_id,
-                                 const CameraMetadata &result) {
+                                 const ::camera::CameraMetadata &result) {
     if (result.exists(ANDROID_REQUEST_FRAME_COUNT)) {
       TEST_INFO("%s: MetaData FrameNumber=%d", __func__,
                 result.find(ANDROID_REQUEST_FRAME_COUNT).data.i32[0]);
@@ -2265,4 +2265,162 @@ TEST_F(VideoGtest, SessionWith1080pYUVAnd720pYUVWithCrop) {
 
   std::cout << "---------- Test Completed ----------\n"
             << test_info_->test_case_name() << "." << test_info_->name();
+}
+
+/*
+* TwoSessionsWithOneHFRStreamOneNormalStreamFromSingleCamera: This case will test two
+*     sessions with one stream each from single camera, each stream gives
+*     1080p,nv12 stream, one is 30fps while the other is 120fps
+*
+* Api test sequence summary:
+*  - StartCamera
+*  - CreateSession-session0
+*  - CreateSession-session1
+*  - CreateTrack-track0
+*  - CreateTrack-track1
+*  - StartSession-session0
+*  - StartSession-session1
+*  - StopSession-session0
+*  - StopSession-session1
+*  - DeleteVideoTracks-track0
+*  - DeleteVideoTracks-track1
+*  - DeleteSession-session0
+*  - DeleteSession-session1
+*  - StopCamera
+*/
+TEST_F(VideoGtest, TwoSessionsWithOneHFRStreamOneNormalStreamFromSingleCamera) {
+  std::cout << "\n---------- Run Test ----------" <<
+      test_info_->test_case_name() << "." << test_info_->name()<< std::endl;
+
+  auto ret = Init();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  // Extract Parameter of First Video Stream.
+  uint32_t video_track_1 = kFirstStreamID;
+  auto stream_1 = stream_info_map_[video_track_1];
+  uint32_t stream_1_width = stream_1.width;
+  uint32_t stream_1_height = stream_1.height;
+  VideoFormat stream_1_format = stream_1.format;
+  float stream_1_fps = stream_1.fps;
+
+  // Extract Parameter of HFR Video Stream.
+  uint32_t video_track_hfr = kHFRStreamID;
+  auto stream_hfr = stream_info_map_[video_track_hfr];
+  uint32_t stream_hfr_width = stream_hfr.width;
+  uint32_t stream_hfr_height = stream_hfr.height;
+  VideoFormat stream_hfr_format = stream_hfr.format;
+  float stream_hfr_fps = stream_hfr.fps;
+
+  CameraExtraParam camera_xtraparam;
+  SetCameraExtraParam(camera_xtraparam);
+
+  ret = recorder_.StartCamera(camera_id_, camera_fps_, camera_xtraparam);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  SessionCb session_status_cb = CreateSessionStatusCb();
+  uint32_t session_id_1;
+  uint32_t session_id_hfr;
+
+  ret = recorder_.CreateSession(session_status_cb, &session_id_1);
+  ASSERT_TRUE(session_id_1 > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  // First Track Configuration
+  VideoTrackParam video_track_param_1 {
+    camera_id_, stream_1_width, stream_1_height, stream_1_fps, stream_1_format
+  };
+
+  TrackCb video_track_cb;
+  video_track_cb.data_cb = [&, session_id_1](
+      uint32_t track_id, std::vector<BufferDescriptor> buffers,
+      std::vector<BufferMeta> metas) {
+    VideoTrackYUVDataCb(session_id_1, track_id, buffers, metas);
+  };
+
+  video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
+                                void *event_data, size_t event_data_size) {
+    VideoTrackEventCb(track_id, event_type, event_data, event_data_size);
+  };
+
+  VideoExtraParam xtraparam;
+  ret = recorder_.CreateVideoTrack(session_id_1, video_track_1,
+                                   video_track_param_1, xtraparam,
+                                   video_track_cb);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  std::vector<uint32_t> track_ids_s1;
+  track_ids_s1.push_back(video_track_1);
+
+  sessions_.insert(std::make_pair(session_id_1, track_ids_s1));
+
+  ret = recorder_.StartSession(session_id_1);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  //hfr session
+  session_status_cb = CreateSessionStatusCb();
+
+  ret = recorder_.CreateSession(session_status_cb, &session_id_hfr);
+  ASSERT_TRUE(session_id_hfr > 0);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  VideoTrackParam video_track_param_hfr {
+    camera_id_, stream_hfr_width, stream_hfr_height, stream_hfr_fps, stream_hfr_format
+  };
+
+  video_track_cb.data_cb = [&, session_id_hfr](
+      uint32_t track_id, std::vector<BufferDescriptor> buffers,
+      std::vector<BufferMeta> metas) {
+    VideoTrackYUVDataCb(session_id_hfr, track_id, buffers, metas);
+  };
+
+  video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
+                                void *event_data, size_t event_data_size) {
+    VideoTrackEventCb(track_id, event_type, event_data, event_data_size);
+  };
+
+  ret = recorder_.CreateVideoTrack(session_id_hfr, video_track_hfr,
+                                    video_track_param_hfr, xtraparam,
+                                    video_track_cb);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  std::vector<uint32_t> track_ids_s2;
+  track_ids_s2.push_back(video_track_hfr);
+
+  sessions_.insert(std::make_pair(session_id_hfr, track_ids_s2));
+
+  // Start Session
+  ret = recorder_.StartSession(session_id_hfr);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  sleep(record_duration_);
+
+  ret = recorder_.StopSession(session_id_1, false);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.StopSession(session_id_hfr, false);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.DeleteVideoTrack(session_id_1, video_track_1);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.DeleteVideoTrack(session_id_hfr, video_track_hfr);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.DeleteSession(session_id_1);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = recorder_.DeleteSession(session_id_hfr);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ClearSessions();
+
+  ret = recorder_.StopCamera(camera_id_);
+  ASSERT_TRUE(ret == NO_ERROR);
+
+  ret = DeInit();
+  ASSERT_TRUE(ret == NO_ERROR);
+
+
+  std::cout <<"---------- Test Completed ----------\n" <<
+      test_info_->test_case_name() << "." << test_info_->name();
 }

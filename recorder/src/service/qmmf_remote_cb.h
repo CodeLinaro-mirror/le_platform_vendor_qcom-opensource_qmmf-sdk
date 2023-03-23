@@ -99,7 +99,7 @@ class RemoteCallBack : public RefBase {
                                EventType event_type,
                                void *event_data, size_t event_data_size);
 
-    void NotifyCameraResult(uint32_t camera_id, const CameraMetadata &result);
+    void NotifyCameraResult(uint32_t camera_id, const ::camera::CameraMetadata &result);
 
     void NotifyDeleteVideoTrack(uint32_t track_id);
 
