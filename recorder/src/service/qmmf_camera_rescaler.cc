@@ -25,6 +25,40 @@
 * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
 * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*
+* Changes from Qualcomm Innovation Center are provided under the following license:
+*
+* Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+*
+* Redistribution and use in source and binary forms, with or without
+* modification, are permitted (subject to the limitations in the
+* disclaimer below) provided that the following conditions are met:
+*
+*     * Redistributions of source code must retain the above copyright
+*       notice, this list of conditions and the following disclaimer.
+*
+*     * Redistributions in binary form must reproduce the above
+*       copyright notice, this list of conditions and the following
+*       disclaimer in the documentation and/or other materials provided
+*       with the distribution.
+*
+*     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+*       contributors may be used to endorse or promote products derived
+*       from this software without specific prior written permission.
+*
+* NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+* GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+* HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+* WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+* MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+* IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+* ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+* DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+* GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+* INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+* IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+* OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+* IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #define LOG_TAG "RecorderRescaler"
@@ -578,10 +612,10 @@ status_t CameraRescalerMemPool::GetBufferLocked(StreamBuffer* buffer) {
 status_t CameraRescalerMemPool::PopulateBufferMeta(BufferMeta &info,
                                                    IBufferHandle &handle) {
 
-  int alignedW, alignedH;
+  int stride, scanline;
   auto ret = alloc_device_interface_->Perform(handle,
       IAllocDevice::AllocDeviceAction::GetAlignedHeight,
-      static_cast<void*>(&alignedH));
+      static_cast<void*>(&scanline));
   if (MemAllocError::kAllocOk != ret) {
     QMMF_ERROR("%s: Unable to query stride&scanline: %d\n", __func__,
       (int32_t) ret);
@@ -589,8 +623,8 @@ status_t CameraRescalerMemPool::PopulateBufferMeta(BufferMeta &info,
   }
 
   ret = alloc_device_interface_->Perform(handle,
-      IAllocDevice::AllocDeviceAction::GetAlignedWidth,
-      static_cast<void*>(&alignedW));
+      IAllocDevice::AllocDeviceAction::GetStride,
+      static_cast<void*>(&stride));
   if (MemAllocError::kAllocOk != ret) {
     QMMF_ERROR("%s: Unable to query stride&scanline: %d\n", __func__,
       (int32_t) ret);
@@ -606,72 +640,72 @@ status_t CameraRescalerMemPool::PopulateBufferMeta(BufferMeta &info,
       info.n_planes = 2;
       info.planes[0].width = init_params_.width;
       info.planes[0].height = init_params_.height;
-      info.planes[0].stride = alignedW;
-      info.planes[0].scanline = alignedH;
-      info.planes[0].size = alignedW * alignedH;
+      info.planes[0].stride = stride;
+      info.planes[0].scanline = scanline;
+      info.planes[0].size = stride * scanline;
       info.planes[0].offset = 0;
       info.planes[1].width = init_params_.width;
       info.planes[1].height = init_params_.height/2;
-      info.planes[1].stride = alignedW;
-      info.planes[1].scanline = alignedH/2;
-      info.planes[1].size = alignedW * (alignedH / 2);
-      info.planes[1].offset = alignedW * alignedH;
+      info.planes[1].stride = stride;
+      info.planes[1].scanline = scanline / 2;
+      info.planes[1].size = stride * (scanline / 2);
+      info.planes[1].offset = stride * scanline;
       break;
     case HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS_UBWC:
       info.format = BufferFormat::kNV12UBWC;
       info.n_planes = 2;
       info.planes[0].width = init_params_.width;
       info.planes[0].height = init_params_.height;
-      info.planes[0].stride = alignedW;
-      info.planes[0].scanline = alignedH;
-      info.planes[0].size = alignedW * alignedH;
+      info.planes[0].stride = stride;
+      info.planes[0].scanline = scanline;
+      info.planes[0].size = stride * scanline;
       info.planes[0].offset = 0;
       info.planes[1].width = init_params_.width;
       info.planes[1].height = init_params_.height/2;
-      info.planes[1].stride = alignedW;
-      info.planes[1].scanline = alignedH/2;
-      info.planes[1].size = alignedW * (alignedH / 2);
-      info.planes[1].offset = alignedW * alignedH;
+      info.planes[1].stride = stride;
+      info.planes[1].scanline = scanline / 2;
+      info.planes[1].size = stride * (scanline / 2);
+      info.planes[1].offset = stride * scanline;
       break;
     case HAL_PIXEL_FORMAT_RGB_888:
       info.format = BufferFormat::kRGB;
       info.n_planes = 1;
       info.planes[0].width = init_params_.width;
       info.planes[0].height = init_params_.height;
-      info.planes[0].stride = alignedW;
-      info.planes[0].scanline = alignedH;
+      info.planes[0].stride = stride;
+      info.planes[0].scanline = scanline;
       break;
     case HAL_PIXEL_FORMAT_NV21_ZSL:
       info.format = BufferFormat::kNV21;
       info.n_planes = 2;
       info.planes[0].width = init_params_.width;
       info.planes[0].height = init_params_.height;
-      info.planes[0].stride = alignedW;
-      info.planes[0].scanline = alignedH;
-      info.planes[0].size = alignedW * alignedH;
+      info.planes[0].stride = stride;
+      info.planes[0].scanline = scanline;
+      info.planes[0].size = stride * scanline;
       info.planes[0].offset = 0;
       info.planes[1].width = init_params_.width;
       info.planes[1].height = init_params_.height/2;
-      info.planes[1].stride = alignedW;
-      info.planes[1].scanline = alignedH/2;
-      info.planes[1].size = alignedW * (alignedH / 2);
-      info.planes[1].offset = alignedW * alignedH;
+      info.planes[1].stride = stride;
+      info.planes[1].scanline = scanline / 2;
+      info.planes[1].size = stride * (scanline / 2);
+      info.planes[1].offset = stride * scanline;
       break;
     case HAL_PIXEL_FORMAT_YCbCr_422_888:
       info.format = BufferFormat::kNV16;
       info.n_planes = 2;
       info.planes[0].width = init_params_.width;
       info.planes[0].height = init_params_.height;
-      info.planes[0].stride = alignedW;
-      info.planes[0].scanline = alignedH;
-      info.planes[0].size = alignedW * alignedH;
+      info.planes[0].stride = stride;
+      info.planes[0].scanline = scanline;
+      info.planes[0].size = stride * scanline;
       info.planes[0].offset = 0;
       info.planes[1].width = init_params_.width;
       info.planes[1].height = init_params_.height;
-      info.planes[1].stride = alignedW;
-      info.planes[1].scanline = alignedH;
-      info.planes[1].size = alignedW * alignedH;
-      info.planes[1].offset = alignedW * alignedH;
+      info.planes[1].stride = stride;
+      info.planes[1].scanline = scanline;
+      info.planes[1].size = stride * scanline;
+      info.planes[1].offset = stride * scanline;
       break;
     default:
       QMMF_ERROR("%s: Unsupported format: %d", __func__,
