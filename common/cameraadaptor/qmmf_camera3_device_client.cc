@@ -840,7 +840,7 @@ int32_t Camera3DeviceClient::CreateStream(
   assert(state_ != STATE_RUNNING);
 
   if (outputConfiguration.format == HAL_PIXEL_FORMAT_BLOB) {
-    blobBufferSize = CaclulateBlobSize(outputConfiguration.width,
+    blobBufferSize = CalculateBlobSize(outputConfiguration.width,
                                        outputConfiguration.height);
     if (blobBufferSize <= 0) {
       QMMF_ERROR("%s: Invalid jpeg buffer size %zd\n", __func__,
@@ -885,7 +885,7 @@ exit:
   return res;
 }
 
-int32_t Camera3DeviceClient::CaclulateBlobSize(int32_t width, int32_t height) {
+int32_t Camera3DeviceClient::CalculateBlobSize(int32_t width, int32_t height) {
   int32_t maxJpegBufferSize, maxJpegSizeWidth, maxJpegSizeHeight;
   int32_t maxWidth, maxHeight;
   int32_t maxUHRWidth, maxUHRHeight;
