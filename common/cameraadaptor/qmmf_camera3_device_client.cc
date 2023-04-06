@@ -104,6 +104,7 @@
 #define EIS_ENABLE                            (0xF200)
 #define LDC_ENABLE                            (0xF800)
 #define LCAC_ENABLE                           (0x100000)
+#define IFE_DIRECT_STREAM                     (1 << 25)
 #endif
 
 // Convenience macros for transitioning to the error state
@@ -2261,6 +2262,14 @@ uint32_t Camera3DeviceClient::GetOpMode() {
   } else if (fps_sensormode_index_ > QCAMERA3_SENSORMODE_FPS_DEFAULT_INDEX) {
     operation_mode |= (fps_sensormode_index_ << 16);
     QMMF_INFO("%s: 60+ FPS OpMode is Set 0x%x \n", __func__, operation_mode);
+  }
+
+  // Handle IFE Direct Stream
+  if (cam_feature_flags_ &
+      static_cast<uint32_t>(CamFeatureFlag::kIFEDirectStream)) {
+    operation_mode |= IFE_DIRECT_STREAM;
+    QMMF_INFO("%s: IFEDirectStream OpMode Set, operation_mode = 0x%x \n",
+        __func__, operation_mode);
   }
 #endif
 
