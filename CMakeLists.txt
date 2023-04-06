@@ -12,6 +12,10 @@ set(TOP_DIRECTORY ${CMAKE_CURRENT_LIST_DIR})
 
 include_directories(${TOP_DIRECTORY}/include)
 
+# Check whether MMM color format header is present.
+include(CheckIncludeFile)
+check_include_file("display/media/mmm_color_fmt.h" HAVE_MMM_COLOR_FMT_H)
+
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fexceptions -fno-short-enums -O2 -DANDROID")
 # uncomment to generate debug information
 # set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
@@ -26,6 +30,18 @@ set(CMAKE_STATIC_LINKER_FLAGS
 add_subdirectory(config/LE-${TARGET_BOARD_PLATFORM})
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${PLATFORM_CXX_FLAGS}")
+
+if (RESIZER_FASTCV_ENABLED)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DENABLE_RESCALER_FASTCV")
+endif()
+
+if (RESIZER_C2D_ENABLED)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DENABLE_RESCALER_C2D")
+endif()
+
+if (RESIZER_NEON_ENABLED)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DENABLE_RESCALER_NEON")
+endif()
 
 add_subdirectory(qmmf-server)
 
@@ -47,11 +63,12 @@ if (RESIZER_FASTCV_ENABLED)
 add_subdirectory(common/resizer-fastCV)
 endif()
 
+if (RESIZER_C2D_ENABLED)
 add_subdirectory(common/resizer-c2d)
+endif()
 
 if (RESIZER_NEON_ENABLED)
 add_subdirectory(common/resizer-neon)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DENABLE_RESCALER_NEON")
 endif()
 
 add_subdirectory(common/utils)

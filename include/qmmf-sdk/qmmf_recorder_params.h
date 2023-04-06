@@ -82,6 +82,12 @@
 
 #include "qmmf-sdk/qmmf_buffer.h"
 
+#ifndef CAMERA_METADATA_1_0_NS
+namespace camera = android;
+#else
+namespace camera = android::hardware::camera::common::V1_0::helper;
+#endif
+
 namespace qmmf {
 
 namespace recorder {
@@ -305,7 +311,7 @@ struct VideoTrackParam {
 /// by service once there is at least one started session
 /// which includes a video track.
 typedef std::function<void(uint32_t camera_id,
-                           const android::CameraMetadata &res)> CameraResultCb;
+                           const ::camera::CameraMetadata &res)> CameraResultCb;
 
 /// @brief For thumbnail images only kJPEG is supported
 /// For YUV and Bayer formats, quality is ignored
