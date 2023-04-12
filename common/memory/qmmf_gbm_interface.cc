@@ -260,7 +260,9 @@ const std::unordered_map<int32_t, int32_t> GBMBuffer::from_gbm_ = {
 
 GBMBuffer::~GBMBuffer() {
   if (!imported_) {
+#ifdef GBM_FREE_FD
     close(fd_);
+#endif
     gbm_bo_destroy(generic_handle_);
   }
   if (nullptr != gralloc_handle_) {

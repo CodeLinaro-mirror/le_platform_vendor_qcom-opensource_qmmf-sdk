@@ -295,6 +295,28 @@ int32_t Camera3Gtest::GetMaxYUVSize(int32_t &width, int32_t &height) {
     return res;
   }
 
+#if defined(CAMERA_HAL_API_VERSION) && (CAMERA_HAL_API_VERSION >= 0x0307)
+  if (static_info.exists(
+      ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_MAXIMUM_RESOLUTION)) {
+    entry = static_info.find(
+      ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_MAXIMUM_RESOLUTION);
+    int32_t w, h;
+    for (uint32_t i = 0 ; i < entry.count; i += 4) {
+      if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
+        if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
+            entry.data.i32[i+3]) {
+          w = entry.data.i32[i+1];
+          h = entry.data.i32[i+2];
+          if ((width * height) < (w * h)) {
+            width = w;
+            height = h;
+          }
+        }
+      }
+    }
+  }
+#endif
+
   if (static_info.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
     entry = static_info.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
     int32_t w, h;
@@ -312,28 +334,6 @@ int32_t Camera3Gtest::GetMaxYUVSize(int32_t &width, int32_t &height) {
       }
     }
   }
-
-#if defined(CAMERA_HAL_API_VERSION) && (CAMERA_HAL_API_VERSION >= 0x0307)
-  if (static_info.exists(
-        ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_MAXIMUM_RESOLUTION)) {
-    entry = static_info.find(
-        ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_MAXIMUM_RESOLUTION);
-    int32_t w, h;
-    for (uint32_t i = 0 ; i < entry.count; i += 4) {
-      if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
-        if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
-            entry.data.i32[i+3]) {
-          w = entry.data.i32[i+1];
-          h = entry.data.i32[i+2];
-          if ((width * height) < (w * h)) {
-            width = w;
-            height = h;
-          }
-        }
-      }
-    }
-  }
-#endif
 
   if (0 >= (width * height)) {
     res = -ENOENT;

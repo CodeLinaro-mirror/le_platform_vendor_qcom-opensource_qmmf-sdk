@@ -105,6 +105,10 @@ int32_t GrallocUsage::ToLocal(MemAllocFlags common) const {
   return local_usage;
 }
 
+int32_t GrallocUsage::ToGralloc(MemAllocFlags common) const {
+  return ToLocal(common);
+}
+
 MemAllocFlags GrallocUsage::ToCommon(int32_t local) const {
   MemAllocFlags common;
   common.flags = 0;
