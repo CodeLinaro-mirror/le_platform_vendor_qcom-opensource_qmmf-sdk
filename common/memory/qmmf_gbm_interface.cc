@@ -259,12 +259,22 @@ const std::unordered_map<int32_t, int32_t> GBMBuffer::from_gbm_ = {
 };
 
 GBMBuffer::~GBMBuffer() {
+
+  uint32_t duplicated = 0;
+
   if (!imported_) {
-#ifdef GBM_FREE_FD
-    close(fd_);
-#endif
     gbm_bo_destroy(generic_handle_);
+
+#ifdef GBM_PERFORM_GET_FD_WITH_NEW
+    gbm_perform(GBM_PERFORM_GET_FD_WITH_NEW, &duplicated);
+#endif // GBM_PERFORM_GET_FD_WITH_NEW
+
+    if (duplicated != 0) {
+      // The BO FD has been duplicated, we have to close it.
+      close(fd_);
+    }
   }
+
   if (nullptr != gralloc_handle_) {
     delete gralloc_handle_;
   }

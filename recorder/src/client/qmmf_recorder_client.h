@@ -219,11 +219,11 @@ class RecorderClient {
 
 #ifdef TARGET_USES_GBM
   void ImportBuffer(int32_t fd, int32_t metafd, const BufferMeta& meta);
-  void ReleaseBuffer(int32_t& fd);
+  void ReleaseBuffer(int32_t& fd, int32_t& meta_fd);
 #endif
 
-  status_t MapBuffer(BufferInfo& info);
-  status_t UnmapBuffer(BufferInfo& info);
+  status_t MapBuffer(BufferInfo& info, const BufferMeta& meta);
+  void UnmapBuffer(BufferInfo& info);
 
   void UpdateSessionTopology(const uint32_t& session_id,
                              const uint32_t& track_id,
