@@ -137,7 +137,7 @@ void RemoteCallBack::NotifyVideoTrackEvent(uint32_t session_id,
 }
 
 void RemoteCallBack::NotifyCameraResult(uint32_t camera_id,
-                                        const CameraMetadata &result) {
+                                        const ::camera::CameraMetadata &result) {
   assert(client_cb_handle_.get() != nullptr);
   client_cb_handle_->NotifyCameraResult(camera_id, result);
 }

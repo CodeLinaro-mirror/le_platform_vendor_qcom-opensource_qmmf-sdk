@@ -121,7 +121,7 @@ class CameraSource {
   status_t CaptureImage(const uint32_t camera_id,
                         const SnapshotType type,
                         const uint32_t n_images,
-                        const std::vector<CameraMetadata> &meta,
+                        const std::vector<::camera::CameraMetadata> &meta,
                         const SnapshotCb &cb);
 
   /// Configure Image Capture
@@ -167,21 +167,21 @@ class CameraSource {
                              std::vector<BnBuffer> &buffers);
 
   /// Set Camera configuration to Camera Interface
-  status_t SetCameraParam(const uint32_t camera_id, const CameraMetadata &meta);
+  status_t SetCameraParam(const uint32_t camera_id, const ::camera::CameraMetadata &meta);
 
   /// Get Camera configuration to Camera Interface
-  status_t GetCameraParam(const uint32_t camera_id, CameraMetadata &meta);
+  status_t GetCameraParam(const uint32_t camera_id, ::camera::CameraMetadata &meta);
 
   /// Set Camera SHDR mode
   status_t SetSHDR(const uint32_t camera_id, const bool enable);
 
   /// Return default settings for Image Capture
   status_t GetDefaultCaptureParam(const uint32_t camera_id,
-                                  CameraMetadata &meta);
+                                  ::camera::CameraMetadata &meta);
 
   /// Return static metadata
   status_t GetCameraCharacteristics(const uint32_t camera_id,
-                                    CameraMetadata &meta);
+                                    ::camera::CameraMetadata &meta);
 
   /// UpdateTrackFrameRate
   status_t UpdateTrackFrameRate(const uint32_t track_id,

@@ -82,6 +82,12 @@
 
 #include "qmmf-sdk/qmmf_buffer.h"
 
+#ifndef CAMERA_METADATA_1_0_NS
+namespace camera = android;
+#else
+namespace camera = android::hardware::camera::common::V1_0::helper;
+#endif
+
 namespace qmmf {
 
 namespace recorder {
@@ -169,6 +175,7 @@ enum class VideoFlags : uint64_t {
   kNone     = 0,      /// No active configuration flags.
   kIAEC     = 1 << 0, /// Wait Initial Auto Exposure Convergence.
   kUncashed = 1 << 1, /// Allocated buffers are not cached.
+  kPreview  = 1 << 2, /// Indicate a preview stream
 };
 
 inline VideoFlags operator | (VideoFlags lhs, VideoFlags rhs) {
@@ -305,7 +312,7 @@ struct VideoTrackParam {
 /// by service once there is at least one started session
 /// which includes a video track.
 typedef std::function<void(uint32_t camera_id,
-                           const android::CameraMetadata &res)> CameraResultCb;
+                           const ::camera::CameraMetadata &res)> CameraResultCb;
 
 /// @brief For thumbnail images only kJPEG is supported
 /// For YUV and Bayer formats, quality is ignored

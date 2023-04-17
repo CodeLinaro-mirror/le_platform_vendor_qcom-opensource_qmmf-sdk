@@ -270,7 +270,7 @@ void Camera3Gtest::SnapshotCb(StreamBuffer buffer) {
 }
 
 bool Camera3Gtest::IsInputSupported() {
-  CameraMetadata staticInfo;
+  ::camera::CameraMetadata staticInfo;
   auto res = device_client_->GetCameraInfo(camera_idx_, &staticInfo);
   if (0 != res) {
     return false;
@@ -288,12 +288,34 @@ bool Camera3Gtest::IsInputSupported() {
 }
 
 int32_t Camera3Gtest::GetMaxYUVSize(int32_t &width, int32_t &height) {
-  CameraMetadata static_info;
+  ::camera::CameraMetadata static_info;
   camera_metadata_entry_t entry;
   auto res = device_client_->GetCameraInfo(camera_idx_, &static_info);
   if (0 != res) {
     return res;
   }
+
+#if defined(CAMERA_HAL_API_VERSION) && (CAMERA_HAL_API_VERSION >= 0x0307)
+  if (static_info.exists(
+      ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_MAXIMUM_RESOLUTION)) {
+    entry = static_info.find(
+      ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_MAXIMUM_RESOLUTION);
+    int32_t w, h;
+    for (uint32_t i = 0 ; i < entry.count; i += 4) {
+      if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
+        if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
+            entry.data.i32[i+3]) {
+          w = entry.data.i32[i+1];
+          h = entry.data.i32[i+2];
+          if ((width * height) < (w * h)) {
+            width = w;
+            height = h;
+          }
+        }
+      }
+    }
+  }
+#endif
 
   if (static_info.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
     entry = static_info.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
@@ -321,7 +343,7 @@ int32_t Camera3Gtest::GetMaxYUVSize(int32_t &width, int32_t &height) {
 }
 
 int32_t Camera3Gtest::GetMaxRAWSize(int32_t &width, int32_t &height) {
-  CameraMetadata static_info;
+  ::camera::CameraMetadata static_info;
   auto res = device_client_->GetCameraInfo(camera_idx_, &static_info);
   if (0 != res) {
     return res;
@@ -652,7 +674,7 @@ exit:
 TEST_F(Camera3Gtest, Video1080pManualExposure) {
   CameraStreamParameters streamParams;
   Camera3Request videoRequest;
-  CameraMetadata staticInfo;
+  ::camera::CameraMetadata staticInfo;
   int64_t lastFrameNumber;
   int32_t repeatingStreamId, videoRequestId;
   int64_t exposureTime = 10000000;
@@ -777,7 +799,7 @@ TEST_F(Camera3Gtest, Video1080pSceneControl) {
   Camera3Request videoRequest;
   int64_t lastFrameNumber;
   int32_t repeatingStreamId, videoRequestId;
-  CameraMetadata staticInfo;
+  ::camera::CameraMetadata staticInfo;
 
   auto ret = device_client_->GetCameraInfo(camera_idx_, &staticInfo);
   ASSERT_EQ(0, ret);
@@ -859,7 +881,7 @@ TEST_F(Camera3Gtest, Video1080pEVcontrol) {
   Camera3Request videoRequest;
   int64_t lastFrameNumber;
   int32_t repeatingStreamId, videoRequestId;
-  CameraMetadata staticInfo;
+  ::camera::CameraMetadata staticInfo;
 
   auto ret = device_client_->GetCameraInfo(camera_idx_, &staticInfo);
   ASSERT_EQ(0, ret);
@@ -949,7 +971,7 @@ TEST_F(Camera3Gtest, Video1080pExposureModes) {
   Camera3Request videoRequest;
   int64_t lastFrameNumber;
   int32_t repeatingStreamId, videoRequestId;
-  CameraMetadata staticInfo;
+  ::camera::CameraMetadata staticInfo;
 
   auto ret = device_client_->GetCameraInfo(camera_idx_, &staticInfo);
   ASSERT_EQ(0, ret);
@@ -1028,7 +1050,7 @@ TEST_F(Camera3Gtest, Video1080pExposureMeteringModes) {
   Camera3Request videoRequest;
   int64_t lastFrameNumber;
   int32_t repeatingStreamId, videoRequestId;
-  CameraMetadata staticInfo;
+  ::camera::CameraMetadata staticInfo;
 
   auto ret = device_client_->GetCameraInfo(camera_idx_, &staticInfo);
   ASSERT_EQ(0, ret);
@@ -1108,7 +1130,7 @@ TEST_F(Camera3Gtest, Video1080pSnapshotHDR) {
   int64_t lastFrameNumber;
   int32_t previewStreamId, snapshotStreamId;
   int32_t previewRequestId;
-  CameraMetadata staticInfo;
+  ::camera::CameraMetadata staticInfo;
   uint8_t sceneMode = ANDROID_CONTROL_MODE_USE_SCENE_MODE;
 
   auto ret = device_client_->GetCameraInfo(camera_idx_, &staticInfo);
@@ -1375,7 +1397,7 @@ TEST_F(Camera3Gtest, Preview1080pSnapshot12Mp) {
 TEST_F(Camera3Gtest, UpdateExposureDuringPreviewVGA) {
   CameraStreamParameters streamParams;
   Camera3Request previewRequest;
-  CameraMetadata staticInfo;
+  ::camera::CameraMetadata staticInfo;
   int64_t lastFrameNumber;
   int32_t previewStreamId, previewRequestId;
 
@@ -1917,7 +1939,7 @@ TEST_F(Camera3Gtest, Video1080pAFR) {
   Camera3Request videoRequest;
   int64_t lastFrameNumber;
   int32_t repeatingStreamId, videoRequestId;
-  CameraMetadata staticInfo;
+  ::camera::CameraMetadata staticInfo;
   int32_t fpsRange[2] = {0, 0};
 
   auto ret = device_client_->GetCameraInfo(camera_idx_, &staticInfo);
@@ -1987,7 +2009,7 @@ TEST_F(Camera3Gtest, Video1080pSharpness) {
   Camera3Request videoRequest;
   int64_t lastFrameNumber;
   int32_t repeatingStreamId, videoRequestId;
-  CameraMetadata staticInfo;
+  ::camera::CameraMetadata staticInfo;
   unsigned char edge_mode = ANDROID_EDGE_MODE_OFF;
   unsigned char strength = 100;
 
@@ -2112,7 +2134,7 @@ TEST_F(Camera3Gtest, Video1080pZoom) {
   Camera3Request videoRequest;
   int64_t lastFrameNumber = -1;
   int32_t repeatingStreamId, videoRequestId = -1;
-  CameraMetadata staticInfo;
+  ::camera::CameraMetadata staticInfo;
   int32_t width, height;
   int32_t crop_rgn[4];
   int i;
@@ -2734,7 +2756,7 @@ TEST_F(Camera3Gtest, HFRVideo720p120FPS) {
   Camera3Request videoRequest;
   int64_t lastFrameNumber;
   int32_t videoStreamId, videoRequestId;
-  CameraMetadata staticInfo;
+  ::camera::CameraMetadata staticInfo;
   bool isHFRSupported = false;
   uint32_t widthOffset = 0;
   uint32_t heightOffset = 1;
@@ -3326,7 +3348,7 @@ TEST_F(Camera3Gtest, SnapshotBurstBracketing) {
   previewRequestId = ret;
   int32_t evCompensation = 0;
   int32_t evCompensationStep = 0;
-  CameraMetadata static_info;
+  ::camera::CameraMetadata static_info;
   ret = device_client_->GetCameraInfo(camera_idx_, &static_info);
   ASSERT_EQ(0, ret);
   if (static_info.exists(ANDROID_CONTROL_AE_COMPENSATION_RANGE)) {
@@ -3457,7 +3479,7 @@ TEST_F(Camera3Gtest, SnapshotAndRAW16Bit) {
 TEST_F(Camera3Gtest, ExposureLockVGA) {
   CameraStreamParameters streamParams;
   Camera3Request previewRequest;
-  CameraMetadata staticInfo;
+  ::camera::CameraMetadata staticInfo;
   int64_t lastFrameNumber;
   int32_t previewStreamId, previewRequestId;
 
@@ -3523,7 +3545,7 @@ TEST_F(Camera3Gtest, ExposureLockVGA) {
 TEST_F(Camera3Gtest, AwbLockVGA) {
   CameraStreamParameters streamParams;
   Camera3Request previewRequest;
-  CameraMetadata staticInfo;
+  ::camera::CameraMetadata staticInfo;
   int64_t lastFrameNumber;
   int32_t previewStreamId, previewRequestId;
 

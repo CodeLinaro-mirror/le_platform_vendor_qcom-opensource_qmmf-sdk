@@ -266,7 +266,7 @@ status_t Recorder::DeleteVideoTrack(const uint32_t session_id,
 status_t Recorder::CaptureImage(const uint32_t camera_id,
                                 const SnapshotType type,
                                 const uint32_t n_images,
-                                const std::vector<CameraMetadata> &meta,
+                                const std::vector<::camera::CameraMetadata> &meta,
                                 const ImageCaptureCb& cb) {
 
   assert(recorder_client_ != NULL);
@@ -307,13 +307,13 @@ status_t Recorder::ReturnImageCaptureBuffer(const uint32_t camera_id,
   auto ret = recorder_client_->ReturnImageCaptureBuffer(camera_id, buffer);
   if (NO_ERROR != ret) {
     QMMF_ERROR("%s: ReturnImageCaptureBuffer failed!", __func__);
-  }
+}
   QMMF_DEBUG("%s: Exit" ,__func__);
   return ret;
 }
 
 status_t Recorder::SetCameraParam(const uint32_t camera_id,
-                                  const CameraMetadata &meta) {
+                                  const ::camera::CameraMetadata &meta) {
 
   QMMF_INFO("%s: Enter" ,__func__);
   assert(recorder_client_ != NULL);
@@ -326,7 +326,7 @@ status_t Recorder::SetCameraParam(const uint32_t camera_id,
 }
 
 status_t Recorder::GetCameraParam(const uint32_t camera_id,
-                                  CameraMetadata &meta) {
+                                  ::camera::CameraMetadata &meta) {
 
   QMMF_INFO("%s: Enter" ,__func__);
   assert(recorder_client_ != NULL);
@@ -354,7 +354,7 @@ status_t Recorder::SetSHDR(const uint32_t camera_id,
 }
 
 status_t Recorder::GetDefaultCaptureParam(const uint32_t camera_id,
-                                          CameraMetadata &meta) {
+                                          ::camera::CameraMetadata &meta) {
 
   QMMF_INFO("%s: Enter" ,__func__);
   assert(recorder_client_ != NULL);
@@ -368,7 +368,7 @@ status_t Recorder::GetDefaultCaptureParam(const uint32_t camera_id,
 }
 
 status_t Recorder::GetCameraCharacteristics(const uint32_t camera_id,
-                                            CameraMetadata &meta) {
+                                            ::camera::CameraMetadata &meta) {
 
   QMMF_INFO("%s: Enter" ,__func__);
   assert(recorder_client_ != NULL);
