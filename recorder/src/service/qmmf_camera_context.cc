@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -1793,26 +1793,14 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
     }
   }
 
-  bool stale_batches_present = false;
-  ssize_t stale_idx = -1;
-  size_t stale_count = 0;
-  //Check for any stale batch requests and remove if present
-  for (size_t i = 1; i < streaming_active_requests_.size(); i++) {
+  for (size_t i = 1; i < streaming_active_requests_.size(); ) {
     if (streaming_active_requests_[i].streamIds.isEmpty()) {
-      if (!stale_batches_present) {
-        stale_batches_present = true;
-        stale_idx = i;
-      }
-      stale_count++;
+        streaming_active_requests_.erase(streaming_active_requests_.begin() + i);
+        continue;
     }
+    i++;
   }
 
-  if (stale_batches_present) {
-    streaming_active_requests_.erase(streaming_active_requests_.begin()
-        + stale_idx,
-        streaming_active_requests_.begin()
-        + stale_idx + stale_count);
-  }
   size = streaming_active_requests_[0].streamIds.size();
 
   //TODO: this logic only works when static stream configurations are applied
