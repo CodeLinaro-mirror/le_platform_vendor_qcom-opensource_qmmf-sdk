@@ -25,6 +25,40 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted (subject to the limitations in the
+ * disclaimer below) provided that the following conditions are met:
+ *
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials provided
+ *       with the distribution.
+ *
+ *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
+ *
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #pragma once
@@ -53,8 +87,10 @@ class GBMBuffer : public IBufferInterface {
  public:
   GBMBuffer() : generic_handle_(nullptr),
                 gralloc_handle_(nullptr),
-                usage_() {};
-  ~GBMBuffer() { if (nullptr != gralloc_handle_) {delete gralloc_handle_;} };
+                usage_(),
+                fd_(-1),
+                imported_(false) {};
+  ~GBMBuffer();
   struct gbm_bo *GetNativeHandle() const;
   int GetFD() override;
   int GetFormat() override;
@@ -62,6 +98,7 @@ class GBMBuffer : public IBufferInterface {
   uint32_t GetWidth() override;
   uint32_t GetHeight() override;
   void SetNativeHandle(struct gbm_bo *bo);
+  void ImportBuffer(struct gbm_bo *bo, int fd);
   int GetUsage ();
   uint32_t GetLocalFormat (int common);
   buffer_handle_t &RepackToGralloc ();
@@ -70,6 +107,8 @@ class GBMBuffer : public IBufferInterface {
   struct gbm_bo* generic_handle_;
   buffer_handle_t gralloc_handle_;
   MemAllocFlags usage_;
+  int fd_;
+  bool imported_;
   static const std::unordered_map<int32_t, int32_t> from_gbm_;
   static const std::unordered_map<uint32_t, uint32_t> to_gbm_;
 };
@@ -88,7 +127,7 @@ public:
                             MemAllocFlags usage, uint32_t* stride) override;
 
   MemAllocError ImportBuffer(IBufferHandle& handle,
-                             void* buffer_handle) override;
+                             void* buffer_handle, int fd) override;
 
   MemAllocError FreeBuffer(IBufferHandle handle) override;
 
@@ -113,8 +152,6 @@ private:
   gbm_device* gbm_device_;
 
   int gbm_fd_;
-
-  std::map<struct gbm_bo *, bool> imported_buffers_map_;
 
   static int32_t ref_count_;
   static GBMDevice* gbm_device_obj_;

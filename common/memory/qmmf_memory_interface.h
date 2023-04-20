@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -240,6 +240,14 @@ class IMemAllocUsage {
   *
   **/
   virtual MemAllocFlags ToCommon(int32_t local) const = 0;
+
+  /** IMemAllocUsage::ToGralloc
+  *
+  * Converts native usage flags to Gralloc flags
+  *
+  **/
+  virtual int32_t ToGralloc(MemAllocFlags common) const = 0;
+
   virtual ~IMemAllocUsage(){};
 };
 
@@ -337,7 +345,7 @@ class IAllocDevice {
                                     uint32_t* stride) = 0;
 
   virtual MemAllocError ImportBuffer(IBufferHandle& handle,
-                                     void* buffer_handle) = 0;
+                                     void* buffer_handle, int fd) = 0;
 
   /** IAllocDevice::FreeBuffer
   * @handle - handle to the allocated buffer
