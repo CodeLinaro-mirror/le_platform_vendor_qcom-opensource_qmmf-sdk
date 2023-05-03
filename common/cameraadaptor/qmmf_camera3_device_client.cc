@@ -548,22 +548,7 @@ int32_t Camera3DeviceClient::ConfigureStreamsLocked(
   config.streams = streams.editArray();
   config.num_streams = streams.size();
 
-#ifdef TARGET_USES_GBM
-  for (uint32_t i = 0; i < config.num_streams; i++) {
-    config.streams[i]->usage =
-        GBMUsage().LocalToGralloc(config.streams[i]->usage);
-  }
-#endif
-
   res = device_->ops->configure_streams(device_, &config);
-
-#ifdef TARGET_USES_GBM
-  for (uint32_t i = 0; i < config.num_streams; i++) {
-    config.streams[i]->usage =
-        GBMUsage().GrallocToLocal(config.streams[i]->usage);
-  }
-#endif
-
   if (res == -EINVAL) {
     for (uint32_t i = 0; i < streams_.size(); i++) {
       Camera3Stream *stream = streams_.editValueAt(i);
@@ -840,7 +825,7 @@ int32_t Camera3DeviceClient::CreateStream(
   assert(state_ != STATE_RUNNING);
 
   if (outputConfiguration.format == HAL_PIXEL_FORMAT_BLOB) {
-    blobBufferSize = CaclulateBlobSize(outputConfiguration.width,
+    blobBufferSize = CalculateBlobSize(outputConfiguration.width,
                                        outputConfiguration.height);
     if (blobBufferSize <= 0) {
       QMMF_ERROR("%s: Invalid jpeg buffer size %zd\n", __func__,
@@ -885,14 +870,14 @@ exit:
   return res;
 }
 
-int32_t Camera3DeviceClient::CaclulateBlobSize(int32_t width, int32_t height) {
-  int32_t maxJpegBufferSize, maxJpegSizeWidth, maxJpegSizeHeight;
+int32_t Camera3DeviceClient::CalculateBlobSize(int32_t width, int32_t height) {
+  int32_t maxJpegBufferSize, maxJpegSizeWidth, maxJpegSizeHeight, res, jpegDebugDataSize;
   int32_t maxWidth, maxHeight;
   int32_t maxUHRWidth, maxUHRHeight;
   int32_t ret;
   camera_metadata_entry entry;
 
-  maxWidth = maxHeight = maxUHRWidth = maxUHRHeight = 0;
+  maxWidth = maxHeight = maxUHRWidth = maxUHRHeight = res = jpegDebugDataSize = 0;
 
   entry = device_info_.find(ANDROID_JPEG_MAX_SIZE);
   if (entry.count == 0) {
@@ -927,6 +912,25 @@ int32_t Camera3DeviceClient::CaclulateBlobSize(int32_t width, int32_t height) {
       }
     }
   }
+
+  //Calculate debuging buffer size of jpeg.
+  uint32_t tag = 0;
+
+  camera_metadata_ro_entry entryDebug;
+  sp<::camera::VendorTagDescriptor> vTags =
+      ::camera::VendorTagDescriptor::getGlobalVendorTagDescriptor();
+
+  ::camera::CameraMetadata::getTagFromName(
+      "org.quic.camera.jpegdebugdata.size",vTags.get(), &tag);
+  res = find_camera_metadata_ro_entry(
+      (camera_metadata_t *)static_info_.static_camera_characteristics,
+      tag, &entryDebug);
+  if ((0 == res) && (entryDebug.count > 0)){
+    jpegDebugDataSize = entryDebug.data.i32[0];
+  }
+
+  QMMF_INFO("%s: jpegDebugDataSize=%d",
+      __func__, jpegDebugDataSize);
 #endif
 
   if (device_info_.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
@@ -979,8 +983,9 @@ int32_t Camera3DeviceClient::CaclulateBlobSize(int32_t width, int32_t height) {
   float scaleFactor =
       ((float)(width * height)) / (maxJpegSizeWidth * maxJpegSizeHeight);
   ssize_t jpegBufferSize =
-      scaleFactor * (maxJpegBufferSize - JPEG_BUFFER_SIZE_MIN) +
-      JPEG_BUFFER_SIZE_MIN;
+      scaleFactor * (maxJpegBufferSize - JPEG_BUFFER_SIZE_MIN
+      - jpegDebugDataSize) + JPEG_BUFFER_SIZE_MIN + jpegDebugDataSize;
+
   if (jpegBufferSize > maxJpegBufferSize) {
     jpegBufferSize = maxJpegBufferSize;
   }

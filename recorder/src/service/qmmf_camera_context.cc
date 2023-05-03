@@ -2679,10 +2679,20 @@ status_t CameraPort::Init() {
                                     IMemAllocUsage::kSwReadOften;
     cam_stream_params_.bufferCount  = MAX_SNAPSHOT_BUFFER_COUNT;
   } else {
-    // This flag is mandatory. Stream is considered as preview stream without it.
-    // Different tuning, setings and sensor mode is applied for preview and
-    // video streams. This is why this flag is needed.
-    cam_stream_params_.allocFlags.flags = IMemAllocUsage::kVideoEncoder;
+    // VideoFlags::kPreview is added, stream with this flag
+    // will be treated as preview stream
+    if (static_cast<bool>(params_.flags & VideoFlags::kPreview)) {
+
+      QMMF_INFO("%s: port %d with preview flag",__func__, GetPortId());
+
+      cam_stream_params_.allocFlags.flags = IMemAllocUsage::kHwComposer;
+    } else {
+      // This flag should be mandatory if preview flag is not set.
+      // Stream is considered as preview stream without it.
+      // Different tuning, setings and sensor mode is applied for preview and
+      // video streams. This is why this flag is needed.
+      cam_stream_params_.allocFlags.flags = IMemAllocUsage::kVideoEncoder;
+    }
 
     switch (params_.format) {
       case BufferFormat::kNV12UBWC:

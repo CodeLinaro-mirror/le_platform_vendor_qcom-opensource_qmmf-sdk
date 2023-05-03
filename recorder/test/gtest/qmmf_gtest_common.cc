@@ -68,6 +68,7 @@
 #include <camera/CameraMetadata.h>
 #include <ios>
 #include <random>
+#include <algorithm>
 
 #include "recorder/test/gtest/qmmf_gtest_common.h"
 
