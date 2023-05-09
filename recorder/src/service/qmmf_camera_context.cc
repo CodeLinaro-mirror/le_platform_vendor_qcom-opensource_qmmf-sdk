@@ -418,11 +418,18 @@ status_t CameraContext::OpenCamera(const uint32_t camera_id,
   }
 
   ret = camera_device_->OpenCamera(camera_id);
-  assert(ret == NO_ERROR);
+  if (ret !=  NO_ERROR) {
+    QMMF_ERROR("%s: Failed to open camera!", __func__);
+    return ret;
+  }
+
   camera_id_ = camera_id;
 
   ret = camera_device_->GetCameraInfo(camera_id, &static_meta_);
-  assert(ret == NO_ERROR);
+  if (ret !=  NO_ERROR) {
+    QMMF_ERROR("%s: Failed to Get Camera Info!", __func__);
+    return ret;
+  }
 
 #ifndef FLUSH_RESTART_NOTAVAILABLE
   ret = DisableFlushRestart(true, static_meta_);
