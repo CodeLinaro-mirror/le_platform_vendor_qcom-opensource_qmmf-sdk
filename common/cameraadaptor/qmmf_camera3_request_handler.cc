@@ -499,13 +499,7 @@ void Camera3RequestHandler::HandleErrorRequest(
 
   for (size_t i = 0; i < request.num_output_buffers; i++) {
     outputBuffers.editItemAt(i).status = CAMERA3_BUFFER_STATUS_ERROR;
-    StreamBuffer b;
-    memset(&b, 0, sizeof(b));
-    b.handle =
-      nextRequest.streams.editItemAt(i)->buffers_map[*outputBuffers[i].buffer];
-    nextRequest.streams.editItemAt(i)->
-      buffers_map.erase(*outputBuffers[i].buffer);
-    nextRequest.streams.editItemAt(i)->ReturnBuffer(b);
+    nextRequest.streams.editItemAt(i)->DropBuffer(outputBuffers[i].buffer);
   }
 
   pthread_mutex_lock(&lock_);

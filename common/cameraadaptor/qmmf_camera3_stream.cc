@@ -752,6 +752,27 @@ int32_t Camera3Stream::ReturnBuffer(const StreamBuffer &buffer) {
   return res;
 }
 
+int32_t Camera3Stream::DropBuffer(buffer_handle_t *buffer) {
+  pthread_mutex_lock(&lock_);
+
+  hal_buffer_cnt_--;
+  client_buffer_cnt_++;
+
+  StreamBuffer b;
+  memset(&b, 0, sizeof(b));
+  b.handle = buffers_map[*buffer];
+  assert(b.handle != nullptr);
+  buffers_map.erase(*buffer);
+
+  int32_t res = ReturnBufferLocked(b);
+  if (res == 0) {
+    pthread_cond_signal(&output_buffer_returned_signal_);
+  }
+
+  pthread_mutex_unlock(&lock_);
+  return res;
+}
+
 int32_t Camera3Stream::Close() {
   pthread_mutex_lock(&lock_);
   int32_t res = CloseLocked();
@@ -917,8 +938,7 @@ int32_t Camera3Stream::GetBufferLocked(camera3_stream_buffer *streamBuffer) {
 #else
     streamBuffer->buffer = &GetAllocBufferHandle(mem_alloc_slots_[idx]);
 #endif //TARGET_USES_GBM
-    buffers_map[*streamBuffer->buffer] =
-      mem_alloc_slots_[idx];
+    buffers_map[*streamBuffer->buffer] = mem_alloc_slots_[idx];
 
     if (pending_buffer_count_ == 0 && status_ != STATUS_CONFIG_ACTIVE &&
         status_ != STATUS_RECONFIG_ACTIVE) {

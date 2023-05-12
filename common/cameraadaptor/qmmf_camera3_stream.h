@@ -61,7 +61,7 @@ class Camera3Stream : public camera3_stream {
 
   int32_t GetBuffer(camera3_stream_buffer *buffer);
   int32_t ReturnBuffer(const StreamBuffer &buffer);
-  std::unordered_map <buffer_handle_t, IBufferHandle> buffers_map;
+  int32_t DropBuffer(buffer_handle_t *buffer);
 
   void ReturnBufferToClient(const camera3_stream_buffer &buffer,
                             int64_t timestamp, int64_t frame_number);
@@ -96,6 +96,9 @@ class Camera3Stream : public camera3_stream {
   /**Not allowed */
   Camera3Stream(const Camera3Stream &);
   Camera3Stream &operator=(const Camera3Stream &);
+
+  // Keep it wihout underscore for comability with Camera3InputStream
+  std::unordered_map <buffer_handle_t, IBufferHandle> buffers_map;
 
   IAllocDevice* mem_alloc_interface_;
 
