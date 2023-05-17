@@ -1036,7 +1036,6 @@ void RecorderClient::ReleaseBuffer(int32_t& fd) {
 
   gbm_bo_destroy(gbm_buffers_map_[fd]);
   gbm_buffers_map_.erase(fd);
-  fd = -1;
 }
 #endif
 
