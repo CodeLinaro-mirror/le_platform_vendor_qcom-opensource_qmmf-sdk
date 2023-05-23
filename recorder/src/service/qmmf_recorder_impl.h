@@ -344,6 +344,8 @@ class RecorderImpl {
 
   std::mutex                    stop_camera_lock_;
 
+  std::mutex                    camera_track_id_lock_;
+
   // Not allowed
   RecorderImpl();
   RecorderImpl(const RecorderImpl&);

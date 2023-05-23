@@ -406,7 +406,7 @@ status_t RecorderImpl::StartCamera(const uint32_t client_id,
   ErrorCb errcb = [&] (uint32_t camera_id, uint32_t errcode) {
       CameraErrorCb(camera_id, errcode); };
 
-  std::lock_guard<std::mutex> lock(camera_map_lock_);
+  std::lock_guard<std::mutex> lock(camera_track_id_lock_);
   auto ret = camera_source_->StartCamera(camera_id, framerate, extra_param,
                                          enable_result_cb ? cb : nullptr,
                                          errcb);
@@ -506,7 +506,7 @@ status_t RecorderImpl::StopCamera(const uint32_t client_id,
     }
   }
 
-  std::lock_guard<std::mutex> lock(camera_map_lock_);
+  std::lock_guard<std::mutex> lock(camera_track_id_lock_);
   auto ret = camera_source_->StopCamera(camera_id);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: StopCamera Failed!!", __func__);
@@ -1032,7 +1032,7 @@ status_t RecorderImpl::CreateVideoTrack(const uint32_t client_id,
   }
 
   // Create Camera track first.
-  std::lock_guard<std::mutex> lock(client_session_lock_);
+  std::lock_guard<std::mutex> lock(camera_track_id_lock_);
   assert(camera_source_ != nullptr);
   auto ret = camera_source_->CreateTrackSource(service_track_id, params,
                                                extraparams, cb);
@@ -1088,7 +1088,7 @@ status_t RecorderImpl::DeleteVideoTrack(const uint32_t client_id,
     return BAD_VALUE;
   }
 
-  client_session_lock_.lock();
+  camera_track_id_lock_.lock();
   auto& session_track_map = client_session_map_[client_id];
   auto& tracks_in_session = session_track_map[session_id];
 
@@ -1097,7 +1097,7 @@ status_t RecorderImpl::DeleteVideoTrack(const uint32_t client_id,
   assert(camera_source_ != nullptr);
   assert(service_track_id > 0);
   auto ret = camera_source_->DeleteTrackSource(service_track_id);
-  client_session_lock_.unlock();
+  camera_track_id_lock_.unlock();
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: service_track_id(%x) DeleteTrackSource failed!",
         __func__, service_track_id);
