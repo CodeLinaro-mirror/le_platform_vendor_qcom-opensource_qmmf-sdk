@@ -18,6 +18,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+/*
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
 #include "recorder/src/service/qmmf_recorder_common.h"
 #include "qmmf_camera3_device_client.h"
 #include "qmmf_camera3_utils.h"
@@ -31,6 +37,7 @@ namespace cameraadaptor {
 
 Camera3Monitor::Camera3Monitor()
     : monitor_updated_(false),
+      exit_pending_(false),
       idle_notify_(nullptr),
       next_monitor_(0),
       composite_state_(IDLE) {
@@ -109,11 +116,19 @@ void Camera3Monitor::ChangeState(int id, MonitorState state) {
 
 void Camera3Monitor::RequestExit() {
   ThreadHelper::RequestExit();
+
+  pthread_mutex_lock(&input_lock_);
+  exit_pending_ = true;
   pthread_cond_signal(&input_signal_);
+  pthread_mutex_unlock(&input_lock_);
 }
 
 void Camera3Monitor::RequestExitAndWait() {
+  pthread_mutex_lock(&input_lock_);
+  exit_pending_ = true;
   pthread_cond_signal(&input_signal_);
+  pthread_mutex_unlock(&input_lock_);
+
   ThreadHelper::RequestExitAndWait();
 }
 
@@ -130,12 +145,8 @@ bool Camera3Monitor::ThreadLoop() {
   int32_t res = 0;
 
   pthread_mutex_lock(&input_lock_);
-  while (input_queue_.size() == 0 && !monitor_updated_) {
+  while (input_queue_.size() == 0 && !monitor_updated_ && !exit_pending_) {
     res = cond_wait_relative(&input_signal_, &input_lock_, WAIT_TIMEOUT);
-    if (ThreadHelper::ExitPending()) {
-      pthread_mutex_unlock(&input_lock_);
-      return false;
-    }
     if (0 != res) {
       if (-ETIMEDOUT != res) {
         QMMF_ERROR("%s: Error during state change wait: %s (%d)\n", __func__,
@@ -145,7 +156,10 @@ bool Camera3Monitor::ThreadLoop() {
       break;
     }
   }
-
+  if (exit_pending_) {
+    pthread_mutex_unlock(&input_lock_);
+    return false;
+  }
   pthread_mutex_lock(&lock_);
 
   MonitorState oldState = BuildCompositeState();
