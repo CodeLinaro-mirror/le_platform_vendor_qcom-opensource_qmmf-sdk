@@ -1092,11 +1092,13 @@ status_t RecorderClient::UnmapBuffer(BufferInfo& info) {
 #ifdef TARGET_USES_GBM
     ReleaseBuffer(info.ion_fd);
 #endif
+#ifdef GBM_FREE_FD
     if ((info.ion_fd != -1) && (close(info.ion_fd) < 0)) {
       QMMF_ERROR("%s() error closing shared fd[%d]: %d[%s]", __func__,
                  info.ion_fd, errno, strerror(errno));
       return errno;
     }
+#endif
     info.ion_fd = -1;
   }
 
