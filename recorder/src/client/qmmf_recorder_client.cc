@@ -993,6 +993,8 @@ void RecorderClient::ImportBuffer(int32_t fd, int32_t metafd,
       break;
     case BufferFormat::kBLOB:
       format = GBM_FORMAT_BLOB;
+      width  = meta.planes[0].size;
+      height = 1;
       break;
     case BufferFormat::kNV12UBWC:
       format = GBM_FORMAT_YCbCr_420_SP_VENUS_UBWC;
@@ -1034,7 +1036,6 @@ void RecorderClient::ReleaseBuffer(int32_t& fd) {
 
   gbm_bo_destroy(gbm_buffers_map_[fd]);
   gbm_buffers_map_.erase(fd);
-  fd = -1;
 }
 #endif
 

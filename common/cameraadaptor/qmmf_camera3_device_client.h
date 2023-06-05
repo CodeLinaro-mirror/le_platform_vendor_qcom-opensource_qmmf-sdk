@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -187,6 +187,13 @@ class Camera3DeviceClient : public camera3_callback_ops,
                                bool streaming, int64_t *lastFrameNumber = NULL);
 
   void HandleCaptureResult(const camera3_capture_result *result);
+#if defined(CAMERA_HAL_API_VERSION) && (CAMERA_HAL_API_VERSION >= 0x0307)
+  void ReturnStreamBuffers(uint32_t num_buffers, const camera3_stream_buffer_t* const* buffers);
+  camera3_buffer_request_status_t RequestStreamBuffers(uint32_t num_buffer_reqs,
+          const camera3_buffer_request_t *buffer_reqs, uint32_t *num_returned_buf_reqs,
+          camera3_stream_buffer_ret_t *returned_buf_reqs);
+#endif
+  void UpdateCameraStatus(bool status);
   void Notify(const camera3_notify_msg *msg);
   void NotifyError(const camera3_error_msg_t &msg);
   void NotifyShutter(const camera3_shutter_msg_t &msg);
@@ -206,9 +213,7 @@ class Camera3DeviceClient : public camera3_callback_ops,
   int32_t InternalResumeLocked();
   int32_t WaitUntilStateThenRelock(bool active, int64_t timeout);
 
-  int32_t CaclulateBlobSize(int32_t width, int32_t height);
-  int32_t QueryMaxBlobSize(int32_t &maxJpegSizeWidth,
-                           int32_t &maxJpegSizeHeight);
+  int32_t CalculateBlobSize(int32_t width, int32_t height);
 
   int32_t ConfigureStreams(
         const CameraParameters& camera_parameters = CameraParameters(),
@@ -223,6 +228,15 @@ class Camera3DeviceClient : public camera3_callback_ops,
 
   static callbacks_process_capture_result_t processCaptureResult;
   static callbacks_notify_t notifyFromHal;
+#if defined(CAMERA_HAL_API_VERSION) && (CAMERA_HAL_API_VERSION >= 0x0307)
+  static camera3_buffer_request_status_t requestStreamBuffers(
+            const struct camera3_callback_ops *cb, uint32_t num_buffer_reqs,
+            const camera3_buffer_request_t *buffer_reqs, uint32_t *num_returned_buf_reqs,
+            camera3_stream_buffer_ret_t *returned_buf_reqs);
+  static void returnStreamBuffers(
+            const struct camera3_callback_ops *cb, uint32_t num_buffers,
+            const camera3_stream_buffer_t* const* buffers);
+#endif
   static camera_device_status_change_t deviceStatusChange;
   static torch_mode_status_change_t torchModeStatusChange;
 
@@ -277,7 +291,6 @@ class Camera3DeviceClient : public camera3_callback_ops,
   camera_module_t *camera_module_;
   camera3_device_t *device_;
   uint32_t number_of_cameras_;
-  struct camera_info static_info_;
   ::camera::CameraMetadata device_info_;
   IAllocDevice* alloc_device_interface_;
 
@@ -313,6 +326,7 @@ class Camera3DeviceClient : public camera3_callback_ops,
   static std::mutex vendor_tag_mutex_;
   static sp<::camera::VendorTagDescriptor> vendor_tag_desc_;
   static uint32_t client_count_;
+  std::atomic<bool> is_camera_device_available_;
 };
 
 }  // namespace cameraadaptor ends here

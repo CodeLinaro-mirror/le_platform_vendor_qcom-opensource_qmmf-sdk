@@ -25,6 +25,40 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted (subject to the limitations in the
+ * disclaimer below) provided that the following conditions are met:
+ *
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials provided
+ *       with the distribution.
+ *
+ *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
+ *
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #define LOG_TAG "RecorderCameraContextHal1"
@@ -1273,10 +1307,10 @@ status_t CameraContext::PopulateBufferMeta(BufferMeta &info,
                                            IBufferHandle &handle,
                                            uint32_t width,
                                            uint32_t height) {
-  uint32_t alignedW, alignedH;
+  uint32_t stride, scanline;
   auto ret = alloc_device_interface_->Perform(handle,
-                              IAllocDevice::AllocDeviceAction::GetAlignedWidth,
-                              static_cast<void*>(&alignedW));
+                              IAllocDevice::AllocDeviceAction::GetStride,
+                              static_cast<void*>(&stride));
 
   if (MemAllocError::kAllocOk != ret) {
     QMMF_ERROR("%s: Error in GetStrideAndHeightFromHandle() : %d\n", __func__,
@@ -1286,7 +1320,7 @@ status_t CameraContext::PopulateBufferMeta(BufferMeta &info,
 
   ret = alloc_device_interface_->Perform(handle,
                               IAllocDevice::AllocDeviceAction::GetAlignedHeight,
-                              static_cast<void*>(&alignedH));
+                              static_cast<void*>(&scanline));
   if (MemAllocError::kAllocOk != ret) {
     QMMF_ERROR("%s: Error in GetStrideAndHeightFromHandle() : %d\n", __func__,
       (int32_t) ret);
@@ -1301,9 +1335,9 @@ status_t CameraContext::PopulateBufferMeta(BufferMeta &info,
       info.n_planes = 1;
       info.planes[0].width = width;
       info.planes[0].height = height;
-      info.planes[0].stride = alignedW;
-      info.planes[0].scanline = alignedH;
-      info.planes[0].size = alignedW * alignedH;
+      info.planes[0].stride = stride;
+      info.planes[0].scanline = scanline;
+      info.planes[0].size = stride * scanline;
       info.planes[0].offset = 0;
       break;
     case HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS:
@@ -1314,32 +1348,32 @@ status_t CameraContext::PopulateBufferMeta(BufferMeta &info,
       info.n_planes = 2;
       info.planes[0].width = width;
       info.planes[0].height = height;
-      info.planes[0].stride = alignedW;
-      info.planes[0].scanline = alignedH;
-      info.planes[0].size = alignedW * alignedH;
+      info.planes[0].stride = stride;
+      info.planes[0].scanline = scanline;
+      info.planes[0].size = stride * scanline;
       info.planes[0].offset = 0;
       info.planes[1].width = width;
       info.planes[1].height = height / 2;
-      info.planes[1].stride = alignedW;
-      info.planes[1].scanline = alignedH/2;
-      info.planes[1].size = alignedW * (alignedH / 2);
-      info.planes[1].offset = alignedW * alignedH;
+      info.planes[1].stride = stride;
+      info.planes[1].scanline = scanline / 2;
+      info.planes[1].size = stride * (scanline / 2);
+      info.planes[1].offset = stride * scanline;
       break;
     case HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS_UBWC:
       info.format = BufferFormat::kNV12UBWC;
       info.n_planes = 2;
       info.planes[0].width = width;
       info.planes[0].height = height;
-      info.planes[0].stride = alignedW;
-      info.planes[0].scanline = alignedH;
-      info.planes[0].size = alignedW * alignedH;
+      info.planes[0].stride = stride;
+      info.planes[0].scanline = scanline;
+      info.planes[0].size = stride * scanline;
       info.planes[0].offset = 0;
       info.planes[1].width = width;
       info.planes[1].height = height / 2;
-      info.planes[1].stride = alignedW;
-      info.planes[1].scanline = alignedH/2;
-      info.planes[1].size = alignedW * (alignedH / 2);
-      info.planes[1].offset = alignedW * alignedH;
+      info.planes[1].stride = stride;
+      info.planes[1].scanline = scanline / 2;
+      info.planes[1].size = stride * (scanline / 2);
+      info.planes[1].offset = stride * scanline;
       break;
     case HAL_PIXEL_FORMAT_YCbCr_422_888:
     case HAL_PIXEL_FORMAT_YCbCr_422_SP:
@@ -1347,41 +1381,41 @@ status_t CameraContext::PopulateBufferMeta(BufferMeta &info,
       info.n_planes = 2;
       info.planes[0].width = width;
       info.planes[0].height = height;
-      info.planes[0].stride = alignedW;
-      info.planes[0].scanline = alignedH;
-      info.planes[0].size = alignedW * alignedH;
+      info.planes[0].stride = stride;
+      info.planes[0].scanline = scanline;
+      info.planes[0].size = stride * scanline;
       info.planes[0].offset = 0;
       info.planes[1].width = width;
       info.planes[1].height = height;
-      info.planes[1].stride = alignedW;
-      info.planes[1].scanline = alignedH;
-      info.planes[1].size = alignedW * alignedH;
-      info.planes[1].offset = alignedW * alignedH;
+      info.planes[1].stride = stride;
+      info.planes[1].scanline = scanline;
+      info.planes[1].size = stride * scanline;
+      info.planes[1].offset = stride * scanline;
       break;
     case HAL_PIXEL_FORMAT_NV21_ZSL:
       info.format = BufferFormat::kNV21;
       info.n_planes = 2;
       info.planes[0].width = width;
       info.planes[0].height = height;
-      info.planes[0].stride = alignedW;
-      info.planes[0].scanline = alignedH;
-      info.planes[0].size = alignedW * alignedH;
+      info.planes[0].stride = stride;
+      info.planes[0].scanline = scanline;
+      info.planes[0].size = stride * scanline;
       info.planes[0].offset = 0;
       info.planes[1].width = width;
-      info.planes[1].height = height/2;
-      info.planes[1].stride = alignedW;
-      info.planes[1].scanline = alignedH/2;
-      info.planes[1].size = alignedW * (alignedH / 2);
-      info.planes[1].offset = alignedW * alignedH;
+      info.planes[1].height = height / 2;
+      info.planes[1].stride = stride;
+      info.planes[1].scanline = scanline / 2;
+      info.planes[1].size = stride * (scanline / 2);
+      info.planes[1].offset = stride * scanline;
       break;
     case HAL_PIXEL_FORMAT_RAW8:
       info.format = BufferFormat::kRAW8;
       info.n_planes = 1;
       info.planes[0].width = width;
       info.planes[0].height = height;
-      info.planes[0].stride = alignedW;
-      info.planes[0].scanline = alignedH;
-      info.planes[0].size = alignedW * alignedH;
+      info.planes[0].stride = stride;
+      info.planes[0].scanline = scanline;
+      info.planes[0].size = stride * scanline;
       info.planes[0].offset = 0;
       break;
     case HAL_PIXEL_FORMAT_RAW10:
@@ -1389,9 +1423,9 @@ status_t CameraContext::PopulateBufferMeta(BufferMeta &info,
       info.n_planes = 1;
       info.planes[0].width = width;
       info.planes[0].height = height;
-      info.planes[0].stride = alignedW;
-      info.planes[0].scanline = alignedH;
-      info.planes[0].size = alignedW * alignedH;
+      info.planes[0].stride = stride;
+      info.planes[0].scanline = scanline;
+      info.planes[0].size = stride * scanline;
       info.planes[0].offset = 0;
       break;
     case HAL_PIXEL_FORMAT_RAW12:
@@ -1399,9 +1433,9 @@ status_t CameraContext::PopulateBufferMeta(BufferMeta &info,
       info.n_planes = 1;
       info.planes[0].width = width;
       info.planes[0].height = height;
-      info.planes[0].stride = alignedW;
-      info.planes[0].scanline = alignedH;
-      info.planes[0].size = alignedW * alignedH;
+      info.planes[0].stride = stride;
+      info.planes[0].scanline = scanline;
+      info.planes[0].size = stride * scanline;
       info.planes[0].offset = 0;
       break;
     case HAL_PIXEL_FORMAT_RAW16:
@@ -1409,9 +1443,9 @@ status_t CameraContext::PopulateBufferMeta(BufferMeta &info,
       info.n_planes = 1;
       info.planes[0].width = width;
       info.planes[0].height = height;
-      info.planes[0].stride = alignedW;
-      info.planes[0].scanline = alignedH;
-      info.planes[0].size = alignedW * alignedH;
+      info.planes[0].stride = stride;
+      info.planes[0].scanline = scanline;
+      info.planes[0].size = stride * scanline;
       info.planes[0].offset = 0;
       break;
     default:
@@ -1453,7 +1487,7 @@ status_t CameraContext::SnapshotCallback(const camera_memory_t *data,
   buffer.frame_number = ++snapshot_frame_id_;
   buffer.timestamp = timestamp;
   buffer.camera_id = camera_id_;
-  alloc_device_interface_->ImportBuffer(buffer.handle, bo);
+  alloc_device_interface_->ImportBuffer(buffer.handle, bo, fd);
   auto ret = PopulateBufferMeta(buffer.info, buffer.handle, data->size, 1);
   assert(ret == NO_ERROR);
 
@@ -1733,7 +1767,7 @@ void CameraPort::StreamCallback(const void *data, int64_t timestamp) {
     buffer.size = bo->size;
     buffer.frame_number = ++frame_number_;
     buffer.timestamp = timestamp;
-    context_->alloc_device_interface_->ImportBuffer(buffer.handle, bo);
+    context_->alloc_device_interface_->ImportBuffer(buffer.handle, bo, fd);
     auto ret =
         context_->PopulateBufferMeta(buffer.info, buffer.handle, width_, height_);
     assert(ret == NO_ERROR);
