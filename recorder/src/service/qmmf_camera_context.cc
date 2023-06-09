@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -418,11 +418,18 @@ status_t CameraContext::OpenCamera(const uint32_t camera_id,
   }
 
   ret = camera_device_->OpenCamera(camera_id);
-  assert(ret == NO_ERROR);
+  if (ret !=  NO_ERROR) {
+    QMMF_ERROR("%s: Failed to open camera!", __func__);
+    return ret;
+  }
+
   camera_id_ = camera_id;
 
   ret = camera_device_->GetCameraInfo(camera_id, &static_meta_);
-  assert(ret == NO_ERROR);
+  if (ret !=  NO_ERROR) {
+    QMMF_ERROR("%s: Failed to Get Camera Info!", __func__);
+    return ret;
+  }
 
 #ifndef FLUSH_RESTART_NOTAVAILABLE
   ret = DisableFlushRestart(true, static_meta_);
@@ -584,6 +591,14 @@ status_t CameraContext::ConfigImageCapture(const SnapshotParam& param,
       CameraStreamParameters stream_param{};
       ret = GetSnapshotStreamParams(param, stream_param);
       assert(ret == NO_ERROR);
+
+#ifdef ENABLE_IMAGE_NV12
+      if (param.format == BufferFormat::kNV12) {
+        stream_param.allocFlags.flags |= IMemAllocUsage::kHwCameraWrite;
+        stream_param.data_space = static_cast<android_dataspace_t>
+                                  (HAL_DATASPACE_HEIF);
+      }
+#endif
 
       ret = CreateSnapshotStream(stream_param, true);
       if (NO_ERROR != ret) {
@@ -1793,26 +1808,14 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
     }
   }
 
-  bool stale_batches_present = false;
-  ssize_t stale_idx = -1;
-  size_t stale_count = 0;
-  //Check for any stale batch requests and remove if present
-  for (size_t i = 1; i < streaming_active_requests_.size(); i++) {
+  for (size_t i = 1; i < streaming_active_requests_.size(); ) {
     if (streaming_active_requests_[i].streamIds.isEmpty()) {
-      if (!stale_batches_present) {
-        stale_batches_present = true;
-        stale_idx = i;
-      }
-      stale_count++;
+        streaming_active_requests_.erase(streaming_active_requests_.begin() + i);
+        continue;
     }
+    i++;
   }
 
-  if (stale_batches_present) {
-    streaming_active_requests_.erase(streaming_active_requests_.begin()
-        + stale_idx,
-        streaming_active_requests_.begin()
-        + stale_idx + stale_count);
-  }
   size = streaming_active_requests_[0].streamIds.size();
 
   //TODO: this logic only works when static stream configurations are applied
@@ -2679,10 +2682,20 @@ status_t CameraPort::Init() {
                                     IMemAllocUsage::kSwReadOften;
     cam_stream_params_.bufferCount  = MAX_SNAPSHOT_BUFFER_COUNT;
   } else {
-    // This flag is mandatory. Stream is considered as preview stream without it.
-    // Different tuning, setings and sensor mode is applied for preview and
-    // video streams. This is why this flag is needed.
-    cam_stream_params_.allocFlags.flags = IMemAllocUsage::kVideoEncoder;
+    // VideoFlags::kPreview is added, stream with this flag
+    // will be treated as preview stream
+    if (static_cast<bool>(params_.flags & VideoFlags::kPreview)) {
+
+      QMMF_INFO("%s: port %d with preview flag",__func__, GetPortId());
+
+      cam_stream_params_.allocFlags.flags = IMemAllocUsage::kHwComposer;
+    } else {
+      // This flag should be mandatory if preview flag is not set.
+      // Stream is considered as preview stream without it.
+      // Different tuning, setings and sensor mode is applied for preview and
+      // video streams. This is why this flag is needed.
+      cam_stream_params_.allocFlags.flags = IMemAllocUsage::kVideoEncoder;
+    }
 
     switch (params_.format) {
       case BufferFormat::kNV12UBWC:

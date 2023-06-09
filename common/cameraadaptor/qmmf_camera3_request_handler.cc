@@ -399,14 +399,6 @@ int32_t Camera3RequestHandler::SubmitRequest(CaptureRequest &nextRequest,
     return -1;
   }
 
-  // TODO: To be removed when camera supports GBM
-#ifdef TARGET_USES_GBM
-  for (uint32_t i = 0; i < nextRequest.streams.size(); i++) {
-    nextRequest.streams[i]->usage =
-        GBMUsage().LocalToGralloc(nextRequest.streams[i]->usage);
-  }
-#endif
-
   if (in_buf) {
     request.input_buffer = in_buf;
     totalNumBuffers++;
@@ -430,14 +422,6 @@ int32_t Camera3RequestHandler::SubmitRequest(CaptureRequest &nextRequest,
     HandleErrorRequest(request, nextRequest, outputBuffers);
     return res;
   }
-
-  // TODO: To be removed when camera supports GBM
-#ifdef TARGET_USES_GBM
-  for (uint32_t i = 0; i < nextRequest.streams.size(); i++) {
-    nextRequest.streams[i]->usage =
-        GBMUsage().GrallocToLocal(nextRequest.streams[i]->usage);
-  }
-#endif
 
   if (request.settings != NULL) {
     nextRequest.metadata.unlock(request.settings);

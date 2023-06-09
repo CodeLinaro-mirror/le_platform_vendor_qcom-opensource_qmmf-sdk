@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -153,10 +153,15 @@ Camera3DeviceClient::Camera3DeviceClient(CameraClientCallbacks clientCb)
       cam_feature_flags_(static_cast<uint32_t>(CamFeatureFlag::kNone)),
       fps_sensormode_index_(0),
       prepare_handler_(),
-      input_stream_{} {
+      input_stream_{},
+      is_camera_device_available_ (true) {
   QMMF_GET_LOG_LEVEL();
   camera3_callback_ops::notify = &notifyFromHal;
   camera3_callback_ops::process_capture_result = &processCaptureResult;
+#if defined(CAMERA_HAL_API_VERSION) && (CAMERA_HAL_API_VERSION >= 0x0307)
+  camera3_callback_ops_t::request_stream_buffers = &requestStreamBuffers;
+  camera3_callback_ops_t::return_stream_buffers = &returnStreamBuffers;
+#endif
   camera_module_callbacks_t::camera_device_status_change = &deviceStatusChange;
   camera_module_callbacks_t::torch_mode_status_change = &torchModeStatusChange;
   pthread_mutex_init(&lock_, NULL);
@@ -350,13 +355,12 @@ int32_t Camera3DeviceClient::OpenCamera(uint32_t idx) {
     goto exit;
   }
 
-  res = camera_module_->get_camera_info(idx, &static_info_);
+  res = GetCameraInfo(idx, &device_info_);
   if (0 != res) {
     QMMF_ERROR("%s: Error during camera static info query: %s!\n", __func__,
                strerror(res));
     goto exit;
   }
-  device_info_ = static_info_.static_camera_characteristics;
 
   id = std::to_string(idx);
   res = camera_module_->common.methods->open(&camera_module_->common, id.c_str(),
@@ -544,22 +548,7 @@ int32_t Camera3DeviceClient::ConfigureStreamsLocked(
   config.streams = streams.editArray();
   config.num_streams = streams.size();
 
-#ifdef TARGET_USES_GBM
-  for (uint32_t i = 0; i < config.num_streams; i++) {
-    config.streams[i]->usage =
-        GBMUsage().LocalToGralloc(config.streams[i]->usage);
-  }
-#endif
-
   res = device_->ops->configure_streams(device_, &config);
-
-#ifdef TARGET_USES_GBM
-  for (uint32_t i = 0; i < config.num_streams; i++) {
-    config.streams[i]->usage =
-        GBMUsage().GrallocToLocal(config.streams[i]->usage);
-  }
-#endif
-
   if (res == -EINVAL) {
     for (uint32_t i = 0; i < streams_.size(); i++) {
       Camera3Stream *stream = streams_.editValueAt(i);
@@ -836,7 +825,7 @@ int32_t Camera3DeviceClient::CreateStream(
   assert(state_ != STATE_RUNNING);
 
   if (outputConfiguration.format == HAL_PIXEL_FORMAT_BLOB) {
-    blobBufferSize = CaclulateBlobSize(outputConfiguration.width,
+    blobBufferSize = CalculateBlobSize(outputConfiguration.width,
                                        outputConfiguration.height);
     if (blobBufferSize <= 0) {
       QMMF_ERROR("%s: Invalid jpeg buffer size %zd\n", __func__,
@@ -881,69 +870,128 @@ exit:
   return res;
 }
 
-int32_t Camera3DeviceClient::QueryMaxBlobSize(int32_t &maxBlobWidth,
-                                              int32_t &maxBlobHeight) {
-  maxBlobWidth = 0;
-  maxBlobHeight = 0;
-  camera_metadata_entry_t availableStreamConfigs =
-      device_info_.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
-  if (availableStreamConfigs.count == 0 ||
-      availableStreamConfigs.count % 4 != 0) {
-    return 0;
-  }
+int32_t Camera3DeviceClient::CalculateBlobSize(int32_t width, int32_t height) {
+  int32_t maxJpegBufferSize, maxJpegSizeWidth, maxJpegSizeHeight, res, jpegDebugDataSize;
+  int32_t maxWidth, maxHeight;
+  int32_t maxUHRWidth, maxUHRHeight;
+  int32_t ret;
+  camera_metadata_entry entry;
 
-  for (uint32_t i = 0; i < availableStreamConfigs.count; i += 4) {
-    int32_t format = availableStreamConfigs.data.i32[i];
-    int32_t width = availableStreamConfigs.data.i32[i + 1];
-    int32_t height = availableStreamConfigs.data.i32[i + 2];
-    int32_t isInput = availableStreamConfigs.data.i32[i + 3];
-    if (isInput == ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT &&
-        format == HAL_PIXEL_FORMAT_BLOB &&
-        (width * height > maxBlobWidth * maxBlobHeight)) {
-      maxBlobWidth = width;
-      maxBlobHeight = height;
-    }
-  }
+  maxWidth = maxHeight = maxUHRWidth = maxUHRHeight = res = jpegDebugDataSize = 0;
 
-  return 0;
-}
-
-int32_t Camera3DeviceClient::CaclulateBlobSize(int32_t width, int32_t height) {
-  // Get max jpeg size (area-wise).
-  int32_t maxJpegSizeWidth = 0;
-  int32_t maxJpegSizeHeight = 0;
-  QueryMaxBlobSize(maxJpegSizeWidth, maxJpegSizeHeight);
-  if (maxJpegSizeWidth == 0) {
-    QMMF_ERROR(
-        "%s: Camera %d: Can't find valid available jpeg sizes in "
-        "static metadata!\n",
-        __func__, id_);
-    return -EINVAL;
-  }
-
-  // Get max jpeg buffer size
-  int32_t maxJpegBufferSize = 0;
-  camera_metadata_entry jpegBufMaxSize =
-      device_info_.find(ANDROID_JPEG_MAX_SIZE);
-  if (jpegBufMaxSize.count == 0) {
+  entry = device_info_.find(ANDROID_JPEG_MAX_SIZE);
+  if (entry.count == 0) {
     QMMF_ERROR(
         "%s: Camera %d: Can't find maximum JPEG size in static"
         " metadata!\n",
         __func__, id_);
     return -EINVAL;
   }
-  maxJpegBufferSize = jpegBufMaxSize.data.i32[0];
+  maxJpegBufferSize = entry.data.i32[0];
+  assert(JPEG_BUFFER_SIZE_MIN < maxJpegBufferSize);
+
+  QMMF_INFO("%s: default maxJpegBufferSize=%d", __func__, maxJpegBufferSize);
+
+
+#if defined(CAMERA_HAL_API_VERSION) && (CAMERA_HAL_API_VERSION >= 0x0307)
+  if (device_info_.exists(
+      ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_MAXIMUM_RESOLUTION)) {
+    auto entry = device_info_.find(
+      ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_MAXIMUM_RESOLUTION);
+    for (uint32_t i = 0; i < entry.count; i += 4) {
+      if (HAL_PIXEL_FORMAT_BLOB == entry.data.i32[i] &&
+          ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
+            entry.data.i32[i+3]) {
+        int32_t w = entry.data.i32[i + 1];
+        int32_t h = entry.data.i32[i + 2];
+
+        if (w * h > maxUHRWidth * maxUHRHeight) {
+          maxUHRWidth = w;
+          maxUHRHeight = h;
+        }
+      }
+    }
+  }
+
+  //Calculate debuging buffer size of jpeg.
+  uint32_t tag = 0;
+
+  camera_metadata_ro_entry entryDebug;
+  sp<::camera::VendorTagDescriptor> vTags =
+      ::camera::VendorTagDescriptor::getGlobalVendorTagDescriptor();
+
+  ::camera::CameraMetadata::getTagFromName(
+      "org.quic.camera.jpegdebugdata.size",vTags.get(), &tag);
+  res = find_camera_metadata_ro_entry(
+      (camera_metadata_t *)&device_info_,
+      tag, &entryDebug);
+  if ((0 == res) && (entryDebug.count > 0)){
+    jpegDebugDataSize = entryDebug.data.i32[0];
+  }
+
+  QMMF_INFO("%s: jpegDebugDataSize=%d",
+      __func__, jpegDebugDataSize);
+#endif
+
+  if (device_info_.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
+    auto entry = device_info_.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
+    for (uint32_t i = 0; i < entry.count; i += 4) {
+      if (HAL_PIXEL_FORMAT_BLOB == entry.data.i32[i] &&
+          ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
+            entry.data.i32[i+3]) {
+        int32_t w = entry.data.i32[i + 1];
+        int32_t h = entry.data.i32[i + 2];
+
+        if (w * h > maxWidth * maxHeight) {
+          maxWidth = w;
+          maxHeight = h;
+        }
+      }
+    }
+  } else {
+    QMMF_ERROR(
+        "%s: Camera %d: Can't find available stream configs", __func__, id_);
+    return -EINVAL;
+  }
+
+  QMMF_INFO("%s: maxUHRWidth=%d maxUHRHeight=%d maxWidth=%d maxHeight=%d",
+      __func__, maxUHRWidth, maxUHRHeight, maxWidth, maxHeight);
+
+  // if input width * height is larger than default max width * height,
+  // it means ultra hight resolution has been selected, to make scaleFactor
+  // calculation work correctly, we need to update buffersize, max width and
+  // max height accordingly
+  if ((maxUHRWidth != 0) && ((width * height) > (maxWidth * maxHeight))) {
+    maxJpegSizeWidth = maxUHRWidth;
+    maxJpegSizeHeight = maxUHRHeight;
+    maxJpegBufferSize =
+      ((maxUHRWidth * 1.0f * maxUHRHeight) / (maxWidth * maxHeight)) *
+        maxJpegBufferSize;
+  } else {
+    maxJpegSizeWidth = maxWidth;
+    maxJpegSizeHeight = maxHeight;
+  }
+
+  QMMF_INFO("%s: input width=%d height=%d"
+      " maxJpegBufferSize=%d maxJpegSizeWidth=%d maxJpegSizeHeight=%d",
+      __func__, width, height,
+      maxJpegBufferSize, maxJpegSizeWidth, maxJpegSizeHeight);
+
   assert(JPEG_BUFFER_SIZE_MIN < maxJpegBufferSize);
 
   // Calculate final jpeg buffer size for the given resolution.
   float scaleFactor =
       ((float)(width * height)) / (maxJpegSizeWidth * maxJpegSizeHeight);
   ssize_t jpegBufferSize =
-      scaleFactor * (maxJpegBufferSize - JPEG_BUFFER_SIZE_MIN) +
-      JPEG_BUFFER_SIZE_MIN;
+      scaleFactor * (maxJpegBufferSize - JPEG_BUFFER_SIZE_MIN
+      - jpegDebugDataSize) + JPEG_BUFFER_SIZE_MIN + jpegDebugDataSize;
+
   if (jpegBufferSize > maxJpegBufferSize) {
     jpegBufferSize = maxJpegBufferSize;
   }
+
+  QMMF_INFO("%s: scaleFactor=%f jpegBufferSize=%d",
+      __func__, scaleFactor, jpegBufferSize);
 
   return jpegBufferSize;
 }
@@ -1412,6 +1460,25 @@ void Camera3DeviceClient::NotifyShutter(const camera3_shutter_msg_t &msg) {
   }
 }
 
+#if defined(CAMERA_HAL_API_VERSION) && (CAMERA_HAL_API_VERSION >= 0x0307)
+void Camera3DeviceClient::ReturnStreamBuffers(uint32_t num_buffers, const camera3_stream_buffer_t* const* buffers) {
+  QMMF_ERROR("%s: return buffer %d: not supported", __func__, num_buffers);
+}
+
+camera3_buffer_request_status_t Camera3DeviceClient::RequestStreamBuffers(uint32_t num_buffer_reqs,
+    const camera3_buffer_request_t *buffer_reqs, uint32_t *num_returned_buf_reqs,
+    camera3_stream_buffer_ret_t *returned_buf_reqs) {
+  QMMF_ERROR("%s: request buffer %d: not supported", __func__, num_buffer_reqs);
+
+  *num_returned_buf_reqs = 0;
+  return CAMERA3_BUF_REQ_FAILED_UNKNOWN;
+}
+#endif
+
+void Camera3DeviceClient::UpdateCameraStatus(bool status) {
+  is_camera_device_available_ = status;
+}
+
 void Camera3DeviceClient::SendCaptureResult(
     ::camera::CameraMetadata &pendingMetadata, CaptureResultExtras &resultExtras,
     ::camera::CameraMetadata &collectedPartialResult, uint32_t frameNumber) {
@@ -1609,6 +1676,12 @@ int32_t Camera3DeviceClient::GetCameraInfo(uint32_t idx, ::camera::CameraMetadat
                strerror(res));
     return res;
   }
+
+  if (!is_camera_device_available_) {
+    QMMF_ERROR("%s: Camera device is not available: %s!\n", __func__);
+    return -ENODEV;
+  }
+
   *info = cam_info.static_camera_characteristics;
 
   return res;
@@ -2201,9 +2274,41 @@ void Camera3DeviceClient::notifyFromHal(const camera3_callback_ops *cb,
   ctx->Notify(msg);
 }
 
+#if defined(CAMERA_HAL_API_VERSION) && (CAMERA_HAL_API_VERSION >= 0x0307)
+camera3_buffer_request_status_t Camera3DeviceClient::requestStreamBuffers(
+    const struct camera3_callback_ops *cb, uint32_t num_buffer_reqs,
+    const camera3_buffer_request_t *buffer_reqs, uint32_t *num_returned_buf_reqs,
+    camera3_stream_buffer_ret_t *returned_buf_reqs) {
+  Camera3DeviceClient *ctx = const_cast<Camera3DeviceClient *>(
+      static_cast<const Camera3DeviceClient *>(cb));
+  if (num_buffer_reqs == 0 || buffer_reqs == nullptr || num_returned_buf_reqs == nullptr || returned_buf_reqs == nullptr)
+  {
+    return CAMERA3_BUF_REQ_FAILED_ILLEGAL_ARGUMENTS;
+  }
+
+  return ctx->RequestStreamBuffers(num_buffer_reqs, buffer_reqs, num_returned_buf_reqs, returned_buf_reqs);
+}
+
+void Camera3DeviceClient::returnStreamBuffers(
+    const struct camera3_callback_ops *cb, uint32_t num_buffers,
+    const camera3_stream_buffer_t* const* buffers) {
+  Camera3DeviceClient *ctx = const_cast<Camera3DeviceClient *>(
+      static_cast<const Camera3DeviceClient *>(cb));
+  ctx->ReturnStreamBuffers(num_buffers, buffers);
+}
+#endif
+
 void Camera3DeviceClient::deviceStatusChange(
-    const struct camera_module_callbacks *, int camera_id, int new_status) {
-  // TODO: No implementation yet
+    const struct camera_module_callbacks *cb, int camera_id, int new_status) {
+  Camera3DeviceClient *ctx = const_cast<Camera3DeviceClient *>(
+      static_cast<const Camera3DeviceClient *>(cb));
+  if (new_status == CAMERA_DEVICE_STATUS_NOT_PRESENT) {
+    ctx->UpdateCameraStatus(false);
+    QMMF_WARN ("%s: Camera with id (%d) is not present", __func__, camera_id);
+  } else if (new_status == CAMERA_DEVICE_STATUS_PRESENT) {
+    ctx->UpdateCameraStatus(true);
+    QMMF_DEBUG ("%s: Camera with id (%d) is present", __func__, camera_id);
+  }
 }
 
 void Camera3DeviceClient::torchModeStatusChange(
