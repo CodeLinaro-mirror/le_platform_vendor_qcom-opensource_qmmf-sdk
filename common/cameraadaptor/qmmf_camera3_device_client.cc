@@ -916,17 +916,15 @@ int32_t Camera3DeviceClient::CalculateBlobSize(int32_t width, int32_t height) {
   //Calculate debuging buffer size of jpeg.
   uint32_t tag = 0;
 
-  camera_metadata_ro_entry entryDebug;
   sp<::camera::VendorTagDescriptor> vTags =
       ::camera::VendorTagDescriptor::getGlobalVendorTagDescriptor();
 
   ::camera::CameraMetadata::getTagFromName(
       "org.quic.camera.jpegdebugdata.size",vTags.get(), &tag);
-  res = find_camera_metadata_ro_entry(
-      (camera_metadata_t *)&device_info_,
-      tag, &entryDebug);
-  if ((0 == res) && (entryDebug.count > 0)){
-    jpegDebugDataSize = entryDebug.data.i32[0];
+
+  if (device_info_.exists(tag)) {
+    auto entry  = device_info_.find(tag);
+    jpegDebugDataSize = entry.data.i32[0];
   }
 
   QMMF_INFO("%s: jpegDebugDataSize=%d",
