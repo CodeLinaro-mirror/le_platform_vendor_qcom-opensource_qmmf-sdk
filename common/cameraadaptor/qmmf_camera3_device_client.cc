@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -153,7 +153,8 @@ Camera3DeviceClient::Camera3DeviceClient(CameraClientCallbacks clientCb)
       cam_feature_flags_(static_cast<uint32_t>(CamFeatureFlag::kNone)),
       fps_sensormode_index_(0),
       prepare_handler_(),
-      input_stream_{} {
+      input_stream_{},
+      is_camera_device_available_ (true) {
   QMMF_GET_LOG_LEVEL();
   camera3_callback_ops::notify = &notifyFromHal;
   camera3_callback_ops::process_capture_result = &processCaptureResult;
@@ -354,13 +355,12 @@ int32_t Camera3DeviceClient::OpenCamera(uint32_t idx) {
     goto exit;
   }
 
-  res = camera_module_->get_camera_info(idx, &static_info_);
+  res = GetCameraInfo(idx, &device_info_);
   if (0 != res) {
     QMMF_ERROR("%s: Error during camera static info query: %s!\n", __func__,
                strerror(res));
     goto exit;
   }
-  device_info_ = static_info_.static_camera_characteristics;
 
   id = std::to_string(idx);
   res = camera_module_->common.methods->open(&camera_module_->common, id.c_str(),
@@ -916,17 +916,15 @@ int32_t Camera3DeviceClient::CalculateBlobSize(int32_t width, int32_t height) {
   //Calculate debuging buffer size of jpeg.
   uint32_t tag = 0;
 
-  camera_metadata_ro_entry entryDebug;
   sp<::camera::VendorTagDescriptor> vTags =
       ::camera::VendorTagDescriptor::getGlobalVendorTagDescriptor();
 
   ::camera::CameraMetadata::getTagFromName(
       "org.quic.camera.jpegdebugdata.size",vTags.get(), &tag);
-  res = find_camera_metadata_ro_entry(
-      (camera_metadata_t *)static_info_.static_camera_characteristics,
-      tag, &entryDebug);
-  if ((0 == res) && (entryDebug.count > 0)){
-    jpegDebugDataSize = entryDebug.data.i32[0];
+
+  if (device_info_.exists(tag)) {
+    auto entry  = device_info_.find(tag);
+    jpegDebugDataSize = entry.data.i32[0];
   }
 
   QMMF_INFO("%s: jpegDebugDataSize=%d",
@@ -1475,6 +1473,10 @@ camera3_buffer_request_status_t Camera3DeviceClient::RequestStreamBuffers(uint32
 }
 #endif
 
+void Camera3DeviceClient::UpdateCameraStatus(bool status) {
+  is_camera_device_available_ = status;
+}
+
 void Camera3DeviceClient::SendCaptureResult(
     ::camera::CameraMetadata &pendingMetadata, CaptureResultExtras &resultExtras,
     ::camera::CameraMetadata &collectedPartialResult, uint32_t frameNumber) {
@@ -1672,6 +1674,12 @@ int32_t Camera3DeviceClient::GetCameraInfo(uint32_t idx, ::camera::CameraMetadat
                strerror(res));
     return res;
   }
+
+  if (!is_camera_device_available_) {
+    QMMF_ERROR("%s: Camera device is not available: %s!\n", __func__);
+    return -ENODEV;
+  }
+
   *info = cam_info.static_camera_characteristics;
 
   return res;
@@ -2289,8 +2297,16 @@ void Camera3DeviceClient::returnStreamBuffers(
 #endif
 
 void Camera3DeviceClient::deviceStatusChange(
-    const struct camera_module_callbacks *, int camera_id, int new_status) {
-  // TODO: No implementation yet
+    const struct camera_module_callbacks *cb, int camera_id, int new_status) {
+  Camera3DeviceClient *ctx = const_cast<Camera3DeviceClient *>(
+      static_cast<const Camera3DeviceClient *>(cb));
+  if (new_status == CAMERA_DEVICE_STATUS_NOT_PRESENT) {
+    ctx->UpdateCameraStatus(false);
+    QMMF_WARN ("%s: Camera with id (%d) is not present", __func__, camera_id);
+  } else if (new_status == CAMERA_DEVICE_STATUS_PRESENT) {
+    ctx->UpdateCameraStatus(true);
+    QMMF_DEBUG ("%s: Camera with id (%d) is present", __func__, camera_id);
+  }
 }
 
 void Camera3DeviceClient::torchModeStatusChange(

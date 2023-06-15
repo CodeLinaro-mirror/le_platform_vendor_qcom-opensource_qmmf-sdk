@@ -418,11 +418,18 @@ status_t CameraContext::OpenCamera(const uint32_t camera_id,
   }
 
   ret = camera_device_->OpenCamera(camera_id);
-  assert(ret == NO_ERROR);
+  if (ret !=  NO_ERROR) {
+    QMMF_ERROR("%s: Failed to open camera!", __func__);
+    return ret;
+  }
+
   camera_id_ = camera_id;
 
   ret = camera_device_->GetCameraInfo(camera_id, &static_meta_);
-  assert(ret == NO_ERROR);
+  if (ret !=  NO_ERROR) {
+    QMMF_ERROR("%s: Failed to Get Camera Info!", __func__);
+    return ret;
+  }
 
 #ifndef FLUSH_RESTART_NOTAVAILABLE
   ret = DisableFlushRestart(true, static_meta_);
@@ -584,6 +591,14 @@ status_t CameraContext::ConfigImageCapture(const SnapshotParam& param,
       CameraStreamParameters stream_param{};
       ret = GetSnapshotStreamParams(param, stream_param);
       assert(ret == NO_ERROR);
+
+#ifdef ENABLE_IMAGE_NV12
+      if (param.format == BufferFormat::kNV12) {
+        stream_param.allocFlags.flags |= IMemAllocUsage::kHwCameraWrite;
+        stream_param.data_space = static_cast<android_dataspace_t>
+                                  (HAL_DATASPACE_HEIF);
+      }
+#endif
 
       ret = CreateSnapshotStream(stream_param, true);
       if (NO_ERROR != ret) {

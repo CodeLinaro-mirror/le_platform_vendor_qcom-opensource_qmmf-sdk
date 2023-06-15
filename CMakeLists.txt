@@ -16,6 +16,10 @@ include_directories(${TOP_DIRECTORY}/include)
 include(CheckIncludeFile)
 check_include_file("display/media/mmm_color_fmt.h" HAVE_MMM_COLOR_FMT_H)
 
+# Check whether C2D header is present.
+include(CheckIncludeFile)
+check_include_file("adreno/c2d2.h" RESIZER_C2D_ENABLED)
+
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fexceptions -fno-short-enums -O2 -DANDROID")
 # uncomment to generate debug information
 # set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")

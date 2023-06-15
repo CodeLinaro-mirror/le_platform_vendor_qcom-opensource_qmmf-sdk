@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -193,6 +193,7 @@ class Camera3DeviceClient : public camera3_callback_ops,
           const camera3_buffer_request_t *buffer_reqs, uint32_t *num_returned_buf_reqs,
           camera3_stream_buffer_ret_t *returned_buf_reqs);
 #endif
+  void UpdateCameraStatus(bool status);
   void Notify(const camera3_notify_msg *msg);
   void NotifyError(const camera3_error_msg_t &msg);
   void NotifyShutter(const camera3_shutter_msg_t &msg);
@@ -290,7 +291,6 @@ class Camera3DeviceClient : public camera3_callback_ops,
   camera_module_t *camera_module_;
   camera3_device_t *device_;
   uint32_t number_of_cameras_;
-  struct camera_info static_info_;
   ::camera::CameraMetadata device_info_;
   IAllocDevice* alloc_device_interface_;
 
@@ -326,6 +326,7 @@ class Camera3DeviceClient : public camera3_callback_ops,
   static std::mutex vendor_tag_mutex_;
   static sp<::camera::VendorTagDescriptor> vendor_tag_desc_;
   static uint32_t client_count_;
+  std::atomic<bool> is_camera_device_available_;
 };
 
 }  // namespace cameraadaptor ends here

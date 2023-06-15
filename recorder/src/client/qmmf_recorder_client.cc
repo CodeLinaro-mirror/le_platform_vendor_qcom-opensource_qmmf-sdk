@@ -123,7 +123,11 @@ RecorderClient::RecorderClient()
 #endif
 
 #ifdef TARGET_USES_GBM
-  gbm_fd_ = open(GBM_DEV_NAME, O_RDWR);
+  gbm_fd_ = open("/dev/dma_heap/qcom,system", O_RDWR);
+  if (gbm_fd_ < 0) {
+    QMMF_WARN("%s: Falling back to /dev/ion \n", __func__);
+    gbm_fd_ = open("/dev/ion", O_RDWR);
+  }
   assert(gbm_fd_ >= 0);
 
   gbm_device_ = gbm_create_device(gbm_fd_);
@@ -162,7 +166,11 @@ status_t RecorderClient::Connect(const RecorderCb& cb) {
     return NO_ERROR;
   }
 
-  ion_device_ = open(GBM_DEV_NAME, O_RDONLY | O_CLOEXEC);
+  ion_device_ = open("/dev/dma_heap/qcom,system", O_RDONLY | O_CLOEXEC);
+  if (ion_device_ < 0) {
+    QMMF_WARN("%s: Falling back to /dev/ion \n", __func__);
+    ion_device_ = open("/dev/ion", O_RDONLY | O_CLOEXEC);
+  }
   if (ion_device_ < 0) {
     QMMF_ERROR("%s: Can't open Ion device!", __func__);
     return NO_INIT;
@@ -1036,7 +1044,6 @@ void RecorderClient::ReleaseBuffer(int32_t& fd) {
 
   gbm_bo_destroy(gbm_buffers_map_[fd]);
   gbm_buffers_map_.erase(fd);
-  fd = -1;
 }
 #endif
 
@@ -1094,11 +1101,13 @@ status_t RecorderClient::UnmapBuffer(BufferInfo& info) {
 #ifdef TARGET_USES_GBM
     ReleaseBuffer(info.ion_fd);
 #endif
+#ifdef GBM_FREE_FD
     if ((info.ion_fd != -1) && (close(info.ion_fd) < 0)) {
       QMMF_ERROR("%s() error closing shared fd[%d]: %d[%s]", __func__,
                  info.ion_fd, errno, strerror(errno));
       return errno;
     }
+#endif
     info.ion_fd = -1;
   }
 
