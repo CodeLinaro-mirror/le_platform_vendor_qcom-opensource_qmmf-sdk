@@ -18,6 +18,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+/*
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
 #ifndef CAMERA3MONITOR_H_
 #define CAMERA3MONITOR_H_
 
@@ -74,6 +80,7 @@ class Camera3Monitor : public ThreadHelper {
   pthread_cond_t input_signal_;
   Vector<StateTransition> input_queue_;
   bool monitor_updated_;
+  bool exit_pending_;
 
   IdleNotify idle_notify_;
 
