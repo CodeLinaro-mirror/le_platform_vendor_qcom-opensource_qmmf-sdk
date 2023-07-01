@@ -193,6 +193,7 @@ bool CameraContext::IsStreamParamsChanged(
   if ((stream_param.format       != snapshot_stream_param_.format)       ||
       (stream_param.width        != snapshot_stream_param_.width)        ||
       (stream_param.height       != snapshot_stream_param_.height)       ||
+      (stream_param.rotation     != snapshot_stream_param_.rotation)     ||
       (stream_param.bufferCount  >  snapshot_stream_param_.bufferCount)  ||
       (stream_param.allocFlags.Equals(
                              snapshot_stream_param_.allocFlags) == false)) {
@@ -575,7 +576,8 @@ status_t CameraContext::ConfigImageCapture(const SnapshotParam& param,
                               (snapshot_param_.mode != param.mode) ||
                               (snapshot_param_.width != param.width) ||
                               (snapshot_param_.height != param.height) ||
-                              (snapshot_param_.format != param.format);
+                              (snapshot_param_.format != param.format) ||
+                              (snapshot_param_.rotation != param.rotation);
 
     QMMF_DEBUG("%s: reconfigure_needed=%d", __func__, reconfigure_needed);
 
@@ -632,6 +634,8 @@ status_t CameraContext::ConfigImageCapture(const SnapshotParam& param,
         raw_stream_param.width = rawparam.width;
         raw_stream_param.height = rawparam.height;
         raw_stream_param.format = Common::FromQmmfToHalFormat(format);
+        raw_stream_param.rotation =
+            static_cast<camera3_stream_rotation_t> (rawparam.rotation);
         raw_stream_param.allocFlags.flags = IMemAllocUsage::kSwWriteOften |
                                             IMemAllocUsage::kSwReadOften;
         raw_stream_param.bufferCount  = MAX_SNAPSHOT_BUFFER_COUNT;
@@ -2135,6 +2139,8 @@ status_t CameraContext::GetSnapshotStreamParams(const SnapshotParam &param,
   stream_param.format           = Common::FromQmmfToHalFormat(param.format);
   stream_param.width            = param.width;
   stream_param.height           = param.height;
+  stream_param.rotation         =
+      static_cast<camera3_stream_rotation_t> (param.rotation);
   stream_param.allocFlags.flags = IMemAllocUsage::kSwWriteOften |
                                     IMemAllocUsage::kSwReadOften;
   stream_param.cb               = GetStreamCb(param);
