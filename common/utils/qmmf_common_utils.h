@@ -403,12 +403,31 @@ class Common {
    *
    * return: true if available
    **/
-  static bool ValidateStreamFormat(const CameraMetadata& meta,
+  static bool ValidateStreamFormat(const ::camera::CameraMetadata& meta,
                                    const BufferFormat format,
                                    bool input = false) {
     bool is_supported = false;
     int32_t hal_format = FromQmmfToHalFormat(format);
 #ifdef CAM_ARCH_V2
+
+#if defined(CAMERA_HAL_API_VERSION) && (CAMERA_HAL_API_VERSION >= 0x0307)
+    if (meta.exists(
+          ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_MAXIMUM_RESOLUTION)) {
+      auto entry = meta.find(
+          ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_MAXIMUM_RESOLUTION);
+      for (uint32_t i = 0 ; i < entry.count; i += 4) {
+        if (hal_format == entry.data.i32[i] &&
+            input == (entry.data.i32[i + 3] ==
+              ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_INPUT)) {
+          is_supported = true;
+          break;
+        }
+      }
+    }
+
+    if (is_supported == false) {
+#endif
+
     if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
       auto entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
       for (uint32_t i = 0 ; i < entry.count; i += 4) {
@@ -424,6 +443,11 @@ class Common {
                  " not available", __func__);
       return false;
     }
+
+#if defined(CAMERA_HAL_API_VERSION) && (CAMERA_HAL_API_VERSION >= 0x0307)
+    }
+#endif
+
 #else
     assert(input == false);
     if (meta.exists(ANDROID_SCALER_AVAILABLE_FORMATS)) {
@@ -449,7 +473,7 @@ class Common {
    *
    * return: true if available
    **/
-  static bool ValidateInputFormat(const CameraMetadata& meta,
+  static bool ValidateInputFormat(const ::camera::CameraMetadata& meta,
                                   const BufferFormat in_format,
                                   const BufferFormat out_format) {
     bool is_supported = false;
@@ -498,10 +522,33 @@ class Common {
   *
   * return: true if available
   **/
-  static bool ValidateResFromStreamConfigs(const CameraMetadata& meta,
+  static bool ValidateResFromStreamConfigs(const ::camera::CameraMetadata& meta,
                                            const uint32_t width,
                                            const uint32_t height) {
     bool is_supported = false;
+
+#if defined(CAMERA_HAL_API_VERSION) && (CAMERA_HAL_API_VERSION >= 0x0307)
+    if (meta.exists(
+          ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_MAXIMUM_RESOLUTION)) {
+      auto entry = meta.find(
+          ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_MAXIMUM_RESOLUTION);
+      for (uint32_t i = 0 ; i < entry.count; i += 4) {
+        if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
+          if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
+              entry.data.i32[i+3]) {
+            if (width == static_cast<uint32_t>(entry.data.i32[i+1])
+                && height == static_cast<uint32_t>(entry.data.i32[i+2])) {
+              is_supported = true;
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    if (is_supported == false) {
+#endif
+
     if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
       auto entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
       for (uint32_t i = 0 ; i < entry.count; i += 4) {
@@ -521,6 +568,11 @@ class Common {
                  " not available", __func__);
       return false;
     }
+
+#if defined(CAMERA_HAL_API_VERSION) && (CAMERA_HAL_API_VERSION >= 0x0307)
+    }
+#endif
+
     return is_supported;
   }
 
@@ -530,12 +582,32 @@ class Common {
   *
   * return: true if available
   **/
-  static bool GetMaxResFromStreamConfigs(const CameraMetadata& meta,
+  static bool GetMaxResFromStreamConfigs(const ::camera::CameraMetadata& meta,
                                          uint32_t &width,
                                          uint32_t &height) {
     bool found = false;
     width = 0;
     height = 0;
+
+#if defined(CAMERA_HAL_API_VERSION) && (CAMERA_HAL_API_VERSION >= 0x0307)
+    if (meta.exists(
+          ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_MAXIMUM_RESOLUTION)) {
+      auto entry = meta.find(
+          ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_MAXIMUM_RESOLUTION);
+      for (uint32_t i = 0; i < entry.count; i += 4) {
+        if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i] &&
+            ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
+              entry.data.i32[i+3]) {
+          if (width < static_cast<uint32_t>(entry.data.i32[i + 1]) &&
+              height < static_cast<uint32_t>(entry.data.i32[i + 2])) {
+            width = static_cast<uint32_t>(entry.data.i32[i + 1]);
+            height = static_cast<uint32_t>(entry.data.i32[i + 2]);
+            found = true;
+          }
+        }
+      }
+    }
+#endif
 
     if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
       auto entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
@@ -566,12 +638,32 @@ class Common {
   *
   * return: true if available
   **/
-  static bool GetMinResFromStreamConfigs(const CameraMetadata& meta,
+  static bool GetMinResFromStreamConfigs(const ::camera::CameraMetadata& meta,
                                          uint32_t &width,
                                          uint32_t &height) {
     bool found = false;
     width = 0xFFFF;
     height = 0xFFFF;
+
+#if defined(CAMERA_HAL_API_VERSION) && (CAMERA_HAL_API_VERSION >= 0x0307)
+    if (meta.exists(
+          ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_MAXIMUM_RESOLUTION)) {
+      auto entry = meta.find(
+          ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_MAXIMUM_RESOLUTION);
+      for (uint32_t i = 0; i < entry.count; i += 4) {
+        if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i] &&
+            ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
+              entry.data.i32[i+3]) {
+          if (width > static_cast<uint32_t>(entry.data.i32[i + 1]) &&
+              height > static_cast<uint32_t>(entry.data.i32[i + 2])) {
+            width = static_cast<uint32_t>(entry.data.i32[i + 1]);
+            height = static_cast<uint32_t>(entry.data.i32[i + 2]);
+            found = true;
+          }
+        }
+      }
+    }
+#endif
 
     if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
       auto entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
@@ -605,7 +697,7 @@ class Common {
    *
    * return: true if available
    **/
-  static bool ValidateResFromProcessedSizes(const CameraMetadata& meta,
+  static bool ValidateResFromProcessedSizes(const ::camera::CameraMetadata& meta,
                                             const uint32_t width,
                                             const uint32_t height) {
     bool is_supported = false;
@@ -640,10 +732,33 @@ class Common {
    *
    * return: true if available
    **/
-  static bool ValidateResFromJpegSizes(const CameraMetadata& meta,
+  static bool ValidateResFromJpegSizes(const ::camera::CameraMetadata& meta,
                                        const uint32_t width,
                                        const uint32_t height) {
     bool is_supported = false;
+
+#if defined(CAMERA_HAL_API_VERSION) && (CAMERA_HAL_API_VERSION >= 0x0307)
+    if (meta.exists(
+          ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_MAXIMUM_RESOLUTION)) {
+      auto entry = meta.find(
+          ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_MAXIMUM_RESOLUTION);
+      for (uint32_t i = 0 ; i < entry.count; i += 4) {
+        if (HAL_PIXEL_FORMAT_BLOB == entry.data.i32[i]) {
+          if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
+              entry.data.i32[i+3]) {
+            if (width == static_cast<uint32_t>(entry.data.i32[i+1])
+                && height == static_cast<uint32_t>(entry.data.i32[i+2])) {
+              is_supported = true;
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    if (is_supported == false) {
+#endif
+
     if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
       auto entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
       for (uint32_t i = 0 ; i < entry.count; i += 4) {
@@ -663,6 +778,11 @@ class Common {
                  " not available", __func__);
       return false;
     }
+
+#if defined(CAMERA_HAL_API_VERSION) && (CAMERA_HAL_API_VERSION >= 0x0307)
+    }
+#endif
+
     return is_supported;
   }
 
@@ -673,11 +793,39 @@ class Common {
    *
    * return: true if available
    **/
-  static bool ValidateResFromRawSizes(const CameraMetadata& meta,
+  static bool ValidateResFromRawSizes(const ::camera::CameraMetadata& meta,
                                       const uint32_t width,
                                       const uint32_t height) {
     bool is_supported = false;
 #ifdef CAM_ARCH_V2
+
+#if defined(CAMERA_HAL_API_VERSION) && (CAMERA_HAL_API_VERSION >= 0x0307)
+    if (meta.exists(
+          ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_MAXIMUM_RESOLUTION)) {
+      auto entry = meta.find(
+          ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_MAXIMUM_RESOLUTION);
+      for (uint32_t i = 0 ; i < entry.count; i += 4) {
+        if (HAL_PIXEL_FORMAT_RAW8 == entry.data.i32[i] ||
+            HAL_PIXEL_FORMAT_RAW10 == entry.data.i32[i] ||
+            HAL_PIXEL_FORMAT_RAW12 == entry.data.i32[i] ||
+            HAL_PIXEL_FORMAT_RAW16 == entry.data.i32[i] ) {
+          if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
+              entry.data.i32[i+3]) {
+            uint32_t w = static_cast<uint32_t>(entry.data.i32[i+1]);
+            uint32_t h = static_cast<uint32_t>(entry.data.i32[i+2]);
+            QMMF_DEBUG("%s: Supported width: %d, height: %d", __func__, w, h);
+            if (width == w && height == h) {
+              is_supported = true;
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    if (is_supported == false) {
+#endif
+
     if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
       auto entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
       for (uint32_t i = 0 ; i < entry.count; i += 4) {
@@ -702,6 +850,11 @@ class Common {
                  " not available", __func__);
       return false;
     }
+
+#if defined(CAMERA_HAL_API_VERSION) && (CAMERA_HAL_API_VERSION >= 0x0307)
+    }
+#endif
+
 #else
     if (meta.exists(ANDROID_SCALER_AVAILABLE_RAW_SIZES)) {
       auto entry = meta.find(ANDROID_SCALER_AVAILABLE_RAW_SIZES);
@@ -727,7 +880,7 @@ class Common {
    *
    * return: true if available
    **/
-  static bool ValidateResolution(const CameraMetadata& meta,
+  static bool ValidateResolution(const ::camera::CameraMetadata& meta,
                                   const BufferFormat format,
                                   const uint32_t width,
                                   const uint32_t height) {
@@ -771,7 +924,7 @@ class Common {
    *
    * return: true if available
    **/
-  static bool GetMaxSupportedCameraRes(const CameraMetadata& meta,
+  static bool GetMaxSupportedCameraRes(const ::camera::CameraMetadata& meta,
       uint32_t &width, uint32_t &height,
       const BufferFormat format = BufferFormat::kRAW10) {
     bool found = false;
@@ -779,6 +932,28 @@ class Common {
     height = 0;
     camera_metadata_ro_entry entry;
 #ifdef CAM_ARCH_V2
+
+#if defined(CAMERA_HAL_API_VERSION) && (CAMERA_HAL_API_VERSION >= 0x0307)
+    if (meta.exists(
+          ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_MAXIMUM_RESOLUTION)) {
+      entry = meta.find(
+          ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_MAXIMUM_RESOLUTION);
+      for (uint32_t i = 0; i < entry.count; i += 4) {
+        if (HAL_PIXEL_FORMAT_RAW10 == entry.data.i32[i] &&
+            ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
+              entry.data.i32[i+3]) {
+          if (width < static_cast<uint32_t>(entry.data.i32[i + 1]) &&
+              height < static_cast<uint32_t>(entry.data.i32[i + 2])) {
+            width = static_cast<uint32_t>(entry.data.i32[i + 1]);
+            height = static_cast<uint32_t>(entry.data.i32[i + 2]);
+            found = true;
+          }
+        }
+      }
+      QMMF_INFO("%s: width=%d, height=%d", __func__, width, height);
+    }
+#endif
+
     if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
       entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
       for (uint32_t i = 0; i < entry.count; i += 4) {
@@ -838,7 +1013,7 @@ class Common {
    *
    * return: true if available
    **/
-  static bool GetMinSupportedCameraRes(const CameraMetadata& meta,
+  static bool GetMinSupportedCameraRes(const ::camera::CameraMetadata& meta,
                                       uint32_t &width,
                                       uint32_t &height) {
     bool found = false;
@@ -873,12 +1048,31 @@ class Common {
    *
    * return: true if available
    **/
-  static bool GetSupportedCameraFormats(const CameraMetadata& meta,
+  static bool GetSupportedCameraFormats(const ::camera::CameraMetadata& meta,
                                         std::set<BufferFormat> &formats,
                                         bool input = false) {
 
     bool found = false;
 #ifdef CAM_ARCH_V2
+
+#if defined(CAMERA_HAL_API_VERSION) && (CAMERA_HAL_API_VERSION >= 0x0307)
+    if (meta.exists(
+          ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_MAXIMUM_RESOLUTION)) {
+      auto entry_max = meta.find(
+          ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_MAXIMUM_RESOLUTION);
+      for (uint32_t i = 0 ; i < entry_max.count; i += 4) {
+        if (input == (entry_max.data.i32[i + 3] ==
+                      ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_INPUT)) {
+          auto format = FromHalToQmmfFormat(entry_max.data.i32[i]);
+          if (format != BufferFormat::kUnsupported && !formats.count(format)) {
+            formats.insert(format);
+            found = true;
+          }
+        }
+      }
+    }
+#endif
+
     assert(meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS));
     auto entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
     for (uint32_t i = 0 ; i < entry.count; i += 4) {

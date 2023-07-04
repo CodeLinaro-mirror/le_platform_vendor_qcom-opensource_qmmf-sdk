@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -145,7 +145,7 @@ class Camera3DeviceClient : public camera3_callback_ops,
   int32_t CreateInputStream(
       const CameraInputStreamParameters &inputConfiguration);
 
-  int32_t CreateDefaultRequest(int templateId, CameraMetadata *request);
+  int32_t CreateDefaultRequest(int templateId, ::camera::CameraMetadata *request);
   int32_t SubmitRequest(Camera3Request request, bool streaming = false,
                         int64_t *lastFrameNumber = NULL);
   int32_t SubmitRequestList(std::list<Camera3Request> requests,
@@ -154,7 +154,7 @@ class Camera3DeviceClient : public camera3_callback_ops,
   int32_t ReturnStreamBuffer(StreamBuffer buffer);
   int32_t CancelRequest(int requestId, int64_t *lastFrameNumber = NULL);
 
-  int32_t GetCameraInfo(uint32_t idx, CameraMetadata *info);
+  int32_t GetCameraInfo(uint32_t idx, ::camera::CameraMetadata *info);
   int32_t GetNumberOfCameras() { return number_of_cameras_; }
   const std::vector<int32_t> GetRequestIds(){ return current_request_ids_; }
   int32_t WaitUntilIdle();
@@ -183,23 +183,27 @@ class Camera3DeviceClient : public camera3_callback_ops,
   friend class Camera3Gtest;
   friend class DualCamera3Gtest;
 
-  int32_t AddRequestListLocked(const List<const CameraMetadata> &requests,
+  int32_t AddRequestListLocked(const List<const ::camera::CameraMetadata> &requests,
                                bool streaming, int64_t *lastFrameNumber = NULL);
 
   void HandleCaptureResult(const camera3_capture_result *result);
+#if defined(CAMERA_HAL_API_VERSION) && (CAMERA_HAL_API_VERSION >= 0x0307)
+  void ReturnStreamBuffers(uint32_t num_buffers, const camera3_stream_buffer_t* const* buffers);
+  camera3_buffer_request_status_t RequestStreamBuffers(uint32_t num_buffer_reqs,
+          const camera3_buffer_request_t *buffer_reqs, uint32_t *num_returned_buf_reqs,
+          camera3_stream_buffer_ret_t *returned_buf_reqs);
+#endif
+  void UpdateCameraStatus(bool status);
   void Notify(const camera3_notify_msg *msg);
   void NotifyError(const camera3_error_msg_t &msg);
   void NotifyShutter(const camera3_shutter_msg_t &msg);
   void RemovePendingRequestLocked(uint32_t frameNumber);
   void ReturnOutputBuffers(const camera3_stream_buffer_t *outputBuffers,
                            size_t numBuffers, int64_t timestamp,
-                           int64_t ts_soe, int64_t ts_eoe, int64_t ts_sof,
-                           int64_t ts_eof, int64_t ts_hal, int64_t ts_qmf,
-                           int64_t td_exp, int64_t ts_aux,int64_t td_aux,
                            int64_t frame_number);
-  void SendCaptureResult(CameraMetadata &pendingMetadata,
+  void SendCaptureResult(::camera::CameraMetadata &pendingMetadata,
                          CaptureResultExtras &resultExtras,
-                         CameraMetadata &collectedPartialResult,
+                         ::camera::CameraMetadata &collectedPartialResult,
                          uint32_t frameNumber);
 
   void NotifyStatus(bool idle);
@@ -209,9 +213,7 @@ class Camera3DeviceClient : public camera3_callback_ops,
   int32_t InternalResumeLocked();
   int32_t WaitUntilStateThenRelock(bool active, int64_t timeout);
 
-  int32_t CaclulateBlobSize(int32_t width, int32_t height);
-  int32_t QueryMaxBlobSize(int32_t &maxJpegSizeWidth,
-                           int32_t &maxJpegSizeHeight);
+  int32_t CalculateBlobSize(int32_t width, int32_t height);
 
   int32_t ConfigureStreams(
         const CameraParameters& camera_parameters = CameraParameters(),
@@ -226,13 +228,22 @@ class Camera3DeviceClient : public camera3_callback_ops,
 
   static callbacks_process_capture_result_t processCaptureResult;
   static callbacks_notify_t notifyFromHal;
+#if defined(CAMERA_HAL_API_VERSION) && (CAMERA_HAL_API_VERSION >= 0x0307)
+  static camera3_buffer_request_status_t requestStreamBuffers(
+            const struct camera3_callback_ops *cb, uint32_t num_buffer_reqs,
+            const camera3_buffer_request_t *buffer_reqs, uint32_t *num_returned_buf_reqs,
+            camera3_stream_buffer_ret_t *returned_buf_reqs);
+  static void returnStreamBuffers(
+            const struct camera3_callback_ops *cb, uint32_t num_buffers,
+            const camera3_stream_buffer_t* const* buffers);
+#endif
   static camera_device_status_change_t deviceStatusChange;
   static torch_mode_status_change_t torchModeStatusChange;
 
   int32_t MarkPendingRequest(uint32_t frameNumber, int32_t numBuffers,
                              CaptureResultExtras resultExtras);
 
-  bool HandlePartialResult(uint32_t frameNumber, const CameraMetadata &partial,
+  bool HandlePartialResult(uint32_t frameNumber, const ::camera::CameraMetadata &partial,
                            const CaptureResultExtras &resultExtras);
 
   /**Not allowed */
@@ -240,16 +251,16 @@ class Camera3DeviceClient : public camera3_callback_ops,
   Camera3DeviceClient &operator=(const Camera3DeviceClient &);
 
   template <typename T>
-  bool QueryPartialTag(const CameraMetadata &result, int32_t tag, T *value,
+  bool QueryPartialTag(const ::camera::CameraMetadata &result, int32_t tag, T *value,
                        uint32_t frameNumber);
   template <typename T>
-  bool UpdatePartialTag(CameraMetadata &result, int32_t tag, const T *value,
+  bool UpdatePartialTag(::camera::CameraMetadata &result, int32_t tag, const T *value,
                         uint32_t frameNumber);
 
-  int32_t GetRequestListLocked(const List<const CameraMetadata> &metadataList,
+  int32_t GetRequestListLocked(const List<const ::camera::CameraMetadata> &metadataList,
                                RequestList *requestList,
                                RequestList *requestListReproc);
-  int32_t GenerateCaptureRequestLocked(const CameraMetadata &request,
+  int32_t GenerateCaptureRequestLocked(const ::camera::CameraMetadata &request,
                                        CaptureRequest &captureRequest);
 
   uint32_t GetOpMode();
@@ -273,15 +284,14 @@ class Camera3DeviceClient : public camera3_callback_ops,
   int next_stream_id_;
   bool reconfig_;
 
-  CameraMetadata request_templates_[CAMERA3_TEMPLATE_COUNT];
+  ::camera::CameraMetadata request_templates_[CAMERA3_TEMPLATE_COUNT];
   static const int32_t JPEG_BUFFER_SIZE_MIN =
       256 * 1024 + sizeof(camera3_jpeg_blob);
 
   camera_module_t *camera_module_;
   camera3_device_t *device_;
   uint32_t number_of_cameras_;
-  struct camera_info static_info_;
-  CameraMetadata device_info_;
+  ::camera::CameraMetadata device_info_;
   IAllocDevice* alloc_device_interface_;
 
   Vector<int32_t> repeating_requests_;
@@ -314,25 +324,9 @@ class Camera3DeviceClient : public camera3_callback_ops,
   Camera3InputStream input_stream_;
   uint32_t batch_size_;
   static std::mutex vendor_tag_mutex_;
-  static sp<VendorTagDescriptor> vendor_tag_desc_;
+  static sp<::camera::VendorTagDescriptor> vendor_tag_desc_;
   static uint32_t client_count_;
-  uint32_t ts_ref_frameNumber;
-  int64_t ts_ref_meta;
-  uint32_t td_exp_frameNumber;
-  int64_t td_exp_meta;
-  int64_t ts_soe_meta;
-  int64_t ts_eoe_meta;
-  uint32_t ts_sof_frameNumber;
-  int64_t ts_sof_meta;
-  uint32_t ts_eof_frameNumber;
-  int64_t ts_eof_meta;
-  uint32_t ts_aux_frameNumber;
-  int64_t ts_aux_meta;
-  uint32_t td_aux_frameNumber;
-  int64_t td_aux_meta;
-  uint32_t ts_hal_frameNumber;
-  int64_t ts_hal_meta;
-  int64_t ts_qmf_meta;
+  std::atomic<bool> is_camera_device_available_;
 };
 
 }  // namespace cameraadaptor ends here

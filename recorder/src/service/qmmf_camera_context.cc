@@ -29,7 +29,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -121,10 +121,9 @@ CameraContext::CameraContext()
       pcr_frc_enabled_(false),
       continuous_mode_is_on_(false),
       is_camera_dead_(false),
-      is_shdr_enable_(false),
-      hfr_sync_mode_(false),
-      all_ports_ready_(false),
-      pending_cached_stream_(false) {
+      pending_cached_stream_(false),
+      hfr_detected_(false),
+      hfr_wait_ports_ready_(false) {
 
   QMMF_INFO("%s: Enter", __func__);
 
@@ -195,6 +194,7 @@ bool CameraContext::IsStreamParamsChanged(
   if ((stream_param.format       != snapshot_stream_param_.format)       ||
       (stream_param.width        != snapshot_stream_param_.width)        ||
       (stream_param.height       != snapshot_stream_param_.height)       ||
+      (stream_param.rotation     != snapshot_stream_param_.rotation)     ||
       (stream_param.bufferCount  >  snapshot_stream_param_.bufferCount)  ||
       (stream_param.allocFlags.Equals(
                              snapshot_stream_param_.allocFlags) == false)) {
@@ -396,20 +396,18 @@ status_t CameraContext::OpenCamera(const uint32_t camera_id,
     }
   }
 
-  if (extra_param.Exists(QMMF_HFR_SYNC_MODE)) {
-    size_t entry_count = extra_param.EntryCount(QMMF_HFR_SYNC_MODE);
-    if (entry_count == 1){
-      HFRSyncMode hfr_sync_mode;
-      extra_param.Fetch(QMMF_HFR_SYNC_MODE, hfr_sync_mode, 0);
-      if (hfr_sync_mode.enable == true) {
-        hfr_sync_mode_ = true;
-        QMMF_INFO("%s: HFR Sync Mode enable", __func__);
-      } else {
-        hfr_sync_mode_ = false;
-        QMMF_INFO("%s: HFR Sync Mode disable", __func__);
+  if (extra_param.Exists(QMMF_IFE_DIRECT_STREAM)) {
+    size_t entry_count = extra_param.EntryCount(QMMF_IFE_DIRECT_STREAM);
+    if (entry_count == 1) {
+      IFEDirectStream ife_direct_stream;
+      extra_param.Fetch(QMMF_IFE_DIRECT_STREAM, ife_direct_stream, 0);
+      if (ife_direct_stream.enable == true) {
+        QMMF_INFO("%s: IFE Direct Stream is ON..", __func__);
+        camera_parameters_.cam_feature_flags |=
+            static_cast<uint32_t>(CamFeatureFlag::kIFEDirectStream);
       }
-    } else{
-      QMMF_ERROR("%s: Invalid HFR Sync Mode received", __func__);
+    } else {
+      QMMF_ERROR("%s: Invalid IFE Direct Stream param received", __func__);
       return BAD_VALUE;
     }
   }
@@ -422,11 +420,18 @@ status_t CameraContext::OpenCamera(const uint32_t camera_id,
   }
 
   ret = camera_device_->OpenCamera(camera_id);
-  assert(ret == NO_ERROR);
+  if (ret !=  NO_ERROR) {
+    QMMF_ERROR("%s: Failed to open camera!", __func__);
+    return ret;
+  }
+
   camera_id_ = camera_id;
 
   ret = camera_device_->GetCameraInfo(camera_id, &static_meta_);
-  assert(ret == NO_ERROR);
+  if (ret !=  NO_ERROR) {
+    QMMF_ERROR("%s: Failed to Get Camera Info!", __func__);
+    return ret;
+  }
 
 #ifndef FLUSH_RESTART_NOTAVAILABLE
   ret = DisableFlushRestart(true, static_meta_);
@@ -572,7 +577,8 @@ status_t CameraContext::ConfigImageCapture(const SnapshotParam& param,
                               (snapshot_param_.mode != param.mode) ||
                               (snapshot_param_.width != param.width) ||
                               (snapshot_param_.height != param.height) ||
-                              (snapshot_param_.format != param.format);
+                              (snapshot_param_.format != param.format) ||
+                              (snapshot_param_.rotation != param.rotation);
 
     QMMF_DEBUG("%s: reconfigure_needed=%d", __func__, reconfigure_needed);
 
@@ -588,6 +594,14 @@ status_t CameraContext::ConfigImageCapture(const SnapshotParam& param,
       CameraStreamParameters stream_param{};
       ret = GetSnapshotStreamParams(param, stream_param);
       assert(ret == NO_ERROR);
+
+#ifdef ENABLE_IMAGE_NV12
+      if (param.format == BufferFormat::kNV12) {
+        stream_param.allocFlags.flags |= IMemAllocUsage::kHwCameraWrite;
+        stream_param.data_space = static_cast<android_dataspace_t>
+                                  (HAL_DATASPACE_HEIF);
+      }
+#endif
 
       ret = CreateSnapshotStream(stream_param, true);
       if (NO_ERROR != ret) {
@@ -618,15 +632,14 @@ status_t CameraContext::ConfigImageCapture(const SnapshotParam& param,
         }
 
         CameraStreamParameters raw_stream_param = stream_param;
+        raw_stream_param.width = rawparam.width;
+        raw_stream_param.height = rawparam.height;
         raw_stream_param.format = Common::FromQmmfToHalFormat(format);
+        raw_stream_param.rotation =
+            static_cast<camera3_stream_rotation_t> (rawparam.rotation);
         raw_stream_param.allocFlags.flags = IMemAllocUsage::kSwWriteOften |
                                             IMemAllocUsage::kSwReadOften;
         raw_stream_param.bufferCount  = MAX_SNAPSHOT_BUFFER_COUNT;
-
-        Common::GetMaxSupportedCameraRes(static_meta_,
-                                         raw_stream_param.width,
-                                         raw_stream_param.height,
-                                         format);
 
         QMMF_INFO("%s: Raw Snapshot W(%d) & H(%d) Fmt(0x%x)", __func__,
             raw_stream_param.width, raw_stream_param.height,
@@ -681,7 +694,7 @@ status_t CameraContext::ConfigImageCapture(const SnapshotParam& param,
 
 status_t CameraContext::CaptureImage(const SnapshotType type,
                                      const uint32_t n_images,
-                                     const std::vector<CameraMetadata> &meta,
+                                     const std::vector<::camera::CameraMetadata> &meta,
                                      const StreamSnapshotCb& cb) {
 
   QMMF_INFO("%s: Enter", __func__);
@@ -709,7 +722,7 @@ status_t CameraContext::CaptureImage(const SnapshotType type,
     int64_t last_frame_number;
     uint8_t jpeg_quality = snapshot_param_.quality;
     std::list<Camera3Request> requests;
-    std::vector<CameraMetadata>::const_iterator it = meta.begin();
+    std::vector<::camera::CameraMetadata>::const_iterator it = meta.begin();
     for (uint32_t i = 0; i < imgcnt; i++) {
       if (streaming_active_requests_.size() > 0 &&
           !streaming_active_requests_[0].metadata.isEmpty() &&
@@ -936,6 +949,12 @@ status_t CameraContext::CreateStream(const StreamParam& param,
 
   camera_parameters_.batch_size = batch;
 
+  if ((hfr_detected_ == false) && (batch > 1)) {
+    QMMF_INFO("%s: HFR stream detected!"
+        "track_id = %x", __func__, param.id);
+    hfr_detected_ = true;
+  }
+
   std::shared_ptr<CameraPort> port =
       std::make_shared<CameraPort>(param, camera_parameters_,
                                    CameraPortType::kVideo, this);
@@ -1103,7 +1122,7 @@ status_t CameraContext::ResumeStream(const uint32_t track_id) {
   return NO_ERROR;
 }
 
-status_t CameraContext::SetCameraParam(const CameraMetadata &meta) {
+status_t CameraContext::SetCameraParam(const ::camera::CameraMetadata &meta) {
 
   QMMF_DEBUG("%s: Enter", __func__);
 
@@ -1117,28 +1136,39 @@ status_t CameraContext::SetCameraParam(const CameraMetadata &meta) {
       req.metadata.append(meta);
       request_list.push_back(req);
     }
-    // Submit request with updated camera meta data only if streaming is
-    // started, if not then just update default meta data and leave it to
-    // startSession -> startStream to submit request.
-    if ((hfr_sync_mode_ == false) ||
-        (hfr_sync_mode_ == true) && (all_ports_ready_ == true)){
-        std::unique_lock<std::mutex> pending_frames_lock(pending_frames_lock_);
-    	if (streaming_request_id_ >= 0 && !continuous_mode_is_on_) {
-          int64_t last_frame_number;
-          auto ret = camera_device_->SubmitRequestList(request_list, true,
-                                                            &last_frame_number);
-          QMMF_INFO("%s: last_frame_number: current=%lld previous=%lld", __func__,
-                        last_frame_number, last_frame_number_);
 
-	  // SubmitRequestList returns NO_IN_FLIGHT_REPEATING_FRAMES when there is
-          // no previous request or when previous request is not submitted to HAL
-          // yet.
-          if (last_frame_number != NO_IN_FLIGHT_REPEATING_FRAMES) {
-            last_frame_number_ = last_frame_number;
-          }
-          assert(ret >= 0);
-          streaming_request_id_ = ret;
+    // when there're multiple streams with HFR stremas invovled
+    // batch size will be more than one, in this case, camx requires
+    // strict order of buffer numbers
+    // SetcameraParam will be triggered after one stream is ready
+    // and it will submit request to capture-request handler which will
+    // provide buffers into camx, this violate rule for camx
+    // adding hfr_detected_ to block requests untill all ports are ready
+    if ((hfr_detected_ == false) ||
+          ((hfr_detected_ == true) && (hfr_wait_ports_ready_ == true))) {
+
+      // Submit request with updated camera meta data only if streaming is
+      // started, if not then just update default meta data and leave it to
+      // startSession -> startStream to submit request.
+      std::unique_lock<std::mutex> pending_frames_lock(pending_frames_lock_);
+      if (streaming_request_id_ >= 0 && !continuous_mode_is_on_) {
+        int64_t last_frame_number;
+        auto ret = camera_device_->SubmitRequestList(request_list, true,
+                                                     &last_frame_number);
+
+        QMMF_INFO("%s: last_frame_number: current=%lld previous=%lld", __func__,
+            last_frame_number, last_frame_number_);
+
+        // SubmitRequestList returns NO_IN_FLIGHT_REPEATING_FRAMES when there is
+        // no previous request or when previous request is not submitted to HAL
+        // yet.
+        if (last_frame_number != NO_IN_FLIGHT_REPEATING_FRAMES) {
+          last_frame_number_ = last_frame_number;
         }
+
+        assert(ret >= 0);
+        streaming_request_id_ = ret;
+      }
     }
   } else {
     QMMF_ERROR("%s: No active requests present!\n", __func__);
@@ -1148,7 +1178,7 @@ status_t CameraContext::SetCameraParam(const CameraMetadata &meta) {
   return NO_ERROR;
 }
 
-status_t CameraContext::GetCameraParam(CameraMetadata &meta) {
+status_t CameraContext::GetCameraParam(::camera::CameraMetadata &meta) {
 
   QMMF_DEBUG("%s: Enter", __func__);
   meta.clear();
@@ -1163,7 +1193,7 @@ status_t CameraContext::GetCameraParam(CameraMetadata &meta) {
   return NO_ERROR;
 }
 
-status_t CameraContext::GetDefaultCaptureParam(CameraMetadata &meta) {
+status_t CameraContext::GetDefaultCaptureParam(::camera::CameraMetadata &meta) {
 
   QMMF_DEBUG("%s: Enter", __func__);
   auto ret = NO_ERROR;
@@ -1180,7 +1210,7 @@ status_t CameraContext::GetDefaultCaptureParam(CameraMetadata &meta) {
   return ret;
 }
 
-status_t CameraContext::GetCameraCharacteristics(CameraMetadata &meta) {
+status_t CameraContext::GetCameraCharacteristics(::camera::CameraMetadata &meta) {
 
   QMMF_DEBUG("%s: Enter", __func__);
   meta.clear();
@@ -1422,8 +1452,8 @@ uint32_t CameraContext::GetSensorModeIndex(uint32_t width, uint32_t height,
   String8 tag_name("SensorModeTable");
   String8 section_name("org.quic.camera2.sensormode.info");
   uint32_t sensor_mode_table_tagid;
-  sp<VendorTagDescriptor> vendor_tag_desc =
-      VendorTagDescriptor::getGlobalVendorTagDescriptor();
+  sp<::camera::VendorTagDescriptor> vendor_tag_desc =
+      ::camera::VendorTagDescriptor::getGlobalVendorTagDescriptor();
   if (nullptr == vendor_tag_desc.get()) {
     QMMF_INFO("%s: no global vendor tag descriptor", __func__);
     return 0;
@@ -1610,7 +1640,7 @@ status_t CameraContext::CreateCaptureRequest(Camera3Request& request,
   return ret;
 }
 
-CameraMetadata CameraContext::GetCameraStaticMeta() {
+::camera::CameraMetadata CameraContext::GetCameraStaticMeta() {
   return static_meta_;
 }
 
@@ -1783,39 +1813,27 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
     }
   }
 
-  bool stale_batches_present = false;
-  ssize_t stale_idx = -1;
-  size_t stale_count = 0;
-  //Check for any stale batch requests and remove if present
-  for (size_t i = 1; i < streaming_active_requests_.size(); i++) {
+  for (size_t i = 1; i < streaming_active_requests_.size(); ) {
     if (streaming_active_requests_[i].streamIds.isEmpty()) {
-      if (!stale_batches_present) {
-        stale_batches_present = true;
-        stale_idx = i;
-      }
-      stale_count++;
+        streaming_active_requests_.erase(streaming_active_requests_.begin() + i);
+        continue;
     }
+    i++;
   }
 
-  if (stale_batches_present) {
-    streaming_active_requests_.erase(streaming_active_requests_.begin()
-        + stale_idx,
-        streaming_active_requests_.begin()
-        + stale_idx + stale_count);
-  }
   size = streaming_active_requests_[0].streamIds.size();
 
-  if (active_ports_number == size){
-    all_ports_ready_ = true;
-  } else {
-    all_ports_ready_ = false;
-  }
+  //TODO: this logic only works when static stream configurations are applied
+  //in dynamic switch case, there will be extra streams created by application
+  //so that all ports will not be ready forever
+  hfr_wait_ports_ready_ = (active_ports_number == size) ? true : false;
+
   QMMF_INFO("%s: Number of streams(%d) to start", __func__, size);
   if (size == 0) {
     QMMF_INFO("%s:Cancelling the request, no pending stream!", __func__);
     return CancelRequest();
-  } else if ((hfr_sync_mode_ == true) && (all_ports_ready_ == false)){
-    QMMF_INFO("%s:[HFR Sync Mode] Cancelling the request, not all ports ready", __func__);
+  } else if ((hfr_detected_ == true) && (hfr_wait_ports_ready_ == false)) {
+    QMMF_INFO("%s: hfr enabled, cancelling the request", __func__);
     return CancelRequest();
   }
 
@@ -1839,10 +1857,10 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
               ANDROID_SENSOR_FRAME_DURATION, &frameDuration, 1);
         }
       }
-    }
 
+    }
     std::list<Camera3Request> request_list;
-    for (ssize_t i = 0; i < streaming_active_requests_.size(); i++) {
+    for (size_t i = 0; i < streaming_active_requests_.size(); i++) {
       request_list.push_back(streaming_active_requests_[i]);
       assert(!streaming_active_requests_[i].metadata.isEmpty());
     }
@@ -2122,6 +2140,8 @@ status_t CameraContext::GetSnapshotStreamParams(const SnapshotParam &param,
   stream_param.format           = Common::FromQmmfToHalFormat(param.format);
   stream_param.width            = param.width;
   stream_param.height           = param.height;
+  stream_param.rotation         =
+      static_cast<camera3_stream_rotation_t> (param.rotation);
   stream_param.allocFlags.flags = IMemAllocUsage::kSwWriteOften |
                                     IMemAllocUsage::kSwReadOften;
   stream_param.cb               = GetStreamCb(param);
@@ -2353,7 +2373,7 @@ status_t CameraContext::CaptureZSLImage(const SnapshotType type) {
 
 #ifndef FLUSH_RESTART_NOTAVAILABLE
 status_t CameraContext::DisableFlushRestart(const bool& disable,
-                                            CameraMetadata& meta) {
+                                            ::camera::CameraMetadata& meta) {
 
   // Disable restart of the streams on HAL flush in order to save power and
   // optimize the API execution. All streams will be in OFF state after this.
@@ -2441,7 +2461,7 @@ void CameraContext::CameraPreparedCb(int32_t stream_id) {
 }
 
 template <typename T>
-bool CameraContext::UpdatePartialTag(CameraMetadata &result, int32_t tag,
+bool CameraContext::UpdatePartialTag(::camera::CameraMetadata &result, int32_t tag,
                                      const T *value,
                                      uint32_t frame_number) {
   if (0 != result.update(tag, value, 1)) {
@@ -2451,7 +2471,7 @@ bool CameraContext::UpdatePartialTag(CameraMetadata &result, int32_t tag,
 }
 
 template <typename T>
-bool CameraContext::QueryPartialTag(const CameraMetadata &result,
+bool CameraContext::QueryPartialTag(const ::camera::CameraMetadata &result,
                                     int32_t tag, T *value,
                                     uint32_t frame_number) {
   (void)frame_number;
@@ -2540,7 +2560,7 @@ void CameraContext::CameraResultCb(const CaptureResult &result) {
     if (complete_result) {
       CaptureResult captureResult;
       captureResult.resultExtras = result.resultExtras;
-      captureResult.metadata = CameraMetadata(10, 0);
+      captureResult.metadata = ::camera::CameraMetadata(10, 0);
 
       if (!UpdatePartialTag(captureResult.metadata, ANDROID_REQUEST_FRAME_COUNT,
                             reinterpret_cast<int32_t *>(&frame_number),
@@ -2669,10 +2689,20 @@ status_t CameraPort::Init() {
                                     IMemAllocUsage::kSwReadOften;
     cam_stream_params_.bufferCount  = MAX_SNAPSHOT_BUFFER_COUNT;
   } else {
-    // This flag is mandatory. Stream is considered as preview stream without it.
-    // Different tuning, setings and sensor mode is applied for preview and
-    // video streams. This is why this flag is needed.
-    cam_stream_params_.allocFlags.flags = IMemAllocUsage::kVideoEncoder;
+    // VideoFlags::kPreview is added, stream with this flag
+    // will be treated as preview stream
+    if (static_cast<bool>(params_.flags & VideoFlags::kPreview)) {
+
+      QMMF_INFO("%s: port %d with preview flag",__func__, GetPortId());
+
+      cam_stream_params_.allocFlags.flags = IMemAllocUsage::kHwComposer;
+    } else {
+      // This flag should be mandatory if preview flag is not set.
+      // Stream is considered as preview stream without it.
+      // Different tuning, setings and sensor mode is applied for preview and
+      // video streams. This is why this flag is needed.
+      cam_stream_params_.allocFlags.flags = IMemAllocUsage::kVideoEncoder;
+    }
 
     switch (params_.format) {
       case BufferFormat::kNV12UBWC:

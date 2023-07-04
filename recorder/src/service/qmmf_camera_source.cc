@@ -29,7 +29,7 @@
 *
 * Changes from Qualcomm Innovation Center are provided under the following license:
 *
-* Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted (subject to the limitations in the
@@ -227,7 +227,7 @@ status_t CameraSource::StopCamera(const uint32_t camera_id) {
 status_t CameraSource::CaptureImage(const uint32_t camera_id,
                                     const SnapshotType type,
                                     const uint32_t n_images,
-                                    const std::vector<CameraMetadata> &meta,
+                                    const std::vector<::camera::CameraMetadata> &meta,
                                     const SnapshotCb& cb) {
 
   QMMF_DEBUG("%s: Enter", __func__);
@@ -271,6 +271,7 @@ status_t CameraSource::ConfigImageCapture(const uint32_t camera_id,
   sparam.height  = param.height;
   sparam.format  = Common::FromImageToQmmfFormat(param.format);
   sparam.quality = param.quality;
+  sparam.rotation = param.rotation;
 
   auto ret = camera->ConfigImageCapture(sparam, xtraparam);
   if (ret != NO_ERROR) {
@@ -662,7 +663,7 @@ status_t CameraSource::ReturnTrackBuffer(const uint32_t track_id,
 }
 
 status_t CameraSource::SetCameraParam(const uint32_t camera_id,
-                                      const CameraMetadata &meta) {
+                                      const ::camera::CameraMetadata &meta) {
 
   if (active_cameras_.count(camera_id) == 0) {
     QMMF_ERROR("%s: Invalid Camera Id(%d)", __func__, camera_id);
@@ -672,7 +673,7 @@ status_t CameraSource::SetCameraParam(const uint32_t camera_id,
 }
 
 status_t CameraSource::GetCameraParam(const uint32_t camera_id,
-                                      CameraMetadata &meta) {
+                                      ::camera::CameraMetadata &meta) {
 
   if (active_cameras_.count(camera_id) == 0) {
     QMMF_ERROR("%s: Invalid Camera Id(%d)", __func__, camera_id);
@@ -692,7 +693,7 @@ status_t CameraSource::SetSHDR(const uint32_t camera_id,
 }
 
 status_t CameraSource::GetDefaultCaptureParam(const uint32_t camera_id,
-                                              CameraMetadata &meta) {
+                                              ::camera::CameraMetadata &meta) {
 
   if (active_cameras_.count(camera_id) == 0) {
     QMMF_ERROR("%s: Invalid Camera Id(%d)", __func__, camera_id);
@@ -702,7 +703,7 @@ status_t CameraSource::GetDefaultCaptureParam(const uint32_t camera_id,
 }
 
 status_t CameraSource::GetCameraCharacteristics(const uint32_t camera_id,
-                                                CameraMetadata &meta) {
+                                                ::camera::CameraMetadata &meta) {
 
   if (active_cameras_.count(camera_id) == 0) {
     QMMF_ERROR("%s: Invalid Camera Id(%d)", __func__, camera_id);

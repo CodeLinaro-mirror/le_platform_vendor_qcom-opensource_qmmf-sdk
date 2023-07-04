@@ -163,7 +163,7 @@ class RecorderService : public BnInterface<IRecorderService> {
                         const uint32_t camera_id,
                         const SnapshotType type,
                         const uint32_t n_images,
-                        const std::vector<CameraMetadata> &meta) override;
+                        const std::vector<::camera::CameraMetadata> &meta) override;
 
   status_t ConfigImageCapture(const uint32_t client_id,
                               const uint32_t camera_id,
@@ -180,11 +180,11 @@ class RecorderService : public BnInterface<IRecorderService> {
 
   status_t SetCameraParam(const uint32_t client_id,
                           const uint32_t camera_id,
-                          const CameraMetadata &meta) override;
+                          const ::camera::CameraMetadata &meta) override;
 
   status_t GetCameraParam(const uint32_t client_id,
                           const uint32_t camera_id,
-                          CameraMetadata &meta) override;
+                          ::camera::CameraMetadata &meta) override;
 
   status_t SetSHDR(const uint32_t client_id,
                    const uint32_t camera_id,
@@ -192,11 +192,11 @@ class RecorderService : public BnInterface<IRecorderService> {
 
   status_t GetDefaultCaptureParam(const uint32_t client_id,
                                   const uint32_t camera_id,
-                                  CameraMetadata &meta) override;
+                                  ::camera::CameraMetadata &meta) override;
 
   status_t GetCameraCharacteristics(const uint32_t client_id,
                                     const uint32_t camera_id,
-                                    CameraMetadata &meta) override;
+                                    ::camera::CameraMetadata &meta) override;
 
   status_t CreateOfflineJPEG(const uint32_t client_id,
                              const OfflineJpegCreateParams& params) override;
@@ -214,7 +214,7 @@ class RecorderService : public BnInterface<IRecorderService> {
 
   status_t DisconnectInternal(const uint32_t client_id);
 
-  status_t GetVendorTagDescriptor(sp<VendorTagDescriptor> &desc) override;
+  status_t GetVendorTagDescriptor(sp<::camera::VendorTagDescriptor> &desc) override;
 
   status_t GetUniqueClientID(uint32_t *client_id);
 

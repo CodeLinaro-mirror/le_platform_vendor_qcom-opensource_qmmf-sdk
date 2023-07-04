@@ -70,7 +70,6 @@
 #include <dlfcn.h>
 #include <sys/mman.h>
 #include <sys/ioctl.h>
-#include <linux/msm_ion.h>
 #include <binder/Parcel.h>
 #include <binder/ProcessState.h>
 #include <binder/IPCThreadState.h>
@@ -124,7 +123,11 @@ RecorderClient::RecorderClient()
 #endif
 
 #ifdef TARGET_USES_GBM
-  gbm_fd_ = open("/dev/ion", O_RDWR);
+  gbm_fd_ = open("/dev/dma_heap/qcom,system", O_RDWR);
+  if (gbm_fd_ < 0) {
+    QMMF_WARN("%s: Falling back to /dev/ion \n", __func__);
+    gbm_fd_ = open("/dev/ion", O_RDWR);
+  }
   assert(gbm_fd_ >= 0);
 
   gbm_device_ = gbm_create_device(gbm_fd_);
@@ -163,7 +166,11 @@ status_t RecorderClient::Connect(const RecorderCb& cb) {
     return NO_ERROR;
   }
 
-  ion_device_ = open("/dev/ion", O_RDONLY | O_CLOEXEC);
+  ion_device_ = open("/dev/dma_heap/qcom,system", O_RDONLY | O_CLOEXEC);
+  if (ion_device_ < 0) {
+    QMMF_WARN("%s: Falling back to /dev/ion \n", __func__);
+    ion_device_ = open("/dev/ion", O_RDONLY | O_CLOEXEC);
+  }
   if (ion_device_ < 0) {
     QMMF_ERROR("%s: Can't open Ion device!", __func__);
     return NO_INIT;
@@ -246,7 +253,7 @@ status_t RecorderClient::Disconnect() {
   client_id_ = 0;
 
   // Clear global tag descriptor for the process
-  VendorTagDescriptor::clearGlobalVendorTagDescriptor();
+  ::camera::VendorTagDescriptor::clearGlobalVendorTagDescriptor();
   vendor_tag_desc_ = nullptr;
 
   QMMF_DEBUG("%s Exit ", __func__);
@@ -282,7 +289,7 @@ status_t RecorderClient::StartCamera(const uint32_t camera_id,
 
 #ifndef CAMERA_HAL1_SUPPORT
   if (vendor_tag_desc_ == nullptr) {
-    vendor_tag_desc_ = new VendorTagDescriptor();
+    vendor_tag_desc_ = new ::camera::VendorTagDescriptor();
     ret = GetVendorTagDescriptor(vendor_tag_desc_);
     if (0 != ret) {
       QMMF_ERROR("%s: Unable to GetVendorTagDescriptor : %d\n", __func__, ret);
@@ -291,7 +298,7 @@ status_t RecorderClient::StartCamera(const uint32_t camera_id,
 
     // Set the global descriptor to use with camera metadata
     ret =
-        VendorTagDescriptor::setAsGlobalVendorTagDescriptor(vendor_tag_desc_);
+        ::camera::VendorTagDescriptor::setAsGlobalVendorTagDescriptor(vendor_tag_desc_);
     if (0 != ret) {
       QMMF_ERROR("%s: Unable to setAsGlobalVendorTagDescriptor : %d", __func__,
                  ret);
@@ -670,7 +677,7 @@ status_t RecorderClient::DeleteVideoTrack(const uint32_t session_id,
 status_t RecorderClient::CaptureImage(const uint32_t camera_id,
                                       const SnapshotType type,
                                       const uint32_t n_images,
-                                      const std::vector<CameraMetadata> &meta,
+                                      const std::vector<::camera::CameraMetadata> &meta,
                                       const ImageCaptureCb &cb) {
 
   QMMF_DEBUG("%s Enter ", __func__);
@@ -771,7 +778,7 @@ status_t RecorderClient::ReturnImageCaptureBuffer(const uint32_t camera_id,
 }
 
 status_t RecorderClient::SetCameraParam(const uint32_t camera_id,
-                                        const CameraMetadata &meta) {
+                                        const ::camera::CameraMetadata &meta) {
 
   QMMF_DEBUG("%s Enter ", __func__);
   std::lock_guard<std::mutex> lock(lock_);
@@ -788,7 +795,7 @@ status_t RecorderClient::SetCameraParam(const uint32_t camera_id,
 }
 
 status_t RecorderClient::GetCameraParam(const uint32_t camera_id,
-                                        CameraMetadata &meta) {
+                                        ::camera::CameraMetadata &meta) {
 
   QMMF_DEBUG("%s Enter ", __func__);
 
@@ -824,7 +831,7 @@ status_t RecorderClient::SetSHDR(const uint32_t camera_id,
 }
 
 status_t RecorderClient::GetDefaultCaptureParam(const uint32_t camera_id,
-                                                CameraMetadata &meta) {
+                                                ::camera::CameraMetadata &meta) {
 
   QMMF_DEBUG("%s Enter ", __func__);
   std::lock_guard<std::mutex> lock(lock_);
@@ -842,7 +849,7 @@ status_t RecorderClient::GetDefaultCaptureParam(const uint32_t camera_id,
 }
 
 status_t RecorderClient::GetCameraCharacteristics(const uint32_t camera_id,
-                                                  CameraMetadata &meta) {
+                                                  ::camera::CameraMetadata &meta) {
 
   QMMF_DEBUG("%s Enter ", __func__);
   std::lock_guard<std::mutex> lock(lock_);
@@ -859,7 +866,7 @@ status_t RecorderClient::GetCameraCharacteristics(const uint32_t camera_id,
   return ret;
 }
 
-status_t RecorderClient::GetVendorTagDescriptor(sp<VendorTagDescriptor> &desc) {
+status_t RecorderClient::GetVendorTagDescriptor(sp<::camera::VendorTagDescriptor> &desc) {
 
   QMMF_DEBUG("%s Enter ", __func__);
 
@@ -1003,6 +1010,8 @@ void RecorderClient::ImportBuffer(int32_t fd, int32_t metafd,
       break;
     case BufferFormat::kBLOB:
       format = GBM_FORMAT_BLOB;
+      width  = meta.planes[0].size;
+      height = 1;
       break;
     case BufferFormat::kNV12UBWC:
       format = GBM_FORMAT_YCbCr_420_SP_VENUS_UBWC;
@@ -1044,7 +1053,6 @@ void RecorderClient::ReleaseBuffer(int32_t& fd) {
 
   gbm_bo_destroy(gbm_buffers_map_[fd]);
   gbm_buffers_map_.erase(fd);
-  fd = -1;
 }
 #endif
 
@@ -1102,11 +1110,13 @@ status_t RecorderClient::UnmapBuffer(BufferInfo& info) {
 #ifdef TARGET_USES_GBM
     ReleaseBuffer(info.ion_fd);
 #endif
+#ifdef GBM_FREE_FD
     if ((info.ion_fd != -1) && (close(info.ion_fd) < 0)) {
       QMMF_ERROR("%s() error closing shared fd[%d]: %d[%s]", __func__,
                  info.ion_fd, errno, strerror(errno));
       return errno;
     }
+#endif
     info.ion_fd = -1;
   }
 
@@ -1455,7 +1465,7 @@ void RecorderClient::NotifyVideoTrackEvent(uint32_t session_id,
 }
 
 void RecorderClient::NotifyCameraResult(uint32_t camera_id,
-                                        const CameraMetadata &result) {
+                                        const ::camera::CameraMetadata &result) {
   if (nullptr != metadata_cb_) {
     metadata_cb_(camera_id, result);
   } else {
@@ -1709,7 +1719,7 @@ status_t DeleteVideoTrack(const uint32_t client_id,
 
   status_t CaptureImage(const uint32_t client_id, const uint32_t camera_id,
                         const SnapshotType type, const uint32_t n_images,
-                        const std::vector<CameraMetadata> &meta) {
+                        const std::vector<::camera::CameraMetadata> &meta) {
     Parcel data, reply;
     data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
     data.writeUint32(client_id);
@@ -1781,7 +1791,7 @@ status_t DeleteVideoTrack(const uint32_t client_id,
 
   status_t SetCameraParam(const uint32_t client_id,
                           const uint32_t camera_id,
-                          const CameraMetadata &meta) {
+                          const ::camera::CameraMetadata &meta) {
     Parcel data, reply;
     data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
     data.writeUint32(client_id);
@@ -1794,7 +1804,7 @@ status_t DeleteVideoTrack(const uint32_t client_id,
 
   status_t GetCameraParam(const uint32_t client_id,
                           const uint32_t camera_id,
-                          CameraMetadata &meta) {
+                          ::camera::CameraMetadata &meta) {
     Parcel data, reply;
     data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
     data.writeUint32(client_id);
@@ -1823,7 +1833,7 @@ status_t DeleteVideoTrack(const uint32_t client_id,
 
   status_t GetDefaultCaptureParam(const uint32_t client_id,
                                   const uint32_t camera_id,
-                                  CameraMetadata &meta) {
+                                  ::camera::CameraMetadata &meta) {
     Parcel data, reply;
     data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
     data.writeUint32(client_id);
@@ -1840,7 +1850,7 @@ status_t DeleteVideoTrack(const uint32_t client_id,
 
   status_t GetCameraCharacteristics(const uint32_t client_id,
                                     const uint32_t camera_id,
-                                    CameraMetadata &meta) {
+                                    ::camera::CameraMetadata &meta) {
     Parcel data, reply;
     data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
     data.writeUint32(client_id);
@@ -1855,7 +1865,7 @@ status_t DeleteVideoTrack(const uint32_t client_id,
     return ret;
   }
 
-  status_t GetVendorTagDescriptor(sp<VendorTagDescriptor> &desc) {
+  status_t GetVendorTagDescriptor(sp<::camera::VendorTagDescriptor> &desc) {
     Parcel data, reply;
     data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
     remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
@@ -1997,7 +2007,7 @@ void ServiceCallbackHandler::NotifyVideoTrackEvent(uint32_t session_id,
 }
 
 void ServiceCallbackHandler::NotifyCameraResult(uint32_t camera_id,
-                                                const CameraMetadata &result) {
+                                                const ::camera::CameraMetadata &result) {
   assert(client_ != nullptr);
   client_->NotifyCameraResult(camera_id, result);
 }
@@ -2175,7 +2185,7 @@ class BpRecorderServiceCallback: public BpInterface<IRecorderServiceCallback> {
 
   }
 
-  void NotifyCameraResult(uint32_t camera_id, const CameraMetadata &result) {
+  void NotifyCameraResult(uint32_t camera_id, const ::camera::CameraMetadata &result) {
     Parcel data, reply;
     data.writeInterfaceToken(IRecorderServiceCallback::getInterfaceDescriptor());
     data.writeUint32(camera_id);
@@ -2334,9 +2344,9 @@ status_t BnRecorderServiceCallback::onTransact(uint32_t code,
     case RECORDER_SERVICE_CB_CMDS::RECORDER_NOTIFY_CAMERA_RESULT: {
       camera_metadata *meta = nullptr;
       uint32_t camera_id = data.readUint32();
-      auto ret = CameraMetadata::readFromParcel(data, &meta);
+      auto ret = ::camera::CameraMetadata::readFromParcel(data, &meta);
       if ((NO_ERROR == ret) && (nullptr != meta)) {
-        CameraMetadata result(meta);
+        ::camera::CameraMetadata result(meta);
         NotifyCameraResult(camera_id, result);
       } else {
         QMMF_ERROR("%s Failed to read camera result from parcel: %d\n",

@@ -29,7 +29,7 @@
 *
 * Changes from Qualcomm Innovation Center are provided under the following license:
 *
-* Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted (subject to the limitations in the
@@ -82,6 +82,12 @@
 #include <camera/CameraMetadata.h>
 
 #include "qmmf-sdk/qmmf_buffer.h"
+
+#ifndef CAMERA_METADATA_1_0_NS
+namespace camera = android;
+#else
+namespace camera = android::hardware::camera::common::V1_0::helper;
+#endif
 
 namespace qmmf {
 
@@ -170,6 +176,7 @@ enum class VideoFlags : uint64_t {
   kNone     = 0,      /// No active configuration flags.
   kIAEC     = 1 << 0, /// Wait Initial Auto Exposure Convergence.
   kUncashed = 1 << 1, /// Allocated buffers are not cached.
+  kPreview  = 1 << 2, /// Indicate a preview stream
 };
 
 inline VideoFlags operator | (VideoFlags lhs, VideoFlags rhs) {
@@ -309,7 +316,7 @@ struct VideoTrackParam {
 /// by service once there is at least one started session
 /// which includes a video track.
 typedef std::function<void(uint32_t camera_id,
-                           const android::CameraMetadata &res)> CameraResultCb;
+                           const ::camera::CameraMetadata &res)> CameraResultCb;
 
 /// @brief For thumbnail images only kJPEG is supported
 /// For YUV and Bayer formats, quality is ignored
@@ -324,8 +331,11 @@ struct ImageParam {
   ImageFormat format;
   /// Image quality (ignored for YUV and Bayer formats)
   uint32_t    quality;
+  /// Image Track rotation angle
+  Rotation    rotation;
 
-  ImageParam(): width(0), height(0), format(ImageFormat::kJPEG), quality(95) {}
+  ImageParam(): width(0), height(0), format(ImageFormat::kJPEG), quality(95),
+      rotation(Rotation::kNone) {}
 
   ::std::string ToString() const {
     ::std::stringstream stream;
@@ -338,6 +348,10 @@ struct ImageParam {
            << static_cast<::std::underlying_type<ImageFormat>::type>(format)
            << "]";
     stream << "quality[" << quality << "] ";
+    stream << "rotation["
+           << static_cast<::std::underlying_type<Rotation>::type>(rotation)
+           << "] ";
+
     return stream.str();
   }
 };
