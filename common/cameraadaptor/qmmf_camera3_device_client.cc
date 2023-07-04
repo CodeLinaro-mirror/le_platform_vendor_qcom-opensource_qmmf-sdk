@@ -2170,7 +2170,7 @@ void Camera3DeviceClient::SetErrorStateLockedV(const char *fmt, va_list args) {
 
   last_error_ = errorCause;
 
-  request_handler_.TogglePause(true);
+  request_handler_.RequestExit();
   InternalUpdateStatusLocked(STATE_ERROR);
 
   if (nullptr != client_cb_.errorCb) {
