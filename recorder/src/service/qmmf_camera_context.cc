@@ -121,6 +121,9 @@ CameraContext::CameraContext()
       pcr_frc_enabled_(false),
       continuous_mode_is_on_(false),
       is_camera_dead_(false),
+      is_shdr_enable_(false),
+      hfr_sync_mode_(false),
+      all_ports_ready_(false),
       pending_cached_stream_(false),
       hfr_detected_(false),
       hfr_wait_ports_ready_(false) {
@@ -392,6 +395,24 @@ status_t CameraContext::OpenCamera(const uint32_t camera_id,
       }
     } else {
       QMMF_ERROR("%s: Invalid FRC mode received", __func__);
+      return BAD_VALUE;
+    }
+  }
+
+  if (extra_param.Exists(QMMF_HFR_SYNC_MODE)) {
+    size_t entry_count = extra_param.EntryCount(QMMF_HFR_SYNC_MODE);
+    if (entry_count == 1){
+      HFRSyncMode hfr_sync_mode;
+      extra_param.Fetch(QMMF_HFR_SYNC_MODE, hfr_sync_mode, 0);
+      if (hfr_sync_mode.enable == true) {
+        hfr_sync_mode_ = true;
+        QMMF_INFO("%s: HFR Sync Mode enable", __func__);
+      } else {
+        hfr_sync_mode_ = false;
+        QMMF_INFO("%s: HFR Sync Mode disable", __func__);
+      }
+    } else{
+      QMMF_ERROR("%s: Invalid HFR Sync Mode received", __func__);
       return BAD_VALUE;
     }
   }
