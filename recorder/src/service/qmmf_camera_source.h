@@ -186,6 +186,7 @@ class CameraSource {
 
   // Map of camera id and CameraInterface.
   std::map<uint32_t, std::shared_ptr<CameraInterface>> active_cameras_;
+  std::mutex active_cameras_lock_;
 
   // Map of track id and TrackSources.
   std::map<uint32_t, std::shared_ptr<TrackSource>> track_sources_;
