@@ -227,7 +227,8 @@ class CameraSource {
 
   SnapshotCb client_snapshot_cb_;
 
-  CameraExtraParam start_cam_param_;
+  std::map<uint32_t, CameraExtraParam>  start_cam_param_;
+  std::mutex                            start_cam_param_lock_;
 
   bool frame_rate_control_;
 
