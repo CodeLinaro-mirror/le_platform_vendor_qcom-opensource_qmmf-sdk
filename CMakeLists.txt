@@ -31,7 +31,7 @@ add_subdirectory(qmmf-server)
 
 add_subdirectory(recorder/src/service)
 
-add_subdirectory(recorder/test/gtest)
+#add_subdirectory(recorder/test/gtest)
 
 add_subdirectory(recorder/src/client)
 

@@ -28,7 +28,7 @@
 *
 * Changes from Qualcomm Innovation Center are provided under the following license:
 *
-* Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted (subject to the limitations in the
@@ -93,15 +93,13 @@ enum QMMF_RECORDER_SERVICE_CMDS {
   RECORDER_DISCONNECT,
   RECORDER_START_CAMERA,
   RECORDER_STOP_CAMERA,
-  RECORDER_CREATE_SESSION,
-  RECORDER_DELETE_SESSION,
-  RECORDER_START_SESSION,
-  RECORDER_STOP_SESSION,
-  RECORDER_PAUSE_SESSION,
-  RECORDER_RESUME_SESSION,
   RECORDER_GET_NUMBER_OF_CAMERAS,
   RECORDER_CREATE_VIDEOTRACK,
   RECORDER_DELETE_VIDEOTRACK,
+  RECORDER_START_VIDEOTRACK,
+  RECORDER_STOP_VIDEOTRACK,
+  RECORDER_PAUSE_VIDEOTRACK,
+  RECORDER_RESUME_VIDEOTRACK,
   RECORDER_RETURN_TRACKBUFFER,
   RECORDER_SET_VIDEOTRACK_PARAMS,
   RECORDER_CAPTURE_IMAGE,
@@ -206,41 +204,31 @@ class IRecorderService : public IInterface {
   virtual status_t StopCamera(const uint32_t client_id,
                               const uint32_t camera_id) = 0;
 
-  virtual status_t CreateSession(const uint32_t client_id,
-                                 uint32_t *session_id) = 0;
-
-  virtual status_t DeleteSession(const uint32_t client_id,
-                                 const uint32_t session_id) = 0;
-
-  virtual status_t StartSession(const uint32_t client_id,
-                                const uint32_t session_id) = 0;
-
-  virtual status_t StopSession(const uint32_t client_id,
-                               const uint32_t session_id, bool do_flush) = 0;
-
-  virtual status_t PauseSession(const uint32_t client_id,
-                                const uint32_t session_id) = 0;
-
-  virtual status_t ResumeSession(const uint32_t client_id,
-                                 const uint32_t session_id) = 0;
-
   virtual status_t CreateVideoTrack(const uint32_t client_id,
-                                    const uint32_t session_id,
                                     const uint32_t track_id,
                                     const VideoTrackParam& param,
                                     const VideoExtraParam& xtraparam) = 0;
 
   virtual status_t DeleteVideoTrack(const uint32_t client_id,
-                                    const uint32_t session_id,
+                                    const uint32_t track_id) = 0;
+
+  virtual status_t StartVideoTrack(const uint32_t client_id,
+                                   const uint32_t track_id) = 0;
+
+  virtual status_t StopVideoTrack(const uint32_t client_id,
+                                  const uint32_t track_id, bool do_flush) = 0;
+
+  virtual status_t PauseVideoTrack(const uint32_t client_id,
+                                   const uint32_t track_id) = 0;
+
+  virtual status_t ResumeVideoTrack(const uint32_t client_id,
                                     const uint32_t track_id) = 0;
 
   virtual status_t ReturnTrackBuffer(const uint32_t client_id,
-                                     const uint32_t session_id,
                                      const uint32_t track_id,
                                      std::vector<BnBuffer> &buffers) = 0;
 
   virtual status_t SetVideoTrackParam(const uint32_t client_id,
-                                      const uint32_t session_id,
                                       const uint32_t track_id,
                                       VideoParam type,
                                       void *param,
@@ -301,7 +289,6 @@ class IRecorderService : public IInterface {
 
 enum RECORDER_SERVICE_CB_CMDS{
   RECORDER_NOTIFY_EVENT=IBinder::FIRST_CALL_TRANSACTION,
-  RECORDER_NOTIFY_SESSION_EVENT,
   RECORDER_NOTIFY_SNAPSHOT_DATA,
   RECORDER_NOTIFY_OFFLINE_JPEG_DATA,
   RECORDER_NOTIFY_VIDEO_TRACK_DATA,
@@ -317,20 +304,17 @@ class IRecorderServiceCallback : public IInterface {
   virtual void NotifyRecorderEvent(EventType event_type, void *event_data,
                                    size_t event_data_size) = 0;
 
-  virtual void NotifySessionEvent(EventType event_type, void *event_data,
-                                  size_t event_data_size) = 0;
-
   virtual void NotifySnapshotData(uint32_t camera_id, uint32_t imgcount,
                                   BnBuffer& buffer, BufferMeta& meta) = 0;
 
   virtual void NotifyOfflineJpegData(int32_t buf_fd,
                                      uint32_t encoded_size) = 0;
 
-  virtual void NotifyVideoTrackData(uint32_t session_id, uint32_t track_id,
+  virtual void NotifyVideoTrackData(uint32_t track_id,
                                     std::vector<BnBuffer>& buffers,
                                     std::vector<BufferMeta>& metas) = 0;
 
-  virtual void NotifyVideoTrackEvent(uint32_t session_id, uint32_t track_id,
+  virtual void NotifyVideoTrackEvent(uint32_t track_id,
                                      EventType event_type,
                                      void *event_data,
                                      size_t event_data_size) = 0;

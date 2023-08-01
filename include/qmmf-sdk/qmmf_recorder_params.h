@@ -214,16 +214,10 @@ enum class VideoParam {
 typedef std::function<void(EventType event, void *payload, size_t size)> EventCb;
 
 /// @brief Recorder callback is called to notify non track
-/// and non session specific event notifications
+/// specific event notifications
 ///
 /// Only error event types are expected as of now
 struct RecorderCb {
-  EventCb event_cb;
-};
-
-/// @brief Session cb is used to return state changes i.e. to indicate
-/// start, stop, pause state transition completions
-struct SessionCb {
   EventCb event_cb;
 };
 
@@ -302,7 +296,7 @@ struct VideoTrackParam {
 /// @brief Result callback passed to StartCamera API
 ///
 /// Optional result callback which will get triggered
-/// by service once there is at least one started session
+/// by service once there is at least one started track
 /// which includes a video track.
 typedef std::function<void(uint32_t camera_id,
                            const android::CameraMetadata &res)> CameraResultCb;

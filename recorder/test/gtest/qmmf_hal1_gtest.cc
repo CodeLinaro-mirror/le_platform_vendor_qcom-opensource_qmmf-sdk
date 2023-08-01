@@ -25,6 +25,40 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted (subject to the limitations in the
+ * disclaimer below) provided that the following conditions are met:
+ *
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *
+ *     * Redistributions in binary form must reproduce the above
+ *       copyright notice, this list of conditions and the following
+ *       disclaimer in the documentation and/or other materials provided
+ *       with the distribution.
+ *
+ *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+ *       contributors may be used to endorse or promote products derived
+ *       from this software without specific prior written permission.
+ *
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 #define LOG_TAG "RecorderHal1GTest"
 
@@ -167,12 +201,10 @@ TEST_F(RecorderHal1GTest, TestMetaData) {
  *   loop Start {
  *   ------------------
  *   - StartCamera
- *   - CreateSession
  *   - CreateVideoTrack
- *   - StartSession
- *   - StopSession
+ *   - StartVideoTrack
+ *   - StopVideoTrack
  *   - DeleteVideoTrack
- *   - DeleteSession
  *   - StopCamera
  *   ------------------
  *   } loop End
@@ -196,12 +228,6 @@ TEST_F(RecorderHal1GTest, SessionWith480pYUVTrack) {
       test_info_->name(), i);
 
     ret = recorder_.StartCamera(camera_id_, 30);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    SessionCb session_status_cb = CreateSessionStatusCb();
-    uint32_t session_id;
-    ret = recorder_.CreateSession(session_status_cb, &session_id);
-    ASSERT_TRUE(session_id > 0);
     ASSERT_TRUE(ret == NO_ERROR);
 
     /************************ Create Preview Track ****************************/
@@ -229,23 +255,18 @@ TEST_F(RecorderHal1GTest, SessionWith480pYUVTrack) {
 
     /************************ Start Preview  **********************************/
 
-    ret = recorder_.StartSession(session_id);
+    ret = recorder_.StartVideoTrack(session_id);
     ASSERT_TRUE(ret == NO_ERROR);
 
     sleep(record_duration_);
 
     /************************ Stop Preview ************************************/
 
-    ret = recorder_.StopSession(session_id, false);
+    ret = recorder_.StopVideoTrack(session_id, false);
     ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_480p_yuv);
     ASSERT_TRUE(ret == NO_ERROR);
-
-    ret = recorder_.DeleteSession(session_id);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    ClearSessions();
 
     ret = recorder_.StopCamera(camera_id_);
     ASSERT_TRUE(ret == NO_ERROR);
@@ -265,12 +286,10 @@ TEST_F(RecorderHal1GTest, SessionWith480pYUVTrack) {
  *   loop Start {
  *   ------------------
  *   - StartCamera
- *   - CreateSession
  *   - CreateVideoTrack
- *   - StartSession
- *   - StopSession
+ *   - StartVideoTrack
+ *   - StopVideoTrack
  *   - DeleteVideoTrack
- *   - DeleteSession
  *   - StopCamera
  *   ------------------
  *   } loop End
@@ -295,12 +314,6 @@ TEST_F(RecorderHal1GTest, SessionWith720YUVTrack) {
       test_info_->name(), i);
 
     ret = recorder_.StartCamera(camera_id_, 30);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    SessionCb session_status_cb = CreateSessionStatusCb();
-    uint32_t session_id;
-    ret = recorder_.CreateSession(session_status_cb, &session_id);
-    ASSERT_TRUE(session_id > 0);
     ASSERT_TRUE(ret == NO_ERROR);
 
     /************************ Create Preview Track ****************************/
@@ -335,23 +348,18 @@ TEST_F(RecorderHal1GTest, SessionWith720YUVTrack) {
 
     /************************ Start Preview  **********************************/
 
-    ret = recorder_.StartSession(session_id);
+    ret = recorder_.StartVideoTrack(session_id);
     ASSERT_TRUE(ret == NO_ERROR);
 
     sleep(record_duration_);
 
     /************************ Stop Preview ************************************/
 
-    ret = recorder_.StopSession(session_id, false);
+    ret = recorder_.StopVideoTrack(session_id, false);
     ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_720p_yuv);
     ASSERT_TRUE(ret == NO_ERROR);
-
-    ret = recorder_.DeleteSession(session_id);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    ClearSessions();
 
     ret = recorder_.StopCamera(camera_id_);
     ASSERT_TRUE(ret == NO_ERROR);
@@ -370,18 +378,16 @@ TEST_F(RecorderHal1GTest, SessionWith720YUVTrack) {
                                  one 720p YUV and one 480 YUV Track.
  * Api test sequence:
  *  - StartCamera
-*   - CreateSession
  *   loop Start {
  *   ------------------
  *   - CreateVideoTrack
  *   - CreateVideoTrack
- *   - StartSession
- *   - StopSession
+ *   - StartVideoTrack
+ *   - StopVideoTrack
  *   - DeleteVideoTrack
  *   - DeleteVideoTrack
  *   ------------------
  *   } loop End
-*   - DeleteSession
  *  - StopCamera
  */
 TEST_F(RecorderHal1GTest, SessionWith720pYUVAnd480pYUV) {
@@ -397,13 +403,6 @@ TEST_F(RecorderHal1GTest, SessionWith720pYUVAnd480pYUV) {
 
   uint32_t video_track_id_720p_yuv = 1;
   uint32_t video_track_id_480p_yuv = 2;
-
-  SessionCb session_status_cb = CreateSessionStatusCb();
-
-  uint32_t session_id;
-  ret = recorder_.CreateSession(session_status_cb, &session_id);
-  ASSERT_TRUE(session_id > 0);
-  ASSERT_TRUE(ret == NO_ERROR);
 
   if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = { VideoFormat::kNV12, session_id,
@@ -455,14 +454,14 @@ TEST_F(RecorderHal1GTest, SessionWith720pYUVAnd480pYUV) {
 
     track_ids.push_back(video_track_id_480p_yuv);
 
-    ret = recorder_.StartSession(session_id);
+    ret = recorder_.StartVideoTrack(session_id);
     ASSERT_TRUE(ret == NO_ERROR);
 
     // Let session run for time record_duration_, during this time buffer with
     // valid data would be received in track callback (VideoTrackYUVDataCb).
     sleep(record_duration_);
 
-    ret = recorder_.StopSession(session_id, false);
+    ret = recorder_.StopVideoTrack(session_id, false);
     ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_720p_yuv);
@@ -473,10 +472,6 @@ TEST_F(RecorderHal1GTest, SessionWith720pYUVAnd480pYUV) {
 
   }
 
-  ret = recorder_.DeleteSession(session_id);
-  ASSERT_TRUE(ret == NO_ERROR);
-
-  ClearSessions();
   dump_bitstream_.CloseAll();
 
   ret = recorder_.StopCamera(camera_id_);
@@ -497,16 +492,14 @@ TEST_F(RecorderHal1GTest, SessionWith720pYUVAnd480pYUV) {
  *  - StartCamera
  *   loop Start {
  *   ------------------
- *   - CreateSession
  *   - CreateVideoTrack
  *   - CreateVideoTrack - Master
  *   - CreateVideoTrack - Linked
- *   - StartSession
- *   - StopSession
+ *   - StartVideoTrack
+ *   - StopVideoTrack
  *   - DeleteVideoTrack
  *   - DeleteVideoTrack - Master
  *   - DeleteVideoTrack - Linked
- *   - DeleteSession
  *   ------------------
  *   } loop End
  *  - StopCamera
@@ -525,13 +518,6 @@ TEST_F(RecorderHal1GTest, SessionWith480pYUVAnd480pYUVAndLinked480pYUV) {
   uint32_t video_track_id_480p_yuv1  = 1;
   uint32_t video_track_id_480p_yuv2  = 2;
   uint32_t video_track_id_480p_yuv3  = 3;
-
-  SessionCb session_status_cb = CreateSessionStatusCb();
-
-  uint32_t session_id;
-  ret = recorder_.CreateSession(session_status_cb, &session_id);
-  ASSERT_TRUE(session_id > 0);
-  ASSERT_TRUE(ret == NO_ERROR);
 
   if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo = { VideoFormat::kNV12, session_id,
@@ -615,14 +601,14 @@ TEST_F(RecorderHal1GTest, SessionWith480pYUVAnd480pYUVAndLinked480pYUV) {
     track_ids.push_back(video_track_id_480p_yuv3);
     sessions_.insert(std::make_pair(session_id, track_ids));
 
-    ret = recorder_.StartSession(session_id);
+    ret = recorder_.StartVideoTrack(session_id);
     ASSERT_TRUE(ret == NO_ERROR);
 
     // Let session run for time record_duration_, during this time buffer with
     // valid data would be received in track callback (VideoTrackYUVDataCb).
     sleep(record_duration_);
 
-    ret = recorder_.StopSession(session_id, false);
+    ret = recorder_.StopVideoTrack(session_id, false);
     ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_480p_yuv1);
@@ -635,10 +621,6 @@ TEST_F(RecorderHal1GTest, SessionWith480pYUVAnd480pYUVAndLinked480pYUV) {
     ASSERT_TRUE(ret == NO_ERROR);
   }
 
-  ret = recorder_.DeleteSession(session_id);
-  ASSERT_TRUE(ret == NO_ERROR);
-
-  ClearSessions();
   dump_bitstream_.CloseAll();
 
   ret = recorder_.StopCamera(camera_id_);
@@ -658,12 +640,10 @@ TEST_F(RecorderHal1GTest, SessionWith480pYUVAnd480pYUVAndLinked480pYUV) {
  *   loop Start {
  *   ------------------
  *   - StartCamera
- *   - CreateSession
  *   - CreateVideoTrack
- *   - StartSession
- *   - StopSession
+ *   - StartVideoTrack
+ *   - StopVideoTrack
  *   - DeleteVideoTrack
- *   - DeleteSession
  *   - StopCamera
  *   ------------------
  *   } loop End
@@ -688,17 +668,6 @@ TEST_F(RecorderHal1GTest, SessionWith480pYUVand1080pYUVTracks) {
       test_info_->name(), i);
 
     ret = recorder_.StartCamera(camera_id_, 30);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    SessionCb session_status_cb = CreateSessionStatusCb();
-    uint32_t session_id;
-    ret = recorder_.CreateSession(session_status_cb, &session_id);
-    ASSERT_TRUE(session_id > 0);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    uint32_t session_id2;
-    ret = recorder_.CreateSession(session_status_cb, &session_id2);
-    ASSERT_TRUE(session_id2 > 0);
     ASSERT_TRUE(ret == NO_ERROR);
 
     /************************ Create Preview Track ****************************/
@@ -747,24 +716,24 @@ TEST_F(RecorderHal1GTest, SessionWith480pYUVand1080pYUVTracks) {
 
     /************************ Start Preview  **********************************/
 
-    ret = recorder_.StartSession(session_id);
+    ret = recorder_.StartVideoTrack(session_id);
     ASSERT_TRUE(ret == NO_ERROR);
 
     sleep(1);
 
-    ret = recorder_.StartSession(session_id2);
+    ret = recorder_.StartVideoTrack(session_id2);
     ASSERT_TRUE(ret == NO_ERROR);
 
     sleep(record_duration_);
 
     /************************ Stop Preview ************************************/
 
-    ret = recorder_.StopSession(session_id, false);
+    ret = recorder_.StopVideoTrack(session_id, false);
     ASSERT_TRUE(ret == NO_ERROR);
 
     sleep(2);
 
-    ret = recorder_.StopSession(session_id2, false);
+    ret = recorder_.StopVideoTrack(session_id2, false);
     ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id2, video_track_id_1080p_yuv);
@@ -772,14 +741,6 @@ TEST_F(RecorderHal1GTest, SessionWith480pYUVand1080pYUVTracks) {
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_480p_yuv);
     ASSERT_TRUE(ret == NO_ERROR);
-
-    ret = recorder_.DeleteSession(session_id2);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    ret = recorder_.DeleteSession(session_id);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    ClearSessions();
 
     ret = recorder_.StopCamera(camera_id_);
     ASSERT_TRUE(ret == NO_ERROR);
@@ -800,16 +761,14 @@ TEST_F(RecorderHal1GTest, SessionWith480pYUVand1080pYUVTracks) {
  *  - StartCamera
  *   loop Start {
  *   ------------------
- *   - CreateSession
  *   - CreateVideoTrack - Master
  *   - CreateVideoTrack - Copy
  *   - CreateVideoTrack - Linked
- *   - StartSession
- *   - StopSession
+ *   - StartVideoTrack
+ *   - StopVideoTrack
  *   - DeleteVideoTrack - Linked
  *   - DeleteVideoTrack - Copy
  *   - DeleteVideoTrack - Master
- *   - DeleteSession
  *   ------------------
  *   } loop End
  *  - StopCamera
@@ -828,13 +787,6 @@ TEST_F(RecorderHal1GTest, SessionWith1080pYUVCopy480YUVAndLinked480YUV) {
   uint32_t video_track_id_1080p_yuv = 1;
   uint32_t video_track_id_480p_yuv = 2;
   uint32_t video_track_id_480p_yuv2 = 3;
-
-  SessionCb session_status_cb = CreateSessionStatusCb();
-
-  uint32_t session_id;
-  ret = recorder_.CreateSession(session_status_cb, &session_id);
-  ASSERT_TRUE(session_id > 0);
-  ASSERT_TRUE(ret == NO_ERROR);
 
   if (dump_bitstream_.IsEnabled()) {
     StreamDumpInfo dumpinfo1 = { VideoFormat::kNV12, session_id,
@@ -912,14 +864,14 @@ TEST_F(RecorderHal1GTest, SessionWith1080pYUVCopy480YUVAndLinked480YUV) {
     track_ids.push_back(video_track_id_480p_yuv2);
     sessions_.insert(std::make_pair(session_id, track_ids));
 
-    ret = recorder_.StartSession(session_id);
+    ret = recorder_.StartVideoTrack(session_id);
     ASSERT_TRUE(ret == NO_ERROR);
 
     // Let session run for time record_duration_, during this time buffer with
     // valid data would be received in track callback (VideoTrackYUVDataCb).
     sleep(record_duration_);
 
-    ret = recorder_.StopSession(session_id, false);
+    ret = recorder_.StopVideoTrack(session_id, false);
     ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_480p_yuv2);
@@ -932,10 +884,6 @@ TEST_F(RecorderHal1GTest, SessionWith1080pYUVCopy480YUVAndLinked480YUV) {
     ASSERT_TRUE(ret == NO_ERROR);
   }
 
-  ret = recorder_.DeleteSession(session_id);
-  ASSERT_TRUE(ret == NO_ERROR);
-
-  ClearSessions();
   dump_bitstream_.CloseAll();
 
   ret = recorder_.StopCamera(camera_id_);
@@ -956,16 +904,14 @@ TEST_F(RecorderHal1GTest, SessionWith1080pYUVCopy480YUVAndLinked480YUV) {
  *  - StartCamera
  *   loop Start {
  *   ------------------
- *   - CreateSession
  *   - CreateVideoTrack - Master
  *   - CreateVideoTrack - Master
  *   - CreateVideoTrack - Linked
- *   - StartSession
- *   - StopSession
+ *   - StartVideoTrack
+ *   - StopVideoTrack
  *   - DeleteVideoTrack - Linked
  *   - DeleteVideoTrack - Master
  *   - DeleteVideoTrack - Master
- *   - DeleteSession
  *   ------------------
  *   } loop End
  *  - StopCamera
@@ -984,25 +930,18 @@ TEST_F(RecorderHal1GTest, SessionWithTwo1080pYUVAndLinked1080pYUV) {
   uint32_t video_track_id_1080p_yuv2 = 2;
   uint32_t video_track_id_1080p_yuv_linked = 3;
 
-  SessionCb session_status_cb = CreateSessionStatusCb();
-
-  uint32_t session_id;
-  ret = recorder_.CreateSession(session_status_cb, &session_id);
-  ASSERT_TRUE(session_id > 0);
-  ASSERT_TRUE(ret == NO_ERROR);
-
   if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo1 = { VideoFormat::kNV12, session_id,
+    StreamDumpInfo dumpinfo1 = { VideoFormat::kNV12,
       video_track_id_1080p_yuv2, 1920, 1080 };
     ret = dump_bitstream_.SetUp(dumpinfo1);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    StreamDumpInfo dumpinfo2 = { VideoFormat::kNV12, session_id,
+    StreamDumpInfo dumpinfo2 = { VideoFormat::kNV12,
       video_track_id_1080p_yuv2, 1920, 1080 };
     ret = dump_bitstream_.SetUp(dumpinfo2);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    StreamDumpInfo dumpinfo3 = { VideoFormat::kNV12, session_id,
+    StreamDumpInfo dumpinfo3 = { VideoFormat::kNV12,
       video_track_id_1080p_yuv_linked, 1920, 1080 };
     ret = dump_bitstream_.SetUp(dumpinfo2);
     ASSERT_TRUE(ret == NO_ERROR);
@@ -1019,16 +958,16 @@ TEST_F(RecorderHal1GTest, SessionWithTwo1080pYUVAndLinked1080pYUV) {
       camera_id_, VideoFormat::kNV12, 1920, 1080, 30 };
 
     TrackCb video_track_cb;
-    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+    video_track_cb.data_cb = [&] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
         std::vector<BufferMeta> metas) {
-          VideoTrackYUVDataCb(session_id, track_id, buffers, metas); };
+          VideoTrackYUVDataCb(track_id, buffers, metas); };
 
     video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
                                   void *event_data, size_t event_data_size) {
         VideoTrackEventCb(track_id, event_type, event_data, event_data_size); };
 
-    ret = recorder_.CreateVideoTrack(session_id, video_track_id_1080p_yuv1,
+    ret = recorder_.CreateVideoTrack(video_track_id_1080p_yuv1,
       video_track_param, video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
@@ -1037,7 +976,7 @@ TEST_F(RecorderHal1GTest, SessionWithTwo1080pYUVAndLinked1080pYUV) {
 
     /************************ Create 1080p Track 2 ****************************/
 
-    ret = recorder_.CreateVideoTrack(session_id, video_track_id_1080p_yuv2,
+    ret = recorder_.CreateVideoTrack(video_track_id_1080p_yuv2,
       video_track_param, video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
@@ -1051,7 +990,7 @@ TEST_F(RecorderHal1GTest, SessionWithTwo1080pYUVAndLinked1080pYUV) {
     surface_video_linked.source_track_id = video_track_id_1080p_yuv2;
     extra_param.Update(QMMF_SOURCE_VIDEO_TRACK_ID, surface_video_linked);
 
-    ret = recorder_.CreateVideoTrack(session_id, video_track_id_1080p_yuv_linked,
+    ret = recorder_.CreateVideoTrack(video_track_id_1080p_yuv_linked,
       video_track_param, extra_param, video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
@@ -1060,7 +999,13 @@ TEST_F(RecorderHal1GTest, SessionWithTwo1080pYUVAndLinked1080pYUV) {
 
     /************************ Start Session ***********************************/
 
-    ret = recorder_.StartSession(session_id);
+    ret = recorder_.StartVideoTrack(video_track_id_1080p_yuv1);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.StartVideoTrack(video_track_id_1080p_yuv2);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.StartVideoTrack(video_track_id_1080p_yuv_linked);
     ASSERT_TRUE(ret == NO_ERROR);
 
     // Let session run for time record_duration_, during this time buffer with
@@ -1069,23 +1014,25 @@ TEST_F(RecorderHal1GTest, SessionWithTwo1080pYUVAndLinked1080pYUV) {
 
     /************************ Stop Session ************************************/
 
-    ret = recorder_.StopSession(session_id, false);
+    ret = recorder_.StopVideoTrack(video_track_id_1080p_yuv1, false);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_1080p_yuv1);
+    ret = recorder_.StopVideoTrack(video_track_id_1080p_yuv2, false);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_1080p_yuv2);
+    ret = recorder_.StopVideoTrack(video_track_id_1080p_yuv_linked, false);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_1080p_yuv_linked);
+    ret = recorder_.DeleteVideoTrack(video_track_id_1080p_yuv1);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(video_track_id_1080p_yuv2);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(video_track_id_1080p_yuv_linked);
     ASSERT_TRUE(ret == NO_ERROR);
   }
 
-  ret = recorder_.DeleteSession(session_id);
-  ASSERT_TRUE(ret == NO_ERROR);
-
-  ClearSessions();
   dump_bitstream_.CloseAll();
 
   ret = recorder_.StopCamera(camera_id_);
@@ -1126,20 +1073,13 @@ TEST_F(RecorderHal1GTest, SessionWith720pYUVAndSnapshotVGA) {
   std::vector<std::pair<uint32_t, uint32_t>> test_res = {
     {640, 480} };
 
-  SessionCb session_status_cb = CreateSessionStatusCb();
-
-  uint32_t session_id;
-  ret = recorder_.CreateSession(session_status_cb, &session_id);
-  ASSERT_TRUE(session_id > 0);
-  ASSERT_TRUE(ret == NO_ERROR);
-
   for (auto& res : test_res) {
     uint32_t width = res.first;
     uint32_t height = res.second;
     QMMF_INFO("Test dim: %dx%d", width, height);
 
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo1 = { VideoFormat::kNV12, session_id,
+      StreamDumpInfo dumpinfo1 = { VideoFormat::kNV12,
         video_track_id_yuv1, 1280, 720 };
       ret = dump_bitstream_.SetUp(dumpinfo1);
       ASSERT_TRUE(ret == NO_ERROR);
@@ -1151,16 +1091,16 @@ TEST_F(RecorderHal1GTest, SessionWith720pYUVAndSnapshotVGA) {
       camera_id_, VideoFormat::kNV12, 1280, 720, 30 };
 
     TrackCb video_track_cb;
-    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+    video_track_cb.data_cb = [&] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
         std::vector<BufferMeta> metas) {
-          VideoTrackYUVDataCb(session_id, track_id, buffers, metas); };
+          VideoTrackYUVDataCb(track_id, buffers, metas); };
 
     video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
                                   void *event_data, size_t event_data_size) {
         VideoTrackEventCb(track_id, event_type, event_data, event_data_size); };
 
-    ret = recorder_.CreateVideoTrack(session_id, video_track_id_yuv1,
+    ret = recorder_.CreateVideoTrack(video_track_id_yuv1,
       video_track_param, video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
@@ -1203,7 +1143,7 @@ TEST_F(RecorderHal1GTest, SessionWith720pYUVAndSnapshotVGA) {
 
     /************************ Start Session ***********************************/
 
-    ret = recorder_.StartSession(session_id);
+    ret = recorder_.StartVideoTrack(video_track_id_yuv1);
     ASSERT_TRUE(ret == NO_ERROR);
 
     sleep(5);
@@ -1229,20 +1169,15 @@ TEST_F(RecorderHal1GTest, SessionWith720pYUVAndSnapshotVGA) {
 
     /************************ Stop Session ************************************/
 
-    ret = recorder_.StopSession(session_id, false);
+    ret = recorder_.StopVideoTrack(video_track_id_yuv1, false);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_yuv1);
+    ret = recorder_.DeleteVideoTrack(video_track_id_yuv1);
     ASSERT_TRUE(ret == NO_ERROR);
 
 
     dump_bitstream_.CloseAll();
   }
-
-  ret = recorder_.DeleteSession(session_id);
-  ASSERT_TRUE(ret == NO_ERROR);
-
-  ClearSessions();
 
   ret = recorder_.StopCamera(camera_id_);
   ASSERT_TRUE(ret == NO_ERROR);
@@ -1283,20 +1218,13 @@ TEST_F(RecorderHal1GTest, SessionWith720pYUVAndSnapshot720p) {
   std::vector<std::pair<uint32_t, uint32_t>> test_res = {
     {1280, 720} };
 
-  SessionCb session_status_cb = CreateSessionStatusCb();
-
-  uint32_t session_id;
-  ret = recorder_.CreateSession(session_status_cb, &session_id);
-  ASSERT_TRUE(session_id > 0);
-  ASSERT_TRUE(ret == NO_ERROR);
-
   for (auto& res : test_res) {
     uint32_t width = res.first;
     uint32_t height = res.second;
     QMMF_INFO("Test dim: %dx%d", width, height);
 
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo1 = { VideoFormat::kNV12, session_id,
+      StreamDumpInfo dumpinfo1 = { VideoFormat::kNV12,
         video_track_id_yuv1, width, height };
       ret = dump_bitstream_.SetUp(dumpinfo1);
       ASSERT_TRUE(ret == NO_ERROR);
@@ -1308,16 +1236,16 @@ TEST_F(RecorderHal1GTest, SessionWith720pYUVAndSnapshot720p) {
       camera_id_, VideoFormat::kNV12, width, height, 30 };
 
     TrackCb video_track_cb;
-    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+    video_track_cb.data_cb = [&] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
         std::vector<BufferMeta> metas) {
-          VideoTrackYUVDataCb(session_id, track_id, buffers, metas); };
+          VideoTrackYUVDataCb(track_id, buffers, metas); };
 
     video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
                                   void *event_data, size_t event_data_size) {
         VideoTrackEventCb(track_id, event_type, event_data, event_data_size); };
 
-    ret = recorder_.CreateVideoTrack(session_id, video_track_id_yuv1,
+    ret = recorder_.CreateVideoTrack(video_track_id_yuv1,
       video_track_param, video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
@@ -1360,7 +1288,7 @@ TEST_F(RecorderHal1GTest, SessionWith720pYUVAndSnapshot720p) {
 
     /************************ Start Session ***********************************/
 
-    ret = recorder_.StartSession(session_id);
+    ret = recorder_.StartVideoTrack(video_track_id_yuv1);
     ASSERT_TRUE(ret == NO_ERROR);
 
     sleep(5);
@@ -1386,20 +1314,15 @@ TEST_F(RecorderHal1GTest, SessionWith720pYUVAndSnapshot720p) {
 
     /************************ Stop Session ************************************/
 
-    ret = recorder_.StopSession(session_id, false);
+    ret = recorder_.StopVideoTrack(video_track_id_yuv1, false);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_yuv1);
+    ret = recorder_.DeleteVideoTrack(video_track_id_yuv1);
     ASSERT_TRUE(ret == NO_ERROR);
 
 
     dump_bitstream_.CloseAll();
   }
-
-  ret = recorder_.DeleteSession(session_id);
-  ASSERT_TRUE(ret == NO_ERROR);
-
-  ClearSessions();
 
   ret = recorder_.StopCamera(camera_id_);
   ASSERT_TRUE(ret == NO_ERROR);
@@ -1440,25 +1363,18 @@ TEST_F(RecorderHal1GTest, SessionWithTwo720pYUVAndSnapshot720p) {
   std::vector<std::pair<uint32_t, uint32_t>> test_res = {
     {1280, 720} };
 
-  SessionCb session_status_cb = CreateSessionStatusCb();
-
-  uint32_t session_id;
-  ret = recorder_.CreateSession(session_status_cb, &session_id);
-  ASSERT_TRUE(session_id > 0);
-  ASSERT_TRUE(ret == NO_ERROR);
-
   for (auto& res : test_res) {
     uint32_t width = res.first;
     uint32_t height = res.second;
     QMMF_INFO("Test dim: %dx%d", width, height);
 
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo1 = { VideoFormat::kNV12, session_id,
+      StreamDumpInfo dumpinfo1 = { VideoFormat::kNV12,
         video_track_id_yuv1, width, height };
       ret = dump_bitstream_.SetUp(dumpinfo1);
       ASSERT_TRUE(ret == NO_ERROR);
 
-      StreamDumpInfo dumpinfo2 = { VideoFormat::kNV12, session_id,
+      StreamDumpInfo dumpinfo2 = { VideoFormat::kNV12,
         video_track_id_yuv2, width, height };
       ret = dump_bitstream_.SetUp(dumpinfo2);
       ASSERT_TRUE(ret == NO_ERROR);
@@ -1470,16 +1386,16 @@ TEST_F(RecorderHal1GTest, SessionWithTwo720pYUVAndSnapshot720p) {
       camera_id_, VideoFormat::kNV12, width, height, 30 };
 
     TrackCb video_track_cb;
-    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+    video_track_cb.data_cb = [&] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
         std::vector<BufferMeta> metas) {
-          VideoTrackYUVDataCb(session_id, track_id, buffers, metas); };
+          VideoTrackYUVDataCb(track_id, buffers, metas); };
 
     video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
                                   void *event_data, size_t event_data_size) {
         VideoTrackEventCb(track_id, event_type, event_data, event_data_size); };
 
-    ret = recorder_.CreateVideoTrack(session_id, video_track_id_yuv1,
+    ret = recorder_.CreateVideoTrack(video_track_id_yuv1,
       video_track_param, video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
@@ -1488,7 +1404,7 @@ TEST_F(RecorderHal1GTest, SessionWithTwo720pYUVAndSnapshot720p) {
 
     /************************ Create Track 2 ****************************/
 
-    ret = recorder_.CreateVideoTrack(session_id, video_track_id_yuv2,
+    ret = recorder_.CreateVideoTrack(video_track_id_yuv2,
       video_track_param, video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
@@ -1531,7 +1447,10 @@ TEST_F(RecorderHal1GTest, SessionWithTwo720pYUVAndSnapshot720p) {
 
     /************************ Start Session ***********************************/
 
-    ret = recorder_.StartSession(session_id);
+    ret = recorder_.StartVideoTrack(video_track_id_yuv1);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.StartVideoTrack(video_track_id_yuv2);
     ASSERT_TRUE(ret == NO_ERROR);
 
     sleep(5);
@@ -1557,22 +1476,20 @@ TEST_F(RecorderHal1GTest, SessionWithTwo720pYUVAndSnapshot720p) {
 
     /************************ Stop Session ************************************/
 
-    ret = recorder_.StopSession(session_id, false);
+    ret = recorder_.StopVideoTrack(video_track_id_yuv1, false);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_yuv1);
+    ret = recorder_.StopVideoTrack(video_track_id_yuv2, false);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_yuv2);
+    ret = recorder_.DeleteVideoTrack(video_track_id_yuv1);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(video_track_id_yuv2);
     ASSERT_TRUE(ret == NO_ERROR);
 
     dump_bitstream_.CloseAll();
   }
-
-  ret = recorder_.DeleteSession(session_id);
-  ASSERT_TRUE(ret == NO_ERROR);
-
-  ClearSessions();
 
   ret = recorder_.StopCamera(camera_id_);
   ASSERT_TRUE(ret == NO_ERROR);
@@ -1613,25 +1530,18 @@ TEST_F(RecorderHal1GTest, SessionWithTwoVGAYUVAndSnapshotVGA) {
   std::vector<std::pair<uint32_t, uint32_t>> test_res = {
     {640, 480} };
 
-  SessionCb session_status_cb = CreateSessionStatusCb();
-
-  uint32_t session_id;
-  ret = recorder_.CreateSession(session_status_cb, &session_id);
-  ASSERT_TRUE(session_id > 0);
-  ASSERT_TRUE(ret == NO_ERROR);
-
   for (auto& res : test_res) {
     uint32_t width = res.first;
     uint32_t height = res.second;
     QMMF_INFO("Test dim: %dx%d", width, height);
 
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo1 = { VideoFormat::kNV12, session_id,
+      StreamDumpInfo dumpinfo1 = { VideoFormat::kNV12,
         video_track_id_yuv1, width, height };
       ret = dump_bitstream_.SetUp(dumpinfo1);
       ASSERT_TRUE(ret == NO_ERROR);
 
-      StreamDumpInfo dumpinfo2 = { VideoFormat::kNV12, session_id,
+      StreamDumpInfo dumpinfo2 = { VideoFormat::kNV12,
         video_track_id_yuv2, width, height };
       ret = dump_bitstream_.SetUp(dumpinfo2);
       ASSERT_TRUE(ret == NO_ERROR);
@@ -1643,16 +1553,16 @@ TEST_F(RecorderHal1GTest, SessionWithTwoVGAYUVAndSnapshotVGA) {
       camera_id_, VideoFormat::kNV12, width, height, 30 };
 
     TrackCb video_track_cb;
-    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+    video_track_cb.data_cb = [&] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
         std::vector<BufferMeta> metas) {
-          VideoTrackYUVDataCb(session_id, track_id, buffers, metas); };
+          VideoTrackYUVDataCb(track_id, buffers, metas); };
 
     video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
                                   void *event_data, size_t event_data_size) {
         VideoTrackEventCb(track_id, event_type, event_data, event_data_size); };
 
-    ret = recorder_.CreateVideoTrack(session_id, video_track_id_yuv1,
+    ret = recorder_.CreateVideoTrack(video_track_id_yuv1,
       video_track_param, video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
@@ -1661,7 +1571,7 @@ TEST_F(RecorderHal1GTest, SessionWithTwoVGAYUVAndSnapshotVGA) {
 
     /************************ Create Track 2 ****************************/
 
-    ret = recorder_.CreateVideoTrack(session_id, video_track_id_yuv2,
+    ret = recorder_.CreateVideoTrack(video_track_id_yuv2,
       video_track_param, video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
@@ -1704,7 +1614,10 @@ TEST_F(RecorderHal1GTest, SessionWithTwoVGAYUVAndSnapshotVGA) {
 
     /************************ Start Session ***********************************/
 
-    ret = recorder_.StartSession(session_id);
+    ret = recorder_.StartVideoTrack(video_track_id_yuv1);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.StartVideoTrack(video_track_id_yuv2);
     ASSERT_TRUE(ret == NO_ERROR);
 
     sleep(5);
@@ -1730,22 +1643,20 @@ TEST_F(RecorderHal1GTest, SessionWithTwoVGAYUVAndSnapshotVGA) {
 
     /************************ Stop Session ************************************/
 
-    ret = recorder_.StopSession(session_id, false);
+    ret = recorder_.StopVideoTrack(video_track_id_yuv1, false);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_yuv1);
+    ret = recorder_.StopVideoTrack(video_track_id_yuv2, false);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_yuv2);
+    ret = recorder_.DeleteVideoTrack(video_track_id_yuv1);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(video_track_id_yuv2);
     ASSERT_TRUE(ret == NO_ERROR);
 
     dump_bitstream_.CloseAll();
   }
-
-  ret = recorder_.DeleteSession(session_id);
-  ASSERT_TRUE(ret == NO_ERROR);
-
-  ClearSessions();
 
   ret = recorder_.StopCamera(camera_id_);
   ASSERT_TRUE(ret == NO_ERROR);
@@ -1787,15 +1698,8 @@ TEST_F(RecorderHal1GTest, SessionWithYUVTrackAndToggleSnapshotRes) {
     {640, 480},
     {1280, 720} };
 
-  SessionCb session_status_cb = CreateSessionStatusCb();
-
-  uint32_t session_id;
-  ret = recorder_.CreateSession(session_status_cb, &session_id);
-  ASSERT_TRUE(session_id > 0);
-  ASSERT_TRUE(ret == NO_ERROR);
-
   if (dump_bitstream_.IsEnabled()) {
-    StreamDumpInfo dumpinfo1 = { VideoFormat::kNV12, session_id,
+    StreamDumpInfo dumpinfo1 = { VideoFormat::kNV12,
       video_track_id_yuv1, 720, 480 };
     ret = dump_bitstream_.SetUp(dumpinfo1);
     ASSERT_TRUE(ret == NO_ERROR);
@@ -1807,16 +1711,16 @@ TEST_F(RecorderHal1GTest, SessionWithYUVTrackAndToggleSnapshotRes) {
     camera_id_, VideoFormat::kNV12, 720, 480, 30 };
 
   TrackCb video_track_cb;
-  video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+  video_track_cb.data_cb = [&] (uint32_t track_id,
       std::vector<BufferDescriptor> buffers,
       std::vector<BufferMeta> metas) {
-        VideoTrackYUVDataCb(session_id, track_id, buffers, metas); };
+        VideoTrackYUVDataCb(track_id, buffers, metas); };
 
   video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
                                 void *event_data, size_t event_data_size) {
       VideoTrackEventCb(track_id, event_type, event_data, event_data_size); };
 
-  ret = recorder_.CreateVideoTrack(session_id, video_track_id_yuv1,
+  ret = recorder_.CreateVideoTrack(video_track_id_yuv1,
     video_track_param, video_track_cb);
   ASSERT_TRUE(ret == NO_ERROR);
 
@@ -1854,7 +1758,7 @@ TEST_F(RecorderHal1GTest, SessionWithYUVTrackAndToggleSnapshotRes) {
 
   /************************ Start Session ***********************************/
 
-  ret = recorder_.StartSession(session_id);
+  ret = recorder_.StartVideoTrack(video_track_id_yuv1);
   ASSERT_TRUE(ret == NO_ERROR);
 
   sleep(5);
@@ -1898,19 +1802,14 @@ TEST_F(RecorderHal1GTest, SessionWithYUVTrackAndToggleSnapshotRes) {
 
   /************************ Stop Session ************************************/
 
-  ret = recorder_.StopSession(session_id, false);
+  ret = recorder_.StopVideoTrack(video_track_id_yuv1, false);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.DeleteVideoTrack(session_id, video_track_id_yuv1);
+  ret = recorder_.DeleteVideoTrack(video_track_id_yuv1);
   ASSERT_TRUE(ret == NO_ERROR);
 
 
   dump_bitstream_.CloseAll();
-
-  ret = recorder_.DeleteSession(session_id);
-  ASSERT_TRUE(ret == NO_ERROR);
-
-  ClearSessions();
 
   ret = recorder_.StopCamera(camera_id_);
   ASSERT_TRUE(ret == NO_ERROR);
@@ -1952,20 +1851,13 @@ TEST_F(RecorderHal1GTest, SessionWithYUVTrackAndSnapshot) {
     {720, 480},
     {1280, 720} };
 
-  SessionCb session_status_cb = CreateSessionStatusCb();
-
-  uint32_t session_id;
-  ret = recorder_.CreateSession(session_status_cb, &session_id);
-  ASSERT_TRUE(session_id > 0);
-  ASSERT_TRUE(ret == NO_ERROR);
-
   for (auto& res : test_res) {
     uint32_t width = res.first;
     uint32_t height = res.second;
     QMMF_INFO("Test dim: %dx%d", width, height);
 
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo1 = { VideoFormat::kNV12, session_id,
+      StreamDumpInfo dumpinfo1 = { VideoFormat::kNV12,
         video_track_id_yuv1, width, height };
       ret = dump_bitstream_.SetUp(dumpinfo1);
       ASSERT_TRUE(ret == NO_ERROR);
@@ -1977,16 +1869,16 @@ TEST_F(RecorderHal1GTest, SessionWithYUVTrackAndSnapshot) {
       camera_id_, VideoFormat::kNV12, width, height, 30 };
 
     TrackCb video_track_cb;
-    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+    video_track_cb.data_cb = [&] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
         std::vector<BufferMeta> metas) {
-          VideoTrackYUVDataCb(session_id, track_id, buffers, metas); };
+          VideoTrackYUVDataCb(track_id, buffers, metas); };
 
     video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
                                   void *event_data, size_t event_data_size) {
         VideoTrackEventCb(track_id, event_type, event_data, event_data_size); };
 
-    ret = recorder_.CreateVideoTrack(session_id, video_track_id_yuv1,
+    ret = recorder_.CreateVideoTrack(video_track_id_yuv1,
       video_track_param, video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
@@ -2030,7 +1922,7 @@ TEST_F(RecorderHal1GTest, SessionWithYUVTrackAndSnapshot) {
 
     /************************ Start Session ***********************************/
 
-    ret = recorder_.StartSession(session_id);
+    ret = recorder_.StartVideoTrack(video_track_id_yuv1);
     ASSERT_TRUE(ret == NO_ERROR);
 
     sleep(5);
@@ -2056,20 +1948,15 @@ TEST_F(RecorderHal1GTest, SessionWithYUVTrackAndSnapshot) {
 
     /************************ Stop Session ************************************/
 
-    ret = recorder_.StopSession(session_id, false);
+    ret = recorder_.StopVideoTrack(video_track_id_yuv1, false);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_yuv1);
+    ret = recorder_.DeleteVideoTrack(video_track_id_yuv1);
     ASSERT_TRUE(ret == NO_ERROR);
 
 
     dump_bitstream_.CloseAll();
   }
-
-  ret = recorder_.DeleteSession(session_id);
-  ASSERT_TRUE(ret == NO_ERROR);
-
-  ClearSessions();
 
   ret = recorder_.StopCamera(camera_id_);
   ASSERT_TRUE(ret == NO_ERROR);
@@ -2113,25 +2000,18 @@ TEST_F(RecorderHal1GTest, SessionWithTwoYUVTracksAndSnapshot) {
     {720, 480},
     {1280, 720} };
 
-  SessionCb session_status_cb = CreateSessionStatusCb();
-
-  uint32_t session_id;
-  ret = recorder_.CreateSession(session_status_cb, &session_id);
-  ASSERT_TRUE(session_id > 0);
-  ASSERT_TRUE(ret == NO_ERROR);
-
   for (auto& res : test_res) {
     uint32_t width = res.first;
     uint32_t height = res.second;
     QMMF_INFO("Test dim: %dx%d", width, height);
 
     if (dump_bitstream_.IsEnabled()) {
-      StreamDumpInfo dumpinfo1 = { VideoFormat::kNV12, session_id,
+      StreamDumpInfo dumpinfo1 = { VideoFormat::kNV12,
         video_track_id_yuv1, width, height };
       ret = dump_bitstream_.SetUp(dumpinfo1);
       ASSERT_TRUE(ret == NO_ERROR);
 
-      StreamDumpInfo dumpinfo2 = { VideoFormat::kNV12, session_id,
+      StreamDumpInfo dumpinfo2 = { VideoFormat::kNV12,
         video_track_id_yuv2, width, height };
       ret = dump_bitstream_.SetUp(dumpinfo2);
       ASSERT_TRUE(ret == NO_ERROR);
@@ -2143,16 +2023,16 @@ TEST_F(RecorderHal1GTest, SessionWithTwoYUVTracksAndSnapshot) {
       camera_id_, VideoFormat::kNV12, width, height, 30 };
 
     TrackCb video_track_cb;
-    video_track_cb.data_cb = [&, session_id] (uint32_t track_id,
+    video_track_cb.data_cb = [&] (uint32_t track_id,
         std::vector<BufferDescriptor> buffers,
         std::vector<BufferMeta> metas) {
-          VideoTrackYUVDataCb(session_id, track_id, buffers, metas); };
+          VideoTrackYUVDataCb(track_id, buffers, metas); };
 
     video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
                                   void *event_data, size_t event_data_size) {
         VideoTrackEventCb(track_id, event_type, event_data, event_data_size); };
 
-    ret = recorder_.CreateVideoTrack(session_id, video_track_id_yuv1,
+    ret = recorder_.CreateVideoTrack(video_track_id_yuv1,
       video_track_param, video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
@@ -2161,7 +2041,7 @@ TEST_F(RecorderHal1GTest, SessionWithTwoYUVTracksAndSnapshot) {
 
     /************************ Create Track 2 ****************************/
 
-    ret = recorder_.CreateVideoTrack(session_id, video_track_id_yuv2,
+    ret = recorder_.CreateVideoTrack(video_track_id_yuv2,
       video_track_param, video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
@@ -2205,7 +2085,10 @@ TEST_F(RecorderHal1GTest, SessionWithTwoYUVTracksAndSnapshot) {
 
     /************************ Start Session ***********************************/
 
-    ret = recorder_.StartSession(session_id);
+    ret = recorder_.StartVideoTrack(video_track_id_yuv1);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.StartVideoTrack(video_track_id_yuv2);
     ASSERT_TRUE(ret == NO_ERROR);
 
     sleep(5);
@@ -2232,22 +2115,20 @@ TEST_F(RecorderHal1GTest, SessionWithTwoYUVTracksAndSnapshot) {
 
     /************************ Stop Session ************************************/
 
-    ret = recorder_.StopSession(session_id, false);
+    ret = recorder_.StopVideoTrack(video_track_id_yuv1, false);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_yuv1);
+    ret = recorder_.StopVideoTrack(video_track_id_yuv2, false);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_yuv2);
+    ret = recorder_.DeleteVideoTrack(video_track_id_yuv1);
+    ASSERT_TRUE(ret == NO_ERROR);
+
+    ret = recorder_.DeleteVideoTrack(video_track_id_yuv2);
     ASSERT_TRUE(ret == NO_ERROR);
 
     dump_bitstream_.CloseAll();
   }
-
-  ret = recorder_.DeleteSession(session_id);
-  ASSERT_TRUE(ret == NO_ERROR);
-
-  ClearSessions();
 
   ret = recorder_.StopCamera(camera_id_);
   ASSERT_TRUE(ret == NO_ERROR);
