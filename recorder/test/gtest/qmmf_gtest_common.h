@@ -357,7 +357,6 @@ static const int32_t MWBColorTemperatures[] = {0, 2300, 2800, 3200, 4000,
 
 typedef struct StreamDumpInfo {
   VideoFormat   format;
-  uint32_t      session_id;
   uint32_t      track_id;
   uint32_t      width;
   uint32_t      height;
@@ -535,11 +534,11 @@ class SFDisplaySink
 class FrameTrace {
  public:
   FrameTrace(bool enable)
-     : enabled_(enable), session_id_(0), track_id_(0),  track_fps_(0),
+     : enabled_(enable), track_id_(0),  track_fps_(0),
        previous_timestamp_(0), total_frames_(0), total_dropped_frames_(0) {};
   ~FrameTrace() {}
 
-  void SetUp(uint32_t session_id, uint32_t track_id, float fps);
+  void SetUp(uint32_t track_id, float fps);
 
   void Reset();
 
@@ -548,7 +547,6 @@ class FrameTrace {
  private:
   bool       enabled_;
 
-  uint32_t   session_id_;
   uint32_t   track_id_;
   float      track_fps_;
 
@@ -604,27 +602,21 @@ class GtestCommon : public ::testing::Test {
   void InitSupportedNRModes();
   bool IsNRSupported();
 
-  void ClearSessions();
-
   void RecorderCallbackHandler(EventType event_type, void *event_data,
                                size_t event_data_size);
-
-  void SessionCallbackHandler(EventType event_type,
-                              void *event_data,
-                              size_t event_data_size);
 
   void CameraResultCallbackHandler(uint32_t camera_id,
                                    const CameraMetadata &result);
 
-  void VideoTrackRGBDataCb(uint32_t session_id, uint32_t track_id,
+  void VideoTrackRGBDataCb(uint32_t track_id,
                            std::vector<BufferDescriptor> buffers,
                            std::vector<BufferMeta> metas);
 
-  void VideoTrackYUVDataCb(uint32_t session_id, uint32_t track_id,
+  void VideoTrackYUVDataCb(uint32_t track_id,
                            std::vector<BufferDescriptor> buffers,
                            std::vector<BufferMeta> metas);
 
-  void VideoTrackRawDataCb(uint32_t session_id, uint32_t track_id,
+  void VideoTrackRawDataCb(uint32_t track_id,
                            std::vector<BufferDescriptor> buffers,
                            std::vector<BufferMeta> metas);
 
@@ -637,7 +629,7 @@ class GtestCommon : public ::testing::Test {
   void ResultCallbackHandlerMatchCameraMeta(uint32_t camera_id,
                                        const CameraMetadata &result);
 
-  void VideoTrackDataCbMatchCameraMeta(uint32_t session_id, uint32_t track_id,
+  void VideoTrackDataCbMatchCameraMeta(uint32_t track_id,
                                        std::vector<BufferDescriptor> buffers,
                                        std::vector<BufferMeta> metas);
 
@@ -677,7 +669,6 @@ class GtestCommon : public ::testing::Test {
   uint32_t              iteration_count_;
   std::vector<uint32_t> camera_ids_;
   RecorderCb            recorder_status_cb_;
-  std::map <uint32_t , std::vector<uint32_t> > sessions_;
   std::map<uint32_t,uint32_t> track_frame_count_map_;
   static const std::string    kQmmfFolderPath;
 
@@ -728,16 +719,6 @@ class GtestCommon : public ::testing::Test {
 
   void ConfigureImageParam();
   void TakeSnapshot();
-
-  SessionCb CreateSessionStatusCb() {
-    SessionCb session_status_cb;
-    session_status_cb.event_cb =
-        [this] (EventType event_type, void *event_data,
-                size_t event_data_size) -> void {
-        SessionCallbackHandler(event_type,
-        event_data, event_data_size); };
-    return session_status_cb;
-  }
 
   std::vector<uint32_t> face_bbox_id_;
   bool face_bbox_active_;

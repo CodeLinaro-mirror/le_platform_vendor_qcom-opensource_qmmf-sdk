@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -119,41 +119,31 @@ class RecorderService : public BnInterface<IRecorderService> {
   status_t StopCamera(const uint32_t client_id,
                       const uint32_t camera_id) override;
 
-  status_t CreateSession(const uint32_t client_id,
-                         uint32_t *session_id) override;
-
-  status_t DeleteSession(const uint32_t client_id,
-                         const uint32_t session_id) override;
-
-  status_t StartSession(const uint32_t client_id,
-                        const uint32_t session_id) override;
-
-  status_t StopSession(const uint32_t client_id,
-                       const uint32_t session_id, bool do_flush) override;
-
-  status_t PauseSession(const uint32_t client_id,
-                        const uint32_t session_id) override;
-
-  status_t ResumeSession(const uint32_t client_id,
-                         const uint32_t session_id) override;
-
   status_t CreateVideoTrack(const uint32_t client_id,
-                            const uint32_t session_id,
                             const uint32_t track_id,
                             const VideoTrackParam& param,
                             const VideoExtraParam& xtraparam) override;
 
   status_t DeleteVideoTrack(const uint32_t client_id,
-                            const uint32_t session_id,
+                            const uint32_t track_id) override;
+
+  status_t StartVideoTrack(const uint32_t client_id,
+                           const uint32_t track_id) override;
+
+  status_t StopVideoTrack(const uint32_t client_id,
+                          const uint32_t track_id, bool do_flush) override;
+
+  status_t PauseVideoTrack(const uint32_t client_id,
+                           const uint32_t track_id) override;
+
+  status_t ResumeVideoTrack(const uint32_t client_id,
                             const uint32_t track_id) override;
 
   status_t ReturnTrackBuffer(const uint32_t client_id,
-                             const uint32_t session_id,
                              const uint32_t track_id,
                              std::vector<BnBuffer> &buffers) override;
 
   status_t SetVideoTrackParam(const uint32_t client_id,
-                              const uint32_t session_id,
                               const uint32_t track_id,
                               VideoParam type,
                               void *param,

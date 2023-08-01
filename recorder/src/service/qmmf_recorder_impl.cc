@@ -189,30 +189,30 @@ status_t RecorderImpl::RegisterClient(const uint32_t client_id) {
 
   QMMF_INFO("%s: Enter client_id(%u)", __func__, client_id);
 
-  std::lock_guard<std::mutex> session_lock(client_session_lock_);
-  if (client_session_map_.count(client_id) != 0) {
+  std::lock_guard<std::mutex> track_lock(client_track_lock_);
+  if (client_track_map_.count(client_id) != 0) {
     QMMF_WARN("%s: Client is already connected !!", __func__);
     return NO_ERROR;
   }
-  client_session_map_.emplace(client_id, SessionTrackMap());
-  QMMF_INFO("%s: client_session_map_.size(%lu)", __func__,
-      client_session_map_.size());
+  client_track_map_.emplace(client_id, TrackMap());
+  QMMF_INFO("%s: client_track_map_.size(%lu)", __func__,
+      client_track_map_.size());
 
-  client_sessions_state_.emplace(client_id, SessionStateMap());
-  QMMF_INFO("%s: client_sessions_state_.size(%lu)", __func__,
-      client_sessions_state_.size());
+  client_tracks_state_.emplace(client_id, TrackStateMap());
+  QMMF_INFO("%s: client_tracks_state_.size(%lu)", __func__,
+      client_tracks_state_.size());
 
-  client_sessions_mutex_map_.emplace(client_id, SessionMutexMap());
-  QMMF_INFO("%s: client_sessions_mutex_map_.size(%lu)", __func__,
-      client_sessions_mutex_map_.size());
+  client_tracks_mutex_map_.emplace(client_id, TrackMutexMap());
+  QMMF_INFO("%s: client_tracks_mutex_map_.size(%lu)", __func__,
+      client_tracks_mutex_map_.size());
 
-  auto const& session_track_map = client_session_map_[client_id];
-  QMMF_INFO("%s: session_track_map.size(%lu)", __func__,
-      session_track_map.size());
+  auto const& track_map = client_track_map_[client_id];
+  QMMF_INFO("%s: track_map.size(%lu)", __func__,
+      track_map.size());
 
-  auto const& sessions_state_map = client_sessions_state_[client_id];
-  QMMF_INFO("%s: sessions_state_map.size(%lu)", __func__,
-      sessions_state_map.size());
+  auto const& tracks_state_map = client_tracks_state_[client_id];
+  QMMF_INFO("%s: tracks_state_map.size(%lu)", __func__,
+      tracks_state_map.size());
 
   std::lock_guard<std::mutex> status_lock(client_state_lock_);
   client_state_.emplace(client_id, ClientState::kAlive);
@@ -280,47 +280,34 @@ status_t RecorderImpl::DeRegisterClient(const uint32_t client_id,
   }
 
   {
-    // Cleanup client sessions.
-    std::unique_lock<std::mutex> lk(client_session_lock_);
-    auto session_track_map = client_session_map_[client_id];
+    // Cleanup client tracks.
+    std::unique_lock<std::mutex> lk(client_track_lock_);
+    auto track_map = client_track_map_[client_id];
     lk.unlock();
 
-    for (auto session : session_track_map) {
-      auto session_id = session.first;
+    for (auto track : track_map) {
+      uint32_t client_track_id  = track.first;
+      uint32_t service_track_id = track.second;
 
-      ret = StopSession(client_id, session_id, false, true);
+      ret = StopVideoTrack(client_id, client_track_id, false, true);
       if (ret != NO_ERROR) {
-        QMMF_WARN("%s: Client(%u): Session(%u) internal stop failed!,",
-            __func__, client_id, session_id);
-        // Carry-on even stop session fails.
+        QMMF_WARN("%s: Client(%u): Track(%u) internal stop failed!,",
+            __func__, client_id, client_track_id);
+        // Carry-on even stop track fails.
       }
-      auto track = session.second.rbegin();
-      while (track != session.second.rend()) {
-        uint32_t client_track_id  = track->first;
-        uint32_t service_track_id = track->second;
 
-        QMMF_INFO("%s: Track to Delete, client_id(%u):session_id(%u), "
-            "client_track_id(%u):service_track_id(%x)", __func__,
-            client_id, session_id, client_track_id, service_track_id);
-
-        ret = DeleteVideoTrack(client_id, session_id, client_track_id);
-
+      ret = DeleteVideoTrack(client_id, client_track_id);
+      if (ret != NO_ERROR) {
+        QMMF_WARN("%s: Client(%u): Track(%u) internal delete track failed!,",
+            __func__, client_id, client_track_id);
         // Carry-on even delete track fails.
-        ++track;
-      }
-      ret = DeleteSession(client_id, session_id);
-      if (ret != NO_ERROR) {
-        QMMF_WARN("%s: Internal delete session is failed! client_id(%u):"
-            "session_id(%u)", __func__, client_id, session_id);
       }
     }
-    QMMF_INFO("%s: Number of sessions(%lu) left after cleanup for"
-        " client(%u)!", __func__, session_track_map.size(), client_id);
 
     lk.lock();
-    client_session_map_.erase(client_id);
-    client_sessions_state_.erase(client_id);
-    client_sessions_mutex_map_.erase(client_id);
+    client_track_map_.erase(client_id);
+    client_tracks_state_.erase(client_id);
+    client_tracks_mutex_map_.erase(client_id);
   }
 
   {
@@ -533,381 +520,6 @@ status_t RecorderImpl::StopCamera(const uint32_t client_id,
   return NO_ERROR;
 }
 
-status_t RecorderImpl::CreateSession(const uint32_t client_id,
-                                     uint32_t *session_id) {
-
-  QMMF_DEBUG("%s: Enter", __func__);
-  QMMF_KPI_DETAIL();
-
-  if (!IsClientValid(client_id)) {
-    QMMF_ERROR("%s: Client(%u) is not connected!", __func__, client_id);
-    return BAD_VALUE;
-  }
-
-  if (!camera_source_) {
-    QMMF_ERROR("%s: Can't Create Session! Connect Should be called before"
-        " Calling CreateSession", __func__);
-    return NO_INIT;
-  }
-  std::lock_guard<std::mutex> lock(client_session_lock_);
-
-  if (GetUniqueSessionID(client_id, session_id) != NO_ERROR) {
-    QMMF_ERROR("%s: Active sessions limit reached for Client(%u), 255!",
-        __func__, client_id);
-    return BAD_VALUE;
-  }
-  auto& session_track_map = client_session_map_[client_id];
-  session_track_map.emplace(*session_id, TrackMap());
-
-  auto& sessions_state_map = client_sessions_state_[client_id];
-  sessions_state_map.emplace(*session_id, SessionState::kIdle);
-
-  QMMF_INFO("%s: Client(%u): Session(%u) created successfully", __func__,
-      client_id, *session_id);
-
-  auto& sessions_mutex_map = client_sessions_mutex_map_[client_id];
-  if (sessions_mutex_map.count(*session_id) == 0) {
-    sessions_mutex_map.emplace(*session_id, new std::mutex());
-  }
-
-
-  QMMF_DEBUG("%s: Exit", __func__);
-  return NO_ERROR;
-}
-
-status_t RecorderImpl::DeleteSession(const uint32_t client_id,
-                                     const uint32_t session_id) {
-
-  QMMF_DEBUG("%s: Enter", __func__);
-  QMMF_KPI_DETAIL();
-
-  int32_t ret = NO_ERROR;
-  if (!IsClientValid(client_id)) {
-    QMMF_ERROR("%s: Client(%u) is not connected!", __func__, client_id);
-    return BAD_VALUE;
-  }
-
-  if (!IsSessionValid(client_id, session_id)) {
-    QMMF_ERROR("%s: Client(%u): Session(%u) is not valid!", __func__,
-        client_id, session_id);
-    return BAD_VALUE;
-  }
-
-  std::lock_guard<std::mutex> lock(client_session_lock_);
-  auto& session_track_map = client_session_map_[client_id];
-  auto& sessions_state_map = client_sessions_state_[client_id];
-  auto& tracks = session_track_map[session_id];
-  auto& sessions_mutex_map = client_sessions_mutex_map_[client_id];
-
-  if (!tracks.empty()) {
-    QMMF_ERROR("%s: Client(%u): Session(%u) Can't be deleted until all"
-        " tracks(%lu) within this session are stopped & deleted!", __func__,
-        client_id, session_id, tracks.size());
-    return INVALID_OPERATION;
-  }
-
-  session_track_map.erase(session_id);
-  sessions_state_map.erase(session_id);
-  if (sessions_mutex_map.count(session_id) != 0)
-    delete sessions_mutex_map[session_id];
-  sessions_mutex_map.erase(session_id);
-
-
-  QMMF_INFO("%s: Number of sessions(%lu) left in client_id(%u)",
-      __func__, session_track_map.size(), client_id);
-
-  QMMF_DEBUG("%s: Exit", __func__);
-  return ret;
-}
-
-status_t RecorderImpl::StartSession(const uint32_t client_id,
-                                    const uint32_t session_id) {
-
-  QMMF_DEBUG("%s: Enter client_id(%u):session_id(%u)", __func__,
-      client_id, session_id);
-  QMMF_KPI_DETAIL();
-
-  client_session_lock_.lock();
-  auto& session_track_map = client_session_map_[client_id];
-  auto& tracks_in_session = session_track_map[session_id];
-  auto& sessions_mutex_map = client_sessions_mutex_map_[client_id];
-  auto& session_lock = sessions_mutex_map[session_id];
-
-  client_session_lock_.unlock();
-  std::lock_guard<std::mutex> lock(*session_lock);
-
-  uint32_t ret = NO_ERROR;
-  if (!IsClientValid(client_id)) {
-    QMMF_ERROR("%s: Client(%u) is not connected!", __func__, client_id);
-    return BAD_VALUE;
-  }
-
-  if (!IsSessionValid(client_id, session_id)) {
-    QMMF_ERROR("%s: Client(%u): Session(%u) is not valid!", __func__,
-        client_id, session_id);
-    return BAD_VALUE;
-  }
-
-  if (IsSessionPaused(client_id, session_id)) {
-    QMMF_WARN("%s: Client(%u): Session(%u) is paused, resuming!", __func__,
-        client_id, session_id);
-    ResumeSession(client_id, session_id);
-    return NO_ERROR;
-  } else if (IsSessionActive(client_id, session_id)) {
-    QMMF_WARN("%s: Client(%u): Session(%u) is already started!", __func__,
-        client_id, session_id);
-    return NO_ERROR;
-  } else if (!IsSessionIdle(client_id, session_id)) {
-    QMMF_WARN("%s: Client(%u): Session(%u) hasn't been stopped!", __func__,
-        client_id, session_id);
-    return NO_ERROR;
-  }
-
-  // all of the video tracks associated to one session starts together
-  for (auto const& track : tracks_in_session) {
-    uint32_t client_track_id  = track.first;
-    uint32_t service_track_id = track.second;
-
-    QMMF_INFO("%s: Track to Start, client_id(%u):session_id(%u), "
-        "client_track_id(%u):service_track_id(%x)", __func__,
-        client_id, session_id, client_track_id, service_track_id);
-
-    assert(camera_source_ != nullptr);
-    ret = camera_source_->StartTrackSource(service_track_id);
-    if (ret != NO_ERROR) {
-      QMMF_ERROR("%s: client_id(%u):session_id(%u), StartTrackSource"
-          " failed for client_track_id(%u):service_track_id(%x)",
-          __func__, client_id, session_id, client_track_id, service_track_id);
-      break;
-    }
-
-    QMMF_INFO("%s: client_id(%u):session_id(%u), "
-        "client_track_id(%u):service_track_id(%x) Started Successfully!",
-        __func__, client_id, session_id, client_track_id, service_track_id);
-  }
-  if (ret == NO_ERROR) {
-    QMMF_INFO("%s: client_id(%u):session_id(%u) with num tracks(%lu) Started"
-        " Successfully!", __func__, client_id, session_id,
-        tracks_in_session.size());
-    ChangeSessionState(client_id, session_id, SessionState::kActive);
-  }
-
-  QMMF_DEBUG("%s: Exit client_id(%u):session_id(%u)", __func__,
-      client_id, session_id);
-  return ret;
-}
-
-status_t RecorderImpl::StopSession(const uint32_t client_id,
-                                   const uint32_t session_id, bool do_flush,
-                                   bool is_force_cleanup) {
-
-  QMMF_DEBUG("%s: Enter client_id(%u):session_id(%u)", __func__,
-      client_id, session_id);
-  QMMF_KPI_DETAIL();
-
-  client_session_lock_.lock();
-  auto& session_track_map = client_session_map_[client_id];
-  auto& tracks_in_session = session_track_map[session_id];
-  auto& sessions_mutex_map = client_sessions_mutex_map_[client_id];
-  auto& session_lock = sessions_mutex_map[session_id];
-
-  client_session_lock_.unlock();
-  std::lock_guard<std::mutex> lock(*session_lock);
-
-  uint32_t ret = NO_ERROR;
-  if (!IsClientValid(client_id)) {
-    QMMF_ERROR("%s: Client(%u) is not connected!", __func__, client_id);
-    return BAD_VALUE;
-  }
-
-  if (!IsSessionValid(client_id, session_id)) {
-    QMMF_ERROR("%s: Client(%u): Session(%u) is not valid!", __func__,
-        client_id, session_id);
-    return BAD_VALUE;
-  }
-
-  if (IsSessionIdle(client_id, session_id)) {
-    QMMF_WARN("%s: Client(%u): Session(%u) not yet started!", __func__,
-        client_id, session_id);
-    return NO_ERROR;
-  }
-
-  QMMF_INFO("%s: client_id(%u):session_id(%u), number of tracks(%lu) to stop",
-      __func__, client_id, session_id, tracks_in_session.size());
-
-  // All the tracks associated to one session are stopped together.
-  auto track = tracks_in_session.rbegin();
-  while (track != tracks_in_session.rend()) {
-    uint32_t client_track_id  = track->first;
-    uint32_t service_track_id = track->second;
-
-    QMMF_INFO("%s: Track to Stop, client_id(%u):session_id(%u), "
-        "client_track_id(%u):service_track_id(%x)", __func__, client_id,
-        session_id, client_track_id, service_track_id);
-
-    // Stop TrackSource
-    assert(camera_source_ != nullptr);
-    ret = camera_source_->StopTrackSource(service_track_id);
-    if (ret != NO_ERROR) {
-      QMMF_ERROR("%s: client_id(%u):session_id(%u), StopTrackSource"
-          " failed for client_track_id(%u):service_track_id(%x)",
-          __func__, client_id, session_id, client_track_id,
-          service_track_id);
-      break;
-    }
-
-    QMMF_INFO("%s: client_id(%u):session_id(%u), "
-        "client_track_id(%u):service_track_id(%x) Stoped Successfully!",
-        __func__, client_id, session_id, client_track_id, service_track_id);
-    ++track;
-  } // tracks loop ends.
-
-   if (ret == NO_ERROR) {
-    QMMF_INFO("%s: client_id(%u):session_id(%u) with num tracks(%lu) Stoped"
-        " Successfully!", __func__, client_id, session_id,
-        tracks_in_session.size());
-
-    ChangeSessionState(client_id, session_id, SessionState::kIdle);
-  }
-  QMMF_DEBUG("%s: Exit client_id(%u):session_id(%u)", __func__,
-      client_id, session_id);
-  return ret;
-}
-
-status_t RecorderImpl::PauseSession(const uint32_t client_id,
-                                    const uint32_t session_id) {
-
-  QMMF_DEBUG("%s: Enter client_id(%u):session_id(%u)", __func__,
-      client_id, session_id);
-  QMMF_KPI_DETAIL();
-
-  uint32_t ret = NO_ERROR;
-  if (!IsClientValid(client_id)) {
-    QMMF_ERROR("%s: Client(%u) is not connected!", __func__, client_id);
-    return BAD_VALUE;
-  }
-
-  if (!IsSessionValid(client_id, session_id)) {
-    QMMF_ERROR("%s: Client(%u): Session(%u) is not valid!", __func__,
-        client_id, session_id);
-    return BAD_VALUE;
-  }
-
-  if (IsSessionPaused(client_id, session_id)) {
-    QMMF_WARN("%s: Client(%u): Session(%u) already paused!", __func__,
-        client_id, session_id);
-    return NO_ERROR;
-  } else if (IsSessionIdle(client_id, session_id)) {
-    QMMF_WARN("%s: Client(%u): Session(%u) hasn't been started!", __func__,
-        client_id, session_id);
-    return NO_ERROR;
-  }
-
-  client_session_lock_.lock();
-  auto session_track_map = client_session_map_[client_id];
-  auto tracks_in_session = session_track_map[session_id];
-  client_session_lock_.unlock();
-
-  QMMF_INFO("%s: client_id(%u):session_id(%u),number of tracks(%lu) to Pause",
-      __func__, client_id, session_id, tracks_in_session.size());
-
-  // All the tracks associated to one session are paused together.
-  auto track = tracks_in_session.rbegin();
-  while (track != tracks_in_session.rend()) {
-    uint32_t client_track_id  = track->first;
-    uint32_t service_track_id = track->second;
-
-    QMMF_INFO("%s: Track to Pause, client_id(%u):session_id(%u), "
-        "client_track_id(%u):service_track_id(%x)", __func__, client_id,
-        session_id, client_track_id, service_track_id);
-
-    assert(camera_source_ != nullptr);
-    ret = camera_source_->PauseTrackSource(service_track_id);
-    if (ret != NO_ERROR) {
-      QMMF_ERROR("%s: client_id(%u):session_id(%u), PauseTrackSource"
-          " failed for client_track_id(%u):service_track_id(%x)",
-          __func__, client_id, session_id, client_track_id,
-          service_track_id);
-      break;
-    }
-
-    ++track;
-  }
-  if (ret == NO_ERROR) {
-    QMMF_INFO("%s: client_id(%u):session_id(%u) with num tracks(%lu) Paused"
-        " Successfully!", __func__, client_id, session_id,
-        tracks_in_session.size());
-
-    ChangeSessionState(client_id, session_id, SessionState::kPause);
-  }
-  QMMF_DEBUG("%s: Exit client_id(%u):session_id(%u)", __func__,
-      client_id, session_id);
-  return ret;
-}
-
-status_t RecorderImpl::ResumeSession(const uint32_t client_id,
-                                     const uint32_t session_id) {
-
-  QMMF_DEBUG("%s: Enter client_id(%u):session_id(%u)", __func__,
-      client_id, session_id);
-  QMMF_KPI_DETAIL();
-
-  uint32_t ret = NO_ERROR;
-  if (!IsClientValid(client_id)) {
-    QMMF_ERROR("%s: Client(%u) is not connected!", __func__, client_id);
-    return BAD_VALUE;
-  }
-
-  if (!IsSessionValid(client_id, session_id)) {
-    QMMF_ERROR("%s: Client(%u): Session(%u) is not valid!", __func__,
-        client_id, session_id);
-    return BAD_VALUE;
-  }
-
-  if (!IsSessionPaused(client_id, session_id)) {
-    QMMF_WARN("%s: Client(%u): Session(%u) hasn't been paused!", __func__,
-        client_id, session_id);
-    return NO_ERROR;
-  }
-
-  client_session_lock_.lock();
-  auto session_track_map = client_session_map_[client_id];
-  auto tracks_in_session = session_track_map[session_id];
-  client_session_lock_.unlock();
-
-  QMMF_INFO("%s:client_id(%u):session_id(%u),number of tracks(%lu) to Resume",
-      __func__, client_id, session_id, tracks_in_session.size());
-  // All the tracks associated to one session starts together.
-  for (auto const& track : tracks_in_session) {
-    uint32_t client_track_id  = track.first;
-    uint32_t service_track_id = track.second;
-
-    QMMF_INFO("%s: Track to Resume, client_id(%u):session_id(%u), "
-        "client_track_id(%u):service_track_id(%x)", __func__, client_id,
-        session_id, client_track_id, service_track_id);
-
-    assert(camera_source_ != nullptr);
-    ret = camera_source_->ResumeTrackSource(service_track_id);
-    if (ret != NO_ERROR) {
-      QMMF_ERROR("%s: client_id(%u):session_id(%u), ResumeTrackSource"
-          " failed for client_track_id(%u):service_track_id(%x)",
-          __func__, client_id, session_id, client_track_id,
-          service_track_id);
-      break;
-    }
-  }
-  if (ret == NO_ERROR) {
-    QMMF_INFO("%s: client_id(%u):session_id(%u) with num tracks(%lu) Resumed"
-        " Successfully!", __func__, client_id, session_id,
-        tracks_in_session.size());
-
-    ChangeSessionState(client_id, session_id, SessionState::kActive);
-  }
-  QMMF_DEBUG("%s: Exit client_id(%u):session_id(%u)", __func__,
-      client_id, session_id);
-  return ret;
-}
-
 uint32_t RecorderImpl::FindSuitableIdForLinkedTrack(
     const VideoTrackParam& params) {
   bool is_suitable_track_found = false;
@@ -915,43 +527,41 @@ uint32_t RecorderImpl::FindSuitableIdForLinkedTrack(
   auto client_ids = GetCameraClients(params.camera_id);
   for (auto const& id : client_ids) {
     if (IsCameraValid(id, params.camera_id)) {
-      auto& main_session_track_map = client_session_map_[id];
-      for (auto const& track_map : main_session_track_map) {
-        // Try to find a track with same resolution
-        for (auto const& track : track_map.second) {
+      auto& track_map = client_track_map_[id];
+      // Try to find a track with same resolution
+      for (auto const& track : track_map) {
+        uint32_t service_track_id = track.second;
+        std::shared_ptr<TrackSource> track_source =
+            camera_source_->GetTrackSource(service_track_id);
+        VideoTrackParam tr_params = track_source->GetParams();
+
+        if (params.width == tr_params.width &&
+            params.height == tr_params.height) {
+          selected_track_id = service_track_id;
+          is_suitable_track_found = true;
+          break;
+        }
+      }
+      // Try to find a track with bigger resolution
+      if(!is_suitable_track_found) {
+        uint32_t selected_width = 0;
+        uint32_t selected_height = 0;
+        for (auto const& track : track_map) {
           uint32_t service_track_id = track.second;
           std::shared_ptr<TrackSource> track_source =
               camera_source_->GetTrackSource(service_track_id);
           VideoTrackParam tr_params = track_source->GetParams();
 
-          if (params.width == tr_params.width &&
-              params.height == tr_params.height) {
-            selected_track_id = service_track_id;
-            is_suitable_track_found = true;
-            break;
-          }
-        }
-        // Try to find a track with bigger resolution
-        if(!is_suitable_track_found) {
-          uint32_t selected_width = 0;
-          uint32_t selected_height = 0;
-          for (auto const& track : track_map.second) {
-            uint32_t service_track_id = track.second;
-            std::shared_ptr<TrackSource> track_source =
-                camera_source_->GetTrackSource(service_track_id);
-            VideoTrackParam tr_params = track_source->GetParams();
-
-            if (params.width <= tr_params.width &&
-                params.height <= tr_params.height) {
-              // Select the lowest possible resolution from the all running
-              // tracks has resolution bigger than requested track.
-              if ((selected_width == 0 || tr_params.width < selected_width) ||
-                  (selected_height == 0 || tr_params.height < selected_height)) {
-                selected_track_id = service_track_id;
-                is_suitable_track_found = true;
-                selected_width = tr_params.width;
-                selected_height = tr_params.height;
-              }
+          if (params.width <= tr_params.width &&
+              params.height <= tr_params.height) {
+            // Select the lowest possible resolution from the all running
+            // tracks has resolution bigger than requested track.
+            if ((selected_width == 0 || tr_params.width < selected_width) ||
+                (selected_height == 0 || tr_params.height < selected_height)) {
+              selected_track_id = service_track_id;
+              is_suitable_track_found = true;
+              selected_width = tr_params.width;
+              selected_height = tr_params.height;
             }
           }
         }
@@ -963,41 +573,32 @@ uint32_t RecorderImpl::FindSuitableIdForLinkedTrack(
 }
 
 status_t RecorderImpl::CreateVideoTrack(const uint32_t client_id,
-                                        const uint32_t session_id,
                                         const uint32_t track_id,
                                         const VideoTrackParam& params,
                                         const VideoExtraParam& xtraparam) {
 
-  QMMF_DEBUG("%s: Enter client_id(%u):session_id(%u)", __func__,
-      client_id, session_id);
+  QMMF_DEBUG("%s: Enter client_id(%u):track_id(%u)", __func__,
+      client_id, track_id);
 
   if (!IsClientValid(client_id)) {
     QMMF_ERROR("%s: Client(%u) is not connected!", __func__, client_id);
     return BAD_VALUE;
   }
 
-  if (!IsSessionValid(client_id, session_id)) {
-    QMMF_ERROR("%s: Client(%u): Session(%u) is not valid!", __func__,
-        client_id, session_id);
+  if (IsTrackValid(client_id, track_id)) {
+    QMMF_ERROR("%s: Client(%d): Track(%d) already exists!",
+        __func__, client_id, track_id);
     return BAD_VALUE;
   }
 
-  if (IsTrackValid(client_id, session_id, track_id)) {
-    QMMF_ERROR("%s: Client(%d):Session(%d): Track(%d) already exists!",
-        __func__, client_id, session_id, track_id);
-    return BAD_VALUE;
-  }
-
-  uint32_t service_track_id = GetUniqueServiceTrackId(client_id, session_id,
-                                                      track_id);
-  QMMF_INFO("%s: client_id(%u):session_id(%u) client_track_id(%u):"
-      "service_track_id(%x)", __func__, client_id, session_id, track_id,
+  uint32_t service_track_id = GetUniqueServiceTrackId(client_id, track_id);
+  QMMF_INFO("%s: client_id(%u): client_track_id(%u):"
+      "service_track_id(%x)", __func__, client_id, track_id,
       service_track_id);
 
-  BnBufferCallback cb = [this, client_id, session_id, track_id]
+  BnBufferCallback cb = [this, client_id, track_id]
       (std::vector<BnBuffer>& buffers, std::vector<BufferMeta>& meta) {
-          VideoTrackBufferCb(client_id, session_id, track_id,
-                             buffers, meta);
+          VideoTrackBufferCb(client_id, track_id, buffers, meta);
       };
 
   // Local copy of extra params that is goign to be modified is necessary.
@@ -1040,35 +641,39 @@ status_t RecorderImpl::CreateVideoTrack(const uint32_t client_id,
         " failed!", __func__, track_id, service_track_id);
     return BAD_VALUE;
   }
-  QMMF_INFO("%s: client_id(%u):session_id(%u), TrackSource for "
+  QMMF_INFO("%s: client_id(%u): TrackSource for "
       "client_track_id(%u):service_track_id(%x) Added Successfully in "
-      "CameraSource!", __func__, client_id, session_id, track_id,
+      "CameraSource!", __func__, client_id, track_id,
       service_track_id);
 
-  // Assosiate track to session.
-  std::lock_guard<std::mutex> lock(client_session_lock_);
-  auto& session_track_map = client_session_map_[client_id];
-  auto& tracks_in_session = session_track_map[session_id];
-  tracks_in_session.emplace(track_id, service_track_id);
+  std::lock_guard<std::mutex> lock(client_track_lock_);
+  auto& track_map = client_track_map_[client_id];
+  track_map.emplace(track_id, service_track_id);
 
-  QMMF_INFO("%s: client_id(%u), session_id(%u), num sessions=%lu",
-      __func__, client_id, session_id, session_track_map.size());
-  QMMF_INFO("%s: num of tracks=%lu", __func__, tracks_in_session.size());
+  auto& tracks_mutex_map = client_tracks_mutex_map_[client_id];
+  if (tracks_mutex_map.count(track_id) == 0) {
+    tracks_mutex_map.emplace(track_id, new std::mutex());
+  }
+
+  auto& tracks_state_map = client_tracks_state_[client_id];
+  tracks_state_map.emplace(track_id, TrackState::kIdle);
+
+  QMMF_INFO("%s: client_id(%u), track_id(%u), num tracks=%lu",
+      __func__, client_id, track_id, track_map.size());
 
   QMMF_INFO("%s: client_track_id(%u):service_track_id(%x)",
       __func__, track_id, service_track_id);
 
-  QMMF_DEBUG("%s: Exit client_id(%u):session_id(%u)", __func__,
-      client_id, session_id);
+  QMMF_DEBUG("%s: Exit client_id(%u):track_id(%u)", __func__,
+      client_id, track_id);
   return NO_ERROR;
 }
 
 status_t RecorderImpl::DeleteVideoTrack(const uint32_t client_id,
-                                        const uint32_t session_id,
                                         const uint32_t track_id) {
 
-  QMMF_DEBUG("%s: Enter client_id(%u):session_id(%u)", __func__,
-      client_id, session_id);
+  QMMF_DEBUG("%s: Enter client_id(%u):track_id(%u)", __func__,
+      client_id, track_id);
   QMMF_KPI_DETAIL();
 
   if (!IsClientValid(client_id)) {
@@ -1076,24 +681,20 @@ status_t RecorderImpl::DeleteVideoTrack(const uint32_t client_id,
     return BAD_VALUE;
   }
 
-  if (!IsSessionValid(client_id, session_id)) {
-    QMMF_ERROR("%s: Client(%u): Session(%u) is not valid!", __func__,
-        client_id, session_id);
+  if (!IsTrackValid(client_id, track_id)) {
+    QMMF_ERROR("%s: Client(%d): Track(%d) does not exist!",
+        __func__, client_id, track_id);
     return BAD_VALUE;
   }
 
-  if (!IsTrackValid(client_id, session_id, track_id)) {
-    QMMF_ERROR("%s: Client(%d):Session(%d): Track(%d) does not exist!",
-        __func__, client_id, session_id, track_id);
-    return BAD_VALUE;
-  }
+  client_track_lock_.lock();
+  auto& track_map = client_track_map_[client_id];
+  auto& tracks_state_map = client_tracks_state_[client_id];
+  auto& tracks_mutex_map = client_tracks_mutex_map_[client_id];
 
-  client_session_lock_.lock();
-  auto& session_track_map = client_session_map_[client_id];
-  auto& tracks_in_session = session_track_map[session_id];
+  uint32_t service_track_id = track_map[track_id];
+  client_track_lock_.unlock();
 
-  uint32_t service_track_id = tracks_in_session[track_id];
-  client_session_lock_.unlock();
 
   assert(camera_source_ != nullptr);
   assert(service_track_id > 0);
@@ -1104,32 +705,260 @@ status_t RecorderImpl::DeleteVideoTrack(const uint32_t client_id,
     return ret;
   }
 
-  {
-    std::lock_guard<std::mutex> lock(client_session_lock_);
-    tracks_in_session.erase(track_id);
-  }
-
   QMMF_INFO("%s: client_track_id(%u):service_track_id(%x) Deleted "
       "Successfully", __func__, track_id, service_track_id);
-  QMMF_INFO("%s: Number of tracks(%lu) left in session(%d)", __func__,
-      tracks_in_session.size(), session_id);
+
+
+  track_map.erase(track_id);
+  tracks_state_map.erase(track_id);
+  if (tracks_mutex_map.count(track_id) != 0)
+    delete tracks_mutex_map[track_id];
+  tracks_mutex_map.erase(track_id);
 
   // This method doesn't go up to client as a callback, it is just to update
   // Internal data structure used for buffer mapping.
   remote_cb_handle_(client_id)->NotifyDeleteVideoTrack(track_id);
 
-  QMMF_DEBUG("%s: Exit client_id(%u):session_id(%u)", __func__,
-      client_id, session_id);
+  QMMF_DEBUG("%s: Exit client_id(%u):track_id(%u)", __func__,
+      client_id, track_id);
   return NO_ERROR;
 }
 
+
+status_t RecorderImpl::StartVideoTrack(const uint32_t client_id,
+                                       const uint32_t track_id) {
+
+  QMMF_DEBUG("%s: Enter client_id(%u):track_id(%u)", __func__,
+      client_id, track_id);
+  QMMF_KPI_DETAIL();
+
+  client_track_lock_.lock();
+  auto& tracks_mutex_map = client_tracks_mutex_map_[client_id];
+  auto& track_lock = tracks_mutex_map[track_id];
+
+  client_track_lock_.unlock();
+  std::lock_guard<std::mutex> lock(*track_lock);
+
+  uint32_t ret = NO_ERROR;
+  if (!IsClientValid(client_id)) {
+    QMMF_ERROR("%s: Client(%u) is not connected!", __func__, client_id);
+    return BAD_VALUE;
+  }
+
+  if (IsTrackPaused(client_id, track_id)) {
+    QMMF_WARN("%s: Client(%u): Track(%u) is paused, resuming!", __func__,
+        client_id, track_id);
+    ResumeVideoTrack(client_id, track_id);
+    return NO_ERROR;
+  } else if (IsTrackActive(client_id, track_id)) {
+    QMMF_WARN("%s: Client(%u): Track(%u) is already started!", __func__,
+        client_id, track_id);
+    return NO_ERROR;
+  } else if (!IsTrackIdle(client_id, track_id)) {
+    QMMF_WARN("%s: Client(%u): Track(%u) hasn't been stopped!", __func__,
+        client_id, track_id);
+    return NO_ERROR;
+  }
+
+  uint32_t service_track_id = GetServiceTrackId(client_id, track_id);
+
+  QMMF_INFO("%s: Track to Start, client_id(%u): "
+      "client_track_id(%u):service_track_id(%x)", __func__,
+      client_id, track_id, service_track_id);
+
+  assert(camera_source_ != nullptr);
+  ret = camera_source_->StartTrackSource(service_track_id);
+  if (ret == NO_ERROR) {
+    QMMF_INFO("%s: client_id(%u): Started Successfully!", __func__, client_id);
+    ChangeTrackState(client_id, track_id, TrackState::kActive);
+  } else {
+    QMMF_ERROR("%s: client_id(%u): StartTrackSource"
+        " failed for client_track_id(%u):service_track_id(%x)",
+        __func__, client_id, track_id, service_track_id);
+  }
+
+  QMMF_DEBUG("%s: Exit client_id(%u):track_id(%u)", __func__,
+      client_id, track_id);
+  return ret;
+}
+
+status_t RecorderImpl::StopVideoTrack(const uint32_t client_id,
+                                      const uint32_t track_id, bool do_flush,
+                                      bool is_force_cleanup) {
+
+  QMMF_DEBUG("%s: Enter client_id(%u):track_id(%u)", __func__,
+      client_id, track_id);
+  QMMF_KPI_DETAIL();
+
+  client_track_lock_.lock();
+  auto& tracks_mutex_map = client_tracks_mutex_map_[client_id];
+  auto& track_lock = tracks_mutex_map[track_id];
+
+  client_track_lock_.unlock();
+  std::lock_guard<std::mutex> lock(*track_lock);
+
+  uint32_t ret = NO_ERROR;
+  if (!IsClientValid(client_id)) {
+    QMMF_ERROR("%s: Client(%u) is not connected!", __func__, client_id);
+    return BAD_VALUE;
+  }
+
+  if (!IsTrackValid(client_id, track_id)) {
+    QMMF_ERROR("%s: Client(%u): Track(%u) is not valid!", __func__,
+        client_id, track_id);
+    return BAD_VALUE;
+  }
+
+  if (IsTrackIdle(client_id, track_id)) {
+    QMMF_WARN("%s: Client(%u): Track(%u) not yet started!", __func__,
+        client_id, track_id);
+    return NO_ERROR;
+  }
+
+  QMMF_INFO("%s: client_id(%u):track_id(%u) to stop",
+      __func__, client_id, track_id);
+
+  uint32_t service_track_id = GetServiceTrackId(client_id, track_id);
+
+  QMMF_INFO("%s: Track to Stop, client_id(%u): "
+      "client_track_id(%u):service_track_id(%x)", __func__, client_id,
+      track_id, service_track_id);
+
+  // Stop TrackSource
+  assert(camera_source_ != nullptr);
+  ret = camera_source_->StopTrackSource(service_track_id);
+  if (ret == NO_ERROR) {
+    QMMF_INFO("%s: client_id(%u):track_id(%u) Stoped Successfully!",
+        __func__, client_id, track_id);
+
+    ChangeTrackState(client_id, track_id, TrackState::kIdle);
+  } else {
+    QMMF_ERROR("%s: client_id(%u): StopTrackSource"
+        " failed for client_track_id(%u):service_track_id(%x)",
+        __func__, client_id, track_id,
+        service_track_id);
+  }
+
+  QMMF_DEBUG("%s: Exit client_id(%u):track_id(%u)", __func__,
+      client_id, track_id);
+  return ret;
+}
+
+status_t RecorderImpl::PauseVideoTrack(const uint32_t client_id,
+                                       const uint32_t track_id) {
+
+  QMMF_DEBUG("%s: Enter client_id(%u):track_id(%u)", __func__,
+      client_id, track_id);
+  QMMF_KPI_DETAIL();
+
+  uint32_t ret = NO_ERROR;
+  if (!IsClientValid(client_id)) {
+    QMMF_ERROR("%s: Client(%u) is not connected!", __func__, client_id);
+    return BAD_VALUE;
+  }
+
+  if (!IsTrackValid(client_id, track_id)) {
+    QMMF_ERROR("%s: Client(%u): Track(%u) is not valid!", __func__,
+        client_id, track_id);
+    return BAD_VALUE;
+  }
+
+  if (IsTrackPaused(client_id, track_id)) {
+    QMMF_WARN("%s: Client(%u): Track(%u) already paused!", __func__,
+        client_id, track_id);
+    return NO_ERROR;
+  } else if (IsTrackIdle(client_id, track_id)) {
+    QMMF_WARN("%s: Client(%u): Track(%u) hasn't been started!", __func__,
+        client_id, track_id);
+    return NO_ERROR;
+  }
+
+  QMMF_INFO("%s: client_id(%u):track_id(%u) to Pause",
+      __func__, client_id, track_id);
+
+  uint32_t service_track_id = GetServiceTrackId(client_id, track_id);
+
+  QMMF_INFO("%s: Track to Pause, client_id(%u): "
+      "client_track_id(%u):service_track_id(%x)", __func__, client_id,
+      track_id, service_track_id);
+
+  assert(camera_source_ != nullptr);
+  ret = camera_source_->PauseTrackSource(service_track_id);
+  if (ret == NO_ERROR) {
+    QMMF_INFO("%s: client_id(%u):track_id(%u) Paused"
+        " Successfully!", __func__, client_id, track_id);
+
+    ChangeTrackState(client_id, track_id, TrackState::kPause);
+  } else {
+    QMMF_ERROR("%s: client_id(%u): PauseTrackSource"
+        " failed for client_track_id(%u):service_track_id(%x)",
+        __func__, client_id, track_id, service_track_id);
+  }
+
+  QMMF_DEBUG("%s: Exit client_id(%u):track_id(%u)", __func__,
+      client_id, track_id);
+  return ret;
+}
+
+status_t RecorderImpl::ResumeVideoTrack(const uint32_t client_id,
+                                        const uint32_t track_id) {
+
+  QMMF_DEBUG("%s: Enter client_id(%u):track_id(%u)", __func__,
+      client_id, track_id);
+  QMMF_KPI_DETAIL();
+
+  uint32_t ret = NO_ERROR;
+  if (!IsClientValid(client_id)) {
+    QMMF_ERROR("%s: Client(%u) is not connected!", __func__, client_id);
+    return BAD_VALUE;
+  }
+
+  if (!IsTrackValid(client_id, track_id)) {
+    QMMF_ERROR("%s: Client(%u): Track(%u) is not valid!", __func__,
+        client_id, track_id);
+    return BAD_VALUE;
+  }
+
+  if (!IsTrackPaused(client_id, track_id)) {
+    QMMF_WARN("%s: Client(%u): Track(%u) hasn't been paused!", __func__,
+        client_id, track_id);
+    return NO_ERROR;
+  }
+
+  QMMF_INFO("%s:client_id(%u):track_id(%u) to Resume",
+      __func__, client_id, track_id);
+
+  uint32_t service_track_id = GetServiceTrackId(client_id, track_id);
+
+  QMMF_INFO("%s: Track to Resume, client_id(%u): "
+      "client_track_id(%u):service_track_id(%x)", __func__, client_id,
+      track_id, service_track_id);
+
+  assert(camera_source_ != nullptr);
+  ret = camera_source_->ResumeTrackSource(service_track_id);
+  if (ret == NO_ERROR) {
+    QMMF_INFO("%s: client_id(%u):track_id(%u) Resumed"
+        " Successfully!", __func__, client_id, track_id);
+
+    ChangeTrackState(client_id, track_id, TrackState::kActive);
+  } else {
+    QMMF_ERROR("%s: client_id(%u): ResumeTrackSource"
+        " failed for client_track_id(%u):service_track_id(%x)",
+        __func__, client_id, track_id,
+        service_track_id);
+  }
+
+  QMMF_DEBUG("%s: Exit client_id(%u):track_id(%u)", __func__,
+      client_id, track_id);
+  return ret;
+}
+
 status_t RecorderImpl::ReturnTrackBuffer(const uint32_t client_id,
-                                         const uint32_t session_id,
                                          const uint32_t track_id,
                                          std::vector<BnBuffer> &buffers) {
 
-  QMMF_VERBOSE("%s: Enter client_id(%u):session_id(%u)", __func__,
-      client_id, session_id);
+  QMMF_VERBOSE("%s: Enter client_id(%u):track_id(%u)", __func__,
+      client_id, track_id);
   for (const BnBuffer& buffer : buffers)
     QMMF_VERBOSE("%s INPARAM: buffers[%s]", __func__,
                  buffer.ToString().c_str());
@@ -1140,56 +969,44 @@ status_t RecorderImpl::ReturnTrackBuffer(const uint32_t client_id,
     return BAD_VALUE;
   }
 
-  if (!IsSessionValid(client_id, session_id)) {
-    QMMF_ERROR("%s: Client(%u): Session(%u) is not valid!", __func__,
-        client_id, session_id);
+  if (!IsTrackValid(client_id, track_id)) {
+    QMMF_ERROR("%s: Client(%d): Track(%d) does not exist!",
+        __func__, client_id, track_id);
     return BAD_VALUE;
   }
 
-  if (!IsTrackValid(client_id, session_id, track_id)) {
-    QMMF_ERROR("%s: Client(%d):Session(%d): Track(%d) does not exist!",
-        __func__, client_id, session_id, track_id);
-    return BAD_VALUE;
-  }
-
-  uint32_t service_track_id = GetServiceTrackId(client_id, session_id, track_id);
+  uint32_t service_track_id = GetServiceTrackId(client_id, track_id);
 
   assert(camera_source_ != nullptr);
   ret = camera_source_->ReturnTrackBuffer(service_track_id, buffers);
   assert(ret == NO_ERROR);
 
-  QMMF_VERBOSE("%s: Exit client_id(%u):session_id(%u)", __func__,
-      client_id, session_id);
+  QMMF_VERBOSE("%s: Exit client_id(%u):track_id(%u)", __func__,
+      client_id, track_id);
   return NO_ERROR;
 }
 
 status_t RecorderImpl::SetVideoTrackParam(const uint32_t client_id,
-                                          const uint32_t session_id,
                                           const uint32_t track_id,
                                           VideoParam type,
                                           void *param,
                                           size_t size) {
-  QMMF_DEBUG("%s: Enter client_id(%u):session_id(%u)", __func__,
-      client_id, session_id);
+  QMMF_DEBUG("%s: Enter client_id(%u):track_id(%u)", __func__,
+      client_id, track_id);
 
   if (!IsClientValid(client_id)) {
     QMMF_ERROR("%s: Client(%u) is not connected!", __func__, client_id);
     return BAD_VALUE;
   }
 
-  if (!IsSessionValid(client_id, session_id)) {
-    QMMF_ERROR("%s: Client(%u): Session(%u) is not valid!", __func__,
-        client_id, session_id);
+
+  if (!IsTrackValid(client_id, track_id)) {
+    QMMF_ERROR("%s: Client(%d): Track(%d) does not exist!",
+        __func__, client_id, track_id);
     return BAD_VALUE;
   }
 
-  if (!IsTrackValid(client_id, session_id, track_id)) {
-    QMMF_ERROR("%s: Client(%d):Session(%d): Track(%d) does not exist!",
-        __func__, client_id, session_id, track_id);
-    return BAD_VALUE;
-  }
-
-  uint32_t service_track_id = GetServiceTrackId(client_id, session_id, track_id);
+  uint32_t service_track_id = GetServiceTrackId(client_id, track_id);
   status_t ret = 0;
 
   if (type == VideoParam::kFrameRate) {
@@ -1211,8 +1028,8 @@ status_t RecorderImpl::SetVideoTrackParam(const uint32_t client_id,
       return ret;
     }
   }
-  QMMF_DEBUG("%s: Exit client_id(%u):session_id(%u)", __func__,
-      client_id, session_id);
+  QMMF_DEBUG("%s: Exit client_id(%u):track_id(%u)", __func__,
+      client_id, track_id);
   return NO_ERROR;
 }
 
@@ -1555,24 +1372,23 @@ status_t RecorderImpl::DestroyOfflineJPEG(const uint32_t client_id) {
 }
 
 // Data callback handlers.
-void RecorderImpl::VideoTrackBufferCb(uint32_t client_id, uint32_t session_id,
-                                      uint32_t track_id,
+void RecorderImpl::VideoTrackBufferCb(uint32_t client_id, uint32_t track_id,
                                       std::vector<BnBuffer>& buffers,
                                       std::vector<BufferMeta>& metas) {
 
-  QMMF_DEBUG("%s Enter client_id(%u), session_id(%u), track_id(%u)",
-      __func__, client_id, session_id, track_id);
+  QMMF_DEBUG("%s Enter client_id(%u), track_id(%u)",
+      __func__, client_id, track_id);
   assert(remote_cb_handle_ != nullptr);
   assert(IsClientValid(client_id));
 
   if (!IsClientAlive(client_id)) {
-    ReturnTrackBuffer(client_id, session_id, track_id, buffers);
+    ReturnTrackBuffer(client_id, track_id, buffers);
   } else {
     remote_cb_handle_(client_id)->
-        NotifyVideoTrackData(session_id, track_id, buffers, metas);
+        NotifyVideoTrackData(track_id, buffers, metas);
   }
-  QMMF_DEBUG("%s Exit client_id(%u), session_id(%u), track_id(%u)",
-      __func__, client_id, session_id, track_id);
+  QMMF_DEBUG("%s Exit client_id(%u), track_id(%u)",
+      __func__, client_id, track_id);
 }
 
 void RecorderImpl::CameraSnapshotCb(uint32_t client_id, uint32_t camera_id,
@@ -1640,8 +1456,8 @@ void RecorderImpl::CameraErrorCb(uint32_t camera_id, uint32_t errcode) {
 
 bool RecorderImpl::IsClientValid(const uint32_t& client_id) {
 
-  std::lock_guard<std::mutex> lock(client_session_lock_);
-  return (client_session_map_.count(client_id) != 0) ? true : false;
+  std::lock_guard<std::mutex> lock(client_track_lock_);
+  return (client_track_map_.count(client_id) != 0) ? true : false;
 }
 
 bool RecorderImpl::IsClientAlive(const uint32_t& client_id) {
@@ -1650,36 +1466,12 @@ bool RecorderImpl::IsClientAlive(const uint32_t& client_id) {
   return (client_state_[client_id] == ClientState::kAlive) ? true : false;
 }
 
-bool RecorderImpl::IsSessionValid(const uint32_t& client_id,
-                                  const uint32_t& session_id) {
-
-  std::lock_guard<std::mutex> lock(client_session_lock_);
-  auto& session_track_map = client_session_map_[client_id];
-  return (session_track_map.count(session_id) != 0) ? true : false;
-}
-
-bool RecorderImpl::IsTrackValid(const uint32_t& client_id,
-                                const uint32_t& session_id,
-                                const uint32_t& track_id) {
-
-  std::lock_guard<std::mutex> lock(client_session_lock_);
-  auto const& tracks_in_session = client_session_map_[client_id][session_id];
-  return (tracks_in_session.count(track_id) != 0) ? true : false;
-}
-
 bool RecorderImpl::IsTrackValid(const uint32_t& client_id,
                                 const uint32_t& track_id) {
 
-  std::lock_guard<std::mutex> lock(client_session_lock_);
-  auto const& session_track_map = client_session_map_[client_id];
-
-  for (auto const& session : session_track_map) {
-    auto const& tracks_in_session = session.second;
-    if (tracks_in_session.count(track_id) != 0) {
-      return true;
-    }
-  }
-  return false;
+  std::lock_guard<std::mutex> lock(client_track_lock_);
+  auto const& tracks_in_client = client_track_map_[client_id];
+  return (tracks_in_client.count(track_id) != 0) ? true : false;
 }
 
 bool RecorderImpl::IsCameraValid(const uint32_t& client_id,
@@ -1689,7 +1481,7 @@ bool RecorderImpl::IsCameraValid(const uint32_t& client_id,
   bool valid = false;
 
   // Check if the camera id is registered for the client id and is owned by it.
-  if (client_session_map_.count(client_id) != 0) {
+  if (client_track_map_.count(client_id) != 0) {
     auto const& cameras = client_cameraid_map_[client_id];
     valid = (cameras.count(camera_id) != 0) ? cameras.at(camera_id) : false;
   }
@@ -1714,70 +1506,52 @@ bool RecorderImpl::IsCameraOwned(const uint32_t& client_id,
   return false;
 }
 
-bool RecorderImpl::IsSessionActive(const uint32_t& client_id,
-                                   const uint32_t& session_id) {
-  std::lock_guard<std::mutex> lock(client_session_lock_);
-  auto& sessions_state_map = client_sessions_state_[client_id];
-  return (sessions_state_map[session_id] == SessionState::kActive) ? true
-                                                                   : false;
+bool RecorderImpl::IsTrackActive(const uint32_t& client_id,
+                                const uint32_t& track_id) {
+  std::lock_guard<std::mutex> lock(client_track_lock_);
+  auto& tracks_state_map = client_tracks_state_[client_id];
+  return (tracks_state_map[track_id] == TrackState::kActive) ? true
+                                                               : false;
 }
 
-bool RecorderImpl::IsSessionPaused(const uint32_t& client_id,
-                                   const uint32_t& session_id) {
-  std::lock_guard<std::mutex> lock(client_session_lock_);
-  auto& sessions_state_map = client_sessions_state_[client_id];
-  return (sessions_state_map[session_id] == SessionState::kPause) ? true
-                                                                  : false;
+bool RecorderImpl::IsTrackPaused(const uint32_t& client_id,
+                                   const uint32_t& track_id) {
+  std::lock_guard<std::mutex> lock(client_track_lock_);
+  auto& tracks_state_map = client_tracks_state_[client_id];
+  return (tracks_state_map[track_id] == TrackState::kPause) ? true
+                                                              : false;
 }
 
-bool RecorderImpl::IsSessionIdle(const uint32_t& client_id,
-                                 const uint32_t& session_id) {
-  std::lock_guard<std::mutex> lock(client_session_lock_);
-  auto& sessions_state_map = client_sessions_state_[client_id];
-  return (sessions_state_map[session_id] == SessionState::kIdle) ? true : false;
+bool RecorderImpl::IsTrackIdle(const uint32_t& client_id,
+                                 const uint32_t& track_id) {
+  std::lock_guard<std::mutex> lock(client_track_lock_);
+  auto& tracks_state_map = client_tracks_state_[client_id];
+  return (tracks_state_map[track_id] == TrackState::kIdle) ? true : false;
 }
 
-void RecorderImpl::ChangeSessionState(const uint32_t& client_id,
-                                      const uint32_t& session_id,
-                                      const SessionState& state) {
-  std::lock_guard<std::mutex> lock(client_session_lock_);
-  auto& sessions_state_map = client_sessions_state_[client_id];
-  QMMF_INFO("%s: Session(%u): state = %d", __func__, session_id,
+void RecorderImpl::ChangeTrackState(const uint32_t& client_id,
+                                      const uint32_t& track_id,
+                                      const TrackState& state) {
+  std::lock_guard<std::mutex> lock(client_track_lock_);
+  auto& tracks_state_map = client_tracks_state_[client_id];
+  QMMF_INFO("%s: Track(%u): state = %d", __func__, track_id,
     (int32_t) state);
-  sessions_state_map[session_id] = state;
+  tracks_state_map[track_id] = state;
 }
 
 uint32_t RecorderImpl::GetUniqueServiceTrackId(const uint32_t& client_id,
-                                               const uint32_t& session_id,
                                                const uint32_t& track_id) {
   uint32_t service_track_id = client_id << 24;
-  service_track_id |= session_id << 16;
   service_track_id |= track_id;
   return service_track_id;
 }
 
 uint32_t RecorderImpl::GetServiceTrackId(const uint32_t& client_id,
-                                         const uint32_t& session_id,
                                          const uint32_t& track_id) {
 
-  std::lock_guard<std::mutex> lock(client_session_lock_);
-  auto tracks_in_session = client_session_map_[client_id][session_id];
-  return tracks_in_session[track_id];
-}
-
-uint32_t RecorderImpl::GetServiceTrackId(const uint32_t& client_id,
-                                         const uint32_t& track_id) {
-
-  std::lock_guard<std::mutex> lock(client_session_lock_);
-  auto const& session_track_map = client_session_map_[client_id];
-
-  for (auto const& session : session_track_map) {
-    auto tracks_in_session = session.second;
-    if (tracks_in_session.count(track_id) != 0) {
-      return tracks_in_session[track_id];
-    }
-  }
-  return NO_ERROR;
+  std::lock_guard<std::mutex> lock(client_track_lock_);
+  auto tracks_in_client = client_track_map_[client_id];
+  return tracks_in_client[track_id];
 }
 
 std::vector<uint32_t> RecorderImpl::GetCameraClients(const uint32_t& camera_id) {
@@ -1814,48 +1588,26 @@ status_t RecorderImpl::ForceReturnBuffers(const uint32_t client_id) {
   }
 
   // Return all track buffers
-  client_session_lock_.lock();
-  auto session_track_map = client_session_map_[client_id];
-  client_session_lock_.unlock();
+  client_track_lock_.lock();
+  auto track_map = client_track_map_[client_id];
+  client_track_lock_.unlock();
 
-  // iterate all sessions for this client
-  for (auto session : session_track_map) {
-    auto session_id = session.first;
+  // iterate all tracks for this client
+  for (auto track : track_map) {
+    uint32_t client_track_id  = track.first;
+    uint32_t service_track_id = track.second;
 
-    client_session_lock_.lock();
-    auto tracks_in_session = session_track_map[session_id];
-    client_session_lock_.unlock();
+    QMMF_INFO("%s: Return buffers to track, client_id(%u): "
+        "client_track_id(%u):service_track_id(%x)", __func__, client_id,
+        client_track_id, service_track_id);
 
-    // iterate all tracks for this session
-    auto track = tracks_in_session.rbegin();
-    while (track != tracks_in_session.rend()) {
-      uint32_t client_track_id  = track->first;
-      uint32_t service_track_id = track->second;
-
-      QMMF_INFO("%s: Return buffers to track, client_id(%u):session_id(%u), "
-          "client_track_id(%u):service_track_id(%x)", __func__, client_id,
-          session_id, client_track_id, service_track_id);
-
-      ret = camera_source_->FlushTrackSource(service_track_id);
-      if (ret != NO_ERROR) {
-        QMMF_WARN("%s: FlushTrackSource failed for track_id %d", __func__,
-            service_track_id);
-      }
-      ++track;
+    ret = camera_source_->FlushTrackSource(service_track_id);
+    if (ret != NO_ERROR) {
+      QMMF_WARN("%s: FlushTrackSource failed for track_id %d", __func__,
+          service_track_id);
     }
   }
   return ret;
-}
-
-status_t RecorderImpl::GetUniqueSessionID(const uint32_t& client_id,
-                                          uint32_t* session_id) {
-  for (uint32_t id = 1; id <= 0xFF; id++) {
-    if (client_sessions_state_[client_id].count(id) == 0) {
-      *session_id = id;
-      return NO_ERROR;
-    }
-  }
-  return BAD_VALUE;
 }
 
 }; // namespace recorder

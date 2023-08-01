@@ -28,7 +28,7 @@
 *
 * Changes from Qualcomm Innovation Center are provided under the following license:
 *
-* Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
 *  
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted (subject to the limitations in the
@@ -83,19 +83,16 @@ class RemoteCallBack : public RefBase {
     void NotifyRecorderEvent(EventType event_type, void *event_data,
                              size_t event_data_size);
 
-    void NotifySessionEvent(EventType event_type, void *event_data,
-                            size_t event_data_size);
-
     void NotifySnapshotData(uint32_t camera_id, uint32_t imgcount,
                             BnBuffer& buffer, BufferMeta& meta);
 
     void NotifyOfflineJpegData(int32_t buf_fd, uint32_t encoded_size);
 
-    void NotifyVideoTrackData(uint32_t session_id, uint32_t track_id,
+    void NotifyVideoTrackData(uint32_t track_id,
                               std::vector<BnBuffer>& buffers,
                               std::vector<BufferMeta>& metas);
 
-    void NotifyVideoTrackEvent(uint32_t session_id, uint32_t track_id,
+    void NotifyVideoTrackEvent(uint32_t track_id,
                                EventType event_type,
                                void *event_data, size_t event_data_size);
 

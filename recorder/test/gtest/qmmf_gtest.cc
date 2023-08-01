@@ -25,6 +25,40 @@
 * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
 * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*
+* Changes from Qualcomm Innovation Center are provided under the following license:
+*
+* Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+*
+* Redistribution and use in source and binary forms, with or without
+* modification, are permitted (subject to the limitations in the
+* disclaimer below) provided that the following conditions are met:
+*
+*     * Redistributions of source code must retain the above copyright
+*       notice, this list of conditions and the following disclaimer.
+*
+*     * Redistributions in binary form must reproduce the above
+*       copyright notice, this list of conditions and the following
+*       disclaimer in the documentation and/or other materials provided
+*       with the distribution.
+*
+*     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+*       contributors may be used to endorse or promote products derived
+*       from this software without specific prior written permission.
+*
+* NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+* GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+* HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+* WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+* MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+* IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+* ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+* DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+* GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+* INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+* IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+* OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+* IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #define LOG_TAG "VideoGTest"
@@ -123,17 +157,15 @@ TEST_F(VideoGtest, StartStopCamera) {
 *   If Snapshot stream is on, Snapshot will also be taken.
 * API test sequence:
 *  - StartCamera [Check for EIS, SHDR]
-*  - CreateSession
 *  - CreateVideoTrack
-*  - StartSession
+*  - StartVideoTrack
 *  - Check for SnapShot stream
 *  - If Snapshot Stream  is on
 *  - { ConfigImageCapture
 *  -   CaptureImage
 *  -   CancelCaptureImage }
-*  - StopSession
+*  - StopVideoTrack
 *  - DeleteVideoTrack
-*  - DeleteSession
 *  - StopCamera
 */
 
@@ -172,23 +204,16 @@ TEST_F(VideoGtest, SessionWithSingleStream) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
               test_info_->name(), i);
 
-    SessionCb session_status_cb = CreateSessionStatusCb();
-    uint32_t session_id;
-
-    ret = recorder_.CreateSession(session_status_cb, &session_id);
-    ASSERT_TRUE(session_id > 0);
-    ASSERT_TRUE(ret == NO_ERROR);
-
     // Configure Single Video Stream
     VideoTrackParam video_track_param {
       camera_id_, width, height, fps, format
     };
 
     TrackCb video_track_cb;
-    video_track_cb.data_cb = [&, session_id](
+    video_track_cb.data_cb = [&](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<BufferMeta> metas) {
-      VideoTrackYUVDataCb(session_id, track_id, buffers, metas);
+      VideoTrackYUVDataCb(track_id, buffers, metas);
     };
 
     video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
@@ -197,14 +222,14 @@ TEST_F(VideoGtest, SessionWithSingleStream) {
     };
 
     VideoExtraParam xtraparam;
-    ret = recorder_.CreateVideoTrack(session_id, video_track_1,
+    ret = recorder_.CreateVideoTrack(video_track_1,
                                      video_track_param, xtraparam,
                                      video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
     std::vector<uint32_t> track_ids;
     track_ids.push_back(video_track_1);
-    sessions_.insert(std::make_pair(session_id, track_ids));
+    sessions_.insert(std::make_pair(track_ids));
 
     // Configure Snapshot Stream.
     if (is_snap_stream_on_) {
@@ -212,7 +237,7 @@ TEST_F(VideoGtest, SessionWithSingleStream) {
     }
 
     // Start Session
-    ret = recorder_.StartSession(session_id);
+    ret = recorder_.StartVideoTrack(session_id);
     ASSERT_TRUE(ret == NO_ERROR);
 
     sleep(record_duration_);
@@ -222,16 +247,11 @@ TEST_F(VideoGtest, SessionWithSingleStream) {
       TakeSnapshot();
     }
 
-    ret = recorder_.StopSession(session_id, false);
+    ret = recorder_.StopVideoTrack(session_id, false);
     ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_1);
     ASSERT_TRUE(ret == NO_ERROR);
-
-    ret = recorder_.DeleteSession(session_id);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    ClearSessions();
   }
 
   ret = recorder_.StopCamera(camera_id_);
@@ -252,17 +272,15 @@ TEST_F(VideoGtest, SessionWithSingleStream) {
 *   If Snapshot stream is on, Snapshot will also be taken.
 * API test sequence:
 *  - StartCamera [Check for EIS, SHDR]
-*  - CreateSession
 *  - CreateVideoTrack for 2 tracks. [Check for linked Stream]
-*  - StartSession
+*  - StartVideoTrack
 *  - Check for SnapShot stream
 *  - If Snapshot Stream  is on
 *  - { ConfigImageCapture
 *  -   CaptureImage
 *  -   CancelCaptureImage }
-*  - StopSession
+*  - StopVideoTrack
 *  - DeleteVideoTrack
-*  - DeleteSession
 *  - StopCamera
 */
 
@@ -310,23 +328,16 @@ TEST_F(VideoGtest, SessionWithTwoStream) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
               test_info_->name(), i);
 
-    SessionCb session_status_cb = CreateSessionStatusCb();
-    uint32_t session_id;
-
-    ret = recorder_.CreateSession(session_status_cb, &session_id);
-    ASSERT_TRUE(session_id > 0);
-    ASSERT_TRUE(ret == NO_ERROR);
-
     // First Track Configuration
     VideoTrackParam video_track_param_1 {
       camera_id_, stream_1_width, stream_1_height, stream_1_fps, stream_1_format
     };
 
     TrackCb video_track_cb;
-    video_track_cb.data_cb = [&, session_id](
+    video_track_cb.data_cb = [&](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<BufferMeta> metas) {
-      VideoTrackYUVDataCb(session_id, track_id, buffers, metas);
+      VideoTrackYUVDataCb(track_id, buffers, metas);
     };
 
     video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
@@ -335,7 +346,7 @@ TEST_F(VideoGtest, SessionWithTwoStream) {
     };
 
     VideoExtraParam xtraparam;
-    ret = recorder_.CreateVideoTrack(session_id, video_track_1,
+    ret = recorder_.CreateVideoTrack(video_track_1,
                                      video_track_param_1, xtraparam,
                                      video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
@@ -348,10 +359,10 @@ TEST_F(VideoGtest, SessionWithTwoStream) {
       camera_id_, stream_2_width, stream_2_height, stream_2_fps, stream_2_format
     };
 
-    video_track_cb.data_cb = [&, session_id](
+    video_track_cb.data_cb = [&](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<BufferMeta> metas) {
-      VideoTrackYUVDataCb(session_id, track_id, buffers, metas);
+      VideoTrackYUVDataCb(track_id, buffers, metas);
     };
 
     if (stream_2_src_id != 0) {
@@ -375,7 +386,7 @@ TEST_F(VideoGtest, SessionWithTwoStream) {
     }
 
     // Start Session
-    ret = recorder_.StartSession(session_id);
+    ret = recorder_.StartVideoTrack(session_id);
     ASSERT_TRUE(ret == NO_ERROR);
 
     sleep(record_duration_);
@@ -385,7 +396,7 @@ TEST_F(VideoGtest, SessionWithTwoStream) {
       TakeSnapshot();
     }
 
-    ret = recorder_.StopSession(session_id, false);
+    ret = recorder_.StopVideoTrack(session_id, false);
     ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_2);
@@ -393,11 +404,6 @@ TEST_F(VideoGtest, SessionWithTwoStream) {
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_1);
     ASSERT_TRUE(ret == NO_ERROR);
-
-    ret = recorder_.DeleteSession(session_id);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    ClearSessions();
   }
 
   ret = recorder_.StopCamera(camera_id_);
@@ -418,17 +424,15 @@ TEST_F(VideoGtest, SessionWithTwoStream) {
 *   If Snapshot stream is on, Snapshot will also be taken.
 * API test sequence:
 *  - StartCamera [Check for EIS, SHDR]
-*  - CreateSession
 *  - CreateVideoTrack for 3 tracks. [Check for linked Stream]
-*  - StartSession
+*  - StartVideoTrack
 *  - Check for SnapShot stream
 *  - If Snapshot Stream  is on
 *  - { ConfigImageCapture
 *  -   CaptureImage
 *  -   CancelCaptureImage }
-*  - StopSession
+*  - StopVideoTrack
 *  - DeleteVideoTrack
-*  - DeleteSession
 *  - StopCamera
 */
 
@@ -484,13 +488,6 @@ TEST_F(VideoGtest, SessionWithThreeStream) {
 
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
               test_info_->name(), i);
-
-    SessionCb session_status_cb = CreateSessionStatusCb();
-    uint32_t session_id;
-
-    ret = recorder_.CreateSession(session_status_cb, &session_id);
-    ASSERT_TRUE(session_id > 0);
-    ASSERT_TRUE(ret == NO_ERROR);
 
     // First Track Configuration
     VideoTrackParam video_track_param_1 {
@@ -572,7 +569,7 @@ TEST_F(VideoGtest, SessionWithThreeStream) {
     }
 
     // Start Session
-    ret = recorder_.StartSession(session_id);
+    ret = recorder_.StartVideoTrack(session_id);
     ASSERT_TRUE(ret == NO_ERROR);
 
     sleep(record_duration_);
@@ -582,7 +579,7 @@ TEST_F(VideoGtest, SessionWithThreeStream) {
       TakeSnapshot();
     }
 
-    ret = recorder_.StopSession(session_id, false);
+    ret = recorder_.StopVideoTrack(session_id, false);
     ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_3);
@@ -593,11 +590,6 @@ TEST_F(VideoGtest, SessionWithThreeStream) {
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_1);
     ASSERT_TRUE(ret == NO_ERROR);
-
-    ret = recorder_.DeleteSession(session_id);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    ClearSessions();
   }
 
   ret = recorder_.StopCamera(camera_id_);
@@ -618,17 +610,15 @@ TEST_F(VideoGtest, SessionWithThreeStream) {
 *   If Snapshot stream is on, Snapshot will also be taken.
 * API test sequence:
 *  - StartCamera [Check for EIS, SHDR]
-*  - CreateSession
 *  - CreateVideoTrack for 4 tracks. [Check for linked Stream]
-*  - StartSession
+*  - StartVideoTrack
 *  - Check for SnapShot stream
 *  - If Snapshot Stream  is on
 *  - { ConfigImageCapture
 *  -   CaptureImage
 *  -   CancelCaptureImage }
-*  - StopSession
+*  - StopVideoTrack
 *  - DeleteVideoTrack
-*  - DeleteSession
 *  - StopCamera
 */
 
@@ -693,13 +683,6 @@ TEST_F(VideoGtest, SessionWithFourStream) {
 
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
               test_info_->name(), i);
-
-    SessionCb session_status_cb = CreateSessionStatusCb();
-    uint32_t session_id;
-
-    ret = recorder_.CreateSession(session_status_cb, &session_id);
-    ASSERT_TRUE(session_id > 0);
-    ASSERT_TRUE(ret == NO_ERROR);
 
     // First Track Configuration
     VideoTrackParam video_track_param_1 {
@@ -804,7 +787,7 @@ TEST_F(VideoGtest, SessionWithFourStream) {
     }
 
     // Start Session
-    ret = recorder_.StartSession(session_id);
+    ret = recorder_.StartVideoTrack(session_id);
     ASSERT_TRUE(ret == NO_ERROR);
 
     sleep(record_duration_);
@@ -814,7 +797,7 @@ TEST_F(VideoGtest, SessionWithFourStream) {
       TakeSnapshot();
     }
 
-    ret = recorder_.StopSession(session_id, false);
+    ret = recorder_.StopVideoTrack(session_id, false);
     ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_4);
@@ -828,11 +811,6 @@ TEST_F(VideoGtest, SessionWithFourStream) {
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_1);
     ASSERT_TRUE(ret == NO_ERROR);
-
-    ret = recorder_.DeleteSession(session_id);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    ClearSessions();
   }
 
   ret = recorder_.StopCamera(camera_id_);
@@ -853,17 +831,15 @@ TEST_F(VideoGtest, SessionWithFourStream) {
 *   If Snapshot stream is on, Snapshot will also be taken.
 * API test sequence:
 *  - StartCamera [Check for EIS, SHDR]
-*  - CreateSession
 *  - CreateVideoTrack for 5 tracks. [Check for linked Stream]
-*  - StartSession
+*  - StartVideoTrack
 *  - Check for SnapShot stream
 *  - If Snapshot Stream  is on
 *  - { ConfigImageCapture
 *  -   CaptureImage
 *  -   CancelCaptureImage }
-*  - StopSession
+*  - StopVideoTrack
 *  - DeleteVideoTrack
-*  - DeleteSession
 *  - StopCamera
 */
 
@@ -937,13 +913,6 @@ TEST_F(VideoGtest, SessionWithFiveStream) {
 
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
               test_info_->name(), i);
-
-    SessionCb session_status_cb = CreateSessionStatusCb();
-    uint32_t session_id;
-
-    ret = recorder_.CreateSession(session_status_cb, &session_id);
-    ASSERT_TRUE(session_id > 0);
-    ASSERT_TRUE(ret == NO_ERROR);
 
     // First Track Configuration
     VideoTrackParam video_track_param_1 {
@@ -1071,7 +1040,7 @@ TEST_F(VideoGtest, SessionWithFiveStream) {
     }
 
     // Start Session
-    ret = recorder_.StartSession(session_id);
+    ret = recorder_.StartVideoTrack(session_id);
     ASSERT_TRUE(ret == NO_ERROR);
 
     sleep(record_duration_);
@@ -1081,7 +1050,7 @@ TEST_F(VideoGtest, SessionWithFiveStream) {
       TakeSnapshot();
     }
 
-    ret = recorder_.StopSession(session_id, false);
+    ret = recorder_.StopVideoTrack(session_id, false);
     ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_5);
@@ -1098,11 +1067,6 @@ TEST_F(VideoGtest, SessionWithFiveStream) {
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_1);
     ASSERT_TRUE(ret == NO_ERROR);
-
-    ret = recorder_.DeleteSession(session_id);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    ClearSessions();
   }
 
   ret = recorder_.StopCamera(camera_id_);
@@ -1122,18 +1086,14 @@ TEST_F(VideoGtest, SessionWithFiveStream) {
 * Api test sequence summary:
 *  - StartCamera-Cam0
 *  - StartCamera-Cam1
-*  - CreateSession-Cam0
-*  - CreateSession-Cam1
 *  - Create1080pTrack-Cam0
 *  - Create1080pTrack-Cam1
-*  - StartSession-Cam0
-*  - StartSession-Cam1
-*  - StopSession-Cam0
-*  - StopSession-Cam1
+*  - StartVideoTrack-Cam0
+*  - StartVideoTrack-Cam1
+*  - StopVideoTrack-Cam0
+*  - StopVideoTrack-Cam1
 *  - DeleteVideoTracks-Cam0
 *  - DeleteVideoTracks-Cam1
-*  - DeleteSession-Cam0
-*  - DeleteSession-Cam1
 *  - StopCamera-Cam0
 *  - StopCamera-Cam1
 */
@@ -1157,28 +1117,6 @@ TEST_F(VideoGtest, SessionWithTwoConcurrentCam1080p) {
   ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StartCamera(cam1_id, 30);
-  ASSERT_TRUE(ret == NO_ERROR);
-
-  SessionCb cam0_session_status_cb;
-  cam0_session_status_cb.event_cb = [this](
-      EventType event_type, void *event_data, size_t event_data_size) -> void {
-    SessionCallbackHandler(event_type, event_data, event_data_size);
-  };
-
-  uint32_t cam0_session_id;
-  ret = recorder_.CreateSession(cam0_session_status_cb, &cam0_session_id);
-  ASSERT_TRUE(cam0_session_id > 0);
-  ASSERT_TRUE(ret == NO_ERROR);
-
-  SessionCb cam1_session_status_cb;
-  cam1_session_status_cb.event_cb = [this](
-      EventType event_type, void *event_data, size_t event_data_size) -> void {
-    SessionCallbackHandler(event_type, event_data, event_data_size);
-  };
-
-  uint32_t cam1_session_id;
-  ret = recorder_.CreateSession(cam1_session_status_cb, &cam1_session_id);
-  ASSERT_TRUE(cam1_session_id > 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
   TrackCb video_track_cb;
@@ -1223,20 +1161,20 @@ TEST_F(VideoGtest, SessionWithTwoConcurrentCam1080p) {
   cam1_track_ids.push_back(cam1_video_track_id_1080p);
   sessions_.insert(std::make_pair(cam1_session_id, cam1_track_ids));
 
-  ret = recorder_.StartSession(cam0_session_id);
+  ret = recorder_.StartVideoTrack(cam0_session_id);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartSession(cam1_session_id);
+  ret = recorder_.StartVideoTrack(cam1_session_id);
   ASSERT_TRUE(ret == NO_ERROR);
 
   // Let session run for time record_duration_, during this time buffer with
   // valid data would be received in track callback (VideoTrackYUVDataCb).
   sleep(record_duration_);
 
-  ret = recorder_.StopSession(cam0_session_id, false);
+  ret = recorder_.StopVideoTrack(cam0_session_id, false);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StopSession(cam1_session_id, false);
+  ret = recorder_.StopVideoTrack(cam1_session_id, false);
   ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.DeleteVideoTrack(cam0_session_id,
@@ -1246,14 +1184,6 @@ TEST_F(VideoGtest, SessionWithTwoConcurrentCam1080p) {
   ret = recorder_.DeleteVideoTrack(cam1_session_id,
                                    cam1_video_track_id_1080p);
   ASSERT_TRUE(ret == NO_ERROR);
-
-  ret = recorder_.DeleteSession(cam0_session_id);
-  ASSERT_TRUE(ret == NO_ERROR);
-
-  ret = recorder_.DeleteSession(cam1_session_id);
-  ASSERT_TRUE(ret == NO_ERROR);
-
-  ClearSessions();
 
   ret = recorder_.StopCamera(cam0_id);
   ASSERT_TRUE(ret == NO_ERROR);
@@ -1278,24 +1208,18 @@ TEST_F(VideoGtest, SessionWithTwoConcurrentCam1080p) {
 *  - StartCamera-Cam0
 *  - StartCamera-Cam1
 *  - StartCamera-Cam2
-*  - CreateSession-Cam0
-*  - CreateSession-Cam1
-*  - CreateSession-Cam2
 *  - CreateVideoTrack-Cam0
 *  - CreateVideoTrack-Cam1
 *  - CreateVideoTrack-Cam2
-*  - StartSession-Cam0
-*  - StartSession-Cam1
-*  - StartSession-Cam2
-*  - StopSession-Cam0
-*  - StopSession-Cam1
-*  - StopSession-Cam2
+*  - StartVideoTrack-Cam0
+*  - StartVideoTrack-Cam1
+*  - StartVideoTrack-Cam2
+*  - StopVideoTrack-Cam0
+*  - StopVideoTrack-Cam1
+*  - StopVideoTrack-Cam2
 *  - DeleteVideoTrack-Cam0
 *  - DeleteVideoTrack-Cam1
 *  - DeleteVideoTrack-Cam2
-*  - DeleteSession-Cam0
-*  - DeleteSession-Cam1
-*  - DeleteSession-Cam2
 *  - StopCamera-Cam0
 *  - StopCamera-Cam1
 *  - StopCamera-Cam2
@@ -1325,39 +1249,6 @@ TEST_F(VideoGtest, SessionWithThreeConcurrentCam1080pAndRawStream) {
   ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StartCamera(cam2_id, 30);
-  ASSERT_TRUE(ret == NO_ERROR);
-
-  SessionCb cam0_session_status_cb;
-  cam0_session_status_cb.event_cb = [this](
-      EventType event_type, void *event_data, size_t event_data_size) -> void {
-    SessionCallbackHandler(event_type, event_data, event_data_size);
-  };
-
-  uint32_t cam0_session_id;
-  ret = recorder_.CreateSession(cam0_session_status_cb, &cam0_session_id);
-  ASSERT_TRUE(cam0_session_id > 0);
-  ASSERT_TRUE(ret == NO_ERROR);
-
-  SessionCb cam1_session_status_cb;
-  cam1_session_status_cb.event_cb = [this](
-      EventType event_type, void *event_data, size_t event_data_size) -> void {
-    SessionCallbackHandler(event_type, event_data, event_data_size);
-  };
-
-  uint32_t cam1_session_id;
-  ret = recorder_.CreateSession(cam1_session_status_cb, &cam1_session_id);
-  ASSERT_TRUE(cam1_session_id > 0);
-  ASSERT_TRUE(ret == NO_ERROR);
-
-  SessionCb cam2_session_status_cb;
-  cam2_session_status_cb.event_cb = [this](
-      EventType event_type, void *event_data, size_t event_data_size) -> void {
-    SessionCallbackHandler(event_type, event_data, event_data_size);
-  };
-
-  uint32_t cam2_session_id;
-  ret = recorder_.CreateSession(cam2_session_status_cb, &cam2_session_id);
-  ASSERT_TRUE(cam2_session_id > 0);
   ASSERT_TRUE(ret == NO_ERROR);
 
   TrackCb video_track_cb;
@@ -1404,10 +1295,10 @@ TEST_F(VideoGtest, SessionWithThreeConcurrentCam1080pAndRawStream) {
   sessions_.insert(std::make_pair(cam1_session_id, cam1_track_ids));
 
   // Starting session for first 2 camera
-  ret = recorder_.StartSession(cam0_session_id);
+  ret = recorder_.StartVideoTrack(cam0_session_id);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StartSession(cam1_session_id);
+  ret = recorder_.StartVideoTrack(cam1_session_id);
   ASSERT_TRUE(ret == NO_ERROR);
 
   uint32_t raw_width, raw_height;
@@ -1436,18 +1327,18 @@ TEST_F(VideoGtest, SessionWithThreeConcurrentCam1080pAndRawStream) {
   cam2_track_ids.push_back(cam2_video_track_raw);
   sessions_.insert(std::make_pair(cam2_session_id, cam2_track_ids));
 
-  ret = recorder_.StartSession(cam2_session_id);
+  ret = recorder_.StartVideoTrack(cam2_session_id);
   ASSERT_TRUE(ret == NO_ERROR);
 
   sleep(record_duration_);
 
-  ret = recorder_.StopSession(cam0_session_id, false);
+  ret = recorder_.StopVideoTrack(cam0_session_id, false);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StopSession(cam1_session_id, false);
+  ret = recorder_.StopVideoTrack(cam1_session_id, false);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StopSession(cam2_session_id, false);
+  ret = recorder_.StopVideoTrack(cam2_session_id, false);
   ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.DeleteVideoTrack(cam0_session_id,
@@ -1461,17 +1352,6 @@ TEST_F(VideoGtest, SessionWithThreeConcurrentCam1080pAndRawStream) {
   ret = recorder_.DeleteVideoTrack(cam2_session_id,
                                    cam2_video_track_raw);
   ASSERT_TRUE(ret == NO_ERROR);
-
-  ret = recorder_.DeleteSession(cam0_session_id);
-  ASSERT_TRUE(ret == NO_ERROR);
-
-  ret = recorder_.DeleteSession(cam1_session_id);
-  ASSERT_TRUE(ret == NO_ERROR);
-
-  ret = recorder_.DeleteSession(cam2_session_id);
-  ASSERT_TRUE(ret == NO_ERROR);
-
-  ClearSessions();
 
   ret = recorder_.StopCamera(cam0_id);
   ASSERT_TRUE(ret == NO_ERROR);
@@ -1496,12 +1376,10 @@ TEST_F(VideoGtest, SessionWithThreeConcurrentCam1080pAndRawStream) {
 *  - StartCamera With Slave Mode
 *   loop Start {
 *   ------------------
-*   - CreateSession
 *   - CreateVideoTrack
 *   - StartVideoTrack
-*   - StopSession
+*   - StopVideoTrack
 *   - DeleteVideoTrack
-*   - DeleteSession
 *   ------------------
 *   } loop End
 *  - StopCamera
@@ -1557,13 +1435,6 @@ TEST_F(VideoGtest, SessionWithSingleStreamSlavemode) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
               test_info_->name(), i);
 
-    SessionCb session_status_cb = CreateSessionStatusCb();
-    uint32_t session_id;
-
-    ret = recorder_.CreateSession(session_status_cb, &session_id);
-    ASSERT_TRUE(session_id > 0);
-    ASSERT_TRUE(ret == NO_ERROR);
-
     VideoTrackParam video_track_param {
       camera_id_, width, height, fps, format
     };
@@ -1591,7 +1462,7 @@ TEST_F(VideoGtest, SessionWithSingleStreamSlavemode) {
     sessions_.insert(std::make_pair(session_id, track_ids));
 
     // Start Session
-    ret = recorder_.StartSession(session_id);
+    ret = recorder_.StartVideoTrack(session_id);
     ASSERT_TRUE(ret == NO_ERROR);
 
     // Let session run for random duration or until signaled by the
@@ -1605,13 +1476,10 @@ TEST_F(VideoGtest, SessionWithSingleStreamSlavemode) {
       });
     }
 
-    ret = recorder_.StopSession(session_id, false);
+    ret = recorder_.StopVideoTrack(session_id, false);
     ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_1);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    ret = recorder_.DeleteSession(session_id);
     ASSERT_TRUE(ret == NO_ERROR);
 
     sessions_.erase(session_id);
@@ -1635,12 +1503,10 @@ TEST_F(VideoGtest, SessionWithSingleStreamSlavemode) {
 *  - StartCamera
 *   loop Start {
 *   ------------------
-*   - CreateSession
 *   - CreateVideoTrack
 *   - StartVideoTrack
-*   - StopSession
+*   - StopVideoTrack
 *   - DeleteVideoTrack
-*   - DeleteSession
 *   ------------------
 *   } loop End
 *  - StopCamera
@@ -1661,11 +1527,6 @@ TEST_F(VideoGtest, SessionWith1080pYUVTrackMatchCameraMetaData) {
   ret = recorder_.StartCamera(camera_id_, 30, empty_xtraparams, result_cb);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  SessionCb session_status_cb = CreateSessionStatusCb();
-  uint32_t session_id;
-  ret = recorder_.CreateSession(session_status_cb, &session_id);
-  ASSERT_TRUE(session_id > 0);
-  ASSERT_TRUE(ret == NO_ERROR);
   VideoTrackParam video_track_param {
     camera_id_, 1920, 1080, 30, VideoFormat::kNV12
   };
@@ -1694,7 +1555,7 @@ TEST_F(VideoGtest, SessionWith1080pYUVTrackMatchCameraMetaData) {
   track_ids.push_back(video_track_id);
   sessions_.insert(std::make_pair(session_id, track_ids));
 
-  ret = recorder_.StartSession(session_id);
+  ret = recorder_.StartVideoTrack(session_id);
   ASSERT_TRUE(ret == NO_ERROR);
 
   // Let session run for time record_duration_, during this time buffer with
@@ -1702,16 +1563,11 @@ TEST_F(VideoGtest, SessionWith1080pYUVTrackMatchCameraMetaData) {
   // (VideoTrackDataCbMatchCameraMeta).
   sleep(record_duration_ * 2);
 
-  ret = recorder_.StopSession(session_id, false);
+  ret = recorder_.StopVideoTrack(session_id, false);
   ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
   ASSERT_TRUE(ret == NO_ERROR);
-
-  ret = recorder_.DeleteSession(session_id);
-  ASSERT_TRUE(ret == NO_ERROR);
-
-  ClearSessions();
 
   buffer_metadata_map_.clear();
 
@@ -1733,17 +1589,15 @@ TEST_F(VideoGtest, SessionWith1080pYUVTrackMatchCameraMetaData) {
 *   If Snapshot stream is on, Snapshot will also be taken.
 * API test sequence:
 *  - StartCamera [Check for EIS, SHDR]
-*  - CreateSession
 *  - CreateVideoTrack
-*  - StartSession
+*  - StartVideoTrack
 *  - Check for SnapShot stream
 *  - If Snapshot Stream  is on
 *  - { ConfigImageCapture
 *  -   CaptureImage
 *  -   CancelCaptureImage }
-*  - StopSession
+*  - StopVideoTrack
 *  - DeleteVideoTrack
-*  - DeleteSession
 *  - StopCamera
 */
 
@@ -1783,13 +1637,6 @@ TEST_F(VideoGtest, SessionWithSingleStreamWithCamIDOne) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
               test_info_->name(), i);
 
-    SessionCb session_status_cb = CreateSessionStatusCb();
-    uint32_t session_id;
-
-    ret = recorder_.CreateSession(session_status_cb, &session_id);
-    ASSERT_TRUE(session_id > 0);
-    ASSERT_TRUE(ret == NO_ERROR);
-
     // Configure Single Video Stream
     VideoTrackParam video_track_param {
       camera_id_, width, height, fps, format
@@ -1823,7 +1670,7 @@ TEST_F(VideoGtest, SessionWithSingleStreamWithCamIDOne) {
     }
 
     // Start Session
-    ret = recorder_.StartSession(session_id);
+    ret = recorder_.StartVideoTrack(session_id);
     ASSERT_TRUE(ret == NO_ERROR);
 
     sleep(record_duration_);
@@ -1833,16 +1680,11 @@ TEST_F(VideoGtest, SessionWithSingleStreamWithCamIDOne) {
       TakeSnapshot();
     }
 
-    ret = recorder_.StopSession(session_id, false);
+    ret = recorder_.StopVideoTrack(session_id, false);
     ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_1);
     ASSERT_TRUE(ret == NO_ERROR);
-
-    ret = recorder_.DeleteSession(session_id);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    ClearSessions();
   }
 
   ret = recorder_.StopCamera(camera_id_);
@@ -1863,17 +1705,15 @@ TEST_F(VideoGtest, SessionWithSingleStreamWithCamIDOne) {
 *   If Snapshot stream is on, Snapshot will also be taken.
 * API test sequence:
 *  - StartCamera [Check for EIS, SHDR]
-*  - CreateSession
 *  - CreateVideoTrack for 2 tracks. [Check for linked Stream]
-*  - StartSession
+*  - StartVideoTrack
 *  - Check for SnapShot stream
 *  - If Snapshot Stream  is on
 *  - { ConfigImageCapture
 *  -   CaptureImage
 *  -   CancelCaptureImage }
-*  - StopSession
+*  - StopVideoTrack
 *  - DeleteVideoTrack
-*  - DeleteSession
 *  - StopCamera
 */
 
@@ -1921,13 +1761,6 @@ TEST_F(VideoGtest, SessionWithTwoStreamWithCamIDOne) {
 
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
               test_info_->name(), i);
-
-    SessionCb session_status_cb = CreateSessionStatusCb();
-    uint32_t session_id;
-
-    ret = recorder_.CreateSession(session_status_cb, &session_id);
-    ASSERT_TRUE(session_id > 0);
-    ASSERT_TRUE(ret == NO_ERROR);
 
     // First Track Configuration
     VideoTrackParam video_track_param_1 {
@@ -1986,7 +1819,7 @@ TEST_F(VideoGtest, SessionWithTwoStreamWithCamIDOne) {
     }
 
     // Start Session
-    ret = recorder_.StartSession(session_id);
+    ret = recorder_.StartVideoTrack(session_id);
     ASSERT_TRUE(ret == NO_ERROR);
 
     sleep(record_duration_);
@@ -1996,7 +1829,7 @@ TEST_F(VideoGtest, SessionWithTwoStreamWithCamIDOne) {
       TakeSnapshot();
     }
 
-    ret = recorder_.StopSession(session_id, false);
+    ret = recorder_.StopVideoTrack(session_id, false);
     ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_2);
@@ -2004,11 +1837,6 @@ TEST_F(VideoGtest, SessionWithTwoStreamWithCamIDOne) {
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_1);
     ASSERT_TRUE(ret == NO_ERROR);
-
-    ret = recorder_.DeleteSession(session_id);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    ClearSessions();
   }
 
   ret = recorder_.StopCamera(camera_id_);
@@ -2025,12 +1853,10 @@ TEST_F(VideoGtest, SessionWithTwoStreamWithCamIDOne) {
 * SessionWith1080pTrackPartialMeta: This test will test session with 1080p track.
 * API test sequence:
 *  - StartCamera
-*  - CreateSession
 *  - CreateVideoTrack
 *  - StartVideoTrack
-*  - StopSession
+*  - StopVideoTrack
 *  - DeleteVideoTrack
-*  - DeleteSession
 *  - StopCamera
 */
 
@@ -2072,12 +1898,6 @@ TEST_F(VideoGtest, SessionWith1080pTrackPartialMeta) {
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
               test_info_->name(), i);
 
-    SessionCb session_status_cb = CreateSessionStatusCb();
-    uint32_t session_id;
-    ret = recorder_.CreateSession(session_status_cb, &session_id);
-    ASSERT_TRUE(session_id > 0);
-    ASSERT_TRUE(ret == NO_ERROR);
-
     VideoTrackParam video_track_param {
       camera_id_, width, height, 30, format
     };
@@ -2106,18 +1926,15 @@ TEST_F(VideoGtest, SessionWith1080pTrackPartialMeta) {
     track_ids.push_back(video_track_id);
     sessions_.insert(std::make_pair(session_id, track_ids));
 
-    ret = recorder_.StartSession(session_id);
+    ret = recorder_.StartVideoTrack(session_id);
     ASSERT_TRUE(ret == NO_ERROR);
 
     sleep(record_duration_);
 
-    ret = recorder_.StopSession(session_id, false);
+    ret = recorder_.StopVideoTrack(session_id, false);
     ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    ret = recorder_.DeleteSession(session_id);
     ASSERT_TRUE(ret == NO_ERROR);
   }
   ret = recorder_.StopCamera(camera_id_);
@@ -2136,14 +1953,12 @@ TEST_F(VideoGtest, SessionWith1080pTrackPartialMeta) {
  *
  * API test sequence:
  *  - StartCamera
- *   - CreateSession
  *   - CreateVideoTrack - Master
  *   - CreateVideoTrack - Copy
- *   - StartSession
- *   - StopSession
+ *   - StartVideoTrack
+ *   - StopVideoTrack
  *   - CreateVideoTrack - Copy
  *   - DeleteVideoTrack - Master
- *   - DeleteSession
  *  - StopCamera
  */
 TEST_F(VideoGtest, SessionWith1080pYUVAnd720pYUVWithCrop) {
@@ -2169,13 +1984,6 @@ TEST_F(VideoGtest, SessionWith1080pYUVAnd720pYUVWithCrop) {
 
     TEST_INFO("%s: Running Test(%s) iteration = %d ", __func__,
               test_info_->name(), i);
-
-    SessionCb session_status_cb = CreateSessionStatusCb();
-
-    uint32_t session_id;
-    ret = recorder_.CreateSession(session_status_cb, &session_id);
-    ASSERT_TRUE(session_id > 0);
-    ASSERT_TRUE(ret == NO_ERROR);
 
     // Track1: 1080p @30 AVC
     VideoTrackParam video_track_param {
@@ -2238,12 +2046,12 @@ TEST_F(VideoGtest, SessionWith1080pYUVAnd720pYUVWithCrop) {
 
     sessions_.insert(std::make_pair(session_id, track_ids));
 
-    ret = recorder_.StartSession(session_id);
+    ret = recorder_.StartVideoTrack(session_id);
     ASSERT_TRUE(ret == NO_ERROR);
 
     sleep(record_duration_);
 
-    ret = recorder_.StopSession(session_id, false);
+    ret = recorder_.StopVideoTrack(session_id, false);
     ASSERT_TRUE(ret == NO_ERROR);
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_720p);
@@ -2251,11 +2059,6 @@ TEST_F(VideoGtest, SessionWith1080pYUVAnd720pYUVWithCrop) {
 
     ret = recorder_.DeleteVideoTrack(session_id, video_track_id_1080p);
     ASSERT_TRUE(ret == NO_ERROR);
-
-    ret = recorder_.DeleteSession(session_id);
-    ASSERT_TRUE(ret == NO_ERROR);
-
-    ClearSessions();
   }
   ret = recorder_.StopCamera(camera_id_);
   ASSERT_TRUE(ret == NO_ERROR);

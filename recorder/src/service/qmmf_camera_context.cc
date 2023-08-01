@@ -1147,7 +1147,7 @@ status_t CameraContext::SetCameraParam(const CameraMetadata &meta) {
           ((hfr_sync_mode_ == true) && (all_ports_ready_ == true))) {
       // Submit request with updated camera meta data only if streaming is
       // started, if not then just update default meta data and leave it to
-      // startSession -> startStream to submit request.
+      // startTrack -> startStream to submit request.
       std::unique_lock<std::mutex> pending_frames_lock(pending_frames_lock_);
       if (streaming_request_id_ >= 0 && !continuous_mode_is_on_) {
         int64_t last_frame_number;
@@ -2410,7 +2410,7 @@ void CameraContext::CameraErrorCb(CameraErrorCode errcode,
       QMMF_ERROR("%s: Camera device faced an unrecoverable error!", __func__);
       // Clearing active requests to ensure the stop sequence calls goes through
       // without error and all necessary clean up of this and layers above is
-      // done when the client calls subsequent APIs (StopSession, DeleteDeviceStream, etc)
+      // done when the client calls subsequent APIs (StopVideoTrack, DeleteDeviceStream, etc)
       streaming_active_requests_.clear();
       is_camera_dead_ = true;
       break;
