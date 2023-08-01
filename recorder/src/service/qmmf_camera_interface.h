@@ -28,7 +28,7 @@
 *
 * Changes from Qualcomm Innovation Center are provided under the following license:
 *
-* Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted (subject to the limitations in the
@@ -95,9 +95,10 @@ struct SnapshotParam {
   uint32_t     height;
   uint32_t     quality;
   BufferFormat format;
+  Rotation     rotation;
 
   SnapshotParam(): mode(ImageMode::kSnapshot), width(0), height(0), quality(95),
-      format(BufferFormat::kBLOB) {}
+      format(BufferFormat::kBLOB), rotation(Rotation::kNone) {}
 };
 
 class CameraInterface {

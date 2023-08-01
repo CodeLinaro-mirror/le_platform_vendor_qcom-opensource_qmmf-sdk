@@ -20,6 +20,10 @@ check_include_file("display/media/mmm_color_fmt.h" HAVE_MMM_COLOR_FMT_H)
 include(CheckIncludeFile)
 check_include_file("adreno/c2d2.h" RESIZER_C2D_ENABLED)
 
+# Check whether JPEGEncoder header is present.
+include(CheckIncludeFileCXX)
+check_include_file_cxx("chicdk/chiofflinepostprocintf.h" HAVE_CHI_OFFLINE_POST_PROC_INTF_H)
+
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fexceptions -fno-short-enums -O2 -DANDROID")
 # uncomment to generate debug information
 # set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")

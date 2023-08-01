@@ -657,16 +657,20 @@ int32_t Camera3DeviceClient::DeleteStream(int streamId, bool cache) {
       goto exit;
     }
 
+    // If this point is reached then state is Idle. Idle means that HAL idle i.e.
+    // HAL is returned all requests/buffers. But we still must wait client
+    // to return buffer before we can delete stream.
+    pthread_mutex_unlock(&lock_);
+    stream->WaitForIdle();
+    pthread_mutex_lock(&lock_);
+
+    // Remove stream after buffer returned from client
     streams_.removeItem(streamId);
 
     if (streams_.isEmpty()) {
       cam_feature_flags_ = static_cast<uint32_t>(CamFeatureFlag::kNone);
     }
 
-    // If this point is reached then state is Idle. Idle means that HAL idle i.e.
-    // HAL is returned all requests/buffers. But we still must wait client
-    // to return buffer before we can delete stream.
-    stream->WaitForIdle();
     res = stream->Close();
     if (0 != res) {
       QMMF_ERROR("%s: Can't close deleted stream %d\n", __func__, streamId);
@@ -916,17 +920,15 @@ int32_t Camera3DeviceClient::CalculateBlobSize(int32_t width, int32_t height) {
   //Calculate debuging buffer size of jpeg.
   uint32_t tag = 0;
 
-  camera_metadata_ro_entry entryDebug;
   sp<::camera::VendorTagDescriptor> vTags =
       ::camera::VendorTagDescriptor::getGlobalVendorTagDescriptor();
 
   ::camera::CameraMetadata::getTagFromName(
       "org.quic.camera.jpegdebugdata.size",vTags.get(), &tag);
-  res = find_camera_metadata_ro_entry(
-      (camera_metadata_t *)&device_info_,
-      tag, &entryDebug);
-  if ((0 == res) && (entryDebug.count > 0)){
-    jpegDebugDataSize = entryDebug.data.i32[0];
+
+  if (device_info_.exists(tag)) {
+    auto entry  = device_info_.find(tag);
+    jpegDebugDataSize = entry.data.i32[0];
   }
 
   QMMF_INFO("%s: jpegDebugDataSize=%d",
@@ -2017,7 +2019,7 @@ void Camera3DeviceClient::SetErrorStateLockedV(const char *fmt, va_list args) {
 
   last_error_ = errorCause;
 
-  request_handler_.TogglePause(true);
+  request_handler_.RequestExit();
   InternalUpdateStatusLocked(STATE_ERROR);
 
   if (nullptr != client_cb_.errorCb) {
