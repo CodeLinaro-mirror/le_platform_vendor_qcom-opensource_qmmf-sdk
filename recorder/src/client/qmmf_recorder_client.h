@@ -118,13 +118,13 @@ class RecorderClient {
 
   status_t DeleteVideoTrack(const uint32_t track_id);
 
-  status_t StartVideoTrack(const uint32_t track_id);
+  status_t StartVideoTracks(const std::unordered_set<uint32_t>& track_ids);
 
-  status_t StopVideoTrack(const uint32_t track_id, bool do_flush);
+  status_t StopVideoTracks(const std::unordered_set<uint32_t>& track_ids);
 
-  status_t PauseVideoTrack(const uint32_t track_id);
+  status_t PauseVideoTracks(const std::unordered_set<uint32_t>& track_ids);
 
-  status_t ResumeVideoTrack(const uint32_t track_id);
+  status_t ResumeVideoTracks(const std::unordered_set<uint32_t>& track_ids);
 
   status_t CaptureImage(const uint32_t camera_id,
                         const SnapshotType type,
@@ -216,6 +216,8 @@ class RecorderClient {
   status_t UnmapBuffer(BufferInfo& info);
 
   bool CheckServiceStatus();
+
+  bool CheckTrackIdsValid(const std::unordered_set<uint32_t>& track_ids);
 
   void ServiceDeathHandler();
 

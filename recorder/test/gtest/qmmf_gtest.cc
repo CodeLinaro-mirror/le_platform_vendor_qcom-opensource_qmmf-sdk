@@ -158,13 +158,13 @@ TEST_F(VideoGtest, StartStopCamera) {
 * API test sequence:
 *  - StartCamera [Check for EIS, SHDR]
 *  - CreateVideoTrack
-*  - StartVideoTrack
+*  - StartVideoTracks
 *  - Check for SnapShot stream
 *  - If Snapshot Stream  is on
 *  - { ConfigImageCapture
 *  -   CaptureImage
 *  -   CancelCaptureImage }
-*  - StopVideoTrack
+*  - StopVideoTracks
 *  - DeleteVideoTrack
 *  - StopCamera
 */
@@ -227,9 +227,8 @@ TEST_F(VideoGtest, SessionWithSingleStream) {
                                      video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    std::vector<uint32_t> track_ids;
-    track_ids.push_back(video_track_1);
-    sessions_.insert(std::make_pair(track_ids));
+    std::unordered_set<uint32_t> track_ids;
+    track_ids.emplace(video_track_1);
 
     // Configure Snapshot Stream.
     if (is_snap_stream_on_) {
@@ -237,7 +236,7 @@ TEST_F(VideoGtest, SessionWithSingleStream) {
     }
 
     // Start Session
-    ret = recorder_.StartVideoTrack(session_id);
+    ret = recorder_.StartVideoTracks(track_ids);
     ASSERT_TRUE(ret == NO_ERROR);
 
     sleep(record_duration_);
@@ -247,10 +246,10 @@ TEST_F(VideoGtest, SessionWithSingleStream) {
       TakeSnapshot();
     }
 
-    ret = recorder_.StopVideoTrack(session_id, false);
+    ret = recorder_.StopVideoTracks(track_ids);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    ret = recorder_.DeleteVideoTrack(session_id, video_track_1);
+    ret = recorder_.DeleteVideoTrack(video_track_1);
     ASSERT_TRUE(ret == NO_ERROR);
   }
 
@@ -273,13 +272,13 @@ TEST_F(VideoGtest, SessionWithSingleStream) {
 * API test sequence:
 *  - StartCamera [Check for EIS, SHDR]
 *  - CreateVideoTrack for 2 tracks. [Check for linked Stream]
-*  - StartVideoTrack
+*  - StartVideoTracks
 *  - Check for SnapShot stream
 *  - If Snapshot Stream  is on
 *  - { ConfigImageCapture
 *  -   CaptureImage
 *  -   CancelCaptureImage }
-*  - StopVideoTrack
+*  - StopVideoTracks
 *  - DeleteVideoTrack
 *  - StopCamera
 */
@@ -351,8 +350,8 @@ TEST_F(VideoGtest, SessionWithTwoStream) {
                                      video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    std::vector<uint32_t> track_ids;
-    track_ids.push_back(video_track_1);
+    std::unordered_set<uint32_t> track_ids;
+    track_ids.emplace(video_track_1);
 
     // Second  Track Configuration
     VideoTrackParam video_track_param_2 {
@@ -371,14 +370,12 @@ TEST_F(VideoGtest, SessionWithTwoStream) {
       xtraparam.Update(QMMF_SOURCE_VIDEO_TRACK_ID, surface_video_copy);
     }
 
-    ret = recorder_.CreateVideoTrack(session_id, video_track_2,
-                                      video_track_param_2, xtraparam,
-                                      video_track_cb);
+    ret = recorder_.CreateVideoTrack(video_track_2,
+                                     video_track_param_2, xtraparam,
+                                     video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    track_ids.push_back(video_track_2);
-
-    sessions_.insert(std::make_pair(session_id, track_ids));
+    track_ids.emplace(video_track_2);
 
     // Configure Snapshot Stream.
     if (is_snap_stream_on_) {
@@ -386,7 +383,7 @@ TEST_F(VideoGtest, SessionWithTwoStream) {
     }
 
     // Start Session
-    ret = recorder_.StartVideoTrack(session_id);
+    ret = recorder_.StartVideoTracks(track_ids);
     ASSERT_TRUE(ret == NO_ERROR);
 
     sleep(record_duration_);
@@ -396,13 +393,13 @@ TEST_F(VideoGtest, SessionWithTwoStream) {
       TakeSnapshot();
     }
 
-    ret = recorder_.StopVideoTrack(session_id, false);
+    ret = recorder_.StopVideoTracks(track_ids);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    ret = recorder_.DeleteVideoTrack(session_id, video_track_2);
+    ret = recorder_.DeleteVideoTrack(video_track_2);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    ret = recorder_.DeleteVideoTrack(session_id, video_track_1);
+    ret = recorder_.DeleteVideoTrack(video_track_1);
     ASSERT_TRUE(ret == NO_ERROR);
   }
 
@@ -425,13 +422,13 @@ TEST_F(VideoGtest, SessionWithTwoStream) {
 * API test sequence:
 *  - StartCamera [Check for EIS, SHDR]
 *  - CreateVideoTrack for 3 tracks. [Check for linked Stream]
-*  - StartVideoTrack
+*  - StartVideoTracks
 *  - Check for SnapShot stream
 *  - If Snapshot Stream  is on
 *  - { ConfigImageCapture
 *  -   CaptureImage
 *  -   CancelCaptureImage }
-*  - StopVideoTrack
+*  - StopVideoTracks
 *  - DeleteVideoTrack
 *  - StopCamera
 */
@@ -495,10 +492,10 @@ TEST_F(VideoGtest, SessionWithThreeStream) {
     };
 
     TrackCb video_track_cb;
-    video_track_cb.data_cb = [&, session_id](
+    video_track_cb.data_cb = [&](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<BufferMeta> metas) {
-      VideoTrackYUVDataCb(session_id, track_id, buffers, metas);
+      VideoTrackYUVDataCb(track_id, buffers, metas);
     };
 
     video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
@@ -507,22 +504,22 @@ TEST_F(VideoGtest, SessionWithThreeStream) {
     };
 
     VideoExtraParam xtraparam;
-    ret = recorder_.CreateVideoTrack(session_id, video_track_1,
+    ret = recorder_.CreateVideoTrack( video_track_1,
                                      video_track_param_1, xtraparam,
                                      video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    std::vector<uint32_t> track_ids;
-    track_ids.push_back(video_track_1);
+    std::unordered_set<uint32_t> track_ids;
+    track_ids.emplace(video_track_1);
 
     // Second  Track Configuration
     VideoTrackParam video_track_param_2 {
       camera_id_, stream_2_width, stream_2_height, stream_2_fps, stream_2_format
     };
-    video_track_cb.data_cb = [&, session_id](
+    video_track_cb.data_cb = [&](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<BufferMeta> metas) {
-      VideoTrackYUVDataCb(session_id, track_id, buffers, metas);
+      VideoTrackYUVDataCb(track_id, buffers, metas);
     };
 
     if (stream_2_src_id != 0) {
@@ -531,21 +528,21 @@ TEST_F(VideoGtest, SessionWithThreeStream) {
       xtraparam.Update(QMMF_SOURCE_VIDEO_TRACK_ID, surface_video_copy);
     }
 
-    ret = recorder_.CreateVideoTrack(session_id, video_track_2,
+    ret = recorder_.CreateVideoTrack( video_track_2,
                                       video_track_param_2, xtraparam,
                                       video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    track_ids.push_back(video_track_2);
+    track_ids.emplace(video_track_2);
 
     // Third  Track Configuration
     VideoTrackParam video_track_param_3 {
       camera_id_, stream_3_width, stream_3_height, stream_3_fps, stream_3_format
     };
-    video_track_cb.data_cb = [&, session_id](
+    video_track_cb.data_cb = [&](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<BufferMeta> metas) {
-      VideoTrackYUVDataCb(session_id, track_id, buffers, metas);
+      VideoTrackYUVDataCb(track_id, buffers, metas);
     };
 
     if (stream_3_src_id != 0) {
@@ -554,14 +551,12 @@ TEST_F(VideoGtest, SessionWithThreeStream) {
       xtraparam.Update(QMMF_SOURCE_VIDEO_TRACK_ID, surface_video_copy);
     }
 
-    ret = recorder_.CreateVideoTrack(session_id, video_track_3,
+    ret = recorder_.CreateVideoTrack( video_track_3,
                                       video_track_param_3, xtraparam,
                                       video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    track_ids.push_back(video_track_3);
-
-    sessions_.insert(std::make_pair(session_id, track_ids));
+    track_ids.emplace(video_track_3);
 
     // Configure Snapshot Stream.
     if (is_snap_stream_on_) {
@@ -569,7 +564,7 @@ TEST_F(VideoGtest, SessionWithThreeStream) {
     }
 
     // Start Session
-    ret = recorder_.StartVideoTrack(session_id);
+    ret = recorder_.StartVideoTracks(track_ids);
     ASSERT_TRUE(ret == NO_ERROR);
 
     sleep(record_duration_);
@@ -579,16 +574,16 @@ TEST_F(VideoGtest, SessionWithThreeStream) {
       TakeSnapshot();
     }
 
-    ret = recorder_.StopVideoTrack(session_id, false);
+    ret = recorder_.StopVideoTracks(track_ids);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    ret = recorder_.DeleteVideoTrack(session_id, video_track_3);
+    ret = recorder_.DeleteVideoTrack(video_track_3);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    ret = recorder_.DeleteVideoTrack(session_id, video_track_2);
+    ret = recorder_.DeleteVideoTrack(video_track_2);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    ret = recorder_.DeleteVideoTrack(session_id, video_track_1);
+    ret = recorder_.DeleteVideoTrack(video_track_1);
     ASSERT_TRUE(ret == NO_ERROR);
   }
 
@@ -611,13 +606,13 @@ TEST_F(VideoGtest, SessionWithThreeStream) {
 * API test sequence:
 *  - StartCamera [Check for EIS, SHDR]
 *  - CreateVideoTrack for 4 tracks. [Check for linked Stream]
-*  - StartVideoTrack
+*  - StartVideoTracks
 *  - Check for SnapShot stream
 *  - If Snapshot Stream  is on
 *  - { ConfigImageCapture
 *  -   CaptureImage
 *  -   CancelCaptureImage }
-*  - StopVideoTrack
+*  - StopVideoTracks
 *  - DeleteVideoTrack
 *  - StopCamera
 */
@@ -690,10 +685,10 @@ TEST_F(VideoGtest, SessionWithFourStream) {
     };
 
     TrackCb video_track_cb;
-    video_track_cb.data_cb = [&, session_id](
+    video_track_cb.data_cb = [&](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<BufferMeta> metas) {
-      VideoTrackYUVDataCb(session_id, track_id, buffers, metas);
+      VideoTrackYUVDataCb(track_id, buffers, metas);
     };
 
     video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
@@ -702,22 +697,22 @@ TEST_F(VideoGtest, SessionWithFourStream) {
     };
 
     VideoExtraParam xtraparam;
-    ret = recorder_.CreateVideoTrack(session_id, video_track_1,
+    ret = recorder_.CreateVideoTrack( video_track_1,
                                      video_track_param_1, xtraparam,
                                      video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    std::vector<uint32_t> track_ids;
-    track_ids.push_back(video_track_1);
+    std::unordered_set<uint32_t> track_ids;
+    track_ids.emplace(video_track_1);
 
     // Second  Track Configuration
     VideoTrackParam video_track_param_2 {
       camera_id_, stream_2_width, stream_2_height, stream_2_fps, stream_2_format
     };
-    video_track_cb.data_cb = [&, session_id](
+    video_track_cb.data_cb = [&](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<BufferMeta> metas) {
-      VideoTrackYUVDataCb(session_id, track_id, buffers, metas);
+      VideoTrackYUVDataCb(track_id, buffers, metas);
     };
 
     if (stream_2_src_id != 0) {
@@ -726,21 +721,21 @@ TEST_F(VideoGtest, SessionWithFourStream) {
       xtraparam.Update(QMMF_SOURCE_VIDEO_TRACK_ID, surface_video_copy);
     }
 
-    ret = recorder_.CreateVideoTrack(session_id, video_track_2,
+    ret = recorder_.CreateVideoTrack( video_track_2,
                                       video_track_param_2, xtraparam,
                                       video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    track_ids.push_back(video_track_2);
+    track_ids.emplace(video_track_2);
 
     // Third  Track Configuration
     VideoTrackParam video_track_param_3 {
       camera_id_, stream_3_width, stream_3_height, stream_3_fps, stream_3_format
     };
-    video_track_cb.data_cb = [&, session_id](
+    video_track_cb.data_cb = [&](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<BufferMeta> metas) {
-      VideoTrackYUVDataCb(session_id, track_id, buffers, metas);
+      VideoTrackYUVDataCb(track_id, buffers, metas);
     };
 
     if (stream_3_src_id != 0) {
@@ -749,21 +744,21 @@ TEST_F(VideoGtest, SessionWithFourStream) {
       xtraparam.Update(QMMF_SOURCE_VIDEO_TRACK_ID, surface_video_copy);
     }
 
-    ret = recorder_.CreateVideoTrack(session_id, video_track_3,
+    ret = recorder_.CreateVideoTrack( video_track_3,
                                       video_track_param_3, xtraparam,
                                       video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    track_ids.push_back(video_track_3);
+    track_ids.emplace(video_track_3);
 
     // Fourth  Track Configuration
     VideoTrackParam video_track_param_4 {
       camera_id_, stream_4_width, stream_4_height, stream_4_fps, stream_4_format
     };
-    video_track_cb.data_cb = [&, session_id](
+    video_track_cb.data_cb = [&](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<BufferMeta> metas) {
-      VideoTrackYUVDataCb(session_id, track_id, buffers, metas);
+      VideoTrackYUVDataCb(track_id, buffers, metas);
     };
 
     if (stream_4_src_id != 0) {
@@ -772,14 +767,12 @@ TEST_F(VideoGtest, SessionWithFourStream) {
       xtraparam.Update(QMMF_SOURCE_VIDEO_TRACK_ID, surface_video_copy);
     }
 
-    ret = recorder_.CreateVideoTrack(session_id, video_track_4,
+    ret = recorder_.CreateVideoTrack( video_track_4,
                                       video_track_param_4, xtraparam,
                                       video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    track_ids.push_back(video_track_4);
-
-    sessions_.insert(std::make_pair(session_id, track_ids));
+    track_ids.emplace(video_track_4);
 
     // Configure Snapshot Stream.
     if (is_snap_stream_on_) {
@@ -787,7 +780,7 @@ TEST_F(VideoGtest, SessionWithFourStream) {
     }
 
     // Start Session
-    ret = recorder_.StartVideoTrack(session_id);
+    ret = recorder_.StartVideoTracks(track_ids);
     ASSERT_TRUE(ret == NO_ERROR);
 
     sleep(record_duration_);
@@ -797,19 +790,19 @@ TEST_F(VideoGtest, SessionWithFourStream) {
       TakeSnapshot();
     }
 
-    ret = recorder_.StopVideoTrack(session_id, false);
+    ret = recorder_.StopVideoTracks(track_ids);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    ret = recorder_.DeleteVideoTrack(session_id, video_track_4);
+    ret = recorder_.DeleteVideoTrack(video_track_4);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    ret = recorder_.DeleteVideoTrack(session_id, video_track_3);
+    ret = recorder_.DeleteVideoTrack(video_track_3);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    ret = recorder_.DeleteVideoTrack(session_id, video_track_2);
+    ret = recorder_.DeleteVideoTrack(video_track_2);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    ret = recorder_.DeleteVideoTrack(session_id, video_track_1);
+    ret = recorder_.DeleteVideoTrack(video_track_1);
     ASSERT_TRUE(ret == NO_ERROR);
   }
 
@@ -832,13 +825,13 @@ TEST_F(VideoGtest, SessionWithFourStream) {
 * API test sequence:
 *  - StartCamera [Check for EIS, SHDR]
 *  - CreateVideoTrack for 5 tracks. [Check for linked Stream]
-*  - StartVideoTrack
+*  - StartVideoTracks
 *  - Check for SnapShot stream
 *  - If Snapshot Stream  is on
 *  - { ConfigImageCapture
 *  -   CaptureImage
 *  -   CancelCaptureImage }
-*  - StopVideoTrack
+*  - StopVideoTracks
 *  - DeleteVideoTrack
 *  - StopCamera
 */
@@ -920,10 +913,10 @@ TEST_F(VideoGtest, SessionWithFiveStream) {
     };
 
     TrackCb video_track_cb;
-    video_track_cb.data_cb = [&, session_id](
+    video_track_cb.data_cb = [&](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<BufferMeta> metas) {
-      VideoTrackYUVDataCb(session_id, track_id, buffers, metas);
+      VideoTrackYUVDataCb(track_id, buffers, metas);
     };
 
     video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
@@ -932,22 +925,22 @@ TEST_F(VideoGtest, SessionWithFiveStream) {
     };
 
     VideoExtraParam xtraparam;
-    ret = recorder_.CreateVideoTrack(session_id, video_track_1,
+    ret = recorder_.CreateVideoTrack(video_track_1,
                                      video_track_param_1, xtraparam,
                                      video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    std::vector<uint32_t> track_ids;
-    track_ids.push_back(video_track_1);
+    std::unordered_set<uint32_t> track_ids;
+    track_ids.emplace(video_track_1);
 
     // Second  Track Configuration
     VideoTrackParam video_track_param_2 {
       camera_id_, stream_2_width, stream_2_height, stream_2_fps, stream_2_format
     };
-    video_track_cb.data_cb = [&, session_id](
+    video_track_cb.data_cb = [&](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<BufferMeta> metas) {
-      VideoTrackYUVDataCb(session_id, track_id, buffers, metas);
+      VideoTrackYUVDataCb(track_id, buffers, metas);
     };
 
     if (stream_2_src_id != 0) {
@@ -956,21 +949,21 @@ TEST_F(VideoGtest, SessionWithFiveStream) {
       xtraparam.Update(QMMF_SOURCE_VIDEO_TRACK_ID, surface_video_copy);
     }
 
-    ret = recorder_.CreateVideoTrack(session_id, video_track_2,
+    ret = recorder_.CreateVideoTrack( video_track_2,
                                       video_track_param_2, xtraparam,
                                       video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    track_ids.push_back(video_track_2);
+    track_ids.emplace(video_track_2);
 
     // Third  Track Configuration
     VideoTrackParam video_track_param_3 {
       camera_id_, stream_3_width, stream_3_height, stream_3_fps, stream_3_format
     };
-    video_track_cb.data_cb = [&, session_id](
+    video_track_cb.data_cb = [&](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<BufferMeta> metas) {
-      VideoTrackYUVDataCb(session_id, track_id, buffers, metas);
+      VideoTrackYUVDataCb(track_id, buffers, metas);
     };
 
     if (stream_3_src_id != 0) {
@@ -979,21 +972,21 @@ TEST_F(VideoGtest, SessionWithFiveStream) {
       xtraparam.Update(QMMF_SOURCE_VIDEO_TRACK_ID, surface_video_copy);
     }
 
-    ret = recorder_.CreateVideoTrack(session_id, video_track_3,
+    ret = recorder_.CreateVideoTrack( video_track_3,
                                       video_track_param_3, xtraparam,
                                       video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    track_ids.push_back(video_track_3);
+    track_ids.emplace(video_track_3);
 
     // Fourth  Track Configuration
     VideoTrackParam video_track_param_4 {
       camera_id_, stream_4_width, stream_4_height, stream_4_fps, stream_4_format
     };
-    video_track_cb.data_cb = [&, session_id](
+    video_track_cb.data_cb = [&](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<BufferMeta> metas) {
-      VideoTrackYUVDataCb(session_id, track_id, buffers, metas);
+      VideoTrackYUVDataCb(track_id, buffers, metas);
     };
 
     if (stream_4_src_id != 0) {
@@ -1002,21 +995,21 @@ TEST_F(VideoGtest, SessionWithFiveStream) {
       xtraparam.Update(QMMF_SOURCE_VIDEO_TRACK_ID, surface_video_copy);
     }
 
-    ret = recorder_.CreateVideoTrack(session_id, video_track_4,
+    ret = recorder_.CreateVideoTrack( video_track_4,
                                       video_track_param_4, xtraparam,
                                       video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    track_ids.push_back(video_track_4);
+    track_ids.emplace(video_track_4);
 
     // Fifth  Track Configuration
     VideoTrackParam video_track_param_5 {
       camera_id_, stream_5_width, stream_5_height, stream_5_fps, stream_5_format
     };
-    video_track_cb.data_cb = [&, session_id](
+    video_track_cb.data_cb = [&](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<BufferMeta> metas) {
-      VideoTrackYUVDataCb(session_id, track_id, buffers, metas);
+      VideoTrackYUVDataCb(track_id, buffers, metas);
     };
 
     if (stream_5_src_id != 0) {
@@ -1025,14 +1018,12 @@ TEST_F(VideoGtest, SessionWithFiveStream) {
       xtraparam.Update(QMMF_SOURCE_VIDEO_TRACK_ID, surface_video_copy);
     }
 
-    ret = recorder_.CreateVideoTrack(session_id, video_track_5,
+    ret = recorder_.CreateVideoTrack( video_track_5,
                                       video_track_param_5, xtraparam,
                                       video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    track_ids.push_back(video_track_5);
-
-    sessions_.insert(std::make_pair(session_id, track_ids));
+    track_ids.emplace(video_track_5);
 
     // Configure Snapshot Stream.
     if (is_snap_stream_on_) {
@@ -1040,7 +1031,7 @@ TEST_F(VideoGtest, SessionWithFiveStream) {
     }
 
     // Start Session
-    ret = recorder_.StartVideoTrack(session_id);
+    ret = recorder_.StartVideoTracks(track_ids);
     ASSERT_TRUE(ret == NO_ERROR);
 
     sleep(record_duration_);
@@ -1050,22 +1041,22 @@ TEST_F(VideoGtest, SessionWithFiveStream) {
       TakeSnapshot();
     }
 
-    ret = recorder_.StopVideoTrack(session_id, false);
+    ret = recorder_.StopVideoTracks(track_ids);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    ret = recorder_.DeleteVideoTrack(session_id, video_track_5);
+    ret = recorder_.DeleteVideoTrack(video_track_5);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    ret = recorder_.DeleteVideoTrack(session_id, video_track_4);
+    ret = recorder_.DeleteVideoTrack(video_track_4);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    ret = recorder_.DeleteVideoTrack(session_id, video_track_3);
+    ret = recorder_.DeleteVideoTrack(video_track_3);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    ret = recorder_.DeleteVideoTrack(session_id, video_track_2);
+    ret = recorder_.DeleteVideoTrack(video_track_2);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    ret = recorder_.DeleteVideoTrack(session_id, video_track_1);
+    ret = recorder_.DeleteVideoTrack(video_track_1);
     ASSERT_TRUE(ret == NO_ERROR);
   }
 
@@ -1088,10 +1079,10 @@ TEST_F(VideoGtest, SessionWithFiveStream) {
 *  - StartCamera-Cam1
 *  - Create1080pTrack-Cam0
 *  - Create1080pTrack-Cam1
-*  - StartVideoTrack-Cam0
-*  - StartVideoTrack-Cam1
-*  - StopVideoTrack-Cam0
-*  - StopVideoTrack-Cam1
+*  - StartVideoTracks-Cam0
+*  - StartVideoTracks-Cam1
+*  - StopVideoTracks-Cam0
+*  - StopVideoTracks-Cam1
 *  - DeleteVideoTracks-Cam0
 *  - DeleteVideoTracks-Cam1
 *  - StopCamera-Cam0
@@ -1120,10 +1111,10 @@ TEST_F(VideoGtest, SessionWithTwoConcurrentCam1080p) {
   ASSERT_TRUE(ret == NO_ERROR);
 
   TrackCb video_track_cb;
-  video_track_cb.data_cb = [&, cam0_session_id](
+  video_track_cb.data_cb = [&](
       uint32_t track_id, std::vector<BufferDescriptor> buffers,
       std::vector<BufferMeta> metas) {
-    VideoTrackYUVDataCb(cam0_session_id, track_id, buffers, metas);
+    VideoTrackYUVDataCb(track_id, buffers, metas);
   };
 
   video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
@@ -1136,53 +1127,43 @@ TEST_F(VideoGtest, SessionWithTwoConcurrentCam1080p) {
   };
   VideoExtraParam xtraparam;
 
-  ret = recorder_.CreateVideoTrack(cam0_session_id, cam0_video_track_id_1080p,
+  ret = recorder_.CreateVideoTrack(cam0_video_track_id_1080p,
                                    video_track_param, xtraparam,
                                    video_track_cb);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  std::vector<uint32_t> cam0_track_ids;
-  cam0_track_ids.push_back(cam0_video_track_id_1080p);
-  sessions_.insert(std::make_pair(cam0_session_id, cam0_track_ids));
+  std::unordered_set<uint32_t> cam0_track_ids;
+  cam0_track_ids.emplace(cam0_video_track_id_1080p);
 
-  video_track_cb.data_cb = [&, cam1_session_id](
+  video_track_cb.data_cb = [&](
       uint32_t track_id, std::vector<BufferDescriptor> buffers,
       std::vector<BufferMeta> metas) {
-    VideoTrackYUVDataCb(cam1_session_id, track_id, buffers, metas);
+    VideoTrackYUVDataCb(track_id, buffers, metas);
   };
 
   video_track_param.camera_id = cam1_id;
-  ret = recorder_.CreateVideoTrack(cam1_session_id, cam1_video_track_id_1080p,
+  ret = recorder_.CreateVideoTrack(cam1_video_track_id_1080p,
                                    video_track_param, xtraparam,
                                    video_track_cb);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  std::vector<uint32_t> cam1_track_ids;
-  cam1_track_ids.push_back(cam1_video_track_id_1080p);
-  sessions_.insert(std::make_pair(cam1_session_id, cam1_track_ids));
+  std::unordered_set<uint32_t> cam1_track_ids;
+  cam1_track_ids.emplace(cam1_video_track_id_1080p);
 
-  ret = recorder_.StartVideoTrack(cam0_session_id);
-  ASSERT_TRUE(ret == NO_ERROR);
-
-  ret = recorder_.StartVideoTrack(cam1_session_id);
+  ret = recorder_.StartVideoTracks(cam1_track_ids);
   ASSERT_TRUE(ret == NO_ERROR);
 
   // Let session run for time record_duration_, during this time buffer with
   // valid data would be received in track callback (VideoTrackYUVDataCb).
   sleep(record_duration_);
 
-  ret = recorder_.StopVideoTrack(cam0_session_id, false);
+  ret = recorder_.StopVideoTracks(cam1_track_ids);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StopVideoTrack(cam1_session_id, false);
+  ret = recorder_.DeleteVideoTrack(cam0_video_track_id_1080p);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.DeleteVideoTrack(cam0_session_id,
-                                   cam0_video_track_id_1080p);
-  ASSERT_TRUE(ret == NO_ERROR);
-
-  ret = recorder_.DeleteVideoTrack(cam1_session_id,
-                                   cam1_video_track_id_1080p);
+  ret = recorder_.DeleteVideoTrack(cam1_video_track_id_1080p);
   ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StopCamera(cam0_id);
@@ -1211,12 +1192,12 @@ TEST_F(VideoGtest, SessionWithTwoConcurrentCam1080p) {
 *  - CreateVideoTrack-Cam0
 *  - CreateVideoTrack-Cam1
 *  - CreateVideoTrack-Cam2
-*  - StartVideoTrack-Cam0
-*  - StartVideoTrack-Cam1
-*  - StartVideoTrack-Cam2
-*  - StopVideoTrack-Cam0
-*  - StopVideoTrack-Cam1
-*  - StopVideoTrack-Cam2
+*  - StartVideoTracks-Cam0
+*  - StartVideoTracks-Cam1
+*  - StartVideoTracks-Cam2
+*  - StopVideoTracks-Cam0
+*  - StopVideoTracks-Cam1
+*  - StopVideoTracks-Cam2
 *  - DeleteVideoTrack-Cam0
 *  - DeleteVideoTrack-Cam1
 *  - DeleteVideoTrack-Cam2
@@ -1252,10 +1233,10 @@ TEST_F(VideoGtest, SessionWithThreeConcurrentCam1080pAndRawStream) {
   ASSERT_TRUE(ret == NO_ERROR);
 
   TrackCb video_track_cb;
-  video_track_cb.data_cb = [&, cam0_session_id](
+  video_track_cb.data_cb = [&](
       uint32_t track_id, std::vector<BufferDescriptor> buffers,
       std::vector<BufferMeta> metas) {
-    VideoTrackYUVDataCb(cam0_session_id, track_id, buffers, metas);
+    VideoTrackYUVDataCb(track_id, buffers, metas);
   };
 
   video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
@@ -1269,37 +1250,27 @@ TEST_F(VideoGtest, SessionWithThreeConcurrentCam1080pAndRawStream) {
   };
   VideoExtraParam xtraparam;
 
-  ret = recorder_.CreateVideoTrack(cam0_session_id, cam0_video_track_id_1080p,
+  ret = recorder_.CreateVideoTrack(cam0_video_track_id_1080p,
                                    video_track_param, xtraparam,
                                    video_track_cb);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  std::vector<uint32_t> cam0_track_ids;
-  cam0_track_ids.push_back(cam0_video_track_id_1080p);
-  sessions_.insert(std::make_pair(cam0_session_id, cam0_track_ids));
+  std::unordered_set<uint32_t> track_ids;
+  track_ids.emplace(cam0_video_track_id_1080p);
 
-  video_track_cb.data_cb = [&, cam1_session_id](
+  video_track_cb.data_cb = [&](
       uint32_t track_id, std::vector<BufferDescriptor> buffers,
       std::vector<BufferMeta> metas) {
-    VideoTrackYUVDataCb(cam1_session_id, track_id, buffers, metas);
+    VideoTrackYUVDataCb(track_id, buffers, metas);
   };
   // Second track
   video_track_param.camera_id = cam1_id;
-  ret = recorder_.CreateVideoTrack(cam1_session_id, cam1_video_track_id_1080p,
+  ret = recorder_.CreateVideoTrack(cam1_video_track_id_1080p,
                                    video_track_param, xtraparam,
                                    video_track_cb);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  std::vector<uint32_t> cam1_track_ids;
-  cam1_track_ids.push_back(cam1_video_track_id_1080p);
-  sessions_.insert(std::make_pair(cam1_session_id, cam1_track_ids));
-
-  // Starting session for first 2 camera
-  ret = recorder_.StartVideoTrack(cam0_session_id);
-  ASSERT_TRUE(ret == NO_ERROR);
-
-  ret = recorder_.StartVideoTrack(cam1_session_id);
-  ASSERT_TRUE(ret == NO_ERROR);
+  track_ids.emplace(cam1_video_track_id_1080p);
 
   uint32_t raw_width, raw_height;
   CameraMetadata static_meta;
@@ -1308,49 +1279,38 @@ TEST_F(VideoGtest, SessionWithThreeConcurrentCam1080pAndRawStream) {
   GtestCommon::GetMaxSupportedCameraRes(static_meta, raw_width, raw_height);
 
   // Third Track
-  video_track_cb.data_cb = [&, cam2_session_id](
+  video_track_cb.data_cb = [&](
       uint32_t track_id, std::vector<BufferDescriptor> buffers,
       std::vector<BufferMeta> metas) {
-    VideoTrackRawDataCb(cam2_session_id, track_id, buffers, metas);
+    VideoTrackRawDataCb(track_id, buffers, metas);
   };
 
   VideoTrackParam video_track_param_raw{
       cam2_id, raw_width, raw_height, 30, VideoFormat::kBayerRDI10BIT
   };
 
-  ret = recorder_.CreateVideoTrack(cam2_session_id, cam2_video_track_raw,
+  ret = recorder_.CreateVideoTrack(cam2_video_track_raw,
                                    video_track_param_raw, xtraparam,
                                    video_track_cb);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  std::vector<uint32_t> cam2_track_ids;
-  cam2_track_ids.push_back(cam2_video_track_raw);
-  sessions_.insert(std::make_pair(cam2_session_id, cam2_track_ids));
+  track_ids.emplace(cam2_video_track_raw);
 
-  ret = recorder_.StartVideoTrack(cam2_session_id);
+  ret = recorder_.StartVideoTracks(track_ids);
   ASSERT_TRUE(ret == NO_ERROR);
 
   sleep(record_duration_);
 
-  ret = recorder_.StopVideoTrack(cam0_session_id, false);
+  ret = recorder_.StopVideoTracks(track_ids);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StopVideoTrack(cam1_session_id, false);
+  ret = recorder_.DeleteVideoTrack(cam0_video_track_id_1080p);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.StopVideoTrack(cam2_session_id, false);
+  ret = recorder_.DeleteVideoTrack(cam1_video_track_id_1080p);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.DeleteVideoTrack(cam0_session_id,
-                                   cam0_video_track_id_1080p);
-  ASSERT_TRUE(ret == NO_ERROR);
-
-  ret = recorder_.DeleteVideoTrack(cam1_session_id,
-                                   cam1_video_track_id_1080p);
-  ASSERT_TRUE(ret == NO_ERROR);
-
-  ret = recorder_.DeleteVideoTrack(cam2_session_id,
-                                   cam2_video_track_raw);
+  ret = recorder_.DeleteVideoTrack(cam2_video_track_raw);
   ASSERT_TRUE(ret == NO_ERROR);
 
   ret = recorder_.StopCamera(cam0_id);
@@ -1377,8 +1337,8 @@ TEST_F(VideoGtest, SessionWithThreeConcurrentCam1080pAndRawStream) {
 *   loop Start {
 *   ------------------
 *   - CreateVideoTrack
-*   - StartVideoTrack
-*   - StopVideoTrack
+*   - StartVideoTracks
+*   - StopVideoTracks
 *   - DeleteVideoTrack
 *   ------------------
 *   } loop End
@@ -1440,10 +1400,10 @@ TEST_F(VideoGtest, SessionWithSingleStreamSlavemode) {
     };
 
     TrackCb video_track_cb;
-    video_track_cb.data_cb = [&, session_id](
+    video_track_cb.data_cb = [&](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<BufferMeta> metas) {
-      VideoTrackYUVDataCb(session_id, track_id, buffers, metas);
+      VideoTrackYUVDataCb(track_id, buffers, metas);
     };
 
     video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
@@ -1452,17 +1412,16 @@ TEST_F(VideoGtest, SessionWithSingleStreamSlavemode) {
     };
 
     VideoExtraParam xtraparam;
-    ret = recorder_.CreateVideoTrack(session_id, video_track_1,
+    ret = recorder_.CreateVideoTrack(video_track_1,
                                      video_track_param, xtraparam,
                                      video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    std::vector<uint32_t> track_ids;
-    track_ids.push_back(video_track_1);
-    sessions_.insert(std::make_pair(session_id, track_ids));
+    std::unordered_set<uint32_t> track_ids;
+    track_ids.emplace(video_track_1);
 
     // Start Session
-    ret = recorder_.StartVideoTrack(session_id);
+    ret = recorder_.StartVideoTracks(track_ids);
     ASSERT_TRUE(ret == NO_ERROR);
 
     // Let session run for random duration or until signaled by the
@@ -1476,13 +1435,11 @@ TEST_F(VideoGtest, SessionWithSingleStreamSlavemode) {
       });
     }
 
-    ret = recorder_.StopVideoTrack(session_id, false);
+    ret = recorder_.StopVideoTracks(track_ids);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    ret = recorder_.DeleteVideoTrack(session_id, video_track_1);
+    ret = recorder_.DeleteVideoTrack(video_track_1);
     ASSERT_TRUE(ret == NO_ERROR);
-
-    sessions_.erase(session_id);
   }
 
   ret = recorder_.StopCamera(camera_id_);
@@ -1504,8 +1461,8 @@ TEST_F(VideoGtest, SessionWithSingleStreamSlavemode) {
 *   loop Start {
 *   ------------------
 *   - CreateVideoTrack
-*   - StartVideoTrack
-*   - StopVideoTrack
+*   - StartVideoTracks
+*   - StopVideoTracks
 *   - DeleteVideoTrack
 *   ------------------
 *   } loop End
@@ -1533,10 +1490,10 @@ TEST_F(VideoGtest, SessionWith1080pYUVTrackMatchCameraMetaData) {
 
   uint32_t video_track_id = 1;
   TrackCb video_track_cb;
-  video_track_cb.data_cb = [&, session_id](
+  video_track_cb.data_cb = [&](
       uint32_t track_id, std::vector<BufferDescriptor> buffers,
       std::vector<BufferMeta> metas) {
-    VideoTrackDataCbMatchCameraMeta(session_id, track_id, buffers,
+    VideoTrackDataCbMatchCameraMeta(track_id, buffers,
                                     metas);
   };
 
@@ -1546,16 +1503,15 @@ TEST_F(VideoGtest, SessionWith1080pYUVTrackMatchCameraMetaData) {
   };
 
   VideoExtraParam xtraparam;
-  ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+  ret = recorder_.CreateVideoTrack(video_track_id,
                                    video_track_param, xtraparam,
                                    video_track_cb);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  std::vector<uint32_t> track_ids;
-  track_ids.push_back(video_track_id);
-  sessions_.insert(std::make_pair(session_id, track_ids));
+  std::unordered_set<uint32_t> track_ids;
+  track_ids.emplace(video_track_id);
 
-  ret = recorder_.StartVideoTrack(session_id);
+  ret = recorder_.StartVideoTracks(track_ids);
   ASSERT_TRUE(ret == NO_ERROR);
 
   // Let session run for time record_duration_, during this time buffer with
@@ -1563,10 +1519,10 @@ TEST_F(VideoGtest, SessionWith1080pYUVTrackMatchCameraMetaData) {
   // (VideoTrackDataCbMatchCameraMeta).
   sleep(record_duration_ * 2);
 
-  ret = recorder_.StopVideoTrack(session_id, false);
+  ret = recorder_.StopVideoTracks(track_ids);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+  ret = recorder_.DeleteVideoTrack(video_track_id);
   ASSERT_TRUE(ret == NO_ERROR);
 
   buffer_metadata_map_.clear();
@@ -1590,13 +1546,13 @@ TEST_F(VideoGtest, SessionWith1080pYUVTrackMatchCameraMetaData) {
 * API test sequence:
 *  - StartCamera [Check for EIS, SHDR]
 *  - CreateVideoTrack
-*  - StartVideoTrack
+*  - StartVideoTracks
 *  - Check for SnapShot stream
 *  - If Snapshot Stream  is on
 *  - { ConfigImageCapture
 *  -   CaptureImage
 *  -   CancelCaptureImage }
-*  - StopVideoTrack
+*  - StopVideoTracks
 *  - DeleteVideoTrack
 *  - StopCamera
 */
@@ -1643,10 +1599,10 @@ TEST_F(VideoGtest, SessionWithSingleStreamWithCamIDOne) {
     };
 
     TrackCb video_track_cb;
-    video_track_cb.data_cb = [&, session_id](
+    video_track_cb.data_cb = [&](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<BufferMeta> metas) {
-      VideoTrackYUVDataCb(session_id, track_id, buffers, metas);
+      VideoTrackYUVDataCb(track_id, buffers, metas);
     };
 
     video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
@@ -1655,14 +1611,13 @@ TEST_F(VideoGtest, SessionWithSingleStreamWithCamIDOne) {
     };
 
     VideoExtraParam xtraparam;
-    ret = recorder_.CreateVideoTrack(session_id, video_track_1,
+    ret = recorder_.CreateVideoTrack(video_track_1,
                                      video_track_param, xtraparam,
                                      video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    std::vector<uint32_t> track_ids;
-    track_ids.push_back(video_track_1);
-    sessions_.insert(std::make_pair(session_id, track_ids));
+    std::unordered_set<uint32_t> track_ids;
+    track_ids.emplace(video_track_1);
 
     // Configure Snapshot Stream.
     if (is_snap_stream_on_) {
@@ -1670,7 +1625,7 @@ TEST_F(VideoGtest, SessionWithSingleStreamWithCamIDOne) {
     }
 
     // Start Session
-    ret = recorder_.StartVideoTrack(session_id);
+    ret = recorder_.StartVideoTracks(track_ids);
     ASSERT_TRUE(ret == NO_ERROR);
 
     sleep(record_duration_);
@@ -1680,10 +1635,10 @@ TEST_F(VideoGtest, SessionWithSingleStreamWithCamIDOne) {
       TakeSnapshot();
     }
 
-    ret = recorder_.StopVideoTrack(session_id, false);
+    ret = recorder_.StopVideoTracks(track_ids);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    ret = recorder_.DeleteVideoTrack(session_id, video_track_1);
+    ret = recorder_.DeleteVideoTrack(video_track_1);
     ASSERT_TRUE(ret == NO_ERROR);
   }
 
@@ -1706,13 +1661,13 @@ TEST_F(VideoGtest, SessionWithSingleStreamWithCamIDOne) {
 * API test sequence:
 *  - StartCamera [Check for EIS, SHDR]
 *  - CreateVideoTrack for 2 tracks. [Check for linked Stream]
-*  - StartVideoTrack
+*  - StartVideoTracks
 *  - Check for SnapShot stream
 *  - If Snapshot Stream  is on
 *  - { ConfigImageCapture
 *  -   CaptureImage
 *  -   CancelCaptureImage }
-*  - StopVideoTrack
+*  - StopVideoTracks
 *  - DeleteVideoTrack
 *  - StopCamera
 */
@@ -1768,10 +1723,10 @@ TEST_F(VideoGtest, SessionWithTwoStreamWithCamIDOne) {
     };
 
     TrackCb video_track_cb;
-    video_track_cb.data_cb = [&, session_id](
+    video_track_cb.data_cb = [&](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<BufferMeta> metas) {
-      VideoTrackYUVDataCb(session_id, track_id, buffers, metas);
+      VideoTrackYUVDataCb(track_id, buffers, metas);
     };
 
     video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
@@ -1780,22 +1735,22 @@ TEST_F(VideoGtest, SessionWithTwoStreamWithCamIDOne) {
     };
 
     VideoExtraParam xtraparam;
-    ret = recorder_.CreateVideoTrack(session_id, video_track_1,
+    ret = recorder_.CreateVideoTrack(video_track_1,
                                      video_track_param_1, xtraparam,
                                      video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    std::vector<uint32_t> track_ids;
-    track_ids.push_back(video_track_1);
+    std::unordered_set<uint32_t> track_ids;
+    track_ids.emplace(video_track_1);
 
     // Second  Track Configuration
     VideoTrackParam video_track_param_2 {
       camera_id_, stream_2_width, stream_2_height, stream_2_fps, stream_2_format
     };
-    video_track_cb.data_cb = [&, session_id](
+    video_track_cb.data_cb = [&](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<BufferMeta> metas) {
-      VideoTrackYUVDataCb(session_id, track_id, buffers, metas);
+      VideoTrackYUVDataCb(track_id, buffers, metas);
     };
 
     if (stream_2_src_id != 0) {
@@ -1804,14 +1759,12 @@ TEST_F(VideoGtest, SessionWithTwoStreamWithCamIDOne) {
       xtraparam.Update(QMMF_SOURCE_VIDEO_TRACK_ID, surface_video_copy);
     }
 
-    ret = recorder_.CreateVideoTrack(session_id, video_track_2,
+    ret = recorder_.CreateVideoTrack(video_track_2,
                                      video_track_param_2, xtraparam,
                                      video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    track_ids.push_back(video_track_2);
-
-    sessions_.insert(std::make_pair(session_id, track_ids));
+    track_ids.emplace(video_track_2);
 
     // Configure Snapshot Stream.
     if (is_snap_stream_on_) {
@@ -1819,7 +1772,7 @@ TEST_F(VideoGtest, SessionWithTwoStreamWithCamIDOne) {
     }
 
     // Start Session
-    ret = recorder_.StartVideoTrack(session_id);
+    ret = recorder_.StartVideoTracks(track_ids);
     ASSERT_TRUE(ret == NO_ERROR);
 
     sleep(record_duration_);
@@ -1829,13 +1782,13 @@ TEST_F(VideoGtest, SessionWithTwoStreamWithCamIDOne) {
       TakeSnapshot();
     }
 
-    ret = recorder_.StopVideoTrack(session_id, false);
+    ret = recorder_.StopVideoTracks(track_ids);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    ret = recorder_.DeleteVideoTrack(session_id, video_track_2);
+    ret = recorder_.DeleteVideoTrack(video_track_2);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    ret = recorder_.DeleteVideoTrack(session_id, video_track_1);
+    ret = recorder_.DeleteVideoTrack(video_track_1);
     ASSERT_TRUE(ret == NO_ERROR);
   }
 
@@ -1854,8 +1807,8 @@ TEST_F(VideoGtest, SessionWithTwoStreamWithCamIDOne) {
 * API test sequence:
 *  - StartCamera
 *  - CreateVideoTrack
-*  - StartVideoTrack
-*  - StopVideoTrack
+*  - StartVideoTracks
+*  - StopVideoTracks
 *  - DeleteVideoTrack
 *  - StopCamera
 */
@@ -1905,10 +1858,10 @@ TEST_F(VideoGtest, SessionWith1080pTrackPartialMeta) {
     uint32_t video_track_id = 1;
 
     TrackCb video_track_cb;
-    video_track_cb.data_cb = [&, session_id](
+    video_track_cb.data_cb = [&](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<BufferMeta> metas) {
-      VideoTrackYUVDataCb(session_id, track_id, buffers, metas);
+      VideoTrackYUVDataCb(track_id, buffers, metas);
     };
 
     video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
@@ -1917,24 +1870,23 @@ TEST_F(VideoGtest, SessionWith1080pTrackPartialMeta) {
     };
 
     VideoExtraParam xtraparam;
-    ret = recorder_.CreateVideoTrack(session_id, video_track_id,
+    ret = recorder_.CreateVideoTrack(video_track_id,
                                      video_track_param, xtraparam,
                                      video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    std::vector<uint32_t> track_ids;
-    track_ids.push_back(video_track_id);
-    sessions_.insert(std::make_pair(session_id, track_ids));
+    std::unordered_set<uint32_t> track_ids;
+    track_ids.emplace(video_track_id);
 
-    ret = recorder_.StartVideoTrack(session_id);
+    ret = recorder_.StartVideoTracks(track_ids);
     ASSERT_TRUE(ret == NO_ERROR);
 
     sleep(record_duration_);
 
-    ret = recorder_.StopVideoTrack(session_id, false);
+    ret = recorder_.StopVideoTracks(track_ids);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    ret = recorder_.DeleteVideoTrack(session_id, video_track_id);
+    ret = recorder_.DeleteVideoTrack(video_track_id);
     ASSERT_TRUE(ret == NO_ERROR);
   }
   ret = recorder_.StopCamera(camera_id_);
@@ -1955,8 +1907,8 @@ TEST_F(VideoGtest, SessionWith1080pTrackPartialMeta) {
  *  - StartCamera
  *   - CreateVideoTrack - Master
  *   - CreateVideoTrack - Copy
- *   - StartVideoTrack
- *   - StopVideoTrack
+ *   - StartVideoTracks
+ *   - StopVideoTracks
  *   - CreateVideoTrack - Copy
  *   - DeleteVideoTrack - Master
  *  - StopCamera
@@ -1991,10 +1943,10 @@ TEST_F(VideoGtest, SessionWith1080pYUVAnd720pYUVWithCrop) {
     };
 
     TrackCb video_track_cb;
-    video_track_cb.data_cb = [&, session_id](
+    video_track_cb.data_cb = [&](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<BufferMeta> metas) {
-      VideoTrackYUVDataCb(session_id, track_id, buffers, metas);
+      VideoTrackYUVDataCb(track_id, buffers, metas);
     };
 
     video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
@@ -2003,13 +1955,13 @@ TEST_F(VideoGtest, SessionWith1080pYUVAnd720pYUVWithCrop) {
     };
 
     VideoExtraParam xtraparam;
-    ret = recorder_.CreateVideoTrack(session_id, video_track_id_1080p,
+    ret = recorder_.CreateVideoTrack(video_track_id_1080p,
                                      video_track_param, xtraparam,
                                      video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    std::vector<uint32_t> track_ids;
-    track_ids.push_back(video_track_id_1080p);
+    std::unordered_set<uint32_t> track_ids;
+    track_ids.emplace(video_track_id_1080p);
 
     // Track2: 1280 * 720 @30 AVC
     video_track_param.width = 1280;
@@ -2026,10 +1978,10 @@ TEST_F(VideoGtest, SessionWith1080pYUVAnd720pYUVWithCrop) {
     crop_param.height = 620;
     xtraparam.Update(QMMF_TRACK_CROP, crop_param);
 
-    video_track_cb.data_cb = [&, session_id](
+    video_track_cb.data_cb = [&](
         uint32_t track_id, std::vector<BufferDescriptor> buffers,
         std::vector<BufferMeta> metas) {
-      VideoTrackYUVDataCb(session_id, track_id, buffers, metas);
+      VideoTrackYUVDataCb(track_id, buffers, metas);
     };
 
     video_track_cb.event_cb = [&](uint32_t track_id, EventType event_type,
@@ -2037,27 +1989,25 @@ TEST_F(VideoGtest, SessionWith1080pYUVAnd720pYUVWithCrop) {
       VideoTrackEventCb(track_id, event_type, event_data, event_data_size);
     };
 
-    ret = recorder_.CreateVideoTrack(session_id, video_track_id_720p,
+    ret = recorder_.CreateVideoTrack(video_track_id_720p,
                                      video_track_param, xtraparam,
                                      video_track_cb);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    track_ids.push_back(video_track_id_720p);
+    track_ids.emplace(video_track_id_720p);
 
-    sessions_.insert(std::make_pair(session_id, track_ids));
-
-    ret = recorder_.StartVideoTrack(session_id);
+    ret = recorder_.StartVideoTracks(track_ids);
     ASSERT_TRUE(ret == NO_ERROR);
 
     sleep(record_duration_);
 
-    ret = recorder_.StopVideoTrack(session_id, false);
+    ret = recorder_.StopVideoTracks(track_ids);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_720p);
+    ret = recorder_.DeleteVideoTrack(video_track_id_720p);
     ASSERT_TRUE(ret == NO_ERROR);
 
-    ret = recorder_.DeleteVideoTrack(session_id, video_track_id_1080p);
+    ret = recorder_.DeleteVideoTrack(video_track_id_1080p);
     ASSERT_TRUE(ret == NO_ERROR);
   }
   ret = recorder_.StopCamera(camera_id_);

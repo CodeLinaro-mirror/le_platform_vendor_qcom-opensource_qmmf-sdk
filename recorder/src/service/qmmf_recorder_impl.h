@@ -139,18 +139,22 @@ class RecorderImpl {
   status_t DeleteVideoTrack(const uint32_t client_id,
                             const uint32_t track_id);
 
-  /// Start the track
-  status_t StartVideoTrack(const uint32_t client_id, const uint32_t track_id);
+  /// Start the tracks
+  status_t StartVideoTracks(const uint32_t client_id,
+                            const std::unordered_set<uint32_t>& track_ids);
 
-  /// Stop the track
-  status_t StopVideoTrack(const uint32_t client_id, const uint32_t track_id,
-                          bool do_flush, bool force_cleanup = false);
+  /// Stop the tracks
+  status_t StopVideoTracks(const uint32_t client_id,
+                           const std::unordered_set<uint32_t>& track_ids,
+                           bool force_cleanup = false);
 
-  /// Pause the track
-  status_t PauseVideoTrack(const uint32_t client_id, const uint32_t track_id);
+  /// Pause the tracks
+  status_t PauseVideoTracks(const uint32_t client_id,
+                            const std::unordered_set<uint32_t>& track_ids);
 
-  /// Resume the track
-  status_t ResumeVideoTrack(const uint32_t client_id, const uint32_t track_id);
+  /// Resume the tracks
+  status_t ResumeVideoTracks(const uint32_t client_id,
+                             const std::unordered_set<uint32_t>& track_ids);
 
   /// Return Track buffers to Camera Source.
   status_t ReturnTrackBuffer(const uint32_t client_id,
@@ -269,11 +273,8 @@ class RecorderImpl {
   // <client_id, TrackStateMap>
   typedef std::map<uint32_t, TrackStateMap> ClientTrackStateMap;
 
-  // <track_id, track_mutex>
-  typedef std::map<uint32_t, std::mutex *> TrackMutexMap;
-  // <client_id, TrackStateMap>
-  typedef std::map<uint32_t, TrackMutexMap> ClientTrackMutexMap;
-
+  // <client_id, mutex>
+  typedef std::map<uint32_t, std::mutex *> ClientMutexMap;
 
   bool IsClientValid(const uint32_t& client_id);
   bool IsClientAlive(const uint32_t& client_id);
@@ -293,6 +294,9 @@ class RecorderImpl {
 
   uint32_t GetServiceTrackId(const uint32_t& client_id,
                              const uint32_t& track_id);
+
+  uint32_t GetClientTrackId(const uint32_t& client_id,
+                            const uint32_t& service_track_id);
 
   std::vector<uint32_t> GetCameraClients(const uint32_t& camera_id);
 
@@ -318,7 +322,7 @@ class RecorderImpl {
 
   ClientTrackStateMap           client_tracks_state_;
 
-  ClientTrackMutexMap           client_tracks_mutex_map_;
+  ClientMutexMap                client_mutex_map_;
 
   std::mutex                    stop_camera_lock_;
 

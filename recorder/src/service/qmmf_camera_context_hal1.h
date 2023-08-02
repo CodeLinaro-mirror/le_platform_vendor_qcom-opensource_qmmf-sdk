@@ -127,9 +127,9 @@ class CameraContext : public CameraInterface {
   status_t RemoveConsumer(const uint32_t& track_id,
                           sp<IBufferConsumer>& consumer) override;
 
-  status_t StartStream(const uint32_t track_id) override;
+  status_t StartStream(const uint32_t track_id, bool cached) override;
 
-  status_t StopStream(const uint32_t track_id) override;
+  status_t StopStream(const uint32_t track_id, bool cached) override;
 
   status_t PauseStream(const uint32_t track_id) override;
 
@@ -250,8 +250,8 @@ public:
   ~CameraPort();
   virtual status_t Init(const StreamParam& param) = 0;
   status_t DeInit();
-  virtual status_t Start() = 0;
-  virtual status_t Stop() = 0;
+  virtual status_t Start(bool cached = false) = 0;
+  virtual status_t Stop(bool cached = false) = 0;
 
   status_t AddConsumer(sp<IBufferConsumer>& consumer);
   status_t RemoveConsumer(sp<IBufferConsumer>& consumer);
@@ -296,8 +296,8 @@ public:
     CameraPort(port_type, context) {};
   status_t Init(const StreamParam& param) override;
 
-  status_t Start() override;
-  status_t Stop() override;
+  status_t Start(bool cached = false) override;
+  status_t Stop(bool cached = false) override;
 };
 
 class VideoPort : public CameraPort {
@@ -306,8 +306,8 @@ public:
     CameraPort(port_type, context) {};
   status_t Init(const StreamParam& param) override;
 
-  status_t Start() override;
-  status_t Stop() override;
+  status_t Start(bool cached = false) override;
+  status_t Stop(bool cached = false) override;
 };
 
 }; //namespace recorder

@@ -1016,7 +1016,7 @@ void GtestCommon::ResultCallbackHandlerMatchCameraMeta(uint32_t camera_id,
   if (append) {
     // New entry, camera meta arrived first.
     auto buffer_meta_tuple = std::make_tuple(BufferDescriptor(),
-     CameraMetadata(result), 0, 0);
+     CameraMetadata(result), 0);
     buffer_metadata_map_.insert( { meta_frame_number, buffer_meta_tuple} );
   } else {
     // Buffer already arrived for this meta.
@@ -1029,8 +1029,7 @@ void GtestCommon::ResultCallbackHandlerMatchCameraMeta(uint32_t camera_id,
     // nothing it is just returning buffer back to service on match.
     std::vector<BufferDescriptor> buffers;
     buffers.push_back(std::get<0>(tuple));
-    auto ret = recorder_.ReturnTrackBuffer(std::get<2>(tuple),
-        std::get<3>(tuple), buffers);
+    auto ret = recorder_.ReturnTrackBuffer(std::get<2>(tuple), buffers);
     ASSERT_TRUE(ret == NO_ERROR);
     std::get<1>(tuple).clear();
     buffer_metadata_map_.erase(meta_frame_number);

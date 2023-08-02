@@ -28,37 +28,8 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted (subject to the limitations in the
- * disclaimer below) provided that the following conditions are met:
- *
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *
- *     * Redistributions in binary form must reproduce the above
- *       copyright notice, this list of conditions and the following
- *       disclaimer in the documentation and/or other materials provided
- *       with the distribution.
- *
- *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- *
- * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
- * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
- * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
- * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
- * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #define LOG_TAG "RecorderCameraContextHal1"
@@ -773,7 +744,7 @@ status_t CameraContext::SetFps(float fps) {
   return NO_ERROR;
 }
 
-status_t CameraContext::StartStream(const uint32_t track_id) {
+status_t CameraContext::StartStream(const uint32_t track_id, bool cached) {
 
   QMMF_INFO("Enter %s \n", __func__);
   StreamParam param = streams_params_[track_id];
@@ -802,14 +773,14 @@ status_t CameraContext::StartStream(const uint32_t track_id) {
 
   QMMF_INFO("%s Set fps - %f", __func__, max_fps);
   SetFps(max_fps);
-  ret = port->Start();
+  ret = port->Start(cached);
   assert(ret == NO_ERROR);
 
   QMMF_INFO("Exit %s \n", __func__);
   return NO_ERROR;
 }
 
-status_t CameraContext::StopStream(const uint32_t track_id) {
+status_t CameraContext::StopStream(const uint32_t track_id, bool cached) {
 
   QMMF_INFO("Enter %s \n", __func__);
 
@@ -827,7 +798,7 @@ status_t CameraContext::StopStream(const uint32_t track_id) {
   if (port->GetPortType() == CameraPortType::kPreview) {
     if (!isBothPortsActive) {
       QMMF_INFO("%s Stop Preview only \n", __func__);
-      auto ret = port->Stop();
+      auto ret = port->Stop(cached);
       assert(ret == NO_ERROR);
       port->RemoveConsumer(consumers_[track_id]);
       assert(ret == NO_ERROR);
@@ -840,7 +811,7 @@ status_t CameraContext::StopStream(const uint32_t track_id) {
         QMMF_ERROR("%s: Invalid port", __func__);
         return BAD_VALUE;
       }
-      auto ret = port->Stop();
+      auto ret = port->Stop(cached);
       assert(ret == NO_ERROR);
       port->RemoveConsumer(consumers_[port->GetPortId()]);
       assert(ret == NO_ERROR);
@@ -851,7 +822,7 @@ status_t CameraContext::StopStream(const uint32_t track_id) {
         QMMF_ERROR("%s: Invalid port", __func__);
         return BAD_VALUE;
       }
-      ret = port->Stop();
+      ret = port->Stop(cached);
       assert(ret == NO_ERROR);
       port->RemoveConsumer(consumers_[port->GetPortId()]);
       assert(ret == NO_ERROR);
@@ -896,7 +867,7 @@ status_t CameraContext::StopStream(const uint32_t track_id) {
     }
   } else if (port->GetPortType() == CameraPortType::kVideo) {
     QMMF_INFO("%s Stop Video only \n", __func__);
-    auto ret = port->Stop();
+    auto ret = port->Stop(cached);
     assert(ret == NO_ERROR);
     port->RemoveConsumer(consumers_[track_id]);
     assert(ret == NO_ERROR);
@@ -1821,7 +1792,7 @@ status_t PreviewPort::Init(const StreamParam& param) {
   return NO_ERROR;
 }
 
-status_t PreviewPort::Start() {
+status_t PreviewPort::Start(bool cached) {
 
   std::lock_guard < std::mutex > lock(state_lock_);
   QMMF_VERBOSE("%s port type %d state %d ", __func__, (int32_t) GetPortType(),
@@ -1843,7 +1814,7 @@ status_t PreviewPort::Start() {
   return NO_ERROR;
 }
 
-status_t PreviewPort::Stop() {
+status_t PreviewPort::Stop(bool cached) {
 
   std::lock_guard < std::mutex > lock(state_lock_);
   QMMF_VERBOSE("%s port type %d state %d ", __func__, (int32_t) GetPortType(),
@@ -1890,7 +1861,7 @@ status_t VideoPort::Init(const StreamParam& param) {
   return NO_ERROR;
 }
 
-status_t VideoPort::Start() {
+status_t VideoPort::Start(bool cached) {
 
   std::lock_guard < std::mutex > lock(state_lock_);
   QMMF_VERBOSE("%s port type %d state %d ", __func__, (int32_t) GetPortType(),
@@ -1912,7 +1883,7 @@ status_t VideoPort::Start() {
   return NO_ERROR;
 }
 
-status_t VideoPort::Stop() {
+status_t VideoPort::Stop(bool cached) {
 
   std::lock_guard < std::mutex > lock(state_lock_);
   QMMF_VERBOSE("%s port type %d state %d ", __func__, (int32_t) GetPortType(),

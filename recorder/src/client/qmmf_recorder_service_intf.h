@@ -66,6 +66,7 @@
 #include <iomanip>
 #include <sstream>
 #include <string>
+#include <unordered_set>
 
 #include <unistd.h>
 
@@ -96,10 +97,10 @@ enum QMMF_RECORDER_SERVICE_CMDS {
   RECORDER_GET_NUMBER_OF_CAMERAS,
   RECORDER_CREATE_VIDEOTRACK,
   RECORDER_DELETE_VIDEOTRACK,
-  RECORDER_START_VIDEOTRACK,
-  RECORDER_STOP_VIDEOTRACK,
-  RECORDER_PAUSE_VIDEOTRACK,
-  RECORDER_RESUME_VIDEOTRACK,
+  RECORDER_START_VIDEOTRACKS,
+  RECORDER_STOP_VIDEOTRACKS,
+  RECORDER_PAUSE_VIDEOTRACKS,
+  RECORDER_RESUME_VIDEOTRACKS,
   RECORDER_RETURN_TRACKBUFFER,
   RECORDER_SET_VIDEOTRACK_PARAMS,
   RECORDER_CAPTURE_IMAGE,
@@ -212,17 +213,21 @@ class IRecorderService : public IInterface {
   virtual status_t DeleteVideoTrack(const uint32_t client_id,
                                     const uint32_t track_id) = 0;
 
-  virtual status_t StartVideoTrack(const uint32_t client_id,
-                                   const uint32_t track_id) = 0;
+  virtual status_t StartVideoTracks(
+      const uint32_t client_id,
+      const std::unordered_set<uint32_t>& track_ids) = 0;
 
-  virtual status_t StopVideoTrack(const uint32_t client_id,
-                                  const uint32_t track_id, bool do_flush) = 0;
+  virtual status_t StopVideoTracks(
+      const uint32_t client_id,
+      const std::unordered_set<uint32_t>& track_ids) = 0;
 
-  virtual status_t PauseVideoTrack(const uint32_t client_id,
-                                   const uint32_t track_id) = 0;
+  virtual status_t PauseVideoTracks(
+      const uint32_t client_id,
+      const std::unordered_set<uint32_t>& track_ids) = 0;
 
-  virtual status_t ResumeVideoTrack(const uint32_t client_id,
-                                    const uint32_t track_id) = 0;
+  virtual status_t ResumeVideoTracks(
+      const uint32_t client_id,
+      const std::unordered_set<uint32_t>& track_ids) = 0;
 
   virtual status_t ReturnTrackBuffer(const uint32_t client_id,
                                      const uint32_t track_id,

@@ -731,7 +731,7 @@ class GtestCommon : public ::testing::Test {
   nr_modes_            supported_nr_modes_;
   vhdr_modes_          supported_hdr_modes_;
 
-  typedef std::tuple<BufferDescriptor, CameraMetadata, uint32_t, uint32_t>
+  typedef std::tuple<BufferDescriptor, CameraMetadata, uint32_t>
       BufferMetaDataTuple;
   std::map <uint32_t, BufferMetaDataTuple > buffer_metadata_map_;
   std::mutex buffer_metadata_lock_;

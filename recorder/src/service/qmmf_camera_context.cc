@@ -1057,7 +1057,7 @@ status_t CameraContext::RemoveConsumer(const uint32_t& track_id,
   return NO_ERROR;
 }
 
-status_t CameraContext::StartStream(const uint32_t track_id) {
+status_t CameraContext::StartStream(const uint32_t track_id, bool cached) {
 
   auto port = GetPort(track_id);
   if (!port) {
@@ -1065,14 +1065,14 @@ status_t CameraContext::StartStream(const uint32_t track_id) {
     return BAD_VALUE;
   }
 
-  auto ret = port->Start();
+  auto ret = port->Start(cached);
   assert(ret == NO_ERROR);
   QMMF_INFO("%s: track_id(%d) started on port(0x%p)", __func__,
       track_id, port.get());
   return NO_ERROR;
 }
 
-status_t CameraContext::StopStream(const uint32_t track_id) {
+status_t CameraContext::StopStream(const uint32_t track_id, bool cached) {
 
   QMMF_DEBUG("%s: Enter", __func__);
   auto port = GetPort(track_id);
@@ -1081,7 +1081,7 @@ status_t CameraContext::StopStream(const uint32_t track_id) {
     return BAD_VALUE;
   }
 
-  auto ret = port->Stop();
+  auto ret = port->Stop(cached);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: Port Stop failed!!", __func__);
     return ret;
@@ -1719,7 +1719,7 @@ status_t CameraContext::SetPerStreamFrameRate() {
   return NO_ERROR;
 }
 
-status_t CameraContext::UpdateRequest(bool is_streaming) {
+status_t CameraContext::UpdateRequest(bool cached) {
 
   QMMF_DEBUG("%s: Enter", __func__);
   float max_fps = 0;
@@ -1730,6 +1730,7 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
   size_t size = active_ports_.size();
   size_t active_ports_number = size;
 
+  QMMF_INFO("%s: cached(%d)", __func__, cached);
   QMMF_INFO("%s: Number of active_ports(%d)", __func__, size);
 
   for (auto const& it : active_ports_) {
@@ -1889,9 +1890,19 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
       });
     }
 
+    // Recorder starts tracks one by one. Therefore we submit new
+    // request list for every track if there is no caching. We can avoid
+    // submitting of new request list for each track by caching it. Caching
+    // means that we skip submit request list for all streams except the
+    // last one. The last request list combine all streams anyway.
+    if (cached) {
+      QMMF_INFO("%s: Stream is cached. Skip SubmitRequest", __func__);
+      return NO_ERROR;
+    }
+
     int64_t last_frame_number = NO_IN_FLIGHT_REPEATING_FRAMES;
     std::unique_lock<std::mutex> pending_frames_lock(pending_frames_lock_);
-    auto req_id = camera_device_->SubmitRequestList(request_list, is_streaming,
+    auto req_id = camera_device_->SubmitRequestList(request_list, true,
                                                     &last_frame_number);
 
     QMMF_INFO("%s: last_frame_number: current=%lld previous=%lld", __func__,
@@ -2793,7 +2804,7 @@ status_t CameraPort::DeInit() {
   return ret;
 }
 
-status_t CameraPort::Start() {
+status_t CameraPort::Start(bool cached) {
 
   QMMF_VERBOSE("%s port type %d id %d state %d ", __func__,
     GetPortType(), GetPortId(), port_state_);
@@ -2811,7 +2822,7 @@ status_t CameraPort::Start() {
   QMMF_INFO("%s: track_id(%x):camera stream(%d) to start!", __func__,
       port_id_, camera_stream_id_);
 
-  auto ret = context_->UpdateRequest(true);
+  auto ret = context_->UpdateRequest(cached);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: UpdateRequest failed! for track_id = %d",
         __func__, port_id_);
@@ -2824,7 +2835,7 @@ status_t CameraPort::Start() {
   return NO_ERROR;
 }
 
-status_t CameraPort::Stop() {
+status_t CameraPort::Stop(bool cached) {
 
   QMMF_VERBOSE("%s port type %d id %d state %d ", __func__,
     GetPortType(), GetPortId(), port_state_);
@@ -2844,7 +2855,7 @@ status_t CameraPort::Stop() {
 
   // Stop basically removes the stream from current running capture request,
   // it doen't delete the stream.
-  auto ret = context_->UpdateRequest(true);
+  auto ret = context_->UpdateRequest(cached);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: CameraPort:Start:UpdateRequest failed! for track_id = %d"
         ,  __func__, port_id_);

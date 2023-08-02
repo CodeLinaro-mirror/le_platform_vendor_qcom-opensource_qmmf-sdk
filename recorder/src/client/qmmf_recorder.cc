@@ -164,49 +164,53 @@ status_t Recorder::DeleteVideoTrack(const uint32_t track_id) {
   return ret;
 }
 
-status_t Recorder::StartVideoTrack(const uint32_t track_id) {
+status_t Recorder::StartVideoTracks(
+    const std::unordered_set<uint32_t>& track_ids) {
 
   assert(recorder_client_ != NULL);
 
-  auto ret = recorder_client_->StartVideoTrack(track_id);
+  auto ret = recorder_client_->StartVideoTracks(track_ids);
   if (NO_ERROR != ret) {
-    QMMF_ERROR("%s: StartVideoTrack failed!", __func__);
+    QMMF_ERROR("%s: StartVideoTracks failed!", __func__);
   }
 
   return ret;
 }
 
-status_t Recorder::StopVideoTrack(const uint32_t track_id, bool do_flush) {
+status_t Recorder::StopVideoTracks(
+    const std::unordered_set<uint32_t>& track_ids) {
 
   assert(recorder_client_ != NULL);
 
-  auto ret = recorder_client_->StopVideoTrack(track_id, do_flush);
+  auto ret = recorder_client_->StopVideoTracks(track_ids);
   if (NO_ERROR != ret) {
-    QMMF_ERROR("%s: StopVideoTrack failed!", __func__);
+    QMMF_ERROR("%s: StopVideoTracks failed!", __func__);
   }
 
   return ret;
 }
 
-status_t Recorder::PauseVideoTrack(const uint32_t track_id) {
+status_t Recorder::PauseVideoTracks(
+    const std::unordered_set<uint32_t>& track_ids) {
 
   assert(recorder_client_ != NULL);
 
-  auto ret = recorder_client_->PauseVideoTrack(track_id);
+  auto ret = recorder_client_->PauseVideoTracks(track_ids);
   if (NO_ERROR != ret) {
-    QMMF_ERROR("%s: PauseVideoTrack failed!", __func__);
+    QMMF_ERROR("%s: PauseVideoTracks failed!", __func__);
   }
 
   return ret;
 }
 
-status_t Recorder::ResumeVideoTrack(const uint32_t track_id) {
+status_t Recorder::ResumeVideoTracks(
+    const std::unordered_set<uint32_t>& track_ids) {
 
   assert(recorder_client_ != NULL);
 
-  auto ret = recorder_client_->ResumeVideoTrack(track_id);
+  auto ret = recorder_client_->ResumeVideoTracks(track_ids);
   if (NO_ERROR != ret) {
-    QMMF_ERROR("%s: ResumeVideoTrack failed!", __func__);
+    QMMF_ERROR("%s: ResumeVideoTracks failed!", __func__);
   }
 
   return ret;
