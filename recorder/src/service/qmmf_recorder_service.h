@@ -127,17 +127,21 @@ class RecorderService : public BnInterface<IRecorderService> {
   status_t DeleteVideoTrack(const uint32_t client_id,
                             const uint32_t track_id) override;
 
-  status_t StartVideoTrack(const uint32_t client_id,
-                           const uint32_t track_id) override;
+  status_t StartVideoTracks(
+      const uint32_t client_id,
+      const std::unordered_set<uint32_t>& track_ids) override;
 
-  status_t StopVideoTrack(const uint32_t client_id,
-                          const uint32_t track_id, bool do_flush) override;
+  status_t StopVideoTracks(
+      const uint32_t client_id,
+      const std::unordered_set<uint32_t>& track_ids) override;
 
-  status_t PauseVideoTrack(const uint32_t client_id,
-                           const uint32_t track_id) override;
+  status_t PauseVideoTracks(
+      const uint32_t client_id,
+      const std::unordered_set<uint32_t>& track_ids) override;
 
-  status_t ResumeVideoTrack(const uint32_t client_id,
-                            const uint32_t track_id) override;
+  status_t ResumeVideoTracks(
+      const uint32_t client_id,
+      const std::unordered_set<uint32_t>& track_ids) override;
 
   status_t ReturnTrackBuffer(const uint32_t client_id,
                              const uint32_t track_id,

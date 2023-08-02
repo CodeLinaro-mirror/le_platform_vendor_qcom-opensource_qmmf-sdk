@@ -69,6 +69,7 @@
 #include <cstdlib>
 #include <vector>
 #include <string>
+#include <unordered_set>
 
 #include <camera/CameraMetadata.h>
 
@@ -172,33 +173,29 @@ class Recorder {
   ///
   /// This is an async API. When start is completed, track specific event cb
   /// is called by recorder
-  status_t StartVideoTrack(const uint32_t track_id);
+  status_t StartVideoTracks(const std::unordered_set<uint32_t>& track_ids);
 
   /// @brief Stops track corresponding to id.
-  /// If the do_flush flag is set to true,
-  /// the pending buffers in the pipeline is discarded else stop waits till
-  /// buffers in its pipeline is encoded.
   ///
-  /// EOS flag is set along with last buffer cb of each track within the
-  /// track. This is an async API. When stop is completed, track specific
+  /// This is an async API. When stop is completed, tracks specific
   /// event cb is called by recorder
-  status_t StopVideoTrack(const uint32_t track_id, bool do_flush);
+  status_t StopVideoTracks(const std::unordered_set<uint32_t>& track_ids);
 
-  /// @brief Pause track corresponding to id.
+  /// @brief Pause tracks corresponding to id.
   /// When the pause is called the camera
   /// device is not paused, but only encoding of the tracks
   /// is paused.
   ///
-  /// This is an async API. When pause is completed, track
+  /// This is an async API. When pause is completed, tracks
   /// specific event cb is called by recoder
-  status_t PauseVideoTrack(const uint32_t track_id);
+  status_t PauseVideoTracks(const std::unordered_set<uint32_t>& track_ids);
 
-  /// @brief Resumes track corresponding to id. When the track is resumed,
+  /// @brief Resumes tracks corresponding to id. When the tracks is resumed,
   /// the timestamp is resumed ignoring the duration of pause.
   ///
   /// This is an async API. When resume is completed,
-  /// track specific event cb is called by recorder
-  status_t ResumeVideoTrack(const uint32_t track_id);
+  /// tracks specific event cb is called by recorder
+  status_t ResumeVideoTracks(const std::unordered_set<uint32_t>& track_ids);
 
   /// @brief Capture burst or single images from a camera
   ///

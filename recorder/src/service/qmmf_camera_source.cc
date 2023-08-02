@@ -538,10 +538,6 @@ FAIL:
 
 status_t CameraSource::DeleteTrackSource(const uint32_t track_id) {
 
-  if (!IsTrackIdValid(track_id)) {
-    QMMF_ERROR("%s: Track(%x): does not exist !!", __func__, track_id);
-    return BAD_VALUE;
-  }
   auto const& track = track_sources_[track_id];
 
   auto ret = track->DeInit();
@@ -558,20 +554,86 @@ status_t CameraSource::DeleteTrackSource(const uint32_t track_id) {
   return ret;
 }
 
-status_t CameraSource::StartTrackSource(const uint32_t track_id) {
+status_t CameraSource::StartTrackSources(
+    const std::unordered_set<uint32_t>& track_ids) {
 
+  status_t ret = NO_ERROR;
   QMMF_KPI_DETAIL();
-  if (!IsTrackIdValid(track_id)) {
-    QMMF_ERROR("%s: Track(%x): does not exist !!", __func__, track_id);
-    return BAD_VALUE;
+
+  for (auto it = track_ids.begin(); it != track_ids.end(); ++it) {
+    uint32_t track_id = *it;
+    auto const& track = track_sources_[track_id];
+    bool cached = std::next(it) != track_ids.end();
+
+    ret = track->StartTrack(cached);
+    assert(ret == NO_ERROR);
+
+    QMMF_VERBOSE("%s: TrackSource id(%x) cached(%d) Started Successfully!",
+        __func__, track_id, cached);
   }
-  auto const& track = track_sources_[track_id];
 
-  auto ret = track->StartTrack();
-  assert(ret == NO_ERROR);
+  return ret;
+}
 
-  QMMF_VERBOSE("%s: TrackSource id(%x) Started Successfully!", __func__,
-      track_id);
+status_t CameraSource::StopTrackSources(
+    const std::unordered_set<uint32_t>& track_ids) {
+
+  status_t ret = NO_ERROR;
+  QMMF_KPI_DETAIL();
+
+  for (auto it = track_ids.begin(); it != track_ids.end(); ++it) {
+    uint32_t track_id = *it;
+    auto const& track = track_sources_[track_id];
+    bool cached = std::next(it) != track_ids.end();
+
+    ret = track->StopTrack(cached);
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s: Track(%x): Stop failed !!", __func__, track_id);
+      return ret;
+    }
+
+    QMMF_VERBOSE("%s: TrackSource id(%x) cached(%d) Stopped Successfully!",
+        __func__, track_id, cached);
+  }
+
+  return ret;
+}
+
+status_t CameraSource::PauseTrackSources(
+    const std::unordered_set<uint32_t>& track_ids) {
+
+  status_t ret = NO_ERROR;
+  QMMF_KPI_DETAIL();
+
+  for (auto& track_id : track_ids) {
+    auto const& track = track_sources_[track_id];
+
+    ret = track->PauseTrack();
+    assert(ret == NO_ERROR);
+
+    QMMF_VERBOSE("%s: TrackSource id(%x) Paused Successfully!", __func__,
+        track_id);
+  }
+
+  return ret;
+}
+
+status_t CameraSource::ResumeTrackSources(
+    const std::unordered_set<uint32_t>& track_ids) {
+
+  status_t ret = NO_ERROR;
+  QMMF_KPI_DETAIL();
+
+  for (auto& track_id : track_ids) {
+    auto const& track = track_sources_[track_id];
+
+    ret = track->ResumeTrack();
+    assert(ret == NO_ERROR);
+
+    QMMF_VERBOSE("%s: TrackSource id(%x) Resumed Successfully!", __func__,
+        track_id);
+  }
+
   return ret;
 }
 
@@ -588,60 +650,6 @@ status_t CameraSource::FlushTrackSource(const uint32_t track_id) {
   assert(ret == NO_ERROR);
 
   QMMF_VERBOSE("%s: TrackSource id(%x) Flush Buffers Successfully!", __func__,
-      track_id);
-  return ret;
-}
-
-status_t CameraSource::StopTrackSource(const uint32_t track_id) {
-
-  QMMF_KPI_DETAIL();
-  if (!IsTrackIdValid(track_id)) {
-    QMMF_ERROR("%s: Track(%x): does not exist !!", __func__, track_id);
-    return BAD_VALUE;
-  }
-  auto const& track = track_sources_[track_id];
-
-  auto ret = track->StopTrack();
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: Track(%x): Stop failed !!", __func__, track_id);
-    return ret;
-  }
-
-  QMMF_VERBOSE("%s: TrackSource id(%x) Stopped Successfully!", __func__,
-      track_id);
-  return ret;
-}
-
-status_t CameraSource::PauseTrackSource(const uint32_t track_id) {
-
-  QMMF_KPI_DETAIL();
-  if (!IsTrackIdValid(track_id)) {
-    QMMF_ERROR("%s: Track(%x): does not exist !!", __func__, track_id);
-    return BAD_VALUE;
-  }
-  auto const& track = track_sources_[track_id];
-
-  auto ret = track->PauseTrack();
-  assert(ret == NO_ERROR);
-
-  QMMF_VERBOSE("%s: TrackSource id(%x) Paused Successfully!", __func__,
-      track_id);
-  return ret;
-}
-
-status_t CameraSource::ResumeTrackSource(const uint32_t track_id) {
-
-  QMMF_KPI_DETAIL();
-  if (!IsTrackIdValid(track_id)) {
-    QMMF_ERROR("%s: Track(%x): does not exist !!", __func__, track_id);
-    return BAD_VALUE;
-  }
-  auto const& track = track_sources_[track_id];
-
-  auto ret = track->ResumeTrack();
-  assert(ret == NO_ERROR);
-
-  QMMF_VERBOSE("%s: TrackSource id(%x) Resumed Successfully!", __func__,
       track_id);
   return ret;
 }
@@ -1191,7 +1199,7 @@ status_t TrackSource::DeInit() {
   return ret;
 }
 
-status_t TrackSource::StartTrack() {
+status_t TrackSource::StartTrack(bool cached) {
 
   QMMF_DEBUG("%s: Enter Track(%x)", __func__, id_);
   std::lock_guard<std::mutex> lock(lock_);
@@ -1203,7 +1211,7 @@ status_t TrackSource::StartTrack() {
 
   status_t ret = NO_ERROR;
   if (slave_track_source_ == false) {
-    ret = camera_->StartStream(id_);
+    ret = camera_->StartStream(id_, cached);
     assert(ret == NO_ERROR);
   }
 
@@ -1246,7 +1254,7 @@ status_t TrackSource::Flush() {
   return NO_ERROR;
 }
 
-status_t TrackSource::StopTrack() {
+status_t TrackSource::StopTrack(bool cached) {
   status_t ret;
 
   QMMF_DEBUG("%s: Enter Track(%x)", __func__, id_);
@@ -1280,7 +1288,7 @@ status_t TrackSource::StopTrack() {
   }
 
   if (slave_track_source_ == false) {
-    ret = camera_->StopStream(id_);
+    ret = camera_->StopStream(id_, cached);
     assert(ret == NO_ERROR);
   }
 
