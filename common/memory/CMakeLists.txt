@@ -17,8 +17,6 @@ qmmf_memory_interface.cc
 qmmf_gralloc2_interface.cc)
 
 elseif(TARGET_USES_GBM)
-# TODO: set flag based on GBM versione
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DGBM_FREE_FD=${GBM_FREE_FD}")
 add_library(qmmf_memory_interface SHARED ${exclude}
 qmmf_memory_interface.cc
 qmmf_gbm_interface.cc)

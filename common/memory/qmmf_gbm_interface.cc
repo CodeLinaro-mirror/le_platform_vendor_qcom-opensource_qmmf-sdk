@@ -259,12 +259,22 @@ const std::unordered_map<int32_t, int32_t> GBMBuffer::from_gbm_ = {
 };
 
 GBMBuffer::~GBMBuffer() {
+
+  uint32_t duplicated = 0;
+
   if (!imported_) {
-#ifdef GBM_FREE_FD
-    close(fd_);
-#endif
     gbm_bo_destroy(generic_handle_);
+
+#ifdef GBM_PERFORM_GET_FD_WITH_NEW
+    gbm_perform(GBM_PERFORM_GET_FD_WITH_NEW, &duplicated);
+#endif // GBM_PERFORM_GET_FD_WITH_NEW
+
+    if (duplicated != 0) {
+      // The BO FD has been duplicated, we have to close it.
+      close(fd_);
+    }
   }
+
   if (nullptr != gralloc_handle_) {
     delete gralloc_handle_;
   }
@@ -381,8 +391,12 @@ void GBMDevice::DestroyGBMDevice() {
 GBMDevice::GBMDevice() {
   gbm_fd_ = open("/dev/dri/renderD128", O_RDWR);
   if (gbm_fd_ < 0) {
+    QMMF_WARN("%s: Falling back to /dev/dma_heap/qcom,system \n", __func__);
+    gbm_fd_ = open("/dev/dma_heap/qcom,system", O_RDWR);
+  }
+  if (gbm_fd_ < 0) {
     QMMF_WARN("%s: Falling back to /dev/ion \n", __func__);
-    gbm_fd_ = open(GBM_DEV_NAME, O_RDWR);
+    gbm_fd_ = open("/dev/ion", O_RDWR);
   }
   assert(gbm_fd_ >= 0);
   gbm_device_ = gbm_create_device(gbm_fd_);
