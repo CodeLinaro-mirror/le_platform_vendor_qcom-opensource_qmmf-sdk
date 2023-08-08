@@ -368,6 +368,15 @@ status_t RecorderClient::DeleteVideoTrack(const uint32_t track_id) {
     return BAD_VALUE;
   }
 
+  assert(client_id_ > 0);
+  auto ret = recorder_service_->DeleteVideoTrack(client_id_, track_id);
+  if (NO_ERROR != ret) {
+    QMMF_ERROR("%s track_id(%d) DeleteVideoTrack failed!", __func__, track_id);
+  } else {
+    std::lock_guard<std::mutex> l(track_cb_lock_);
+    track_cb_list_.erase(track_id);
+  }
+
   {
     std::lock_guard<std::mutex> l(track_buffers_lock_);
     if (track_buffers_map_.count(track_id) != 0) {
@@ -382,15 +391,6 @@ status_t RecorderClient::DeleteVideoTrack(const uint32_t track_id) {
       }
       track_buffers_map_.erase(track_id);
     }
-  }
-
-  assert(client_id_ > 0);
-  auto ret = recorder_service_->DeleteVideoTrack(client_id_, track_id);
-  if (NO_ERROR != ret) {
-    QMMF_ERROR("%s track_id(%d) DeleteVideoTrack failed!", __func__, track_id);
-  } else {
-    std::lock_guard<std::mutex> l(track_cb_lock_);
-    track_cb_list_.erase(track_id);
   }
 
   QMMF_DEBUG("%s Exit ", __func__);
