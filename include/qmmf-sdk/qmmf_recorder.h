@@ -181,22 +181,6 @@ class Recorder {
   /// event cb is called by recorder
   status_t StopVideoTracks(const std::unordered_set<uint32_t>& track_ids);
 
-  /// @brief Pause tracks corresponding to id.
-  /// When the pause is called the camera
-  /// device is not paused, but only encoding of the tracks
-  /// is paused.
-  ///
-  /// This is an async API. When pause is completed, tracks
-  /// specific event cb is called by recoder
-  status_t PauseVideoTracks(const std::unordered_set<uint32_t>& track_ids);
-
-  /// @brief Resumes tracks corresponding to id. When the tracks is resumed,
-  /// the timestamp is resumed ignoring the duration of pause.
-  ///
-  /// This is an async API. When resume is completed,
-  /// tracks specific event cb is called by recorder
-  status_t ResumeVideoTracks(const std::unordered_set<uint32_t>& track_ids);
-
   /// @brief Capture burst or single images from a camera
   ///
   /// This is an async API. When the image is ready, data callback specified

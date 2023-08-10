@@ -599,44 +599,6 @@ status_t CameraSource::StopTrackSources(
   return ret;
 }
 
-status_t CameraSource::PauseTrackSources(
-    const std::unordered_set<uint32_t>& track_ids) {
-
-  status_t ret = NO_ERROR;
-  QMMF_KPI_DETAIL();
-
-  for (auto& track_id : track_ids) {
-    auto const& track = track_sources_[track_id];
-
-    ret = track->PauseTrack();
-    assert(ret == NO_ERROR);
-
-    QMMF_VERBOSE("%s: TrackSource id(%x) Paused Successfully!", __func__,
-        track_id);
-  }
-
-  return ret;
-}
-
-status_t CameraSource::ResumeTrackSources(
-    const std::unordered_set<uint32_t>& track_ids) {
-
-  status_t ret = NO_ERROR;
-  QMMF_KPI_DETAIL();
-
-  for (auto& track_id : track_ids) {
-    auto const& track = track_sources_[track_id];
-
-    ret = track->ResumeTrack();
-    assert(ret == NO_ERROR);
-
-    QMMF_VERBOSE("%s: TrackSource id(%x) Resumed Successfully!", __func__,
-        track_id);
-  }
-
-  return ret;
-}
-
 status_t CameraSource::FlushTrackSource(const uint32_t track_id) {
 
   QMMF_KPI_DETAIL();
@@ -954,7 +916,6 @@ TrackSource::TrackSource(const uint32_t id,
       extraparams_(extraparams),
       buffer_cb_(cb),
       is_stop_(false),
-      is_paused_(false),
       is_idle_(true),
       fsc_(nullptr),
       frc_(nullptr),
@@ -1258,7 +1219,6 @@ status_t TrackSource::StopTrack(bool cached) {
   status_t ret;
 
   QMMF_DEBUG("%s: Enter Track(%x)", __func__, id_);
-  is_paused_ = false;
 
   std::lock_guard<std::mutex> lock(lock_);
   {
@@ -1303,44 +1263,6 @@ status_t TrackSource::StopTrack(bool cached) {
   return NO_ERROR;
 }
 
-status_t TrackSource::PauseTrack() {
-
-  QMMF_DEBUG("%s: Enter Track(%x)", __func__, id_);
-
-  std::lock_guard<std::mutex> lock(lock_);
-  is_paused_ = true;
-
-  assert(camera_.get() != nullptr);
-
-  if (slave_track_source_ == false) {
-    status_t ret = camera_->PauseStream(id_);
-    assert(ret == NO_ERROR);
-  }
-
-  std::lock_guard<std::mutex> idle_lock(idle_lock_);
-  is_idle_ = true;
-
-  return NO_ERROR;
-}
-
-status_t TrackSource::ResumeTrack() {
-
-  QMMF_DEBUG("%s: Enter Track(%x)", __func__, id_);
-
-  std::lock_guard<std::mutex> lock(lock_);
-  is_paused_ = false;
-
-  assert(camera_.get() != nullptr);
-
-  status_t ret = camera_->ResumeStream(id_);
-  assert(ret == NO_ERROR);
-
-  std::lock_guard<std::mutex> idle_lock(idle_lock_);
-  is_idle_ = false;
-
-  return NO_ERROR;
-}
-
 void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
 
   QMMF_VERBOSE("%s: Enter Track(%x)", __func__, id_);
@@ -1358,15 +1280,6 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
       }
       buffer_producer_->NotifyBuffer(buffer);
     }
-  }
-
-  if (IsPaused()) {
-    QMMF_DEBUG("%s: Track(%x): Pause is triggred, return buffer fd: %d ts: %lld",
-        __func__, id_, buffer.fd, buffer.timestamp);
-
-    std::lock_guard<std::mutex> lock(frame_lock_);
-    ReturnBufferToProducer(buffer);
-    return;
   }
 
   if (IsStop()) {
@@ -1462,11 +1375,6 @@ bool TrackSource::IsStop() {
   std::lock_guard<std::mutex> lock(stop_lock_);
   QMMF_VERBOSE("%s: Exit Track(%x)", __func__, id_);
   return is_stop_;
-}
-
-bool TrackSource::IsPaused() {
-
-  return is_paused_;
 }
 
 void TrackSource::UpdateFrameRate(const float framerate) {

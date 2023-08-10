@@ -879,20 +879,6 @@ status_t CameraContext::StopStream(const uint32_t track_id, bool cached) {
   return NO_ERROR;
 }
 
-status_t CameraContext::PauseStream(const uint32_t /* track_id */) {
-
-  // todo wait until image capture is done
-
-  return NO_ERROR;
-}
-
-status_t CameraContext::ResumeStream(const uint32_t /* track_id */) {
-
-  // todo wait until image capture is done
-
-  return NO_ERROR;
-}
-
 status_t CameraContext::SetCameraParam(const CameraMetadata &meta) {
 
   if (meta.exists(ANDROID_CONTROL_AWB_MODE)) {

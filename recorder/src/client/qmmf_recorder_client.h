@@ -122,10 +122,6 @@ class RecorderClient {
 
   status_t StopVideoTracks(const std::unordered_set<uint32_t>& track_ids);
 
-  status_t PauseVideoTracks(const std::unordered_set<uint32_t>& track_ids);
-
-  status_t ResumeVideoTracks(const std::unordered_set<uint32_t>& track_ids);
-
   status_t CaptureImage(const uint32_t camera_id,
                         const SnapshotType type,
                         const uint32_t n_images,

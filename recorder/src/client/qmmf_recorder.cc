@@ -190,32 +190,6 @@ status_t Recorder::StopVideoTracks(
   return ret;
 }
 
-status_t Recorder::PauseVideoTracks(
-    const std::unordered_set<uint32_t>& track_ids) {
-
-  assert(recorder_client_ != NULL);
-
-  auto ret = recorder_client_->PauseVideoTracks(track_ids);
-  if (NO_ERROR != ret) {
-    QMMF_ERROR("%s: PauseVideoTracks failed!", __func__);
-  }
-
-  return ret;
-}
-
-status_t Recorder::ResumeVideoTracks(
-    const std::unordered_set<uint32_t>& track_ids) {
-
-  assert(recorder_client_ != NULL);
-
-  auto ret = recorder_client_->ResumeVideoTracks(track_ids);
-  if (NO_ERROR != ret) {
-    QMMF_ERROR("%s: ResumeVideoTracks failed!", __func__);
-  }
-
-  return ret;
-}
-
 status_t Recorder::ReturnTrackBuffer(const uint32_t track_id,
                                      std::vector<BufferDescriptor> &buffers) {
 

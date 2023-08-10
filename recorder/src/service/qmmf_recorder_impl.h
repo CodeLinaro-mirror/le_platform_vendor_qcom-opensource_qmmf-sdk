@@ -148,14 +148,6 @@ class RecorderImpl {
                            const std::unordered_set<uint32_t>& track_ids,
                            bool force_cleanup = false);
 
-  /// Pause the tracks
-  status_t PauseVideoTracks(const uint32_t client_id,
-                            const std::unordered_set<uint32_t>& track_ids);
-
-  /// Resume the tracks
-  status_t ResumeVideoTracks(const uint32_t client_id,
-                             const std::unordered_set<uint32_t>& track_ids);
-
   /// Return Track buffers to Camera Source.
   status_t ReturnTrackBuffer(const uint32_t client_id,
                              const uint32_t track_id,
@@ -253,7 +245,6 @@ class RecorderImpl {
 
   enum class TrackState {
     kActive,
-    kPause,
     kIdle,
   };
 
@@ -283,7 +274,6 @@ class RecorderImpl {
   bool IsCameraOwned(const uint32_t& client_id, const uint32_t& camera_id);
 
   bool IsTrackActive(const uint32_t& client_id, const uint32_t& track_id);
-  bool IsTrackPaused(const uint32_t& client_id, const uint32_t& track_id);
   bool IsTrackIdle(const uint32_t& client_id, const uint32_t& track_id);
   void ChangeTrackState(const uint32_t& client_id,
                         const uint32_t& track_id,

@@ -99,8 +99,6 @@ enum QMMF_RECORDER_SERVICE_CMDS {
   RECORDER_DELETE_VIDEOTRACK,
   RECORDER_START_VIDEOTRACKS,
   RECORDER_STOP_VIDEOTRACKS,
-  RECORDER_PAUSE_VIDEOTRACKS,
-  RECORDER_RESUME_VIDEOTRACKS,
   RECORDER_RETURN_TRACKBUFFER,
   RECORDER_SET_VIDEOTRACK_PARAMS,
   RECORDER_CAPTURE_IMAGE,
@@ -218,14 +216,6 @@ class IRecorderService : public IInterface {
       const std::unordered_set<uint32_t>& track_ids) = 0;
 
   virtual status_t StopVideoTracks(
-      const uint32_t client_id,
-      const std::unordered_set<uint32_t>& track_ids) = 0;
-
-  virtual status_t PauseVideoTracks(
-      const uint32_t client_id,
-      const std::unordered_set<uint32_t>& track_ids) = 0;
-
-  virtual status_t ResumeVideoTracks(
       const uint32_t client_id,
       const std::unordered_set<uint32_t>& track_ids) = 0;
 
