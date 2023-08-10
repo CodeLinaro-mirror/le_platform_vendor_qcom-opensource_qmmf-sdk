@@ -1091,36 +1091,6 @@ status_t CameraContext::StopStream(const uint32_t track_id, bool cached) {
   return ret;
 }
 
-status_t CameraContext::PauseStream(const uint32_t track_id) {
-
-  QMMF_DEBUG("%s: Enter", __func__);
-  auto port = GetPort(track_id);
-  if (!port) {
-    QMMF_ERROR("%s: Invalid track_id(%x)", __func__, track_id);
-    return BAD_VALUE;
-  }
-
-  auto ret = port->Pause();
-  assert(ret == NO_ERROR);
-  QMMF_DEBUG("%s: Exit", __func__);
-  return NO_ERROR;
-}
-
-status_t CameraContext::ResumeStream(const uint32_t track_id) {
-
-  QMMF_DEBUG("%s: Enter", __func__);
-  auto port = GetPort(track_id);
-  if (!port) {
-    QMMF_ERROR("%s: Invalid track_id(%x)", __func__, track_id);
-    return BAD_VALUE;
-  }
-
-  auto ret = port->Resume();
-  assert(ret == NO_ERROR);
-  QMMF_DEBUG("%s: Exit", __func__);
-  return NO_ERROR;
-}
-
 status_t CameraContext::SetCameraParam(const CameraMetadata &meta) {
 
   QMMF_DEBUG("%s: Enter", __func__);

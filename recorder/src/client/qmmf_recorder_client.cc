@@ -455,56 +455,6 @@ status_t RecorderClient::StopVideoTracks(
   return ret;
 }
 
-status_t RecorderClient::PauseVideoTracks(
-    const std::unordered_set<uint32_t>& track_ids) {
-
-  QMMF_DEBUG("%s Enter ", __func__);
-  QMMF_KPI_DETAIL();
-  std::lock_guard<std::mutex> lock(lock_);
-
-  if (!CheckServiceStatus()) {
-    return NO_INIT;
-  }
-
-  if (!CheckTrackIdsValid(track_ids)) {
-    return BAD_VALUE;
-  }
-
-  assert(client_id_ > 0);
-  auto ret = recorder_service_->PauseVideoTracks(client_id_, track_ids);
-  if (NO_ERROR != ret) {
-    QMMF_ERROR("%s PauseVideoTracks failed!", __func__);
-  }
-
-  QMMF_DEBUG("%s Exit ", __func__);
-  return ret;
-}
-
-status_t RecorderClient::ResumeVideoTracks(
-    const std::unordered_set<uint32_t>& track_ids) {
-
-  QMMF_DEBUG("%s Enter ", __func__);
-  QMMF_KPI_DETAIL();
-  std::lock_guard<std::mutex> lock(lock_);
-
-  if (!CheckServiceStatus()) {
-    return NO_INIT;
-  }
-
-  if (!CheckTrackIdsValid(track_ids)) {
-    return BAD_VALUE;
-  }
-
-  assert(client_id_ > 0);
-  auto ret = recorder_service_->ResumeVideoTracks(client_id_, track_ids);
-  if (NO_ERROR != ret) {
-    QMMF_ERROR("%s ResumeVideoTracks failed!", __func__);
-  }
-
-  QMMF_DEBUG("%s Exit ", __func__);
-  return ret;
-}
-
 status_t RecorderClient::ReturnTrackBuffer(const uint32_t track_id,
                                            std::vector<BufferDescriptor>
                                            &buffers) {
@@ -1460,34 +1410,6 @@ class BpRecorderService: public BpInterface<IRecorderService> {
     }
     remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
         RECORDER_STOP_VIDEOTRACKS), data, &reply);
-    return reply.readInt32();
-  }
-
-  status_t PauseVideoTracks(const uint32_t client_id,
-                            const std::unordered_set<uint32_t>& track_ids) {
-    Parcel data, reply;
-    data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
-    data.writeUint32(client_id);
-    data.writeUint32(track_ids.size());
-    for (auto& id : track_ids) {
-      data.writeUint32(id);
-    }
-    remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
-                            RECORDER_PAUSE_VIDEOTRACKS), data, &reply);
-    return reply.readInt32();
-  }
-
-  status_t ResumeVideoTracks(const uint32_t client_id,
-                             const std::unordered_set<uint32_t>& track_ids) {
-    Parcel data, reply;
-    data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
-    data.writeUint32(client_id);
-    data.writeUint32(track_ids.size());
-    for (auto& id : track_ids) {
-      data.writeUint32(id);
-    }
-    remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
-                            RECORDER_RESUME_VIDEOTRACKS), data, &reply);
     return reply.readInt32();
   }
 

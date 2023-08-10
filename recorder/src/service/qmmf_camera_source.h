@@ -124,12 +124,6 @@ class CameraSource {
   /// Stop Track Source
   status_t StopTrackSources(const std::unordered_set<uint32_t>& track_ids);
 
-  /// Pause Track Source
-  status_t PauseTrackSources(const std::unordered_set<uint32_t>& track_ids);
-
-  /// Resume Track Source
-  status_t ResumeTrackSources(const std::unordered_set<uint32_t>& track_ids);
-
   /// Force return all pending buffers to producer
   status_t FlushTrackSource(const uint32_t track_id);
 
@@ -241,12 +235,6 @@ class TrackSource {
   /// Unlink track source with consumer and stops additional processing
   status_t StopTrack(bool cached);
 
-  /// Pause track source
-  status_t PauseTrack();
-
-  /// Resume track source
-  status_t ResumeTrack();
-
   // Global track specific params can be query from TrackSource during its life
   // cycle.
   /// Get Track parameters
@@ -262,9 +250,6 @@ class TrackSource {
 
   /// Return true if current state is different then running
   bool IsStop();
-
-  /// Return true if current state is different then running
-  bool IsPaused();
 
   /// Change frame rate
   void UpdateFrameRate(const float framerate);
@@ -302,7 +287,6 @@ class TrackSource {
   BnBufferCallback         buffer_cb_;
 
   bool                     is_stop_;
-  std::atomic<bool>        is_paused_;
   std::mutex               stop_lock_;
 
   std::mutex               lock_;

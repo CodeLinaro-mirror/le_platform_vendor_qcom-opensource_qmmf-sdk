@@ -221,34 +221,6 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
         return NO_ERROR;
       }
       break;
-      case RECORDER_PAUSE_VIDEOTRACKS: {
-        uint32_t client_id, n_tracks, id;
-        std::unordered_set<uint32_t> track_ids;
-        data.readUint32(&client_id);
-        data.readUint32(&n_tracks);
-        for (uint32_t idx = 0; idx < n_tracks; idx++)  {
-          data.readUint32(&id);
-          track_ids.emplace(id);
-        }
-        ret = PauseVideoTracks(client_id, track_ids);
-        reply->writeInt32(ret);
-        return NO_ERROR;
-      }
-      break;
-      case RECORDER_RESUME_VIDEOTRACKS: {
-        uint32_t client_id, n_tracks, id;
-        std::unordered_set<uint32_t> track_ids;
-        data.readUint32(&client_id);
-        data.readUint32(&n_tracks);
-        for (uint32_t idx = 0; idx < n_tracks; idx++)  {
-          data.readUint32(&id);
-          track_ids.emplace(id);
-        }
-        ret = ResumeVideoTracks(client_id, track_ids);
-        reply->writeInt32(ret);
-        return NO_ERROR;
-      }
-      break;
       case RECORDER_RETURN_TRACKBUFFER: {
         uint32_t client_id, track_id;
         data.readUint32(&client_id);
@@ -797,47 +769,6 @@ status_t RecorderService::StopVideoTracks(
   auto ret = recorder_->StopVideoTracks(client_id, track_ids);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: StopVideoTracks failed!", __func__);
-    return ret;
-  }
-  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
-  return NO_ERROR;
-}
-
-status_t RecorderService::PauseVideoTracks(
-    const uint32_t client_id,
-    const std::unordered_set<uint32_t>& track_ids) {
-
-  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
-
-  if (!IsRecorderInitialized()) {
-    QMMF_ERROR("%s: Recorder not initialized!", __func__);
-    return NO_INIT;
-  }
-
-  auto ret = recorder_->PauseVideoTracks(client_id, track_ids);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: PauseVideoTracks failed!", __func__);
-    return ret;
-  }
-  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
-  return NO_ERROR;
-}
-
-status_t RecorderService::ResumeVideoTracks(
-    const uint32_t client_id,
-    const std::unordered_set<uint32_t>& track_ids) {
-
-  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
-  QMMF_KPI_DETAIL();
-
-  if (!IsRecorderInitialized()) {
-    QMMF_ERROR("%s: Recorder not initialized!", __func__);
-    return NO_INIT;
-  }
-
-  auto ret = recorder_->ResumeVideoTracks(client_id, track_ids);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: ResumeVideoTracks failed!", __func__);
     return ret;
   }
   QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
