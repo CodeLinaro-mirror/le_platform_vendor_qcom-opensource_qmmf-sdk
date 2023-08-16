@@ -28,7 +28,7 @@
 *
 * Changes from Qualcomm Innovation Center are provided under the following license:
 *
-* Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted (subject to the limitations in the
@@ -219,11 +219,11 @@ class RecorderClient {
 
 #ifdef TARGET_USES_GBM
   void ImportBuffer(int32_t fd, int32_t metafd, const BufferMeta& meta);
-  void ReleaseBuffer(int32_t& fd);
+  void ReleaseBuffer(int32_t& fd, int32_t& meta_fd);
 #endif
 
-  status_t MapBuffer(BufferInfo& info);
-  status_t UnmapBuffer(BufferInfo& info);
+  status_t MapBuffer(BufferInfo& info, const BufferMeta& meta);
+  void UnmapBuffer(BufferInfo& info);
 
   void UpdateSessionTopology(const uint32_t& session_id,
                              const uint32_t& track_id,
