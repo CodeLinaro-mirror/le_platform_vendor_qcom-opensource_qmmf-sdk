@@ -229,7 +229,7 @@ status_t OfflineJpegEncoder::Create(const uint32_t client_id,
 
   JpegCreateParams create_params;
 
-  create_params.config.streamId = 0;
+  create_params.config.streamId = client_id;
   create_params.config.processMode = (PostProcMode)params.process_mode;
 
   create_params.config.inBuffer.width = params.in_buffer.width;
@@ -340,7 +340,7 @@ status_t OfflineJpegEncoder::Process(const uint32_t client_id,
     return NO_MEMORY;
   }
 
-  pproc_params->streamId = 0;
+  pproc_params->streamId = client_id;
   pproc_params->valid = true;
 
   camera_metadata_t *metadata = allocate_camera_metadata(1, 128);
