@@ -50,7 +50,8 @@ Camera3RequestHandler::Camera3RequestHandler(Camera3Monitor &monitor)
       monitor_(monitor),
       monitor_id_(Camera3Monitor::INVALID_ID),
       batch_size_(1),
-      run_worker_(false) {
+      run_worker_(false),
+      cam_opmode_(CamOperationMode::kCamOperationModeNone) {
   pthread_mutex_init(&lock_, NULL);
   cond_init(&requests_signal_);
   cond_init(&current_request_signal_);
@@ -509,10 +510,36 @@ int32_t Camera3RequestHandler::GetRequest(CaptureRequest &request) {
     if (!streaming_requests_.empty()) {
       RequestList request_list;
       RequestList::iterator it = streaming_requests_.begin();
+
       for (; it != streaming_requests_.end(); ++it) {
-        smooth_zoom_.Update(*it);
-        request_list.push_back(*it);
+        CaptureRequest realRequest;
+
+        if (CAM_OPMODE_IS_FRAMESELECTION(cam_opmode_)) {
+          cam_reqmode_lock_.lock();
+          if (cam_reqmode_params_.frame_selection.available_frames <= 0) {
+            realRequest.metadata = (*it).metadata;
+            realRequest.streams.push((*it).streams.editItemAt(0));
+            realRequest.resultExtras = (*it).resultExtras;
+            realRequest.input = (*it).input;
+
+            QMMF_INFO("%s:FrameSel: no frames(%d), generate req for preview",
+                __func__, cam_reqmode_params_.frame_selection.available_frames);
+          } else {
+            realRequest = *it;
+            cam_reqmode_params_.frame_selection.available_frames--;
+            QMMF_INFO("%s:FrameSel: remain frames = %d",
+                __func__, cam_reqmode_params_.frame_selection.available_frames);
+          }
+          cam_reqmode_lock_.unlock();
+        } else {
+          realRequest = *it;
+        }
+
+        smooth_zoom_.Update(realRequest);
+        request_list.push_back(realRequest);
       }
+
+
       const RequestList &requests = request_list;
       RequestList::const_iterator firstRequest = requests.begin();
       nextRequest = *firstRequest;
@@ -642,6 +669,56 @@ void Camera3RequestHandler::SignalError(const char *fmt, ...) {
     va_start(args, fmt);
     set_error_(fmt, args);
     va_end(args);
+  }
+}
+
+void Camera3RequestHandler::SetRequestMode(CamOperationMode mode) {
+  if (mode < CamOperationMode::kCamOperationModeNone ||
+       mode >= CamOperationMode::kCamOperationModeEnd) {
+    QMMF_ERROR("%s: Invalide Camera OpMode(%d)", __func__, mode);
+    return;
+  }
+
+  if (mode != cam_opmode_) {
+    cam_reqmode_lock_.lock();
+
+    cam_opmode_ = mode;
+    switch (cam_opmode_) {
+      case CamOperationMode::kCamOperationModeFrameSelection:
+        cam_reqmode_params_.frame_selection.total_selected_frames = 0;
+        cam_reqmode_params_.frame_selection.available_frames = 0;
+        break;
+      default:
+        break;
+    }
+
+    cam_reqmode_lock_.unlock();
+
+    QMMF_INFO("%s: Camera Operation Mode update (%d)", __func__, cam_opmode_);
+  }
+}
+
+void Camera3RequestHandler::UpdateRequestedStreams(CamReqModeInputParams &params) {
+  if (CAM_OPMODE_IS_FRAMESELECTION(cam_opmode_)) {
+    int32_t prev_frms, cur_frms;
+    uint32_t new_frms;
+
+    cam_reqmode_lock_.lock();
+
+    prev_frms = cam_reqmode_params_.frame_selection.total_selected_frames;
+    cur_frms = params.frame_selection.total_selected_frames;
+
+    if (prev_frms != cur_frms) {
+      new_frms = (uint32_t)(cur_frms - prev_frms);
+      cam_reqmode_params_.frame_selection.available_frames += new_frms;
+      cam_reqmode_params_.frame_selection.total_selected_frames = cur_frms;
+    }
+
+    cam_reqmode_lock_.unlock();
+
+    QMMF_INFO("%s:FrameSel: total selected frames(prev=%d cur=%d) available=%u",
+        __func__, prev_frms, cur_frms,
+        cam_reqmode_params_.frame_selection.available_frames);
   }
 }
 

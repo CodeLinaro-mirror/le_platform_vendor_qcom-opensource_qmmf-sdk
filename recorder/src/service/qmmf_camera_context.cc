@@ -425,6 +425,32 @@ status_t CameraContext::OpenCamera(const uint32_t camera_id,
     }
   }
 
+  if (extra_param.Exists(QMMF_CAM_OP_MODE_CONTROL)) {
+    size_t entry_count = extra_param.EntryCount(QMMF_CAM_OP_MODE_CONTROL);
+    if (entry_count == 1) {
+      CamOpModeControl mode_control;
+
+      extra_param.Fetch(QMMF_CAM_OP_MODE_CONTROL, mode_control, 0);
+      switch (mode_control.mode) {
+        case ExtraParameCamOpModeEnum::kCamOperationModeNone:
+          camera_parameters_.cam_opmode =
+            CamOperationMode::kCamOperationModeNone;
+          break;
+        case ExtraParameCamOpModeEnum::kCamOperationModeFrameSelection:
+          camera_parameters_.cam_opmode =
+            CamOperationMode::kCamOperationModeFrameSelection;
+          break;
+        default:
+          QMMF_ERROR("%s: Invalid camera operation mode %d",
+              __func__, mode_control.mode);
+          break;
+      }
+    } else {
+      QMMF_ERROR("%s: Invalid sensor mode received", __func__);
+      return BAD_VALUE;
+    }
+  }
+
   camera_parameters_.batch_size = 1;
 
   if (!camera_device_) {
