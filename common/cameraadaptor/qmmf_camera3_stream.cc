@@ -20,7 +20,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -733,6 +733,8 @@ void Camera3Stream::ReturnBufferToClient(const camera3_stream_buffer &buffer,
   assert(b.handle != nullptr);
   b.fd = b.handle->GetFD();
   b.size = b.handle->GetSize();
+  b.in_use_client = false;
+  b.in_use_camera = false;
   PopulateBufferMeta(b.info, b.handle);
   is_stream_active_ = true;
 

@@ -176,6 +176,7 @@ enum class VideoFlags : uint64_t {
   kIAEC     = 1 << 0, /// Wait Initial Auto Exposure Convergence.
   kUncashed = 1 << 1, /// Allocated buffers are not cached.
   kPreview  = 1 << 2, /// Indicate a preview stream
+  kReproc   = 1 << 3, /// Indicate a reprocess input stream
 };
 
 inline VideoFlags operator | (VideoFlags lhs, VideoFlags rhs) {

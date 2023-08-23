@@ -525,15 +525,41 @@ int32_t Camera3DeviceClient::ConfigureStreamsLocked(
   QMMF_INFO("%s: operation_mode: 0x%x \n", __func__, config.operation_mode);
 
 #if defined(CAMERA_HAL_API_VERSION) && (CAMERA_HAL_API_VERSION >= 0x0305)
-  camera_metadata_t *session_parameters = allocate_camera_metadata(1, 128);
+  camera_metadata_t *session_parameters = allocate_camera_metadata(2, 128);
   add_camera_metadata_entry(session_parameters,
                             ANDROID_CONTROL_AE_TARGET_FPS_RANGE,
                             frame_rate_range_, 2);
+
+  if (IsInputROIMode()) {
+    ::camera::CameraMetadata *meta = new ::camera::CameraMetadata();
+    uint32_t tag_id = 0;
+    bool roienable = true;
+    const ::android::sp<::camera::VendorTagDescriptor> vtags =
+        ::camera::VendorTagDescriptor::getGlobalVendorTagDescriptor();
+    if (vtags.get() == NULL) {
+      QMMF_ERROR ("Failed to retrieve Global Vendor Tag Descriptor!");
+      return -1;
+    }
+
+    meta->getTagFromName(
+        "org.codeaurora.qcamera3.sessionParameters.MultiRoIEnable",
+        vtags.get(), &tag_id);
+
+    add_camera_metadata_entry(session_parameters,
+                              tag_id,
+                              &roienable, 1);
+  }
 
   config.session_parameters = session_parameters;
 #endif
 
   Vector<camera3_stream_t *> streams;
+
+  if (0 <= input_stream_.stream_id) {
+    input_stream_.usage = 0; // Reset any previously set usage flags from Hal
+    streams.add(&input_stream_);
+  }
+
   for (size_t i = 0; i < streams_.size(); i++) {
     camera3_stream_t *outputStream;
     outputStream = streams_.editValueAt(i)->BeginConfigure();
@@ -542,11 +568,6 @@ int32_t Camera3DeviceClient::ConfigureStreamsLocked(
       return -ENOSYS;
     }
     streams.add(outputStream);
-  }
-
-  if (0 <= input_stream_.stream_id) {
-    input_stream_.usage = 0; //Reset any previously set usage flags from Hal
-    streams.add(&input_stream_);
   }
 
   config.streams = streams.editArray();
@@ -1924,11 +1945,8 @@ int32_t Camera3DeviceClient::GetRequestListLocked(
       return -EINVAL;
     }
 
-    if (newRequest.input == nullptr) {
-      requestList->push_back(newRequest);
-    } else {
-      requestListReproc->push_back(newRequest);
-    }
+    requestList->push_back(newRequest);
+
   }
 
   return 0;
@@ -2352,6 +2370,11 @@ void Camera3DeviceClient::torchModeStatusChange(
     const struct camera_module_callbacks *, const char *camera_id,
     int new_status) {
   // TODO: No implementation yet
+}
+
+bool Camera3DeviceClient::IsInputROIMode() {
+  return (cam_feature_flags_ &
+          static_cast<uint32_t>(CamFeatureFlag::kInputROIEnable));
 }
 
 uint32_t Camera3DeviceClient::GetOpMode() {
