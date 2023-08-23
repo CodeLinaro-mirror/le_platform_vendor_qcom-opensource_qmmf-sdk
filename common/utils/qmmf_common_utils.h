@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -111,6 +111,8 @@ struct StreamBuffer {
   void *data;
   uint32_t flags;
   bool second_thumb;
+  bool in_use_camera;
+  bool in_use_client;
 
   ::std::string ToString() const {
     ::std::stringstream stream;
@@ -123,8 +125,16 @@ struct StreamBuffer {
     stream << "flags[" << ::std::setbase(16) << flags << ::std::setbase(10)
            << "]";
     stream << "second_thumb[" << second_thumb << "] ";
+    stream << "in_use_client[" << in_use_client << "] ";
+    stream << "in_use_camera[" << in_use_camera << "] ";
     return stream.str();
   }
+};
+
+struct ReprocEntry {
+  StreamBuffer    buffer;
+  ::camera::CameraMetadata  result;
+  int64_t         timestamp;
 };
 
 /** Property:

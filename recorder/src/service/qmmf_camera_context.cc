@@ -136,6 +136,11 @@ CameraContext::CameraContext()
       is_camera_dead_(false),
       pending_cached_stream_(false),
       hfr_detected_(false),
+      enable_reproc_(false),
+      multi_roi_count_(0),
+      multi_roi_count_tag_(0),
+      multi_roi_info_tag_(0),
+      multi_roi_info_{},
       hfr_wait_ports_ready_(false) {
 
   QMMF_INFO("%s: Enter", __func__);
@@ -447,6 +452,22 @@ status_t CameraContext::OpenCamera(const uint32_t camera_id,
       }
     } else {
       QMMF_ERROR("%s: Invalid sensor mode received", __func__);
+      return BAD_VALUE;
+    }
+  }
+
+  if (extra_param.Exists(QMMF_INPUT_ROI)) {
+    size_t entry_count = extra_param.EntryCount(QMMF_INPUT_ROI);
+    if (entry_count == 1) {
+      InputROISetup input_roi;
+      extra_param.Fetch(QMMF_INPUT_ROI, input_roi, 0);
+      if (input_roi.enable == true) {
+        QMMF_INFO("%s: Input ROI reprocess usecase is ON..", __func__);
+        camera_parameters_.cam_feature_flags |=
+            static_cast<uint32_t>(CamFeatureFlag::kInputROIEnable);
+      }
+    } else {
+      QMMF_ERROR("%s: Invalid Input ROI param received", __func__);
       return BAD_VALUE;
     }
   }
@@ -965,6 +986,7 @@ status_t CameraContext::GetBatchSize(const StreamParam& param,
 status_t CameraContext::CreateStream(const StreamParam& param,
                                      const VideoExtraParam& extra_param) {
 
+  int32_t stream_id = -1;
   QMMF_VERBOSE("%s: Enter", __func__);
   // 1. Check if streaming request already is going on, if yes then cancel it
   //    and reconfigure it with adding new request.
@@ -1007,7 +1029,7 @@ status_t CameraContext::CreateStream(const StreamParam& param,
     std::lock_guard<std::mutex> lk(prepare_lock_);
     char prop[PROPERTY_VALUE_MAX];
 
-    auto stream_id = port->GetCameraStreamId();
+    stream_id = port->GetCameraStreamId();
     property_get("persist.qmmf.static.mem.alloc", prop, "0");
     stream_prepared_[stream_id] = (std::stoi(prop) == 0) ? true : false;
 
@@ -1029,6 +1051,14 @@ status_t CameraContext::CreateStream(const StreamParam& param,
                                CAMERA3_TEMPLATE_VIDEO_RECORD);
     assert(ret == NO_ERROR);
     QMMF_INFO("%s: Global Streaming request created successfully!",__func__);
+  }
+
+  if (enable_reproc_) {
+    reproc_out_stream_ids_.push_back(stream_id);
+  }
+
+  if (static_cast<bool>(param.flags & VideoFlags::kReproc)) {
+    enable_reproc_ = true;
   }
 
   // Add port to list of active ports.
@@ -1184,6 +1214,25 @@ status_t CameraContext::SetCameraParam(const ::camera::CameraMetadata &meta) {
     streaming_request_id_ = 0;
     is_standby = true;
   }
+
+  // Check if Multi ROI info is present and store it in global variable.
+  if ((meta.getTagFromName(
+      "com.qti.camera.multiROIinfo.streamROICount",
+      vtags.get(), &tag_id) == 0) &&  meta.exists(tag_id)) {
+    multi_roi_count_ = meta.find(tag_id).data.i32[0];
+    multi_roi_count_tag_ = tag_id;
+  }
+
+  if ((meta.getTagFromName(
+      "com.qti.camera.multiROIinfo.streamROIInfo",
+      vtags.get(), &tag_id) == 0) &&  meta.exists(tag_id)) {
+    multi_roi_info_.clear();
+    for (int i = 0; i < multi_roi_count_ * 4; i++){
+      multi_roi_info_.push_back(meta.find(tag_id).data.i32[i]);
+    }
+    multi_roi_info_tag_ = tag_id;
+  }
+
 
   std::lock_guard<std::mutex> lock(device_access_lock_);
   if ((!streaming_active_requests_.empty()) &&
@@ -1829,6 +1878,7 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
     int32_t cam_stream_id = port->GetCameraStreamId();
     size_t batch_size = port->GetPortBatchSize();
     QMMF_INFO("%s: cam_stream_id(%d)", __func__, cam_stream_id);
+
     if (port->getPortState() == PortState::PORT_READYTOSTART) {
 
       QMMF_INFO("%s: CameraPort(0x%p):camera_stream_id(%d) is ready to"
@@ -1843,7 +1893,10 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
         if (std::find(streaming_active_requests_[i].streamIds.begin(),
                       streaming_active_requests_[i].streamIds.end(),
                       cam_stream_id) ==
-                      streaming_active_requests_[i].streamIds.end()) {
+                      streaming_active_requests_[i].streamIds.end() &&
+                      !(std::count(reproc_out_stream_ids_.begin(),
+                      reproc_out_stream_ids_.end(),
+                      cam_stream_id) > 0)) {
           // Stream ID not found, so add now.
           streaming_active_requests_[i].streamIds.add(cam_stream_id);
           QMMF_DEBUG("%s: CameraPort(0x%p):camera_stream_id(%d) is adding to "
@@ -2165,26 +2218,33 @@ status_t CameraContext::ResumeActiveStreams(bool state_only) {
 }
 
 status_t CameraContext::ReturnStreamBuffer(StreamBuffer buffer) {
+  int32_t ret = NO_ERROR;
+
   QMMF_DEBUG("%s: camera_id: %d, stream_id: %d, buffer: %p ts: %lld "
       "frame_number: %d", __func__, buffer.camera_id, buffer.stream_id,
       buffer.handle, buffer.timestamp, buffer.frame_number);
 
-  auto ret = camera_device_->ReturnStreamBuffer(buffer);
-  assert(ret == NO_ERROR);
+  if(!buffer.in_use_client && !buffer.in_use_camera) {
+    ret = camera_device_->ReturnStreamBuffer(buffer);
+    assert(ret == NO_ERROR);
 
-  std::lock_guard<std::mutex> lock(pending_frames_lock_);
-  if (removed_stream_ids_.count(buffer.stream_id) != 0) {
-    QMMF_DEBUG("%s: removed_stream_ids_.size(%d)", __func__,
-        removed_stream_ids_.size());
-    QMMF_DEBUG("%s: last_frame_number_map_[%d]=%lld, "
-        "buffer.frame_number: %u", __func__,
-        buffer.stream_id, last_frame_number_map_[buffer.stream_id],
-        buffer.frame_number);
-    if (last_frame_number_map_[buffer.stream_id] == buffer.frame_number) {
-      removed_stream_ids_.erase(buffer.stream_id);
-      last_frame_number_map_.erase(buffer.stream_id);
-      pending_frames_.Signal();
+    std::lock_guard<std::mutex> lock(pending_frames_lock_);
+    if (removed_stream_ids_.count(buffer.stream_id) != 0) {
+      QMMF_DEBUG("%s: removed_stream_ids_.size(%d)", __func__,
+          removed_stream_ids_.size());
+      QMMF_DEBUG("%s: last_frame_number_map_[%d]=%lld, "
+          "buffer.frame_number: %u", __func__,
+          buffer.stream_id, last_frame_number_map_[buffer.stream_id],
+          buffer.frame_number);
+      if (last_frame_number_map_[buffer.stream_id] == buffer.frame_number) {
+        removed_stream_ids_.erase(buffer.stream_id);
+        last_frame_number_map_.erase(buffer.stream_id);
+        pending_frames_.Signal();
+      }
     }
+  } else {
+    QMMF_DEBUG ("%s: buffer.handle %p is in use by client %d and camera %d",
+        __func__, buffer.handle, buffer.in_use_client, buffer.in_use_camera);
   }
 
   return ret;
@@ -2599,6 +2659,11 @@ void CameraContext::HandleFinalResult(const CaptureResult &result) {
       aec_.timestamp = timestamp;
       aec_state_updated_.Signal();
     }
+    if (enable_reproc_) {
+      auto reproc_port = std::static_pointer_cast<CameraPort>(GetPort(reproc_port_id_));
+      assert(reproc_port.get() != nullptr);
+      reproc_port->HandleReprocCaptureResult(&result, nullptr);
+    }
   }
 
   if (snapshot_param_.mode == ImageMode::kZsl) {
@@ -2742,6 +2807,10 @@ CameraPort::CameraPort(const StreamParam& param,
       params_(param),
       ready_to_start_(false),
       port_id_(param.id),
+      reproc_input_stream_id_(-1),
+      reproc_queue_{},
+      reproc_input_buffer_{},
+      cameraport_enable_reproc_(false),
       camera_parameters_(camera_parameters) {
 
   QMMF_INFO("%s: Enter", __func__);
@@ -2846,6 +2915,31 @@ status_t CameraPort::Init() {
   assert(context_ != nullptr);
 
   int32_t stream_id;
+
+  if (static_cast<bool>(params_.flags & VideoFlags::kReproc)) {
+    // Create Input stream for reprocess.
+    cameraport_enable_reproc_ = true;
+    context_->SetReprocPortId(GetPortId());
+    input_stream_params_ = {};
+    input_stream_params_.format = HAL_PIXEL_FORMAT_YCbCr_420_888;
+    input_stream_params_.width  = params_.width;
+    input_stream_params_.height = params_.height;
+    input_stream_params_.get_input_buffer = [&] (StreamBuffer& buffer)
+        { GetReprocInputBuffer(buffer); };
+    input_stream_params_.return_input_buffer  = [&] (StreamBuffer& buffer)
+        { ReturnReprocInputBuffer(buffer); };
+
+    auto ret = context_->CreateDeviceInputStream(input_stream_params_, &stream_id, true);
+    if (NO_ERROR != ret) {
+      QMMF_ERROR("%s Failed to create input reprocess stream: %d",
+                 __func__, ret);
+      return ret;
+    }
+    assert(stream_id >= 0);
+    reproc_input_stream_id_ = stream_id;
+    QMMF_INFO("%s: reproc input_stream_id_(%d)", __func__, reproc_input_stream_id_);
+  }
+
   auto ret = context_->CreateDeviceStream(cam_stream_params_,
                                           params_.framerate, &stream_id, true);
   if (ret != NO_ERROR || stream_id < 0) {
@@ -3037,6 +3131,97 @@ bool CameraPort::IsConsumerConnected(sp<IBufferConsumer>& consumer) {
   return (consumers_.count(key) != 0) ? true : false;
 }
 
+void CameraPort::HandleReprocCaptureResult(const CaptureResult *result, StreamBuffer *buffer) {
+
+  QMMF_VERBOSE("%s Enter ", __func__);
+
+  if (0 <= camera_stream_id_) {
+    int64_t timestamp;
+    if (result != nullptr && result->metadata.exists(ANDROID_SENSOR_TIMESTAMP)) {
+      timestamp = result->metadata.find(ANDROID_SENSOR_TIMESTAMP).data.i64[0];
+    } else if (buffer == nullptr) {
+      QMMF_ERROR("%s Sensor timestamp tag missing in result!\n",
+        __func__);
+      return;
+    }
+
+    {
+      std::lock_guard<std::mutex> l(reproc_queue_lock_);
+      bool append = true;
+      if (!reproc_queue_.empty()) {
+        std::list<ReprocEntry>::iterator it = reproc_queue_.begin();
+        std::list<ReprocEntry>::iterator end = reproc_queue_.end();
+        while (it != end) {
+          if ( result != nullptr && it->timestamp == timestamp) {
+            it->result.append(result->metadata);
+            append = false;
+            break;
+          } else if (buffer != nullptr && it->timestamp == buffer->timestamp) {
+              it->buffer = *buffer;
+              append = false;
+              break;
+            }
+          it++;
+        }
+      }
+
+      if (append) {
+        //Buffer is missing append to queue directly
+        ReprocEntry new_entry{};
+        if (result != nullptr) {
+          new_entry.result.append(result->metadata);
+          new_entry.timestamp = timestamp;
+          reproc_queue_.push_back(new_entry);
+        } else if (buffer != nullptr) {
+          new_entry.buffer = *buffer;
+          new_entry.timestamp = buffer->timestamp;
+          new_entry.result.clear();
+          reproc_queue_.push_back(new_entry);
+        }
+      } else {
+        Camera3Request reprocess_request;
+        int64_t last_frame_number;
+        ReprocEntry input_entry{};
+        input_entry.timestamp = -1;
+        if (reproc_queue_.size()) {
+          reproc_queue_.remove_if([](ReprocEntry entry) {
+            return entry.buffer.handle == NULL;
+          });
+
+          input_entry = reproc_queue_.back();
+        }
+        if (input_entry.buffer.handle != NULL && !input_entry.result.isEmpty()) {
+          int32_t roi_count = context_->GetROICount();
+          std::vector<int32_t> roi_info = context_->GetROIInfo();
+          int32_t roi_info_arr[roi_count * 4];
+          uint32_t roi_count_tag = context_->GetROICountTag();
+          uint32_t roi_info_tag = context_->GetROIInfoTag();
+          for (int i = 0; i < roi_info.size(); i++)
+            roi_info_arr[i] = roi_info[i];
+
+          reprocess_request.streamIds.add(reproc_input_stream_id_);
+          std::vector<int32_t> reproc_stream_ids = context_->GetReprocOutputStreamIds();
+
+          for (auto id: reproc_stream_ids)
+            reprocess_request.streamIds.add(id);
+
+          reprocess_request.metadata = input_entry.result;
+          reprocess_request.metadata.update(roi_count_tag, &roi_count, 1);
+          reprocess_request.metadata.update(roi_info_tag, roi_info_arr, roi_count*4);
+
+          // Submit one request containing single shot meta entries.
+          auto ret = context_->SubmitRequest(reprocess_request, false,
+                                                   &last_frame_number);
+          assert(ret >= 0);
+        } else {
+          QMMF_ERROR ("Reproc buffer handle found to be NULL skipping");
+        }
+      }
+    }
+  }
+  QMMF_VERBOSE("%s Exit ", __func__);
+}
+
 void CameraPort::StreamCallback(StreamBuffer buffer) {
 
   QMMF_VERBOSE("%s: Enter stream_id(%d)", __func__, buffer.stream_id);
@@ -3065,6 +3250,11 @@ void CameraPort::StreamCallback(StreamBuffer buffer) {
     skip_frame = !(aec_converged_ && (buffer.timestamp >= aec_timestamp_));
   }
 
+  if (cameraport_enable_reproc_ && !(getPortState() == PortState::PORT_READYTOSTOP)) {
+    buffer.in_use_camera = true;
+    HandleReprocCaptureResult(nullptr, &buffer);
+  }
+  buffer.in_use_client = true;
   std::lock_guard<std::mutex> lock(consumer_lock_);
   if (buffer_producer_impl_->GetNumConsumer() > 0 && !skip_frame) {
     buffer_producer_impl_->NotifyBuffer(buffer);
@@ -3094,6 +3284,36 @@ uint32_t CameraPort::GetExtraBufferCount() {
   QMMF_DEBUG("%s: Number of extra buffers added: %u", __func__,
              extra_buffer_count);
   return extra_buffer_count;
+}
+
+void CameraPort::GetReprocInputBuffer(StreamBuffer& buffer) {
+
+  std::lock_guard<std::mutex> l(reproc_queue_lock_);
+  if(reproc_queue_.size())
+    reproc_input_buffer_ = *reproc_queue_.begin();
+  buffer = reproc_input_buffer_.buffer;
+  QMMF_INFO("%s buffer(%d) submitted for reprocess with handle %p!", __func__,
+    buffer.fd, buffer.handle);
+  reproc_queue_.erase(reproc_queue_.begin());
+}
+
+void CameraPort::ReturnReprocInputBuffer(StreamBuffer& buffer) {
+
+  QMMF_DEBUG("%s: Enter ", __func__);
+  if (buffer.handle != NULL) {
+    buffer.in_use_camera = false;
+    buffer.stream_id = 1;
+    assert (context_ != nullptr);
+    auto ret = context_->ReturnStreamBuffer(buffer);
+    if (NO_ERROR != ret) {
+      QMMF_ERROR("%s Failed to return input buffer: %d\n", __func__,
+          ret);
+    }
+  } else {
+    QMMF_ERROR ("%s: Returned Buffer handle is NULL", __func__);
+  }
+
+  QMMF_DEBUG("%s: Exit ", __func__);
 }
 
 ZslPort::ZslPort(const StreamParam& param,

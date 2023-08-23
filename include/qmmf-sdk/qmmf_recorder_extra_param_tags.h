@@ -89,6 +89,7 @@ enum ParamTag {
   QMMF_FRAME_RATE_CONTROL,
   QMMF_IFE_DIRECT_STREAM,
   QMMF_CAM_OP_MODE_CONTROL,
+  QMMF_INPUT_ROI,
 };
 
 enum class SlaveMode {
@@ -278,6 +279,16 @@ struct CamOpModeControl: DataTagBase {
       /**< add to support special camera pipelines */
       /**< by default, no special camera mode will be passed */
       mode(ExtraParameCamOpModeEnum::kCamOperationModeNone) {}
+};
+
+struct InputROISetup: DataTagBase {
+  /**< Add support for client to enable/disable */
+  /**< Input ROI reprocess usecase */
+  /**< Default: False */
+  bool enable;
+  InputROISetup() :
+    DataTagBase(QMMF_INPUT_ROI), enable(false) {
+  }
 };
 
 }; //namespace recorder.
