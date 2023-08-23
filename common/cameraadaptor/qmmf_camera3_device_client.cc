@@ -105,6 +105,7 @@
 #define LDC_ENABLE                            (0xF800)
 #define LCAC_ENABLE                           (0x100000)
 #define IFE_DIRECT_STREAM                     (1 << 25)
+#define CAM_OPMODE_FRAME_SELECTION            (0xF400)
 #endif
 
 // Convenience macros for transitioning to the error state
@@ -154,7 +155,8 @@ Camera3DeviceClient::Camera3DeviceClient(CameraClientCallbacks clientCb)
       fps_sensormode_index_(0),
       prepare_handler_(),
       input_stream_{},
-      is_camera_device_available_ (true) {
+      is_camera_device_available_ (true),
+      cam_opmode_ (CamOperationMode::kCamOperationModeNone) {
   QMMF_GET_LOG_LEVEL();
   camera3_callback_ops::notify = &notifyFromHal;
   camera3_callback_ops::process_capture_result = &processCaptureResult;
@@ -479,6 +481,8 @@ int32_t Camera3DeviceClient::ConfigureStreams(
   batch_size_ = stream_config.batch_size;
   frame_rate_range_[0] = stream_config.frame_rate_range[0];
   frame_rate_range_[1] = stream_config.frame_rate_range[1];
+  cam_opmode_ = stream_config.cam_opmode;
+  request_handler_.SetRequestMode(cam_opmode_);
 
   if (force_reconfiguration) {
     cam_feature_flags_ = stream_config.cam_feature_flags;
@@ -1252,6 +1256,31 @@ void Camera3DeviceClient::HandleCaptureResult(
       request.partialResult.partial3AReceived = HandlePartialResult(
           frameNumber, request.partialResult.composedResult,
           request.resultExtras);
+
+    }
+
+    if (result->partial_result == 1 &&
+        CAM_OPMODE_IS_FRAMESELECTION(cam_opmode_)) {
+      uint32_t tag = 0;
+      camera_metadata_ro_entry entry;
+      int32_t res;
+
+      sp<::camera::VendorTagDescriptor> vTags =
+          ::camera::VendorTagDescriptor::getGlobalVendorTagDescriptor();
+
+      ::camera::CameraMetadata::getTagFromName(
+          "org.quic.camera.frameselection.updatedPickedFrames",
+          vTags.get(), &tag);
+
+      if (tag > 0) {
+        res = find_camera_metadata_ro_entry(result->result, tag, &entry);
+        if (res == 0 && entry.count > 0) {
+          CamReqModeInputParams params;
+
+          params.frame_selection.total_selected_frames = entry.data.i32[0];
+          request_handler_.UpdateRequestedStreams(params);
+        }
+      }
     }
   }
 
@@ -1490,24 +1519,30 @@ void Camera3DeviceClient::SendCaptureResult(
     return;
   }
 
-  if (resultExtras.input) {
-    if (frameNumber < next_result_input_frame_number_) {
-      SET_ERR(
-          "Out-of-order result received! "
-          "(arriving frame number %d, expecting %d)",
-          frameNumber, next_result_input_frame_number_);
-      return;
+  // when camera operation mode is frame selection, video packets from
+  // pickframe node will be held on EISv3 module for several seconds at most
+  // so frame sequence passed by camx will be out of order,
+
+  if (!CAM_OPMODE_IS_FRAMESELECTION(cam_opmode_)) {
+    if (resultExtras.input) {
+      if (frameNumber < next_result_input_frame_number_) {
+        SET_ERR(
+            "Out-of-order result received! "
+            "(arriving frame number %d, expecting %d)",
+            frameNumber, next_result_input_frame_number_);
+        return;
+      }
+      next_result_input_frame_number_ = frameNumber + 1;
+    } else {
+      if (frameNumber < next_result_frame_number_) {
+        SET_ERR(
+            "Out-of-order result received! "
+            "(arriving frame number %d, expecting %d)",
+            frameNumber, next_result_frame_number_);
+        return;
+      }
+      next_result_frame_number_ = frameNumber + 1;
     }
-    next_result_input_frame_number_ = frameNumber + 1;
-  } else {
-    if (frameNumber < next_result_frame_number_) {
-      SET_ERR(
-          "Out-of-order result received! "
-          "(arriving frame number %d, expecting %d)",
-          frameNumber, next_result_frame_number_);
-      return;
-    }
-    next_result_frame_number_ = frameNumber + 1;
   }
 
   CaptureResult captureResult;
@@ -2378,6 +2413,10 @@ uint32_t Camera3DeviceClient::GetOpMode() {
     QMMF_INFO("%s: IFEDirectStream OpMode Set, operation_mode = 0x%x \n",
         __func__, operation_mode);
   }
+
+  if (CAM_OPMODE_IS_FRAMESELECTION(cam_opmode_))
+    operation_mode |= CAM_OPMODE_FRAME_SELECTION;
+
 #endif
 
   QMMF_DEBUG("%s: Exit: \n", __func__);
