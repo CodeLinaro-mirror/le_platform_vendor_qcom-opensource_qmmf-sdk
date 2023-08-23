@@ -172,7 +172,9 @@ status_t CameraSource::StartCamera(const uint32_t camera_id,
   active_cameras_lock_.unlock();
 
   // This is required to send it to rescaler to take decision on UBWC.
-  start_cam_param_ = extra_param;
+  start_cam_param_lock_.lock();
+  start_cam_param_[camera_id] = extra_param;
+  start_cam_param_lock_.unlock();
 
   auto ret = camera->OpenCamera(camera_id, framerate, extra_param, cb, errcb);
   if (ret != NO_ERROR) {
@@ -521,9 +523,14 @@ status_t CameraSource::CreateTrackSource(const uint32_t track_id,
     if (linked_mode == false) {
       rescaler = std::make_shared<CameraRescaler>();
       auto format = Common::FromVideoToQmmfFormat(params.format);
+
+      start_cam_param_lock_.lock();
+      auto extra_param = start_cam_param_[camera_id];
+      start_cam_param_lock_.unlock();
+
       ret = rescaler->Init(params.width, params.height, format,
                            source_params.framerate, params.framerate,
-                           start_cam_param_);
+                           extra_param);
       if (ret != NO_ERROR) {
         rescaler = nullptr;
         QMMF_ERROR("%s: Rescaler Init Failed", __func__);
