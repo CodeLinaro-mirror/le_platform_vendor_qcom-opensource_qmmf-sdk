@@ -152,6 +152,11 @@ RecorderClient::~RecorderClient() {
   close(gbm_fd_);
 #endif
 
+  //Binder driver spawns new thread sometimes when client exits, but
+  //binder static objects were deconstructing and IPCThreadState::shutdown()
+  //is called, so IPCThreadState::self() in new thread returns NULL and
+  //client gets crashed. This line can avoid this issue.
+  IPCThreadState::self()->stopProcess();
   QMMF_INFO("%s Exit 0x%p", __func__, this);
 }
 
