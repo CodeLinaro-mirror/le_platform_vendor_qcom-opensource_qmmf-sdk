@@ -114,6 +114,8 @@ float CameraContext::kHFRBatchModeThreshold = 90.0f;
 float CameraContext::kHFRBatchModeThreshold = 120.0f;
 #endif
 
+std::mutex camera_open_serialization_lock_;
+
 CameraContext::CameraContext()
     : camera_id_(-1),
       streaming_request_id_(-1),
@@ -431,7 +433,11 @@ status_t CameraContext::OpenCamera(const uint32_t camera_id,
     return NO_INIT;
   }
 
+  /// open-camera from device3 layer should be protected by a global lock
+  /// otherwise camx will raise un-expected SigAbort under some scenarios
+  camera_open_serialization_lock_.lock();
   ret = camera_device_->OpenCamera(camera_id);
+  camera_open_serialization_lock_.unlock();
   if (ret !=  NO_ERROR) {
     QMMF_ERROR("%s: Failed to open camera!", __func__);
     return ret;
