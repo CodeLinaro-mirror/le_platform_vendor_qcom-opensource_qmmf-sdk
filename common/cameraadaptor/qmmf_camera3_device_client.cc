@@ -124,6 +124,9 @@ std::mutex Camera3DeviceClient::vendor_tag_mutex_;
 sp<::camera::VendorTagDescriptor> Camera3DeviceClient::vendor_tag_desc_ = nullptr;
 uint32_t Camera3DeviceClient::client_count_ = 0;
 
+// protect HAL3 API access
+std::mutex  hal3_api_serialization_lock_;
+
 Camera3DeviceClient::Camera3DeviceClient(CameraClientCallbacks clientCb)
     : client_cb_(clientCb),
       id_(0),
@@ -230,8 +233,11 @@ int32_t Camera3DeviceClient::Initialize() {
     goto exit;
   }
 
+  // serialize camera so loading
+  hal3_api_serialization_lock_.lock();
   res = LoadHWModule(CAMERA_HARDWARE_MODULE_ID,
                      (const hw_module_t **)&camera_module_);
+  hal3_api_serialization_lock_.unlock();
 
   if ((0 != res) || (NULL == camera_module_)) {
     QMMF_ERROR("%s: Unable to load Hal module: %d\n", __func__, res);
@@ -242,7 +248,10 @@ int32_t Camera3DeviceClient::Initialize() {
             camera_module_->common.author, camera_module_->common.hal_api_version,
             camera_module_->common.name);
 
+  // serialize get_number_of_cameras
+  hal3_api_serialization_lock_.lock();
   number_of_cameras_ = camera_module_->get_number_of_cameras();
+  hal3_api_serialization_lock_.unlock();
   QMMF_INFO("%s: Number of cameras: %d\n", __func__, number_of_cameras_);
 
   if (NULL != camera_module_->init) {
@@ -363,8 +372,11 @@ int32_t Camera3DeviceClient::OpenCamera(uint32_t idx) {
   }
 
   id = std::to_string(idx);
+  // serialize open API
+  hal3_api_serialization_lock_.lock();
   res = camera_module_->common.methods->open(&camera_module_->common, id.c_str(),
                                             (hw_device_t **)(&device_));
+  hal3_api_serialization_lock_.unlock();
   if (0 != res) {
     QMMF_ERROR("Could not open camera: %s (%d) \n", strerror(-res), res);
     goto exit;
@@ -379,7 +391,10 @@ int32_t Camera3DeviceClient::OpenCamera(uint32_t idx) {
     goto exit;
   }
 
+  // serialize initialize API
+  hal3_api_serialization_lock_.lock();
   res = device_->ops->initialize(device_, this);
+  hal3_api_serialization_lock_.unlock();
   if (0 != res) {
     QMMF_ERROR("Could not initialize camera: %s (%d) \n", strerror(-res), res);
     goto exit;
@@ -548,7 +563,10 @@ int32_t Camera3DeviceClient::ConfigureStreamsLocked(
   config.streams = streams.editArray();
   config.num_streams = streams.size();
 
+  // serialize configure_streams API
+  hal3_api_serialization_lock_.lock();
   res = device_->ops->configure_streams(device_, &config);
+  hal3_api_serialization_lock_.unlock();
   if (res == -EINVAL) {
     for (uint32_t i = 0; i < streams_.size(); i++) {
       Camera3Stream *stream = streams_.editValueAt(i);
@@ -2063,7 +2081,10 @@ int32_t Camera3DeviceClient::Flush(int64_t *lastFrameNumber) {
     goto exit;
   }
 
+  // TODO:serialize flush API, need to check if we can do this
+  hal3_api_serialization_lock_.lock();
   res = device_->ops->flush(device_);
+  hal3_api_serialization_lock_.unlock();
 
   pthread_mutex_lock(&lock_);
 
