@@ -80,6 +80,20 @@
 #include "recorder/src/service/qmmf_camera_context.h"
 #include "recorder/src/service/qmmf_recorder_utils.h"
 
+/* This map contains the vendor tags which needs to be set only once.
+ * contains the map of vendor tags and its default value.
+ * In the request meta if one of this vendor tag is present and
+ * the value is not equal to default value, we will add the
+ * meta to the request and then for subsequent request will update
+ * value of that vendor tag to default.
+ */
+static const std::unordered_map<const char*, uint8_t> kSingleShotMeta {
+  {"org.quic.camera.lensDriverManager.ResetIrisMotor",           0 },
+  {"org.quic.camera.lensDriverManager.ResetFocusMotor",          0 },
+  {"org.quic.camera.lensDriverManager.ResetZoomMotor",           0 },
+  {"org.codeaurora.qcamera3.sensorwriteinput.SensorStandByFlag", 0 }
+};
+
 namespace qmmf {
 
 namespace recorder {
@@ -193,6 +207,7 @@ bool CameraContext::IsStreamParamsChanged(
   if ((stream_param.format       != snapshot_stream_param_.format)       ||
       (stream_param.width        != snapshot_stream_param_.width)        ||
       (stream_param.height       != snapshot_stream_param_.height)       ||
+      (stream_param.rotation     != snapshot_stream_param_.rotation)     ||
       (stream_param.bufferCount  >  snapshot_stream_param_.bufferCount)  ||
       (stream_param.allocFlags.Equals(
                              snapshot_stream_param_.allocFlags) == false)) {
@@ -575,7 +590,8 @@ status_t CameraContext::ConfigImageCapture(const SnapshotParam& param,
                               (snapshot_param_.mode != param.mode) ||
                               (snapshot_param_.width != param.width) ||
                               (snapshot_param_.height != param.height) ||
-                              (snapshot_param_.format != param.format);
+                              (snapshot_param_.format != param.format) ||
+                              (snapshot_param_.rotation != param.rotation);
 
     QMMF_DEBUG("%s: reconfigure_needed=%d", __func__, reconfigure_needed);
 
@@ -632,6 +648,8 @@ status_t CameraContext::ConfigImageCapture(const SnapshotParam& param,
         raw_stream_param.width = rawparam.width;
         raw_stream_param.height = rawparam.height;
         raw_stream_param.format = Common::FromQmmfToHalFormat(format);
+        raw_stream_param.rotation =
+            static_cast<camera3_stream_rotation_t> (rawparam.rotation);
         raw_stream_param.allocFlags.flags = IMemAllocUsage::kSwWriteOften |
                                             IMemAllocUsage::kSwReadOften;
         raw_stream_param.bufferCount  = MAX_SNAPSHOT_BUFFER_COUNT;
@@ -1121,14 +1139,53 @@ status_t CameraContext::SetCameraParam(const ::camera::CameraMetadata &meta) {
 
   QMMF_DEBUG("%s: Enter", __func__);
 
+  uint32_t tag_id = 0;
+  bool     is_standby = false;
+  const ::android::sp<::camera::VendorTagDescriptor> vtags =
+      ::camera::VendorTagDescriptor::getGlobalVendorTagDescriptor();
+
+  if (vtags.get() == NULL) {
+    QMMF_ERROR ("Failed to retrieve Global Vendor Tag Descriptor!");
+    return -1;
+  }
+
+  // If standby metadata is present, then cancel requests
+  if ((meta.getTagFromName(
+      "org.codeaurora.qcamera3.sensorwriteinput.SensorStandByFlag",
+      vtags.get(), &tag_id) == 0) &&  meta.exists(tag_id) &&
+      meta.find(tag_id).data.u8[0] != 0) {
+    CancelRequest();
+    streaming_request_id_ = 0;
+    is_standby = true;
+  }
+
   std::lock_guard<std::mutex> lock(device_access_lock_);
   if ((!streaming_active_requests_.empty()) &&
       (!streaming_active_requests_[0].metadata.isEmpty())) {
     std::list<Camera3Request> request_list;
-    for (size_t i = 0; i < streaming_active_requests_.size(); i++) {
-      Camera3Request &req = streaming_active_requests_[i];
+    Camera3Request request;
+    ::camera::CameraMetadata metadata(meta);
+
+    // Remove single shot meta entries and place them in separate request.
+    for (auto& pair : kSingleShotMeta) {
+
+      if ((meta.getTagFromName(pair.first, vtags.get(), &tag_id) != 0) ||
+          !meta.exists(tag_id) || (meta.find(tag_id).data.u8[0] == pair.second)) {
+        continue;
+      }
+
+      // Append single shot metadata.
+      request = streaming_active_requests_[0];
+      request.metadata.clear();
+      request.metadata.append(meta);
+
+      // Reset the single shot meta tag to the default value in local metadata.
+      metadata.update(tag_id, &(pair.second), 1);
+    }
+
+    for (Camera3Request& req : streaming_active_requests_) {
       req.metadata.clear();
-      req.metadata.append(meta);
+      req.metadata.append(metadata);
       request_list.push_back(req);
     }
 
@@ -1148,8 +1205,19 @@ status_t CameraContext::SetCameraParam(const ::camera::CameraMetadata &meta) {
       std::unique_lock<std::mutex> pending_frames_lock(pending_frames_lock_);
       if (streaming_request_id_ >= 0 && !continuous_mode_is_on_) {
         int64_t last_frame_number;
-        auto ret = camera_device_->SubmitRequestList(request_list, true,
-                                                     &last_frame_number);
+        int32_t ret = 0;
+
+        if (!request.metadata.isEmpty()) {
+          // Submit one request containing single shot meta entries.
+          ret = camera_device_->SubmitRequest(request, false,
+                                              &last_frame_number);
+          assert(ret >= 0);
+        }
+
+        if (!is_standby) {
+          ret = camera_device_->SubmitRequestList(request_list, true,
+                                                  &last_frame_number);
+        }
 
         QMMF_INFO("%s: last_frame_number: current=%lld previous=%lld", __func__,
             last_frame_number, last_frame_number_);
@@ -2135,6 +2203,8 @@ status_t CameraContext::GetSnapshotStreamParams(const SnapshotParam &param,
   stream_param.format           = Common::FromQmmfToHalFormat(param.format);
   stream_param.width            = param.width;
   stream_param.height           = param.height;
+  stream_param.rotation         =
+      static_cast<camera3_stream_rotation_t> (param.rotation);
   stream_param.allocFlags.flags = IMemAllocUsage::kSwWriteOften |
                                     IMemAllocUsage::kSwReadOften;
   stream_param.cb               = GetStreamCb(param);

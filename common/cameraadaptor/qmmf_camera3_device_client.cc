@@ -657,16 +657,20 @@ int32_t Camera3DeviceClient::DeleteStream(int streamId, bool cache) {
       goto exit;
     }
 
+    // If this point is reached then state is Idle. Idle means that HAL idle i.e.
+    // HAL is returned all requests/buffers. But we still must wait client
+    // to return buffer before we can delete stream.
+    pthread_mutex_unlock(&lock_);
+    stream->WaitForIdle();
+    pthread_mutex_lock(&lock_);
+
+    // Remove stream after buffer returned from client
     streams_.removeItem(streamId);
 
     if (streams_.isEmpty()) {
       cam_feature_flags_ = static_cast<uint32_t>(CamFeatureFlag::kNone);
     }
 
-    // If this point is reached then state is Idle. Idle means that HAL idle i.e.
-    // HAL is returned all requests/buffers. But we still must wait client
-    // to return buffer before we can delete stream.
-    stream->WaitForIdle();
     res = stream->Close();
     if (0 != res) {
       QMMF_ERROR("%s: Can't close deleted stream %d\n", __func__, streamId);
@@ -2015,7 +2019,7 @@ void Camera3DeviceClient::SetErrorStateLockedV(const char *fmt, va_list args) {
 
   last_error_ = errorCause;
 
-  request_handler_.TogglePause(true);
+  request_handler_.RequestExit();
   InternalUpdateStatusLocked(STATE_ERROR);
 
   if (nullptr != client_cb_.errorCb) {
