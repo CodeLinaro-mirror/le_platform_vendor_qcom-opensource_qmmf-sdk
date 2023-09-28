@@ -1256,11 +1256,12 @@ status_t RecorderImpl::CaptureImage(const uint32_t client_id,
 
 status_t RecorderImpl::ConfigImageCapture(const uint32_t client_id,
                                           const uint32_t camera_id,
+                                          const uint32_t image_id,
                                           const ImageParam &param,
                                           const ImageExtraParam &xtraparam) {
 
-  QMMF_DEBUG("%s: Enter client_id(%u):camera_id(%d)", __func__,
-      client_id, camera_id);
+  QMMF_DEBUG("%s: Enter client_id(%u):camera_id(%d):image_id(%d)", __func__,
+      client_id, camera_id, image_id);
 
   if (!IsClientValid(client_id)) {
     QMMF_ERROR("%s: Client(%u) is not connected!", __func__, client_id);
@@ -1274,7 +1275,8 @@ status_t RecorderImpl::ConfigImageCapture(const uint32_t client_id,
   }
 
   assert(camera_source_ != nullptr);
-  auto ret = camera_source_->ConfigImageCapture(camera_id, param, xtraparam);
+  auto ret = camera_source_->ConfigImageCapture(camera_id, image_id, param,
+                                                xtraparam);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: client_id(%u):camera_id(%d) ConfigImageCapture failed!",
         __func__, client_id, camera_id);
@@ -1288,10 +1290,11 @@ status_t RecorderImpl::ConfigImageCapture(const uint32_t client_id,
 
 status_t RecorderImpl::CancelCaptureImage(const uint32_t client_id,
                                           const uint32_t camera_id,
+                                          const uint32_t image_id,
                                           const bool cache) {
 
-  QMMF_DEBUG("%s: Enter client_id(%u):camera_id(%d)", __func__,
-      client_id, camera_id);
+  QMMF_DEBUG("%s: Enter client_id(%u):camera_id(%d):image_id(%d)", __func__,
+      client_id, camera_id, image_id);
 
   if (!IsClientValid(client_id)) {
     QMMF_ERROR("%s: Client(%u) is not connected!", __func__, client_id);
@@ -1305,13 +1308,13 @@ status_t RecorderImpl::CancelCaptureImage(const uint32_t client_id,
   }
 
   assert(camera_source_ != nullptr);
-  auto ret = camera_source_->CancelCaptureImage(camera_id, cache);
+  auto ret = camera_source_->CancelCaptureImage(camera_id, image_id, cache);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: CancelCaptureImage failed!", __func__);
     return ret;
   }
-  QMMF_DEBUG("%s: Exit client_id(%u):camera_id(%d)", __func__,
-      client_id, camera_id);
+  QMMF_DEBUG("%s: Exit client_id(%u):camera_id(%d):image_id(%d)", __func__,
+      client_id, camera_id, image_id);
   return NO_ERROR;
 }
 

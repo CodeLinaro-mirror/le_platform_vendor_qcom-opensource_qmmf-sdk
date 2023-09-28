@@ -126,6 +126,7 @@ struct PlaneInfo {
 struct BufferDescriptor {
   void*    data;
   int32_t  fd;
+  uint32_t img_id;
   uint32_t buf_id;
   uint32_t size;
   uint32_t capacity;
@@ -138,6 +139,7 @@ struct BufferDescriptor {
     ::std::stringstream stream;
     stream << "data[" << data << "] ";
     stream << "fd[" << fd << "] ";
+    stream << "img_id[" << img_id << "] ";
     stream << "buf_id[" << buf_id << "] ";
     stream << "size[" << size << "] ";
     stream << "capacity[" << capacity << "] ";

@@ -208,7 +208,7 @@ TEST_F(VideoGtest, SessionWithSingleStream) {
 
     // Configure Snapshot Stream.
     if (is_snap_stream_on_) {
-      ConfigureImageParam();
+      ConfigureImageParam(kFirstImageID);
     }
 
     // Start Session
@@ -371,7 +371,7 @@ TEST_F(VideoGtest, SessionWithTwoStream) {
 
     // Configure Snapshot Stream.
     if (is_snap_stream_on_) {
-      ConfigureImageParam();
+      ConfigureImageParam(kSecondImageID);
     }
 
     // Start Session
@@ -568,7 +568,7 @@ TEST_F(VideoGtest, SessionWithThreeStream) {
 
     // Configure Snapshot Stream.
     if (is_snap_stream_on_) {
-      ConfigureImageParam();
+      ConfigureImageParam(kFirstImageID);
     }
 
     // Start Session
@@ -800,7 +800,7 @@ TEST_F(VideoGtest, SessionWithFourStream) {
 
     // Configure Snapshot Stream.
     if (is_snap_stream_on_) {
-      ConfigureImageParam();
+      ConfigureImageParam(kFirstImageID);
     }
 
     // Start Session
@@ -1067,7 +1067,7 @@ TEST_F(VideoGtest, SessionWithFiveStream) {
 
     // Configure Snapshot Stream.
     if (is_snap_stream_on_) {
-      ConfigureImageParam();
+      ConfigureImageParam(kFirstImageID);
     }
 
     // Start Session
@@ -1819,7 +1819,7 @@ TEST_F(VideoGtest, SessionWithSingleStreamWithCamIDOne) {
 
     // Configure Snapshot Stream.
     if (is_snap_stream_on_) {
-      ConfigureImageParam();
+      ConfigureImageParam(kFirstImageID);
     }
 
     // Start Session
@@ -1982,7 +1982,7 @@ TEST_F(VideoGtest, SessionWithTwoStreamWithCamIDOne) {
 
     // Configure Snapshot Stream.
     if (is_snap_stream_on_) {
-      ConfigureImageParam();
+      ConfigureImageParam(kFirstImageID);
     }
 
     // Start Session

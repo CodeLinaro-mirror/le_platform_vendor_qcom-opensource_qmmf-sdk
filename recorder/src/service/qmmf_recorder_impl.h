@@ -184,12 +184,14 @@ class RecorderImpl {
   /// Configuration for Image Capture
   status_t ConfigImageCapture(const uint32_t client_id,
                               const uint32_t camera_id,
+                              const uint32_t image_id,
                               const ImageParam &param,
                               const ImageExtraParam &xtraparam);
 
   /// Cancel Image Capture
   status_t CancelCaptureImage(const uint32_t client_id,
                               const uint32_t camera_id,
+                              const uint32_t image_id,
                               const bool cache);
 
   /// Return Image Capture buffer
