@@ -88,9 +88,10 @@
  * value of that vendor tag to default.
  */
 static const std::unordered_map<const char*, uint8_t> kSingleShotMeta {
-  {"org.quic.camera.lensDriverManager.ResetIrisMotor",  0 },
-  {"org.quic.camera.lensDriverManager.ResetFocusMotor", 0 },
-  {"org.quic.camera.lensDriverManager.ResetZoomMotor",  0 }
+  {"org.quic.camera.lensDriverManager.ResetIrisMotor",           0 },
+  {"org.quic.camera.lensDriverManager.ResetFocusMotor",          0 },
+  {"org.quic.camera.lensDriverManager.ResetZoomMotor",           0 },
+  {"org.codeaurora.qcamera3.sensorwriteinput.SensorStandByFlag", 0 }
 };
 
 namespace qmmf {
@@ -422,6 +423,32 @@ status_t CameraContext::OpenCamera(const uint32_t camera_id,
       }
     } else {
       QMMF_ERROR("%s: Invalid IFE Direct Stream param received", __func__);
+      return BAD_VALUE;
+    }
+  }
+
+  if (extra_param.Exists(QMMF_CAM_OP_MODE_CONTROL)) {
+    size_t entry_count = extra_param.EntryCount(QMMF_CAM_OP_MODE_CONTROL);
+    if (entry_count == 1) {
+      CamOpModeControl mode_control;
+
+      extra_param.Fetch(QMMF_CAM_OP_MODE_CONTROL, mode_control, 0);
+      switch (mode_control.mode) {
+        case ExtraParameCamOpModeEnum::kCamOperationModeNone:
+          camera_parameters_.cam_opmode =
+            CamOperationMode::kCamOperationModeNone;
+          break;
+        case ExtraParameCamOpModeEnum::kCamOperationModeFrameSelection:
+          camera_parameters_.cam_opmode =
+            CamOperationMode::kCamOperationModeFrameSelection;
+          break;
+        default:
+          QMMF_ERROR("%s: Invalid camera operation mode %d",
+              __func__, mode_control.mode);
+          break;
+      }
+    } else {
+      QMMF_ERROR("%s: Invalid sensor mode received", __func__);
       return BAD_VALUE;
     }
   }
@@ -1144,12 +1171,24 @@ status_t CameraContext::SetCameraParam(const ::camera::CameraMetadata &meta) {
 
   QMMF_DEBUG("%s: Enter", __func__);
 
+  uint32_t tag_id = 0;
+  bool     is_standby = false;
   const ::android::sp<::camera::VendorTagDescriptor> vtags =
       ::camera::VendorTagDescriptor::getGlobalVendorTagDescriptor();
 
   if (vtags.get() == NULL) {
     QMMF_ERROR ("Failed to retrieve Global Vendor Tag Descriptor!");
     return -1;
+  }
+
+  // If standby metadata is present, then cancel requests
+  if ((meta.getTagFromName(
+      "org.codeaurora.qcamera3.sensorwriteinput.SensorStandByFlag",
+      vtags.get(), &tag_id) == 0) &&  meta.exists(tag_id) &&
+      meta.find(tag_id).data.u8[0] != 0) {
+    CancelRequest();
+    streaming_request_id_ = 0;
+    is_standby = true;
   }
 
   std::lock_guard<std::mutex> lock(device_access_lock_);
@@ -1161,7 +1200,6 @@ status_t CameraContext::SetCameraParam(const ::camera::CameraMetadata &meta) {
 
     // Remove single shot meta entries and place them in separate request.
     for (auto& pair : kSingleShotMeta) {
-      uint32_t tag_id = 0;
 
       if ((meta.getTagFromName(pair.first, vtags.get(), &tag_id) != 0) ||
           !meta.exists(tag_id) || (meta.find(tag_id).data.u8[0] == pair.second)) {
@@ -1208,8 +1246,10 @@ status_t CameraContext::SetCameraParam(const ::camera::CameraMetadata &meta) {
           assert(ret >= 0);
         }
 
-        ret = camera_device_->SubmitRequestList(request_list, true,
-                                                &last_frame_number);
+        if (!is_standby) {
+          ret = camera_device_->SubmitRequestList(request_list, true,
+                                                  &last_frame_number);
+        }
 
         QMMF_INFO("%s: last_frame_number: current=%lld previous=%lld", __func__,
             last_frame_number, last_frame_number_);

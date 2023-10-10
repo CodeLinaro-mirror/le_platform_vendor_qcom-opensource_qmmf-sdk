@@ -327,6 +327,8 @@ class Camera3DeviceClient : public camera3_callback_ops,
   static sp<::camera::VendorTagDescriptor> vendor_tag_desc_;
   static uint32_t client_count_;
   std::atomic<bool> is_camera_device_available_;
+
+  CamOperationMode cam_opmode_;
 };
 
 }  // namespace cameraadaptor ends here
