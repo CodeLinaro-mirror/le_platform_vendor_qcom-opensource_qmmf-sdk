@@ -229,7 +229,7 @@ status_t OfflineJpegEncoder::Create(const uint32_t client_id,
 
   JpegCreateParams create_params;
 
-  create_params.config.streamId = 0;
+  create_params.config.streamId = client_id;
   create_params.config.processMode = (PostProcMode)params.process_mode;
 
   create_params.config.inBuffer.width = params.in_buffer.width;
@@ -340,7 +340,7 @@ status_t OfflineJpegEncoder::Process(const uint32_t client_id,
     return NO_MEMORY;
   }
 
-  pproc_params->streamId = 0;
+  pproc_params->streamId = client_id;
   pproc_params->valid = true;
 
   camera_metadata_t *metadata = allocate_camera_metadata(1, 128);
@@ -373,8 +373,10 @@ status_t OfflineJpegEncoder::Process(const uint32_t client_id,
   pproc_params->inHandle.push_back(in_handle_params);
   pproc_params->outHandle.push_back(out_handle_params);
 
-  std::unique_lock<std::mutex> req_lock(requests_lock_);
+  //std::unique_lock<std::mutex> req_lock(requests_lock_);
+  requests_lock_.lock();
   pproc_params->frameNum = client_requests_map_[client_id].request_id++;
+  requests_lock_.unlock();
 
   QMMF_INFO("%s: Submitting postproc request %d for client %d. Buf fd %d",
             __func__, pproc_params->frameNum,
@@ -396,7 +398,9 @@ status_t OfflineJpegEncoder::Process(const uint32_t client_id,
     return NO_ERROR;
   }
 
+  requests_lock_.lock();
   client_requests_map_[client_id].npr++;
+  requests_lock_.unlock();
 
   QMMF_INFO("%s: Exit client_id %d", __func__, client_id);
   return NO_ERROR;

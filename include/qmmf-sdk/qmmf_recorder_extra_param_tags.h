@@ -89,6 +89,7 @@ enum ParamTag {
   QMMF_FRAME_RATE_CONTROL,
   QMMF_HFR_SYNC_MODE,
   QMMF_IFE_DIRECT_STREAM,
+  QMMF_CAM_OP_MODE_CONTROL,
 };
 
 enum class SlaveMode {
@@ -106,6 +107,13 @@ enum class FrameRateControlMode {
   kFrameSkip,
   /**< control stream frame rate by HAL3 capture requests */
   kCaptureRequest
+};
+
+enum class ExtraParameCamOpModeEnum {
+  /**< camera operation mode is normal */
+  kCamOperationModeNone,
+  /**< camera use frame selection node to filter frames */
+  kCamOperationModeFrameSelection,
 };
 
 struct SourceVideoTrack : DataTagBase {
@@ -272,6 +280,15 @@ struct IFEDirectStream: DataTagBase {
   IFEDirectStream() :
     DataTagBase(QMMF_IFE_DIRECT_STREAM), enable(false) {
   }
+};
+
+struct CamOpModeControl: DataTagBase {
+  ExtraParameCamOpModeEnum mode;    // Default: -1 to disable CamOpMode
+  CamOpModeControl()
+    : DataTagBase(QMMF_CAM_OP_MODE_CONTROL),
+      /**< add to support special camera pipelines */
+      /**< by default, no special camera mode will be passed */
+      mode(ExtraParameCamOpModeEnum::kCamOperationModeNone) {}
 };
 
 }; //namespace recorder.

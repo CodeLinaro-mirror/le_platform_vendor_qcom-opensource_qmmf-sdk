@@ -334,8 +334,8 @@ struct ImageParam {
   /// Image Track rotation angle
   Rotation    rotation;
 
-  ImageParam(): width(0), height(0), format(ImageFormat::kJPEG), quality(95),
-      rotation(Rotation::kNone) {}
+  ImageParam(): mode(ImageMode::kSnapshot), width(0), height(0),
+      format(ImageFormat::kJPEG), quality(95), rotation(Rotation::kNone) {}
 
   ::std::string ToString() const {
     ::std::stringstream stream;

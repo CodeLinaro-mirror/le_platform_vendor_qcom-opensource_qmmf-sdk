@@ -314,8 +314,8 @@ class Camera3DeviceClient : public camera3_callback_ops,
   Vector<State> current_state_updates_;
   int state_listeners_;
   pthread_cond_t state_updated_;
-  static const int64_t WAIT_FOR_SHUTDOWN = 5e9;  // 5 sec.
-  static const int64_t WAIT_FOR_RUNNING = 1e9;   // 1 sec.
+  static const int64_t WAIT_FOR_SHUTDOWN = 10e9;  // 10 sec.
+  static const int64_t WAIT_FOR_RUNNING = 1e9;    // 1 sec.
 
   bool is_hfr_supported_;
   bool is_raw_only_;
@@ -347,6 +347,8 @@ class Camera3DeviceClient : public camera3_callback_ops,
   int64_t ts_hal_meta;
   int64_t ts_qmf_meta;
   std::atomic<bool> is_camera_device_available_;
+
+  CamOperationMode cam_opmode_;
 };
 
 }  // namespace cameraadaptor ends here
