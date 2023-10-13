@@ -41,6 +41,19 @@ namespace qmmf {
 
 namespace cameraadaptor {
 
+typedef union {
+  struct frame_selection_params {
+    int32_t total_selected_frames;
+    uint32_t available_frames;
+  } frame_selection;
+} CamReqModeParams;
+
+typedef union {
+  struct frame_selection_input_params {
+    int32_t total_selected_frames;
+  } frame_selection;
+} CamReqModeInputParams;
+
 typedef std::function<void(const char *fmt, va_list args)> SetError;
 typedef std::function<int32_t(uint32_t frameNumber, int32_t numBuffers,
                               CaptureResultExtras resultExtras)> MarkRequest;
@@ -76,6 +89,9 @@ class Camera3RequestHandler : public ThreadHelper {
 
   void RequestExit() override;
   void RequestExitAndWait() override;
+
+  void SetRequestMode(CamOperationMode mode);
+  void UpdateRequestedStreams(CamReqModeInputParams &params);
 
  protected:
   bool ThreadLoop() override;
@@ -140,6 +156,10 @@ class Camera3RequestHandler : public ThreadHelper {
   std::mutex        worker_lock_;
   QCondition        worker_signal_;
 
+  // camera request mode params
+  CamOperationMode  cam_opmode_;
+  CamReqModeParams  cam_reqmode_params_;
+  std::mutex        cam_reqmode_lock_;
 };
 
 }  // namespace cameraadaptor ends here
