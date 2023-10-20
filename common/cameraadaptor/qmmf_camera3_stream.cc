@@ -709,6 +709,14 @@ void Camera3Stream::ReturnBufferToClient(const camera3_stream_buffer &buffer,
   hal_buffer_cnt_--;
   client_buffer_cnt_++;
 
+  if (status_ != STATUS_CONFIG_ACTIVE && status_ != STATUS_RECONFIG_ACTIVE) {
+    if (hal_buffer_cnt_ == 0) {
+      // notify hal is idle for this stream i.e. buffers are returned by hal
+      QMMF_DEBUG("%s: Stream(%d): Changing state to idle", __func__, id_);
+      monitor_.ChangeStateToIdle(monitor_id_);
+    }
+  }
+
   StreamBuffer b;
   memset(&b, 0, sizeof(b));
   b.timestamp = timestamp;
@@ -756,6 +764,14 @@ int32_t Camera3Stream::DropBuffer(buffer_handle_t *buffer) {
 
   hal_buffer_cnt_--;
   client_buffer_cnt_++;
+
+  if (status_ != STATUS_CONFIG_ACTIVE && status_ != STATUS_RECONFIG_ACTIVE) {
+    if (hal_buffer_cnt_ == 0) {
+      // notify hal is idle for this stream i.e. buffers are returned by hal
+      QMMF_DEBUG("%s: Stream(%d): Changing state to idle", __func__, id_);
+      monitor_.ChangeStateToIdle(monitor_id_);
+    }
+  }
 
   StreamBuffer b;
   memset(&b, 0, sizeof(b));
@@ -815,12 +831,6 @@ int32_t Camera3Stream::ReturnBufferLocked(const StreamBuffer &buffer) {
       pending_buffer_count_);
 
   if (status_ != STATUS_CONFIG_ACTIVE && status_ != STATUS_RECONFIG_ACTIVE) {
-    if (pending_buffer_count_ == client_buffer_cnt_) {
-      // notify hal is idle for this stream i.e. buffers are returned by hal
-      QMMF_DEBUG("%s: Stream(%d): Changing state to idle", __func__, id_);
-      monitor_.ChangeStateToIdle(monitor_id_);
-    }
-
     if (pending_buffer_count_ == 0) {
       // notify stream is idle i.e. all buffers are returned
       QMMF_DEBUG("%s: Stream(%d): Stream is idle", __func__, id_);
@@ -938,7 +948,7 @@ int32_t Camera3Stream::GetBufferLocked(camera3_stream_buffer *streamBuffer) {
 #endif //TARGET_USES_GBM
     buffers_map[*streamBuffer->buffer] = mem_alloc_slots_[idx];
 
-    if (pending_buffer_count_ == 0 && status_ != STATUS_CONFIG_ACTIVE &&
+    if (hal_buffer_cnt_ == 0 && status_ != STATUS_CONFIG_ACTIVE &&
         status_ != STATUS_RECONFIG_ACTIVE) {
       monitor_.ChangeStateToActive(monitor_id_);
     }
