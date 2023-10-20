@@ -265,6 +265,8 @@ class Camera3DeviceClient : public camera3_callback_ops,
 
   uint32_t GetOpMode();
 
+  bool IsInputROIMode();
+
   pthread_mutex_t pending_requests_lock_;
   PendingRequestVector pending_requests_vector_;
   PendingRequestVector pending_error_requests_vector_;

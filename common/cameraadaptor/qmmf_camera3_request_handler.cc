@@ -355,6 +355,7 @@ int32_t Camera3RequestHandler::SubmitRequest(CaptureRequest &nextRequest,
 
   int32_t res = 0;
   camera3_capture_request_t request = camera3_capture_request_t();
+  camera3_stream_buffer_t input_buffer = camera3_stream_buffer_t();
   request.frame_number = nextRequest.resultExtras.frameNumber;
   request.input_buffer = nullptr;
   Vector<camera3_stream_buffer_t> outputBuffers;
@@ -400,8 +401,28 @@ int32_t Camera3RequestHandler::SubmitRequest(CaptureRequest &nextRequest,
     return -1;
   }
 
-  if (in_buf) {
-    request.input_buffer = in_buf;
+  if (nextRequest.input) {
+    StreamBuffer in_buf = {};
+    buffer_handle_t in_buf_handle = nullptr;
+
+    nextRequest.input->get_input_buffer(in_buf);
+    nextRequest.input->input_buffer_cnt++;
+
+    // TODO: To be removed when camera supports GBM
+#ifdef TARGET_USES_GBM
+    in_buf_handle = GetGrallocBufferHandle(in_buf.handle);
+#else
+    in_buf_handle = GetAllocBufferHandle(in_buf.handle);
+#endif
+    nextRequest.input->buffers_map.insert(
+    std::make_pair(in_buf_handle, in_buf.handle));
+
+    input_buffer.buffer = &GetGrallocBufferHandle(in_buf.handle);
+    input_buffer.acquire_fence = -1;
+    input_buffer.release_fence = -1;
+    input_buffer.status = CAMERA3_BUFFER_STATUS_OK;
+    input_buffer.stream = nextRequest.input;
+    request.input_buffer = &input_buffer;
     totalNumBuffers++;
   }
 
@@ -575,8 +596,8 @@ int32_t Camera3RequestHandler::GetRequest(CaptureRequest &request) {
         nextRequest = *reproc_request;
         requests_.erase(reproc_request);
 
-        nextRequest.resultExtras.frameNumber = current_input_frame_number_;
-        current_input_frame_number_++;
+        nextRequest.resultExtras.frameNumber = current_frame_number_;
+        current_frame_number_++;
 
         found = true;
         break;
