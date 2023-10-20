@@ -426,13 +426,17 @@ status_t CameraContext::OpenCamera(const uint32_t camera_id,
 
       extra_param.Fetch(QMMF_CAM_OP_MODE_CONTROL, mode_control, 0);
       switch (mode_control.mode) {
-        case ExtraParameCamOpModeEnum::kCamOperationModeNone:
+        case CamOpMode::kNone:
           camera_parameters_.cam_opmode =
             CamOperationMode::kCamOperationModeNone;
           break;
-        case ExtraParameCamOpModeEnum::kCamOperationModeFrameSelection:
+        case CamOpMode::kFrameSelection:
           camera_parameters_.cam_opmode =
             CamOperationMode::kCamOperationModeFrameSelection;
+          break;
+        case CamOpMode::kFastSwitch:
+          camera_parameters_.cam_opmode =
+            CamOperationMode::kCamOperationModeFastSwitch;
           break;
         default:
           QMMF_ERROR("%s: Invalid camera operation mode %d",
@@ -440,7 +444,7 @@ status_t CameraContext::OpenCamera(const uint32_t camera_id,
           break;
       }
     } else {
-      QMMF_ERROR("%s: Invalid sensor mode received", __func__);
+      QMMF_ERROR("%s: Invalid camera operation mode received", __func__);
       return BAD_VALUE;
     }
   }
