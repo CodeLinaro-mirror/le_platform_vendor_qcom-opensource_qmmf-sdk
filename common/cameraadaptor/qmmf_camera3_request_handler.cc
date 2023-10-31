@@ -531,35 +531,67 @@ int32_t Camera3RequestHandler::GetRequest(CaptureRequest &request) {
     if (!streaming_requests_.empty()) {
       RequestList request_list;
       RequestList::iterator it = streaming_requests_.begin();
+      bool preview_stream_found = false;
+
+      // in frameselection mode, pipeline is triggered based on preview
+      // stream, when preview stream (id 0) is gone in all requests, all
+      // streams should be skipped.
+      if (CAM_OPMODE_IS_FRAMESELECTION(cam_opmode_)) {
+        for (auto req:streaming_requests_) {
+          for (auto s:req.streams) {
+            if (s->GetId() == 0)
+              preview_stream_found = true;
+          }
+        }
+
+        if (preview_stream_found == false) {
+          res = -ENOMEM;
+          goto exit;
+        }
+      }
 
       for (; it != streaming_requests_.end(); ++it) {
         CaptureRequest realRequest;
+        bool requestValid = false;
 
         if (CAM_OPMODE_IS_FRAMESELECTION(cam_opmode_)) {
           cam_reqmode_lock_.lock();
-          if (cam_reqmode_params_.frame_selection.available_frames <= 0) {
-            realRequest.metadata = (*it).metadata;
-            realRequest.streams.push((*it).streams.editItemAt(0));
-            realRequest.resultExtras = (*it).resultExtras;
-            realRequest.input = (*it).input;
 
-            QMMF_INFO("%s:FrameSel: no frames(%d), generate req for preview",
-                __func__, cam_reqmode_params_.frame_selection.available_frames);
+          if (cam_reqmode_params_.frame_selection.available_frames <= 0) {
+            for (auto s:it->streams) {
+              if (s->GetId() == 0) {
+                realRequest.metadata = it->metadata;
+                realRequest.streams.push(s);
+                realRequest.resultExtras = it->resultExtras;
+                realRequest.input = it->input;
+                requestValid = true;
+              }
+            }
           } else {
             realRequest = *it;
+            requestValid = true;
             cam_reqmode_params_.frame_selection.available_frames--;
+
             QMMF_INFO("%s:FrameSel: remain frames = %d",
                 __func__, cam_reqmode_params_.frame_selection.available_frames);
           }
           cam_reqmode_lock_.unlock();
         } else {
           realRequest = *it;
+          requestValid = true;
         }
 
-        smooth_zoom_.Update(realRequest);
-        request_list.push_back(realRequest);
+        if (requestValid) {
+          smooth_zoom_.Update(realRequest);
+          request_list.push_back(realRequest);
+        }
       }
 
+      if (request_list.empty()) {
+        QMMF_ERROR("no valid streaming requests");
+        res = -ENOMEM;
+        goto exit;
+      }
 
       const RequestList &requests = request_list;
       RequestList::const_iterator firstRequest = requests.begin();
