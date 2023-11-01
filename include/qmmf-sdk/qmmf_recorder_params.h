@@ -125,10 +125,6 @@ enum class VideoFormat : uint32_t {
 enum class ImageMode : uint32_t {
   // Single snapshot image stream. Default configuration.
   kSnapshot,
-  // In conjunction to the image stream an additional RAW stream is be created.
-  // Default RAW format is kBayerRDI10BIT and can be configured with the extra
-  // parameter tag
-  kSnapshotPlusRaw,
   // Zero Shutter Lag capture. QMMF starts ZSL continuous stream. Frames
   // from continuous stream are stored in ZSL queue. Last good frame in
   // ZSL queue will be used when user call CaptureImage API. ZSL stream
