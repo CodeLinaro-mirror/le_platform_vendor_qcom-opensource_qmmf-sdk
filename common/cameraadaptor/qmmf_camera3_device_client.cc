@@ -105,6 +105,7 @@
 #define LDC_ENABLE                            (0xF800)
 #define LCAC_ENABLE                           (0x100000)
 #define IFE_DIRECT_STREAM                     (1 << 25)
+#define CAM_OPMODE_FRAME_SELECTION            (0xF400)
 #endif
 
 // Convenience macros for transitioning to the error state
@@ -154,7 +155,8 @@ Camera3DeviceClient::Camera3DeviceClient(CameraClientCallbacks clientCb)
       fps_sensormode_index_(0),
       prepare_handler_(),
       input_stream_{},
-      is_camera_device_available_ (true) {
+      is_camera_device_available_ (true),
+      cam_opmode_ (CamOperationMode::kCamOperationModeNone) {
   QMMF_GET_LOG_LEVEL();
   camera3_callback_ops::notify = &notifyFromHal;
   camera3_callback_ops::process_capture_result = &processCaptureResult;
@@ -479,6 +481,8 @@ int32_t Camera3DeviceClient::ConfigureStreams(
   batch_size_ = stream_config.batch_size;
   frame_rate_range_[0] = stream_config.frame_rate_range[0];
   frame_rate_range_[1] = stream_config.frame_rate_range[1];
+  cam_opmode_ = stream_config.cam_opmode;
+  request_handler_.SetRequestMode(cam_opmode_);
 
   if (force_reconfiguration) {
     cam_feature_flags_ = stream_config.cam_feature_flags;
@@ -521,15 +525,41 @@ int32_t Camera3DeviceClient::ConfigureStreamsLocked(
   QMMF_INFO("%s: operation_mode: 0x%x \n", __func__, config.operation_mode);
 
 #if defined(CAMERA_HAL_API_VERSION) && (CAMERA_HAL_API_VERSION >= 0x0305)
-  camera_metadata_t *session_parameters = allocate_camera_metadata(1, 128);
+  camera_metadata_t *session_parameters = allocate_camera_metadata(2, 128);
   add_camera_metadata_entry(session_parameters,
                             ANDROID_CONTROL_AE_TARGET_FPS_RANGE,
                             frame_rate_range_, 2);
+
+  if (IsInputROIMode()) {
+    ::camera::CameraMetadata *meta = new ::camera::CameraMetadata();
+    uint32_t tag_id = 0;
+    bool roienable = true;
+    const ::android::sp<::camera::VendorTagDescriptor> vtags =
+        ::camera::VendorTagDescriptor::getGlobalVendorTagDescriptor();
+    if (vtags.get() == NULL) {
+      QMMF_ERROR ("Failed to retrieve Global Vendor Tag Descriptor!");
+      return -1;
+    }
+
+    meta->getTagFromName(
+        "org.codeaurora.qcamera3.sessionParameters.MultiRoIEnable",
+        vtags.get(), &tag_id);
+
+    add_camera_metadata_entry(session_parameters,
+                              tag_id,
+                              &roienable, 1);
+  }
 
   config.session_parameters = session_parameters;
 #endif
 
   Vector<camera3_stream_t *> streams;
+
+  if (0 <= input_stream_.stream_id) {
+    input_stream_.usage = 0; // Reset any previously set usage flags from Hal
+    streams.add(&input_stream_);
+  }
+
   for (size_t i = 0; i < streams_.size(); i++) {
     camera3_stream_t *outputStream;
     outputStream = streams_.editValueAt(i)->BeginConfigure();
@@ -538,11 +568,6 @@ int32_t Camera3DeviceClient::ConfigureStreamsLocked(
       return -ENOSYS;
     }
     streams.add(outputStream);
-  }
-
-  if (0 <= input_stream_.stream_id) {
-    input_stream_.usage = 0; //Reset any previously set usage flags from Hal
-    streams.add(&input_stream_);
   }
 
   config.streams = streams.editArray();
@@ -1252,6 +1277,31 @@ void Camera3DeviceClient::HandleCaptureResult(
       request.partialResult.partial3AReceived = HandlePartialResult(
           frameNumber, request.partialResult.composedResult,
           request.resultExtras);
+
+    }
+
+    if (result->partial_result == 1 &&
+        CAM_OPMODE_IS_FRAMESELECTION(cam_opmode_)) {
+      uint32_t tag = 0;
+      camera_metadata_ro_entry entry;
+      int32_t res;
+
+      sp<::camera::VendorTagDescriptor> vTags =
+          ::camera::VendorTagDescriptor::getGlobalVendorTagDescriptor();
+
+      ::camera::CameraMetadata::getTagFromName(
+          "org.quic.camera.frameselection.updatedPickedFrames",
+          vTags.get(), &tag);
+
+      if (tag > 0) {
+        res = find_camera_metadata_ro_entry(result->result, tag, &entry);
+        if (res == 0 && entry.count > 0) {
+          CamReqModeInputParams params;
+
+          params.frame_selection.total_selected_frames = entry.data.i32[0];
+          request_handler_.UpdateRequestedStreams(params);
+        }
+      }
     }
   }
 
@@ -1490,24 +1540,30 @@ void Camera3DeviceClient::SendCaptureResult(
     return;
   }
 
-  if (resultExtras.input) {
-    if (frameNumber < next_result_input_frame_number_) {
-      SET_ERR(
-          "Out-of-order result received! "
-          "(arriving frame number %d, expecting %d)",
-          frameNumber, next_result_input_frame_number_);
-      return;
+  // when camera operation mode is frame selection, video packets from
+  // pickframe node will be held on EISv3 module for several seconds at most
+  // so frame sequence passed by camx will be out of order,
+
+  if (!CAM_OPMODE_IS_FRAMESELECTION(cam_opmode_)) {
+    if (resultExtras.input) {
+      if (frameNumber < next_result_input_frame_number_) {
+        SET_ERR(
+            "Out-of-order result received! "
+            "(arriving frame number %d, expecting %d)",
+            frameNumber, next_result_input_frame_number_);
+        return;
+      }
+      next_result_input_frame_number_ = frameNumber + 1;
+    } else {
+      if (frameNumber < next_result_frame_number_) {
+        SET_ERR(
+            "Out-of-order result received! "
+            "(arriving frame number %d, expecting %d)",
+            frameNumber, next_result_frame_number_);
+        return;
+      }
+      next_result_frame_number_ = frameNumber + 1;
     }
-    next_result_input_frame_number_ = frameNumber + 1;
-  } else {
-    if (frameNumber < next_result_frame_number_) {
-      SET_ERR(
-          "Out-of-order result received! "
-          "(arriving frame number %d, expecting %d)",
-          frameNumber, next_result_frame_number_);
-      return;
-    }
-    next_result_frame_number_ = frameNumber + 1;
   }
 
   CaptureResult captureResult;
@@ -1889,11 +1945,8 @@ int32_t Camera3DeviceClient::GetRequestListLocked(
       return -EINVAL;
     }
 
-    if (newRequest.input == nullptr) {
-      requestList->push_back(newRequest);
-    } else {
-      requestListReproc->push_back(newRequest);
-    }
+    requestList->push_back(newRequest);
+
   }
 
   return 0;
@@ -2319,6 +2372,11 @@ void Camera3DeviceClient::torchModeStatusChange(
   // TODO: No implementation yet
 }
 
+bool Camera3DeviceClient::IsInputROIMode() {
+  return (cam_feature_flags_ &
+          static_cast<uint32_t>(CamFeatureFlag::kInputROIEnable));
+}
+
 uint32_t Camera3DeviceClient::GetOpMode() {
   QMMF_DEBUG("%s: Enter: \n", __func__);
 
@@ -2378,6 +2436,10 @@ uint32_t Camera3DeviceClient::GetOpMode() {
     QMMF_INFO("%s: IFEDirectStream OpMode Set, operation_mode = 0x%x \n",
         __func__, operation_mode);
   }
+
+  if (CAM_OPMODE_IS_FRAMESELECTION(cam_opmode_))
+    operation_mode |= CAM_OPMODE_FRAME_SELECTION;
+
 #endif
 
   QMMF_DEBUG("%s: Exit: \n", __func__);

@@ -265,6 +265,8 @@ class Camera3DeviceClient : public camera3_callback_ops,
 
   uint32_t GetOpMode();
 
+  bool IsInputROIMode();
+
   pthread_mutex_t pending_requests_lock_;
   PendingRequestVector pending_requests_vector_;
   PendingRequestVector pending_error_requests_vector_;
@@ -327,6 +329,8 @@ class Camera3DeviceClient : public camera3_callback_ops,
   static sp<::camera::VendorTagDescriptor> vendor_tag_desc_;
   static uint32_t client_count_;
   std::atomic<bool> is_camera_device_available_;
+
+  CamOperationMode cam_opmode_;
 };
 
 }  // namespace cameraadaptor ends here

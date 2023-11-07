@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -105,10 +105,24 @@ enum class CamFeatureFlag : uint32_t {
   kLCAC = 1 << 3,              /// LCAC is on.
   kForceSensorMode = 1 << 4,   /// Force Sensor Mode is on.
   kIFEDirectStream = 1 << 5,   /// IFE Direct Stream is on.
+  kInputROIEnable  = 1 << 6,   /// Input ROI reprocess is on.
+};
+
+enum class CamOperationMode {
+  // camera in normal mode
+  kCamOperationModeNone,
+
+  // use frame selection node after IFE to filter frames
+  kCamOperationModeFrameSelection,
+
+  kCamOperationModeEnd,
 };
 
 #define FORCE_SENSOR_MODE_MASK      (0x00F00000)
 #define FORCE_SENSOR_MODE_DATA(idx) ((idx + 1) << 20)
+
+#define CAM_OPMODE_IS_FRAMESELECTION(mode) \
+  (mode == CamOperationMode::kCamOperationModeFrameSelection)
 
 struct CameraStreamParameters {
   uint32_t width;
@@ -132,10 +146,12 @@ struct CameraParameters {
   uint32_t fps_sensormode_index;
   int32_t frame_rate_range[2];
   uint32_t cam_feature_flags;
+  CamOperationMode cam_opmode;
   CameraParameters() :
       is_constrained_high_speed(false), is_raw_only(false), batch_size(1),
       fps_sensormode_index(0), frame_rate_range{},
-      cam_feature_flags(static_cast<uint32_t>(CamFeatureFlag::kNone)) {}
+      cam_feature_flags(static_cast<uint32_t>(CamFeatureFlag::kNone)),
+      cam_opmode(CamOperationMode::kCamOperationModeNone) {}
 };
 
 typedef struct Camera3Request_t {
