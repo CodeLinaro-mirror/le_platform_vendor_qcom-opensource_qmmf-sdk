@@ -110,6 +110,7 @@ enum QMMF_RECORDER_SERVICE_CMDS {
   RECORDER_RETURN_IMAGECAPTURE_BUFFER,
   RECORDER_SET_CAMERA_PARAMS,
   RECORDER_GET_CAMERA_PARAMS,
+  RECORDER_SET_CAMERA_SESSION_PARAMS,
   RECORDER_SET_SHDR,
   RECORDER_GET_DEFAULT_CAPTURE_PARAMS,
   RECORDER_GET_CAMERA_CHARACTERISTICS,
@@ -276,6 +277,10 @@ class IRecorderService : public IInterface {
   virtual status_t GetCameraParam(const uint32_t client_id,
                                   const uint32_t camera_id,
                                   ::camera::CameraMetadata &meta) = 0;
+
+  virtual status_t SetCameraSessionParam(const uint32_t client_id,
+                                         const uint32_t camera_id,
+                                         const ::camera::CameraMetadata &meta) = 0;
 
   virtual status_t SetSHDR(const uint32_t client_id,
                            const uint32_t camera_id,

@@ -174,6 +174,9 @@ class CameraSource {
   /// Get Camera configuration to Camera Interface
   status_t GetCameraParam(const uint32_t camera_id, ::camera::CameraMetadata &meta);
 
+  /// Set Camera Session configuration to Camera Interface
+  status_t SetCameraSessionParam(const uint32_t camera_id, const ::camera::CameraMetadata &meta);
+
   /// Set Camera SHDR mode
   status_t SetSHDR(const uint32_t camera_id, const bool enable);
 

@@ -342,6 +342,19 @@ status_t Recorder::GetCameraParam(const uint32_t camera_id,
   return ret;
 }
 
+status_t Recorder::SetCameraSessionParam(const uint32_t camera_id,
+                                         const ::camera::CameraMetadata &meta) {
+
+  QMMF_INFO("%s: Enter" ,__func__);
+  assert(recorder_client_ != NULL);
+  auto ret = recorder_client_->SetCameraSessionParam(camera_id, meta);
+  if (NO_ERROR != ret) {
+      QMMF_ERROR("%s: SetCameraSessionParam failed!", __func__);
+  }
+  QMMF_INFO("%s: Exit" ,__func__);
+  return ret;
+}
+
 status_t Recorder::SetSHDR(const uint32_t camera_id,
                            const bool enable) {
 

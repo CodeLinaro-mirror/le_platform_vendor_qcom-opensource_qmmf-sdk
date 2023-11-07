@@ -157,6 +157,8 @@ class CameraContext : public CameraInterface {
 
   status_t GetCameraParam(::camera::CameraMetadata &meta) override;
 
+  status_t SetCameraSessionParam(const ::camera::CameraMetadata &meta) override;
+
   status_t GetDefaultCaptureParam(::camera::CameraMetadata &meta) override;
 
   status_t GetCameraCharacteristics(::camera::CameraMetadata &meta) override;

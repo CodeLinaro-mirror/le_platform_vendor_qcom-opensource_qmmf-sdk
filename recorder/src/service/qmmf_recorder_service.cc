@@ -388,9 +388,9 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
       case RECORDER_SET_CAMERA_PARAMS: {
         uint32_t client_id, camera_id;
         data.readUint32(&client_id);
+        data.readUint32(&camera_id);
         ::camera::CameraMetadata meta;
         camera_metadata_t *m = nullptr;
-        data.readUint32(&camera_id);
         ret = meta.readFromParcel(data, &m);
         if ((NO_ERROR != ret) || (nullptr == m)) {
           QMMF_ERROR("%s: Metadata parcel read failed: %d meta: %p\n",
@@ -425,6 +425,31 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
           }
         }
         meta.clear();
+        return NO_ERROR;
+      }
+      break;
+      case RECORDER_SET_CAMERA_SESSION_PARAMS: {
+        uint32_t client_id, camera_id;
+        data.readUint32(&client_id);
+        data.readUint32(&camera_id);
+        ::camera::CameraMetadata meta;
+        camera_metadata_t *m = nullptr;
+        ret = meta.readFromParcel(data, &m);
+        if ((NO_ERROR != ret) || (nullptr == m)) {
+          QMMF_ERROR("%s: Metadata parcel read failed: %d meta: %p\n",
+              __func__, ret, m);
+          reply->writeInt32(ret);
+          return ret;
+        }
+        meta.clear();
+        meta.append(m);
+        ret = SetCameraSessionParam(client_id, camera_id, meta);
+
+        // Clear the metadata buffer and free all storage used by it
+        meta.clear();
+        //We need to release this memory as meta.append() makes copy of this memory
+        free(m);
+        reply->writeInt32(ret);
         return NO_ERROR;
       }
       break;
@@ -1071,6 +1096,26 @@ status_t RecorderService::GetCameraParam(const uint32_t client_id,
   auto ret = recorder_->GetCameraParam(client_id, camera_id, meta);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: GetCameraParam failed!", __func__);
+    return ret;
+  }
+  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
+  return NO_ERROR;
+}
+
+status_t RecorderService::SetCameraSessionParam(const uint32_t client_id,
+                                                const uint32_t camera_id,
+                                                const ::camera::CameraMetadata &meta) {
+
+  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
+
+  if (!IsRecorderInitialized()) {
+    QMMF_ERROR("%s: Recorder not initialized!", __func__);
+    return NO_INIT;
+  }
+
+  auto ret = recorder_->SetCameraSessionParam(client_id, camera_id, meta);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s: SetCameraSessionParam failed!", __func__);
     return ret;
   }
   QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);

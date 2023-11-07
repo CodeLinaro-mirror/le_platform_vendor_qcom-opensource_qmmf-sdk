@@ -1259,6 +1259,19 @@ status_t CameraContext::GetCameraParam(::camera::CameraMetadata &meta) {
   return NO_ERROR;
 }
 
+status_t CameraContext::SetCameraSessionParam(
+    const ::camera::CameraMetadata &meta) {
+  int32_t ret = NO_ERROR;
+  QMMF_DEBUG("%s: Enter", __func__);
+
+  ret = camera_device_->SetCameraSessionParam(meta);
+  if (ret != NO_ERROR)
+     QMMF_ERROR("%s Set cammera session metadata failed!\n", __func__);
+
+  QMMF_DEBUG("%s: Exit", __func__);
+  return ret;
+}
+
 status_t CameraContext::GetDefaultCaptureParam(::camera::CameraMetadata &meta) {
 
   QMMF_DEBUG("%s: Enter", __func__);

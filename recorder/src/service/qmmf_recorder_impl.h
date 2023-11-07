@@ -207,6 +207,11 @@ class RecorderImpl {
   status_t GetCameraParam(const uint32_t client_id,
                           const uint32_t camera_id, ::camera::CameraMetadata &meta);
 
+  /// Set Camera Session parameters
+  status_t SetCameraSessionParam(const uint32_t client_id,
+                                 const uint32_t camera_id,
+                                 const ::camera::CameraMetadata &meta);
+
   /// Set Camera SHDR mode
   status_t SetSHDR(const uint32_t client_id,
                    const uint32_t camera_id,
