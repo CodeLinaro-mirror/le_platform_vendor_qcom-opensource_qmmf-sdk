@@ -127,6 +127,7 @@ CameraContext::CameraContext()
       hfr_supported_(false),
       batch_stream_id_(-1),
       partial_result_count_(0),
+      snapshot_mode_(ImageMode::kSnapshot),
       port_paused_(false),
       camera_parameters_{},
       is_partial_metadata_enabled_(false),
@@ -2247,6 +2248,7 @@ status_t CameraContext::StartZSL(const uint32_t image_id,
     return BAD_VALUE;
   }
 
+  snapshot_mode_ = param.mode;
   BufferFormat zslfmt = Common::FromImageToQmmfFormat(zslparam.format);
 
   QMMF_INFO("%s zsl_format %d img_format %d", __func__, zslfmt, param.format);
