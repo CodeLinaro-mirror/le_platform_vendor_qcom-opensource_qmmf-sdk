@@ -123,14 +123,16 @@ class CameraContext : public CameraInterface {
 
   status_t WaitAecToConverge(const uint32_t timeout) override;
 
-  status_t ConfigImageCapture(const SnapshotParam& param,
+  status_t ConfigImageCapture(const uint32_t image_id,
+                              const SnapshotParam& param,
                               const ImageExtraParam &xtraparam) override;
 
   status_t CaptureImage(const SnapshotType type, const uint32_t n_images,
                         const std::vector<::camera::CameraMetadata> &meta,
                         const StreamSnapshotCb& cb) override;
 
-  status_t CancelCaptureImage(const bool cache) override;
+  status_t CancelCaptureImage(const uint32_t image_id,
+                              const bool cache) override;
 
   status_t CreateStream(const StreamParam& param,
                         const VideoExtraParam& extra_param) override;
@@ -219,10 +221,11 @@ class CameraContext : public CameraInterface {
 
   AECData GetAECData();
 
-  status_t CreateSnapshotStream(CameraStreamParameters &stream_param,
+  status_t CreateSnapshotStream(uint32_t image_id,
+                                CameraStreamParameters &stream_param,
                                 bool cache = false);
 
-  status_t DeleteSnapshotStream(bool cache = false);
+  status_t DeleteSnapshotStream(uint32_t image_id, bool cache = false);
 
   status_t SetPerStreamFrameRate();
 
@@ -247,9 +250,10 @@ class CameraContext : public CameraInterface {
 
   void InitHFRModes();
 
-  status_t StartZSL(const SnapshotParam& param, const SnapshotZslSetup &zslparam);
+  status_t StartZSL(const uint32_t image_id, const SnapshotParam& param,
+                    const SnapshotZslSetup &zslparam);
 
-  status_t StopZSL();
+  status_t StopZSL(const uint32_t image_id);
 
   status_t CaptureZSLImage(const SnapshotType type);
 
@@ -371,8 +375,12 @@ class CameraContext : public CameraInterface {
   std::mutex               partial_result_lock_;
 
   // snapshot configuration
-  SnapshotParam                 snapshot_param_;
-  CameraStreamParameters        snapshot_stream_param_;
+  
+  // <stream id, image id>
+  std::map<uint32_t, uint32_t>  stream_image_map_;
+  std::mutex                    stream_image_lock_;
+  ImageMode                     snapshot_mode_;
+  uint32_t                      snapshot_quality_;
   bool                          port_paused_;
   std::set<int32_t>             stopped_stream_ids_;
   CameraParameters              camera_parameters_;

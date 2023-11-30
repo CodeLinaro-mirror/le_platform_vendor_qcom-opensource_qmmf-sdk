@@ -493,9 +493,7 @@ void GtestCommon::SetUp() {
 
 void GtestCommon::SetSnapshotMode(char prop[]) {
   std::string value = prop;
-  if (value == "SnapshotPlusRaw") {
-    snap_mode_ = ImageMode::kSnapshotPlusRaw;
-  } else if (value == "Zsl") {
+  if (value == "Zsl") {
     snap_mode_ = ImageMode::kZsl;
   } else if (value == "Snapshot") {
     snap_mode_ = ImageMode::kSnapshot;
@@ -503,9 +501,7 @@ void GtestCommon::SetSnapshotMode(char prop[]) {
 }
 
 std::string GtestCommon::GetSnapshotMode() {
-  if (snap_mode_ == ImageMode::kSnapshotPlusRaw) {
-    return "SnapshotPlusRaw";
-  } else if (snap_mode_ == ImageMode::kZsl) {
+  if (snap_mode_ == ImageMode::kZsl) {
     return "Zsl";
   } else if (snap_mode_ == ImageMode::kSnapshot) {
     return "Snapshot";
@@ -520,10 +516,6 @@ void GtestCommon::SetSnapshotType(char prop[]) {
     snap_type_ = SnapshotType::kVideo;
   } else if (value == "Still") {
     snap_type_ = SnapshotType::kStill;
-  } else if (value == "StillPlusRaw") {
-    snap_type_ = SnapshotType::kStillPlusRaw;
-  } else if (value == "VideoPlusRaw") {
-    snap_type_ = SnapshotType::kVideoPlusRaw;
   }
 }
 
@@ -532,10 +524,6 @@ std::string GtestCommon::GetSnapshotType() {
     return "Video";
   } else if (snap_type_ == SnapshotType::kStill) {
     return "Still";
-  } else if (snap_type_ == SnapshotType::kStillPlusRaw) {
-    return "StillPlusRaw";
-  } else if (snap_type_ == SnapshotType::kVideoPlusRaw) {
-    return "VideoPlusRaw";
   } else {
     return "Invalid Mode";
   }
@@ -2167,7 +2155,7 @@ status_t GtestCommon::FillCropMetadata(::camera::CameraMetadata& meta,
   return NO_ERROR;
 }
 
-void GtestCommon::ConfigureImageParam() {
+void GtestCommon::ConfigureImageParam(uint32_t img_id) {
 
   bool res_supported = false;
   ::camera::CameraMetadata static_meta;
@@ -2175,7 +2163,7 @@ void GtestCommon::ConfigureImageParam() {
   auto ret = recorder_.GetCameraCharacteristics(camera_id_, static_meta);
   ASSERT_TRUE(ret == NO_ERROR);
 
-  // Configure Snapshot Mode And Image Param
+  // useless for Non-ZSL
   ImageExtraParam xtraparam;
 
   ImageParam image_param{};
@@ -2200,19 +2188,6 @@ void GtestCommon::ConfigureImageParam() {
     TEST_INFO("%s: Supported Max Capture W(%d):H(%d)", __func__,
               image_param.width, image_param.height);
     ASSERT_TRUE(image_param.width > 0 && image_param.height > 0);
-
-    if (snap_mode_ == ImageMode::kSnapshotPlusRaw) {
-      image_param.mode = ImageMode::kSnapshotPlusRaw;
-      image_param.format = ImageFormat::kJPEG;
-      image_param.width = snap_width_;
-      image_param.height = snap_height_;
-      image_param.quality = default_jpeg_quality_;
-
-      SnapshotRawSetup rawparam;
-      rawparam.format = snap_format_;
-
-      xtraparam.Update (QMMF_SNAPSHOT_RAW_SETUP, rawparam, 0);
-    }
   } else if (snap_format_ == ImageFormat::kNV12 ||
              snap_format_ == ImageFormat::kNV21) {
     image_param.width = snap_width_;
@@ -2222,8 +2197,9 @@ void GtestCommon::ConfigureImageParam() {
     ASSERT_TRUE(res_supported != false);
   }
 
-  ret = recorder_.ConfigImageCapture(camera_id_, image_param, xtraparam);
+  ret = recorder_.ConfigImageCapture(camera_id_, img_id, image_param, xtraparam);
   ASSERT_TRUE(ret == NO_ERROR);
+  img_id_list_.push_back(img_id);
 }
 
 void GtestCommon::TakeSnapshot() {
@@ -2248,8 +2224,12 @@ void GtestCommon::TakeSnapshot() {
 
   sleep(time);
 
-  ret = recorder_.CancelCaptureImage(camera_id_);
-  ASSERT_TRUE(ret == NO_ERROR);
+  id_list_::iterator it;
+  for (it = img_id_list_.begin(); it != img_id_list_.end(); it++) {
+    ret = recorder_.CancelCaptureImage(camera_id_, *it);
+    ASSERT_TRUE(ret == NO_ERROR);
+  }
+  img_id_list_.clear();
 
   sleep(1);
 }

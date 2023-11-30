@@ -106,6 +106,7 @@
 #define LCAC_ENABLE                           (0x100000)
 #define IFE_DIRECT_STREAM                     (1 << 25)
 #define CAM_OPMODE_FRAME_SELECTION            (0xF400)
+#define CAM_OPMODE_FAST_SWITCH                (0xF900)
 #endif
 
 // Convenience macros for transitioning to the error state
@@ -2439,6 +2440,9 @@ uint32_t Camera3DeviceClient::GetOpMode() {
 
   if (CAM_OPMODE_IS_FRAMESELECTION(cam_opmode_))
     operation_mode |= CAM_OPMODE_FRAME_SELECTION;
+
+  if (CAM_OPMODE_IS_FASTSWTICH(cam_opmode_))
+    operation_mode |= CAM_OPMODE_FAST_SWITCH;
 
 #endif
 

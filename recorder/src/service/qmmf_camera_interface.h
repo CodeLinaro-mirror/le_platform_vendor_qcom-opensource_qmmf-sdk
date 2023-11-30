@@ -121,7 +121,8 @@ class CameraInterface {
   virtual status_t WaitAecToConverge(const uint32_t timeout) = 0;
 
   /// Configure Image Capture.
-  virtual status_t ConfigImageCapture(const SnapshotParam& param,
+  virtual status_t ConfigImageCapture(const uint32_t image_id,
+                                      const SnapshotParam& param,
                                       const ImageExtraParam &xtraparam) = 0;
 
   /// Image Capture
@@ -131,7 +132,8 @@ class CameraInterface {
 
   /// Abort ongoing Image Capture. This blocking API and returns when
   /// image capture is stopped and all buffers are returned
-  virtual status_t CancelCaptureImage(const bool cache) = 0;
+  virtual status_t CancelCaptureImage(uint32_t image_id,
+                                      const bool cache) = 0;
 
   /// Create stream
   virtual status_t CreateStream(const StreamParam& param,

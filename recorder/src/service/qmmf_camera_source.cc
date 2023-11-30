@@ -255,8 +255,9 @@ status_t CameraSource::CaptureImage(const uint32_t camera_id,
   active_cameras_lock_.unlock();
 
   client_snapshot_cb_ = cb;
-  StreamSnapshotCb stream_cb = [&] (uint32_t count, StreamBuffer& buf) {
-    SnapshotCallback(count, buf);
+  StreamSnapshotCb stream_cb = [&] (uint32_t image_id, uint32_t count,
+      StreamBuffer& buf) {
+    SnapshotCallback(image_id, count, buf);
   };
   auto ret = camera->CaptureImage(type, n_images, meta, stream_cb);
   if (ret != NO_ERROR) {
@@ -269,6 +270,7 @@ status_t CameraSource::CaptureImage(const uint32_t camera_id,
 }
 
 status_t CameraSource::ConfigImageCapture(const uint32_t camera_id,
+                                          const uint32_t image_id,
                                           const ImageParam &param,
                                           const ImageExtraParam &xtraparam) {
 
@@ -291,7 +293,7 @@ status_t CameraSource::ConfigImageCapture(const uint32_t camera_id,
   sparam.quality = param.quality;
   sparam.rotation = param.rotation;
 
-  auto ret = camera->ConfigImageCapture(sparam, xtraparam);
+  auto ret = camera->ConfigImageCapture(image_id, sparam, xtraparam);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: ConfigImageCapture Failed!", __func__);
     return ret;
@@ -302,6 +304,7 @@ status_t CameraSource::ConfigImageCapture(const uint32_t camera_id,
 }
 
 status_t CameraSource::CancelCaptureImage(const uint32_t camera_id,
+                                          const uint32_t image_id,
                                           const bool cache) {
 
   QMMF_DEBUG("%s: Enter", __func__);
@@ -316,7 +319,7 @@ status_t CameraSource::CancelCaptureImage(const uint32_t camera_id,
   auto const& camera = active_cameras_[camera_id];
   active_cameras_lock_.unlock();
 
-  auto ret = camera->CancelCaptureImage(cache);
+  auto ret = camera->CancelCaptureImage(image_id, cache);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: CancelCaptureImage Failed!", __func__);
     return ret;
@@ -941,7 +944,8 @@ status_t CameraSource::ParseThumb(uint8_t* vaddr, uint32_t size,
   return NO_ERROR;
 }
 
-void CameraSource::SnapshotCallback(uint32_t count, StreamBuffer& buffer) {
+void CameraSource::SnapshotCallback(uint32_t image_id, uint32_t count,
+                                    StreamBuffer& buffer) {
 
   uint32_t content_size = 0;
   int32_t width = -1, height = -1;
@@ -990,6 +994,7 @@ void CameraSource::SnapshotCallback(uint32_t count, StreamBuffer& buffer) {
   }
 
   BnBuffer bn_buffer{};
+  bn_buffer.img_id      = image_id;
   bn_buffer.ion_fd      = buffer.fd;
   bn_buffer.ion_meta_fd = buffer.metafd;
   bn_buffer.size        = content_size;
@@ -1438,6 +1443,7 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
   }
 
   BnBuffer bn_buffer{};
+  bn_buffer.img_id            = 0;
   bn_buffer.ion_fd            = buffer.fd;
   bn_buffer.ion_meta_fd       = buffer.metafd;
   bn_buffer.size              = buffer.size;
