@@ -90,6 +90,7 @@ const int IMemAllocUsage::kHwRender             = (1 << 13);
 const int IMemAllocUsage::kHwComposer           = (1 << 14);
 const int IMemAllocUsage::kHwCameraRead         = (1 << 15);
 const int IMemAllocUsage::kHwCameraWrite        = (1 << 16);
+const int IMemAllocUsage::kPrivateAllocHEIF     = (1 << 17);
 
 IAllocDevice *AllocDeviceFactory::CreateAllocDevice() {
 #ifdef TARGET_USES_GRALLOC1

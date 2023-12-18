@@ -135,6 +135,7 @@ enum class ImageMode : uint32_t {
 enum class ImageFormat : uint32_t {
   kJPEG,
   kNV12,
+  kNV12HEIF,
   kNV21,
   kBayerIdeal,
   kBayerRDI8BIT,

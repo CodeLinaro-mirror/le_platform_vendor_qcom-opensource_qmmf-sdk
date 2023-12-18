@@ -639,6 +639,13 @@ status_t CameraContext::ConfigImageCapture(const uint32_t image_id,
 #ifdef ENABLE_IMAGE_NV12
     if (param.format == BufferFormat::kNV12) {
       stream_param.allocFlags.flags |= IMemAllocUsage::kHwCameraWrite;
+      // Not for HEIF, set HAL_DATASPACE_HEIF because of camera limitation.
+      stream_param.data_space = static_cast<android_dataspace_t>
+                                (HAL_DATASPACE_HEIF);
+    } else if (param.format == BufferFormat::kNV12HEIF) {
+      stream_param.allocFlags.flags = (IMemAllocUsage::kHwRender |
+                                IMemAllocUsage::kPrivateAllocHEIF |
+                                IMemAllocUsage::kHwTexture);
       stream_param.data_space = static_cast<android_dataspace_t>
                                 (HAL_DATASPACE_HEIF);
     }

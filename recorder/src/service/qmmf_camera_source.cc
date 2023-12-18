@@ -968,6 +968,7 @@ void CameraSource::SnapshotCallback(uint32_t image_id, uint32_t count,
   void* vaddr = nullptr;
   switch (buffer.info.format) {
     case BufferFormat::kNV12:
+    case BufferFormat::kNV12HEIF:
     case BufferFormat::kNV21:
     case BufferFormat::kNV16:
     case BufferFormat::kRAW8:
