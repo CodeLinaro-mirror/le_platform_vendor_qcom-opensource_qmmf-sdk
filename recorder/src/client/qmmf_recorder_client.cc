@@ -557,6 +557,7 @@ status_t RecorderClient::ReturnTrackBuffer(const uint32_t session_id,
     BnBuffer bn_buffer = {
       static_cast<int32_t>(buffer.buf_id), // ion_fd
       -1,                                  // ion_meta_fd
+      -1,                                  // img_id
       buffer.size,                         // size
       buffer.timestamp,                    // timestamp
       buffer.seqnum,                       // seqnum
@@ -685,6 +686,7 @@ status_t RecorderClient::CaptureImage(const uint32_t camera_id,
 }
 
 status_t RecorderClient::ConfigImageCapture(const uint32_t camera_id,
+                                            const uint32_t image_id,
                                             const ImageParam &param,
                                             const ImageExtraParam &xtraparam) {
 
@@ -695,7 +697,7 @@ status_t RecorderClient::ConfigImageCapture(const uint32_t camera_id,
   }
   assert(client_id_ > 0);
   auto ret = recorder_service_->ConfigImageCapture(client_id_, camera_id,
-                                                   param, xtraparam);
+                                                   image_id, param, xtraparam);
   if (NO_ERROR != ret) {
     QMMF_ERROR("%s ConfigImageCapture failed!", __func__);
   }
@@ -704,6 +706,7 @@ status_t RecorderClient::ConfigImageCapture(const uint32_t camera_id,
 }
 
 status_t RecorderClient::CancelCaptureImage(const uint32_t camera_id,
+                                            const uint32_t image_id,
                                             const bool cache) {
 
   QMMF_DEBUG("%s Enter ", __func__);
@@ -713,7 +716,8 @@ status_t RecorderClient::CancelCaptureImage(const uint32_t camera_id,
     return NO_INIT;
   }
   assert(client_id_ > 0);
-  auto ret = recorder_service_->CancelCaptureImage(client_id_, camera_id, cache);
+  auto ret = recorder_service_->CancelCaptureImage(client_id_, camera_id,
+                                                   image_id, cache);
   if(NO_ERROR != ret) {
     QMMF_ERROR("%s CancelCaptureImage failed!", __func__);
   }
@@ -788,6 +792,24 @@ status_t RecorderClient::GetCameraParam(const uint32_t camera_id,
   auto ret = recorder_service_->GetCameraParam(client_id_, camera_id, meta);
   if (NO_ERROR != ret) {
     QMMF_ERROR("%s GetCameraParam failed!", __func__);
+  }
+  QMMF_DEBUG("%s Exit ", __func__);
+  return ret;
+}
+
+status_t RecorderClient::SetCameraSessionParam(const uint32_t camera_id,
+                                               const ::camera::CameraMetadata &meta) {
+
+  QMMF_DEBUG("%s Enter ", __func__);
+  std::lock_guard<std::mutex> lock(lock_);
+  if (!CheckServiceStatus()) {
+    return NO_INIT;
+  }
+  assert(client_id_ > 0);
+  auto ret = recorder_service_->SetCameraSessionParam(client_id_, camera_id,
+                                                      meta);
+  if (NO_ERROR != ret) {
+    QMMF_ERROR("%s SetCameraSessionParam failed!", __func__);
   }
   QMMF_DEBUG("%s Exit ", __func__);
   return ret;
@@ -1008,6 +1030,9 @@ void RecorderClient::ImportBuffer(int32_t fd, int32_t metafd,
       break;
     case BufferFormat::kUYVY:
       format = GBM_FORMAT_UYVY;
+      break;
+    case BufferFormat::kNV12HEIF:
+      format = GBM_FORMAT_NV12_HEIF;
       break;
     default:
       format = 0;
@@ -1275,6 +1300,7 @@ void RecorderClient::NotifySnapshotData(uint32_t camera_id, uint32_t imgcount,
   }
 
   BufferDescriptor buffer {};
+  buffer.img_id    = bn_buffer.img_id;
   buffer.data      = buffer_info.vaddr;
   buffer.size      = bn_buffer.size;
   buffer.timestamp = bn_buffer.timestamp;
@@ -1698,6 +1724,7 @@ status_t DeleteVideoTrack(const uint32_t client_id,
 
   status_t ConfigImageCapture(const uint32_t client_id,
                               const uint32_t camera_id,
+                              const uint32_t image_id,
                               const ImageParam &param,
                               const ImageExtraParam &xtraparam) {
 
@@ -1705,6 +1732,7 @@ status_t DeleteVideoTrack(const uint32_t client_id,
     data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
     data.writeUint32(client_id);
     data.writeUint32(camera_id);
+    data.writeUint32(image_id);
     uint32_t param_size = sizeof param;
     data.writeUint32(param_size);
     android::Parcel::WritableBlob blob;
@@ -1726,11 +1754,13 @@ status_t DeleteVideoTrack(const uint32_t client_id,
 
   status_t CancelCaptureImage(const uint32_t client_id,
                               const uint32_t camera_id,
+                              const uint32_t image_id,
                               const bool cache) {
     Parcel data, reply;
     data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
     data.writeUint32(client_id);
     data.writeUint32(camera_id);
+    data.writeUint32(image_id);
     data.writeUint32(cache);
     remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
                        RECORDER_CANCEL_IMAGECAPTURE), data, &reply);
@@ -1777,6 +1807,19 @@ status_t DeleteVideoTrack(const uint32_t client_id,
       ret = meta.readFromParcel(&reply);
     }
     return ret;
+  }
+
+  status_t SetCameraSessionParam(const uint32_t client_id,
+                                 const uint32_t camera_id,
+                                 const ::camera::CameraMetadata &meta) {
+    Parcel data, reply;
+    data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
+    data.writeUint32(client_id);
+    data.writeUint32(camera_id);
+    meta.writeToParcel(&data);
+    remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
+                       RECORDER_SET_CAMERA_SESSION_PARAMS), data, &reply);
+    return reply.readInt32();
   }
 
   status_t SetSHDR(const uint32_t client_id,

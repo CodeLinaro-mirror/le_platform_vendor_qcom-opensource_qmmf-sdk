@@ -278,21 +278,24 @@ status_t Recorder::CaptureImage(const uint32_t camera_id,
 }
 
 status_t Recorder::ConfigImageCapture(const uint32_t camera_id,
+                                      const uint32_t image_id,
                                       const ImageParam &param,
                                       const ImageExtraParam &xtraparam) {
 
   assert(recorder_client_ != NULL);
-  auto ret = recorder_client_->ConfigImageCapture(camera_id, param, xtraparam);
+  auto ret = recorder_client_->ConfigImageCapture(camera_id, image_id, param,
+                                                  xtraparam);
   if (NO_ERROR != ret) {
     QMMF_ERROR("%s: ConfigImageCapture failed!", __func__);
   }
   return ret;
 }
 
-status_t Recorder::CancelCaptureImage(const uint32_t camera_id, bool cache) {
+status_t Recorder::CancelCaptureImage(const uint32_t camera_id,
+                                      const uint32_t image_id, bool cache) {
 
   assert(recorder_client_ != NULL);
-  auto ret = recorder_client_->CancelCaptureImage(camera_id, cache);
+  auto ret = recorder_client_->CancelCaptureImage(camera_id, image_id, cache);
   if(NO_ERROR != ret) {
       QMMF_ERROR("%s: CancelCaptureImage failed!", __func__);
   }
@@ -336,6 +339,19 @@ status_t Recorder::GetCameraParam(const uint32_t camera_id,
   }
 
   QMMF_INFO("%s: Exit", __func__);
+  return ret;
+}
+
+status_t Recorder::SetCameraSessionParam(const uint32_t camera_id,
+                                         const ::camera::CameraMetadata &meta) {
+
+  QMMF_INFO("%s: Enter" ,__func__);
+  assert(recorder_client_ != NULL);
+  auto ret = recorder_client_->SetCameraSessionParam(camera_id, meta);
+  if (NO_ERROR != ret) {
+      QMMF_ERROR("%s: SetCameraSessionParam failed!", __func__);
+  }
+  QMMF_INFO("%s: Exit" ,__func__);
   return ret;
 }
 

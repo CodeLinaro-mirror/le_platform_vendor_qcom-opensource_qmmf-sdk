@@ -142,6 +142,9 @@ static const uint32_t kFourthStreamID = 4;
 static const uint32_t kFifthStreamID  = 5;
 static const uint32_t kHFRStreamID    = 16;
 
+static const uint32_t kFirstImageID  = 0;
+static const uint32_t kSecondImageID = 1;
+
 #define TEXT_SIZE                 40
 #define DATETIME_PIXEL_SIZE       30
 #define DATETIME_TEXT_BUF_WIDTH   192
@@ -740,7 +743,7 @@ class GtestCommon : public ::testing::Test {
                             int32_t sensor_mode_h, int32_t crop_x,
                             int32_t crop_y, int32_t crop_w, int32_t crop_h);
 
-  void ConfigureImageParam();
+  void ConfigureImageParam(uint32_t img_id);
   void TakeSnapshot();
 
   SessionCb CreateSessionStatusCb() {
@@ -760,9 +763,11 @@ class GtestCommon : public ::testing::Test {
 
   typedef std::vector<uint8_t> nr_modes_;
   typedef std::vector<int32_t> vhdr_modes_;
+  typedef std::vector<uint32_t> id_list_;
   ::camera::CameraMetadata       static_info_;
   nr_modes_            supported_nr_modes_;
   vhdr_modes_          supported_hdr_modes_;
+  id_list_             img_id_list_;
 
   typedef std::tuple<BufferDescriptor, ::camera::CameraMetadata, uint32_t, uint32_t>
       BufferMetaDataTuple;

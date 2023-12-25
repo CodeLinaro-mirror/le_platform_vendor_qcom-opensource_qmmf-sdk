@@ -59,7 +59,7 @@ typedef std::function<void(std::vector<BnBuffer>& buffers,
 typedef std::function<void(uint32_t camera_id, uint32_t imgcount,
     BnBuffer& buffer, BufferMeta& meta)>  SnapshotCb;
 
-typedef std::function<void(uint32_t imgcount,
+typedef std::function<void(uint32_t image_id, uint32_t imgcount,
     StreamBuffer& buffer)> StreamSnapshotCb;
 
 typedef std::function<void(uint32_t camera_id,
