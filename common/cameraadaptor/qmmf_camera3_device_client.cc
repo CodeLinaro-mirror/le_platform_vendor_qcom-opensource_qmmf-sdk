@@ -106,6 +106,7 @@
 #define LCAC_ENABLE                           (0x100000)
 #define IFE_DIRECT_STREAM                     (1 << 25)
 #define CAM_OPMODE_FRAME_SELECTION            (0xF400)
+#define CAM_OPMODE_FAST_SWITCH                (0xF900)
 #endif
 
 // Convenience macros for transitioning to the error state
@@ -124,9 +125,6 @@ namespace cameraadaptor {
 std::mutex Camera3DeviceClient::vendor_tag_mutex_;
 sp<::camera::VendorTagDescriptor> Camera3DeviceClient::vendor_tag_desc_ = nullptr;
 uint32_t Camera3DeviceClient::client_count_ = 0;
-
-// protect HAL3 API access
-std::mutex  hal3_api_serialization_lock_;
 
 Camera3DeviceClient::Camera3DeviceClient(CameraClientCallbacks clientCb)
     : client_cb_(clientCb),
@@ -159,7 +157,8 @@ Camera3DeviceClient::Camera3DeviceClient(CameraClientCallbacks clientCb)
       prepare_handler_(),
       input_stream_{},
       is_camera_device_available_ (true),
-      cam_opmode_ (CamOperationMode::kCamOperationModeNone) {
+      cam_opmode_ (CamOperationMode::kCamOperationModeNone),
+      session_metadata_ (::camera::CameraMetadata(128, 128)) {
   QMMF_GET_LOG_LEVEL();
   camera3_callback_ops::notify = &notifyFromHal;
   camera3_callback_ops::process_capture_result = &processCaptureResult;
@@ -235,11 +234,8 @@ int32_t Camera3DeviceClient::Initialize() {
     goto exit;
   }
 
-  // serialize camera so loading
-  hal3_api_serialization_lock_.lock();
   res = LoadHWModule(CAMERA_HARDWARE_MODULE_ID,
                      (const hw_module_t **)&camera_module_);
-  hal3_api_serialization_lock_.unlock();
 
   if ((0 != res) || (NULL == camera_module_)) {
     QMMF_ERROR("%s: Unable to load Hal module: %d\n", __func__, res);
@@ -250,10 +246,7 @@ int32_t Camera3DeviceClient::Initialize() {
             camera_module_->common.author, camera_module_->common.hal_api_version,
             camera_module_->common.name);
 
-  // serialize get_number_of_cameras
-  hal3_api_serialization_lock_.lock();
   number_of_cameras_ = camera_module_->get_number_of_cameras();
-  hal3_api_serialization_lock_.unlock();
   QMMF_INFO("%s: Number of cameras: %d\n", __func__, number_of_cameras_);
 
   if (NULL != camera_module_->init) {
@@ -374,11 +367,8 @@ int32_t Camera3DeviceClient::OpenCamera(uint32_t idx) {
   }
 
   id = std::to_string(idx);
-  // serialize open API
-  hal3_api_serialization_lock_.lock();
   res = camera_module_->common.methods->open(&camera_module_->common, id.c_str(),
                                             (hw_device_t **)(&device_));
-  hal3_api_serialization_lock_.unlock();
   if (0 != res) {
     QMMF_ERROR("Could not open camera: %s (%d) \n", strerror(-res), res);
     goto exit;
@@ -393,10 +383,7 @@ int32_t Camera3DeviceClient::OpenCamera(uint32_t idx) {
     goto exit;
   }
 
-  // serialize initialize API
-  hal3_api_serialization_lock_.lock();
   res = device_->ops->initialize(device_, this);
-  hal3_api_serialization_lock_.unlock();
   if (0 != res) {
     QMMF_ERROR("Could not initialize camera: %s (%d) \n", strerror(-res), res);
     goto exit;
@@ -540,15 +527,36 @@ int32_t Camera3DeviceClient::ConfigureStreamsLocked(
   QMMF_INFO("%s: operation_mode: 0x%x \n", __func__, config.operation_mode);
 
 #if defined(CAMERA_HAL_API_VERSION) && (CAMERA_HAL_API_VERSION >= 0x0305)
-  camera_metadata_t *session_parameters = allocate_camera_metadata(1, 128);
-  add_camera_metadata_entry(session_parameters,
-                            ANDROID_CONTROL_AE_TARGET_FPS_RANGE,
+  session_metadata_.update(ANDROID_CONTROL_AE_TARGET_FPS_RANGE,
                             frame_rate_range_, 2);
 
-  config.session_parameters = session_parameters;
+  if (IsInputROIMode()) {
+    uint32_t tag_id = 0;
+    int32_t roienable = true;
+    const ::android::sp<::camera::VendorTagDescriptor> vtags =
+        ::camera::VendorTagDescriptor::getGlobalVendorTagDescriptor();
+    if (vtags.get() == NULL) {
+      QMMF_ERROR ("Failed to retrieve Global Vendor Tag Descriptor!");
+      return -1;
+    }
+
+    session_metadata_.getTagFromName(
+        "org.codeaurora.qcamera3.sessionParameters.MultiRoIEnable",
+        vtags.get(), &tag_id);
+
+    session_metadata_.update(tag_id, &roienable, 1);
+  }
+
+  config.session_parameters = session_metadata_.getAndLock();
 #endif
 
   Vector<camera3_stream_t *> streams;
+
+  if (0 <= input_stream_.stream_id) {
+    input_stream_.usage = 0; // Reset any previously set usage flags from Hal
+    streams.add(&input_stream_);
+  }
+
   for (size_t i = 0; i < streams_.size(); i++) {
     camera3_stream_t *outputStream;
     outputStream = streams_.editValueAt(i)->BeginConfigure();
@@ -559,18 +567,15 @@ int32_t Camera3DeviceClient::ConfigureStreamsLocked(
     streams.add(outputStream);
   }
 
-  if (0 <= input_stream_.stream_id) {
-    input_stream_.usage = 0; //Reset any previously set usage flags from Hal
-    streams.add(&input_stream_);
-  }
-
   config.streams = streams.editArray();
   config.num_streams = streams.size();
 
-  // serialize configure_streams API
-  hal3_api_serialization_lock_.lock();
   res = device_->ops->configure_streams(device_, &config);
-  hal3_api_serialization_lock_.unlock();
+#if defined(CAMERA_HAL_API_VERSION) && (CAMERA_HAL_API_VERSION >= 0x0305)
+  if (config.session_parameters != NULL) {
+    session_metadata_.unlock(config.session_parameters);
+  }
+#endif
   if (res == -EINVAL) {
     for (uint32_t i = 0; i < streams_.size(); i++) {
       Camera3Stream *stream = streams_.editValueAt(i);
@@ -1942,11 +1947,8 @@ int32_t Camera3DeviceClient::GetRequestListLocked(
       return -EINVAL;
     }
 
-    if (newRequest.input == nullptr) {
-      requestList->push_back(newRequest);
-    } else {
-      requestListReproc->push_back(newRequest);
-    }
+    requestList->push_back(newRequest);
+
   }
 
   return 0;
@@ -2116,10 +2118,7 @@ int32_t Camera3DeviceClient::Flush(int64_t *lastFrameNumber) {
     goto exit;
   }
 
-  // TODO:serialize flush API, need to check if we can do this
-  hal3_api_serialization_lock_.lock();
   res = device_->ops->flush(device_);
-  hal3_api_serialization_lock_.unlock();
 
   pthread_mutex_lock(&lock_);
 
@@ -2318,6 +2317,20 @@ exit:
   return res;
 }
 
+int32_t Camera3DeviceClient::SetCameraSessionParam(
+    const ::camera::CameraMetadata &meta) {
+  int32_t res = 0;
+  pthread_mutex_lock(&lock_);
+
+  session_metadata_.clear();
+  res = session_metadata_.append(meta);
+  if (res != NO_ERROR)
+    QMMF_ERROR("%s Append cammera session metadata failed!\n", __func__);
+
+  pthread_mutex_unlock(&lock_);
+  return res;
+}
+
 void Camera3DeviceClient::processCaptureResult(
     const camera3_callback_ops *cb, const camera3_capture_result *result) {
   Camera3DeviceClient *ctx = const_cast<Camera3DeviceClient *>(
@@ -2373,6 +2386,11 @@ void Camera3DeviceClient::torchModeStatusChange(
     const struct camera_module_callbacks *, const char *camera_id,
     int new_status) {
   // TODO: No implementation yet
+}
+
+bool Camera3DeviceClient::IsInputROIMode() {
+  return (cam_feature_flags_ &
+          static_cast<uint32_t>(CamFeatureFlag::kInputROIEnable));
 }
 
 uint32_t Camera3DeviceClient::GetOpMode() {
@@ -2437,6 +2455,9 @@ uint32_t Camera3DeviceClient::GetOpMode() {
 
   if (CAM_OPMODE_IS_FRAMESELECTION(cam_opmode_))
     operation_mode |= CAM_OPMODE_FRAME_SELECTION;
+
+  if (CAM_OPMODE_IS_FASTSWTICH(cam_opmode_))
+    operation_mode |= CAM_OPMODE_FAST_SWITCH;
 
 #endif
 

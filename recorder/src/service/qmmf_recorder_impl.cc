@@ -406,7 +406,6 @@ status_t RecorderImpl::StartCamera(const uint32_t client_id,
   ErrorCb errcb = [&] (uint32_t camera_id, uint32_t errcode) {
       CameraErrorCb(camera_id, errcode); };
 
-  std::lock_guard<std::mutex> lock(camera_track_id_lock_);
   auto ret = camera_source_->StartCamera(camera_id, framerate, extra_param,
                                          enable_result_cb ? cb : nullptr,
                                          errcb);
@@ -414,6 +413,8 @@ status_t RecorderImpl::StartCamera(const uint32_t client_id,
     QMMF_ERROR("%s: StartCamera Failed!!", __func__);
     return BAD_VALUE;
   }
+
+  std::lock_guard<std::mutex> lock(camera_map_lock_);
 
   // Notify all clients, except this one, that the camera has been opened.
   for (auto it : client_cameraid_map_) {
@@ -506,13 +507,13 @@ status_t RecorderImpl::StopCamera(const uint32_t client_id,
     }
   }
 
-  std::lock_guard<std::mutex> lock(camera_track_id_lock_);
   auto ret = camera_source_->StopCamera(camera_id);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: StopCamera Failed!!", __func__);
     return BAD_VALUE;
   }
 
+  std::lock_guard<std::mutex> lock(camera_map_lock_);
   client_cameraid_map_[client_id].erase(camera_id);
 
   // Notify all clients, except this one, that the camera has been closed.
@@ -1032,7 +1033,6 @@ status_t RecorderImpl::CreateVideoTrack(const uint32_t client_id,
   }
 
   // Create Camera track first.
-  std::lock_guard<std::mutex> lock(camera_track_id_lock_);
   assert(camera_source_ != nullptr);
   auto ret = camera_source_->CreateTrackSource(service_track_id, params,
                                                extraparams, cb);
@@ -1047,6 +1047,7 @@ status_t RecorderImpl::CreateVideoTrack(const uint32_t client_id,
       service_track_id);
 
   // Assosiate track to session.
+  std::lock_guard<std::mutex> lock(client_session_lock_);
   auto& session_track_map = client_session_map_[client_id];
   auto& tracks_in_session = session_track_map[session_id];
   tracks_in_session.emplace(track_id, service_track_id);
@@ -1088,16 +1089,16 @@ status_t RecorderImpl::DeleteVideoTrack(const uint32_t client_id,
     return BAD_VALUE;
   }
 
-  camera_track_id_lock_.lock();
+  client_session_lock_.lock();
   auto& session_track_map = client_session_map_[client_id];
   auto& tracks_in_session = session_track_map[session_id];
 
   uint32_t service_track_id = tracks_in_session[track_id];
+  client_session_lock_.unlock();
 
   assert(camera_source_ != nullptr);
   assert(service_track_id > 0);
   auto ret = camera_source_->DeleteTrackSource(service_track_id);
-  camera_track_id_lock_.unlock();
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: service_track_id(%x) DeleteTrackSource failed!",
         __func__, service_track_id);
@@ -1255,11 +1256,12 @@ status_t RecorderImpl::CaptureImage(const uint32_t client_id,
 
 status_t RecorderImpl::ConfigImageCapture(const uint32_t client_id,
                                           const uint32_t camera_id,
+                                          const uint32_t image_id,
                                           const ImageParam &param,
                                           const ImageExtraParam &xtraparam) {
 
-  QMMF_DEBUG("%s: Enter client_id(%u):camera_id(%d)", __func__,
-      client_id, camera_id);
+  QMMF_DEBUG("%s: Enter client_id(%u):camera_id(%d):image_id(%d)", __func__,
+      client_id, camera_id, image_id);
 
   if (!IsClientValid(client_id)) {
     QMMF_ERROR("%s: Client(%u) is not connected!", __func__, client_id);
@@ -1273,7 +1275,8 @@ status_t RecorderImpl::ConfigImageCapture(const uint32_t client_id,
   }
 
   assert(camera_source_ != nullptr);
-  auto ret = camera_source_->ConfigImageCapture(camera_id, param, xtraparam);
+  auto ret = camera_source_->ConfigImageCapture(camera_id, image_id, param,
+                                                xtraparam);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: client_id(%u):camera_id(%d) ConfigImageCapture failed!",
         __func__, client_id, camera_id);
@@ -1287,10 +1290,11 @@ status_t RecorderImpl::ConfigImageCapture(const uint32_t client_id,
 
 status_t RecorderImpl::CancelCaptureImage(const uint32_t client_id,
                                           const uint32_t camera_id,
+                                          const uint32_t image_id,
                                           const bool cache) {
 
-  QMMF_DEBUG("%s: Enter client_id(%u):camera_id(%d)", __func__,
-      client_id, camera_id);
+  QMMF_DEBUG("%s: Enter client_id(%u):camera_id(%d):image_id(%d)", __func__,
+      client_id, camera_id, image_id);
 
   if (!IsClientValid(client_id)) {
     QMMF_ERROR("%s: Client(%u) is not connected!", __func__, client_id);
@@ -1304,13 +1308,13 @@ status_t RecorderImpl::CancelCaptureImage(const uint32_t client_id,
   }
 
   assert(camera_source_ != nullptr);
-  auto ret = camera_source_->CancelCaptureImage(camera_id, cache);
+  auto ret = camera_source_->CancelCaptureImage(camera_id, image_id, cache);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: CancelCaptureImage failed!", __func__);
     return ret;
   }
-  QMMF_DEBUG("%s: Exit client_id(%u):camera_id(%d)", __func__,
-      client_id, camera_id);
+  QMMF_DEBUG("%s: Exit client_id(%u):camera_id(%d):image_id(%d)", __func__,
+      client_id, camera_id, image_id);
   return NO_ERROR;
 }
 
@@ -1386,6 +1390,35 @@ status_t RecorderImpl::GetCameraParam(const uint32_t client_id,
     return ret;
   }
   QMMF_DEBUG("%s: Exit client_id(%u):camera_id(%d)", __func__,
+      client_id, camera_id);
+  return NO_ERROR;
+}
+
+status_t RecorderImpl::SetCameraSessionParam(const uint32_t client_id,
+                                             const uint32_t camera_id,
+                                             const ::camera::CameraMetadata &meta) {
+
+  QMMF_DEBUG("%s: Enter client_id(%u):camera_id(%d)", __func__,
+      client_id, camera_id);
+
+  if (!IsClientValid(client_id)) {
+    QMMF_ERROR("%s: Client(%u) is not connected!", __func__, client_id);
+    return BAD_VALUE;
+  }
+
+  if (!IsCameraValid(client_id, camera_id)) {
+    QMMF_ERROR("%s Client(%u): Camera(%u) is not owned by this client,"
+        " operation not allowed!", __func__, client_id, camera_id);
+    return INVALID_OPERATION;
+  }
+
+  assert(camera_source_ != nullptr);
+  auto ret = camera_source_->SetCameraSessionParam(camera_id, meta);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s: SetCameraSessionParam failed!", __func__);
+    return ret;
+  }
+  QMMF_DEBUG("%s: Enter client_id(%u):camera_id(%d)", __func__,
       client_id, camera_id);
   return NO_ERROR;
 }

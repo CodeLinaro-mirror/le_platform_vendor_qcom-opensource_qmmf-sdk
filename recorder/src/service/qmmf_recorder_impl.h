@@ -184,12 +184,14 @@ class RecorderImpl {
   /// Configuration for Image Capture
   status_t ConfigImageCapture(const uint32_t client_id,
                               const uint32_t camera_id,
+                              const uint32_t image_id,
                               const ImageParam &param,
                               const ImageExtraParam &xtraparam);
 
   /// Cancel Image Capture
   status_t CancelCaptureImage(const uint32_t client_id,
                               const uint32_t camera_id,
+                              const uint32_t image_id,
                               const bool cache);
 
   /// Return Image Capture buffer
@@ -204,6 +206,11 @@ class RecorderImpl {
   /// Get Camera parameters
   status_t GetCameraParam(const uint32_t client_id,
                           const uint32_t camera_id, ::camera::CameraMetadata &meta);
+
+  /// Set Camera Session parameters
+  status_t SetCameraSessionParam(const uint32_t client_id,
+                                 const uint32_t camera_id,
+                                 const ::camera::CameraMetadata &meta);
 
   /// Set Camera SHDR mode
   status_t SetSHDR(const uint32_t client_id,
@@ -343,8 +350,6 @@ class RecorderImpl {
   ClientSessionMutexMap         client_sessions_mutex_map_;
 
   std::mutex                    stop_camera_lock_;
-
-  std::mutex                    camera_track_id_lock_;
 
   // Not allowed
   RecorderImpl();
