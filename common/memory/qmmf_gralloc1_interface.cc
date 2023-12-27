@@ -82,7 +82,8 @@ const std::unordered_map<int32_t, int32_t> Gralloc1Usage::usage_flag_map_ = {
   {IMemAllocUsage::kHwRender,             GRALLOC_USAGE_HW_RENDER},
   {IMemAllocUsage::kHwComposer,           GRALLOC_USAGE_HW_COMPOSER},
   {IMemAllocUsage::kHwCameraRead,         GRALLOC_USAGE_HW_CAMERA_READ},
-  {IMemAllocUsage::kHwCameraWrite,        GRALLOC_USAGE_HW_CAMERA_WRITE}};
+  {IMemAllocUsage::kHwCameraWrite,        GRALLOC_USAGE_HW_CAMERA_WRITE},
+  {IMemAllocUsage::kPrivateAllocHEIF,     GRALLOC_USAGE_PRIVATE_HEIF}};
 
 int32_t Gralloc1Usage::ToLocal(int32_t common) const {
   int32_t local_usage = 0;

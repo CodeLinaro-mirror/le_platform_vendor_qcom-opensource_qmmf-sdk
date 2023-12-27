@@ -259,10 +259,12 @@ class Recorder {
   /// features.
   ///
   /// @param camera_id: ID of camera
+  /// @param image_id: ID of snapshot stream
   /// @param param: Details dimensions, format of the image
   /// @param config: Additional parameters for setting crop, reprocess
   ///        plugins, multi-camera mode, etc.
   status_t ConfigImageCapture(const uint32_t camera_id,
+                              const uint32_t image_id,
                               const ImageParam &param,
                               const ImageExtraParam &xtraparam);
 
@@ -270,7 +272,9 @@ class Recorder {
   ///
   /// CaptureImage is a async API. Clients can call CancelCaptureImage anytime
   /// after CaptureImage to cancel pending image captures
-  status_t CancelCaptureImage(const uint32_t camera_id, const bool cache = false);
+  status_t CancelCaptureImage(const uint32_t camera_id,
+                              const uint32_t image_id,
+                              const bool cache = false);
 
   /// @brief Returns image buffer back to recoder
   ///
@@ -292,6 +296,15 @@ class Recorder {
   /// GetCameraParam to get default camerametadata params
   status_t GetCameraParam(const uint32_t camera_id,
                           ::camera::CameraMetadata &meta);
+
+  /// @brief Sets camera session parameters
+  ///
+  /// Camera session parameters are controlled through CameraMetadata class
+  /// defined camera/CameraMetadata.h. Typical usage would be to create
+  /// meta param, then update it using update function of CameraMetadata and
+  /// then set this through SetCameraSessionParam
+  status_t SetCameraSessionParam(const uint32_t camera_id,
+                                 const ::camera::CameraMetadata &meta);
 
   /// Set Camera SHDR mode
   status_t SetSHDR(const uint32_t camera_id,

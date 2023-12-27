@@ -106,6 +106,7 @@
 #define LCAC_ENABLE                           (0x100000)
 #define IFE_DIRECT_STREAM                     (1 << 25)
 #define CAM_OPMODE_FRAME_SELECTION            (0xF400)
+#define CAM_OPMODE_FAST_SWITCH                (0xF900)
 #endif
 
 // Convenience macros for transitioning to the error state
@@ -156,7 +157,8 @@ Camera3DeviceClient::Camera3DeviceClient(CameraClientCallbacks clientCb)
       prepare_handler_(),
       input_stream_{},
       is_camera_device_available_ (true),
-      cam_opmode_ (CamOperationMode::kCamOperationModeNone) {
+      cam_opmode_ (CamOperationMode::kCamOperationModeNone),
+      session_metadata_ (::camera::CameraMetadata(128, 128)) {
   QMMF_GET_LOG_LEVEL();
   camera3_callback_ops::notify = &notifyFromHal;
   camera3_callback_ops::process_capture_result = &processCaptureResult;
@@ -525,15 +527,12 @@ int32_t Camera3DeviceClient::ConfigureStreamsLocked(
   QMMF_INFO("%s: operation_mode: 0x%x \n", __func__, config.operation_mode);
 
 #if defined(CAMERA_HAL_API_VERSION) && (CAMERA_HAL_API_VERSION >= 0x0305)
-  camera_metadata_t *session_parameters = allocate_camera_metadata(2, 128);
-  add_camera_metadata_entry(session_parameters,
-                            ANDROID_CONTROL_AE_TARGET_FPS_RANGE,
+  session_metadata_.update(ANDROID_CONTROL_AE_TARGET_FPS_RANGE,
                             frame_rate_range_, 2);
 
   if (IsInputROIMode()) {
-    ::camera::CameraMetadata *meta = new ::camera::CameraMetadata();
     uint32_t tag_id = 0;
-    bool roienable = true;
+    int32_t roienable = true;
     const ::android::sp<::camera::VendorTagDescriptor> vtags =
         ::camera::VendorTagDescriptor::getGlobalVendorTagDescriptor();
     if (vtags.get() == NULL) {
@@ -541,16 +540,14 @@ int32_t Camera3DeviceClient::ConfigureStreamsLocked(
       return -1;
     }
 
-    meta->getTagFromName(
+    session_metadata_.getTagFromName(
         "org.codeaurora.qcamera3.sessionParameters.MultiRoIEnable",
         vtags.get(), &tag_id);
 
-    add_camera_metadata_entry(session_parameters,
-                              tag_id,
-                              &roienable, 1);
+    session_metadata_.update(tag_id, &roienable, 1);
   }
 
-  config.session_parameters = session_parameters;
+  config.session_parameters = session_metadata_.getAndLock();
 #endif
 
   Vector<camera3_stream_t *> streams;
@@ -574,6 +571,11 @@ int32_t Camera3DeviceClient::ConfigureStreamsLocked(
   config.num_streams = streams.size();
 
   res = device_->ops->configure_streams(device_, &config);
+#if defined(CAMERA_HAL_API_VERSION) && (CAMERA_HAL_API_VERSION >= 0x0305)
+  if (config.session_parameters != NULL) {
+    session_metadata_.unlock(config.session_parameters);
+  }
+#endif
   if (res == -EINVAL) {
     for (uint32_t i = 0; i < streams_.size(); i++) {
       Camera3Stream *stream = streams_.editValueAt(i);
@@ -2315,6 +2317,20 @@ exit:
   return res;
 }
 
+int32_t Camera3DeviceClient::SetCameraSessionParam(
+    const ::camera::CameraMetadata &meta) {
+  int32_t res = 0;
+  pthread_mutex_lock(&lock_);
+
+  session_metadata_.clear();
+  res = session_metadata_.append(meta);
+  if (res != NO_ERROR)
+    QMMF_ERROR("%s Append cammera session metadata failed!\n", __func__);
+
+  pthread_mutex_unlock(&lock_);
+  return res;
+}
+
 void Camera3DeviceClient::processCaptureResult(
     const camera3_callback_ops *cb, const camera3_capture_result *result) {
   Camera3DeviceClient *ctx = const_cast<Camera3DeviceClient *>(
@@ -2439,6 +2455,9 @@ uint32_t Camera3DeviceClient::GetOpMode() {
 
   if (CAM_OPMODE_IS_FRAMESELECTION(cam_opmode_))
     operation_mode |= CAM_OPMODE_FRAME_SELECTION;
+
+  if (CAM_OPMODE_IS_FASTSWTICH(cam_opmode_))
+    operation_mode |= CAM_OPMODE_FAST_SWITCH;
 
 #endif
 

@@ -110,6 +110,7 @@ enum QMMF_RECORDER_SERVICE_CMDS {
   RECORDER_RETURN_IMAGECAPTURE_BUFFER,
   RECORDER_SET_CAMERA_PARAMS,
   RECORDER_GET_CAMERA_PARAMS,
+  RECORDER_SET_CAMERA_SESSION_PARAMS,
   RECORDER_SET_SHDR,
   RECORDER_GET_DEFAULT_CAPTURE_PARAMS,
   RECORDER_GET_CAMERA_CHARACTERISTICS,
@@ -122,6 +123,7 @@ enum QMMF_RECORDER_SERVICE_CMDS {
 struct BnBuffer {
   int32_t   ion_fd;
   int32_t   ion_meta_fd;
+  int32_t   img_id;
   uint32_t  size;
   uint64_t  timestamp;
   uint64_t  seqnum;
@@ -133,6 +135,7 @@ struct BnBuffer {
     stringstream stream;
     stream << "ion_fd[" << ion_fd << "] ";
     stream << "ion_meta_fd[" << ion_meta_fd << "] ";
+    stream << "img_id[" << img_id << "] ";
     stream << "size[" << size << "] ";
     stream << "timestamp[" << timestamp << "] ";
     stream << "seqnum[" << seqnum << "] ";
@@ -254,11 +257,13 @@ class IRecorderService : public IInterface {
 
   virtual status_t ConfigImageCapture(const uint32_t client_id,
                                       const uint32_t camera_id,
+                                      const uint32_t image_id,
                                       const ImageParam &param,
                                       const ImageExtraParam &xtraparam) = 0;
 
   virtual status_t CancelCaptureImage(const uint32_t client_id,
                                       const uint32_t camera_id,
+                                      const uint32_t image_id,
                                       const bool cache) = 0;
 
   virtual status_t ReturnImageCaptureBuffer(const uint32_t client_id,
@@ -272,6 +277,10 @@ class IRecorderService : public IInterface {
   virtual status_t GetCameraParam(const uint32_t client_id,
                                   const uint32_t camera_id,
                                   ::camera::CameraMetadata &meta) = 0;
+
+  virtual status_t SetCameraSessionParam(const uint32_t client_id,
+                                         const uint32_t camera_id,
+                                         const ::camera::CameraMetadata &meta) = 0;
 
   virtual status_t SetSHDR(const uint32_t client_id,
                            const uint32_t camera_id,

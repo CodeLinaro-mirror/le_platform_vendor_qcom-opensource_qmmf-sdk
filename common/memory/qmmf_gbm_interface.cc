@@ -92,7 +92,13 @@ const std::unordered_map<int32_t, int32_t> GBMUsage::usage_flag_map_ = {
   {IMemAllocUsage::kHwRender,             GBM_BO_USAGE_HW_RENDERING_QTI},
   {IMemAllocUsage::kHwComposer,           GBM_BO_USAGE_HW_COMPOSER_QTI},
   {IMemAllocUsage::kHwCameraRead,         GBM_BO_USAGE_CAMERA_READ_QTI},
-  {IMemAllocUsage::kHwCameraWrite,        GBM_BO_USAGE_CAMERA_WRITE_QTI}};
+  {IMemAllocUsage::kHwCameraWrite,        GBM_BO_USAGE_CAMERA_WRITE_QTI},
+#ifdef GBM_BO_USAGE_PRIVATE_HEIF
+  {IMemAllocUsage::kPrivateAllocHEIF,     GBM_BO_USAGE_PRIVATE_HEIF}
+#else
+  {IMemAllocUsage::kPrivateAllocHEIF,     0}
+#endif
+};
 
 const std::unordered_map<int32_t, int32_t> GBMUsage::gralloc_usage_flag_map_ = {
   //TODO: remove when repacking to buffer_handle_t is no longer needed
@@ -110,7 +116,8 @@ const std::unordered_map<int32_t, int32_t> GBMUsage::gralloc_usage_flag_map_ = {
   {IMemAllocUsage::kHwRender,             GRALLOC_USAGE_HW_RENDER},
   {IMemAllocUsage::kHwComposer,           GRALLOC_USAGE_HW_COMPOSER},
   {IMemAllocUsage::kHwCameraRead,         GRALLOC_USAGE_HW_CAMERA_READ},
-  {IMemAllocUsage::kHwCameraWrite,        GRALLOC_USAGE_HW_CAMERA_WRITE}};
+  {IMemAllocUsage::kHwCameraWrite,        GRALLOC_USAGE_HW_CAMERA_WRITE},
+  {IMemAllocUsage::kPrivateAllocHEIF,     GRALLOC_USAGE_PRIVATE_HEIF}};
 
 GBMDevice* GBMDevice::gbm_device_obj_ = nullptr;
 int32_t GBMDevice::ref_count_ = 0;
@@ -225,6 +232,7 @@ const std::unordered_map<uint32_t, uint32_t> GBMBuffer::to_gbm_ = {
   {HAL_PIXEL_FORMAT_YCbCr_422_888,           0},
 
   {HAL_PIXEL_FORMAT_NV21_ZSL,                GBM_FORMAT_NV21_ZSL},
+  {HAL_PIXEL_FORMAT_NV12_HEIF,               GBM_FORMAT_NV12_HEIF},
 };
 
 const std::unordered_map<int32_t, int32_t> GBMBuffer::from_gbm_ = {
@@ -256,6 +264,7 @@ const std::unordered_map<int32_t, int32_t> GBMBuffer::from_gbm_ = {
   {GBM_FORMAT_UYVY,                     HAL_PIXEL_FORMAT_CbYCrY_422_I},
 
   {GBM_FORMAT_NV21_ZSL,                 HAL_PIXEL_FORMAT_NV21_ZSL},
+  {GBM_FORMAT_NV12_HEIF,                HAL_PIXEL_FORMAT_NV12_HEIF},
 };
 
 GBMBuffer::~GBMBuffer() {
@@ -429,6 +438,10 @@ MemAllocError GBMDevice::AllocBuffer(IBufferHandle& handle, int32_t width,
       gbm_format = GBM_FORMAT_YCbCr_420_TP10_UBWC;
     }
   }
+
+  if (gbm_format == GBM_FORMAT_YCbCr_420_888 &&
+      usage.Exists(IMemAllocUsage::kPrivateAllocHEIF))
+    gbm_format = GBM_FORMAT_NV12_HEIF;
 
   bo = gbm_bo_create(gbm_device_, (uint32_t)width, (uint32_t)height,
     gbm_format, local_usage);
