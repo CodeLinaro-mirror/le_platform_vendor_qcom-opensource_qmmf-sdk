@@ -162,6 +162,7 @@ class Camera3DeviceClient : public camera3_callback_ops,
   int32_t Flush(int64_t *lastFrameNumber = NULL);
   int32_t Prepare(int streamId);
   int32_t TearDown(int streamId);
+  int32_t SetCameraSessionParam(const ::camera::CameraMetadata &meta);
 
   static int32_t LoadHWModule(const char *moduleId,
                               const struct hw_module_t **pHmi);
@@ -331,6 +332,7 @@ class Camera3DeviceClient : public camera3_callback_ops,
   std::atomic<bool> is_camera_device_available_;
 
   CamOperationMode cam_opmode_;
+  ::camera::CameraMetadata session_metadata_;
 };
 
 }  // namespace cameraadaptor ends here

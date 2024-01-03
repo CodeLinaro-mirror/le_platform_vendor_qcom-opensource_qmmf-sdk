@@ -115,6 +115,9 @@ enum class CamOperationMode {
   // use frame selection node after IFE to filter frames
   kCamOperationModeFrameSelection,
 
+  // camera pipeline switch between preview and preview plus video
+  kCamOperationModeFastSwitch,
+
   kCamOperationModeEnd,
 };
 
@@ -123,6 +126,9 @@ enum class CamOperationMode {
 
 #define CAM_OPMODE_IS_FRAMESELECTION(mode) \
   (mode == CamOperationMode::kCamOperationModeFrameSelection)
+
+#define CAM_OPMODE_IS_FASTSWTICH(mode) \
+  (mode == CamOperationMode::kCamOperationModeFastSwitch)
 
 struct CameraStreamParameters {
   uint32_t width;

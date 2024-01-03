@@ -140,10 +140,13 @@ class RecorderClient {
                         const ImageCaptureCb &cb);
 
   status_t ConfigImageCapture(const uint32_t camera_id,
+                              const uint32_t image_id,
                               const ImageParam &param,
                               const ImageExtraParam &xtraparam);
 
-  status_t CancelCaptureImage(const uint32_t camera_id, const bool cache);
+  status_t CancelCaptureImage(const uint32_t camera_id,
+                              const uint32_t image_id,
+                              const bool cache);
 
   status_t ReturnImageCaptureBuffer(const uint32_t camera_id,
                                     const BufferDescriptor &buffer);
@@ -151,6 +154,8 @@ class RecorderClient {
   status_t SetCameraParam(const uint32_t camera_id, const ::camera::CameraMetadata &meta);
 
   status_t GetCameraParam(const uint32_t camera_id, ::camera::CameraMetadata &meta);
+
+  status_t SetCameraSessionParam(const uint32_t camera_id, const ::camera::CameraMetadata &meta);
 
   status_t SetSHDR(const uint32_t camera_id, const bool enable);
 

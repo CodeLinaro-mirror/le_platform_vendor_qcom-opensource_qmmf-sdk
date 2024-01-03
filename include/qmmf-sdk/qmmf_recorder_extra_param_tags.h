@@ -109,11 +109,13 @@ enum class FrameRateControlMode {
   kCaptureRequest
 };
 
-enum class ExtraParameCamOpModeEnum {
+enum class CamOpMode {
   /**< camera operation mode is normal */
-  kCamOperationModeNone,
+  kNone,
   /**< camera use frame selection node to filter frames */
-  kCamOperationModeFrameSelection,
+  kFrameSelection,
+  /**< camera will switch between preview and preview plus video */
+  kFastSwitch,
 };
 
 struct SourceVideoTrack : DataTagBase {
@@ -273,12 +275,12 @@ struct IFEDirectStream: DataTagBase {
 };
 
 struct CamOpModeControl: DataTagBase {
-  ExtraParameCamOpModeEnum mode;    // Default: -1 to disable CamOpMode
+  CamOpMode mode;    // Default: kNone
   CamOpModeControl()
     : DataTagBase(QMMF_CAM_OP_MODE_CONTROL),
       /**< add to support special camera pipelines */
       /**< by default, no special camera mode will be passed */
-      mode(ExtraParameCamOpModeEnum::kCamOperationModeNone) {}
+      mode(CamOpMode::kNone) {}
 };
 
 struct InputROISetup: DataTagBase {
