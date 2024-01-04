@@ -293,16 +293,6 @@ struct InputROISetup: DataTagBase {
   }
 };
 
-struct InputROISetup: DataTagBase {
-  /**< Add support for client to enable/disable */
-  /**< Input ROI reprocess usecase */
-  /**< Default: False */
-  bool enable;
-  InputROISetup() :
-    DataTagBase(QMMF_INPUT_ROI), enable(false) {
-  }
-};
-
 }; //namespace recorder.
 
 }; //namespace qmmf.

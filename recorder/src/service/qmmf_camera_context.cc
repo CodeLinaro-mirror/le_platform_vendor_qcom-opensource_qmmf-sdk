@@ -466,22 +466,6 @@ status_t CameraContext::OpenCamera(const uint32_t camera_id,
     }
   }
 
-  if (extra_param.Exists(QMMF_INPUT_ROI)) {
-    size_t entry_count = extra_param.EntryCount(QMMF_INPUT_ROI);
-    if (entry_count == 1) {
-      InputROISetup input_roi;
-      extra_param.Fetch(QMMF_INPUT_ROI, input_roi, 0);
-      if (input_roi.enable == true) {
-        QMMF_INFO("%s: Input ROI reprocess usecase is ON..", __func__);
-        camera_parameters_.cam_feature_flags |=
-            static_cast<uint32_t>(CamFeatureFlag::kInputROIEnable);
-      }
-    } else {
-      QMMF_ERROR("%s: Invalid Input ROI param received", __func__);
-      return BAD_VALUE;
-    }
-  }
-
   camera_parameters_.batch_size = 1;
 
   if (!camera_device_) {
