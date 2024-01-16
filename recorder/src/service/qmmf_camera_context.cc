@@ -639,6 +639,13 @@ status_t CameraContext::ConfigImageCapture(const uint32_t image_id,
 #ifdef ENABLE_IMAGE_NV12
     if (param.format == BufferFormat::kNV12) {
       stream_param.allocFlags.flags |= IMemAllocUsage::kHwCameraWrite;
+      // Not for HEIF, set HAL_DATASPACE_HEIF because of camera limitation.
+      stream_param.data_space = static_cast<android_dataspace_t>
+                                (HAL_DATASPACE_HEIF);
+    } else if (param.format == BufferFormat::kNV12HEIF) {
+      stream_param.allocFlags.flags = (IMemAllocUsage::kHwRender |
+                                IMemAllocUsage::kPrivateAllocHEIF |
+                                IMemAllocUsage::kHwTexture);
       stream_param.data_space = static_cast<android_dataspace_t>
                                 (HAL_DATASPACE_HEIF);
     }
@@ -1257,6 +1264,19 @@ status_t CameraContext::GetCameraParam(::camera::CameraMetadata &meta) {
   }
   QMMF_DEBUG("%s: Exit", __func__);
   return NO_ERROR;
+}
+
+status_t CameraContext::SetCameraSessionParam(
+    const ::camera::CameraMetadata &meta) {
+  int32_t ret = NO_ERROR;
+  QMMF_DEBUG("%s: Enter", __func__);
+
+  ret = camera_device_->SetCameraSessionParam(meta);
+  if (ret != NO_ERROR)
+     QMMF_ERROR("%s Set cammera session metadata failed!\n", __func__);
+
+  QMMF_DEBUG("%s: Exit", __func__);
+  return ret;
 }
 
 status_t CameraContext::GetDefaultCaptureParam(::camera::CameraMetadata &meta) {

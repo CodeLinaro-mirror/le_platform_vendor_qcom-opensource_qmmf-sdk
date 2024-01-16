@@ -155,6 +155,8 @@ class RecorderClient {
 
   status_t GetCameraParam(const uint32_t camera_id, ::camera::CameraMetadata &meta);
 
+  status_t SetCameraSessionParam(const uint32_t camera_id, const ::camera::CameraMetadata &meta);
+
   status_t SetSHDR(const uint32_t camera_id, const bool enable);
 
   status_t GetDefaultCaptureParam(const uint32_t camera_id,

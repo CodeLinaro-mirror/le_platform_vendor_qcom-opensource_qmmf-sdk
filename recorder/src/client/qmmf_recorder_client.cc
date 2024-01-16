@@ -797,6 +797,24 @@ status_t RecorderClient::GetCameraParam(const uint32_t camera_id,
   return ret;
 }
 
+status_t RecorderClient::SetCameraSessionParam(const uint32_t camera_id,
+                                               const ::camera::CameraMetadata &meta) {
+
+  QMMF_DEBUG("%s Enter ", __func__);
+  std::lock_guard<std::mutex> lock(lock_);
+  if (!CheckServiceStatus()) {
+    return NO_INIT;
+  }
+  assert(client_id_ > 0);
+  auto ret = recorder_service_->SetCameraSessionParam(client_id_, camera_id,
+                                                      meta);
+  if (NO_ERROR != ret) {
+    QMMF_ERROR("%s SetCameraSessionParam failed!", __func__);
+  }
+  QMMF_DEBUG("%s Exit ", __func__);
+  return ret;
+}
+
 status_t RecorderClient::SetSHDR(const uint32_t camera_id,
                                  const bool enable) {
 
@@ -1012,6 +1030,9 @@ void RecorderClient::ImportBuffer(int32_t fd, int32_t metafd,
       break;
     case BufferFormat::kUYVY:
       format = GBM_FORMAT_UYVY;
+      break;
+    case BufferFormat::kNV12HEIF:
+      format = GBM_FORMAT_NV12_HEIF;
       break;
     default:
       format = 0;
@@ -1786,6 +1807,19 @@ status_t DeleteVideoTrack(const uint32_t client_id,
       ret = meta.readFromParcel(&reply);
     }
     return ret;
+  }
+
+  status_t SetCameraSessionParam(const uint32_t client_id,
+                                 const uint32_t camera_id,
+                                 const ::camera::CameraMetadata &meta) {
+    Parcel data, reply;
+    data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
+    data.writeUint32(client_id);
+    data.writeUint32(camera_id);
+    meta.writeToParcel(&data);
+    remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
+                       RECORDER_SET_CAMERA_SESSION_PARAMS), data, &reply);
+    return reply.readInt32();
   }
 
   status_t SetSHDR(const uint32_t client_id,

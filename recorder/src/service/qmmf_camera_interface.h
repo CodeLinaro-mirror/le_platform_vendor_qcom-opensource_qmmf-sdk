@@ -168,6 +168,9 @@ class CameraInterface {
   /// Return camera parameters
   virtual status_t GetCameraParam(::camera::CameraMetadata &meta) = 0;
 
+  /// Set camera session parameters
+  virtual status_t SetCameraSessionParam(const ::camera::CameraMetadata &meta) = 0;
+
   /// Return default capture parameters
   virtual status_t GetDefaultCaptureParam(::camera::CameraMetadata &meta) = 0;
 

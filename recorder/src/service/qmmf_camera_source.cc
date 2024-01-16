@@ -732,6 +732,22 @@ status_t CameraSource::GetCameraParam(const uint32_t camera_id,
   return camera->GetCameraParam(meta);
 }
 
+status_t CameraSource::SetCameraSessionParam(const uint32_t camera_id,
+                                             const ::camera::CameraMetadata &meta) {
+
+  active_cameras_lock_.lock();
+  if (active_cameras_.count(camera_id) == 0) {
+    active_cameras_lock_.unlock();
+    QMMF_ERROR("%s: Invalid Camera Id(%d)", __func__, camera_id);
+    return BAD_VALUE;
+  }
+
+  auto const& camera = active_cameras_[camera_id];
+  active_cameras_lock_.unlock();
+
+  return camera->SetCameraSessionParam(meta);
+}
+
 status_t CameraSource::SetSHDR(const uint32_t camera_id,
                                const bool enable) {
 
@@ -952,6 +968,7 @@ void CameraSource::SnapshotCallback(uint32_t image_id, uint32_t count,
   void* vaddr = nullptr;
   switch (buffer.info.format) {
     case BufferFormat::kNV12:
+    case BufferFormat::kNV12HEIF:
     case BufferFormat::kNV21:
     case BufferFormat::kNV16:
     case BufferFormat::kRAW8:

@@ -297,6 +297,15 @@ class Recorder {
   status_t GetCameraParam(const uint32_t camera_id,
                           ::camera::CameraMetadata &meta);
 
+  /// @brief Sets camera session parameters
+  ///
+  /// Camera session parameters are controlled through CameraMetadata class
+  /// defined camera/CameraMetadata.h. Typical usage would be to create
+  /// meta param, then update it using update function of CameraMetadata and
+  /// then set this through SetCameraSessionParam
+  status_t SetCameraSessionParam(const uint32_t camera_id,
+                                 const ::camera::CameraMetadata &meta);
+
   /// Set Camera SHDR mode
   status_t SetSHDR(const uint32_t camera_id,
                    const bool enable);
