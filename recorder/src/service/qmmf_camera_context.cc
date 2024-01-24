@@ -1817,6 +1817,7 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
   float max_fps = 0;
   std::set<int32_t> stream_ids;
   std::set<int32_t> removed_streams;
+  bool preview_stream_activate = false;
 
   //Get all camera stream ids from all active ports which are ready to start.
   size_t size = active_ports_.size();
@@ -1835,6 +1836,16 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
 
       QMMF_INFO("%s: CameraPort(0x%p):camera_stream_id(%d) is ready to"
           " start!",  __func__, port.get(), cam_stream_id);
+
+      if (camera_parameters_.cam_opmode ==
+        CamOperationMode::kCamOperationModeFrameSelection) {
+        if (true == port->IsPreviewStream()) {
+          QMMF_INFO("%s: found preview stream %d PORT_READYTOSTART",
+              __func__, cam_stream_id);
+          preview_stream_activate = true;
+        }
+      }
+
       if (max_fps < port->GetPortFramerate()) {
         max_fps = port->GetPortFramerate();
       }
@@ -1904,6 +1915,15 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
         max_fps = port->GetPortFramerate();
       }
       stream_ids.emplace(cam_stream_id);
+
+      if (camera_parameters_.cam_opmode ==
+        CamOperationMode::kCamOperationModeFrameSelection) {
+        if (true == port->IsPreviewStream()) {
+          QMMF_INFO("%s: found preview stream %d PORT_STARTED",
+              __func__, cam_stream_id);
+          preview_stream_activate = true;
+        }
+      }
     }
   }
 
@@ -1927,6 +1947,17 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
       QMMF_INFO("%s: active_ports_number = %d, size =%d, caching this state",
           __func__, active_ports_number, size);
       return NO_ERROR;
+  } else if (camera_parameters_.cam_opmode ==
+      CamOperationMode::kCamOperationModeFrameSelection) {
+    // in frame-selection mode, if preview stream is paused, video stream
+    // should be paused at the same time, otherwise, camera will trigger
+    // crash. so caching request until all streams are removed.
+    // TODO: after session cleanup merged. this part can be removed.
+      if (size != 0 && preview_stream_activate == false) {
+        QMMF_INFO("%s:FrameSel, active_ports_number = %d, size = %d, cache it",
+            __func__, active_ports_number, size);
+        return NO_ERROR;
+      }
   }
 
   //TODO: this logic only works when static stream configurations are applied
@@ -2784,7 +2815,8 @@ CameraPort::CameraPort(const StreamParam& param,
       reproc_queue_{},
       reproc_input_buffer_{},
       cameraport_enable_reproc_(false),
-      camera_parameters_(camera_parameters) {
+      camera_parameters_(camera_parameters),
+      preview_stream_(false) {
 
   QMMF_INFO("%s: Enter", __func__);
 
@@ -2827,12 +2859,14 @@ status_t CameraPort::Init() {
       QMMF_INFO("%s: port %d with preview flag",__func__, GetPortId());
 
       cam_stream_params_.allocFlags.flags = IMemAllocUsage::kHwComposer;
+      preview_stream_ = true;
     } else {
       // This flag should be mandatory if preview flag is not set.
       // Stream is considered as preview stream without it.
       // Different tuning, setings and sensor mode is applied for preview and
       // video streams. This is why this flag is needed.
       cam_stream_params_.allocFlags.flags = IMemAllocUsage::kVideoEncoder;
+      preview_stream_ = false;
     }
 
     switch (params_.format) {

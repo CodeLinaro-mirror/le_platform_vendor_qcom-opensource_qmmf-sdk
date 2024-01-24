@@ -478,12 +478,15 @@ class CameraPort {
 
   void ReturnReprocInputBuffer(StreamBuffer &buffer);
 
+  bool IsPreviewStream() { return preview_stream_; }
+
  protected:
   CameraPortType         port_type_;
   CameraContext*         context_;
   int32_t                camera_stream_id_;
   PortState              port_state_;
   StreamParam            params_;
+  bool                   preview_stream_;
 
  private:
 
