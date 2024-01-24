@@ -535,6 +535,8 @@ void GtestCommon::SetSnapShotStreamFormat(char prop[]) {
     snap_format_ = ImageFormat::kJPEG;
   } else if (value == "NV12") {
     snap_format_ = ImageFormat::kNV12;
+  } else if (value == "NV12HEIF") {
+    snap_format_ = ImageFormat::kNV12HEIF;
   } else if (value == "NV21") {
     snap_format_ = ImageFormat::kNV21;
   } else if (value == "RAW8") {
@@ -614,6 +616,8 @@ std::string GtestCommon::GetSnapshotStreamFormat() {
     return "JPEG";
   } else if (snap_format_ == ImageFormat::kNV12) {
     return "NV12";
+  } else if (snap_format_ == ImageFormat::kNV12HEIF) {
+    return "NV12HEIF";
   } else if (snap_format_ == ImageFormat::kNV21) {
     return "NV21";
   } else if (snap_format_ == ImageFormat::kBayerRDI8BIT) {
@@ -904,6 +908,9 @@ void GtestCommon::SnapshotCb(uint32_t camera_id, uint32_t imgcount,
     switch (meta.format) {
       case BufferFormat::kNV12:
       ext_str = "nv12";
+      break;
+      case BufferFormat::kNV12HEIF:
+      ext_str = "nv12heif";
       break;
       case BufferFormat::kNV21:
       ext_str = "nv21";
@@ -2189,6 +2196,7 @@ void GtestCommon::ConfigureImageParam(uint32_t img_id) {
               image_param.width, image_param.height);
     ASSERT_TRUE(image_param.width > 0 && image_param.height > 0);
   } else if (snap_format_ == ImageFormat::kNV12 ||
+             snap_format_ == ImageFormat::kNV12HEIF ||
              snap_format_ == ImageFormat::kNV21) {
     image_param.width = snap_width_;
     image_param.height = snap_height_;

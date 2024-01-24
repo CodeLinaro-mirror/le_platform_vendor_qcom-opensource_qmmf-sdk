@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -639,6 +639,13 @@ status_t CameraContext::ConfigImageCapture(const uint32_t image_id,
 #ifdef ENABLE_IMAGE_NV12
     if (param.format == BufferFormat::kNV12) {
       stream_param.allocFlags.flags |= IMemAllocUsage::kHwCameraWrite;
+      // Not for HEIF, set HAL_DATASPACE_HEIF because of camera limitation.
+      stream_param.data_space = static_cast<android_dataspace_t>
+                                (HAL_DATASPACE_HEIF);
+    } else if (param.format == BufferFormat::kNV12HEIF) {
+      stream_param.allocFlags.flags = (IMemAllocUsage::kHwRender |
+                                IMemAllocUsage::kPrivateAllocHEIF |
+                                IMemAllocUsage::kHwTexture);
       stream_param.data_space = static_cast<android_dataspace_t>
                                 (HAL_DATASPACE_HEIF);
     }
@@ -938,7 +945,11 @@ status_t CameraContext::CreateStream(const StreamParam& param,
 
   camera_parameters_.batch_size = batch;
 
-  if ((hfr_detected_ == false) && (batch > 1)) {
+  // FIXME: HFR control and exception for fastswitch will be removed after
+  // session clean-up merged
+  if ((camera_parameters_.cam_opmode !=
+        CamOperationMode::kCamOperationModeFastSwitch) &&
+      (hfr_detected_ == false) && (batch > 1)) {
     QMMF_INFO("%s: HFR stream detected!"
         "track_id = %x", __func__, param.id);
     hfr_detected_ = true;
@@ -1906,6 +1917,18 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
 
   size = streaming_active_requests_[0].streamIds.size();
 
+  // when camera mode is fastswitch, multiple video streams should be added or
+  // removed simultaneously, which is necessary for HFR case, since preview
+  // stream always exists, we need to cache video streams update if active
+  // request streams num is not equal to configured stream number.
+  if ((camera_parameters_.cam_opmode ==
+        CamOperationMode::kCamOperationModeFastSwitch) &&
+        (size != 0 && size != 1 && size != active_ports_number)) {
+      QMMF_INFO("%s: active_ports_number = %d, size =%d, caching this state",
+          __func__, active_ports_number, size);
+      return NO_ERROR;
+  }
+
   //TODO: this logic only works when static stream configurations are applied
   //in dynamic switch case, there will be extra streams created by application
   //so that all ports will not be ready forever
@@ -2859,6 +2882,12 @@ status_t CameraPort::Init() {
     QMMF_INFO ("%s: track_id(0%x) total buffer count(%d)", __func__,
         params_.id, cam_stream_params_.bufferCount);
   }
+
+#if defined(CAMX_ANDROID_API) && (CAMX_ANDROID_API >= 31)
+  if (params_.colorimetry == VideoColorimetry::kBT2100HLG) {
+    cam_stream_params_.hdrmode = ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_HLG10;
+  }
+#endif
 
   cam_stream_params_.cb = [&] (StreamBuffer buffer) { StreamCallback(buffer); };
 

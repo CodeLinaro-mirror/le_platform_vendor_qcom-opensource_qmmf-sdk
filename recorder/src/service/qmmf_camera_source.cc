@@ -28,7 +28,7 @@
 *
 * Changes from Qualcomm Innovation Center are provided under the following license:
 *
-* Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted (subject to the limitations in the
@@ -968,6 +968,7 @@ void CameraSource::SnapshotCallback(uint32_t image_id, uint32_t count,
   void* vaddr = nullptr;
   switch (buffer.info.format) {
     case BufferFormat::kNV12:
+    case BufferFormat::kNV12HEIF:
     case BufferFormat::kNV21:
     case BufferFormat::kNV16:
     case BufferFormat::kRAW8:
@@ -1178,6 +1179,7 @@ status_t TrackSource::Init() {
   param.xtrabufs = params_.xtrabufs;
   param.flags = params_.flags;
   param.format = Common::FromVideoToQmmfFormat(params_.format);
+  param.colorimetry = params_.colorimetry;
 
   assert(camera_.get() != nullptr);
   auto ret = camera_->CreateStream(param, extraparams_);

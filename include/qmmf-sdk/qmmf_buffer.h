@@ -79,6 +79,7 @@ enum class BufferFormat : uint32_t {
   kRGB,
   kNV12,
   kNV12UBWC,
+  kNV12HEIF,
   kNV21,
   kNV16,
   kYUY2,
