@@ -29,7 +29,7 @@
 *
 * Changes from Qualcomm Innovation Center are provided under the following license:
 *
-* Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted (subject to the limitations in the
@@ -256,8 +256,9 @@ status_t CameraSource::CaptureImage(const uint32_t camera_id,
   active_cameras_lock_.unlock();
 
   client_snapshot_cb_ = cb;
-  StreamSnapshotCb stream_cb = [&] (uint32_t count, StreamBuffer& buf) {
-    SnapshotCallback(count, buf);
+  StreamSnapshotCb stream_cb = [&] (uint32_t image_id, uint32_t count,
+      StreamBuffer& buf) {
+    SnapshotCallback(image_id, count, buf);
   };
   auto ret = camera->CaptureImage(type, n_images, meta, stream_cb);
   if (ret != NO_ERROR) {
@@ -270,6 +271,7 @@ status_t CameraSource::CaptureImage(const uint32_t camera_id,
 }
 
 status_t CameraSource::ConfigImageCapture(const uint32_t camera_id,
+                                          const uint32_t image_id,
                                           const ImageParam &param,
                                           const ImageExtraParam &xtraparam) {
 
@@ -292,7 +294,7 @@ status_t CameraSource::ConfigImageCapture(const uint32_t camera_id,
   sparam.quality = param.quality;
   sparam.rotation = param.rotation;
 
-  auto ret = camera->ConfigImageCapture(sparam, xtraparam);
+  auto ret = camera->ConfigImageCapture(image_id, sparam, xtraparam);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: ConfigImageCapture Failed!", __func__);
     return ret;
@@ -303,6 +305,7 @@ status_t CameraSource::ConfigImageCapture(const uint32_t camera_id,
 }
 
 status_t CameraSource::CancelCaptureImage(const uint32_t camera_id,
+                                          const uint32_t image_id,
                                           const bool cache) {
 
   QMMF_DEBUG("%s: Enter", __func__);
@@ -317,7 +320,7 @@ status_t CameraSource::CancelCaptureImage(const uint32_t camera_id,
   auto const& camera = active_cameras_[camera_id];
   active_cameras_lock_.unlock();
 
-  auto ret = camera->CancelCaptureImage(cache);
+  auto ret = camera->CancelCaptureImage(image_id, cache);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: CancelCaptureImage Failed!", __func__);
     return ret;
@@ -730,6 +733,22 @@ status_t CameraSource::GetCameraParam(const uint32_t camera_id,
   return camera->GetCameraParam(meta);
 }
 
+status_t CameraSource::SetCameraSessionParam(const uint32_t camera_id,
+                                             const ::camera::CameraMetadata &meta) {
+
+  active_cameras_lock_.lock();
+  if (active_cameras_.count(camera_id) == 0) {
+    active_cameras_lock_.unlock();
+    QMMF_ERROR("%s: Invalid Camera Id(%d)", __func__, camera_id);
+    return BAD_VALUE;
+  }
+
+  auto const& camera = active_cameras_[camera_id];
+  active_cameras_lock_.unlock();
+
+  return camera->SetCameraSessionParam(meta);
+}
+
 status_t CameraSource::SetSHDR(const uint32_t camera_id,
                                const bool enable) {
 
@@ -942,13 +961,15 @@ status_t CameraSource::ParseThumb(uint8_t* vaddr, uint32_t size,
   return NO_ERROR;
 }
 
-void CameraSource::SnapshotCallback(uint32_t count, StreamBuffer& buffer) {
+void CameraSource::SnapshotCallback(uint32_t image_id, uint32_t count,
+                                    StreamBuffer& buffer) {
 
   uint32_t content_size = 0;
   int32_t width = -1, height = -1;
   void* vaddr = nullptr;
   switch (buffer.info.format) {
     case BufferFormat::kNV12:
+    case BufferFormat::kNV12HEIF:
     case BufferFormat::kNV21:
     case BufferFormat::kNV16:
     case BufferFormat::kRAW8:
@@ -991,6 +1012,7 @@ void CameraSource::SnapshotCallback(uint32_t count, StreamBuffer& buffer) {
   }
 
   BnBuffer bn_buffer{};
+  bn_buffer.img_id      = image_id;
   bn_buffer.ion_fd      = buffer.fd;
   bn_buffer.ion_meta_fd = buffer.metafd;
   bn_buffer.size        = content_size;
@@ -1168,6 +1190,7 @@ status_t TrackSource::Init() {
   param.flags = params_.flags;
   param.format = Common::FromVideoToQmmfFormat(params_.format);
   param.stream_mode = params_.stream_mode;
+  param.colorimetry = params_.colorimetry;
 
   assert(camera_.get() != nullptr);
   auto ret = camera_->CreateStream(param, extraparams_);
@@ -1449,6 +1472,7 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
   }
 
   BnBuffer bn_buffer{};
+  bn_buffer.img_id            = 0;
   bn_buffer.ion_fd            = buffer.fd;
   bn_buffer.ion_meta_fd       = buffer.metafd;
   bn_buffer.size              = buffer.size;

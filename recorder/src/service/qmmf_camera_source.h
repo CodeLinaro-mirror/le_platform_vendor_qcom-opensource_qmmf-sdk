@@ -126,11 +126,13 @@ class CameraSource {
 
   /// Configure Image Capture
   status_t ConfigImageCapture(const uint32_t camera_id,
+                              const uint32_t image_id,
                               const ImageParam &param,
                               const ImageExtraParam &xtraparam);
 
   /// Cancel Image Capture
-  status_t CancelCaptureImage(const uint32_t camera_id, const bool cache);
+  status_t CancelCaptureImage(const uint32_t camera_id,
+                              const uint32_t image_id, const bool cache);
 
   /// Return All Image Capture buffers
   status_t ReturnAllImageCaptureBuffers(const uint32_t camera_id);
@@ -172,6 +174,9 @@ class CameraSource {
   /// Get Camera configuration to Camera Interface
   status_t GetCameraParam(const uint32_t camera_id, ::camera::CameraMetadata &meta);
 
+  /// Set Camera Session configuration to Camera Interface
+  status_t SetCameraSessionParam(const uint32_t camera_id, const ::camera::CameraMetadata &meta);
+
   /// Set Camera SHDR mode
   status_t SetSHDR(const uint32_t camera_id, const bool enable);
 
@@ -203,7 +208,8 @@ class CameraSource {
   /// @cond PRIVATE
  private:
   bool IsTrackIdValid(const uint32_t track_id);
-  void SnapshotCallback(uint32_t count, StreamBuffer& buffer);
+  void SnapshotCallback(uint32_t image_id, uint32_t count,
+                        StreamBuffer& buffer);
 
   bool ValidateSlaveTrackParam(
     const VideoTrackParam& slave_params,

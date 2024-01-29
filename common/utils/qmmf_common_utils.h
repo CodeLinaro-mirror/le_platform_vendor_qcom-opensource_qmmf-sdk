@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -120,6 +120,8 @@ struct StreamBuffer {
   void *data;
   uint32_t flags;
   bool second_thumb;
+  bool in_use_camera;
+  bool in_use_client;
 
   ::std::string ToString() const {
     ::std::stringstream stream;
@@ -141,8 +143,16 @@ struct StreamBuffer {
     stream << "flags[" << ::std::setbase(16) << flags << ::std::setbase(10)
            << "]";
     stream << "second_thumb[" << second_thumb << "] ";
+    stream << "in_use_client[" << in_use_client << "] ";
+    stream << "in_use_camera[" << in_use_camera << "] ";
     return stream.str();
   }
+};
+
+struct ReprocEntry {
+  StreamBuffer    buffer;
+  ::camera::CameraMetadata  result;
+  int64_t         timestamp;
 };
 
 /** Property:
@@ -216,6 +226,11 @@ class Common {
         return HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
         break;
       case BufferFormat::kNV21:
+      // TODO: kNV12HEIF should return HAL_PIXEL_FORMAT_NV12_HEIF.
+      // For now, camera uses HAL_PIXEL_FORMAT_YCbCr_420_888,
+      // HAL_DATASPACE_HEIF and allocFlags to give the correct outputs.
+      // Update it when camera implements the HAL_PIXEL_FORMAT_NV12_HEIF.
+      case BufferFormat::kNV12HEIF:
         return HAL_PIXEL_FORMAT_YCbCr_420_888;
         break;
       case BufferFormat::kNV16:
@@ -316,6 +331,9 @@ class Common {
         break;
       case ImageFormat::kNV12:
         return BufferFormat::kNV12;
+        break;
+      case ImageFormat::kNV12HEIF:
+        return BufferFormat::kNV12HEIF;
         break;
       case ImageFormat::kNV21:
         return BufferFormat::kNV21;
@@ -896,6 +914,7 @@ class Common {
 
       case BufferFormat::kNV12:
       case BufferFormat::kNV12UBWC:
+      case BufferFormat::kNV12HEIF:
       case BufferFormat::kNV21:
       case BufferFormat::kNV16:
       case BufferFormat::kYUY2:

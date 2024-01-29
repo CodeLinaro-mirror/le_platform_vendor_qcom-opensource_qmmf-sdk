@@ -77,7 +77,7 @@ namespace qmmf {
 using namespace cameraadaptor;
 
 #define MAX_SENSOR_FPS              480
-#define STREAM_BUFFER_COUNT          10
+#define STREAM_BUFFER_COUNT          12
 #define REPROC_STREAM_BUFFER_COUNT    2
 #define SNAPSHOT_STREAM_BUFFER_COUNT 30
 #define EXTRA_DCVS_BUFFERS            2
@@ -123,14 +123,16 @@ class CameraContext : public CameraInterface {
 
   status_t WaitAecToConverge(const uint32_t timeout) override;
 
-  status_t ConfigImageCapture(const SnapshotParam& param,
+  status_t ConfigImageCapture(const uint32_t image_id,
+                              const SnapshotParam& param,
                               const ImageExtraParam &xtraparam) override;
 
   status_t CaptureImage(const SnapshotType type, const uint32_t n_images,
                         const std::vector<::camera::CameraMetadata> &meta,
                         const StreamSnapshotCb& cb) override;
 
-  status_t CancelCaptureImage(const bool cache) override;
+  status_t CancelCaptureImage(const uint32_t image_id,
+                              const bool cache) override;
 
   status_t CreateStream(const StreamParam& param,
                         const VideoExtraParam& extra_param) override;
@@ -154,6 +156,8 @@ class CameraContext : public CameraInterface {
   status_t SetCameraParam(const ::camera::CameraMetadata &meta) override;
 
   status_t GetCameraParam(::camera::CameraMetadata &meta) override;
+
+  status_t SetCameraSessionParam(const ::camera::CameraMetadata &meta) override;
 
   status_t GetDefaultCaptureParam(::camera::CameraMetadata &meta) override;
 
@@ -193,6 +197,8 @@ class CameraContext : public CameraInterface {
 
   ::camera::CameraMetadata GetCameraStaticMeta();
 
+  void SetReprocPortId( uint32_t port_id) { reproc_port_id_ = port_id; }
+
  private:
 
   struct HFRMode_t {
@@ -217,10 +223,11 @@ class CameraContext : public CameraInterface {
 
   AECData GetAECData();
 
-  status_t CreateSnapshotStream(CameraStreamParameters &stream_param,
+  status_t CreateSnapshotStream(uint32_t image_id,
+                                CameraStreamParameters &stream_param,
                                 bool cache = false);
 
-  status_t DeleteSnapshotStream(bool cache = false);
+  status_t DeleteSnapshotStream(uint32_t image_id, bool cache = false);
 
   status_t SetPerStreamFrameRate();
 
@@ -245,11 +252,14 @@ class CameraContext : public CameraInterface {
 
   void InitHFRModes();
 
-  status_t StartZSL(const SnapshotParam& param, const SnapshotZslSetup &zslparam);
+  status_t StartZSL(const uint32_t image_id, const SnapshotParam& param,
+                    const SnapshotZslSetup &zslparam);
 
-  status_t StopZSL();
+  status_t StopZSL(const uint32_t image_id);
 
   status_t CaptureZSLImage(const SnapshotType type);
+
+  void SendReprocRequest(StreamBuffer buffer);
 
 #ifndef FLUSH_RESTART_NOTAVAILABLE
   status_t DisableFlushRestart(const bool& disable, ::camera::CameraMetadata& meta);
@@ -268,6 +278,14 @@ class CameraContext : public CameraInterface {
 
   void CameraResultCb(const CaptureResult &result);
 
+  uint32_t GetROICountTag () { return multi_roi_count_tag_; }
+
+  uint32_t GetROIInfoTag () { return multi_roi_info_tag_; }
+
+  int32_t GetROICount () { return multi_roi_count_; }
+
+  std::vector<int32_t> GetROIInfo () { return multi_roi_info_; }
+
   std::function<void(StreamBuffer)> GetStreamCb(const SnapshotParam& param);
 
   std::shared_ptr<CameraPort> GetPort(const uint32_t& track_id);
@@ -283,6 +301,8 @@ class CameraContext : public CameraInterface {
   void HandleFinalResult(const CaptureResult &result);
 
   bool IsRawOnly(const int32_t format);
+
+  std::vector<int32_t> GetReprocOutputStreamIds() { return reproc_out_stream_ids_; };
 
 
   bool IsStreamParamsChanged(const CameraStreamParameters& stream_param);
@@ -311,6 +331,8 @@ class CameraContext : public CameraInterface {
 
   int64_t                  last_frame_number_;
 
+  Camera3Request           reproc_request_;
+
   //Non zsl capture request.
   Camera3Request           snapshot_request_;
   StreamSnapshotCb         client_snapshot_cb_;
@@ -323,6 +345,8 @@ class CameraContext : public CameraInterface {
 
   std::vector<int32_t>     supported_fps_;
   uint32_t                 zsl_port_id_;
+  uint32_t                 reproc_port_id_;
+  std::vector<int32_t>     reproc_out_stream_ids_;
 
   // Map of <consumer id and CameraPort>
   std::map<uint32_t, std::shared_ptr<CameraPort> > active_ports_;
@@ -353,8 +377,12 @@ class CameraContext : public CameraInterface {
   std::mutex               partial_result_lock_;
 
   // snapshot configuration
-  SnapshotParam                 snapshot_param_;
-  CameraStreamParameters        snapshot_stream_param_;
+  
+  // <stream id, image id>
+  std::map<uint32_t, uint32_t>  stream_image_map_;
+  std::mutex                    stream_image_lock_;
+  ImageMode                     snapshot_mode_;
+  uint32_t                      snapshot_quality_;
   bool                          port_paused_;
   std::set<int32_t>             stopped_stream_ids_;
   CameraParameters              camera_parameters_;
@@ -366,6 +394,11 @@ class CameraContext : public CameraInterface {
   bool                          hfr_sync_mode_;
   bool                          all_ports_ready_;
   bool                          pending_cached_stream_;
+  bool                          enable_reproc_;
+  int32_t                       multi_roi_count_ = 0;
+  std::vector<int32_t>          multi_roi_info_ = {};
+  uint32_t                      multi_roi_count_tag_ = 0;
+  uint32_t                      multi_roi_info_tag_ = 0;
 
   // hfr control
   bool                          hfr_detected_;
@@ -438,6 +471,16 @@ class CameraPort {
 
   CameraPortType GetPortType() { return port_type_; }
 
+  ReprocEntry& GetInputBuffer() { return reproc_input_buffer_; }
+
+  StreamBuffer GetInputStreamBuffer () { return reproc_input_buffer_.buffer; }
+
+  void HandleReprocCaptureResult(const CaptureResult *result, StreamBuffer *buffer);
+
+  int32_t GetInputStreamId() { return reproc_input_stream_id_; }
+
+  void ReturnReprocInputBuffer(StreamBuffer &buffer);
+
  protected:
   CameraPortType         port_type_;
   CameraContext*         context_;
@@ -453,10 +496,15 @@ class CameraPort {
 
   uint32_t GetExtraBufferCount();
 
-  sp<IBufferProducer>    buffer_producer_impl_;
-  CameraStreamParameters cam_stream_params_;
-  bool                   ready_to_start_;
-  uint32_t               port_id_;
+  void ReprocCaptureCallback(StreamBuffer buffer);
+
+  void GetReprocInputBuffer(StreamBuffer &buffer);
+
+  sp<IBufferProducer>         buffer_producer_impl_;
+  CameraStreamParameters      cam_stream_params_;
+  CameraInputStreamParameters input_stream_params_;
+  bool                        ready_to_start_;
+  uint32_t                    port_id_;
 
   // Indicates whether and for which frame the AE has converged after start.
   bool                   aec_converged_;
@@ -471,6 +519,12 @@ class CameraPort {
   std::mutex             aec_lock_;
 
   CameraParameters       camera_parameters_;
+
+  int32_t                reproc_input_stream_id_;
+  std::mutex             reproc_queue_lock_;
+  std::list<ReprocEntry> reproc_queue_;
+  ReprocEntry            reproc_input_buffer_;
+  bool                   cameraport_enable_reproc_;
 };
 
 class ZslPort : public CameraPort {

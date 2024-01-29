@@ -20,7 +20,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -110,6 +110,10 @@ Camera3Stream::Camera3Stream(int id, size_t maxSize,
   camera3_stream::height = outputConfiguration.height;
   camera3_stream::format = outputConfiguration.format;
   camera3_stream::data_space = outputConfiguration.data_space;
+#if defined(CAMX_ANDROID_API) && (CAMX_ANDROID_API >= 31)
+  camera3_stream::stream_use_case = outputConfiguration.usecase;
+  camera3_stream::dynamic_range_profile = outputConfiguration.hdrmode;
+#endif
   camera3_stream::rotation = outputConfiguration.rotation;
   camera3_stream::usage =
     AllocUsageFactory::GetAllocUsage().ToGralloc(outputConfiguration.allocFlags);
@@ -704,6 +708,22 @@ int32_t Camera3Stream::PopulateBufferMeta(BufferMeta &info,
       info.planes[0].size = stride * scanline;
       info.planes[0].offset = 0;
       break;
+    case HAL_PIXEL_FORMAT_NV12_HEIF:
+      info.format = BufferFormat::kNV12HEIF;
+      info.n_planes = 2;
+      info.planes[0].width = width;
+      info.planes[0].height = height;
+      info.planes[0].stride = stride;
+      info.planes[0].scanline = scanline;
+      info.planes[0].size = stride * scanline;
+      info.planes[0].offset = 0;
+      info.planes[1].width = width;
+      info.planes[1].height = height / 2;
+      info.planes[1].stride = stride;
+      info.planes[1].scanline = scanline / 2;
+      info.planes[1].size = stride * (scanline / 2);
+      info.planes[1].offset = info.planes[0].size;
+      break;
     default:
       QMMF_ERROR("%s: Unsupported format: %d\n", __func__,
                  handle->GetFormat());
@@ -751,6 +771,8 @@ void Camera3Stream::ReturnBufferToClient(const camera3_stream_buffer &buffer,
   assert(b.handle != nullptr);
   b.fd = b.handle->GetFD();
   b.size = b.handle->GetSize();
+  b.in_use_client = false;
+  b.in_use_camera = false;
   PopulateBufferMeta(b.info, b.handle);
   is_stream_active_ = true;
 

@@ -29,7 +29,7 @@
 *
 * Changes from Qualcomm Innovation Center are provided under the following license:
 *
-* Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted (subject to the limitations in the
@@ -75,20 +75,21 @@ namespace qmmf {
 namespace recorder {
 
 struct StreamParam {
-  uint32_t     id;
-  uint32_t     width;
-  uint32_t     height;
-  BufferFormat format;
-  float        framerate;
-  Rotation     rotation;
-  uint32_t     xtrabufs;
-  VideoFlags   flags;
-  int32_t      stream_mode;
+  uint32_t          id;
+  uint32_t          width;
+  uint32_t          height;
+  BufferFormat      format;
+  VideoColorimetry  colorimetry;
+  float             framerate;
+  Rotation          rotation;
+  uint32_t          xtrabufs;
+  VideoFlags        flags;
+  int32_t           stream_mode;
 
   StreamParam()
       :  id(0), width(0), height(0), format(BufferFormat::kUnsupported),
-         framerate(0.0), rotation(Rotation::kNone), xtrabufs(0),
-         flags(VideoFlags::kNone), stream_mode(0) {}
+         colorimetry(VideoColorimetry::kBT601), framerate(0.0), rotation(Rotation::kNone),
+         xtrabufs(0), flags(VideoFlags::kNone), stream_mode(0) {}
 };
 
 struct SnapshotParam {
@@ -123,7 +124,8 @@ class CameraInterface {
   virtual status_t WaitAecToConverge(const uint32_t timeout) = 0;
 
   /// Configure Image Capture.
-  virtual status_t ConfigImageCapture(const SnapshotParam& param,
+  virtual status_t ConfigImageCapture(const uint32_t image_id,
+                                      const SnapshotParam& param,
                                       const ImageExtraParam &xtraparam) = 0;
 
   /// Image Capture
@@ -133,7 +135,8 @@ class CameraInterface {
 
   /// Abort ongoing Image Capture. This blocking API and returns when
   /// image capture is stopped and all buffers are returned
-  virtual status_t CancelCaptureImage(const bool cache) = 0;
+  virtual status_t CancelCaptureImage(uint32_t image_id,
+                                      const bool cache) = 0;
 
   /// Create stream
   virtual status_t CreateStream(const StreamParam& param,
@@ -167,6 +170,9 @@ class CameraInterface {
 
   /// Return camera parameters
   virtual status_t GetCameraParam(::camera::CameraMetadata &meta) = 0;
+
+  /// Set camera session parameters
+  virtual status_t SetCameraSessionParam(const ::camera::CameraMetadata &meta) = 0;
 
   /// Return default capture parameters
   virtual status_t GetDefaultCaptureParam(::camera::CameraMetadata &meta) = 0;

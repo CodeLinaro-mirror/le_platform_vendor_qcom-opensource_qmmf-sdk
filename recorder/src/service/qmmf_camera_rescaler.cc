@@ -28,7 +28,7 @@
 *
 * Changes from Qualcomm Innovation Center are provided under the following license:
 *
-* Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted (subject to the limitations in the
@@ -99,8 +99,10 @@ CameraRescalerBase::CameraRescalerBase()
   memset(prop, 0, sizeof(prop));
 #ifdef ENABLE_RESCALER_NEON
   property_get("persist.qmmf.rescaler.type", prop, "Neon");
-#else
+#elif ENABLE_RESCALER_C2D
   property_get("persist.qmmf.rescaler.type", prop, "C2D");
+#elif ENABLE_RESCALER_FASTCV
+  property_get("persist.qmmf.rescaler.type", prop, "FastCV");
 #endif
   std::string name = prop;
 #ifndef CAMERA_HAL1_SUPPORT

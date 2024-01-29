@@ -29,7 +29,7 @@
 *
 * Changes from Qualcomm Innovation Center are provided under the following license:
 *
-* Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) 2021-2024 Qualcomm Innovation Center, Inc. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted (subject to the limitations in the
@@ -126,10 +126,6 @@ enum class VideoFormat : uint32_t {
 enum class ImageMode : uint32_t {
   // Single snapshot image stream. Default configuration.
   kSnapshot,
-  // In conjunction to the image stream an additional RAW stream is be created.
-  // Default RAW format is kBayerRDI10BIT and can be configured with the extra
-  // parameter tag
-  kSnapshotPlusRaw,
   // Zero Shutter Lag capture. QMMF starts ZSL continuous stream. Frames
   // from continuous stream are stored in ZSL queue. Last good frame in
   // ZSL queue will be used when user call CaptureImage API. ZSL stream
@@ -140,6 +136,7 @@ enum class ImageMode : uint32_t {
 enum class ImageFormat : uint32_t {
   kJPEG,
   kNV12,
+  kNV12HEIF,
   kNV21,
   kBayerIdeal,
   kBayerRDI8BIT,
@@ -177,6 +174,12 @@ enum class VideoFlags : uint64_t {
   kIAEC     = 1 << 0, /// Wait Initial Auto Exposure Convergence.
   kUncashed = 1 << 1, /// Allocated buffers are not cached.
   kPreview  = 1 << 2, /// Indicate a preview stream
+  kReproc   = 1 << 3, /// Indicate a reprocess input stream
+};
+
+enum class VideoColorimetry : uint32_t {
+  kBT601,        /// "bt601"
+  kBT2100HLG,    /// "bt2100-hlg"
 };
 
 inline VideoFlags operator | (VideoFlags lhs, VideoFlags rhs) {
@@ -273,6 +276,8 @@ struct VideoTrackParam {
   float       framerate;
   /// Video Track format
   VideoFormat format;
+  /// Video Track colorimetry
+  VideoColorimetry colorimetry;
   /// Video Track rotation angle
   Rotation    rotation;
   /// Additional buffers allocated for the track
@@ -284,10 +289,12 @@ struct VideoTrackParam {
 
   VideoTrackParam(uint32_t cam_id = 0, uint32_t w = 3840, uint32_t h = 2160,
                   float fps = 30, VideoFormat fmt = VideoFormat::kNV12,
+                  VideoColorimetry color = VideoColorimetry::kBT601,
                   Rotation rotate = Rotation::kNone, uint32_t extrabufs = 0,
                   VideoFlags flgs = VideoFlags::kNone, int32_t mode = 0)
       : camera_id(cam_id), width(w), height(h), framerate(fps), format(fmt),
-        rotation(rotate), xtrabufs(extrabufs), flags(flgs), stream_mode(mode){}
+        colorimetry(color), rotation(rotate), xtrabufs(extrabufs), flags(flgs),
+        stream_mode(mode){}
 
   ::std::string ToString() const {
     ::std::stringstream stream;
@@ -297,6 +304,9 @@ struct VideoTrackParam {
     stream << "framerate[" << framerate << "] ";
     stream << "format["
            << static_cast<::std::underlying_type<VideoFormat>::type>(format)
+           << "] ";
+    stream << "colorimetry["
+           << static_cast<::std::underlying_type<VideoColorimetry>::type>(colorimetry)
            << "] ";
     stream << "rotation["
            << static_cast<::std::underlying_type<Rotation>::type>(rotation)

@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -105,6 +105,7 @@ enum class CamFeatureFlag : uint32_t {
   kLCAC = 1 << 3,              /// LCAC is on.
   kForceSensorMode = 1 << 4,   /// Force Sensor Mode is on.
   kIFEDirectStream = 1 << 5,   /// IFE Direct Stream is on.
+  kInputROIEnable  = 1 << 6,   /// Input ROI reprocess is on.
 };
 
 enum class CamOperationMode {
@@ -113,6 +114,9 @@ enum class CamOperationMode {
 
   // use frame selection node after IFE to filter frames
   kCamOperationModeFrameSelection,
+
+  // camera pipeline switch between preview and preview plus video
+  kCamOperationModeFastSwitch,
 
   kCamOperationModeEnd,
 };
@@ -123,17 +127,27 @@ enum class CamOperationMode {
 #define CAM_OPMODE_IS_FRAMESELECTION(mode) \
   (mode == CamOperationMode::kCamOperationModeFrameSelection)
 
+#define CAM_OPMODE_IS_FASTSWTICH(mode) \
+  (mode == CamOperationMode::kCamOperationModeFastSwitch)
+
 struct CameraStreamParameters {
   uint32_t width;
   uint32_t height;
   int32_t format;
   android_dataspace data_space;
+#if defined(CAMX_ANDROID_API) && (CAMX_ANDROID_API >= 31)
+  uint64_t usecase;
+  int hdrmode;
+#endif
   camera3_stream_rotation_t rotation;
   MemAllocFlags allocFlags;
   uint32_t bufferCount;
   StreamCallback cb;
   CameraStreamParameters() :
       width(0), height(0), format(-1), data_space(HAL_DATASPACE_UNKNOWN),
+#if defined(CAMX_ANDROID_API) && (CAMX_ANDROID_API >= 31)
+      usecase(0), hdrmode(0),
+#endif
       rotation(CAMERA3_STREAM_ROTATION_0), allocFlags(), bufferCount(0),
       cb(nullptr) {}
 };
