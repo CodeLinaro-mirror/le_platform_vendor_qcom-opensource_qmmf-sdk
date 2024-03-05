@@ -206,7 +206,7 @@ class Camera3DeviceClient : public camera3_callback_ops,
   int32_t InternalResumeLocked();
   int32_t WaitUntilStateThenRelock(bool active, int64_t timeout);
 
-  int32_t CaclulateBlobSize(int32_t width, int32_t height);
+  int32_t CalculateBlobSize(int32_t width, int32_t height);
   int32_t QueryMaxBlobSize(int32_t &maxJpegSizeWidth,
                            int32_t &maxJpegSizeHeight);
 
@@ -298,8 +298,8 @@ class Camera3DeviceClient : public camera3_callback_ops,
   Vector<State> current_state_updates_;
   int state_listeners_;
   pthread_cond_t state_updated_;
-  static const int64_t WAIT_FOR_SHUTDOWN = 5e9;  // 5 sec.
-  static const int64_t WAIT_FOR_RUNNING = 1e9;   // 1 sec.
+  static const int64_t WAIT_FOR_SHUTDOWN = 10e9;  // 10 sec.
+  static const int64_t WAIT_FOR_RUNNING = 1e9;    // 1 sec.
 
   bool is_hfr_supported_;
   bool is_raw_only_;

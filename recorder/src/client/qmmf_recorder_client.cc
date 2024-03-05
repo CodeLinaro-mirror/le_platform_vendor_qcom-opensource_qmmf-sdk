@@ -856,6 +856,8 @@ void RecorderClient::ImportBuffer(int32_t fd, int32_t metafd,
       break;
     case BufferFormat::kBLOB:
       format = GBM_FORMAT_BLOB;
+      width  = meta.planes[0].size;
+      height = 1;
       break;
     case BufferFormat::kNV12UBWC:
       format = GBM_FORMAT_YCbCr_420_SP_VENUS_UBWC;

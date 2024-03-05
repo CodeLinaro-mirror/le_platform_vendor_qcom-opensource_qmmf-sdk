@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2021-2022 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
 *  
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted (subject to the limitations in the
@@ -302,6 +302,8 @@ status_t OfflineJpegEncoder::Process(const uint32_t client_id,
                   client_fd_map_[client_id].at(in_buf.buffer_id),
                   in_buf.ion_fd,
                   in_buf.buffer_id);
+        native_handle_delete(input_nh);
+        native_handle_delete(output_nh);
         return BAD_VALUE;
       }
     }
@@ -314,6 +316,8 @@ status_t OfflineJpegEncoder::Process(const uint32_t client_id,
                   client_fd_map_[client_id].at(out_buf.buffer_id),
                   out_buf.ion_fd,
                   out_buf.buffer_id);
+        native_handle_delete(input_nh);
+        native_handle_delete(output_nh);
         return BAD_VALUE;
       }
     }
@@ -330,6 +334,9 @@ status_t OfflineJpegEncoder::Process(const uint32_t client_id,
   PostProcSessionParams* pproc_params = new PostProcSessionParams;
   if (!pproc_params) {
     QMMF_ERROR("%s: PosptProc param allocation failed", __func__);
+    native_handle_delete(input_nh);
+    native_handle_delete(output_nh);
+    delete pproc_params;
     return NO_MEMORY;
   }
 
@@ -346,6 +353,7 @@ status_t OfflineJpegEncoder::Process(const uint32_t client_id,
   if (!pproc_instance) {
     QMMF_ERROR("%s: No jpeg encoder instance for client %d",
               __func__, client_id);
+    ReleaseRequestData(pproc_params);
     return BAD_VALUE;
   }
   QMMF_INFO("pproc instance: %p", pproc_instance);
@@ -367,8 +375,10 @@ status_t OfflineJpegEncoder::Process(const uint32_t client_id,
   pproc_params->inHandle.push_back(in_handle_params);
   pproc_params->outHandle.push_back(out_handle_params);
 
-  std::unique_lock<std::mutex> req_lock(requests_lock_);
+  //std::unique_lock<std::mutex> req_lock(requests_lock_);
+  requests_lock_.lock();
   pproc_params->frameNum = client_requests_map_[client_id].request_id++;
+  requests_lock_.unlock();
 
   QMMF_INFO("%s: Submitting postproc request %d for client %d. Buf fd %d",
             __func__, pproc_params->frameNum,
@@ -390,7 +400,9 @@ status_t OfflineJpegEncoder::Process(const uint32_t client_id,
     return NO_ERROR;
   }
 
+  requests_lock_.lock();
   client_requests_map_[client_id].npr++;
+  requests_lock_.unlock();
 
   QMMF_INFO("%s: Exit client_id %d", __func__, client_id);
   return NO_ERROR;
@@ -415,6 +427,7 @@ status_t OfflineJpegEncoder::Destroy(const uint32_t client_id) {
       auto ret = requests_signal_.WaitFor(lock, wait_time);
       if (0 != ret) {
         QMMF_ERROR("%s: Waiting for frames timed out", __func__);
+        break;
       }
       QMMF_INFO("%s: Waiting finished", __func__);
     }
@@ -425,9 +438,9 @@ status_t OfflineJpegEncoder::Destroy(const uint32_t client_id) {
     std::lock_guard<std::mutex> l(client_fd_lock_);
     for (auto it : client_fd_map_[client_id]) {
       close(it.second);
-      client_fd_map_[client_id].erase(it.first);
-      client_fd_map_.erase(client_id);
     }
+    client_fd_map_[client_id].clear();
+    client_fd_map_.erase(client_id);
   }
 
   auto pproc_instance = client_pproc_map_.at(client_id).pproc_instance;
@@ -460,6 +473,7 @@ void OfflineJpegEncoder::ReleaseRequestData(PostProcSessionParams* params) {
     native_handle_delete(
         const_cast<native_handle_t*>(params->outHandle[0].phHandle));
     free_camera_metadata(params->pMetadata);
+    params->pMetadata = nullptr;
     delete params;
     params = nullptr;
   }
@@ -475,9 +489,11 @@ void OfflineJpegEncoder::NotifyJpeg(const uint32_t& client_id,
             client_id,
             buf_fd,
             encoded_size);
-  remote_cb_handle_(client_id)->NotifyOfflineJpegData(
+  if(nullptr != remote_cb_handle_) {
+    remote_cb_handle_(client_id)->NotifyOfflineJpegData(
                                             GetBufferId(client_id, buf_fd),
                                             encoded_size);
+  }
 
   ReleaseRequestData(pproc_params);
 
