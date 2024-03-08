@@ -26,9 +26,9 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -688,7 +688,7 @@ status_t CameraContext::ConfigImageCapture(const uint32_t image_id,
 
 status_t CameraContext::CaptureImage(const SnapshotType type,
                                      const uint32_t n_images,
-                                     const std::vector<::camera::CameraMetadata> &meta,
+                                     const std::vector<CameraMetadata> &meta,
                                      const StreamSnapshotCb& cb) {
 
   QMMF_INFO("%s: Enter", __func__);
@@ -716,7 +716,7 @@ status_t CameraContext::CaptureImage(const SnapshotType type,
     int64_t last_frame_number;
     uint8_t jpeg_quality = snapshot_quality_;
     std::list<Camera3Request> requests;
-    std::vector<::camera::CameraMetadata>::const_iterator it = meta.begin();
+    std::vector<CameraMetadata>::const_iterator it = meta.begin();
     for (uint32_t i = 0; i < imgcnt; i++) {
       if (streaming_active_requests_.size() > 0 &&
           !streaming_active_requests_[0].metadata.isEmpty() &&
@@ -945,7 +945,11 @@ status_t CameraContext::CreateStream(const StreamParam& param,
 
   camera_parameters_.batch_size = batch;
 
-  if ((hfr_detected_ == false) && (batch > 1)) {
+  // FIXME: HFR control and exception for fastswitch will be removed after
+  // session clean-up merged
+  if ((camera_parameters_.cam_opmode !=
+        CamOperationMode::kCamOperationModeFastSwitch) &&
+      (hfr_detected_ == false) && (batch > 1)) {
     QMMF_INFO("%s: HFR stream detected!"
         "track_id = %x", __func__, param.id);
     hfr_detected_ = true;
@@ -1126,14 +1130,14 @@ status_t CameraContext::ResumeStream(const uint32_t track_id) {
   return NO_ERROR;
 }
 
-status_t CameraContext::SetCameraParam(const ::camera::CameraMetadata &meta) {
+status_t CameraContext::SetCameraParam(const CameraMetadata &meta) {
 
   QMMF_DEBUG("%s: Enter", __func__);
 
   uint32_t tag_id = 0;
   bool     is_standby = false;
-  const ::android::sp<::camera::VendorTagDescriptor> vtags =
-      ::camera::VendorTagDescriptor::getGlobalVendorTagDescriptor();
+  const std::shared_ptr<VendorTagDescriptor> vtags =
+      VendorTagDescriptor::getGlobalVendorTagDescriptor();
 
   if (vtags.get() == NULL) {
     QMMF_ERROR ("Failed to retrieve Global Vendor Tag Descriptor!");
@@ -1174,7 +1178,7 @@ status_t CameraContext::SetCameraParam(const ::camera::CameraMetadata &meta) {
       (!streaming_active_requests_[0].metadata.isEmpty())) {
     std::list<Camera3Request> request_list;
     Camera3Request request;
-    ::camera::CameraMetadata metadata(meta);
+    CameraMetadata metadata(meta);
 
     // Remove single shot meta entries and place them in separate request.
     for (auto& pair : kSingleShotMeta) {
@@ -1251,7 +1255,7 @@ status_t CameraContext::SetCameraParam(const ::camera::CameraMetadata &meta) {
   return NO_ERROR;
 }
 
-status_t CameraContext::GetCameraParam(::camera::CameraMetadata &meta) {
+status_t CameraContext::GetCameraParam(CameraMetadata &meta) {
 
   QMMF_DEBUG("%s: Enter", __func__);
   meta.clear();
@@ -1267,7 +1271,7 @@ status_t CameraContext::GetCameraParam(::camera::CameraMetadata &meta) {
 }
 
 status_t CameraContext::SetCameraSessionParam(
-    const ::camera::CameraMetadata &meta) {
+    const CameraMetadata &meta) {
   int32_t ret = NO_ERROR;
   QMMF_DEBUG("%s: Enter", __func__);
 
@@ -1279,7 +1283,7 @@ status_t CameraContext::SetCameraSessionParam(
   return ret;
 }
 
-status_t CameraContext::GetDefaultCaptureParam(::camera::CameraMetadata &meta) {
+status_t CameraContext::GetDefaultCaptureParam(CameraMetadata &meta) {
 
   QMMF_DEBUG("%s: Enter", __func__);
   auto ret = NO_ERROR;
@@ -1296,7 +1300,7 @@ status_t CameraContext::GetDefaultCaptureParam(::camera::CameraMetadata &meta) {
   return ret;
 }
 
-status_t CameraContext::GetCameraCharacteristics(::camera::CameraMetadata &meta) {
+status_t CameraContext::GetCameraCharacteristics(CameraMetadata &meta) {
 
   QMMF_DEBUG("%s: Enter", __func__);
   meta.clear();
@@ -1535,11 +1539,11 @@ status_t CameraContext::CreateDeviceStream(CameraStreamParameters& params,
 uint32_t CameraContext::GetSensorModeIndex(uint32_t width, uint32_t height,
     uint32_t fps) {
 
-  String8 tag_name("SensorModeTable");
-  String8 section_name("org.quic.camera2.sensormode.info");
+  std::string tag_name("SensorModeTable");
+  std::string section_name("org.quic.camera2.sensormode.info");
   uint32_t sensor_mode_table_tagid;
-  sp<::camera::VendorTagDescriptor> vendor_tag_desc =
-      ::camera::VendorTagDescriptor::getGlobalVendorTagDescriptor();
+  std::shared_ptr<VendorTagDescriptor> vendor_tag_desc =
+      VendorTagDescriptor::getGlobalVendorTagDescriptor();
   if (nullptr == vendor_tag_desc.get()) {
     QMMF_INFO("%s: no global vendor tag descriptor", __func__);
     return 0;
@@ -1726,7 +1730,7 @@ status_t CameraContext::CreateCaptureRequest(Camera3Request& request,
   return ret;
 }
 
-::camera::CameraMetadata CameraContext::GetCameraStaticMeta() {
+CameraMetadata CameraContext::GetCameraStaticMeta() {
   return static_meta_;
 }
 
@@ -1813,6 +1817,7 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
   float max_fps = 0;
   std::set<int32_t> stream_ids;
   std::set<int32_t> removed_streams;
+  bool preview_stream_activate = false;
 
   //Get all camera stream ids from all active ports which are ready to start.
   size_t size = active_ports_.size();
@@ -1831,6 +1836,16 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
 
       QMMF_INFO("%s: CameraPort(0x%p):camera_stream_id(%d) is ready to"
           " start!",  __func__, port.get(), cam_stream_id);
+
+      if (camera_parameters_.cam_opmode ==
+        CamOperationMode::kCamOperationModeFrameSelection) {
+        if (true == port->IsPreviewStream()) {
+          QMMF_INFO("%s: found preview stream %d PORT_READYTOSTART",
+              __func__, cam_stream_id);
+          preview_stream_activate = true;
+        }
+      }
+
       if (max_fps < port->GetPortFramerate()) {
         max_fps = port->GetPortFramerate();
       }
@@ -1900,6 +1915,15 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
         max_fps = port->GetPortFramerate();
       }
       stream_ids.emplace(cam_stream_id);
+
+      if (camera_parameters_.cam_opmode ==
+        CamOperationMode::kCamOperationModeFrameSelection) {
+        if (true == port->IsPreviewStream()) {
+          QMMF_INFO("%s: found preview stream %d PORT_STARTED",
+              __func__, cam_stream_id);
+          preview_stream_activate = true;
+        }
+      }
     }
   }
 
@@ -1912,6 +1936,29 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
   }
 
   size = streaming_active_requests_[0].streamIds.size();
+
+  // when camera mode is fastswitch, multiple video streams should be added or
+  // removed simultaneously, which is necessary for HFR case, since preview
+  // stream always exists, we need to cache video streams update if active
+  // request streams num is not equal to configured stream number.
+  if ((camera_parameters_.cam_opmode ==
+        CamOperationMode::kCamOperationModeFastSwitch) &&
+        (size != 0 && size != 1 && size != active_ports_number)) {
+      QMMF_INFO("%s: active_ports_number = %d, size =%d, caching this state",
+          __func__, active_ports_number, size);
+      return NO_ERROR;
+  } else if (camera_parameters_.cam_opmode ==
+      CamOperationMode::kCamOperationModeFrameSelection) {
+    // in frame-selection mode, if preview stream is paused, video stream
+    // should be paused at the same time, otherwise, camera will trigger
+    // crash. so caching request until all streams are removed.
+    // TODO: after session cleanup merged. this part can be removed.
+      if (size != 0 && preview_stream_activate == false) {
+        QMMF_INFO("%s:FrameSel, active_ports_number = %d, size = %d, cache it",
+            __func__, active_ports_number, size);
+        return NO_ERROR;
+      }
+  }
 
   //TODO: this logic only works when static stream configurations are applied
   //in dynamic switch case, there will be extra streams created by application
@@ -2479,7 +2526,7 @@ status_t CameraContext::CaptureZSLImage(const SnapshotType type) {
 
 #ifndef FLUSH_RESTART_NOTAVAILABLE
 status_t CameraContext::DisableFlushRestart(const bool& disable,
-                                            ::camera::CameraMetadata& meta) {
+                                            CameraMetadata& meta) {
 
   // Disable restart of the streams on HAL flush in order to save power and
   // optimize the API execution. All streams will be in OFF state after this.
@@ -2567,7 +2614,7 @@ void CameraContext::CameraPreparedCb(int32_t stream_id) {
 }
 
 template <typename T>
-bool CameraContext::UpdatePartialTag(::camera::CameraMetadata &result, int32_t tag,
+bool CameraContext::UpdatePartialTag(CameraMetadata &result, int32_t tag,
                                      const T *value,
                                      uint32_t frame_number) {
   if (0 != result.update(tag, value, 1)) {
@@ -2577,7 +2624,7 @@ bool CameraContext::UpdatePartialTag(::camera::CameraMetadata &result, int32_t t
 }
 
 template <typename T>
-bool CameraContext::QueryPartialTag(const ::camera::CameraMetadata &result,
+bool CameraContext::QueryPartialTag(const CameraMetadata &result,
                                     int32_t tag, T *value,
                                     uint32_t frame_number) {
   (void)frame_number;
@@ -2671,7 +2718,7 @@ void CameraContext::CameraResultCb(const CaptureResult &result) {
     if (complete_result) {
       CaptureResult captureResult;
       captureResult.resultExtras = result.resultExtras;
-      captureResult.metadata = ::camera::CameraMetadata(10, 0);
+      captureResult.metadata = CameraMetadata(10, 0);
 
       if (!UpdatePartialTag(captureResult.metadata, ANDROID_REQUEST_FRAME_COUNT,
                             reinterpret_cast<int32_t *>(&frame_number),
@@ -2768,7 +2815,8 @@ CameraPort::CameraPort(const StreamParam& param,
       reproc_queue_{},
       reproc_input_buffer_{},
       cameraport_enable_reproc_(false),
-      camera_parameters_(camera_parameters) {
+      camera_parameters_(camera_parameters),
+      preview_stream_(false) {
 
   QMMF_INFO("%s: Enter", __func__);
 
@@ -2811,12 +2859,14 @@ status_t CameraPort::Init() {
       QMMF_INFO("%s: port %d with preview flag",__func__, GetPortId());
 
       cam_stream_params_.allocFlags.flags = IMemAllocUsage::kHwComposer;
+      preview_stream_ = true;
     } else {
       // This flag should be mandatory if preview flag is not set.
       // Stream is considered as preview stream without it.
       // Different tuning, setings and sensor mode is applied for preview and
       // video streams. This is why this flag is needed.
       cam_stream_params_.allocFlags.flags = IMemAllocUsage::kVideoEncoder;
+      preview_stream_ = false;
     }
 
     switch (params_.format) {
@@ -2866,6 +2916,12 @@ status_t CameraPort::Init() {
     QMMF_INFO ("%s: track_id(0%x) total buffer count(%d)", __func__,
         params_.id, cam_stream_params_.bufferCount);
   }
+
+#if defined(CAMX_ANDROID_API) && (CAMX_ANDROID_API >= 31)
+  if (params_.colorimetry == VideoColorimetry::kBT2100HLG) {
+    cam_stream_params_.hdrmode = ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_HLG10;
+  }
+#endif
 
   cam_stream_params_.cb = [&] (StreamBuffer buffer) { StreamCallback(buffer); };
 
