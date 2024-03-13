@@ -26,7 +26,7 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *
  * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
@@ -83,8 +83,7 @@
 #include <hardware/camera_common.h>
 #include <hardware/camera3.h>
 
-#include <camera/CameraMetadata.h>
-
+#include "qmmf-sdk/qmmf_camera_metadata.h"
 #include "common/utils/qmmf_common_utils.h"
 
 using namespace android;
@@ -168,7 +167,7 @@ struct CameraParameters {
 };
 
 typedef struct Camera3Request_t {
-  ::camera::CameraMetadata metadata;
+  CameraMetadata metadata;
   Vector<int32_t> streamIds;
 } Camera3Request;
 
@@ -181,7 +180,7 @@ typedef struct {
 } CaptureResultExtras;
 
 typedef struct {
-  ::camera::CameraMetadata metadata;
+  CameraMetadata metadata;
   CaptureResultExtras resultExtras;
 } CaptureResult;
 
