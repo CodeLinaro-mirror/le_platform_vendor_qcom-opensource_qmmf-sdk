@@ -107,7 +107,6 @@
 #define LCAC_ENABLE                           (0x100000)
 #define IFE_DIRECT_STREAM                     (1 << 25)
 #define CAM_OPMODE_FRAME_SELECTION            (0xF400)
-#define CAM_OPMODE_FAST_SWITCH                (0xF900)
 #endif
 
 // Convenience macros for transitioning to the error state
@@ -158,7 +157,7 @@ Camera3DeviceClient::Camera3DeviceClient(CameraClientCallbacks clientCb)
       prepare_handler_(),
       input_stream_{},
       is_camera_device_available_ (true),
-      cam_opmode_ (CamOperationMode::kCamOperationModeNone),
+      cam_opmode_ (0),
       session_metadata_ (CameraMetadata(128, 128)) {
   QMMF_GET_LOG_LEVEL();
   camera3_callback_ops::notify = &notifyFromHal;
@@ -526,6 +525,30 @@ int32_t Camera3DeviceClient::ConfigureStreamsLocked(
   config.operation_mode = GetOpMode();
 
   QMMF_INFO("%s: operation_mode: 0x%x \n", __func__, config.operation_mode);
+
+  if (CAM_OPMODE_IS_FASTSWTICH(cam_opmode_)) {
+    uint32_t tag = 0;
+    uint8_t val = 1;
+    int32_t res;
+    const std::shared_ptr<VendorTagDescriptor> vTags =
+        ::camera::VendorTagDescriptor::getGlobalVendorTagDescriptor();
+
+    QMMF_VERBOSE("%s: enable fastswitch with session metadata", __func__);
+
+    ::camera::CameraMetadata::getTagFromName(
+        "org.codeaurora.qcamera3.sessionParameters.enableFastSwitch",
+        vTags.get(), &tag);
+
+    if (tag > 0) {
+      res = session_metadata_.update(tag, &val, 1);
+      if (res != 0) {
+        QMMF_ERROR("%s: fast switch enable tag update failed", __func__);
+      }
+    } else {
+      QMMF_ERROR("%s: fast switch enable tag not found", __func__);
+    }
+  }
+
 
 #if defined(CAMERA_HAL_API_VERSION) && (CAMERA_HAL_API_VERSION >= 0x0305)
   session_metadata_.update(ANDROID_CONTROL_AE_TARGET_FPS_RANGE,
@@ -1283,8 +1306,8 @@ void Camera3DeviceClient::HandleCaptureResult(
 
     }
 
-    if (result->partial_result == 1 &&
-        CAM_OPMODE_IS_FRAMESELECTION(cam_opmode_)) {
+    if (CAM_OPMODE_IS_FRAMESELECTION(cam_opmode_) &&
+        (result->partial_result == 1)) {
       uint32_t tag = 0;
       camera_metadata_ro_entry entry;
       int32_t res;
@@ -1302,8 +1325,15 @@ void Camera3DeviceClient::HandleCaptureResult(
           CamReqModeInputParams params;
 
           params.frame_selection.total_selected_frames = entry.data.i32[0];
+          params.frame_selection.cap_frame_num = frameNumber;
+          CAM_OPMODE_SET_FRAMESELECTION(params.mode);
           request_handler_.UpdateRequestedStreams(params);
+        } else {
+          QMMF_VERBOSE("%s:FrameSel:tag updatedPickedFrames found but no entry",
+              __func__);
         }
+      } else {
+        QMMF_VERBOSE("%s:FrameSel:tag updatedPickedFrames not found", __func__);
       }
     }
   }
@@ -2456,9 +2486,6 @@ uint32_t Camera3DeviceClient::GetOpMode() {
 
   if (CAM_OPMODE_IS_FRAMESELECTION(cam_opmode_))
     operation_mode |= CAM_OPMODE_FRAME_SELECTION;
-
-  if (CAM_OPMODE_IS_FASTSWTICH(cam_opmode_))
-    operation_mode |= CAM_OPMODE_FAST_SWITCH;
 
 #endif
 

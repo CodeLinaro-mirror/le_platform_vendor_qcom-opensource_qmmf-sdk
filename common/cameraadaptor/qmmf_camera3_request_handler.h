@@ -45,16 +45,28 @@ namespace qmmf {
 
 namespace cameraadaptor {
 
-typedef union {
+typedef enum EnumFrameSelectionState {
+  kFrameSelStateIdle,
+  kFrameSelStateIdle2Active,
+  kFrameSelStateActive,
+  kFrameSelStateActive2Idle,
+} FrameSelectionState;
+
+typedef struct {
+  // frame selection
   struct frame_selection_params {
     int32_t total_selected_frames;
     uint32_t available_frames;
+    FrameSelectionState cur_state;
+    uint32_t target_frame_num;
   } frame_selection;
 } CamReqModeParams;
 
-typedef union {
+typedef struct {
+  CamOperationMode mode;
   struct frame_selection_input_params {
     int32_t total_selected_frames;
+    uint32_t cap_frame_num;
   } frame_selection;
 } CamReqModeInputParams;
 
@@ -94,8 +106,14 @@ class Camera3RequestHandler : public ThreadHelper {
   void RequestExit() override;
   void RequestExitAndWait() override;
 
-  void SetRequestMode(CamOperationMode mode);
+  void SetRequestMode(uint32_t mode);
   void UpdateRequestedStreams(CamReqModeInputParams &params);
+  void RequestModeClear(CamOperationMode mode);
+  void RequestStreamSubmitPreProcess(camera3_capture_request_t &request,
+                                     CaptureRequest &nextRequest);
+  bool RequestStreamSubmitPostProcess(camera3_capture_request_t &request);
+  bool RequestStreamGetProcess(RequestList::iterator it,
+                               CaptureRequest &realRequest, bool first);
 
  protected:
   bool ThreadLoop() override;
@@ -164,6 +182,7 @@ class Camera3RequestHandler : public ThreadHelper {
   CamOperationMode  cam_opmode_;
   CamReqModeParams  cam_reqmode_params_;
   std::mutex        cam_reqmode_lock_;
+  CameraMetadata    request_mdata_;
 };
 
 }  // namespace cameraadaptor ends here
