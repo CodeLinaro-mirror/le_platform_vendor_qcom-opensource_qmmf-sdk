@@ -1250,7 +1250,7 @@ void Camera3DeviceClient::HandleCaptureResult(
   int64_t ts_aux = 0;
   int64_t td_aux = 0;
   uint32_t tag = 0;
-  sp<VendorTagDescriptor> vTags =
+  std::shared_ptr<VendorTagDescriptor> vTags =
       VendorTagDescriptor::getGlobalVendorTagDescriptor();
 
   pthread_mutex_lock(&pending_requests_lock_);
