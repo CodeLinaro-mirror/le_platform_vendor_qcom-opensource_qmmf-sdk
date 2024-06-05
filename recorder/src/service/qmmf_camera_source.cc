@@ -1514,6 +1514,11 @@ status_t TrackSource::ReturnTrackBuffer(std::vector<BnBuffer>& bn_buffers) {
         id_, i, bn_buffers[i].ion_fd);
 
     std::lock_guard<std::mutex> autoLock(buffer_list_lock_);
+
+    // buffer_list_ may be already cleared if ReturnTrackBuffer arrives late.
+    if ((buffer_list_.size() == 0) && is_idle_==true)
+      continue;
+
     auto it = buffer_list_.find(bn_buffers[i].ion_fd);
     assert(it != buffer_list_.end());
 
