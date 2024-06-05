@@ -568,7 +568,10 @@ status_t CameraSource::CreateTrackSource(const uint32_t track_id,
     }
   }
 
-  track_sources_.emplace(track_id, track_source);
+  {
+    std::lock_guard<std::mutex> lock(track_sources_lock_);
+    track_sources_.emplace(track_id, track_source);
+  }
 
   QMMF_DEBUG("%s: Exit", __func__);
   return ret;
@@ -591,8 +594,11 @@ status_t CameraSource::DeleteTrackSource(const uint32_t track_id) {
     return ret;
   }
 
-  track_sources_.erase(track_id);
-  rescalers_.erase(track_id);
+  {
+    std::lock_guard<std::mutex> lock(track_sources_lock_);
+    track_sources_.erase(track_id);
+    rescalers_.erase(track_id);
+  }
 
   QMMF_INFO("%s: Track(%x): Deleted Successfully!", __func__,
       track_id);
