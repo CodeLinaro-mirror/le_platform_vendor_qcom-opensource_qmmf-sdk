@@ -363,7 +363,7 @@ int32_t Camera3DeviceClient::OpenCamera(uint32_t idx) {
   res = GetCameraInfo(idx, &device_info_);
   if (0 != res) {
     QMMF_ERROR("%s: Error during camera static info query: %s!\n", __func__,
-               strerror(res));
+               strerror(-res));
     goto exit;
   }
 
@@ -420,7 +420,7 @@ int32_t Camera3DeviceClient::OpenCamera(uint32_t idx) {
   name = "C3-" + id + "-Monitor";
 
   monitor_.SetIdleNotifyCb([&] (bool idle) {NotifyStatus(idle);});
-  monitor_.Run(name);
+  res = monitor_.Run(name);
   if (0 != res) {
     SET_ERR_L("Unable to start monitor: %s (%d)", strerror(-res), res);
     goto exit;
@@ -2008,7 +2008,7 @@ int32_t Camera3DeviceClient::AddRequestListLocked(
     return res;
   }
 
-  WaitUntilStateThenRelock(true, WAIT_FOR_RUNNING);
+  res = WaitUntilStateThenRelock(true, WAIT_FOR_RUNNING);
   if (0 != res) {
     SET_ERR_L("Unable to change to running in %f seconds!",
               WAIT_FOR_RUNNING / 1e9);
