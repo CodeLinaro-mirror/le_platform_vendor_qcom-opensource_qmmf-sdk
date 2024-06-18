@@ -231,6 +231,7 @@ class CameraSource {
 
   // Map of track id and TrackSources.
   std::map<uint32_t, std::shared_ptr<TrackSource>> track_sources_;
+  std::mutex	track_source_lock_;
 
   SnapshotCb client_snapshot_cb_;
 
