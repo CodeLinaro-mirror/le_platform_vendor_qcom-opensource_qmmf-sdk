@@ -491,8 +491,10 @@ status_t CameraSource::CreateTrackSource(const uint32_t track_id,
     QMMF_INFO("%s: Master->slave 0x%x->0x%x", __func__, source_track_id,
         track_id);
 
+    track_source_lock_.lock();
     assert(track_sources_.count(source_track_id) != 0);
     auto track = track_sources_[source_track_id];
+    track_source_lock_.unlock();
 
     if (ValidateSlaveTrackParam(params, track->GetParams())) {
       linked_mode = CheckLinkedStream(params, track->GetParams());
@@ -543,8 +545,10 @@ status_t CameraSource::CreateTrackSource(const uint32_t track_id,
       rescalers_.emplace(track_id, rescaler);
     }
 
+    track_source_lock_.lock();
     assert(track_sources_.count(source_track_id) != 0);
     master_track = track_sources_[source_track_id];
+    track_source_lock_.unlock();
     assert(master_track.get() != nullptr);
 
     ret = track_source->InitCopy(master_track, rescaler);
@@ -567,7 +571,9 @@ status_t CameraSource::CreateTrackSource(const uint32_t track_id,
     }
   }
 
+  track_source_lock_.lock();
   track_sources_.emplace(track_id, track_source);
+  track_source_lock_.unlock();
 
   QMMF_DEBUG("%s: Exit", __func__);
   return ret;
