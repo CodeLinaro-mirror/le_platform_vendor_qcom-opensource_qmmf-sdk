@@ -156,6 +156,7 @@ Camera3DeviceClient::Camera3DeviceClient(CameraClientCallbacks clientCb)
       fps_sensormode_index_(0),
       prepare_handler_(),
       input_stream_{},
+      vendor_tag_ops_{},
       is_camera_device_available_ (true),
       cam_opmode_ (0),
       session_metadata_ (CameraMetadata(128, 128)) {
