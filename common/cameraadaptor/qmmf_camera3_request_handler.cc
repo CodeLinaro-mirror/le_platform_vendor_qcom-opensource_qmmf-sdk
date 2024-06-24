@@ -88,11 +88,13 @@ Camera3RequestHandler::~Camera3RequestHandler() {
 }
 
 int32_t Camera3RequestHandler::Initialize(camera3_device_t *device,
+                                          uint8_t buffer_api_version,
                                           ErrorCallback error_cb,
                                           MarkRequest mark_cb,
                                           SetError set_error) {
   pthread_mutex_lock(&lock_);
   hal3_device_ = device;
+  buffer_api_version_ = buffer_api_version;
   error_cb_ = error_cb;
   mark_cb_ = mark_cb;
   set_error_ = set_error;
@@ -383,8 +385,14 @@ int32_t Camera3RequestHandler::SubmitRequest(CaptureRequest &nextRequest,
                          nextRequest.streams.size());
   request.output_buffers = outputBuffers.array();
   for (size_t i = 0; i < nextRequest.streams.size(); i++) {
-    res = nextRequest.streams.editItemAt(i)
-              ->GetBuffer(&outputBuffers.editItemAt(i));
+    if (buffer_api_version_ !=
+        ANDROID_INFO_SUPPORTED_BUFFER_MANAGEMENT_VERSION_HIDL_DEVICE_3_5) {
+      res = nextRequest.streams.editItemAt(i)
+                ->GetBuffer(&outputBuffers.editItemAt(i));
+    } else {
+      res = nextRequest.streams.editItemAt(i)
+                ->GetDummyBuffer(&outputBuffers.editItemAt(i));
+    }
     if (0 != res) {
       QMMF_ERROR(
           "%s: Can't get stream buffer, skip this"

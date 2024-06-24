@@ -81,8 +81,11 @@ class Camera3RequestHandler : public ThreadHelper {
   Camera3RequestHandler(Camera3Monitor &monitor);
   virtual ~Camera3RequestHandler();
 
-  int32_t Initialize(camera3_device_t *device, ErrorCallback error_cb,
-                     MarkRequest mark_cb, SetError set_error);
+  int32_t Initialize(camera3_device_t *device,
+                     uint8_t buffer_api_version,
+                     ErrorCallback error_cb,
+                     MarkRequest mark_cb,
+                     SetError set_error);
 
   int32_t SetRepeatingRequests(const RequestList &requests,
                                int64_t *lastFrameNumber = NULL);
@@ -177,6 +180,7 @@ class Camera3RequestHandler : public ThreadHelper {
   std::atomic<bool> run_worker_;
   std::mutex        worker_lock_;
   QCondition        worker_signal_;
+  uint8_t           buffer_api_version_;
 
   // camera request mode params
   CamOperationMode  cam_opmode_;

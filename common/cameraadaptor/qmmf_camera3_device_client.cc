@@ -329,7 +329,8 @@ int32_t Camera3DeviceClient::OpenCamera(uint32_t idx) {
   int32_t res = 0;
   std::string name;
   std::string id;
-  camera_metadata_entry_t capsEntry;
+  camera_metadata_entry_t entry;
+  uint8_t buffer_api_version = (uint8_t)-1;
   MarkRequest mark_cb = [&] (uint32_t frameNumber, int32_t numBuffers,
                                  CaptureResultExtras resultExtras) {
     return MarkPendingRequest(frameNumber,numBuffers, resultExtras); };
@@ -398,14 +399,19 @@ int32_t Camera3DeviceClient::OpenCamera(uint32_t idx) {
     }
   }
 
-  capsEntry = device_info_.find(ANDROID_REQUEST_AVAILABLE_CAPABILITIES);
-  for (uint32_t i = 0; i < capsEntry.count; ++i) {
-    uint8_t caps = capsEntry.data.u8[i];
+  entry = device_info_.find(ANDROID_REQUEST_AVAILABLE_CAPABILITIES);
+  for (uint32_t i = 0; i < entry.count; ++i) {
+    uint8_t caps = entry.data.u8[i];
     if (ANDROID_REQUEST_AVAILABLE_CAPABILITIES_CONSTRAINED_HIGH_SPEED_VIDEO ==
         caps) {
       is_hfr_supported_ = true;
       break;
     }
+  }
+
+  entry = device_info_.find(ANDROID_INFO_SUPPORTED_BUFFER_MANAGEMENT_VERSION);
+  if (entry.count > 0) {
+    buffer_api_version = *entry.data.u8;
   }
 
   id_ = idx;
@@ -422,7 +428,8 @@ int32_t Camera3DeviceClient::OpenCamera(uint32_t idx) {
 
   name = "C3-" + id + "-Handler";
 
-  request_handler_.Initialize(device_, client_cb_.errorCb, mark_cb, set_error);
+  request_handler_.Initialize(device_, buffer_api_version, client_cb_.errorCb,
+      mark_cb, set_error);
   res = request_handler_.Run(name);
   if (0 > res) {
     SET_ERR_L("Unable to start request handler: %s (%d)", strerror(-res), res);
@@ -1546,17 +1553,82 @@ void Camera3DeviceClient::NotifyShutter(const camera3_shutter_msg_t &msg) {
 }
 
 #if defined(CAMERA_HAL_API_VERSION) && (CAMERA_HAL_API_VERSION >= 0x0307)
-void Camera3DeviceClient::ReturnStreamBuffers(uint32_t num_buffers, const camera3_stream_buffer_t* const* buffers) {
-  QMMF_ERROR("%s: return buffer %d: not supported", __func__, num_buffers);
+camera3_buffer_request_status_t Camera3DeviceClient::RequestStreamBuffers(
+    uint32_t num_buffer_reqs, const camera3_buffer_request_t *buffer_reqs,
+    uint32_t *num_returned_buf_reqs,
+    camera3_stream_buffer_ret_t *returned_buf_reqs) {
+
+  pthread_mutex_lock(&lock_);
+
+  bool failed = false;
+  size_t allocated_buffer_count = 0;
+  *num_returned_buf_reqs = 0;
+  for (uint32_t req_idx = 0; req_idx < num_buffer_reqs; req_idx++) {
+    const camera3_buffer_request_t *buffer_req = buffer_reqs + req_idx;
+    camera3_stream_buffer_ret_t *returned_buf_req = returned_buf_reqs + req_idx;
+
+    returned_buf_req->num_output_buffers = 0;
+    returned_buf_req->stream = buffer_req->stream;
+    returned_buf_req->status = CAMERA3_PS_BUF_REQ_OK;
+
+    for (uint32_t i = 0; i < buffer_req->num_buffers_requested; i++) {
+      Camera3Stream *stream = Camera3Stream::CastTo(buffer_req->stream);
+
+      // GetBuffer() will be pending on condition for running out of buffers
+      // this may cause dead lock. unlock here to help that.
+      pthread_mutex_unlock(&lock_);
+      int32_t res = stream->GetBuffer(returned_buf_req->output_buffers + i);
+      pthread_mutex_lock(&lock_);
+
+      if (res < 0) {
+        if (res == -ETIMEDOUT) {
+          QMMF_ERROR("%s: Error: buffer wait timeout ", __func__);
+          returned_buf_req->status = CAMERA3_PS_BUF_REQ_NO_BUFFER_AVAILABLE;
+        } else if (res == -ENOSYS) {
+          QMMF_ERROR("%s: Error: Ivalid state or input ", __func__);
+          returned_buf_req->status = CAMERA3_PS_BUF_REQ_STREAM_DISCONNECTED;
+        } else if (res == -ENOMEM) {
+          QMMF_ERROR("%s: Error: no availble memory ", __func__);
+          returned_buf_req->status = CAMERA3_PS_BUF_REQ_NO_BUFFER_AVAILABLE;
+        } else {
+          QMMF_ERROR("%s: Error: unknown ", __func__);
+          returned_buf_req->status = CAMERA3_PS_BUF_REQ_UNKNOWN_ERROR;
+        }
+        failed = true;
+        break;
+      }
+
+      returned_buf_req->num_output_buffers++;
+      allocated_buffer_count++;
+    }
+
+    (*num_returned_buf_reqs)++;
+  }
+
+  pthread_mutex_unlock(&lock_);
+
+  if (!failed) {
+    return CAMERA3_BUF_REQ_OK;
+  } else if (allocated_buffer_count > 0) {
+    QMMF_ERROR("%s: Buffer request is partially fulfilled", __func__);
+    return CAMERA3_BUF_REQ_FAILED_PARTIAL;
+  } else {
+    QMMF_ERROR("%s: Buffer request failed", __func__);
+    return CAMERA3_BUF_REQ_FAILED_UNKNOWN;
+  }
 }
 
-camera3_buffer_request_status_t Camera3DeviceClient::RequestStreamBuffers(uint32_t num_buffer_reqs,
-    const camera3_buffer_request_t *buffer_reqs, uint32_t *num_returned_buf_reqs,
-    camera3_stream_buffer_ret_t *returned_buf_reqs) {
-  QMMF_ERROR("%s: request buffer %d: not supported", __func__, num_buffer_reqs);
+void Camera3DeviceClient::ReturnStreamBuffers(uint32_t num_buffers,
+    const camera3_stream_buffer_t* const* buffers) {
 
-  *num_returned_buf_reqs = 0;
-  return CAMERA3_BUF_REQ_FAILED_UNKNOWN;
+  pthread_mutex_lock(&lock_);
+
+  for (uint32_t i = 0; i < num_buffers; i++) {
+    Camera3Stream *stream = Camera3Stream::CastTo(buffers[i]->stream);
+    stream->ReturnBuffer(*(buffers[i]->buffer));
+  }
+
+  pthread_mutex_unlock(&lock_);
 }
 #endif
 
@@ -2381,14 +2453,17 @@ camera3_buffer_request_status_t Camera3DeviceClient::requestStreamBuffers(
     const struct camera3_callback_ops *cb, uint32_t num_buffer_reqs,
     const camera3_buffer_request_t *buffer_reqs, uint32_t *num_returned_buf_reqs,
     camera3_stream_buffer_ret_t *returned_buf_reqs) {
+
   Camera3DeviceClient *ctx = const_cast<Camera3DeviceClient *>(
       static_cast<const Camera3DeviceClient *>(cb));
-  if (num_buffer_reqs == 0 || buffer_reqs == nullptr || num_returned_buf_reqs == nullptr || returned_buf_reqs == nullptr)
-  {
+
+  if (num_buffer_reqs == 0 || buffer_reqs == nullptr ||
+      num_returned_buf_reqs == nullptr || returned_buf_reqs == nullptr) {
     return CAMERA3_BUF_REQ_FAILED_ILLEGAL_ARGUMENTS;
   }
 
-  return ctx->RequestStreamBuffers(num_buffer_reqs, buffer_reqs, num_returned_buf_reqs, returned_buf_reqs);
+  return ctx->RequestStreamBuffers(num_buffer_reqs, buffer_reqs,
+      num_returned_buf_reqs, returned_buf_reqs);
 }
 
 void Camera3DeviceClient::returnStreamBuffers(
