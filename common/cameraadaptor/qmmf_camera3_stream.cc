@@ -80,6 +80,8 @@ namespace qmmf {
 
 namespace cameraadaptor {
 
+buffer_handle_t* Camera3Stream::DUMMY_BUFFER = (buffer_handle_t *)0xFFFFFFFF;
+
 Camera3Stream::Camera3Stream(int id, size_t maxSize,
                              const CameraStreamParameters &outputConfiguration,
                              IAllocDevice *device,
@@ -104,7 +106,9 @@ Camera3Stream::Camera3Stream(int id, size_t maxSize,
       monitor_(monitor),
       monitor_id_(Camera3Monitor::INVALID_ID),
       is_stream_active_(false),
-      prepared_buffers_count_(0) {
+      is_stream_idle_(true),
+      prepared_buffers_count_(0),
+      dummy_buffer_{} {
   camera3_stream::stream_type = CAMERA3_STREAM_OUTPUT;
   camera3_stream::width = outputConfiguration.width;
   camera3_stream::height = outputConfiguration.height;
@@ -139,6 +143,12 @@ Camera3Stream::Camera3Stream(int id, size_t maxSize,
   }
 
   mem_alloc_interface_ = device;
+
+  dummy_buffer_.stream = this;
+  dummy_buffer_.buffer = DUMMY_BUFFER;
+  dummy_buffer_.acquire_fence = -1;
+  dummy_buffer_.release_fence = -1;
+  dummy_buffer_.status = CAMERA3_BUFFER_STATUS_OK;
 
   pthread_mutex_init(&lock_, NULL);
   cond_init(&output_buffer_returned_signal_);
@@ -468,6 +478,34 @@ exit:
   return res;
 }
 
+int32_t Camera3Stream::GetDummyBuffer(camera3_stream_buffer *buffer) {
+  int32_t res = 0;
+
+  pthread_mutex_lock(&lock_);
+
+  if (status_ != STATUS_CONFIGURED) {
+    QMMF_ERROR(
+        "%s: Stream %d: Can't retrieve buffer when stream"
+        "is not configured%d\n",
+        __func__, id_, status_);
+    res = -ENOSYS;
+    goto exit;
+  }
+
+  *buffer = dummy_buffer_;
+
+  if (is_stream_idle_ && status_ != STATUS_CONFIG_ACTIVE &&
+      status_ != STATUS_RECONFIG_ACTIVE) {
+    monitor_.ChangeStateToActive(monitor_id_);
+    is_stream_idle_ = false;
+  }
+
+exit:
+
+  pthread_mutex_unlock(&lock_);
+  return res;
+}
+
 int32_t Camera3Stream::GetBuffer(camera3_stream_buffer *buffer) {
   int32_t res = 0;
 
@@ -740,6 +778,12 @@ void Camera3Stream::ReturnBufferToClient(const camera3_stream_buffer &buffer,
 
   pthread_mutex_lock(&lock_);
 
+  if (buffer.buffer == DUMMY_BUFFER) {
+    QMMF_INFO("%s: Camera HAL return dummy buffer", __func__);
+    pthread_mutex_unlock(&lock_);
+    return;
+  }
+
   hal_buffer_cnt_--;
   client_buffer_cnt_++;
 
@@ -781,6 +825,31 @@ void Camera3Stream::ReturnBufferToClient(const camera3_stream_buffer &buffer,
         b.frame_number, b.timestamp);
     ReturnBuffer(b);
   }
+}
+
+void Camera3Stream::ReturnBuffer(const buffer_handle_t &buffer) {
+
+  pthread_mutex_lock(&lock_);
+
+  hal_buffer_cnt_--;
+  client_buffer_cnt_++;
+
+  if (status_ != STATUS_CONFIG_ACTIVE && status_ != STATUS_RECONFIG_ACTIVE) {
+    if (hal_buffer_cnt_ == 0) {
+      // notify hal is idle for this stream i.e. buffers are returned by hal
+      QMMF_DEBUG("%s: Stream(%d): Changing state to idle", __func__, id_);
+      monitor_.ChangeStateToIdle(monitor_id_);
+    }
+  }
+
+  StreamBuffer b;
+  memset(&b, 0, sizeof(b));
+  b.handle = buffers_map[buffer];
+  assert(b.handle != nullptr);
+
+  pthread_mutex_unlock(&lock_);
+
+  ReturnBuffer(b);
 }
 
 int32_t Camera3Stream::ReturnBuffer(const StreamBuffer &buffer) {
@@ -842,6 +911,7 @@ int32_t Camera3Stream::ReturnBufferLocked(const StreamBuffer &buffer) {
       // notify stream is idle i.e. all buffers are returned
       QMMF_DEBUG("%s: Stream(%d): Stream is idle", __func__, id_);
       pthread_cond_signal(&idle_signal_);
+      is_stream_idle_ = true;
     }
   }
 
@@ -861,6 +931,7 @@ void Camera3Stream::WaitForIdle() {
         QMMF_ERROR("%s: Error during state change wait: %s (%d)\n", __func__,
                    strerror(res), res);
       }
+      PrintBuffersInfoLocked();
     }
   }
   pthread_mutex_unlock(&lock_);
@@ -956,9 +1027,11 @@ int32_t Camera3Stream::GetBufferLocked(camera3_stream_buffer *streamBuffer) {
     buffers_map[*streamBuffer->buffer] =
       mem_alloc_slots_[idx];
 
-    if (hal_buffer_cnt_ == 0 && status_ != STATUS_CONFIG_ACTIVE &&
+    if (is_stream_idle_ && hal_buffer_cnt_ == 0 &&
+        status_ != STATUS_CONFIG_ACTIVE &&
         status_ != STATUS_RECONFIG_ACTIVE) {
       monitor_.ChangeStateToActive(monitor_id_);
+      is_stream_idle_ = false;
     }
 
     hal_buffer_cnt_++;
