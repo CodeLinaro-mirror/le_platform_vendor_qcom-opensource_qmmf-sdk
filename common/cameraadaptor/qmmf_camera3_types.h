@@ -107,27 +107,41 @@ enum class CamFeatureFlag : uint32_t {
   kInputROIEnable  = 1 << 6,   /// Input ROI reprocess is on.
 };
 
-enum class CamOperationMode {
-  // camera in normal mode
-  kCamOperationModeNone,
-
-  // use frame selection node after IFE to filter frames
-  kCamOperationModeFrameSelection,
-
-  // camera pipeline switch between preview and preview plus video
-  kCamOperationModeFastSwitch,
-
-  kCamOperationModeEnd,
-};
-
 #define FORCE_SENSOR_MODE_MASK      (0x00F00000)
 #define FORCE_SENSOR_MODE_DATA(idx) ((idx + 1) << 20)
 
+typedef uint32_t CamOperationMode;
+
+enum CamOperationModeEnum {
+  kCamOpModeFrameSelectionEnum = 0,
+  kCamOpModeFastSwitchEnum,
+  kCamOpModeMaxEnum,
+};
+
+#define CAM_OPMODE_FLAG_FRAMESELECTION      (1 << kCamOpModeFrameSelectionEnum)
+#define CAM_OPMODE_FLAG_FASTSWITCH          (1 << kCamOpModeFastSwitchEnum)
+#define CAM_OPMODE_FLAG_MASK                ((1 << kCamOpModeMaxEnum) - 1)
+
+#define CAM_OPMODE_FLAG_VALID(mode) \
+  (!(mode & (~CAM_OPMODE_FLAG_MASK)))
+
+#define CAM_OPMODE_SET_FRAMESELECTION(mode) \
+  (mode = (mode | CAM_OPMODE_FLAG_FRAMESELECTION))
+
+#define CAM_OPMODE_CLR_FRAMESELECTION(mode) \
+  (mode = ((mode & (~CAM_OPMODE_FLAG_FRAMESELECTION)) & CAM_OPMODE_FLAG_MASK))
+
 #define CAM_OPMODE_IS_FRAMESELECTION(mode) \
-  (mode == CamOperationMode::kCamOperationModeFrameSelection)
+  (mode & CAM_OPMODE_FLAG_FRAMESELECTION)
+
+#define CAM_OPMODE_SET_FASTSWITCH(mode) \
+  (mode = (mode | CAM_OPMODE_FLAG_FASTSWITCH))
+
+#define CAM_OPMODE_CLR_FASTSWITCH(mode) \
+  (mode = ((mode & (~CAM_OPMODE_FLAG_FASTSWITCH)) & CAM_OPMODE_FLAG_MASK))
 
 #define CAM_OPMODE_IS_FASTSWTICH(mode) \
-  (mode == CamOperationMode::kCamOperationModeFastSwitch)
+  (mode & CAM_OPMODE_FLAG_FASTSWITCH)
 
 struct CameraStreamParameters {
   uint32_t width;
@@ -163,7 +177,7 @@ struct CameraParameters {
       is_constrained_high_speed(false), is_raw_only(false), batch_size(1),
       fps_sensormode_index(0), frame_rate_range{},
       cam_feature_flags(static_cast<uint32_t>(CamFeatureFlag::kNone)),
-      cam_opmode(CamOperationMode::kCamOperationModeNone) {}
+      cam_opmode(0) {}
 };
 
 typedef struct Camera3Request_t {
