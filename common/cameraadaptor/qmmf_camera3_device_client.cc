@@ -1333,7 +1333,6 @@ void Camera3DeviceClient::HandleCaptureResult(
 
           params.frame_selection.total_selected_frames = entry.data.i32[0];
           params.frame_selection.cap_frame_num = frameNumber;
-          CAM_OPMODE_SET_FRAMESELECTION(params.mode);
           request_handler_.UpdateRequestedStreams(params);
         } else {
           QMMF_VERBOSE("%s:FrameSel:tag updatedPickedFrames found but no entry",
