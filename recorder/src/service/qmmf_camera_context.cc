@@ -420,33 +420,40 @@ status_t CameraContext::OpenCamera(const uint32_t camera_id,
     }
   }
 
+  // support multiple camera mode concurrency
   if (extra_param.Exists(QMMF_CAM_OP_MODE_CONTROL)) {
     size_t entry_count = extra_param.EntryCount(QMMF_CAM_OP_MODE_CONTROL);
-    if (entry_count == 1) {
-      CamOpModeControl mode_control;
+    size_t entry_index = 0;
 
-      extra_param.Fetch(QMMF_CAM_OP_MODE_CONTROL, mode_control, 0);
-      switch (mode_control.mode) {
-        case CamOpMode::kNone:
-          camera_parameters_.cam_opmode =
-            CamOperationMode::kCamOperationModeNone;
-          break;
-        case CamOpMode::kFrameSelection:
-          camera_parameters_.cam_opmode =
-            CamOperationMode::kCamOperationModeFrameSelection;
-          break;
-        case CamOpMode::kFastSwitch:
-          camera_parameters_.cam_opmode =
-            CamOperationMode::kCamOperationModeFastSwitch;
-          break;
-        default:
-          QMMF_ERROR("%s: Invalid camera operation mode %d",
-              __func__, mode_control.mode);
-          break;
+    for (entry_index = 0; entry_index < entry_count; entry_index++) {
+      CamOpModeControl mode_control;
+      int32_t res;
+
+      res = extra_param.Fetch(QMMF_CAM_OP_MODE_CONTROL, mode_control,
+          entry_index);
+
+      if (res != 0) {
+        QMMF_ERROR("%s: CAM OPMODE fetch failed, index(%d)",
+            __func__, entry_index);
+      } else {
+        QMMF_INFO("%s: CAM OPMODE index(%d) val(%d)",
+            __func__, entry_index, mode_control.mode);
+
+        switch (mode_control.mode) {
+          case CamOpMode::kNone:
+            break;
+          case CamOpMode::kFrameSelection:
+            CAM_OPMODE_SET_FRAMESELECTION(camera_parameters_.cam_opmode);
+            break;
+          case CamOpMode::kFastSwitch:
+            CAM_OPMODE_SET_FASTSWITCH(camera_parameters_.cam_opmode);
+            break;
+          default:
+            QMMF_ERROR("%s: Invalid camera operation mode %d",
+                __func__, mode_control.mode);
+            break;
+        }
       }
-    } else {
-      QMMF_ERROR("%s: Invalid camera operation mode received", __func__);
-      return BAD_VALUE;
     }
   }
 
@@ -947,8 +954,7 @@ status_t CameraContext::CreateStream(const StreamParam& param,
 
   // FIXME: HFR control and exception for fastswitch will be removed after
   // session clean-up merged
-  if ((camera_parameters_.cam_opmode !=
-        CamOperationMode::kCamOperationModeFastSwitch) &&
+  if (!(CAM_OPMODE_IS_FASTSWTICH(camera_parameters_.cam_opmode)) &&
       (hfr_detected_ == false) && (batch > 1)) {
     QMMF_INFO("%s: HFR stream detected!"
         "track_id = %x", __func__, param.id);
@@ -1837,8 +1843,7 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
       QMMF_INFO("%s: CameraPort(0x%p):camera_stream_id(%d) is ready to"
           " start!",  __func__, port.get(), cam_stream_id);
 
-      if (camera_parameters_.cam_opmode ==
-        CamOperationMode::kCamOperationModeFrameSelection) {
+      if (CAM_OPMODE_IS_FRAMESELECTION(camera_parameters_.cam_opmode)) {
         if (true == port->IsPreviewStream()) {
           QMMF_INFO("%s: found preview stream %d PORT_READYTOSTART",
               __func__, cam_stream_id);
@@ -1916,8 +1921,7 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
       }
       stream_ids.emplace(cam_stream_id);
 
-      if (camera_parameters_.cam_opmode ==
-        CamOperationMode::kCamOperationModeFrameSelection) {
+      if (CAM_OPMODE_IS_FRAMESELECTION(camera_parameters_.cam_opmode)) {
         if (true == port->IsPreviewStream()) {
           QMMF_INFO("%s: found preview stream %d PORT_STARTED",
               __func__, cam_stream_id);
@@ -1941,18 +1945,18 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
   // removed simultaneously, which is necessary for HFR case, since preview
   // stream always exists, we need to cache video streams update if active
   // request streams num is not equal to configured stream number.
-  if ((camera_parameters_.cam_opmode ==
-        CamOperationMode::kCamOperationModeFastSwitch) &&
+  if ((CAM_OPMODE_IS_FASTSWTICH(camera_parameters_.cam_opmode)) &&
         (size != 0 && size != 1 && size != active_ports_number)) {
       QMMF_INFO("%s: active_ports_number = %d, size =%d, caching this state",
           __func__, active_ports_number, size);
       return NO_ERROR;
-  } else if (camera_parameters_.cam_opmode ==
-      CamOperationMode::kCamOperationModeFrameSelection) {
-    // in frame-selection mode, if preview stream is paused, video stream
-    // should be paused at the same time, otherwise, camera will trigger
-    // crash. so caching request until all streams are removed.
-    // TODO: after session cleanup merged. this part can be removed.
+  }
+
+  // in frame-selection mode, if preview stream is paused, video stream
+  // should be paused at the same time, otherwise, camera will trigger
+  // crash. so caching request until all streams are removed.
+  // TODO: after session cleanup merged. this part can be removed.
+  if (CAM_OPMODE_IS_FRAMESELECTION(camera_parameters_.cam_opmode)) {
       if (size != 0 && preview_stream_activate == false) {
         QMMF_INFO("%s:FrameSel, active_ports_number = %d, size = %d, cache it",
             __func__, active_ports_number, size);

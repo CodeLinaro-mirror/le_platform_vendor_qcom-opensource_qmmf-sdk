@@ -188,11 +188,15 @@ class Camera3DeviceClient : public camera3_callback_ops,
                                bool streaming, int64_t *lastFrameNumber = NULL);
 
   void HandleCaptureResult(const camera3_capture_result *result);
+
 #if defined(CAMERA_HAL_API_VERSION) && (CAMERA_HAL_API_VERSION >= 0x0307)
-  void ReturnStreamBuffers(uint32_t num_buffers, const camera3_stream_buffer_t* const* buffers);
   camera3_buffer_request_status_t RequestStreamBuffers(uint32_t num_buffer_reqs,
-          const camera3_buffer_request_t *buffer_reqs, uint32_t *num_returned_buf_reqs,
+          const camera3_buffer_request_t *buffer_reqs,
+          uint32_t *num_returned_buf_reqs,
           camera3_stream_buffer_ret_t *returned_buf_reqs);
+
+  void ReturnStreamBuffers(uint32_t num_buffers,
+          const camera3_stream_buffer_t* const* buffers);
 #endif
   void UpdateCameraStatus(bool status);
   void Notify(const camera3_notify_msg *msg);
