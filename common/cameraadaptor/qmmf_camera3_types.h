@@ -118,6 +118,12 @@ enum CamOperationModeEnum {
   kCamOpModeMaxEnum,
 };
 
+enum StreamUsecase {
+  kStreamUsecaseNone        = 0x00000,
+  kStreamUsecaseSideBySide  = 0x10002,
+  kStreamUsecasePanorama    = 0x10003,
+};
+
 #define CAM_OPMODE_FLAG_FRAMESELECTION      (1 << kCamOpModeFrameSelectionEnum)
 #define CAM_OPMODE_FLAG_FASTSWITCH          (1 << kCamOpModeFastSwitchEnum)
 #define CAM_OPMODE_FLAG_MASK                ((1 << kCamOpModeMaxEnum) - 1)
@@ -156,13 +162,14 @@ struct CameraStreamParameters {
   MemAllocFlags allocFlags;
   uint32_t bufferCount;
   StreamCallback cb;
+  ::std::string stream_camera_id;
   CameraStreamParameters() :
       width(0), height(0), format(-1), data_space(HAL_DATASPACE_UNKNOWN),
 #if defined(CAMX_ANDROID_API) && (CAMX_ANDROID_API >= 31)
       usecase(0), hdrmode(0),
 #endif
       rotation(CAMERA3_STREAM_ROTATION_0), allocFlags(), bufferCount(0),
-      cb(nullptr) {}
+      cb(nullptr), stream_camera_id() {}
 };
 
 struct CameraParameters {

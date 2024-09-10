@@ -69,6 +69,8 @@
 #include "qmmf_recorder_params.h"
 #include "qmmf_recorder_extra_param.h"
 
+#define MAX_CAM_NAME_SIZE 64
+
 namespace qmmf {
 
 namespace recorder {
@@ -90,6 +92,8 @@ enum ParamTag {
   QMMF_IFE_DIRECT_STREAM,
   QMMF_CAM_OP_MODE_CONTROL,
   QMMF_INPUT_ROI,
+  QMMF_STREAM_CAMERA_ID,
+  QMMF_STITCH_LAYOUT,
 };
 
 enum class SlaveMode {
@@ -116,6 +120,15 @@ enum class CamOpMode {
   kFrameSelection,
   /**< camera will switch between preview and preview plus video */
   kFastSwitch,
+};
+
+enum class StitchLayout {
+  /**< this is invalid usage */
+  kNone,
+  /**< stitch images side by side */
+  kSideBySide,
+  /**< stitch images to panorama */
+  kPanorama,
 };
 
 struct SourceVideoTrack : DataTagBase {
@@ -291,6 +304,26 @@ struct InputROISetup: DataTagBase {
   InputROISetup() :
     DataTagBase(QMMF_INPUT_ROI), enable(false) {
   }
+};
+
+struct StreamCameraId: DataTagBase {
+  /**< Add support to choose camera for a stream */
+  /**< Select to use specific camera for a stream */
+  /**< Default: '\0' */
+  char stream_camera_id[MAX_CAM_NAME_SIZE];
+  StreamCameraId() :
+    DataTagBase(QMMF_STREAM_CAMERA_ID),
+    stream_camera_id{""} {}
+};
+
+struct StitchLayoutSelect: DataTagBase {
+  /**< Add support to select stitch layout for a stream */
+  /**< Select layout to stitch images for a stream */
+  /**< Default: StitchLayout::kNone */
+  StitchLayout stitch_layout;
+  StitchLayoutSelect() :
+    DataTagBase(QMMF_STITCH_LAYOUT),
+    stitch_layout(StitchLayout::kNone) {}
 };
 
 }; //namespace recorder.
