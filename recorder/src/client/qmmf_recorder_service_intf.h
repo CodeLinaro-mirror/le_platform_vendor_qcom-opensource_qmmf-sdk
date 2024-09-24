@@ -77,6 +77,7 @@
 #include "qmmf-sdk/qmmf_recorder_params.h"
 #include "qmmf-sdk/qmmf_recorder_extra_param.h"
 #include "qmmf-sdk/qmmf_offline_jpeg_params.h"
+#include "qmmf-sdk/qmmf_offline_camera_params.h"
 
 namespace qmmf {
 namespace recorder {
@@ -115,9 +116,9 @@ enum QMMF_RECORDER_SERVICE_CMDS {
   RECORDER_GET_DEFAULT_CAPTURE_PARAMS,
   RECORDER_GET_CAMERA_CHARACTERISTICS,
   RECORDER_GET_VENDOR_TAG_DESCRIPTOR,
-  RECORDER_CONFIGURE_OFFLINE_JPEG,
-  RECORDER_ENCODE_OFFLINE_JPEG,
-  RECORDER_DESTROY_OFFLINE_JPEG,
+  RECORDER_CONFIGURE_OFFLINE_PROC,
+  RECORDER_ENCODE_OFFLINE_PROC,
+  RECORDER_DESTROY_OFFLINE_PROC,
 };
 
 struct BnBuffer {
@@ -296,23 +297,23 @@ class IRecorderService : public IInterface {
 
   virtual status_t GetVendorTagDescriptor(std::shared_ptr<VendorTagDescriptor> &desc) = 0;
 
-  virtual status_t CreateOfflineJPEG(
+  virtual status_t CreateOfflineProcess(
                                 const uint32_t client_id,
-                                const OfflineJpegCreateParams& params) = 0;
+                                const OfflineCameraCreateParams& params) = 0;
 
-  virtual status_t EncodeOfflineJPEG(const uint32_t client_id,
+  virtual status_t ProcOfflineProcess(const uint32_t client_id,
                                      const BnBuffer& in_buf,
                                      const BnBuffer& out_buf,
-                                     const OfflineJpegMeta& meta) = 0;
+                                     const CameraMetadata& meta) = 0;
 
-  virtual status_t DestroyOfflineJPEG(const uint32_t client_id) = 0;
+  virtual status_t DestroyOfflineProcess(const uint32_t client_id) = 0;
 };
 
 enum RECORDER_SERVICE_CB_CMDS{
   RECORDER_NOTIFY_EVENT=IBinder::FIRST_CALL_TRANSACTION,
   RECORDER_NOTIFY_SESSION_EVENT,
   RECORDER_NOTIFY_SNAPSHOT_DATA,
-  RECORDER_NOTIFY_OFFLINE_JPEG_DATA,
+  RECORDER_NOTIFY_OFFLINE_PROC_DATA,
   RECORDER_NOTIFY_VIDEO_TRACK_DATA,
   RECORDER_NOTIFY_VIDEO_TRACK_EVENT,
   RECORDER_NOTIFY_CAMERA_RESULT,
@@ -332,8 +333,8 @@ class IRecorderServiceCallback : public IInterface {
   virtual void NotifySnapshotData(uint32_t camera_id, uint32_t imgcount,
                                   BnBuffer& buffer, BufferMeta& meta) = 0;
 
-  virtual void NotifyOfflineJpegData(int32_t buf_fd,
-                                     uint32_t encoded_size) = 0;
+  virtual void NotifyOfflineProcData(int32_t buf_fd,
+                                     uint32_t out_size) = 0;
 
   virtual void NotifyVideoTrackData(uint32_t session_id, uint32_t track_id,
                                     std::vector<BnBuffer>& buffers,

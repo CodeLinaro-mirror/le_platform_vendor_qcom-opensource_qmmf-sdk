@@ -213,6 +213,31 @@ status_t RecorderClient::Connect(const RecorderCb& cb) {
   session_cb_list_.clear();
   track_cb_list_.clear();
 
+#ifndef CAMERA_HAL1_SUPPORT
+  /*
+   * Because the offline camera function requires the metadata to be passed in create function,
+   * vedor_tag_desc_ is obtained in advance so that the customer can successfully set the metadata
+   * data at this time.
+   */
+  if (vendor_tag_desc_ == nullptr) {
+    vendor_tag_desc_ = std::make_shared<VendorTagDescriptor>();
+    ret = GetVendorTagDescriptor(vendor_tag_desc_);
+    if (0 != ret) {
+      QMMF_ERROR("%s: Unable to GetVendorTagDescriptor : %d\n", __func__, ret);
+      return ret;
+    }
+
+    // Set the global descriptor to use with camera metadata
+    ret =
+        VendorTagDescriptor::setAsGlobalVendorTagDescriptor(vendor_tag_desc_);
+    if (0 != ret) {
+      QMMF_ERROR("%s: Unable to setAsGlobalVendorTagDescriptor : %d", __func__,
+                 ret);
+      return ret;
+    }
+  }
+#endif
+
   QMMF_DEBUG("%s Exit ", __func__);
   return ret;
 }
@@ -885,9 +910,9 @@ status_t RecorderClient::GetVendorTagDescriptor(std::shared_ptr<VendorTagDescrip
   return ret;
 }
 
-status_t RecorderClient::CreateOfflineJPEG(
-                          const OfflineJpegCreateParams &params,
-                          const OfflineJpegCb &cb) {
+status_t RecorderClient::CreateOfflineProcess(
+                          const OfflineCameraCreateParams &params,
+                          const OfflineCameraCb &cb) {
 
   QMMF_DEBUG("%s Enter ", __func__);
   std::lock_guard<std::mutex> lock(lock_);
@@ -900,17 +925,17 @@ status_t RecorderClient::CreateOfflineJPEG(
     QMMF_ERROR("%s: Error. Client callback is null.", __func__);
     return BAD_VALUE;
   }
-  auto ret = recorder_service_->CreateOfflineJPEG(client_id_, params);
+  auto ret = recorder_service_->CreateOfflineProcess(client_id_, params);
   if (NO_ERROR != ret) {
-    QMMF_ERROR("%s CreateOfflineJPEG failed!", __func__);
+    QMMF_ERROR("%s CreateOfflineProcess failed!", __func__);
   }
-  offline_jpeg_cb_ = cb;
+  offline_proc_cb_ = cb;
   QMMF_DEBUG("%s Exit ", __func__);
   return ret;
 }
 
-status_t RecorderClient::EncodeOfflineJPEG(
-                            const OfflineJpegProcessParams &params) {
+status_t RecorderClient::ProcOfflineProcess(
+                            const OfflineCameraProcessParams &params) {
 
   QMMF_DEBUG("%s Enter ", __func__);
   std::lock_guard<std::mutex> lock(lock_);
@@ -925,28 +950,28 @@ status_t RecorderClient::EncodeOfflineJPEG(
 
   if (!IsJpegBufPresent(params.in_buf_fd)) {
     in_buf.ion_fd = params.in_buf_fd;
-    offline_jpeg_buffers_.push_back(params.in_buf_fd);
+    offline_proc_buffers_.push_back(params.in_buf_fd);
   }
   in_buf.buffer_id = params.in_buf_fd;
 
   if (!IsJpegBufPresent(params.out_buf_fd)) {
     out_buf.ion_fd = params.out_buf_fd;
-    offline_jpeg_buffers_.push_back(params.out_buf_fd);
+    offline_proc_buffers_.push_back(params.out_buf_fd);
   }
   out_buf.buffer_id = params.out_buf_fd;
 
-  auto ret = recorder_service_->EncodeOfflineJPEG(client_id_,
+  auto ret = recorder_service_->ProcOfflineProcess(client_id_,
                                                   in_buf,
                                                   out_buf,
-                                                  params.metadata);
+                                                  params.meta);
   if (NO_ERROR != ret) {
-    QMMF_ERROR("%s EncodeOfflineJPEG failed!", __func__);
+    QMMF_ERROR("%s ProcOfflineProcess failed!", __func__);
   }
   QMMF_DEBUG("%s Exit ", __func__);
   return ret;
 }
 
-status_t RecorderClient::DestroyOfflineJPEG() {
+status_t RecorderClient::DestroyOfflineProcess() {
 
   QMMF_DEBUG("%s Enter ", __func__);
   std::lock_guard<std::mutex> lock(lock_);
@@ -954,10 +979,10 @@ status_t RecorderClient::DestroyOfflineJPEG() {
     return NO_INIT;
   }
   assert(client_id_ > 0);
-  offline_jpeg_buffers_.clear();
-  auto ret = recorder_service_->DestroyOfflineJPEG(client_id_);
+  offline_proc_buffers_.clear();
+  auto ret = recorder_service_->DestroyOfflineProcess(client_id_);
   if (NO_ERROR != ret) {
-    QMMF_ERROR("%s DestroyOfflineJPEG failed!", __func__);
+    QMMF_ERROR("%s DestroyOfflineProcess failed!", __func__);
   }
   QMMF_DEBUG("%s Exit ", __func__);
   return ret;
@@ -965,7 +990,7 @@ status_t RecorderClient::DestroyOfflineJPEG() {
 
 bool RecorderClient::IsJpegBufPresent(const int32_t& buf_fd) {
   bool found = false;
-  for ( auto fd : offline_jpeg_buffers_) {
+  for ( auto fd : offline_proc_buffers_) {
     if (buf_fd == fd) {
       found = true;
       break;
@@ -1228,7 +1253,7 @@ void RecorderClient::ServiceDeathHandler() {
 
   image_capture_cb_ = nullptr;
   metadata_cb_ = nullptr;
-  offline_jpeg_cb_ = nullptr;
+  offline_proc_cb_ = nullptr;
 
   if (ion_device_ > 0) {
     close(ion_device_);
@@ -1322,11 +1347,11 @@ void RecorderClient::NotifySnapshotData(uint32_t camera_id, uint32_t imgcount,
   QMMF_DEBUG("%s Exit ", __func__);
 }
 
-void RecorderClient::NotifyOfflineJpegData(int32_t buf_fd,
-                                           uint32_t encoded_size) {
+void RecorderClient::NotifyOfflineProcData(int32_t buf_fd,
+                                           uint32_t out_size) {
   QMMF_DEBUG("%s Enter ", __func__);
-  assert(offline_jpeg_cb_ != nullptr);
-  offline_jpeg_cb_(buf_fd, encoded_size);
+  assert(offline_proc_cb_ != nullptr);
+  offline_proc_cb_(buf_fd, out_size);
   QMMF_DEBUG("%s Exit ", __func__);
 }
 
@@ -1881,27 +1906,29 @@ status_t DeleteVideoTrack(const uint32_t client_id,
     return ret;
   }
 
-  status_t CreateOfflineJPEG(const uint32_t client_id,
-                             const OfflineJpegCreateParams &params) {
+  status_t CreateOfflineProcess(const uint32_t client_id,
+                             const OfflineCameraCreateParams &params) {
     Parcel data, reply;
     data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
     data.writeUint32(client_id);
 
-    uint32_t param_size = sizeof (params);
+    uint32_t param_size = sizeof (params) - sizeof(CameraMetadata);
     data.writeUint32(param_size);
     android::Parcel::WritableBlob blob;
     data.writeBlob(param_size, false, &blob);
     memcpy(blob.data(), &params, param_size);
 
+    params.session_meta.writeToParcel(&data);
+
     remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
-        RECORDER_CONFIGURE_OFFLINE_JPEG), data, &reply);
+        RECORDER_CONFIGURE_OFFLINE_PROC), data, &reply);
     return reply.readInt32();
   }
 
-  status_t EncodeOfflineJPEG(const uint32_t client_id,
+  status_t ProcOfflineProcess(const uint32_t client_id,
                              const BnBuffer& in_buf,
                              const BnBuffer& out_buf,
-                             const OfflineJpegMeta& meta) {
+                             const CameraMetadata& meta) {
     Parcel data, reply;
     data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
     data.writeUint32(client_id);
@@ -1922,24 +1949,19 @@ status_t DeleteVideoTrack(const uint32_t client_id,
     }
     data.writeInt32(out_buf.buffer_id);
 
-    uint32_t meta_size = sizeof (meta);
-    data.writeUint32(meta_size);
-    android::Parcel::WritableBlob blob;
-    data.writeBlob(meta_size, false, &blob);
-    memcpy(blob.data(), &meta, meta_size);
-
+    meta.writeToParcel(&data);
     remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
-        RECORDER_ENCODE_OFFLINE_JPEG), data, &reply);
+        RECORDER_ENCODE_OFFLINE_PROC), data, &reply);
     return reply.readInt32();
   }
 
-  status_t DestroyOfflineJPEG(const uint32_t client_id) {
+  status_t DestroyOfflineProcess(const uint32_t client_id) {
     Parcel data, reply;
     data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
     data.writeUint32(client_id);
 
     remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
-        RECORDER_DESTROY_OFFLINE_JPEG), data, &reply);
+        RECORDER_DESTROY_OFFLINE_PROC), data, &reply);
     return reply.readInt32();
   }
 };
@@ -1981,10 +2003,10 @@ void ServiceCallbackHandler::NotifySnapshotData(uint32_t camera_id,
   client_->NotifySnapshotData(camera_id, imgcount, buffer, meta);
 }
 
-void ServiceCallbackHandler::NotifyOfflineJpegData(int32_t buf_fd,
-                                                   uint32_t encoded_size) {
+void ServiceCallbackHandler::NotifyOfflineProcData(int32_t buf_fd,
+                                                   uint32_t out_size) {
   assert(client_ != nullptr);
-  client_->NotifyOfflineJpegData(buf_fd, encoded_size);
+  client_->NotifyOfflineProcData(buf_fd, out_size);
 }
 
 
@@ -2096,17 +2118,17 @@ class BpRecorderServiceCallback: public BpInterface<IRecorderServiceCallback> {
     meta_blob.release();
   }
 
-  void NotifyOfflineJpegData(int32_t buf_fd, uint32_t encoded_size) {
+  void NotifyOfflineProcData(int32_t buf_fd, uint32_t out_size) {
 
     Parcel data, reply;
     data.writeInterfaceToken(IRecorderServiceCallback::
         getInterfaceDescriptor());
     // This is the client fd and thus passing it as int
     data.writeInt32(buf_fd);
-    data.writeUint32(encoded_size);
+    data.writeUint32(out_size);
 
     remote()->transact(uint32_t(RECORDER_SERVICE_CB_CMDS::
-        RECORDER_NOTIFY_OFFLINE_JPEG_DATA), data, &reply, IBinder::FLAG_ONEWAY);
+        RECORDER_NOTIFY_OFFLINE_PROC_DATA), data, &reply, IBinder::FLAG_ONEWAY);
   }
 
   void NotifyVideoTrackData(uint32_t session_id, uint32_t track_id,
@@ -2280,13 +2302,13 @@ status_t BnRecorderServiceCallback::onTransact(uint32_t code,
       return NO_ERROR;
     }
     break;
-    case RECORDER_SERVICE_CB_CMDS::RECORDER_NOTIFY_OFFLINE_JPEG_DATA: {
-      uint32_t encoded_size;
+    case RECORDER_SERVICE_CB_CMDS::RECORDER_NOTIFY_OFFLINE_PROC_DATA: {
+      uint32_t out_size;
       int32_t buf_fd;
       // This is the client fd
       data.readInt32(&buf_fd);
-      data.readUint32(&encoded_size);
-      NotifyOfflineJpegData(buf_fd, encoded_size);
+      data.readUint32(&out_size);
+      NotifyOfflineProcData(buf_fd, out_size);
       return NO_ERROR;
     }
     break;

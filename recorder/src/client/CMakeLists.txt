@@ -13,6 +13,7 @@ else()
     ${TOP_DIRECTORY}/include/qmmf-sdk/qmmf_recorder_extra_param_tags.h
     ${TOP_DIRECTORY}/include/qmmf-sdk/qmmf_buffer.h
     ${TOP_DIRECTORY}/include/qmmf-sdk/qmmf_offline_jpeg_params.h
+    ${TOP_DIRECTORY}/include/qmmf-sdk/qmmf_offline_camera_params.h
     DESTINATION include/qmmf-sdk)
 endif()
 

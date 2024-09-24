@@ -363,5 +363,8 @@ typedef std::function<void(uint32_t camera_id, uint32_t imgcount,
 
 typedef std::function<void(int32_t buf_fd, uint32_t encoded_size)>
     OfflineJpegCb;
+
+typedef std::function<void(int32_t buf_fd, uint32_t out_size)>
+    OfflineCameraCb;
 };
 };  // namespace qmmf::recorder

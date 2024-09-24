@@ -100,7 +100,7 @@ RecorderImpl::RecorderImpl() : camera_source_(nullptr) {
   QMMF_KPI_DETAIL();
   QMMF_INFO("%s: Enter", __func__);
 #ifdef ENABLE_OFFLINE_JPEG
-  offline_jpeg_encoder_ = nullptr;
+  offline_process_ = nullptr;
 #endif
 
   QMMF_INFO("%s: Exit", __func__);
@@ -117,9 +117,9 @@ RecorderImpl::~RecorderImpl() {
   }
 
 #ifdef ENABLE_OFFLINE_JPEG
-  if (offline_jpeg_encoder_) {
-    delete offline_jpeg_encoder_;
-    offline_jpeg_encoder_ = nullptr;
+  if (offline_process_) {
+    delete offline_process_;
+    offline_process_ = nullptr;
   }
 #endif
 
@@ -144,17 +144,17 @@ status_t RecorderImpl::Init(const RemoteCallbackHandle& remote_cb_handle) {
       __func__);
 
 #ifdef ENABLE_OFFLINE_JPEG
-  offline_jpeg_encoder_ = new OfflineJpegEncoder;
-  if (!offline_jpeg_encoder_) {
-    QMMF_ERROR("%s: Can't Create OfflineJpegEncoder Instance!", __func__);
+  offline_process_ = new OfflineProcess;
+  if (!offline_process_) {
+    QMMF_ERROR("%s: Can't Create OfflineProcess Instance!", __func__);
     return NO_MEMORY;
   }
 
-  status_t ret = offline_jpeg_encoder_->Init(remote_cb_handle);
+  status_t ret = offline_process_->Init(remote_cb_handle);
   if (NO_ERROR != ret) {
-    QMMF_ERROR("%s: Offline JPEG lib initialization failed!", __func__);
-    delete offline_jpeg_encoder_;
-    offline_jpeg_encoder_ = nullptr;
+    QMMF_ERROR("%s: Offline Process lib initialization failed!", __func__);
+    delete offline_process_;
+    offline_process_ = nullptr;
     return ret;
   }
 #endif
@@ -174,10 +174,10 @@ status_t RecorderImpl::DeInit() {
   }
 
 #ifdef ENABLE_OFFLINE_JPEG
-  if (offline_jpeg_encoder_) {
-    offline_jpeg_encoder_->DeInit();
-    delete offline_jpeg_encoder_;
-    offline_jpeg_encoder_ = nullptr;
+  if (offline_process_) {
+    offline_process_->DeInit();
+    delete offline_process_;
+    offline_process_ = nullptr;
   }
 #endif
 
@@ -223,8 +223,8 @@ status_t RecorderImpl::RegisterClient(const uint32_t client_id) {
   client_cameraid_map_.emplace(client_id, std::map<uint32_t, bool>());
 
 #ifdef ENABLE_OFFLINE_JPEG
-  if (offline_jpeg_encoder_) {
-    offline_jpeg_encoder_->RegisterClient(client_id);
+  if (offline_process_) {
+    offline_process_->RegisterClient(client_id);
   }
 #endif
 
@@ -255,8 +255,8 @@ status_t RecorderImpl::DeRegisterClient(const uint32_t client_id,
   }
 
 #ifdef ENABLE_OFFLINE_JPEG
-  if (offline_jpeg_encoder_) {
-    offline_jpeg_encoder_->DeRegisterClient(client_id);
+  if (offline_process_) {
+    offline_process_->DeRegisterClient(client_id);
   }
 #endif
 
@@ -1514,24 +1514,24 @@ status_t RecorderImpl::GetCameraCharacteristics(const uint32_t client_id,
   return NO_ERROR;
 }
 
-status_t RecorderImpl::CreateOfflineJPEG(const uint32_t client_id,
-                                      const OfflineJpegCreateParams& params) {
+status_t RecorderImpl::CreateOfflineProcess(const uint32_t client_id,
+                                      const OfflineCameraCreateParams& params) {
 
   QMMF_DEBUG("%s Enter client_id(%u)", __func__, client_id);
 
 #ifdef ENABLE_OFFLINE_JPEG
-  assert(offline_jpeg_encoder_ != nullptr);
-  if (!offline_jpeg_encoder_->IsClientFound(client_id)) {
+  assert(offline_process_ != nullptr);
+  if (!offline_process_->IsClientFound(client_id)) {
     QMMF_ERROR("%s: Client (%u) is not found", __func__, client_id);
     return BAD_VALUE;
   }
-  auto ret = offline_jpeg_encoder_->Create(client_id, params);
+  auto ret = offline_process_->Create(client_id, params);
   if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: Offline JPEG encoder create failed!", __func__);
+    QMMF_ERROR("%s: Offline Proc create failed!", __func__);
     return ret;
   }
 #else
-  QMMF_ERROR("Offline JPEG not supported on this platform");
+  QMMF_ERROR("Offline Process not supported on this platform");
   return INVALID_OPERATION;
 #endif
 
@@ -1539,26 +1539,26 @@ status_t RecorderImpl::CreateOfflineJPEG(const uint32_t client_id,
   return NO_ERROR;
 }
 
-status_t RecorderImpl::EncodeOfflineJPEG(const uint32_t client_id,
+status_t RecorderImpl::ProcOfflineProcess(const uint32_t client_id,
                                          const BnBuffer& in_buf,
                                          const BnBuffer& out_buf,
-                                         const OfflineJpegMeta& meta) {
+                                         const CameraMetadata& meta) {
 
   QMMF_DEBUG("%s Enter client_id(%u)", __func__, client_id);
 
 #ifdef ENABLE_OFFLINE_JPEG
-  assert(offline_jpeg_encoder_ != nullptr);
-  if (!offline_jpeg_encoder_->IsClientFound(client_id)) {
+  assert(offline_process_ != nullptr);
+  if (!offline_process_->IsClientFound(client_id)) {
     QMMF_ERROR("%s: Client (%u) is not found", __func__, client_id);
     return BAD_VALUE;
   }
-  auto ret = offline_jpeg_encoder_->Process(client_id, in_buf, out_buf, meta);
+  auto ret = offline_process_->Process(client_id, in_buf, out_buf, meta);
   if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: Offline JPEG encoder process failed!", __func__);
+    QMMF_ERROR("%s: Offline Proc process failed!", __func__);
     return ret;
   }
 #else
-  QMMF_ERROR("Offline JPEG not supported on this platform");
+  QMMF_ERROR("Offline Process not supported on this platform");
   return INVALID_OPERATION;
 #endif
 
@@ -1566,23 +1566,23 @@ status_t RecorderImpl::EncodeOfflineJPEG(const uint32_t client_id,
   return NO_ERROR;
 }
 
-status_t RecorderImpl::DestroyOfflineJPEG(const uint32_t client_id) {
+status_t RecorderImpl::DestroyOfflineProcess(const uint32_t client_id) {
 
   QMMF_DEBUG("%s Enter client_id(%u)", __func__, client_id);
 
 #ifdef ENABLE_OFFLINE_JPEG
-  assert(offline_jpeg_encoder_ != nullptr);
-  if (!offline_jpeg_encoder_->IsClientFound(client_id)) {
+  assert(offline_process_ != nullptr);
+  if (!offline_process_->IsClientFound(client_id)) {
     QMMF_ERROR("%s: Client (%u) is not found", __func__, client_id);
     return BAD_VALUE;
   }
-  auto ret = offline_jpeg_encoder_->Destroy(client_id);
+  auto ret = offline_process_->Destroy(client_id);
   if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: Offline JPEG encoder destroy failed!", __func__);
+    QMMF_ERROR("%s: Offline Proc destroy failed!", __func__);
     return ret;
   }
 #else
-  QMMF_ERROR("Offline JPEG not supported on this platform");
+  QMMF_ERROR("Offline Process not supported on this platform");
   return INVALID_OPERATION;
 #endif
 

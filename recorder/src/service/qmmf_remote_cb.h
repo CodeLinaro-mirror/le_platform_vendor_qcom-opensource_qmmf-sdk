@@ -89,7 +89,7 @@ class RemoteCallBack : public RefBase {
     void NotifySnapshotData(uint32_t camera_id, uint32_t imgcount,
                             BnBuffer& buffer, BufferMeta& meta);
 
-    void NotifyOfflineJpegData(int32_t buf_fd, uint32_t encoded_size);
+    void NotifyOfflineProcData(int32_t buf_fd, uint32_t out_size);
 
     void NotifyVideoTrackData(uint32_t session_id, uint32_t track_id,
                               std::vector<BnBuffer>& buffers,
