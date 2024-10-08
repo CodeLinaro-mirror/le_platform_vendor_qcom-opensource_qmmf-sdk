@@ -392,10 +392,6 @@ class CameraContext : public CameraInterface {
   std::vector<int32_t>          multi_roi_info_ = {};
   uint32_t                      multi_roi_count_tag_ = 0;
   uint32_t                      multi_roi_info_tag_ = 0;
-
-  // hfr control
-  bool                          hfr_detected_;
-  bool                          hfr_wait_ports_ready_;
 };
 
 enum class CameraPortType {
