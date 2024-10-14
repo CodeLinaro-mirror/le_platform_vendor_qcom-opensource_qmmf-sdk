@@ -108,7 +108,8 @@ Camera3Stream::Camera3Stream(int id, size_t maxSize,
       is_stream_active_(false),
       is_stream_idle_(true),
       prepared_buffers_count_(0),
-      dummy_buffer_{} {
+      dummy_buffer_{},
+      stream_camera_id() {
   camera3_stream::stream_type = CAMERA3_STREAM_OUTPUT;
   camera3_stream::width = outputConfiguration.width;
   camera3_stream::height = outputConfiguration.height;
@@ -131,6 +132,11 @@ Camera3Stream::Camera3Stream(int id, size_t maxSize,
 #if defined(CAMERA_HAL_API_VERSION) && (CAMERA_HAL_API_VERSION >= 0x0307)
   camera3_stream::group_id  = -1;
 #endif
+  stream_camera_id = outputConfiguration.stream_camera_id;
+  if (stream_camera_id.empty())
+    camera3_stream::physical_camera_id = nullptr;
+  else
+    camera3_stream::physical_camera_id = stream_camera_id.c_str();
 
   if ((HAL_PIXEL_FORMAT_BLOB == format) && (0 == maxSize)) {
     QMMF_ERROR("%s: blob with zero size\n", __func__);

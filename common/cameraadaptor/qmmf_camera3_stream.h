@@ -143,6 +143,8 @@ class Camera3Stream : public camera3_stream {
   uint32_t prepared_buffers_count_;
 
   camera3_stream_buffer dummy_buffer_;
+
+  ::std::string stream_camera_id;
 };
 
 }  // namespace cameraadaptor ends here
