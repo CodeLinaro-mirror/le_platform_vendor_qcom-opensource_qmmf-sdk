@@ -319,7 +319,6 @@ status_t RecorderImpl::DeRegisterClient(const uint32_t client_id,
         " client(%u)!", __func__, session_track_map.size(), client_id);
 
     lk.lock();
-    client_session_map_.erase(client_id);
     client_sessions_state_.erase(client_id);
     client_sessions_mutex_map_.erase(client_id);
   }
@@ -342,6 +341,7 @@ status_t RecorderImpl::DeRegisterClient(const uint32_t client_id,
     }
 
     lk.lock();
+    client_session_map_.erase(client_id);
     client_cameraid_map_.erase(client_id);
   }
 
@@ -477,13 +477,16 @@ status_t RecorderImpl::StopCamera(const uint32_t client_id,
   assert(camera_source_ != nullptr);
 
   // Notify all clients, except this one, that the camera is about to be closed.
-  for (auto it : client_cameraid_map_) {
-    auto& client = it.first;
-    if (client != client_id) {
-      remote_cb_handle_(client)->NotifyRecorderEvent(
-          EventType::kCameraClosing,
-          const_cast<void*>(reinterpret_cast<const void*>(&camera_id)),
-          sizeof(uint32_t));
+  {
+    std::lock_guard<std::mutex> lock(camera_map_lock_);
+    for (auto it : client_cameraid_map_) {
+      auto& client = it.first;
+      if (client != client_id) {
+        remote_cb_handle_(client)->NotifyRecorderEvent(
+            EventType::kCameraClosing,
+            const_cast<void*>(reinterpret_cast<const void*>(&camera_id)),
+            sizeof(uint32_t));
+      }
     }
   }
 
