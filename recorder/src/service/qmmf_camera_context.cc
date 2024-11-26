@@ -1815,7 +1815,7 @@ status_t CameraContext::SetPerStreamFrameRate() {
     auto stream_id = it.first;
     auto stream_frame_rate = it.second;
 
-    float frames = stream_frame_rate / gcd;
+    float frames = static_cast<float>(stream_frame_rate) / gcd;
     float gaps = request_count - frames;
     float ratio = frames / gaps;
 
@@ -3488,9 +3488,9 @@ status_t ZslPort::PauseAndFlushZSLQueue() {
       if (it->timestamp == it->buffer.timestamp) {
         assert(context_ != nullptr);
         auto stat = context_->ReturnStreamBuffer(it->buffer);
-        if (NO_ERROR != ret) {
+        if (NO_ERROR != stat) {
           QMMF_ERROR("%s Failed to flush ZSL buffer: %d",
-                     __func__, ret);
+                     __func__, stat);
           ret = stat;
         }
       }
