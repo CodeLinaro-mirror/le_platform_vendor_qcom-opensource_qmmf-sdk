@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023, 2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -94,6 +94,7 @@ enum ParamTag {
   QMMF_INPUT_ROI,
   QMMF_STREAM_CAMERA_ID,
   QMMF_STITCH_LAYOUT,
+  QMMF_SUPER_FRAMES,
 };
 
 enum class SlaveMode {
@@ -324,6 +325,13 @@ struct StitchLayoutSelect: DataTagBase {
   StitchLayoutSelect() :
     DataTagBase(QMMF_STITCH_LAYOUT),
     stitch_layout(StitchLayout::kNone) {}
+};
+
+struct SuperFrames: DataTagBase {
+  /**< Add support to super buffer */
+  /**< the frame_count in one super buffer */
+  int8_t n_frames;
+  SuperFrames() : DataTagBase(QMMF_SUPER_FRAMES), n_frames(1) {}
 };
 
 }; //namespace recorder.

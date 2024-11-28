@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -982,8 +982,25 @@ status_t CameraContext::CreateStream(const StreamParam& param,
     return BAD_VALUE;
   }
 
+  if (extra_param.Exists(QMMF_SUPER_FRAMES)) {
+    size_t entry_count = extra_param.EntryCount(QMMF_SUPER_FRAMES);
+    if (entry_count ==1) {
+      SuperFrames super_frames;
+      extra_param.Fetch(QMMF_SUPER_FRAMES, super_frames, 0);
+      if (super_frames.n_frames > 1) {
+        QMMF_INFO("%s: super buffer enable and n_frames=%d", __func__, super_frames.n_frames);
+        camera_parameters_.super_frames = super_frames.n_frames;
+        batch = 1;
+      }
+    } else {
+      QMMF_ERROR("%s: Invalid SUPER_FRAMES received", __func__);
+      return BAD_VALUE;
+    }
+  }
+
   camera_parameters_.batch_size = batch;
-  QMMF_INFO("%s: camera_parameters_.batch_size = %u", __func__, batch);
+  QMMF_INFO("%s: camera_parameters_.batch_size=%u super_frames=%d", __func__,
+      camera_parameters_.batch_size, camera_parameters_.super_frames);
 
   std::shared_ptr<CameraPort> port =
       std::make_shared<CameraPort>(param, extra_param, camera_parameters_,
@@ -2854,8 +2871,23 @@ status_t CameraPort::Init() {
       preview_stream_ = false;
     }
 
+    if (camera_parameters_.super_frames == 2) {
+      cam_stream_params_.allocFlags.flags |=
+          IMemAllocUsage::kFlex2Batch;
+    } else if (camera_parameters_.super_frames == 4) {
+      cam_stream_params_.allocFlags.flags |=
+          IMemAllocUsage::kFlex4Batch;
+    } else if (camera_parameters_.super_frames == 8) {
+      cam_stream_params_.allocFlags.flags |=
+          IMemAllocUsage::kFlex8Batch;
+    }
+
     switch (params_.format) {
       case BufferFormat::kNV12UBWC:
+        cam_stream_params_.allocFlags.flags |=
+            IMemAllocUsage::kPrivateAllocUbwc;
+        break;
+      case BufferFormat::kNV12UBWCFLEX:
         cam_stream_params_.allocFlags.flags |=
             IMemAllocUsage::kPrivateAllocUbwc;
         break;
