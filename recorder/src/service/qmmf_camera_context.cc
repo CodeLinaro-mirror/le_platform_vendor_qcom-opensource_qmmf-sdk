@@ -643,6 +643,44 @@ status_t CameraContext::ConfigImageCapture(const uint32_t image_id,
     ret = GetSnapshotStreamParams(param, stream_param);
     assert(ret == NO_ERROR);
 
+    // Retrieve properties from ImageExtraParam
+    if (xtraparam.Exists(QMMF_STREAM_CAMERA_ID)) {
+      StreamCameraId stream_cam_id;
+      size_t count = 0;
+
+      count = xtraparam.EntryCount(QMMF_STREAM_CAMERA_ID);
+      if (count == 1) {
+        xtraparam.Fetch(QMMF_STREAM_CAMERA_ID, stream_cam_id);
+        stream_param.stream_camera_id = stream_cam_id.stream_camera_id;
+      }
+    }
+
+#if defined(CAMX_ANDROID_API) && (CAMX_ANDROID_API >= 31)
+    if (xtraparam.Exists(QMMF_STITCH_LAYOUT)) {
+      StitchLayoutSelect layout;
+      size_t count = 0;
+
+      count = xtraparam.EntryCount(QMMF_STITCH_LAYOUT);
+      if (count == 1) {
+        xtraparam.Fetch(QMMF_STITCH_LAYOUT, layout);
+        switch (layout.stitch_layout) {
+          case StitchLayout::kNone:
+            stream_param.usecase = StreamUsecase::kStreamUsecaseNone;
+            break;
+          case StitchLayout::kSideBySide:
+            stream_param.usecase = StreamUsecase::kStreamUsecaseSideBySide;
+            break;
+          case StitchLayout::kPanorama:
+            stream_param.usecase = StreamUsecase::kStreamUsecasePanorama;
+            break;
+          default:
+            QMMF_WARN ("%s: Unknown stitch layout %d, treat as default.",
+                __func__, layout.stitch_layout);
+        }
+      }
+    }
+#endif // CAMX_ANDROID_API
+
 #ifdef ENABLE_IMAGE_NV12
     if (param.format == BufferFormat::kNV12) {
       stream_param.allocFlags.flags |= IMemAllocUsage::kHwCameraWrite;
@@ -962,7 +1000,7 @@ status_t CameraContext::CreateStream(const StreamParam& param,
   }
 
   std::shared_ptr<CameraPort> port =
-      std::make_shared<CameraPort>(param, camera_parameters_,
+      std::make_shared<CameraPort>(param, extra_param, camera_parameters_,
                                    CameraPortType::kVideo, this);
   assert(port.get() != nullptr);
 
@@ -1776,7 +1814,7 @@ status_t CameraContext::SetPerStreamFrameRate() {
     auto stream_id = it.first;
     auto stream_frame_rate = it.second;
 
-    float frames = stream_frame_rate / gcd;
+    float frames = static_cast<float>(stream_frame_rate) / gcd;
     float gaps = request_count - frames;
     float ratio = frames / gaps;
 
@@ -2807,6 +2845,7 @@ AECData CameraContext::GetAECData() {
 }
 
 CameraPort::CameraPort(const StreamParam& param,
+                       const VideoExtraParam& extraparam,
                        const CameraParameters camera_parameters,
                        CameraPortType port_type, CameraContext* context)
     : port_type_(port_type),
@@ -2820,13 +2859,53 @@ CameraPort::CameraPort(const StreamParam& param,
       reproc_input_buffer_{},
       cameraport_enable_reproc_(false),
       camera_parameters_(camera_parameters),
-      preview_stream_(false) {
+      preview_stream_(false),
+      cam_stream_params_{} {
 
   QMMF_INFO("%s: Enter", __func__);
 
   BufferProducerImpl<CameraPort> *producer_impl;
   producer_impl = new BufferProducerImpl<CameraPort>(this);
   buffer_producer_impl_ = producer_impl;
+
+  // Retrieve properties from VideoExtraParam
+  if (extraparam.Exists(QMMF_STREAM_CAMERA_ID)) {
+    StreamCameraId stream_cam_id;
+    size_t count = 0;
+
+    count = extraparam.EntryCount(QMMF_STREAM_CAMERA_ID);
+    if (count == 1) {
+      extraparam.Fetch(QMMF_STREAM_CAMERA_ID, stream_cam_id);
+      if (stream_cam_id.stream_camera_id[0] != '\0')
+        cam_stream_params_.stream_camera_id = stream_cam_id.stream_camera_id;
+    }
+  }
+
+#if defined(CAMX_ANDROID_API) && (CAMX_ANDROID_API >= 31)
+  if (extraparam.Exists(QMMF_STITCH_LAYOUT)) {
+    StitchLayoutSelect layout;
+    size_t count = 0;
+
+    count = extraparam.EntryCount(QMMF_STITCH_LAYOUT);
+    if (count == 1) {
+      extraparam.Fetch(QMMF_STITCH_LAYOUT, layout);
+      switch (layout.stitch_layout) {
+        case StitchLayout::kNone:
+          cam_stream_params_.usecase = StreamUsecase::kStreamUsecaseNone;
+          break;
+        case StitchLayout::kSideBySide:
+          cam_stream_params_.usecase = StreamUsecase::kStreamUsecaseSideBySide;
+          break;
+        case StitchLayout::kPanorama:
+          cam_stream_params_.usecase = StreamUsecase::kStreamUsecasePanorama;
+          break;
+        default:
+          QMMF_WARN ("%s: Unknown stitch layout %d, treat as default.", __func__,
+              layout.stitch_layout);
+      }
+    }
+  }
+#endif  // CAMX_ANDROID_API
 
   QMMF_INFO("%s: Exit (0x%p)", __func__, this);
 }
@@ -2844,7 +2923,6 @@ status_t CameraPort::Init() {
   QMMF_VERBOSE("%s port type %d id %d state %d ", __func__,
     GetPortType(), GetPortId(), port_state_);
 
-  cam_stream_params_ = {};
   cam_stream_params_.width  = params_.width;
   cam_stream_params_.height = params_.height;
   cam_stream_params_.format = Common::FromQmmfToHalFormat(params_.format);
@@ -3337,7 +3415,7 @@ ZslPort::ZslPort(const StreamParam& param,
                  const CameraParameters camera_port_parameters,
                  CameraPortType port_type, CameraContext *context,
                  uint32_t zsl_queue_depth)
-    : CameraPort(param, camera_port_parameters, port_type, context),
+    : CameraPort(param, {}, camera_port_parameters, port_type, context),
       zsl_queue_depth_(zsl_queue_depth) {
   QMMF_INFO("%s: Enter", __func__);
   zsl_input_buffer_.timestamp = -1;
@@ -3404,9 +3482,9 @@ status_t ZslPort::PauseAndFlushZSLQueue() {
       if (it->timestamp == it->buffer.timestamp) {
         assert(context_ != nullptr);
         auto stat = context_->ReturnStreamBuffer(it->buffer);
-        if (NO_ERROR != ret) {
+        if (NO_ERROR != stat) {
           QMMF_ERROR("%s Failed to flush ZSL buffer: %d",
-                     __func__, ret);
+                     __func__, stat);
           ret = stat;
         }
       }
