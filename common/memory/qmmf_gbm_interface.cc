@@ -436,6 +436,8 @@ MemAllocError GBMDevice::AllocBuffer(IBufferHandle& handle, int32_t width,
     } else if (usage.Exists(IMemAllocUsage::kPrivateAllocTP10) &&
                usage.Exists(IMemAllocUsage::kPrivateAllocUbwc)) {
       gbm_format = GBM_FORMAT_YCbCr_420_TP10_UBWC;
+    } else if (usage.Exists(IMemAllocUsage::kPrivateAllocUbwc)) {
+      gbm_format = GBM_FORMAT_YCbCr_420_SP_VENUS_UBWC;
     }
   }
 
