@@ -109,10 +109,10 @@ void RemoteCallBack::NotifySnapshotData(uint32_t camera_id, uint32_t imgcount,
   client_cb_handle_->NotifySnapshotData(camera_id, imgcount, buffer, meta);
 }
 
-void RemoteCallBack::NotifyOfflineJpegData(int32_t buf_fd,
-                                           uint32_t encoded_size) {
+void RemoteCallBack::NotifyOfflineProcData(int32_t buf_fd,
+                                           uint32_t out_size) {
   assert(client_cb_handle_.get() != NULL);
-  client_cb_handle_->NotifyOfflineJpegData(buf_fd, encoded_size);
+  client_cb_handle_->NotifyOfflineProcData(buf_fd, out_size);
 }
 
 void RemoteCallBack::NotifyVideoTrackData(uint32_t session_id,

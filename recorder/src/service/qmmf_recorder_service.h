@@ -204,15 +204,15 @@ class RecorderService : public BnInterface<IRecorderService> {
                                     const uint32_t camera_id,
                                     CameraMetadata &meta) override;
 
-  status_t CreateOfflineJPEG(const uint32_t client_id,
-                             const OfflineJpegCreateParams& params) override;
+  status_t CreateOfflineProcess(const uint32_t client_id,
+                                const OfflineCameraCreateParams& params) override;
 
-  status_t EncodeOfflineJPEG(const uint32_t client_id,
-                             const BnBuffer& in_buf,
-                             const BnBuffer& out_buf,
-                             const OfflineJpegMeta& meta) override;
+  status_t ProcOfflineProcess(const uint32_t client_id,
+                              const BnBuffer& in_buf,
+                              const BnBuffer& out_buf,
+                              const CameraMetadata& meta) override;
 
-  status_t DestroyOfflineJPEG(const uint32_t client_id) override;
+  status_t DestroyOfflineProcess(const uint32_t client_id) override;
 
   void ClientDeathHandler(const uint32_t client_id);
 

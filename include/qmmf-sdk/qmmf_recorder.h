@@ -74,6 +74,7 @@
 #include "qmmf-sdk/qmmf_recorder_params.h"
 #include "qmmf-sdk/qmmf_recorder_extra_param.h"
 #include "qmmf-sdk/qmmf_offline_jpeg_params.h"
+#include "qmmf-sdk/qmmf_offline_camera_params.h"
 
 namespace qmmf {
 namespace recorder {
@@ -346,6 +347,30 @@ class Recorder {
   ///
   /// This API destroys offline JPEG, created with CreateOfflineJPEG()
   status_t DestroyOfflineJPEG();
+
+  /// @brief Create Offline camera module
+  ///
+  /// Load Offline Camera library.
+  /// Create and config Offline Camera session.
+  /// Register Offline camera process result callback function.
+  ///
+  /// @param params: Input and output buffers information and session metadata.
+  /// @param cb: Offline camera process result callback.
+  status_t CreateOfflineCamera(const OfflineCameraCreateParams &params,
+                               const OfflineCameraCb &cb);
+
+  /// @brief Submit request to Offline Camera module
+  ///
+  /// Submit the process task. Once one frame is processed, the OfflineCameraCb
+  /// callback will be triggered to provide the client with the processed data.
+  ///
+  /// @param params: Input and output buffer fd and pre-request metadata.
+  status_t ProcessOfflineCamera(const OfflineCameraProcessParams &params);
+
+  /// @brief Destroy Offline camera module
+  ///
+  /// Close Offline Camera session and destroy all Offline Camera resource.
+  status_t DestroyOfflineCamera();
 
  private:
   RecorderClient* recorder_client_;

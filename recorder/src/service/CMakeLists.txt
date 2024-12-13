@@ -10,7 +10,7 @@ if (NOT RECORDER_SERVICE_ENABLED)
 endif()
 
 if (ENABLE_OFFLINE_JPEG)
-  list(APPEND jpeg "${CMAKE_CURRENT_SOURCE_DIR}/qmmf_offline_jpegenc_impl.cc")
+list(APPEND jpeg "${CMAKE_CURRENT_SOURCE_DIR}/qmmf_offline_proc_impl.cc")
 endif()
 
 if (NOT CAMERA_HAL1_SUPPORT)

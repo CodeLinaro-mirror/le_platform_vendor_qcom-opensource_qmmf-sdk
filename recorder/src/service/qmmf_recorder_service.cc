@@ -515,31 +515,49 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
         return NO_ERROR;
       }
       break;
-      case RECORDER_CONFIGURE_OFFLINE_JPEG: {
-        uint32_t client_id, jpeg_params_blob_size;
+      case RECORDER_CONFIGURE_OFFLINE_PROC: {
+        uint32_t client_id, proc_params_blob_size;
         data.readUint32(&client_id);
-        data.readUint32(&jpeg_params_blob_size);
-        android::Parcel::ReadableBlob jpeg_params_blob;
-        data.readBlob(jpeg_params_blob_size, &jpeg_params_blob);
-        OfflineJpegCreateParams params;
-        assert(jpeg_params_blob_size == sizeof(params));
-        memcpy(&params, jpeg_params_blob.data(), jpeg_params_blob_size);
+        data.readUint32(&proc_params_blob_size);
+        android::Parcel::ReadableBlob proc_params_blob;
+        data.readBlob(proc_params_blob_size, &proc_params_blob);
+        OfflineCameraCreateParams params;
+        assert(proc_params_blob_size == sizeof(params)-sizeof(CameraMetadata));
+        memcpy(&params, proc_params_blob.data(), proc_params_blob_size);
 
-        ret = CreateOfflineJPEG(client_id, params);
+        camera_metadata_t *m = nullptr;
+        ret = params.session_meta.readFromParcel(data, &m);
+        if (NO_ERROR != ret) {
+          QMMF_ERROR("%s: Metadata parcel read failed: %d meta: %p\n",
+              __func__, ret, m);
+          reply->writeInt32(ret);
+          return ret;
+        }
+        params.session_meta.clear();
+        if (m) {
+          params.session_meta.append(m);
+        }
+        ret = CreateOfflineProcess(client_id, params);
+
+        // Clear the metadata buffer and free all storage used by it
+        params.session_meta.clear();
+        //We need to release this memory as meta.append() makes copy of this memory
+        if (m) {
+          free(m);
+        }
+
         reply->writeInt32(ret);
         return NO_ERROR;
       }
       break;
-      case RECORDER_ENCODE_OFFLINE_JPEG: {
-        uint32_t client_id, meta_blob_size;
-        OfflineJpegProcessParams params;
+      case RECORDER_ENCODE_OFFLINE_PROC: {
+        uint32_t client_id;
         data.readUint32(&client_id);
 
         uint32_t present;
         BnBuffer in_buf = {};
         BnBuffer out_buf = {};
         in_buf.ion_fd = out_buf.ion_fd = -1;
-        OfflineJpegMeta metadata;
         // Input buffer
         data.readUint32(&present);
         if (!present) {
@@ -554,23 +572,38 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
         }
         data.readUint32(&out_buf.buffer_id);
 
-        data.readUint32(&meta_blob_size);
-        android::Parcel::ReadableBlob meta_blob;
-        data.readBlob(meta_blob_size, &meta_blob);
-        assert(meta_blob_size == sizeof(metadata));
-        memcpy(&metadata, meta_blob.data(), meta_blob_size);
+        CameraMetadata meta;
+        camera_metadata_t *m = nullptr;
+        ret = meta.readFromParcel(data, &m);
+        if (NO_ERROR != ret) {
+          QMMF_ERROR("%s: Metadata parcel read failed: %d meta: %p\n",
+              __func__, ret, m);
+          reply->writeInt32(ret);
+          return ret;
+        }
+        meta.clear();
+        if (m) {
+          meta.append(m);
+        }
 
-        ret = EncodeOfflineJPEG(client_id, in_buf, out_buf, metadata);
-        meta_blob.release();
+        ret = ProcOfflineProcess(client_id, in_buf, out_buf, meta);
+
+        // Clear the metadata buffer and free all storage used by it
+        meta.clear();
+        //We need to release this memory as meta.append() makes copy of this memory
+        if (m) {
+          free(m);
+        }
+
         reply->writeInt32(ret);
 
         return NO_ERROR;
       }
       break;
-      case RECORDER_DESTROY_OFFLINE_JPEG: {
+      case RECORDER_DESTROY_OFFLINE_PROC: {
         uint32_t client_id;
         data.readUint32(&client_id);
-        ret = DestroyOfflineJPEG(client_id);
+        ret = DestroyOfflineProcess(client_id);
         reply->writeInt32(ret);
 
         return NO_ERROR;
@@ -1182,9 +1215,9 @@ status_t RecorderService::GetCameraCharacteristics(const uint32_t client_id,
   return NO_ERROR;
 }
 
-status_t RecorderService::CreateOfflineJPEG(
-                                      const uint32_t client_id,
-                                      const OfflineJpegCreateParams &params) {
+status_t RecorderService::CreateOfflineProcess(
+                                  const uint32_t client_id,
+                                  const OfflineCameraCreateParams &params) {
 
   QMMF_INFO("%s:Enter client_id(%d)", __func__, client_id);
 
@@ -1192,9 +1225,9 @@ status_t RecorderService::CreateOfflineJPEG(
     QMMF_ERROR("%s: Recorder not initialized!", __func__);
     return NO_INIT;
   }
-  auto ret = recorder_->CreateOfflineJPEG(client_id, params);
+  auto ret = recorder_->CreateOfflineProcess(client_id, params);
   if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: Can't create Offline JPEG PostProcessor!", __func__);
+    QMMF_ERROR("%s: Can't create Offline Proc PostProcessor!", __func__);
     return ret;
   }
 
@@ -1202,10 +1235,10 @@ status_t RecorderService::CreateOfflineJPEG(
   return ret;
 }
 
-status_t RecorderService::EncodeOfflineJPEG(const uint32_t client_id,
-                                            const BnBuffer& in_buf,
-                                            const BnBuffer& out_buf,
-                                            const OfflineJpegMeta& meta) {
+status_t RecorderService::ProcOfflineProcess(const uint32_t client_id,
+                                             const BnBuffer& in_buf,
+                                             const BnBuffer& out_buf,
+                                             const CameraMetadata& meta) {
 
   QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
 
@@ -1214,7 +1247,7 @@ status_t RecorderService::EncodeOfflineJPEG(const uint32_t client_id,
     return NO_INIT;
   }
 
-  auto ret = recorder_->EncodeOfflineJPEG(client_id, in_buf, out_buf, meta);
+  auto ret = recorder_->ProcOfflineProcess(client_id, in_buf, out_buf, meta);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: Submitting request failed", __func__);
     return ret;
@@ -1225,7 +1258,7 @@ status_t RecorderService::EncodeOfflineJPEG(const uint32_t client_id,
   return ret;
 }
 
-status_t RecorderService::DestroyOfflineJPEG(const uint32_t client_id) {
+status_t RecorderService::DestroyOfflineProcess(const uint32_t client_id) {
 
   QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
 
@@ -1233,7 +1266,7 @@ status_t RecorderService::DestroyOfflineJPEG(const uint32_t client_id) {
     QMMF_ERROR("%s: Recorder not initialized!", __func__);
     return NO_INIT;
   }
-  auto ret = recorder_->DestroyOfflineJPEG(client_id);
+  auto ret = recorder_->DestroyOfflineProcess(client_id);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: Destroy failed", __func__);
     return ret;

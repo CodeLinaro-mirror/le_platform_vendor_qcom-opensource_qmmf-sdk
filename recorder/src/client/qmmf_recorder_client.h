@@ -167,12 +167,12 @@ class RecorderClient {
 
   status_t GetVendorTagDescriptor(std::shared_ptr<VendorTagDescriptor> &desc);
 
-  status_t CreateOfflineJPEG(const OfflineJpegCreateParams &params,
-                             const OfflineJpegCb &cb);
+  status_t CreateOfflineProcess(const OfflineCameraCreateParams &params,
+                                const OfflineCameraCb &cb);
 
-  status_t EncodeOfflineJPEG(const OfflineJpegProcessParams &params);
+  status_t ProcOfflineProcess(const OfflineCameraProcessParams &params);
 
-  status_t DestroyOfflineJPEG();
+  status_t DestroyOfflineProcess();
 
   // Callback handlers from service.ap
   void NotifyRecorderEvent(EventType event_type, void *event_data,
@@ -184,7 +184,7 @@ class RecorderClient {
   void NotifySnapshotData(uint32_t camera_id, uint32_t imgcount,
                           BnBuffer& buffer, BufferMeta& meta);
 
-  void NotifyOfflineJpegData(int32_t buf_fd, uint32_t encoded_size);
+  void NotifyOfflineProcData(int32_t buf_fd, uint32_t out_size);
 
   void NotifyVideoTrackData(uint32_t session_id, uint32_t track_id,
                             std::vector<BnBuffer>& bn_buffers,
@@ -259,9 +259,9 @@ class RecorderClient {
   RecorderCb                        recorder_cb_;
   ImageCaptureCb                    image_capture_cb_;
   CameraResultCb                    metadata_cb_;
-  OfflineJpegCb                     offline_jpeg_cb_;
+  OfflineCameraCb                   offline_proc_cb_;
 
-  std::vector<int32_t>              offline_jpeg_buffers_;
+  std::vector<int32_t>              offline_proc_buffers_;
 
   // List of information regarding the buffers in a track.
   std::map<uint32_t, BufferInfoMap> track_buffers_map_;
@@ -304,7 +304,7 @@ class ServiceCallbackHandler : public BnRecorderServiceCallback {
   void NotifySnapshotData(uint32_t camera_id, uint32_t imgcount,
                           BnBuffer& buffer, BufferMeta& meta) override;
 
-  void NotifyOfflineJpegData(int32_t buf_fd,
+  void NotifyOfflineProcData(int32_t buf_fd,
                              uint32_t encoded_size) override;
 
   void NotifyVideoTrackData(uint32_t session_id, uint32_t track_id,
