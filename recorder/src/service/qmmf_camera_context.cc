@@ -917,13 +917,6 @@ void CameraContext::StoreBatchStreamId(std::shared_ptr<CameraPort>& port) {
 status_t CameraContext::GetBatchSize(const StreamParam& param,
                                      uint32_t& batch_size) {
 
-  /* only one batch stream is supported */
-  if (camera_parameters_.batch_size > 1) {
-    /* set batch size to default */
-    batch_size = 1;
-    return NO_ERROR;
-  }
-
   if ((kConstrainedModeThreshold <= param.framerate) && (!hfr_supported_)) {
     QMMF_ERROR("%s: Stream tries to enable HFR which is not supported!",
                __func__);
@@ -957,6 +950,9 @@ status_t CameraContext::GetBatchSize(const StreamParam& param,
     }
   }
 
+  if (batch > camera_parameters_.batch_size)
+    camera_parameters_.batch_size = batch;
+
   batch_size = batch;
   camera_parameters_.batch_size = batch_size;
 
@@ -989,6 +985,7 @@ status_t CameraContext::CreateStream(const StreamParam& param,
   }
 
   camera_parameters_.batch_size = batch;
+  QMMF_INFO("%s: camera_parameters_.batch_size = %u", __func__, batch);
 
   // FIXME: HFR control and exception for fastswitch will be removed after
   // session clean-up merged
