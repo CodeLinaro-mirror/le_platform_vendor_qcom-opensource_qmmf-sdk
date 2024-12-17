@@ -319,7 +319,6 @@ status_t RecorderImpl::DeRegisterClient(const uint32_t client_id,
         " client(%u)!", __func__, session_track_map.size(), client_id);
 
     lk.lock();
-    client_session_map_.erase(client_id);
     client_sessions_state_.erase(client_id);
     client_sessions_mutex_map_.erase(client_id);
   }
@@ -342,6 +341,7 @@ status_t RecorderImpl::DeRegisterClient(const uint32_t client_id,
     }
 
     lk.lock();
+    client_session_map_.erase(client_id);
     client_cameraid_map_.erase(client_id);
   }
 
