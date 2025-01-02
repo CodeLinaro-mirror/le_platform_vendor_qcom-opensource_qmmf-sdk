@@ -917,13 +917,6 @@ void CameraContext::StoreBatchStreamId(std::shared_ptr<CameraPort>& port) {
 status_t CameraContext::GetBatchSize(const StreamParam& param,
                                      uint32_t& batch_size) {
 
-  /* only one batch stream is supported */
-  if (camera_parameters_.batch_size > 1) {
-    /* set batch size to default */
-    batch_size = 1;
-    return NO_ERROR;
-  }
-
   if ((kConstrainedModeThreshold <= param.framerate) && (!hfr_supported_)) {
     QMMF_ERROR("%s: Stream tries to enable HFR which is not supported!",
                __func__);
@@ -957,6 +950,9 @@ status_t CameraContext::GetBatchSize(const StreamParam& param,
     }
   }
 
+  if (batch > camera_parameters_.batch_size)
+    camera_parameters_.batch_size = batch;
+
   batch_size = batch;
   camera_parameters_.batch_size = batch_size;
 
@@ -989,6 +985,7 @@ status_t CameraContext::CreateStream(const StreamParam& param,
   }
 
   camera_parameters_.batch_size = batch;
+  QMMF_INFO("%s: camera_parameters_.batch_size = %u", __func__, batch);
 
   // FIXME: HFR control and exception for fastswitch will be removed after
   // session clean-up merged
@@ -1110,7 +1107,7 @@ status_t CameraContext::RemoveConsumer(const uint32_t& track_id,
   return NO_ERROR;
 }
 
-status_t CameraContext::StartStream(const uint32_t track_id) {
+status_t CameraContext::StartStream(const uint32_t track_id, bool cached) {
 
   auto port = GetPort(track_id);
   if (!port) {
@@ -1118,14 +1115,14 @@ status_t CameraContext::StartStream(const uint32_t track_id) {
     return BAD_VALUE;
   }
 
-  auto ret = port->Start();
+  auto ret = port->Start(cached);
   assert(ret == NO_ERROR);
   QMMF_INFO("%s: track_id(%d) started on port(0x%p)", __func__,
       track_id, port.get());
   return NO_ERROR;
 }
 
-status_t CameraContext::StopStream(const uint32_t track_id) {
+status_t CameraContext::StopStream(const uint32_t track_id, bool cached) {
 
   QMMF_DEBUG("%s: Enter", __func__);
   auto port = GetPort(track_id);
@@ -1134,7 +1131,7 @@ status_t CameraContext::StopStream(const uint32_t track_id) {
     return BAD_VALUE;
   }
 
-  auto ret = port->Stop();
+  auto ret = port->Stop(cached);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: Port Stop failed!!", __func__);
     return ret;
@@ -1142,36 +1139,6 @@ status_t CameraContext::StopStream(const uint32_t track_id) {
 
   QMMF_DEBUG("%s: Exit", __func__);
   return ret;
-}
-
-status_t CameraContext::PauseStream(const uint32_t track_id) {
-
-  QMMF_DEBUG("%s: Enter", __func__);
-  auto port = GetPort(track_id);
-  if (!port) {
-    QMMF_ERROR("%s: Invalid track_id(%x)", __func__, track_id);
-    return BAD_VALUE;
-  }
-
-  auto ret = port->Pause();
-  assert(ret == NO_ERROR);
-  QMMF_DEBUG("%s: Exit", __func__);
-  return NO_ERROR;
-}
-
-status_t CameraContext::ResumeStream(const uint32_t track_id) {
-
-  QMMF_DEBUG("%s: Enter", __func__);
-  auto port = GetPort(track_id);
-  if (!port) {
-    QMMF_ERROR("%s: Invalid track_id(%x)", __func__, track_id);
-    return BAD_VALUE;
-  }
-
-  auto ret = port->Resume();
-  assert(ret == NO_ERROR);
-  QMMF_DEBUG("%s: Exit", __func__);
-  return NO_ERROR;
 }
 
 status_t CameraContext::SetCameraParam(const CameraMetadata &meta) {
@@ -1259,7 +1226,7 @@ status_t CameraContext::SetCameraParam(const CameraMetadata &meta) {
 
       // Submit request with updated camera meta data only if streaming is
       // started, if not then just update default meta data and leave it to
-      // startSession -> startStream to submit request.
+      // startTrack -> startStream to submit request.
       std::unique_lock<std::mutex> pending_frames_lock(pending_frames_lock_);
       if (streaming_request_id_ >= 0 && !continuous_mode_is_on_) {
         int64_t last_frame_number;
@@ -1855,7 +1822,7 @@ status_t CameraContext::SetPerStreamFrameRate() {
   return NO_ERROR;
 }
 
-status_t CameraContext::UpdateRequest(bool is_streaming) {
+status_t CameraContext::UpdateRequest(bool cached) {
 
   QMMF_DEBUG("%s: Enter", __func__);
   float max_fps = 0;
@@ -2016,6 +1983,16 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
     return CancelRequest();
   }
 
+  // Recorder starts tracks one by one. Therefore we submit new
+  // request list for every track if there is no caching. We can avoid
+  // submitting of new request list for each track by caching it. Caching
+  // means that we skip submit request list for all streams except the
+  // last one. The last request list combine all streams anyway.
+  if (cached) {
+    QMMF_INFO("%s: Stream is cached. Skip SubmitRequest", __func__);
+    return NO_ERROR;
+  }
+
   {
     std::lock_guard<std::mutex> lock(device_access_lock_);
     if (0 < max_fps) {
@@ -2059,7 +2036,7 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
 
     int64_t last_frame_number = NO_IN_FLIGHT_REPEATING_FRAMES;
     std::unique_lock<std::mutex> pending_frames_lock(pending_frames_lock_);
-    auto req_id = camera_device_->SubmitRequestList(request_list, is_streaming,
+    auto req_id = camera_device_->SubmitRequestList(request_list, true,
                                                     &last_frame_number);
 
     QMMF_INFO("%s: last_frame_number: current=%lld previous=%lld", __func__,
@@ -2596,7 +2573,7 @@ void CameraContext::CameraErrorCb(CameraErrorCode errcode,
       QMMF_ERROR("%s: Camera device faced an unrecoverable error!", __func__);
       // Clearing active requests to ensure the stop sequence calls goes through
       // without error and all necessary clean up of this and layers above is
-      // done when the client calls subsequent APIs (StopSession, DeleteDeviceStream, etc)
+      // done when the client calls subsequent APIs (StopVideoTrack, DeleteDeviceStream, etc)
       streaming_active_requests_.clear();
       is_camera_dead_ = true;
       break;
@@ -3072,7 +3049,7 @@ status_t CameraPort::DeInit() {
   return ret;
 }
 
-status_t CameraPort::Start() {
+status_t CameraPort::Start(bool cached) {
 
   QMMF_VERBOSE("%s port type %d id %d state %d ", __func__,
     GetPortType(), GetPortId(), port_state_);
@@ -3090,7 +3067,7 @@ status_t CameraPort::Start() {
   QMMF_INFO("%s: track_id(%x):camera stream(%d) to start!", __func__,
       port_id_, camera_stream_id_);
 
-  auto ret = context_->UpdateRequest(true);
+  auto ret = context_->UpdateRequest(cached);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: UpdateRequest failed! for track_id = %d",
         __func__, port_id_);
@@ -3103,7 +3080,7 @@ status_t CameraPort::Start() {
   return NO_ERROR;
 }
 
-status_t CameraPort::Stop() {
+status_t CameraPort::Stop(bool cached) {
 
   QMMF_VERBOSE("%s port type %d id %d state %d ", __func__,
     GetPortType(), GetPortId(), port_state_);
@@ -3123,7 +3100,7 @@ status_t CameraPort::Stop() {
 
   // Stop basically removes the stream from current running capture request,
   // it doen't delete the stream.
-  auto ret = context_->UpdateRequest(true);
+  auto ret = context_->UpdateRequest(cached);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: CameraPort:Start:UpdateRequest failed! for track_id = %d"
         ,  __func__, port_id_);

@@ -119,41 +119,27 @@ class RecorderService : public BnInterface<IRecorderService> {
   status_t StopCamera(const uint32_t client_id,
                       const uint32_t camera_id) override;
 
-  status_t CreateSession(const uint32_t client_id,
-                         uint32_t *session_id) override;
-
-  status_t DeleteSession(const uint32_t client_id,
-                         const uint32_t session_id) override;
-
-  status_t StartSession(const uint32_t client_id,
-                        const uint32_t session_id) override;
-
-  status_t StopSession(const uint32_t client_id,
-                       const uint32_t session_id, bool do_flush) override;
-
-  status_t PauseSession(const uint32_t client_id,
-                        const uint32_t session_id) override;
-
-  status_t ResumeSession(const uint32_t client_id,
-                         const uint32_t session_id) override;
-
   status_t CreateVideoTrack(const uint32_t client_id,
-                            const uint32_t session_id,
                             const uint32_t track_id,
                             const VideoTrackParam& param,
                             const VideoExtraParam& xtraparam) override;
 
   status_t DeleteVideoTrack(const uint32_t client_id,
-                            const uint32_t session_id,
                             const uint32_t track_id) override;
 
+  status_t StartVideoTracks(
+      const uint32_t client_id,
+      const std::unordered_set<uint32_t>& track_ids) override;
+
+  status_t StopVideoTracks(
+      const uint32_t client_id,
+      const std::unordered_set<uint32_t>& track_ids) override;
+
   status_t ReturnTrackBuffer(const uint32_t client_id,
-                             const uint32_t session_id,
                              const uint32_t track_id,
                              std::vector<BnBuffer> &buffers) override;
 
   status_t SetVideoTrackParam(const uint32_t client_id,
-                              const uint32_t session_id,
                               const uint32_t track_id,
                               VideoParam type,
                               void *param,
@@ -204,15 +190,15 @@ class RecorderService : public BnInterface<IRecorderService> {
                                     const uint32_t camera_id,
                                     CameraMetadata &meta) override;
 
-  status_t CreateOfflineJPEG(const uint32_t client_id,
-                             const OfflineJpegCreateParams& params) override;
+  status_t CreateOfflineProcess(const uint32_t client_id,
+                                const OfflineCameraCreateParams& params) override;
 
-  status_t EncodeOfflineJPEG(const uint32_t client_id,
-                             const BnBuffer& in_buf,
-                             const BnBuffer& out_buf,
-                             const OfflineJpegMeta& meta) override;
+  status_t ProcOfflineProcess(const uint32_t client_id,
+                              const BnBuffer& in_buf,
+                              const BnBuffer& out_buf,
+                              const CameraMetadata& meta) override;
 
-  status_t DestroyOfflineJPEG(const uint32_t client_id) override;
+  status_t DestroyOfflineProcess(const uint32_t client_id) override;
 
   void ClientDeathHandler(const uint32_t client_id);
 

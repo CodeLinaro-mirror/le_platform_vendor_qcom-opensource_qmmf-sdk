@@ -94,14 +94,6 @@ void RemoteCallBack::NotifyRecorderEvent(EventType event_type, void *event_data,
                                          event_data_size);
 }
 
-void RemoteCallBack::NotifySessionEvent(EventType event_type, void *event_data,
-                                        size_t event_data_size) {
-
-  assert(client_cb_handle_.get() != NULL);
-  client_cb_handle_->NotifySessionEvent(event_type, event_data,
-                                        event_data_size);
-}
-
 void RemoteCallBack::NotifySnapshotData(uint32_t camera_id, uint32_t imgcount,
                                         BnBuffer& buffer, BufferMeta& meta) {
 
@@ -109,29 +101,27 @@ void RemoteCallBack::NotifySnapshotData(uint32_t camera_id, uint32_t imgcount,
   client_cb_handle_->NotifySnapshotData(camera_id, imgcount, buffer, meta);
 }
 
-void RemoteCallBack::NotifyOfflineJpegData(int32_t buf_fd,
-                                           uint32_t encoded_size) {
+void RemoteCallBack::NotifyOfflineProcData(int32_t buf_fd,
+                                           uint32_t out_size) {
   assert(client_cb_handle_.get() != NULL);
-  client_cb_handle_->NotifyOfflineJpegData(buf_fd, encoded_size);
+  client_cb_handle_->NotifyOfflineProcData(buf_fd, out_size);
 }
 
-void RemoteCallBack::NotifyVideoTrackData(uint32_t session_id,
-                                          uint32_t track_id,
+void RemoteCallBack::NotifyVideoTrackData(uint32_t track_id,
                                           std::vector<BnBuffer> &buffers,
                                           std::vector<BufferMeta>& metas) {
 
   assert(client_cb_handle_.get() != nullptr);
-  client_cb_handle_->NotifyVideoTrackData(session_id, track_id, buffers, metas);
+  client_cb_handle_->NotifyVideoTrackData(track_id, buffers, metas);
 }
 
-void RemoteCallBack::NotifyVideoTrackEvent(uint32_t session_id,
-                                           uint32_t track_id,
+void RemoteCallBack::NotifyVideoTrackEvent(uint32_t track_id,
                                            EventType event_type,
                                            void *event_data,
                                            size_t event_data_size) {
 
   assert(client_cb_handle_.get() != nullptr);
-  client_cb_handle_->NotifyVideoTrackEvent(session_id, track_id, event_type,
+  client_cb_handle_->NotifyVideoTrackEvent(track_id, event_type,
                                            event_data,
                                            event_data_size);
 }
