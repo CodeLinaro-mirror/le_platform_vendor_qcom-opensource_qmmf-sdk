@@ -213,6 +213,7 @@ status_t RecorderClient::Connect(const RecorderCb& cb) {
   track_cb_list_.clear();
 
 #ifndef CAMERA_HAL1_SUPPORT
+#ifdef ENABLE_OFFLINE_JPEG
   /*
    * Because the offline camera function requires the metadata to be passed in create function,
    * vedor_tag_desc_ is obtained in advance so that the customer can successfully set the metadata
@@ -235,6 +236,7 @@ status_t RecorderClient::Connect(const RecorderCb& cb) {
       return ret;
     }
   }
+#endif
 #endif
 
   QMMF_DEBUG("%s Exit ", __func__);
