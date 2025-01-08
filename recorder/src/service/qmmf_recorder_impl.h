@@ -80,7 +80,7 @@
 #include "recorder/src/service/qmmf_remote_cb.h"
 
 #ifdef ENABLE_OFFLINE_JPEG
-#include "recorder/src/service/qmmf_offline_jpegenc_impl.h"
+#include "recorder/src/service/qmmf_offline_proc_impl.h"
 #endif
 
 /// @namespace qmmf
@@ -226,15 +226,15 @@ class RecorderImpl {
                                     const uint32_t camera_id,
                                     CameraMetadata &meta);
 
-  status_t CreateOfflineJPEG(const uint32_t client_id,
-                             const OfflineJpegCreateParams& params);
+  status_t CreateOfflineProcess(const uint32_t client_id,
+                                const OfflineCameraCreateParams& params);
 
-  status_t EncodeOfflineJPEG(const uint32_t client_id,
-                             const BnBuffer& in_buf,
-                             const BnBuffer& out_buf,
-                             const OfflineJpegMeta& meta);
+  status_t ProcOfflineProcess(const uint32_t client_id,
+                              const BnBuffer& in_buf,
+                              const BnBuffer& out_buf,
+                              const CameraMetadata& meta);
 
-  status_t DestroyOfflineJPEG(const uint32_t client_id);
+  status_t DestroyOfflineProcess(const uint32_t client_id);
 
 
   // Data callback handlers.
@@ -329,7 +329,7 @@ class RecorderImpl {
   CameraSource*                 camera_source_;
 
 #ifdef ENABLE_OFFLINE_JPEG
-  OfflineJpegEncoder*           offline_jpeg_encoder_;
+  OfflineProcess*               offline_process_;
 #endif
 
   RemoteCallbackHandle          remote_cb_handle_;
