@@ -87,6 +87,10 @@ CameraMetadata::~CameraMetadata() {
     clear();
 }
 
+camera_metadata_t* CameraMetadata::getbuffer() {
+    return mBuffer;
+}
+
 const camera_metadata_t* CameraMetadata::getAndLock() const {
     mLocked = true;
     return mBuffer;
