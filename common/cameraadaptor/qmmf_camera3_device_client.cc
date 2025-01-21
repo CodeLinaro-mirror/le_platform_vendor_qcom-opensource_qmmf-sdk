@@ -156,6 +156,7 @@ Camera3DeviceClient::Camera3DeviceClient(CameraClientCallbacks clientCb)
       fps_sensormode_index_(0),
       prepare_handler_(),
       input_stream_{},
+      vendor_tag_ops_{},
       is_camera_device_available_ (true),
       cam_opmode_ (0),
       session_metadata_ (CameraMetadata(128, 128)) {
@@ -1333,7 +1334,6 @@ void Camera3DeviceClient::HandleCaptureResult(
 
           params.frame_selection.total_selected_frames = entry.data.i32[0];
           params.frame_selection.cap_frame_num = frameNumber;
-          CAM_OPMODE_SET_FRAMESELECTION(params.mode);
           request_handler_.UpdateRequestedStreams(params);
         } else {
           QMMF_VERBOSE("%s:FrameSel:tag updatedPickedFrames found but no entry",

@@ -63,7 +63,6 @@ typedef struct {
 } CamReqModeParams;
 
 typedef struct {
-  CamOperationMode mode;
   struct frame_selection_input_params {
     int32_t total_selected_frames;
     uint32_t cap_frame_num;
