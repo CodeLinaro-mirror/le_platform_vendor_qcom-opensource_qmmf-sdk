@@ -28,7 +28,7 @@
 *
 * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
 *
-* Copyright (c) 2021-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) 2021-2025 Qualcomm Innovation Center, Inc. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted (subject to the limitations in the
@@ -78,6 +78,7 @@
 #include <gbm_priv.h>
 #endif
 
+#include "common/utils/qmmf_common_utils.h"
 #include "common/utils/qmmf_log.h"
 #include "recorder/src/client/qmmf_recorder_service_intf.h"
 
