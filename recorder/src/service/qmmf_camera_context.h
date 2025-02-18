@@ -393,9 +393,8 @@ class CameraContext : public CameraInterface {
   uint32_t                      multi_roi_count_tag_ = 0;
   uint32_t                      multi_roi_info_tag_ = 0;
 
-  // hfr control
-  bool                          hfr_detected_;
-  bool                          hfr_wait_ports_ready_;
+  std::vector<Camera3Request>   last_submitted_streaming_requests_;
+  bool                          video_streams_active_;
 };
 
 enum class CameraPortType {
@@ -475,7 +474,9 @@ class CameraPort {
 
   void ReturnReprocInputBuffer(StreamBuffer &buffer);
 
-  bool IsPreviewStream() { return preview_stream_; }
+  bool IsPreviewStream() {
+    return (cam_stream_params_.allocFlags.flags & IMemAllocUsage::kHwComposer);
+  }
 
  protected:
   CameraPortType         port_type_;
@@ -483,7 +484,6 @@ class CameraPort {
   int32_t                camera_stream_id_;
   PortState              port_state_;
   StreamParam            params_;
-  bool                   preview_stream_;
 
  private:
 
