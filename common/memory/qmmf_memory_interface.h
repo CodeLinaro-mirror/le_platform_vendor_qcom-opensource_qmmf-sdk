@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -67,6 +67,13 @@
 #include <grallocusage/GrallocUsageConversion.h>
 #include <libgralloc1/gralloc_priv.h>
 #elif TARGET_USES_GBM
+#include <gbm.h>
+#include <gbm_priv.h>
+#ifndef GBM_FORMAT_NV12_UBWC_FLEX_2_BATCH
+#define GBM_FORMAT_NV12_UBWC_FLEX_2_BATCH 0
+#define GBM_FORMAT_NV12_UBWC_FLEX_4_BATCH 0
+#define GBM_FORMAT_NV12_UBWC_FLEX_8_BATCH 0
+#endif
 #ifdef __LIBGBM__
 #include <hardware/camera.h>
 #define GRALLOC_USAGE_PROTECTED                  0x00004000
@@ -84,6 +91,9 @@
 #define HAL_PIXEL_FORMAT_NV21_ZSL                0x113
 #define HAL_PIXEL_FORMAT_NV12_HEIF               0x00000116 // HEIF video YUV420 format
 #define HAL_PIXEL_FORMAT_CbYCrY_422_I            0x120
+#define HAL_PIXEL_FORMAT_NV12_UBWC_FLEX_2_BATCH  0x128
+#define HAL_PIXEL_FORMAT_NV12_UBWC_FLEX_4_BATCH  0x129
+#define HAL_PIXEL_FORMAT_NV12_UBWC_FLEX_8_BATCH  0x130
 #define GRALLOC_USAGE_HW_TEXTURE                 0x00000100
 #define GRALLOC_USAGE_HW_RENDER                  0x00000200
 #define GRALLOC_USAGE_HW_COMPOSER                0x00000800
@@ -222,6 +232,9 @@ class IMemAllocUsage {
   static const int kHwCameraRead;
   static const int kHwCameraWrite;
   static const int kPrivateAllocHEIF;
+  static const int kFlex2Batch;
+  static const int kFlex4Batch;
+  static const int kFlex8Batch;
 
   /** IMemAllocUsage::ToLocal
   *
