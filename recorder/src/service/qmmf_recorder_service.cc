@@ -160,67 +160,10 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
         return NO_ERROR;
       }
       break;
-      case RECORDER_CREATE_SESSION: {
-        uint32_t client_id, session_id;
-        data.readUint32(&client_id);
-        ret = CreateSession(client_id, &session_id);
-        reply->writeUint32(session_id);
-        reply->writeInt32(ret);
-        return NO_ERROR;
-      }
-      break;
-      case RECORDER_DELETE_SESSION: {
-        uint32_t client_id, session_id;
-        data.readUint32(&client_id);
-        data.readUint32(&session_id);
-        ret = DeleteSession(client_id, session_id);
-        reply->writeInt32(ret);
-        return NO_ERROR;
-      }
-      break;
-      case RECORDER_START_SESSION: {
-        uint32_t client_id, session_id;
-        data.readUint32(&client_id);
-        data.readUint32(&session_id);
-        ret = StartSession(client_id, session_id);
-        reply->writeInt32(ret);
-        return NO_ERROR;
-      }
-      break;
-      case RECORDER_STOP_SESSION: {
-        uint32_t client_id, session_id;
-        int32_t flush;
-        data.readUint32(&client_id);
-        data.readUint32(&session_id);
-        data.readInt32(&flush);
-        ret = StopSession(client_id, session_id, flush);
-        reply->writeInt32(ret);
-        return NO_ERROR;
-      }
-      break;
-      case RECORDER_PAUSE_SESSION: {
-        uint32_t client_id, session_id;
-        data.readUint32(&client_id);
-        data.readUint32(&session_id);
-        ret = PauseSession(client_id, session_id);
-        reply->writeInt32(ret);
-        return NO_ERROR;
-      }
-      break;
-      case RECORDER_RESUME_SESSION: {
-        uint32_t client_id, session_id;
-        data.readUint32(&client_id);
-        data.readUint32(&session_id);
-        ret = ResumeSession(client_id, session_id);
-        reply->writeInt32(ret);
-        return NO_ERROR;
-      }
-      break;
       case RECORDER_CREATE_VIDEOTRACK: {
-        uint32_t client_id, session_id, track_id;
+        uint32_t client_id, track_id;
         uint32_t blob_size, extra_blob_size;
         data.readUint32(&client_id);
-        data.readUint32(&session_id);
         data.readUint32(&track_id);
         android::Parcel::ReadableBlob blob;
         data.readUint32(&blob_size);
@@ -233,7 +176,7 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
         memcpy(&video_track_param, blob.data(), blob_size);
 
         VideoExtraParam xtraparam(extra_blob.data(), extra_blob_size);
-        ret = CreateVideoTrack(client_id, session_id, track_id,
+        ret = CreateVideoTrack(client_id, track_id,
                                video_track_param, xtraparam);
         blob.release();
         extra_blob.release();
@@ -242,19 +185,45 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
       }
       break;
       case RECORDER_DELETE_VIDEOTRACK: {
-        uint32_t client_id, session_id, track_id;
+        uint32_t client_id, track_id;
         data.readUint32(&client_id);
-        data.readUint32(&session_id);
         data.readUint32(&track_id);
-        ret = DeleteVideoTrack(client_id, session_id, track_id);
+        ret = DeleteVideoTrack(client_id, track_id);
+        reply->writeInt32(ret);
+        return NO_ERROR;
+      }
+      break;
+      case RECORDER_START_VIDEOTRACKS: {
+        uint32_t client_id, n_tracks, id;
+        std::unordered_set<uint32_t> track_ids;
+        data.readUint32(&client_id);
+        data.readUint32(&n_tracks);
+        for (uint32_t idx = 0; idx < n_tracks; idx++)  {
+          data.readUint32(&id);
+          track_ids.emplace(id);
+        }
+        ret = StartVideoTracks(client_id, track_ids);
+        reply->writeInt32(ret);
+        return NO_ERROR;
+      }
+      break;
+      case RECORDER_STOP_VIDEOTRACKS: {
+        uint32_t client_id, n_tracks, id;
+        std::unordered_set<uint32_t> track_ids;
+        data.readUint32(&client_id);
+        data.readUint32(&n_tracks);
+        for (uint32_t idx = 0; idx < n_tracks; idx++)  {
+          data.readUint32(&id);
+          track_ids.emplace(id);
+        }
+        ret = StopVideoTracks(client_id, track_ids);
         reply->writeInt32(ret);
         return NO_ERROR;
       }
       break;
       case RECORDER_RETURN_TRACKBUFFER: {
-        uint32_t client_id, session_id, track_id;
+        uint32_t client_id, track_id;
         data.readUint32(&client_id);
-        data.readUint32(&session_id);
         data.readUint32(&track_id);
 
         std::vector<BnBuffer> buffers;
@@ -281,23 +250,22 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
             buffers.push_back(buffer);
           }
         }
-        ret = ReturnTrackBuffer(client_id, session_id, track_id, buffers);
+        ret = ReturnTrackBuffer(client_id, track_id, buffers);
         reply->writeInt32(ret);
         return NO_ERROR;
       }
       break;
       case RECORDER_SET_VIDEOTRACK_PARAMS: {
-        uint32_t client_id, session_id, track_id;
+        uint32_t client_id, track_id;
         uint32_t param_type, blob_size;
         data.readUint32(&client_id);
-        data.readUint32(&session_id);
         data.readUint32(&track_id);
         data.readUint32(&param_type);
         data.readUint32(&blob_size);
         android::Parcel::ReadableBlob blob;
         data.readBlob(blob_size, &blob);
         void* param = const_cast<void*>(blob.data());
-        ret = SetVideoTrackParam(client_id, session_id, track_id,
+        ret = SetVideoTrackParam(client_id, track_id,
                                  static_cast<VideoParam>(param_type),
                                  param, blob_size);
         reply->writeInt32(ret);
@@ -515,31 +483,49 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
         return NO_ERROR;
       }
       break;
-      case RECORDER_CONFIGURE_OFFLINE_JPEG: {
-        uint32_t client_id, jpeg_params_blob_size;
+      case RECORDER_CONFIGURE_OFFLINE_PROC: {
+        uint32_t client_id, proc_params_blob_size;
         data.readUint32(&client_id);
-        data.readUint32(&jpeg_params_blob_size);
-        android::Parcel::ReadableBlob jpeg_params_blob;
-        data.readBlob(jpeg_params_blob_size, &jpeg_params_blob);
-        OfflineJpegCreateParams params;
-        assert(jpeg_params_blob_size == sizeof(params));
-        memcpy(&params, jpeg_params_blob.data(), jpeg_params_blob_size);
+        data.readUint32(&proc_params_blob_size);
+        android::Parcel::ReadableBlob proc_params_blob;
+        data.readBlob(proc_params_blob_size, &proc_params_blob);
+        OfflineCameraCreateParams params;
+        assert(proc_params_blob_size == sizeof(params)-sizeof(CameraMetadata));
+        memcpy(&params, proc_params_blob.data(), proc_params_blob_size);
 
-        ret = CreateOfflineJPEG(client_id, params);
+        camera_metadata_t *m = nullptr;
+        ret = params.session_meta.readFromParcel(data, &m);
+        if (NO_ERROR != ret) {
+          QMMF_ERROR("%s: Metadata parcel read failed: %d meta: %p\n",
+              __func__, ret, m);
+          reply->writeInt32(ret);
+          return ret;
+        }
+        params.session_meta.clear();
+        if (m) {
+          params.session_meta.append(m);
+        }
+        ret = CreateOfflineProcess(client_id, params);
+
+        // Clear the metadata buffer and free all storage used by it
+        params.session_meta.clear();
+        //We need to release this memory as meta.append() makes copy of this memory
+        if (m) {
+          free(m);
+        }
+
         reply->writeInt32(ret);
         return NO_ERROR;
       }
       break;
-      case RECORDER_ENCODE_OFFLINE_JPEG: {
-        uint32_t client_id, meta_blob_size;
-        OfflineJpegProcessParams params;
+      case RECORDER_ENCODE_OFFLINE_PROC: {
+        uint32_t client_id;
         data.readUint32(&client_id);
 
         uint32_t present;
         BnBuffer in_buf = {};
         BnBuffer out_buf = {};
         in_buf.ion_fd = out_buf.ion_fd = -1;
-        OfflineJpegMeta metadata;
         // Input buffer
         data.readUint32(&present);
         if (!present) {
@@ -554,23 +540,38 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
         }
         data.readUint32(&out_buf.buffer_id);
 
-        data.readUint32(&meta_blob_size);
-        android::Parcel::ReadableBlob meta_blob;
-        data.readBlob(meta_blob_size, &meta_blob);
-        assert(meta_blob_size == sizeof(metadata));
-        memcpy(&metadata, meta_blob.data(), meta_blob_size);
+        CameraMetadata meta;
+        camera_metadata_t *m = nullptr;
+        ret = meta.readFromParcel(data, &m);
+        if (NO_ERROR != ret) {
+          QMMF_ERROR("%s: Metadata parcel read failed: %d meta: %p\n",
+              __func__, ret, m);
+          reply->writeInt32(ret);
+          return ret;
+        }
+        meta.clear();
+        if (m) {
+          meta.append(m);
+        }
 
-        ret = EncodeOfflineJPEG(client_id, in_buf, out_buf, metadata);
-        meta_blob.release();
+        ret = ProcOfflineProcess(client_id, in_buf, out_buf, meta);
+
+        // Clear the metadata buffer and free all storage used by it
+        meta.clear();
+        //We need to release this memory as meta.append() makes copy of this memory
+        if (m) {
+          free(m);
+        }
+
         reply->writeInt32(ret);
 
         return NO_ERROR;
       }
       break;
-      case RECORDER_DESTROY_OFFLINE_JPEG: {
+      case RECORDER_DESTROY_OFFLINE_PROC: {
         uint32_t client_id;
         data.readUint32(&client_id);
-        ret = DestroyOfflineJPEG(client_id);
+        ret = DestroyOfflineProcess(client_id);
         reply->writeInt32(ret);
 
         return NO_ERROR;
@@ -743,146 +744,13 @@ status_t RecorderService::StopCamera(const uint32_t client_id,
   return NO_ERROR;
 }
 
-status_t RecorderService::CreateSession(const uint32_t client_id,
-                                        uint32_t *session_id) {
-
-  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
-  QMMF_KPI_DETAIL();
-
-  if (!IsRecorderInitialized()) {
-    QMMF_ERROR("%s: Recorder not initialized!", __func__);
-    return NO_INIT;
-  }
-
-  uint32_t id;
-  auto ret = recorder_->CreateSession(client_id, &id);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: CreateSession failed!", __func__);
-    return ret;
-  }
-  *session_id = id;
-
-  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
-  return NO_ERROR;
-}
-
-status_t RecorderService::DeleteSession(const uint32_t client_id,
-                                        const uint32_t session_id) {
-
-  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
-  QMMF_KPI_DETAIL();
-
-  if (!IsRecorderInitialized()) {
-    QMMF_ERROR("%s: Recorder not initialized!", __func__);
-    return NO_INIT;
-  }
-
-  auto ret = recorder_->DeleteSession(client_id, session_id);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: DeleteSession failed!", __func__);
-    return ret;
-  }
-  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
-  return NO_ERROR;
-}
-
-status_t RecorderService::StartSession(const uint32_t client_id,
-                                       const uint32_t session_id) {
-
-  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
-  QMMF_KPI_DETAIL();
-
-  if (!IsRecorderInitialized()) {
-    QMMF_ERROR("%s: Recorder not initialized!", __func__);
-    return NO_INIT;
-  }
-
-  QMMF_INFO("%s: Session_id(%d) to be Start", __func__, session_id);
-
-  auto ret = recorder_->StartSession(client_id, session_id);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: StartSession failed!", __func__);
-    return ret;
-  }
-  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
-  return NO_ERROR;
-}
-
-status_t RecorderService::StopSession(const uint32_t client_id,
-                                      const uint32_t session_id,
-                                      bool do_flush) {
-
-  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
-  QMMF_KPI_DETAIL();
-
-  if (!IsRecorderInitialized()) {
-    QMMF_ERROR("%s: Recorder not initialized!", __func__);
-    return NO_INIT;
-  }
-
-  QMMF_INFO("%s: Session_id(%d) to be Stop with flash=%d", __func__,
-                                      session_id, do_flush);
-
-  auto ret = recorder_->StopSession(client_id, session_id, do_flush);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: StopSession failed!", __func__);
-    return ret;
-  }
-  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
-  return NO_ERROR;
-}
-
-status_t RecorderService::PauseSession(const uint32_t client_id,
-                                       const uint32_t session_id) {
-
-  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
-  QMMF_KPI_DETAIL();
-
-  if (!IsRecorderInitialized()) {
-    QMMF_ERROR("%s: Recorder not initialized!", __func__);
-    return NO_INIT;
-  }
-
-  QMMF_INFO("%s: Session_id(%d) to be Pause", __func__, session_id);
-
-  auto ret = recorder_->PauseSession(client_id, session_id);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: PauseSession failed!", __func__);
-    return ret;
-  }
-  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
-  return NO_ERROR;
-}
-
-status_t RecorderService::ResumeSession(const uint32_t client_id,
-                                        const uint32_t session_id) {
-
-  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
-  QMMF_KPI_DETAIL();
-
-  if (!IsRecorderInitialized()) {
-    QMMF_ERROR("%s: Recorder not initialized!", __func__);
-    return NO_INIT;
-  }
-
-  QMMF_INFO("%s: Session_id(%d) to be Resume", __func__, session_id);
-
-  auto ret = recorder_->ResumeSession(client_id, session_id);
-  if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: ResumeSession failed!", __func__);
-    return ret;
-  }
-  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
-  return NO_ERROR;
-}
-
 status_t RecorderService::CreateVideoTrack(const uint32_t client_id,
-                                           const uint32_t session_id,
                                            const uint32_t track_id,
                                            const VideoTrackParam& param,
                                            const VideoExtraParam& xtraparam) {
 
   QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
+  QMMF_KPI_DETAIL();
 
   if (!IsRecorderInitialized()) {
     QMMF_ERROR("%s: Recorder not initialized!", __func__);
@@ -895,8 +763,7 @@ status_t RecorderService::CreateVideoTrack(const uint32_t client_id,
     return BAD_VALUE;
   }
 
-  auto ret = recorder_->CreateVideoTrack(client_id, session_id, track_id,
-                                         param, xtraparam);
+  auto ret = recorder_->CreateVideoTrack(client_id, track_id, param, xtraparam);
 
   if (ret != NO_ERROR) {
     QMMF_INFO("%s: CreateVideoTrackWithExtraParam failed!", __func__);
@@ -907,7 +774,6 @@ status_t RecorderService::CreateVideoTrack(const uint32_t client_id,
 }
 
 status_t RecorderService::DeleteVideoTrack(const uint32_t client_id,
-                                           const uint32_t session_id,
                                            const uint32_t track_id) {
 
   QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
@@ -918,7 +784,7 @@ status_t RecorderService::DeleteVideoTrack(const uint32_t client_id,
     return NO_INIT;
   }
 
-  auto ret = recorder_->DeleteVideoTrack(client_id, session_id, track_id);
+  auto ret = recorder_->DeleteVideoTrack(client_id, track_id);
   if (ret != NO_ERROR) {
     QMMF_INFO("%s: DeleteVideoTrack failed!", __func__);
     return ret;
@@ -927,8 +793,49 @@ status_t RecorderService::DeleteVideoTrack(const uint32_t client_id,
   return NO_ERROR;
 }
 
+status_t RecorderService::StartVideoTracks(
+    const uint32_t client_id,
+    const std::unordered_set<uint32_t>& track_ids) {
+
+  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
+  QMMF_KPI_DETAIL();
+
+  if (!IsRecorderInitialized()) {
+    QMMF_ERROR("%s: Recorder not initialized!", __func__);
+    return NO_INIT;
+  }
+
+  auto ret = recorder_->StartVideoTracks(client_id, track_ids);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s: StartVideoTracks failed!", __func__);
+    return ret;
+  }
+  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
+  return NO_ERROR;
+}
+
+status_t RecorderService::StopVideoTracks(
+    const uint32_t client_id,
+    const std::unordered_set<uint32_t>& track_ids) {
+
+  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
+  QMMF_KPI_DETAIL();
+
+  if (!IsRecorderInitialized()) {
+    QMMF_ERROR("%s: Recorder not initialized!", __func__);
+    return NO_INIT;
+  }
+
+  auto ret = recorder_->StopVideoTracks(client_id, track_ids);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s: StopVideoTracks failed!", __func__);
+    return ret;
+  }
+  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
+  return NO_ERROR;
+}
+
 status_t RecorderService::ReturnTrackBuffer(const uint32_t client_id,
-                                            const uint32_t session_id,
                                             const uint32_t track_id,
                                             std::vector<BnBuffer> &buffers) {
 
@@ -939,8 +846,7 @@ status_t RecorderService::ReturnTrackBuffer(const uint32_t client_id,
     return NO_INIT;
   }
 
-  auto ret = recorder_->ReturnTrackBuffer(client_id, session_id, track_id,
-                                          buffers);
+  auto ret = recorder_->ReturnTrackBuffer(client_id, track_id, buffers);
   if (ret != NO_ERROR) {
     QMMF_INFO("%s: ReturnTrackBuffer failed!", __func__);
     return BAD_VALUE;
@@ -950,7 +856,6 @@ status_t RecorderService::ReturnTrackBuffer(const uint32_t client_id,
 }
 
 status_t RecorderService::SetVideoTrackParam(const uint32_t client_id,
-                                             const uint32_t session_id,
                                              const uint32_t track_id,
                                              VideoParam type,
                                              void *param,
@@ -963,8 +868,8 @@ status_t RecorderService::SetVideoTrackParam(const uint32_t client_id,
     return NO_INIT;
   }
 
-  auto ret = recorder_->SetVideoTrackParam(client_id, session_id, track_id,
-                                           type, param, size);
+  auto ret = recorder_->SetVideoTrackParam(client_id, track_id, type,
+                                           param, size);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: SetVideoTrackParam failed!", __func__);
     return ret;
@@ -1182,9 +1087,9 @@ status_t RecorderService::GetCameraCharacteristics(const uint32_t client_id,
   return NO_ERROR;
 }
 
-status_t RecorderService::CreateOfflineJPEG(
-                                      const uint32_t client_id,
-                                      const OfflineJpegCreateParams &params) {
+status_t RecorderService::CreateOfflineProcess(
+                                  const uint32_t client_id,
+                                  const OfflineCameraCreateParams &params) {
 
   QMMF_INFO("%s:Enter client_id(%d)", __func__, client_id);
 
@@ -1192,9 +1097,9 @@ status_t RecorderService::CreateOfflineJPEG(
     QMMF_ERROR("%s: Recorder not initialized!", __func__);
     return NO_INIT;
   }
-  auto ret = recorder_->CreateOfflineJPEG(client_id, params);
+  auto ret = recorder_->CreateOfflineProcess(client_id, params);
   if (ret != NO_ERROR) {
-    QMMF_ERROR("%s: Can't create Offline JPEG PostProcessor!", __func__);
+    QMMF_ERROR("%s: Can't create Offline Proc PostProcessor!", __func__);
     return ret;
   }
 
@@ -1202,10 +1107,10 @@ status_t RecorderService::CreateOfflineJPEG(
   return ret;
 }
 
-status_t RecorderService::EncodeOfflineJPEG(const uint32_t client_id,
-                                            const BnBuffer& in_buf,
-                                            const BnBuffer& out_buf,
-                                            const OfflineJpegMeta& meta) {
+status_t RecorderService::ProcOfflineProcess(const uint32_t client_id,
+                                             const BnBuffer& in_buf,
+                                             const BnBuffer& out_buf,
+                                             const CameraMetadata& meta) {
 
   QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
 
@@ -1214,7 +1119,7 @@ status_t RecorderService::EncodeOfflineJPEG(const uint32_t client_id,
     return NO_INIT;
   }
 
-  auto ret = recorder_->EncodeOfflineJPEG(client_id, in_buf, out_buf, meta);
+  auto ret = recorder_->ProcOfflineProcess(client_id, in_buf, out_buf, meta);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: Submitting request failed", __func__);
     return ret;
@@ -1225,7 +1130,7 @@ status_t RecorderService::EncodeOfflineJPEG(const uint32_t client_id,
   return ret;
 }
 
-status_t RecorderService::DestroyOfflineJPEG(const uint32_t client_id) {
+status_t RecorderService::DestroyOfflineProcess(const uint32_t client_id) {
 
   QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
 
@@ -1233,7 +1138,7 @@ status_t RecorderService::DestroyOfflineJPEG(const uint32_t client_id) {
     QMMF_ERROR("%s: Recorder not initialized!", __func__);
     return NO_INIT;
   }
-  auto ret = recorder_->DestroyOfflineJPEG(client_id);
+  auto ret = recorder_->DestroyOfflineProcess(client_id);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: Destroy failed", __func__);
     return ret;

@@ -82,6 +82,10 @@ class Camera3Stream : public camera3_stream {
 
   void WaitForIdle();
 
+  bool IsPreviewStream() {
+    return (client_usage_.flags & IMemAllocUsage::kHwComposer);
+  }
+
  private:
   int32_t ConfigureLocked();
   int32_t GetBufferLocked(camera3_stream_buffer *buffer = NULL);

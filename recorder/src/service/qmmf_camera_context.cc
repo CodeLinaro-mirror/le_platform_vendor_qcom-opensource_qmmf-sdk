@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -135,13 +135,12 @@ CameraContext::CameraContext()
       continuous_mode_is_on_(false),
       is_camera_dead_(false),
       pending_cached_stream_(false),
-      hfr_detected_(false),
       enable_reproc_(false),
       multi_roi_count_(0),
       multi_roi_count_tag_(0),
       multi_roi_info_tag_(0),
       multi_roi_info_{},
-      hfr_wait_ports_ready_(false) {
+      video_streams_active_(false) {
 
   QMMF_INFO("%s: Enter", __func__);
 
@@ -917,13 +916,6 @@ void CameraContext::StoreBatchStreamId(std::shared_ptr<CameraPort>& port) {
 status_t CameraContext::GetBatchSize(const StreamParam& param,
                                      uint32_t& batch_size) {
 
-  /* only one batch stream is supported */
-  if (camera_parameters_.batch_size > 1) {
-    /* set batch size to default */
-    batch_size = 1;
-    return NO_ERROR;
-  }
-
   if ((kConstrainedModeThreshold <= param.framerate) && (!hfr_supported_)) {
     QMMF_ERROR("%s: Stream tries to enable HFR which is not supported!",
                __func__);
@@ -957,6 +949,9 @@ status_t CameraContext::GetBatchSize(const StreamParam& param,
     }
   }
 
+  if (batch > camera_parameters_.batch_size)
+    camera_parameters_.batch_size = batch;
+
   batch_size = batch;
   camera_parameters_.batch_size = batch_size;
 
@@ -988,16 +983,25 @@ status_t CameraContext::CreateStream(const StreamParam& param,
     return BAD_VALUE;
   }
 
-  camera_parameters_.batch_size = batch;
-
-  // FIXME: HFR control and exception for fastswitch will be removed after
-  // session clean-up merged
-  if (!(CAM_OPMODE_IS_FASTSWTICH(camera_parameters_.cam_opmode)) &&
-      (hfr_detected_ == false) && (batch > 1)) {
-    QMMF_INFO("%s: HFR stream detected!"
-        "track_id = %x", __func__, param.id);
-    hfr_detected_ = true;
+  if (extra_param.Exists(QMMF_SUPER_FRAMES)) {
+    size_t entry_count = extra_param.EntryCount(QMMF_SUPER_FRAMES);
+    if (entry_count ==1) {
+      SuperFrames super_frames;
+      extra_param.Fetch(QMMF_SUPER_FRAMES, super_frames, 0);
+      if (super_frames.n_frames > 1) {
+        QMMF_INFO("%s: super buffer enable and n_frames=%d", __func__, super_frames.n_frames);
+        camera_parameters_.super_frames = super_frames.n_frames;
+        batch = 1;
+      }
+    } else {
+      QMMF_ERROR("%s: Invalid SUPER_FRAMES received", __func__);
+      return BAD_VALUE;
+    }
   }
+
+  camera_parameters_.batch_size = batch;
+  QMMF_INFO("%s: camera_parameters_.batch_size=%u super_frames=%d", __func__,
+      camera_parameters_.batch_size, camera_parameters_.super_frames);
 
   std::shared_ptr<CameraPort> port =
       std::make_shared<CameraPort>(param, extra_param, camera_parameters_,
@@ -1110,7 +1114,7 @@ status_t CameraContext::RemoveConsumer(const uint32_t& track_id,
   return NO_ERROR;
 }
 
-status_t CameraContext::StartStream(const uint32_t track_id) {
+status_t CameraContext::StartStream(const uint32_t track_id, bool cached) {
 
   auto port = GetPort(track_id);
   if (!port) {
@@ -1118,14 +1122,14 @@ status_t CameraContext::StartStream(const uint32_t track_id) {
     return BAD_VALUE;
   }
 
-  auto ret = port->Start();
+  auto ret = port->Start(cached);
   assert(ret == NO_ERROR);
   QMMF_INFO("%s: track_id(%d) started on port(0x%p)", __func__,
       track_id, port.get());
   return NO_ERROR;
 }
 
-status_t CameraContext::StopStream(const uint32_t track_id) {
+status_t CameraContext::StopStream(const uint32_t track_id, bool cached) {
 
   QMMF_DEBUG("%s: Enter", __func__);
   auto port = GetPort(track_id);
@@ -1134,7 +1138,7 @@ status_t CameraContext::StopStream(const uint32_t track_id) {
     return BAD_VALUE;
   }
 
-  auto ret = port->Stop();
+  auto ret = port->Stop(cached);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: Port Stop failed!!", __func__);
     return ret;
@@ -1142,36 +1146,6 @@ status_t CameraContext::StopStream(const uint32_t track_id) {
 
   QMMF_DEBUG("%s: Exit", __func__);
   return ret;
-}
-
-status_t CameraContext::PauseStream(const uint32_t track_id) {
-
-  QMMF_DEBUG("%s: Enter", __func__);
-  auto port = GetPort(track_id);
-  if (!port) {
-    QMMF_ERROR("%s: Invalid track_id(%x)", __func__, track_id);
-    return BAD_VALUE;
-  }
-
-  auto ret = port->Pause();
-  assert(ret == NO_ERROR);
-  QMMF_DEBUG("%s: Exit", __func__);
-  return NO_ERROR;
-}
-
-status_t CameraContext::ResumeStream(const uint32_t track_id) {
-
-  QMMF_DEBUG("%s: Enter", __func__);
-  auto port = GetPort(track_id);
-  if (!port) {
-    QMMF_ERROR("%s: Invalid track_id(%x)", __func__, track_id);
-    return BAD_VALUE;
-  }
-
-  auto ret = port->Resume();
-  assert(ret == NO_ERROR);
-  QMMF_DEBUG("%s: Exit", __func__);
-  return NO_ERROR;
 }
 
 status_t CameraContext::SetCameraParam(const CameraMetadata &meta) {
@@ -1247,49 +1221,38 @@ status_t CameraContext::SetCameraParam(const CameraMetadata &meta) {
       request_list.push_back(req);
     }
 
-    // when there're multiple streams with HFR stremas invovled
-    // batch size will be more than one, in this case, camx requires
-    // strict order of buffer numbers
-    // SetcameraParam will be triggered after one stream is ready
-    // and it will submit request to capture-request handler which will
-    // provide buffers into camx, this violate rule for camx
-    // adding hfr_detected_ to block requests untill all ports are ready
-    if ((hfr_detected_ == false) ||
-          ((hfr_detected_ == true) && (hfr_wait_ports_ready_ == true))) {
+    // Submit request with updated camera meta data only if streaming is
+    // started, if not then just update default meta data and leave it to
+    // startTrack -> startStream to submit request.
+    std::unique_lock<std::mutex> pending_frames_lock(pending_frames_lock_);
+    if (streaming_request_id_ >= 0 && !continuous_mode_is_on_) {
+      int64_t last_frame_number = NO_IN_FLIGHT_REPEATING_FRAMES;
+      int32_t ret = 0;
 
-      // Submit request with updated camera meta data only if streaming is
-      // started, if not then just update default meta data and leave it to
-      // startSession -> startStream to submit request.
-      std::unique_lock<std::mutex> pending_frames_lock(pending_frames_lock_);
-      if (streaming_request_id_ >= 0 && !continuous_mode_is_on_) {
-        int64_t last_frame_number;
-        int32_t ret = 0;
-
-        if (!request.metadata.isEmpty()) {
-          // Submit one request containing single shot meta entries.
-          ret = camera_device_->SubmitRequest(request, false,
-                                              &last_frame_number);
-          assert(ret >= 0);
-        }
-
-        if (!is_standby) {
-          ret = camera_device_->SubmitRequestList(request_list, true,
-                                                  &last_frame_number);
-        }
-
-        QMMF_INFO("%s: last_frame_number: current=%lld previous=%lld", __func__,
-            last_frame_number, last_frame_number_);
-
-        // SubmitRequestList returns NO_IN_FLIGHT_REPEATING_FRAMES when there is
-        // no previous request or when previous request is not submitted to HAL
-        // yet.
-        if (last_frame_number != NO_IN_FLIGHT_REPEATING_FRAMES) {
-          last_frame_number_ = last_frame_number;
-        }
-
+      if (!request.metadata.isEmpty()) {
+        // Submit one request containing single shot meta entries.
+        ret = camera_device_->SubmitRequest(request, false,
+                                            &last_frame_number);
         assert(ret >= 0);
-        streaming_request_id_ = ret;
       }
+
+      if (!is_standby) {
+        ret = camera_device_->SubmitRequestList(request_list, true,
+                                                &last_frame_number);
+      }
+
+      QMMF_INFO("%s: last_frame_number: current=%lld previous=%lld", __func__,
+          last_frame_number, last_frame_number_);
+
+      // SubmitRequestList returns NO_IN_FLIGHT_REPEATING_FRAMES when there is
+      // no previous request or when previous request is not submitted to HAL
+      // yet.
+      if (last_frame_number != NO_IN_FLIGHT_REPEATING_FRAMES) {
+        last_frame_number_ = last_frame_number;
+      }
+
+      assert(ret >= 0);
+      streaming_request_id_ = ret;
     }
   } else {
     QMMF_ERROR("%s: No active requests present!\n", __func__);
@@ -1855,19 +1818,20 @@ status_t CameraContext::SetPerStreamFrameRate() {
   return NO_ERROR;
 }
 
-status_t CameraContext::UpdateRequest(bool is_streaming) {
+status_t CameraContext::UpdateRequest(bool cached) {
 
   QMMF_DEBUG("%s: Enter", __func__);
   float max_fps = 0;
   std::set<int32_t> stream_ids;
   std::set<int32_t> removed_streams;
-  bool preview_stream_activate = false;
+  std::vector<Camera3Request> last_requests;
+  bool last_video_streams_active;
 
-  //Get all camera stream ids from all active ports which are ready to start.
-  size_t size = active_ports_.size();
-  size_t active_ports_number = size;
+  QMMF_INFO("%s: Number of active_ports(%d)", __func__, active_ports_.size());
 
-  QMMF_INFO("%s: Number of active_ports(%d)", __func__, size);
+  last_requests = last_submitted_streaming_requests_;
+  last_video_streams_active = video_streams_active_;
+  video_streams_active_ = false;
 
   for (auto const& it : active_ports_) {
     auto& port = it.second;
@@ -1881,13 +1845,8 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
       QMMF_INFO("%s: CameraPort(0x%p):camera_stream_id(%d) is ready to"
           " start!",  __func__, port.get(), cam_stream_id);
 
-      if (CAM_OPMODE_IS_FRAMESELECTION(camera_parameters_.cam_opmode)) {
-        if (true == port->IsPreviewStream()) {
-          QMMF_INFO("%s: found preview stream %d PORT_READYTOSTART",
-              __func__, cam_stream_id);
-          preview_stream_activate = true;
-        }
-      }
+      if (!port->IsPreviewStream())
+        video_streams_active_ = true;
 
       if (max_fps < port->GetPortFramerate()) {
         max_fps = port->GetPortFramerate();
@@ -1954,18 +1913,13 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
         }
       }
     } else if (port->getPortState() == PortState::PORT_STARTED) {
+      if (!port->IsPreviewStream())
+        video_streams_active_ = true;
+
       if (max_fps < port->GetPortFramerate()) {
         max_fps = port->GetPortFramerate();
       }
       stream_ids.emplace(cam_stream_id);
-
-      if (CAM_OPMODE_IS_FRAMESELECTION(camera_parameters_.cam_opmode)) {
-        if (true == port->IsPreviewStream()) {
-          QMMF_INFO("%s: found preview stream %d PORT_STARTED",
-              __func__, cam_stream_id);
-          preview_stream_activate = true;
-        }
-      }
     }
   }
 
@@ -1977,43 +1931,105 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
     i++;
   }
 
-  size = streaming_active_requests_[0].streamIds.size();
-
-  // when camera mode is fastswitch, multiple video streams should be added or
-  // removed simultaneously, which is necessary for HFR case, since preview
-  // stream always exists, we need to cache video streams update if active
-  // request streams num is not equal to configured stream number.
-  if ((CAM_OPMODE_IS_FASTSWTICH(camera_parameters_.cam_opmode)) &&
-        (size != 0 && size != 1 && size != active_ports_number)) {
-      QMMF_INFO("%s: active_ports_number = %d, size =%d, caching this state",
-          __func__, active_ports_number, size);
-      return NO_ERROR;
-  }
-
-  // in frame-selection mode, if preview stream is paused, video stream
-  // should be paused at the same time, otherwise, camera will trigger
-  // crash. so caching request until all streams are removed.
-  // TODO: after session cleanup merged. this part can be removed.
-  if (CAM_OPMODE_IS_FRAMESELECTION(camera_parameters_.cam_opmode)) {
-      if (size != 0 && preview_stream_activate == false) {
-        QMMF_INFO("%s:FrameSel, active_ports_number = %d, size = %d, cache it",
-            __func__, active_ports_number, size);
-        return NO_ERROR;
-      }
-  }
-
-  //TODO: this logic only works when static stream configurations are applied
-  //in dynamic switch case, there will be extra streams created by application
-  //so that all ports will not be ready forever
-  hfr_wait_ports_ready_ = (active_ports_number == size) ? true : false;
+  size_t size = streaming_active_requests_[0].streamIds.size();
 
   QMMF_INFO("%s: Number of streams(%d) to start", __func__, size);
   if (size == 0) {
     QMMF_INFO("%s:Cancelling the request, no pending stream!", __func__);
     return CancelRequest();
-  } else if ((hfr_detected_ == true) && (hfr_wait_ports_ready_ == false)) {
-    QMMF_INFO("%s: hfr enabled, cancelling the request", __func__);
-    return CancelRequest();
+  }
+
+  // Recorder starts tracks one by one. Therefore we submit new
+  // request list for every track if there is no caching. We can avoid
+  // submitting of new request list for each track by caching it. Caching
+  // means that we skip submit request list for all streams except the
+  // last one. The last request list combine all streams anyway.
+  if (cached) {
+    QMMF_INFO("%s: Stream is cached. Skip SubmitRequest", __func__);
+    return NO_ERROR;
+  }
+
+  last_submitted_streaming_requests_ = streaming_active_requests_;
+
+  // in fastswitch mode, when switching from preview plus video stream to
+  // preview only stream, endOfStream vendor tag should be set to release
+  // pending buffer hold by camx with EIS enabled.
+  // use last streaming active request list as base, add endOfStream vendor
+  // tag with value = 1, call SubmitRequestList (streaming = false)
+  // in other scenarios under fastswitch mode, endOfStream is attached with
+  // value = 0
+  if (CAM_OPMODE_IS_FASTSWTICH(camera_parameters_.cam_opmode)) {
+    uint32_t tag = 0;
+    uint8_t tag_val = 0;
+
+    const std::shared_ptr<VendorTagDescriptor> vTags =
+      ::camera::VendorTagDescriptor::getGlobalVendorTagDescriptor();
+
+    ::camera::CameraMetadata::getTagFromName(
+        "org.quic.camera.recording.endOfStream", vTags.get(), &tag);
+
+    if (tag > 0) {
+      if (last_video_streams_active && !video_streams_active_) {
+        std::list<Camera3Request> request_list;
+        Camera3Request first_req;
+
+        QMMF_VERBOSE("%s: EOS set true, trigger one shot capture request",
+            __func__);
+
+        for (size_t i = 0; i < last_requests.size(); i++) {
+          assert(!last_requests[i].metadata.isEmpty());
+          if (i == (last_requests.size() - 1)) {
+            tag_val = 1;
+            last_requests[i].metadata.update(tag, &tag_val, 1);
+          } else {
+            tag_val = 0;
+            last_requests[i].metadata.update(tag, &tag_val, 1);
+          }
+          request_list.push_back(last_requests[i]);
+        }
+
+        QMMF_VERBOSE("%s: CancelRequest for one shot", __func__);
+        camera_device_->CancelRequest(streaming_request_id_, NULL);
+
+        int64_t last_frame_number = NO_IN_FLIGHT_REPEATING_FRAMES;
+        std::unique_lock<std::mutex> pending_frames_lock(pending_frames_lock_);
+        auto req_id = camera_device_->SubmitRequestList(request_list, false,
+                                                        &last_frame_number);
+
+        QMMF_INFO("%s: one shot capture request last_frame_number: "
+            "current=%lld previous=%lld", __func__,
+            last_frame_number, last_frame_number_);
+
+        if (last_frame_number == NO_IN_FLIGHT_REPEATING_FRAMES)
+          last_frame_number = last_frame_number_;
+        else
+          last_frame_number_ = last_frame_number;
+
+        assert(req_id >= 0);
+        streaming_request_id_ = req_id;
+
+        first_req = last_requests[0];
+        for (size_t i = 0; i < first_req.streamIds.size(); i++) {
+          int32_t stream_id = first_req.streamIds[i];
+          if (last_frame_number_map_.count(stream_id) != 0 &&
+              last_frame_number != NO_IN_FLIGHT_REPEATING_FRAMES)
+            last_frame_number_map_[stream_id] = last_frame_number;
+          else if (last_frame_number_map_.count(stream_id) == 0)
+            last_frame_number_map_[stream_id] = NO_IN_FLIGHT_REPEATING_FRAMES;
+
+          QMMF_INFO("%s: one shot capture request last_frame_number_map_[%d]=%lld",
+              __func__, stream_id, last_frame_number_map_[stream_id]);
+        }
+      } else {
+        QMMF_VERBOSE("%s: EOS set false", __func__);
+
+        tag_val = 0;
+        for (size_t i = 0; i < streaming_active_requests_.size(); ++i)
+          streaming_active_requests_[i].metadata.update(tag, &tag_val, 1);
+      }
+    } else {
+      QMMF_ERROR ("%s: could not find \"org.quic.camera.recording.endOfStream\"", __func__);
+    }
   }
 
   {
@@ -2059,7 +2075,7 @@ status_t CameraContext::UpdateRequest(bool is_streaming) {
 
     int64_t last_frame_number = NO_IN_FLIGHT_REPEATING_FRAMES;
     std::unique_lock<std::mutex> pending_frames_lock(pending_frames_lock_);
-    auto req_id = camera_device_->SubmitRequestList(request_list, is_streaming,
+    auto req_id = camera_device_->SubmitRequestList(request_list, true,
                                                     &last_frame_number);
 
     QMMF_INFO("%s: last_frame_number: current=%lld previous=%lld", __func__,
@@ -2596,7 +2612,7 @@ void CameraContext::CameraErrorCb(CameraErrorCode errcode,
       QMMF_ERROR("%s: Camera device faced an unrecoverable error!", __func__);
       // Clearing active requests to ensure the stop sequence calls goes through
       // without error and all necessary clean up of this and layers above is
-      // done when the client calls subsequent APIs (StopSession, DeleteDeviceStream, etc)
+      // done when the client calls subsequent APIs (StopVideoTrack, DeleteDeviceStream, etc)
       streaming_active_requests_.clear();
       is_camera_dead_ = true;
       break;
@@ -2859,7 +2875,8 @@ CameraPort::CameraPort(const StreamParam& param,
       reproc_input_buffer_{},
       cameraport_enable_reproc_(false),
       camera_parameters_(camera_parameters),
-      preview_stream_(false),
+      aec_converged_(false),
+      aec_timestamp_(0),
       cam_stream_params_{} {
 
   QMMF_INFO("%s: Enter", __func__);
@@ -2941,18 +2958,31 @@ status_t CameraPort::Init() {
       QMMF_INFO("%s: port %d with preview flag",__func__, GetPortId());
 
       cam_stream_params_.allocFlags.flags = IMemAllocUsage::kHwComposer;
-      preview_stream_ = true;
     } else {
       // This flag should be mandatory if preview flag is not set.
       // Stream is considered as preview stream without it.
       // Different tuning, setings and sensor mode is applied for preview and
       // video streams. This is why this flag is needed.
       cam_stream_params_.allocFlags.flags = IMemAllocUsage::kVideoEncoder;
-      preview_stream_ = false;
+    }
+
+    if (camera_parameters_.super_frames == 2) {
+      cam_stream_params_.allocFlags.flags |=
+          IMemAllocUsage::kFlex2Batch;
+    } else if (camera_parameters_.super_frames == 4) {
+      cam_stream_params_.allocFlags.flags |=
+          IMemAllocUsage::kFlex4Batch;
+    } else if (camera_parameters_.super_frames == 8) {
+      cam_stream_params_.allocFlags.flags |=
+          IMemAllocUsage::kFlex8Batch;
     }
 
     switch (params_.format) {
       case BufferFormat::kNV12UBWC:
+        cam_stream_params_.allocFlags.flags |=
+            IMemAllocUsage::kPrivateAllocUbwc;
+        break;
+      case BufferFormat::kNV12UBWCFLEX:
         cam_stream_params_.allocFlags.flags |=
             IMemAllocUsage::kPrivateAllocUbwc;
         break;
@@ -3072,7 +3102,7 @@ status_t CameraPort::DeInit() {
   return ret;
 }
 
-status_t CameraPort::Start() {
+status_t CameraPort::Start(bool cached) {
 
   QMMF_VERBOSE("%s port type %d id %d state %d ", __func__,
     GetPortType(), GetPortId(), port_state_);
@@ -3090,7 +3120,7 @@ status_t CameraPort::Start() {
   QMMF_INFO("%s: track_id(%x):camera stream(%d) to start!", __func__,
       port_id_, camera_stream_id_);
 
-  auto ret = context_->UpdateRequest(true);
+  auto ret = context_->UpdateRequest(cached);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: UpdateRequest failed! for track_id = %d",
         __func__, port_id_);
@@ -3103,7 +3133,7 @@ status_t CameraPort::Start() {
   return NO_ERROR;
 }
 
-status_t CameraPort::Stop() {
+status_t CameraPort::Stop(bool cached) {
 
   QMMF_VERBOSE("%s port type %d id %d state %d ", __func__,
     GetPortType(), GetPortId(), port_state_);
@@ -3123,7 +3153,7 @@ status_t CameraPort::Stop() {
 
   // Stop basically removes the stream from current running capture request,
   // it doen't delete the stream.
-  auto ret = context_->UpdateRequest(true);
+  auto ret = context_->UpdateRequest(cached);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: CameraPort:Start:UpdateRequest failed! for track_id = %d"
         ,  __func__, port_id_);
