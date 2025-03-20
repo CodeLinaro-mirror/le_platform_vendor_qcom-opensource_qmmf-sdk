@@ -74,6 +74,12 @@ class CameraMetadata {
     const camera_metadata_t* getAndLock() const;
 
     /**
+     * Get reference to the underlying metadata buffer without lock and const
+     * modifacation.
+     */
+    camera_metadata_t* getbuffer();
+
+    /**
      * Unlock the CameraMetadata for use again. After this unlock, the pointer
      * given from getAndLock() may no longer be used. The pointer passed out
      * from getAndLock must be provided to guarantee that the right object is
