@@ -82,7 +82,10 @@
 #include <hardware/camera3.h>
 #endif
 
+#include <hardware/camera_common.h>
+
 #include "qmmf-sdk/qmmf_camera_metadata.h"
+#include "qmmf-sdk/qmmf_vendor_tag_descriptor.h"
 #include "qmmf-sdk/qmmf_recorder_params.h"
 #include "common/utils/qmmf_log.h"
 #include "common/utils/qmmf_condition.h"
@@ -96,6 +99,76 @@ using namespace recorder;
 typedef int32_t status_t;
 
 const int64_t kWaitDelay = 2000000000;  // 2 sec
+
+class CameraModule {
+private:
+
+  static std::mutex lock_;
+
+  static CameraModule *instance_;
+
+  camera_module_t *camera_module_;
+
+  int32_t status_;
+
+  vendor_tag_ops_t vendor_tag_ops_;
+  std::shared_ptr<VendorTagDescriptor> vendor_tag_desc_;
+
+  // Private Constructor
+  CameraModule() : status_(-1) {}
+
+  int32_t LoadCamModuleAndVendorTags() {
+    int32_t status = hw_get_module(CAMERA_HARDWARE_MODULE_ID,
+        (const hw_module_t **)&camera_module_);
+
+    if (camera_module_->get_vendor_tag_ops) {
+      vendor_tag_ops_ = vendor_tag_ops_t();
+      camera_module_->get_vendor_tag_ops(&vendor_tag_ops_);
+
+      status = VendorTagDescriptor::createDescriptorFromOps(&vendor_tag_ops_,
+                                                          vendor_tag_desc_);
+
+      if (0 != status) {
+        QMMF_ERROR("%s: Could not generate descriptor from vendor tag operations,"
+            "received error %s (%d). Camera clients will not be able to use"
+            "vendor tags", __FUNCTION__, strerror(status), status);
+        return status;
+      }
+
+      // Set the global descriptor to use with camera metadata
+      status = VendorTagDescriptor::setAsGlobalVendorTagDescriptor(vendor_tag_desc_);
+
+      if (0 != status) {
+        QMMF_ERROR("%s: Could not set vendor tag descriptor, received error %s (%d). \n",
+            __func__, strerror(-status), status);
+        return status;
+      }
+    }
+
+    return status;
+  }
+
+public:
+  // Deleting the copy constructor to prevent copies
+  CameraModule(const CameraModule& obj) = delete;
+
+  // Static method to get the CameraModule instance
+  static int32_t getInstance(camera_module_t **camera_module) {
+
+    std::lock_guard<std::mutex> lock(lock_);
+
+    if (instance_ == nullptr) {
+      instance_ = new CameraModule();
+    }
+
+    if (instance_->status_ != 0 || instance_->camera_module_ == NULL) {
+      instance_->status_ = instance_->LoadCamModuleAndVendorTags();
+    }
+
+    *camera_module = instance_->camera_module_;
+    return instance_->status_;
+  }
+};
 
 struct StreamBuffer {
   BufferMeta info;
