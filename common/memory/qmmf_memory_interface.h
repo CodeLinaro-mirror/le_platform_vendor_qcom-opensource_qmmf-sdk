@@ -63,6 +63,7 @@
 
 #pragma once
 
+#include <string>
 #ifdef TARGET_USES_GRALLOC1
 #include <grallocusage/GrallocUsageConversion.h>
 #include <libgralloc1/gralloc_priv.h>
