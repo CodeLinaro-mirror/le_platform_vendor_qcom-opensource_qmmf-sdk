@@ -351,6 +351,7 @@ class CameraContext : public CameraInterface {
 
   // Maps of buffer Id and Buffer.
   std::map<uint32_t, StreamBuffer> snapshot_buffer_list_;
+  std::mutex                       snapshot_buffer_lock_;
 
   static float             kConstrainedModeThreshold;
   static float             kHFRBatchModeThreshold;
