@@ -63,6 +63,7 @@
 
 #pragma once
 
+#include <string>
 #include <gbm_priv.h>
 #include <mutex>
 #include <map>
