@@ -117,6 +117,11 @@ class OfflineProcess {
   std::map<uint32_t, OfflineRequests>     client_requests_map_;
 
   recorder::RemoteCallbackHandle          remote_cb_handle_;
+
+  vendor_tag_ops_t vendor_tag_ops_;
+  static std::mutex vendor_tag_mutex_;
+  static std::shared_ptr<VendorTagDescriptor> vendor_tag_desc_;
+  static uint32_t client_count_;
 };
 
 struct OfflineCbData {

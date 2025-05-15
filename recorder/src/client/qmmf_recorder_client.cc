@@ -275,7 +275,9 @@ status_t RecorderClient::Disconnect() {
   }
   client_id_ = 0;
 
-  vendor_tag_desc_.reset();
+  // Clear global tag descriptor for the process
+  VendorTagDescriptor::clearGlobalVendorTagDescriptor();
+  vendor_tag_desc_ = nullptr;
 
   QMMF_DEBUG("%s Exit ", __func__);
   return ret;
