@@ -116,6 +116,7 @@ enum QMMF_RECORDER_SERVICE_CMDS {
   RECORDER_CONFIGURE_OFFLINE_PROC,
   RECORDER_ENCODE_OFFLINE_PROC,
   RECORDER_DESTROY_OFFLINE_PROC,
+  RECORDER_GET_STATIC_CAMERA_INFO,
 };
 
 struct BnBuffer {
@@ -273,6 +274,9 @@ class IRecorderService : public IInterface {
   virtual status_t GetDefaultCaptureParam(const uint32_t client_id,
                                           const uint32_t camera_id,
                                           CameraMetadata &meta) = 0;
+
+  virtual status_t GetCamStaticInfo(const uint32_t client_id,
+                                    std::vector<CameraMetadata> &meta) = 0;
 
   virtual status_t GetCameraCharacteristics(const uint32_t client_id,
                                             const uint32_t camera_id,
