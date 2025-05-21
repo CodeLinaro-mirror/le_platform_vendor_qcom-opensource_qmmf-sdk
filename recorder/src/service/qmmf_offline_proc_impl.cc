@@ -122,11 +122,6 @@ status_t OfflineProcess::DeInit() {
     offline_proc_lib_ = nullptr;
   }
 
-  if (nullptr != camera_module_) {
-    dlclose(camera_module_->common.dso);
-    camera_module_ = nullptr;
-  }
-
   {
     std::lock_guard<std::mutex> lock(client_pproc_lock_);
     if (!clients_list_.empty()) {
