@@ -275,9 +275,7 @@ status_t RecorderClient::Disconnect() {
   }
   client_id_ = 0;
 
-  // Clear global tag descriptor for the process
-  VendorTagDescriptor::clearGlobalVendorTagDescriptor();
-  vendor_tag_desc_ = nullptr;
+  vendor_tag_desc_.reset();
 
   QMMF_DEBUG("%s Exit ", __func__);
   return ret;
@@ -740,6 +738,22 @@ status_t RecorderClient::GetDefaultCaptureParam(const uint32_t camera_id,
                                                        meta);
   if (NO_ERROR != ret) {
     QMMF_ERROR("%s GetDefaultCaptureParam failed!", __func__);
+  }
+  QMMF_DEBUG("%s Exit ", __func__);
+  return ret;
+}
+
+status_t RecorderClient::GetCamStaticInfo(std::vector<CameraMetadata> &meta) {
+
+  QMMF_DEBUG("%s Enter ", __func__);
+  std::lock_guard<std::mutex> lock(lock_);
+  if (!CheckServiceStatus()) {
+    return -ENODEV;
+  }
+  assert(client_id_ > 0);
+  auto ret = recorder_service_->GetCamStaticInfo(client_id_, meta);
+  if (0 != ret) {
+    QMMF_ERROR("%s GetCamStaticInfo failed!", __func__);
   }
   QMMF_DEBUG("%s Exit ", __func__);
   return ret;
@@ -1682,6 +1696,37 @@ class BpRecorderService: public BpInterface<IRecorderService> {
     auto ret = reply.readInt32();
     if (NO_ERROR == ret) {
       ret = meta.readFromParcel(&reply);
+    }
+    return ret;
+  }
+
+  status_t GetCamStaticInfo(const uint32_t client_id,
+                            std::vector<CameraMetadata> &meta) {
+    Parcel data, reply;
+    data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
+    data.writeUint32(client_id);
+    remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
+                                RECORDER_GET_STATIC_CAMERA_INFO), data,
+                                &reply);
+    auto ret = reply.readInt32();
+    if (NO_ERROR == ret) {
+      uint32_t meta_size;
+      reply.readUint32(&meta_size);
+      for (uint32_t i = 0; i < meta_size; ++i) {
+        CameraMetadata caps;
+        camera_metadata_t *m = nullptr;
+        ret = caps.readFromParcel(reply, &m);
+        if ((NO_ERROR != ret) || (nullptr == m)) {
+          QMMF_ERROR("%s: Metadata parcel read failed: %d meta(%p)",
+              __func__, ret, m);
+          return ret;
+        }
+        caps.clear();
+        caps.append(m);
+        meta.push_back(caps);
+        //We need to release this memory as meta.append() makes copy of this memory
+        free(m);
+      }
     }
     return ret;
   }

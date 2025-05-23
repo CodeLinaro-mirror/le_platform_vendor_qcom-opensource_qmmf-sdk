@@ -28,7 +28,7 @@
 *
 * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
 *
-* Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted (subject to the limitations in the
@@ -83,6 +83,9 @@
 namespace qmmf {
 
 namespace recorder {
+
+#define FRAME_RATE_TIMEBASE      1000000000.0f // 1 second
+#define FPS_MEASUREMENT_INTERVAL 3000000000    // 3 seconds
 
 using ::std::make_shared;
 using ::std::shared_ptr;
@@ -760,6 +763,18 @@ status_t CameraSource::GetDefaultCaptureParam(const uint32_t camera_id,
   return camera->GetDefaultCaptureParam(meta);
 }
 
+status_t CameraSource::GetCamStaticInfo(std::vector<CameraMetadata> &meta) {
+  std::shared_ptr<CameraInterface> camera;
+
+  camera = std::make_shared<CameraContext>();
+  if (!camera) {
+    QMMF_ERROR("%s: Can't Instantiate Camera Context!", __func__);
+    return -ENOMEM;
+  }
+
+  return camera->GetCamStaticInfo(meta);
+}
+
 status_t CameraSource::GetCameraCharacteristics(const uint32_t camera_id,
                                                 CameraMetadata &meta) {
 
@@ -1020,7 +1035,11 @@ TrackSource::TrackSource(const uint32_t id,
       frc_(nullptr),
       rescaler_(nullptr),
       num_consumers_(0),
-      slave_track_source_(false) {
+      slave_track_source_(false),
+      input_frame_count_(0),
+      measurement_interval_(0),
+      previous_input_ts_(0),
+      input_frame_interval_(0) {
 
   QMMF_GET_LOG_LEVEL();
 
@@ -1363,6 +1382,25 @@ status_t TrackSource::StopTrack(bool cached) {
   return NO_ERROR;
 }
 
+void TrackSource::CalculateFPS(StreamBuffer& buffer) {
+  input_frame_interval_ =
+      (previous_input_ts_ == 0) ? 0 : (buffer.timestamp - previous_input_ts_);
+
+  measurement_interval_ += input_frame_interval_;
+  input_frame_count_ ++;
+  previous_input_ts_ = buffer.timestamp;
+
+  if (measurement_interval_ >= FPS_MEASUREMENT_INTERVAL) {
+    int64_t frame_interval = measurement_interval_ / input_frame_count_;
+    float fps = FRAME_RATE_TIMEBASE / frame_interval;
+
+    QMMF_DEBUG("%s: Track(%x) FPS: %.2f", __func__, id_, fps);
+
+    input_frame_count_    = 0;
+    measurement_interval_ = 0;
+  }
+}
+
 void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
 
   QMMF_VERBOSE("%s: Enter Track(%x)", __func__, id_);
@@ -1388,7 +1426,16 @@ void TrackSource::OnFrameAvailable(StreamBuffer& buffer) {
 
     std::unique_lock<std::mutex> lock(frame_lock_);
     ReturnBufferToProducer(buffer);
+
+    input_frame_count_ = 0;
+    measurement_interval_ = 0;
+    previous_input_ts_ = 0;
+    input_frame_interval_ = 0;
     return;
+  } else {
+    if (fsc_.get() == nullptr && frc_.get() == nullptr) {
+      CalculateFPS(buffer);
+    }
   }
 
   BnBuffer bn_buffer{};
