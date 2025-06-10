@@ -17,8 +17,8 @@ include(CheckIncludeFile)
 check_include_file("display/media/mmm_color_fmt.h" HAVE_MMM_COLOR_FMT_H)
 
 # Check whether C2D header is present.
-include(CheckIncludeFile)
-check_include_file("adreno/c2d2.h" RESIZER_C2D_ENABLED)
+#include(CheckIncludeFile)
+#check_include_file("adreno/c2d2.h" RESIZER_C2D_ENABLED)
 
 # Check whether JPEGEncoder header is present.
 include(CheckIncludeFileCXX)
@@ -51,9 +51,9 @@ if (HAVE_BINDER_H)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DHAVE_BINDER")
 endif()
 
-if (RESIZER_C2D_ENABLED)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DENABLE_RESCALER_C2D")
-endif()
+#if (RESIZER_C2D_ENABLED)
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DENABLE_RESCALER_C2D")
+#endif()
 
 if (RESIZER_NEON_ENABLED)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DENABLE_RESCALER_NEON")
@@ -81,9 +81,9 @@ if (RESIZER_FASTCV_ENABLED)
 add_subdirectory(common/resizer-fastCV)
 endif()
 
-if (RESIZER_C2D_ENABLED)
-add_subdirectory(common/resizer-c2d)
-endif()
+#if (RESIZER_C2D_ENABLED)
+#add_subdirectory(common/resizer-c2d)
+#endif()
 
 if (RESIZER_NEON_ENABLED)
 add_subdirectory(common/resizer-neon)
