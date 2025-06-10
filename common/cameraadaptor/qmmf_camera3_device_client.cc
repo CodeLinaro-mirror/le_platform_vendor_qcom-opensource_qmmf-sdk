@@ -120,11 +120,10 @@ uint32_t qmmf_log_level;
 
 namespace qmmf {
 
-namespace cameraadaptor {
+std::mutex CameraModule::lock_;
+CameraModule* CameraModule::instance_ = nullptr;
 
-std::mutex Camera3DeviceClient::vendor_tag_mutex_;
-std::shared_ptr<VendorTagDescriptor> Camera3DeviceClient::vendor_tag_desc_;
-uint32_t Camera3DeviceClient::client_count_ = 0;
+namespace cameraadaptor {
 
 Camera3DeviceClient::Camera3DeviceClient(CameraClientCallbacks clientCb)
     : client_cb_(clientCb),
@@ -208,15 +207,6 @@ Camera3DeviceClient::~Camera3DeviceClient() {
     alloc_device_interface_ = nullptr;
   }
 
-  {
-    std::lock_guard<std::mutex> lk(vendor_tag_mutex_);
-    if (--client_count_ == 0) {
-      VendorTagDescriptor::clearGlobalVendorTagDescriptor();
-      if (vendor_tag_desc_.get() != nullptr)
-        vendor_tag_desc_.reset();
-    }
-  }
-
   pending_error_requests_vector_.clear();
 
   pthread_cond_destroy(&state_updated_);
@@ -235,8 +225,7 @@ int32_t Camera3DeviceClient::Initialize() {
     goto exit;
   }
 
-  res = LoadHWModule(CAMERA_HARDWARE_MODULE_ID,
-                     (const hw_module_t **)&camera_module_);
+  res = CameraModule::getInstance(&camera_module_);
 
   if ((0 != res) || (NULL == camera_module_)) {
     QMMF_ERROR("%s: Unable to load Hal module: %d\n", __func__, res);
@@ -258,36 +247,6 @@ int32_t Camera3DeviceClient::Initialize() {
   number_of_cameras_ = camera_module_->get_number_of_cameras();
   QMMF_INFO("%s: Number of cameras: %d\n", __func__, number_of_cameras_);
 
-  if (camera_module_->get_vendor_tag_ops) {
-    std::lock_guard<std::mutex> lk(vendor_tag_mutex_);
-    if (client_count_ == 0) {
-      vendor_tag_ops_ = vendor_tag_ops_t();
-      camera_module_->get_vendor_tag_ops(&vendor_tag_ops_);
-
-      res = VendorTagDescriptor::createDescriptorFromOps(&vendor_tag_ops_,
-                                                         vendor_tag_desc_);
-
-      if (0 != res) {
-        QMMF_ERROR("%s: Could not generate descriptor from vendor tag operations,"
-            "received error %s (%d). Camera clients will not be able to use"
-            "vendor tags", __FUNCTION__, strerror(res), res);
-        goto exit;
-      }
-
-      // Set the global descriptor to use with camera metadata
-      res = VendorTagDescriptor::setAsGlobalVendorTagDescriptor(vendor_tag_desc_);
-
-      if (0 != res) {
-        QMMF_ERROR(
-            "%s: Could not set vendor tag descriptor, "
-            "received error %s (%d). \n",
-            __func__, strerror(-res), res);
-        goto exit;
-      }
-    }
-    ++client_count_;
-  }
-
   camera_module_->set_callbacks(this);
 
   alloc_device_interface_ = AllocDeviceFactory::CreateAllocDevice();
@@ -306,18 +265,8 @@ exit:
     alloc_device_interface_ = nullptr;
   }
 
-  {
-    std::lock_guard<std::mutex> lk(vendor_tag_mutex_);
-    if (client_count_ == 0) {
-      VendorTagDescriptor::clearGlobalVendorTagDescriptor();
-      if (vendor_tag_desc_.get() != nullptr)
-        vendor_tag_desc_.reset();
-    }
-  }
+  CameraModule::release();
 
-  if (NULL != camera_module_) {
-    dlclose(camera_module_->common.dso);
-  }
   device_ = NULL;
   camera_module_ = NULL;
 
@@ -1827,21 +1776,6 @@ void Camera3DeviceClient::RemovePendingRequestLocked(uint32_t frameNumber) {
 
     pending_requests_vector_.erase(frameNumber);
   }
-}
-
-int32_t Camera3DeviceClient::LoadHWModule(const char *moduleId,
-                                          const struct hw_module_t **pHmi) {
-
-  int32_t status;
-
-  if (NULL == moduleId) {
-    QMMF_ERROR("%s: Invalid module id! \n", __func__);
-    return -EINVAL;
-  }
-
-  status = hw_get_module(moduleId, pHmi);
-
-  return status;
 }
 
 int32_t Camera3DeviceClient::GetCameraInfo(uint32_t idx, CameraMetadata *info) {
