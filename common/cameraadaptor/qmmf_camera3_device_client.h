@@ -164,9 +164,6 @@ class Camera3DeviceClient : public camera3_callback_ops,
   int32_t TearDown(int streamId);
   int32_t SetCameraSessionParam(const CameraMetadata &meta);
 
-  static int32_t LoadHWModule(const char *moduleId,
-                              const struct hw_module_t **pHmi);
-
  private:
   std::vector<int32_t> current_request_ids_;
   typedef enum State_t {
@@ -331,9 +328,6 @@ class Camera3DeviceClient : public camera3_callback_ops,
   Camera3PrepareHandler prepare_handler_;
   Camera3InputStream input_stream_;
   uint32_t batch_size_;
-  static std::mutex vendor_tag_mutex_;
-  static std::shared_ptr<VendorTagDescriptor> vendor_tag_desc_;
-  static uint32_t client_count_;
   std::atomic<bool> is_camera_device_available_;
 
   CamOperationMode cam_opmode_;
