@@ -66,6 +66,7 @@
 #include <chrono>
 #include <condition_variable>
 #include <cmath>
+#include <dlfcn.h>
 #include <iomanip>
 #include <list>
 #include <map>
