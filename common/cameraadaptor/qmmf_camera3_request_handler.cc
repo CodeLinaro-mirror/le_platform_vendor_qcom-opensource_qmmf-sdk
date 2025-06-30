@@ -953,7 +953,11 @@ bool Camera3RequestHandler::RequestStreamGetProcess(
        cur_state == kFrameSelStateIdle2Active) {
       if (cam_reqmode_params_.frame_selection.available_frames <= 0) {
         realRequest.metadata = (*it).metadata;
-        realRequest.streams.push((*it).streams.editItemAt(0));
+	for (int32_t i = 0; i < stream_num; i++) {
+	  if (it->streams.editItemAt(i)->IsPreviewStream()) {
+	    realRequest.streams.push((*it).streams.editItemAt(i));
+	  }
+	}
         realRequest.resultExtras = (*it).resultExtras;
         realRequest.input = (*it).input;
 

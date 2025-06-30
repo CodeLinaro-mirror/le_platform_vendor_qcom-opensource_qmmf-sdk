@@ -157,6 +157,8 @@ class CameraContext : public CameraInterface {
 
   status_t GetDefaultCaptureParam(CameraMetadata &meta) override;
 
+  status_t GetCamStaticInfo(std::vector<CameraMetadata> &meta) override;
+
   status_t GetCameraCharacteristics(CameraMetadata &meta) override;
 
   status_t ReturnAllImageCaptureBuffers() override;
@@ -349,6 +351,7 @@ class CameraContext : public CameraInterface {
 
   // Maps of buffer Id and Buffer.
   std::map<uint32_t, StreamBuffer> snapshot_buffer_list_;
+  std::mutex                       snapshot_buffer_lock_;
 
   static float             kConstrainedModeThreshold;
   static float             kHFRBatchModeThreshold;
@@ -356,7 +359,6 @@ class CameraContext : public CameraInterface {
   std::vector<HFRMode_t>   hfr_batch_modes_list_;
   std::vector<Camera3Request> streaming_active_requests_;
 
-  std::map<uint32_t, int32_t> snapshot_buffer_stream_list_;
   int32_t                  batch_stream_id_;
 
   std::mutex               pending_frames_lock_;

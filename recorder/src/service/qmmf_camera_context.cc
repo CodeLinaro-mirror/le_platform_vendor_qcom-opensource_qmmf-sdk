@@ -1308,6 +1308,25 @@ status_t CameraContext::GetDefaultCaptureParam(CameraMetadata &meta) {
   return ret;
 }
 
+status_t CameraContext::GetCamStaticInfo(std::vector<CameraMetadata> &meta) {
+
+  QMMF_DEBUG("%s: Enter", __func__);
+  uint32_t num_of_cameras = camera_device_->GetNumberOfCameras();
+  meta.resize(num_of_cameras);
+
+  for (int i=0; i < num_of_cameras; i++) {
+    meta[i].clear();
+    int32_t res = camera_device_->GetCameraInfo(i, &meta[i]);
+    if (NO_ERROR != res) {
+      QMMF_ERROR("%s: Error during camera static info query: %s!\n", __func__,
+                 strerror(-res));
+      return NO_INIT;
+    }
+  }
+  QMMF_DEBUG("%s: Exit", __func__);
+  return NO_ERROR;
+}
+
 status_t CameraContext::GetCameraCharacteristics(CameraMetadata &meta) {
 
   QMMF_DEBUG("%s: Enter", __func__);
@@ -1339,24 +1358,19 @@ status_t CameraContext::ReturnImageCaptureBuffer(const uint32_t camera_id,
 
   std::lock_guard<std::mutex> lock(device_access_lock_);
   QMMF_DEBUG("%s: Enter", __func__);
+
+  snapshot_buffer_lock_.lock();
   if (snapshot_buffer_list_.find(buffer_id) == snapshot_buffer_list_.end()) {
     QMMF_ERROR("%s: buffer_id(%u) is not valid!!", __func__, buffer_id);
+    snapshot_buffer_lock_.unlock();
     return BAD_VALUE;
   }
 
   StreamBuffer buffer = snapshot_buffer_list_.find(buffer_id)->second;
   assert(buffer.fd == buffer_id);
 
-
-  if (snapshot_buffer_stream_list_.find(buffer_id) ==
-      snapshot_buffer_stream_list_.end()) {
-    QMMF_ERROR("%s: buffer_id(%u) is not valid!!", __func__, buffer_id);
-    return BAD_VALUE;
-  }
-  int32_t stream_id = snapshot_buffer_stream_list_.find(buffer_id)->second;
-
   QMMF_DEBUG("%s: stream_id(%d):stream_buffer(0x%p):ion_fd(%d)"
-      " returned back!",  __func__, stream_id, buffer.handle, buffer_id);
+      " returned back!",  __func__, buffer.stream_id, buffer.handle, buffer_id);
 
   status_t ret = NO_ERROR;
   ret = camera_device_->ReturnStreamBuffer(buffer);
@@ -1365,7 +1379,7 @@ status_t CameraContext::ReturnImageCaptureBuffer(const uint32_t camera_id,
   assert(ret == NO_ERROR);
 
   snapshot_buffer_list_.erase(buffer_id);
-  snapshot_buffer_stream_list_.erase(buffer_id);
+  snapshot_buffer_lock_.unlock();
 
   QMMF_DEBUG("%s: Exit", __func__);
   return ret;
@@ -2327,8 +2341,10 @@ void CameraContext::SnapshotCaptureCallback(StreamBuffer &buffer) {
   }
 
   buffer.camera_id = camera_id_;
+
+  snapshot_buffer_lock_.lock();
   snapshot_buffer_list_.insert(std::make_pair(buffer.fd, buffer));
-  snapshot_buffer_stream_list_.insert(std::make_pair(buffer.fd, buffer.stream_id));
+  snapshot_buffer_lock_.unlock();
 
   assert(client_snapshot_cb_ != nullptr);
 
