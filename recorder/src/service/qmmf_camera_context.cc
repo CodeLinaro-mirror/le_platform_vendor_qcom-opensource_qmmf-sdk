@@ -2050,8 +2050,8 @@ status_t CameraContext::UpdateRequest(bool cached) {
     std::lock_guard<std::mutex> lock(device_access_lock_);
     if (0 < max_fps) {
       int32_t fpsRange[2];
-      fpsRange[0] = ceil(max_fps - 0.5);
-      fpsRange[1] = ceil(max_fps - 0.5);
+      fpsRange[0] = std::round(max_fps);
+      fpsRange[1] = std::round(max_fps);
 
       QMMF_INFO("%s: set frame rate to %d fps", __func__, fpsRange[0]);
 
@@ -3084,7 +3084,9 @@ status_t CameraPort::Init() {
   }
 
   auto ret = context_->CreateDeviceStream(cam_stream_params_,
-                                          params_.framerate, &stream_id, true);
+                                          std::round(params_.framerate),
+                                          &stream_id,
+                                          true);
   if (ret != NO_ERROR || stream_id < 0) {
     QMMF_ERROR("%s: CreateDeviceStream failed!!", __func__);
     return BAD_VALUE;
