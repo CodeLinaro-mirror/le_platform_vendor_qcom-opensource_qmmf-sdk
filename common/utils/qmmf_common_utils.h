@@ -66,6 +66,7 @@
 #include <chrono>
 #include <condition_variable>
 #include <cmath>
+#include <dlfcn.h>
 #include <iomanip>
 #include <list>
 #include <map>
@@ -167,6 +168,16 @@ public:
 
     *camera_module = instance_->camera_module_;
     return instance_->status_;
+  }
+
+  static void release() {
+    std::lock_guard<std::mutex> lock(lock_);
+
+    if (instance_->camera_module_ != NULL) {
+      VendorTagDescriptor::clearGlobalVendorTagDescriptor();
+      dlclose(instance_->camera_module_->common.dso);
+      instance_->camera_module_ = NULL;
+    }
   }
 };
 

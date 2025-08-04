@@ -1394,7 +1394,7 @@ void TrackSource::CalculateFPS(StreamBuffer& buffer) {
     int64_t frame_interval = measurement_interval_ / input_frame_count_;
     float fps = FRAME_RATE_TIMEBASE / frame_interval;
 
-    QMMF_INFO("%s: Track(%x) FPS: %.2f", __func__, id_, fps);
+    QMMF_DEBUG("%s: Track(%x) FPS: %.2f", __func__, id_, fps);
 
     input_frame_count_    = 0;
     measurement_interval_ = 0;
