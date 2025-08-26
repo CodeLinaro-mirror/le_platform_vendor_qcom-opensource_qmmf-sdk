@@ -265,9 +265,8 @@ exit:
     alloc_device_interface_ = nullptr;
   }
 
-  if (NULL != camera_module_) {
-    dlclose(camera_module_->common.dso);
-  }
+  CameraModule::release();
+
   device_ = NULL;
   camera_module_ = NULL;
 
