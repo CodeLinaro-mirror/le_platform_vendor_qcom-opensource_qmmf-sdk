@@ -177,7 +177,9 @@ enum class VideoFlags : uint64_t {
 
 enum class VideoColorimetry : uint32_t {
   kBT601,        /// "bt601"
+  kBT709,        /// "bt709"
   kBT2100HLG,    /// "bt2100-hlg"
+  kBT2100PQ,     /// "bt2100-pq"
 };
 
 inline VideoFlags operator | (VideoFlags lhs, VideoFlags rhs) {
