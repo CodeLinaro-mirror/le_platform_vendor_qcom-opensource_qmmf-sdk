@@ -1114,22 +1114,23 @@ int32_t Camera3Stream::GetBufferLocked(camera3_stream_buffer *streamBuffer) {
     VideoColorimetry colorimetry = VideoColorimetry::kBT601;
 
 #if defined(CAMX_ANDROID_API) && (CAMX_ANDROID_API >= 31)
-    if (hdrmode_ == ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_HLG10) {
-      colorimetry = VideoColorimetry::kBT2100HLG;
+    if (hdrmode_ == 0) {
+      colorimetry = VideoColorimetry::kBT601;
+    } else if (hdrmode_ == ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_HLG10) {
+      colorimetry = VideoColorimetry::kBT2100HLGFULL;
     } else if (hdrmode_ == ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_HDR10) {
-      colorimetry = VideoColorimetry::kBT2100PQ;
+      colorimetry = VideoColorimetry::kBT2100PQFULL;
     } else if (hdrmode_ ==  ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_STANDARD) {
       if (data_space_ == HAL_DATASPACE_BT601_525) {
-        colorimetry = VideoColorimetry::kBT601;
+        colorimetry = VideoColorimetry::kBT601FULL;
       } else if (data_space_ == HAL_DATASPACE_BT709) {
-        colorimetry = VideoColorimetry::kBT709;
+        colorimetry = VideoColorimetry::kBT709FULL;
       } else {
         QMMF_ERROR("%s: Data space is not found in MAP_STANDARD.\n", __func__);
         return -ENOSYS;
       }
     } else {
-      QMMF_ERROR("%s: HDR mode is not found.\n", __func__);
-      return -ENOSYS;
+      QMMF_ERROR("%s: HDR mode is not found. Still using BT601.\n", __func__);
     }
 #endif
 
