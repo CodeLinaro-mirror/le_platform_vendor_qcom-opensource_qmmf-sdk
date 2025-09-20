@@ -139,43 +139,57 @@ int32_t VendorTagDescriptor::readFromBuffer(const uint8_t *in_buf) {
         return -1;
     }
 
+    auto read_u32 = [](const uint8_t*& p) -> uint32_t {
+        uint32_t v;
+        memcpy(&v, p, sizeof(uint32_t));
+        p += sizeof(uint32_t);
+        return v;
+    };
+
     const uint8_t *current = in_buf;
-    auto &tagCountPtrRef = reinterpret_cast<const uint32_t*&>(current);
-    uint32_t tagCount = *tagCountPtrRef++;
-    if (tagCount < 0 || tagCount > INT32_MAX) {
-        QMMF_ERROR("%s: tag count %d from vendor ops is invalid.",
-            __FUNCTION__, tagCount);
+
+    // ---- tagCount ----
+    uint32_t tagCount = read_u32(current);
+    if (tagCount > INT32_MAX) {
+        QMMF_ERROR("%s: tag count %u from vendor ops is invalid.", __FUNCTION__, tagCount);
         return -1;
     }
 
     std::map<uint32_t, std::forward_list<uint32_t>> sectionToTagsIndices;
+
+    // ---- tags ----
     for (uint32_t i = 0; i < tagCount; ++i) {
-        auto &det_raw_ptr_ref = reinterpret_cast<const tag_detail_raw*&>(
-            current);
-        auto &det_raw = *det_raw_ptr_ref++;
-        if (det_raw.tag < CAMERA_METADATA_VENDOR_TAG_BOUNDARY) {
-            QMMF_ERROR("%s: vendor tag %d not in vendor tag section.",
-                __FUNCTION__, det_raw.tag);
+        uint32_t tag          = read_u32(current);
+        int32_t  tagType      = static_cast<int32_t>(read_u32(current));
+        uint32_t sectionIndex = read_u32(current);
+        uint32_t sztagName    = read_u32(current);
+
+        const char* tagNamePtr = reinterpret_cast<const char*>(current);
+        // Advance by declared length (includes NUL)
+        current += sztagName;
+
+        if (tag < CAMERA_METADATA_VENDOR_TAG_BOUNDARY) {
+            QMMF_ERROR("%s: vendor tag %u not in vendor tag section.", __FUNCTION__, tag);
             res = -1;
             break;
         }
-        if (det_raw.tagType < 0 || det_raw.tagType >= NUM_TYPES) {
-            QMMF_ERROR("%s: tag type %d from vendor ops does not exist.",
-                __FUNCTION__, det_raw.tagType);
+        if (tagType < 0 || tagType >= NUM_TYPES) {
+            QMMF_ERROR("%s: tag type %d from vendor ops does not exist.", __FUNCTION__, tagType);
             res = -1;
             break;
         }
-        if (det_raw.sztagName == 0) {
-            QMMF_ERROR("%s: parcel tag name was NULL for tag %d.",
-                __FUNCTION__, det_raw.tag);
+        if (sztagName == 0) {
+            QMMF_ERROR("%s: parcel tag name was NULL for tag %u.", __FUNCTION__, tag);
             res = -1;
             break;
         }
-        current += det_raw.sztagName - 1;
-        tag_detail det = {{}, det_raw.tagName, (int32_t)det_raw.tagType};
-        mtagArray.push_back(det_raw.tag);
-        mtagArrayDetail[det_raw.tag] = det;
-        sectionToTagsIndices[det_raw.sectionIndex].push_front(det_raw.tag);
+
+        // Build metadata
+        std::string tagName(tagNamePtr, (sztagName > 0) ? (sztagName - 1) : 0); // drop NUL
+        tag_detail det = {{}, tagName, tagType};
+        mtagArray.push_back(tag);
+        mtagArrayDetail[tag] = det;
+        sectionToTagsIndices[sectionIndex].push_front(tag);
     }
 
     if (res != OK) {
@@ -183,28 +197,29 @@ int32_t VendorTagDescriptor::readFromBuffer(const uint8_t *in_buf) {
         return res;
     }
 
+    // ---- sectionCount ----
     uint32_t sectionCount = 0;
     if (tagCount > 0) {
-        auto &sectionCountPtrRef = reinterpret_cast<const uint32_t*&>(current);
-        sectionCount = *sectionCountPtrRef++;
+        sectionCount = read_u32(current);
+
         mSections.resize(sectionCount);
         for (uint32_t i_section = 0; i_section < sectionCount; ++i_section) {
-            auto &sec_ptr_ref = reinterpret_cast<const sect_name*&>(current);
-            const auto &sec = *sec_ptr_ref++;
-            std::string sectName_string = sec.sectName;
-            current += sec.szsectName - 1;
-            auto &revNamesMap = mReverseMapping[sectName_string];
+            uint32_t szsectName = read_u32(current);
+            const char* sectPtr = reinterpret_cast<const char*>(current);
+            current += szsectName;
+
+            std::string sectName(sectPtr, (szsectName > 0) ? (szsectName - 1) : 0); // drop NUL
+
             auto &sectionTags = sectionToTagsIndices[i_section];
             for (auto &tag : sectionTags) {
-              auto &det = mtagArrayDetail[tag];
-              mReverseMapping[sectName_string][det.tagName] = tag;
-              det.sectionName = sectName_string;
+                auto &det = mtagArrayDetail[tag];
+                mReverseMapping[sectName][det.tagName] = tag;
+                det.sectionName = sectName;
             }
         }
     }
 
-    // assign c strs from reverse mapping map since they are already sorted
-    // in it
+    // Build ordered section vector
     auto iter_sect = mSections.begin();
     for (auto &map_pair : mReverseMapping) {
         *iter_sect++ = map_pair.first;
@@ -215,76 +230,97 @@ int32_t VendorTagDescriptor::readFromBuffer(const uint8_t *in_buf) {
 
 int32_t VendorTagDescriptor::writeToBuffer(uint8_t out_buf[], size_t size) {
     status_t res = OK;
-    if (out_buf==NULL) {
+    if (out_buf == NULL) {
         QMMF_ERROR("%s: out argument was NULL.", __FUNCTION__);
         return -1;
     }
 
+    auto write_u32 = [](uint8_t*& p, uint32_t v) {
+        memcpy(p, &v, sizeof(uint32_t));
+        p += sizeof(uint32_t);
+    };
+
     uint8_t *current = out_buf;
+    uint8_t *end     = out_buf + size;
 
-    uint32_t TagCount = mtagArray.size();
-    if ((out_buf + size) - current < sizeof(int32_t)) {
-        QMMF_ERROR("%s: buffer overflow, buffer size is %zu, offset is 0",
-            size);
-        return -1;
-    }
-    auto &TagCountPtrRef = reinterpret_cast<int32_t*&>(current);
-    *TagCountPtrRef++ = TagCount;
-
-    uint32_t tag, sectionIndex;
-    uint32_t tagType;
-    for (size_t i = 0; i < TagCount; ++i) {
-        tag = mtagArray[i];
-        auto &det = mtagArrayDetail[(uint32_t)tag];
-        sectionIndex = std::distance(mReverseMapping.begin(),
-            mReverseMapping.find(det.sectionName));
-        tagType = det.tagType;
-        auto &det_raw_ptr_ref = reinterpret_cast<tag_detail_raw*&>(current);
-        auto &det_raw = *det_raw_ptr_ref++;
-        det_raw = tag_detail_raw{
-            tag, tagType, sectionIndex, det.tagName.size() + 1};
-        memcpy(det_raw.tagName, det.tagName.c_str(), det_raw.sztagName);
-        current += det_raw.sztagName - 1;
-    }
-
-    int32_t numSections = (int32_t)mReverseMapping.size();
-    if (numSections > 0) {
-        if ((out_buf + size) - current < sizeof(int32_t)) {
-            QMMF_ERROR("%s: buffer overflow, buffer size is %zu, offset is %zu",
-                size, current - out_buf);
-            return -1;
+    auto ensure = [&](size_t need) -> bool {
+        if ((size_t)(end - current) < need) {
+            QMMF_ERROR("%s: buffer overflow, need=%zu have=%zu", __FUNCTION__, need, (size_t)(end - current));
+            return false;
         }
-        auto &numSectionsPtrRef = reinterpret_cast<int32_t*&>(current);
-        *numSectionsPtrRef++ = numSections;
-        for (auto &pair : mReverseMapping) {
-            auto &sec_ptr_ref = reinterpret_cast<sect_name*&>(current);
-            auto &sec = *sec_ptr_ref++;
-            sec.szsectName = pair.first.size() + 1;
-            memcpy(sec.sectName, pair.first.c_str(), sec.szsectName);
-            current += sec.szsectName - 1;
-        }
+        return true;
+    };
+
+    // ---- tagCount ----
+    uint32_t tagCount = static_cast<uint32_t>(mtagArray.size());
+    if (!ensure(sizeof(uint32_t))) return -1;
+    write_u32(current, tagCount);
+
+    // ---- tags ----
+    for (size_t i = 0; i < tagCount; ++i) {
+        uint32_t tag = mtagArray[i];
+        auto &det    = mtagArrayDetail[(uint32_t)tag];
+
+        uint32_t sectionIndex = static_cast<uint32_t>(
+            std::distance(mReverseMapping.begin(), mReverseMapping.find(det.sectionName)));
+        uint32_t tagType   = static_cast<uint32_t>(det.tagType);
+        uint32_t nameBytes = static_cast<uint32_t>(det.tagName.size() + 1); // include NUL
+
+        if (!ensure(sizeof(uint32_t) * 4 + nameBytes)) return -1;
+
+        write_u32(current, tag);
+        write_u32(current, tagType);
+        write_u32(current, sectionIndex);
+        write_u32(current, nameBytes);
+
+        memcpy(current, det.tagName.c_str(), nameBytes);
+        current += nameBytes;
     }
 
-    if (current - out_buf > size) {
-        QMMF_ERROR("%s: buffer corruption, buffer size is %zu, offset is %zu",
-          size, current - out_buf);
-        return -1;
+    // ---- sectionCount ----
+    int32_t numSections = static_cast<int32_t>(mReverseMapping.size());
+    if (!ensure(sizeof(uint32_t))) return -1;
+    write_u32(current, static_cast<uint32_t>(numSections));
+
+    // ---- sections ----
+    for (auto &pair : mReverseMapping) {
+        const std::string &sect = pair.first;
+        uint32_t nameBytes = static_cast<uint32_t>(sect.size() + 1); // include NUL
+
+        if (!ensure(sizeof(uint32_t) + nameBytes)) return -1;
+
+        write_u32(current, nameBytes);
+        memcpy(current, sect.c_str(), nameBytes);
+        current += nameBytes;
     }
 
     return res;
 }
 
 size_t VendorTagDescriptor::getBufferSize() {
-    size_t size = mtagArray.size() * sizeof(tag_detail_raw);
-    for (const auto &tag : mtagArray)
-      size += mtagArrayDetail[tag].tagName.size();
-    size += mReverseMapping.size() * sizeof(sect_name);
-    for (const auto &pair : mReverseMapping)
-      size += pair.first.size();
-    size += sizeof(int32_t) * 2;
+    size_t size = 0;
+
+    // tagCount
+    size += sizeof(uint32_t);
+
+    // tags: tag, type, sectionIndex, nameLen + name bytes
+    for (const auto &tag : mtagArray) {
+        const auto &det = mtagArrayDetail.at(tag);
+        size += sizeof(uint32_t) * 4;
+        size += det.tagName.size() + 1; // include NUL
+    }
+
+    // sectionCount
+    size += sizeof(uint32_t);
+
+    // sections: nameLen + name bytes
+    for (const auto &pair : mReverseMapping) {
+        size += sizeof(uint32_t);
+        size += pair.first.size() + 1; // include NUL
+    }
+
     return size;
 }
-
 #ifdef HAVE_BINDER
 int32_t VendorTagDescriptor::readFromParcel(const Parcel* parcel) {
     int32_t res = 0;
