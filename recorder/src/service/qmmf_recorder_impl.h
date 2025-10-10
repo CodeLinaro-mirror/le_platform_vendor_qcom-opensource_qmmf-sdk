@@ -219,7 +219,8 @@ class RecorderImpl {
                                 const OfflineCameraCreateParams& params);
 
   status_t ProcOfflineProcess(const uint32_t client_id,
-                              const BnBuffer& in_buf,
+                              const BnBuffer& in_buf0,
+                              const BnBuffer& in_buf1,
                               const BnBuffer& out_buf,
                               const CameraMetadata& meta);
 
