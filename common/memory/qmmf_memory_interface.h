@@ -438,7 +438,7 @@ class IAllocDevice {
   virtual MemAllocError AllocBuffer(IBufferHandle& handle, int32_t width,
                                     int32_t height, int32_t format,
                                     MemAllocFlags usage,
-                                    uint32_t* stride) = 0;
+                                    uint32_t* stride, uint32_t colorimetry) = 0;
 
   virtual MemAllocError ImportBuffer(IBufferHandle& handle,
                                      void* buffer_handle, int fd) = 0;

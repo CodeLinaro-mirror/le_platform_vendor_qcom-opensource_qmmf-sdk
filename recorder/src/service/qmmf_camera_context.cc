@@ -2050,8 +2050,8 @@ status_t CameraContext::UpdateRequest(bool cached) {
     std::lock_guard<std::mutex> lock(device_access_lock_);
     if (0 < max_fps) {
       int32_t fpsRange[2];
-      fpsRange[0] = ceil(max_fps - 0.5);
-      fpsRange[1] = ceil(max_fps - 0.5);
+      fpsRange[0] = std::round(max_fps);
+      fpsRange[1] = std::round(max_fps);
 
       QMMF_INFO("%s: set frame rate to %d fps", __func__, fpsRange[0]);
 
@@ -3048,8 +3048,33 @@ status_t CameraPort::Init() {
   }
 
 #if defined(CAMX_ANDROID_API) && (CAMX_ANDROID_API >= 31)
-  if (params_.colorimetry == VideoColorimetry::kBT2100HLG) {
-    cam_stream_params_.hdrmode = ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_HLG10;
+  switch (params_.colorimetry) {
+    case VideoColorimetry::kBT601:
+      cam_stream_params_.hdrmode = 0;
+      cam_stream_params_.data_space = HAL_DATASPACE_UNKNOWN;
+      break;
+    case VideoColorimetry::kBT2100HLGFULL:
+      cam_stream_params_.hdrmode =
+          ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_HLG10;
+      break;
+    case VideoColorimetry::kBT2100PQFULL:
+      cam_stream_params_.hdrmode =
+          ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_HDR10;
+      break;
+    case VideoColorimetry::kBT601FULL:
+      cam_stream_params_.hdrmode =
+          ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_STANDARD;
+      cam_stream_params_.data_space = HAL_DATASPACE_BT601_525;
+      break;
+    case VideoColorimetry::kBT709FULL:
+      cam_stream_params_.hdrmode =
+          ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_STANDARD;
+      cam_stream_params_.data_space = HAL_DATASPACE_BT709;
+      break;
+    default:
+      QMMF_ERROR("%s: Invalid color space, colorimetry = %d",
+          __func__, params_.colorimetry);
+      break;
   }
 #endif
 
@@ -3084,7 +3109,9 @@ status_t CameraPort::Init() {
   }
 
   auto ret = context_->CreateDeviceStream(cam_stream_params_,
-                                          params_.framerate, &stream_id, true);
+                                          std::round(params_.framerate),
+                                          &stream_id,
+                                          true);
   if (ret != NO_ERROR || stream_id < 0) {
     QMMF_ERROR("%s: CreateDeviceStream failed!!", __func__);
     return BAD_VALUE;
