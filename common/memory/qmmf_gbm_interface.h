@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023, 2025, Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -114,10 +114,17 @@ class GBMBuffer : public IBufferInterface {
   static const std::unordered_map<uint32_t, uint32_t> to_gbm_;
 };
 
+struct GBMFormatTranslateEntry {
+  int32_t usage_flags;
+  int32_t input_format;
+  int32_t output_format;
+};
+
 class GBMDevice : public IAllocDevice {
 public:
 
   static std::mutex gbm_device_mutex_;
+  static GBMFormatTranslateEntry gbm_format_translate_table_[];
   static GBMDevice* CreateGBMDevice();
   static void DestroyGBMDevice();
 
@@ -125,7 +132,8 @@ public:
 
   MemAllocError AllocBuffer(IBufferHandle& handle, int32_t width,
                             int32_t height, int32_t format,
-                            MemAllocFlags usage, uint32_t* stride) override;
+                            MemAllocFlags usage, uint32_t* stride,
+                            uint32_t colorimetry) override;
 
   MemAllocError ImportBuffer(IBufferHandle& handle,
                              void* buffer_handle, int fd) override;
