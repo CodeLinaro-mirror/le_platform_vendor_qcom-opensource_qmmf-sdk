@@ -185,6 +185,7 @@
 #define GRALLOC_USAGE_PRIVATE_ALLOC_UBWC         0x10000000 // GRALLOC_USAGE_PRIVATE_0
 #define GRALLOC_USAGE_PRIVATE_ALLOC_10BIT        0x40000000 // GRALLOC_USAGE_PRIVATE_2
 #define GRALLOC_USAGE_PRIVATE_UNCACHED           0x02000000
+#define GRALLOC_USAGE_PRIVATE_SNAPSHOT           0x00400000
 
 #ifdef __LIBGBM__
 struct private_handle_t : public gbm_bo {
@@ -315,6 +316,7 @@ class IMemAllocUsage {
   static const int kFlex4Batch;
   static const int kFlex8Batch;
   static const int kFlexBatch;
+  static const int kPrivateSnapshot;
 
   /** IMemAllocUsage::ToLocal
   *
