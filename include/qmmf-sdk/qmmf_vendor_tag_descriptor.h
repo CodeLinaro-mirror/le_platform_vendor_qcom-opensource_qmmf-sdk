@@ -26,7 +26,6 @@
 #include <vector>
 #include <mutex>
 
-#include <string>
 #include <stdint.h>
 
 namespace android {

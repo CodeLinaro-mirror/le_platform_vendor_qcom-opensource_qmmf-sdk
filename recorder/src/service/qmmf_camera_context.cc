@@ -1307,25 +1307,6 @@ status_t CameraContext::GetDefaultCaptureParam(CameraMetadata &meta) {
   return ret;
 }
 
-status_t CameraContext::GetCamStaticInfo(std::vector<CameraMetadata> &meta) {
-
-  QMMF_DEBUG("%s: Enter", __func__);
-  uint32_t num_of_cameras = camera_device_->GetNumberOfCameras();
-  meta.resize(num_of_cameras);
-
-  for (int i=0; i < num_of_cameras; i++) {
-    meta[i].clear();
-    int32_t res = camera_device_->GetCameraInfo(i, &meta[i]);
-    if (NO_ERROR != res) {
-      QMMF_ERROR("%s: Error during camera static info query: %s!\n", __func__,
-                 strerror(-res));
-      return NO_INIT;
-    }
-  }
-  QMMF_DEBUG("%s: Exit", __func__);
-  return NO_ERROR;
-}
-
 status_t CameraContext::GetCameraCharacteristics(CameraMetadata &meta) {
 
   QMMF_DEBUG("%s: Enter", __func__);
@@ -2991,25 +2972,23 @@ status_t CameraPort::Init() {
     } else if (camera_parameters_.super_frames == 8) {
       cam_stream_params_.allocFlags.flags |=
           IMemAllocUsage::kFlex8Batch;
-    } else if (camera_parameters_.super_frames == 16) {
-      cam_stream_params_.allocFlags.flags |=
-          IMemAllocUsage::kFlexBatch;
     }
 
     switch (params_.format) {
       case BufferFormat::kNV12UBWC:
+        cam_stream_params_.allocFlags.flags |=
+            IMemAllocUsage::kPrivateAllocUbwc;
+        break;
       case BufferFormat::kNV12UBWCFLEX:
         cam_stream_params_.allocFlags.flags |=
             IMemAllocUsage::kPrivateAllocUbwc;
         break;
       case BufferFormat::kP010:
-      case BufferFormat::kP010FLEX:
         cam_stream_params_.data_space = HAL_DATASPACE_TRANSFER_GAMMA2_8;
         cam_stream_params_.allocFlags.flags |=
             IMemAllocUsage::kPrivateAllocP010;
         break;
       case BufferFormat::kTP10UBWC:
-      case BufferFormat::kTP10UBWCFLEX:
         cam_stream_params_.data_space = HAL_DATASPACE_TRANSFER_GAMMA2_8;
         cam_stream_params_.allocFlags.flags |=
             IMemAllocUsage::kPrivateAllocTP10 |

@@ -275,7 +275,9 @@ status_t RecorderClient::Disconnect() {
   }
   client_id_ = 0;
 
-  vendor_tag_desc_.reset();
+  // Clear global tag descriptor for the process
+  VendorTagDescriptor::clearGlobalVendorTagDescriptor();
+  vendor_tag_desc_ = nullptr;
 
   QMMF_DEBUG("%s Exit ", __func__);
   return ret;
@@ -743,22 +745,6 @@ status_t RecorderClient::GetDefaultCaptureParam(const uint32_t camera_id,
   return ret;
 }
 
-status_t RecorderClient::GetCamStaticInfo(std::vector<CameraMetadata> &meta) {
-
-  QMMF_DEBUG("%s Enter ", __func__);
-  std::lock_guard<std::mutex> lock(lock_);
-  if (!CheckServiceStatus()) {
-    return -ENODEV;
-  }
-  assert(client_id_ > 0);
-  auto ret = recorder_service_->GetCamStaticInfo(client_id_, meta);
-  if (0 != ret) {
-    QMMF_ERROR("%s GetCamStaticInfo failed!", __func__);
-  }
-  QMMF_DEBUG("%s Exit ", __func__);
-  return ret;
-}
-
 status_t RecorderClient::GetCameraCharacteristics(const uint32_t camera_id,
                                                   CameraMetadata &meta) {
 
@@ -913,16 +899,6 @@ void RecorderClient::ImportBuffer(int32_t fd, int32_t metafd,
     case BufferFormat::kNV12:
       format = GBM_FORMAT_NV12;
       break;
-    case BufferFormat::kNV12FLEX:
-      if (meta.n_frames == 2)
-        format = GBM_FORMAT_NV12_FLEX_2_BATCH;
-      else if (meta.n_frames == 4)
-        format = GBM_FORMAT_NV12_FLEX_4_BATCH;
-      else if (meta.n_frames == 8)
-        format = GBM_FORMAT_NV12_FLEX_8_BATCH;
-      else if (meta.n_frames == 16)
-        format = GBM_FORMAT_NV12_FLEX;
-      break;
     case BufferFormat::kNV21:
       format = GBM_FORMAT_NV21_ZSL;
       break;
@@ -944,34 +920,12 @@ void RecorderClient::ImportBuffer(int32_t fd, int32_t metafd,
         format = GBM_FORMAT_NV12_UBWC_FLEX_4_BATCH;
       else if (meta.n_frames == 8)
         format = GBM_FORMAT_NV12_UBWC_FLEX_8_BATCH;
-      else if (meta.n_frames == 16)
-        format = GBM_FORMAT_NV12_UBWC_FLEX;
       break;
     case BufferFormat::kP010:
       format = GBM_FORMAT_YCbCr_420_P010_VENUS;
       break;
-    case BufferFormat::kP010FLEX:
-      if (meta.n_frames == 2)
-        format = GBM_FORMAT_YCbCr_420_P010_FLEX_2_BATCH;
-      else if (meta.n_frames == 4)
-        format = GBM_FORMAT_YCbCr_420_P010_FLEX_4_BATCH;
-      else if (meta.n_frames == 8)
-        format = GBM_FORMAT_YCbCr_420_P010_FLEX_8_BATCH;
-      else if (meta.n_frames == 16)
-        format = GBM_FORMAT_YCbCr_420_P010_FLEX;
-      break;
     case BufferFormat::kTP10UBWC:
       format = GBM_FORMAT_YCbCr_420_TP10_UBWC;
-      break;
-    case BufferFormat::kTP10UBWCFLEX:
-      if (meta.n_frames == 2)
-        format = GBM_FORMAT_YCbCr_420_TP10_UBWC_FLEX_2_BATCH;
-      else if (meta.n_frames == 4)
-        format = GBM_FORMAT_YCbCr_420_TP10_UBWC_FLEX_4_BATCH;
-      else if (meta.n_frames == 8)
-        format = GBM_FORMAT_YCbCr_420_TP10_UBWC_FLEX_8_BATCH;
-      else if (meta.n_frames == 16)
-        format = GBM_FORMAT_YCbCr_420_TP10_UBWC_FLEX;
       break;
     case BufferFormat::kYUY2:
       format = GBM_FORMAT_YCrCb_422_I;
@@ -983,7 +937,7 @@ void RecorderClient::ImportBuffer(int32_t fd, int32_t metafd,
       format = GBM_FORMAT_NV12_HEIF;
       break;
     default:
-      format = GBM_FORMAT_NOT_DEFIEND;
+      format = 0;
   }
 
   gbm_buf_info bufinfo = { fd, metafd, width , height, format };
@@ -1728,37 +1682,6 @@ class BpRecorderService: public BpInterface<IRecorderService> {
     auto ret = reply.readInt32();
     if (NO_ERROR == ret) {
       ret = meta.readFromParcel(&reply);
-    }
-    return ret;
-  }
-
-  status_t GetCamStaticInfo(const uint32_t client_id,
-                            std::vector<CameraMetadata> &meta) {
-    Parcel data, reply;
-    data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
-    data.writeUint32(client_id);
-    remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
-                                RECORDER_GET_STATIC_CAMERA_INFO), data,
-                                &reply);
-    auto ret = reply.readInt32();
-    if (NO_ERROR == ret) {
-      uint32_t meta_size;
-      reply.readUint32(&meta_size);
-      for (uint32_t i = 0; i < meta_size; ++i) {
-        CameraMetadata caps;
-        camera_metadata_t *m = nullptr;
-        ret = caps.readFromParcel(reply, &m);
-        if ((NO_ERROR != ret) || (nullptr == m)) {
-          QMMF_ERROR("%s: Metadata parcel read failed: %d meta(%p)",
-              __func__, ret, m);
-          return ret;
-        }
-        caps.clear();
-        caps.append(m);
-        meta.push_back(caps);
-        //We need to release this memory as meta.append() makes copy of this memory
-        free(m);
-      }
     }
     return ret;
   }

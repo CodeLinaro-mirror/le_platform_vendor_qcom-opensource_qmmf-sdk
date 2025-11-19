@@ -28,7 +28,7 @@
 *
 * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
 *
-* Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted (subject to the limitations in the
@@ -182,9 +182,6 @@ class CameraSource {
   status_t GetCameraCharacteristics(const uint32_t camera_id,
                                     CameraMetadata &meta);
 
-  /// Return static metadata of all the camera's connected without opening the camera
-  status_t GetCamStaticInfo(std::vector<CameraMetadata> &meta);
-
   /// UpdateTrackFrameRate
   status_t UpdateTrackFrameRate(const uint32_t track_id,
                                 const float framerate);
@@ -321,7 +318,6 @@ class TrackSource {
   sp<IBufferConsumer>& GetConsumer() { return buffer_consumer_; }
 
   void ReturnBufferToProducer(StreamBuffer& buffer);
-  void CalculateFPS(StreamBuffer& buffer);
 
   uint32_t                 id_;
   VideoTrackParam          params_;
@@ -357,12 +353,6 @@ class TrackSource {
 
   std::shared_ptr<TrackSource> master_track_;
   bool  slave_track_source_;
-
-  //FPS calculation related variables
-  int32_t                  input_frame_count_;
-  int64_t                  measurement_interval_;
-  int64_t                  previous_input_ts_;
-  int64_t                  input_frame_interval_;
 };
 
 }; //namespace recorder

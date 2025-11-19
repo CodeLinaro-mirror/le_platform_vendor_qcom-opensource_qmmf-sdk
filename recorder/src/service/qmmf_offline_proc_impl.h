@@ -89,7 +89,6 @@ class OfflineProcess {
 
   int32_t GetBufferId(const uint32_t& client_id, const int32_t& buffer_fd);
   int32_t GetBufferFd(const uint32_t& client_id, const int32_t& buffer_id);
-  uint32_t GetUsageFromFormat(BufferFormat format);
 
   void ReleaseRequestData(PostProcSessionParams* params);
 
@@ -118,6 +117,11 @@ class OfflineProcess {
   std::map<uint32_t, OfflineRequests>     client_requests_map_;
 
   recorder::RemoteCallbackHandle          remote_cb_handle_;
+
+  vendor_tag_ops_t vendor_tag_ops_;
+  static std::mutex vendor_tag_mutex_;
+  static std::shared_ptr<VendorTagDescriptor> vendor_tag_desc_;
+  static uint32_t client_count_;
 };
 
 struct OfflineCbData {

@@ -8,7 +8,6 @@
 #include <sys/types.h>
 
 #include "qmmf_camera_metadata.h"
-#include <qmmf-sdk/qmmf_recorder_params.h>
 
 namespace qmmf {
 
@@ -24,9 +23,9 @@ enum OfflinePostProcMode
 };
 
 struct OfflineCameraBufferParams {
-  uint32_t                    width;
-  uint32_t                    height;
-  qmmf::recorder::VideoFormat format;
+  uint32_t width;
+  uint32_t height;
+  uint32_t format;
 };
 
 // Input parameters of offline camera create function

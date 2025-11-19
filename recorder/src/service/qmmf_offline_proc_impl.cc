@@ -48,10 +48,11 @@
 
 namespace qmmf {
 
-std::mutex CameraModule::lock_;
-CameraModule* CameraModule::instance_ = nullptr;
-
 static const uint64_t kWaitDuration = 1000000000; // 1 s.
+
+std::mutex OfflineProcess::vendor_tag_mutex_;
+std::shared_ptr<VendorTagDescriptor> OfflineProcess::vendor_tag_desc_;
+uint32_t OfflineProcess::client_count_ = 0;
 
 OfflineProcess::OfflineProcess() :
                     offlineipe_enable(false),
@@ -76,16 +77,51 @@ status_t OfflineProcess::Init(
   int32_t ret = NO_ERROR;
 
   // This is required for proper working of the jpeg lib
-  ret = CameraModule::getInstance(&camera_module_);
+  ret = hw_get_module(CAMERA_HARDWARE_MODULE_ID,
+                      (const hw_module_t **)&camera_module_);
   if (0 != ret || nullptr == camera_module_) {
     QMMF_ERROR("%s: Unable to load Hal module: %d\n", __func__, ret);
     return ret;
+  }
+  /*
+   * Offline camera create function needs session metadata pass in,
+   * therefore create vendor tag descriptor before create function is called.
+   */
+  if (camera_module_->get_vendor_tag_ops) {
+    std::lock_guard<std::mutex> lk(vendor_tag_mutex_);
+    if (client_count_ == 0) {
+      vendor_tag_ops_ = vendor_tag_ops_t();
+      camera_module_->get_vendor_tag_ops(&vendor_tag_ops_);
+      ret = VendorTagDescriptor::createDescriptorFromOps(&vendor_tag_ops_,
+              vendor_tag_desc_);
+      if (ret != 0 || (vendor_tag_desc_ == NULL)) {
+        QMMF_ERROR("%s: Could not generate descriptor from vendor tag operations,"
+                "received error %s (%d). Camera clients will not be able to use"
+                "vendor tags", __FUNCTION__, strerror(ret), ret);
+        return BAD_VALUE;
+      }
+
+      ret = VendorTagDescriptor::setAsGlobalVendorTagDescriptor(vendor_tag_desc_);
+      if (ret != 0) {
+        QMMF_ERROR("%s: Could not set vendor tag descriptor, "
+                "received error %s (%d). \n",
+                __func__, strerror(-ret), ret);
+        VendorTagDescriptor::clearGlobalVendorTagDescriptor();
+        if (vendor_tag_desc_.get() != nullptr)
+          vendor_tag_desc_.reset();
+        return BAD_VALUE;
+      }
+      ++client_count_;
+    }
   }
 
   offline_proc_lib_ = dlopen(JPEG_POSTPROC_LIB, RTLD_NOW | RTLD_LOCAL);
   if (!offline_proc_lib_) {
     QMMF_ERROR("%s: No postproc lib, dlopen failed with: %s.",
             __func__, dlerror());
+    VendorTagDescriptor::clearGlobalVendorTagDescriptor();
+    if (vendor_tag_desc_.get() != nullptr)
+      vendor_tag_desc_.reset();
     return BAD_VALUE;
   }
 
@@ -103,6 +139,9 @@ status_t OfflineProcess::Init(
             pCameraPostProcCreate,
             pCameraPostProcProcess,
             pCameraPostProcDestroy);
+    VendorTagDescriptor::clearGlobalVendorTagDescriptor();
+    if (vendor_tag_desc_.get() != nullptr)
+      vendor_tag_desc_.reset();
     return BAD_VALUE;
   }
 
@@ -120,6 +159,18 @@ status_t OfflineProcess::DeInit() {
   if (offline_proc_lib_) {
     dlclose(offline_proc_lib_);
     offline_proc_lib_ = nullptr;
+  }
+
+  std::lock_guard<std::mutex> lk(vendor_tag_mutex_);
+  if (--client_count_ == 0) {
+    VendorTagDescriptor::clearGlobalVendorTagDescriptor();
+    if (vendor_tag_desc_.get() != nullptr)
+      vendor_tag_desc_.reset();
+  }
+
+  if (nullptr != camera_module_) {
+    dlclose(camera_module_->common.dso);
+    camera_module_ = nullptr;
   }
 
   {
@@ -213,33 +264,8 @@ int32_t OfflineProcess::GetBufferFd(const uint32_t& client_id,
   return client_fd_map_[client_id][buffer_id];
 }
 
-uint32_t OfflineProcess::GetUsageFromFormat (BufferFormat format)
-{
-  uint32_t usage_flags;
-
-  switch (format) {
-    case BufferFormat::kNV12UBWC:
-      usage_flags = AllocUsageFactory::GetAllocUsage().ToLocal
-          (IMemAllocUsage::kPrivateAllocUbwc);
-      break;
-    case BufferFormat::kP010:
-      usage_flags = AllocUsageFactory::GetAllocUsage().ToLocal
-          (IMemAllocUsage::kPrivateAllocP010);
-      break;
-    default:
-      usage_flags = 0;
-      break;
-  }
-
-  QMMF_INFO("%s: usage_flags is 0x%x", __func__, usage_flags);
-
-  return usage_flags;
-}
-
 status_t OfflineProcess::Create(const uint32_t client_id,
                                     const OfflineCameraCreateParams& params) {
-  BufferFormat buffer_format;
-
   QMMF_INFO("%s: Enter client_id %d", __func__, client_id);
 
   std::lock_guard<std::mutex> client_lock(client_pproc_lock_);
@@ -262,23 +288,11 @@ status_t OfflineProcess::Create(const uint32_t client_id,
 
   create_params.config.inBuffer.width = params.in_buffer.width;
   create_params.config.inBuffer.height = params.in_buffer.height;
-  buffer_format = Common::FromVideoToQmmfFormat(params.in_buffer.format);
-  create_params.config.inBuffer.format =
-      Common::FromQmmfToHalFormat(buffer_format);
-#ifdef FEATURE_OFFLINE_IPE_ENABLE
-  create_params.config.inBuffer.usage_flags =
-      GetUsageFromFormat(buffer_format);
-#endif
+  create_params.config.inBuffer.format = params.in_buffer.format;
 
   create_params.config.outBuffer.width = params.out_buffer.width;
   create_params.config.outBuffer.height = params.out_buffer.height;
-  buffer_format = Common::FromVideoToQmmfFormat(params.out_buffer.format);
-  create_params.config.outBuffer.format =
-      Common::FromQmmfToHalFormat(buffer_format);
-#ifdef FEATURE_OFFLINE_IPE_ENABLE
-  create_params.config.outBuffer.usage_flags =
-      GetUsageFromFormat(buffer_format);
-#endif
+  create_params.config.outBuffer.format = params.out_buffer.format;
 
   create_params.config.clientCb = OfflineCb;
   create_params.cb_data = new OfflineCbData;
