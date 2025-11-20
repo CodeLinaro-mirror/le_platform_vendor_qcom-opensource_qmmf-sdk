@@ -243,6 +243,8 @@ class RecorderImpl {
   /// Camera Error callback handler
   void CameraErrorCb(uint32_t camera_id, uint32_t errcode);
 
+  void CameraDeviceStatusCb(uint32_t camera_id, bool is_present);
+
   // Get suitable trackid for linked stream
   uint32_t FindSuitableIdForLinkedTrack(const VideoTrackParam& params);
 
@@ -256,6 +258,12 @@ class RecorderImpl {
   enum class TrackState {
     kActive,
     kIdle,
+  };
+
+  // Struct for camera device status data
+  struct CameraDeviceStatusData {
+    uint32_t camera_id;
+    bool is_present;
   };
 
   // <client track id, service track id>

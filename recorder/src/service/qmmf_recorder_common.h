@@ -74,6 +74,8 @@ typedef std::function< const sp<RemoteCallBack>& (uint32_t client_id)>
 
 typedef std::function<void(uint32_t camera_id, int32_t errcode)> ErrorCb;
 
+typedef std::function<void(uint32_t camera_id, bool is_present)> DeviceStatusCb;
+
 }; //namespace recorder.
 
 }; //namespace qmmf.
