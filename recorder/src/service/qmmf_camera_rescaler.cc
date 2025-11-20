@@ -750,7 +750,7 @@ status_t CameraRescalerMemPool::AllocHWMemBuffer(IBufferHandle &buf) {
 
   MemAllocError ret = alloc_device_interface_->AllocBuffer(buf,
       static_cast<int>(width), static_cast<int>(height), format, usage, &stride,
-      static_cast<uint32_t>(Colorimetry::kBT601));
+      static_cast<uint32_t>(VideoColorimetry::kBT601));
   if (MemAllocError::kAllocOk != ret) {
     QMMF_ERROR("%s: Failed to allocate alloc buffer", __func__);
     return NO_MEMORY;
