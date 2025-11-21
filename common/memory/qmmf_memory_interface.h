@@ -70,11 +70,73 @@
 #elif TARGET_USES_GBM
 #include <gbm.h>
 #include <gbm_priv.h>
-#ifndef GBM_FORMAT_NV12_UBWC_FLEX_2_BATCH
-#define GBM_FORMAT_NV12_UBWC_FLEX_2_BATCH 0
-#define GBM_FORMAT_NV12_UBWC_FLEX_4_BATCH 0
-#define GBM_FORMAT_NV12_UBWC_FLEX_8_BATCH 0
+
+#define GBM_FORMAT_NOT_DEFIEND                          0
+
+#ifndef GBM_FORMAT_NV12_UBWC_FLEX
+#define GBM_FORMAT_NV12_UBWC_FLEX                       GBM_FORMAT_NOT_DEFIEND
 #endif
+
+#ifndef GBM_FORMAT_NV12_UBWC_FLEX_2_BATCH
+#define GBM_FORMAT_NV12_UBWC_FLEX_2_BATCH               GBM_FORMAT_NOT_DEFIEND
+#endif
+
+#ifndef GBM_FORMAT_NV12_UBWC_FLEX_4_BATCH
+#define GBM_FORMAT_NV12_UBWC_FLEX_4_BATCH               GBM_FORMAT_NOT_DEFIEND
+#endif
+
+#ifndef GBM_FORMAT_NV12_UBWC_FLEX_8_BATCH
+#define GBM_FORMAT_NV12_UBWC_FLEX_8_BATCH               GBM_FORMAT_NOT_DEFIEND
+#endif
+
+#ifndef GBM_FORMAT_NV12_FLEX
+#define GBM_FORMAT_NV12_FLEX                            GBM_FORMAT_NOT_DEFIEND
+#endif
+
+#ifndef GBM_FORMAT_NV12_FLEX_2_BATCH
+#define GBM_FORMAT_NV12_FLEX_2_BATCH                    GBM_FORMAT_NOT_DEFIEND
+#endif
+
+#ifndef GBM_FORMAT_NV12_FLEX_4_BATCH
+#define GBM_FORMAT_NV12_FLEX_4_BATCH                    GBM_FORMAT_NOT_DEFIEND
+#endif
+
+#ifndef GBM_FORMAT_NV12_FLEX_8_BATCH
+#define GBM_FORMAT_NV12_FLEX_8_BATCH                    GBM_FORMAT_NOT_DEFIEND
+#endif
+
+#ifndef GBM_FORMAT_YCbCr_420_P010_FLEX
+#define GBM_FORMAT_YCbCr_420_P010_FLEX                  GBM_FORMAT_NOT_DEFIEND
+#endif
+
+#ifndef GBM_FORMAT_YCbCr_420_P010_FLEX_2_BATCH
+#define GBM_FORMAT_YCbCr_420_P010_FLEX_2_BATCH          GBM_FORMAT_NOT_DEFIEND
+#endif
+
+#ifndef GBM_FORMAT_YCbCr_420_P010_FLEX_4_BATCH
+#define GBM_FORMAT_YCbCr_420_P010_FLEX_4_BATCH          GBM_FORMAT_NOT_DEFIEND
+#endif
+
+#ifndef GBM_FORMAT_YCbCr_420_P010_FLEX_8_BATCH
+#define GBM_FORMAT_YCbCr_420_P010_FLEX_8_BATCH          GBM_FORMAT_NOT_DEFIEND
+#endif
+
+#ifndef GBM_FORMAT_YCbCr_420_TP10_UBWC_FLEX
+#define GBM_FORMAT_YCbCr_420_TP10_UBWC_FLEX             GBM_FORMAT_NOT_DEFIEND
+#endif
+
+#ifndef GBM_FORMAT_YCbCr_420_TP10_UBWC_FLEX_2_BATCH
+#define GBM_FORMAT_YCbCr_420_TP10_UBWC_FLEX_2_BATCH     GBM_FORMAT_NOT_DEFIEND
+#endif
+
+#ifndef GBM_FORMAT_YCbCr_420_TP10_UBWC_FLEX_4_BATCH
+#define GBM_FORMAT_YCbCr_420_TP10_UBWC_FLEX_4_BATCH     GBM_FORMAT_NOT_DEFIEND
+#endif
+
+#ifndef GBM_FORMAT_YCbCr_420_TP10_UBWC_FLEX_8_BATCH
+#define GBM_FORMAT_YCbCr_420_TP10_UBWC_FLEX_8_BATCH     GBM_FORMAT_NOT_DEFIEND
+#endif
+
 #ifdef __LIBGBM__
 #include <hardware/camera.h>
 #define GRALLOC_USAGE_PROTECTED                  0x00004000
@@ -92,9 +154,27 @@
 #define HAL_PIXEL_FORMAT_NV21_ZSL                0x113
 #define HAL_PIXEL_FORMAT_NV12_HEIF               0x00000116 // HEIF video YUV420 format
 #define HAL_PIXEL_FORMAT_CbYCrY_422_I            0x120
+#define HAL_PIXEL_FORMAT_NV12_UBWC_FLEX          0x126
 #define HAL_PIXEL_FORMAT_NV12_UBWC_FLEX_2_BATCH  0x128
 #define HAL_PIXEL_FORMAT_NV12_UBWC_FLEX_4_BATCH  0x129
 #define HAL_PIXEL_FORMAT_NV12_UBWC_FLEX_8_BATCH  0x130
+#define HAL_PIXEL_FORMAT_NV12_FLEX               0x125
+#define HAL_PIXEL_FORMAT_NV12_FLEX_2_BATCH       0x140
+#define HAL_PIXEL_FORMAT_NV12_FLEX_4_BATCH       0x141
+#define HAL_PIXEL_FORMAT_NV12_FLEX_8_BATCH       0x142
+#define HAL_PIXEL_FORMAT_P010_FLEX               0x143
+#define HAL_PIXEL_FORMAT_P010_FLEX_2_BATCH       0x144
+#define HAL_PIXEL_FORMAT_P010_FLEX_4_BATCH       0x145
+#define HAL_PIXEL_FORMAT_P010_FLEX_8_BATCH       0x146
+#define HAL_PIXEL_FORMAT_TP10_UBWC_FLEX          0x147
+#define HAL_PIXEL_FORMAT_TP10_UBWC_FLEX_2_BATCH  0x148
+#define HAL_PIXEL_FORMAT_TP10_UBWC_FLEX_4_BATCH  0x149
+#define HAL_PIXEL_FORMAT_TP10_UBWC_FLEX_8_BATCH  0x14a
+#define HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS      0x7FA30C04
+#define HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS_UBWC 0x7FA30C06
+#define HAL_PIXEL_FORMAT_YCbCr_422_I_10BIT       0x4C595559
+#define HAL_PIXEL_FORMAT_YCbCr_420_TP10_UBWC     0x7FA30C09
+
 #define GRALLOC_USAGE_HW_TEXTURE                 0x00000100
 #define GRALLOC_USAGE_HW_RENDER                  0x00000200
 #define GRALLOC_USAGE_HW_COMPOSER                0x00000800
@@ -105,10 +185,6 @@
 #define GRALLOC_USAGE_PRIVATE_ALLOC_UBWC         0x10000000 // GRALLOC_USAGE_PRIVATE_0
 #define GRALLOC_USAGE_PRIVATE_ALLOC_10BIT        0x40000000 // GRALLOC_USAGE_PRIVATE_2
 #define GRALLOC_USAGE_PRIVATE_UNCACHED           0x02000000
-#define HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS      0x7FA30C04
-#define HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS_UBWC 0x7FA30C06
-#define HAL_PIXEL_FORMAT_YCbCr_422_I_10BIT       0x4C595559
-#define HAL_PIXEL_FORMAT_YCbCr_420_TP10_UBWC     0x7FA30C09
 
 #ifdef __LIBGBM__
 struct private_handle_t : public gbm_bo {
@@ -195,6 +271,8 @@ class MemAllocFlags {
 
 
   bool Exists(const int flag) const { return flags & flag; }
+
+  bool Matches(const int flag) const { return ((flags & flag) == flag); }
 };
 
 /** MemAllocFlags
@@ -236,6 +314,7 @@ class IMemAllocUsage {
   static const int kFlex2Batch;
   static const int kFlex4Batch;
   static const int kFlex8Batch;
+  static const int kFlexBatch;
 
   /** IMemAllocUsage::ToLocal
   *
@@ -359,7 +438,7 @@ class IAllocDevice {
   virtual MemAllocError AllocBuffer(IBufferHandle& handle, int32_t width,
                                     int32_t height, int32_t format,
                                     MemAllocFlags usage,
-                                    uint32_t* stride) = 0;
+                                    uint32_t* stride, uint32_t colorimetry) = 0;
 
   virtual MemAllocError ImportBuffer(IBufferHandle& handle,
                                      void* buffer_handle, int fd) = 0;

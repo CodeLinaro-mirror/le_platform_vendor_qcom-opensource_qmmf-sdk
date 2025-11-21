@@ -1491,7 +1491,9 @@ status_t CameraContext::CreateDeviceStream(CameraStreamParameters& params,
   // EndConfigure in this situation.
   if (streaming_request_id_ < 0) {
     if (hfr_supported_) {
-      if (kConstrainedModeThreshold <= frame_rate) {
+      if ((kConstrainedModeThreshold <= frame_rate) ||
+          (camera_parameters_.super_frames > 1)) {
+        // Normal HFR and BatchMode HFR pass the same operation mode
         camera_parameters_.is_constrained_high_speed = true;
       } else {
         for (auto const& it : active_ports_) {
@@ -1522,7 +1524,9 @@ status_t CameraContext::CreateDeviceStream(CameraStreamParameters& params,
     }
     QMMF_DEBUG("%s: Max fps (%u)!!", __func__, max_frame_rate);
 
-    if (max_frame_rate > 30 && max_frame_rate < kConstrainedModeThreshold) {
+    if ((camera_parameters_.super_frames == 1) && (max_frame_rate > 30 &&
+        max_frame_rate < kConstrainedModeThreshold)) {
+      // For normal HFR (30fps, kConstrainedModeThreshold)
       camera_parameters_.fps_sensormode_index = GetSensorModeIndex(params.width,
           params.height, max_frame_rate);
       QMMF_DEBUG("%s: Sensor mode index (%u) for fps=%u!!", __func__,
@@ -2050,8 +2054,8 @@ status_t CameraContext::UpdateRequest(bool cached) {
     std::lock_guard<std::mutex> lock(device_access_lock_);
     if (0 < max_fps) {
       int32_t fpsRange[2];
-      fpsRange[0] = ceil(max_fps - 0.5);
-      fpsRange[1] = ceil(max_fps - 0.5);
+      fpsRange[0] = std::round(max_fps);
+      fpsRange[1] = std::round(max_fps);
 
       QMMF_INFO("%s: set frame rate to %d fps", __func__, fpsRange[0]);
 
@@ -2991,23 +2995,25 @@ status_t CameraPort::Init() {
     } else if (camera_parameters_.super_frames == 8) {
       cam_stream_params_.allocFlags.flags |=
           IMemAllocUsage::kFlex8Batch;
+    } else if (camera_parameters_.super_frames == 16) {
+      cam_stream_params_.allocFlags.flags |=
+          IMemAllocUsage::kFlexBatch;
     }
 
     switch (params_.format) {
       case BufferFormat::kNV12UBWC:
-        cam_stream_params_.allocFlags.flags |=
-            IMemAllocUsage::kPrivateAllocUbwc;
-        break;
       case BufferFormat::kNV12UBWCFLEX:
         cam_stream_params_.allocFlags.flags |=
             IMemAllocUsage::kPrivateAllocUbwc;
         break;
       case BufferFormat::kP010:
+      case BufferFormat::kP010FLEX:
         cam_stream_params_.data_space = HAL_DATASPACE_TRANSFER_GAMMA2_8;
         cam_stream_params_.allocFlags.flags |=
             IMemAllocUsage::kPrivateAllocP010;
         break;
       case BufferFormat::kTP10UBWC:
+      case BufferFormat::kTP10UBWCFLEX:
         cam_stream_params_.data_space = HAL_DATASPACE_TRANSFER_GAMMA2_8;
         cam_stream_params_.allocFlags.flags |=
             IMemAllocUsage::kPrivateAllocTP10 |
@@ -3046,8 +3052,33 @@ status_t CameraPort::Init() {
   }
 
 #if defined(CAMX_ANDROID_API) && (CAMX_ANDROID_API >= 31)
-  if (params_.colorimetry == VideoColorimetry::kBT2100HLG) {
-    cam_stream_params_.hdrmode = ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_HLG10;
+  switch (params_.colorimetry) {
+    case VideoColorimetry::kBT601:
+      cam_stream_params_.hdrmode = 0;
+      cam_stream_params_.data_space = HAL_DATASPACE_UNKNOWN;
+      break;
+    case VideoColorimetry::kBT2100HLGFULL:
+      cam_stream_params_.hdrmode =
+          ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_HLG10;
+      break;
+    case VideoColorimetry::kBT2100PQFULL:
+      cam_stream_params_.hdrmode =
+          ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_HDR10;
+      break;
+    case VideoColorimetry::kBT601FULL:
+      cam_stream_params_.hdrmode =
+          ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_STANDARD;
+      cam_stream_params_.data_space = HAL_DATASPACE_BT601_525;
+      break;
+    case VideoColorimetry::kBT709FULL:
+      cam_stream_params_.hdrmode =
+          ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_STANDARD;
+      cam_stream_params_.data_space = HAL_DATASPACE_BT709;
+      break;
+    default:
+      QMMF_ERROR("%s: Invalid color space, colorimetry = %d",
+          __func__, params_.colorimetry);
+      break;
   }
 #endif
 
@@ -3082,7 +3113,9 @@ status_t CameraPort::Init() {
   }
 
   auto ret = context_->CreateDeviceStream(cam_stream_params_,
-                                          params_.framerate, &stream_id, true);
+                                          std::round(params_.framerate),
+                                          &stream_id,
+                                          true);
   if (ret != NO_ERROR || stream_id < 0) {
     QMMF_ERROR("%s: CreateDeviceStream failed!!", __func__);
     return BAD_VALUE;
