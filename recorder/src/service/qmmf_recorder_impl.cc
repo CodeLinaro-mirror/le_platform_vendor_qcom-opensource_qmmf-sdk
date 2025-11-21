@@ -1251,7 +1251,8 @@ status_t RecorderImpl::CreateOfflineProcess(const uint32_t client_id,
 }
 
 status_t RecorderImpl::ProcOfflineProcess(const uint32_t client_id,
-                                         const BnBuffer& in_buf,
+                                         const BnBuffer& in_buf0,
+                                         const BnBuffer& in_buf1,
                                          const BnBuffer& out_buf,
                                          const CameraMetadata& meta) {
 
@@ -1263,7 +1264,8 @@ status_t RecorderImpl::ProcOfflineProcess(const uint32_t client_id,
     QMMF_ERROR("%s: Client (%u) is not found", __func__, client_id);
     return BAD_VALUE;
   }
-  auto ret = offline_process_->Process(client_id, in_buf, out_buf, meta);
+  auto ret = offline_process_->Process(client_id, in_buf0, in_buf1, out_buf,
+      meta);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: Offline Proc process failed!", __func__);
     return ret;
