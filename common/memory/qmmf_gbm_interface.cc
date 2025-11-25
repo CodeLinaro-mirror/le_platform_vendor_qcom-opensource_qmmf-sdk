@@ -654,12 +654,12 @@ MemAllocError GBMDevice::AllocBuffer(IBufferHandle& handle,
     return MemAllocError::kAllocFail;
   }
 
-  qmmf::recorder::VideoColorimetry color =
-      static_cast<qmmf::recorder::VideoColorimetry>(colorimetry);
+  qmmf::recorder::Colorimetry color =
+      static_cast<qmmf::recorder::Colorimetry>(colorimetry);
 
   // Set value according to color space
   switch (color) {
-    case qmmf::recorder::VideoColorimetry::kBT601:
+    case qmmf::recorder::Colorimetry::kBT601:
       value = GBM_METADATA_COLOR_SPACE_ITU_R_601;
       colormeta.colorPrimaries = ColorPrimaries_BT601_6_625;
       colormeta.range = Range_Full;
@@ -667,7 +667,7 @@ MemAllocError GBMDevice::AllocBuffer(IBufferHandle& handle,
       colormeta.matrixCoefficients = MatrixCoEff_BT601_6_625;
       QMMF_INFO("%s: Using color space kBT601", __func__);
       break;
-    case qmmf::recorder::VideoColorimetry::kBT2100HLGFULL:
+    case qmmf::recorder::Colorimetry::kBT2100HLGFULL:
       value = GBM_METADATA_COLOR_SPACE_ITU_R_2020;
       colormeta.colorPrimaries = ColorPrimaries_BT2020;
       colormeta.range = Range_Full;
@@ -675,7 +675,7 @@ MemAllocError GBMDevice::AllocBuffer(IBufferHandle& handle,
       colormeta.matrixCoefficients = MatrixCoEff_BT2020;
       QMMF_INFO("%s: Using color space kBT2100HLGFULL", __func__);
       break;
-    case qmmf::recorder::VideoColorimetry::kBT2100PQFULL:
+    case qmmf::recorder::Colorimetry::kBT2100PQFULL:
       value = GBM_METADATA_COLOR_SPACE_ITU_R_2020;
       colormeta.colorPrimaries = ColorPrimaries_BT2020;
       colormeta.range = Range_Full;
@@ -683,7 +683,7 @@ MemAllocError GBMDevice::AllocBuffer(IBufferHandle& handle,
       colormeta.matrixCoefficients = MatrixCoEff_BT2020;
       QMMF_INFO("%s: Using color space kBT2100PQFULL", __func__);
       break;
-    case qmmf::recorder::VideoColorimetry::kBT601FULL:
+    case qmmf::recorder::Colorimetry::kBT601FULL:
       value = GBM_METADATA_COLOR_SPACE_ITU_R_601_FR;
       colormeta.colorPrimaries = ColorPrimaries_BT601_6_525;
       colormeta.range = Range_Full;
@@ -691,7 +691,7 @@ MemAllocError GBMDevice::AllocBuffer(IBufferHandle& handle,
       colormeta.matrixCoefficients = MatrixCoEff_BT601_6_525;
       QMMF_INFO("%s: Using color space kBT601FULL", __func__);
       break;
-    case qmmf::recorder::VideoColorimetry::kBT709FULL:
+    case qmmf::recorder::Colorimetry::kBT709FULL:
       value = GBM_METADATA_COLOR_SPACE_ITU_R_709;
       colormeta.colorPrimaries = ColorPrimaries_BT709_5;
       colormeta.range = Range_Full;
