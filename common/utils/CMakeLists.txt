@@ -15,4 +15,4 @@ target_include_directories(qmmf_utils PRIVATE ${TOP_DIRECTORY})
 target_include_directories(qmmf_utils PRIVATE ${TOP_DIRECTORY}/common/memory)
 
 install(TARGETS qmmf_utils DESTINATION lib OPTIONAL)
-target_link_libraries(qmmf_utils log pthread)
+target_link_libraries(qmmf_utils qmmf_camera_metadata log pthread)
