@@ -104,13 +104,16 @@ enum class VideoFormat : uint32_t {
   kJPEG,
   kRGB,
   kNV12,
+  kNV12FLEX,
   kNV12UBWC,
   kNV12UBWCFLEX,
   kNV16,
   kYUY2,
   kUYVY,
   kP010,
+  kP010FLEX,
   kTP10UBWC,
+  kTP10UBWCFLEX,
   kBayerIdeal,
   kBayerRDI8BIT,
   kBayerRDI10BIT,
@@ -173,8 +176,11 @@ enum class VideoFlags : uint64_t {
 };
 
 enum class VideoColorimetry : uint32_t {
-  kBT601,        /// "bt601"
-  kBT2100HLG,    /// "bt2100-hlg"
+  kBT601,            /// "bt601" Default value.
+  kBT601FULL,        /// "bt601-full"
+  kBT709FULL,        /// "bt709-full"
+  kBT2100HLGFULL,    /// "bt2100-hlg-full"
+  kBT2100PQFULL,     /// "bt2100-pq-full"
 };
 
 inline VideoFlags operator | (VideoFlags lhs, VideoFlags rhs) {

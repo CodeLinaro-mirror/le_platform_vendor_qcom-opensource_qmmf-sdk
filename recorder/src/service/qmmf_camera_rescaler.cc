@@ -28,7 +28,7 @@
 *
 * Changes from Qualcomm Innovation Center are provided under the following license:
 *
-* Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted (subject to the limitations in the
@@ -749,7 +749,8 @@ status_t CameraRescalerMemPool::AllocHWMemBuffer(IBufferHandle &buf) {
   uint32_t stride = 0;
 
   MemAllocError ret = alloc_device_interface_->AllocBuffer(buf,
-    static_cast<int>(width), static_cast<int>(height), format, usage, &stride);
+      static_cast<int>(width), static_cast<int>(height), format, usage, &stride,
+      static_cast<uint32_t>(VideoColorimetry::kBT601));
   if (MemAllocError::kAllocOk != ret) {
     QMMF_ERROR("%s: Failed to allocate alloc buffer", __func__);
     return NO_MEMORY;
