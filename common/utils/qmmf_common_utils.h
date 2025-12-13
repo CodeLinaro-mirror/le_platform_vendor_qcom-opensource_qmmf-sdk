@@ -66,6 +66,7 @@
 #include <chrono>
 #include <condition_variable>
 #include <cmath>
+#include <dlfcn.h>
 #include <iomanip>
 #include <list>
 #include <map>
@@ -82,7 +83,10 @@
 #include <hardware/camera3.h>
 #endif
 
+#include <hardware/camera_common.h>
+
 #include "qmmf-sdk/qmmf_camera_metadata.h"
+#include "qmmf-sdk/qmmf_vendor_tag_descriptor.h"
 #include "qmmf-sdk/qmmf_recorder_params.h"
 #include "common/utils/qmmf_log.h"
 #include "common/utils/qmmf_condition.h"
@@ -96,6 +100,86 @@ using namespace recorder;
 typedef int32_t status_t;
 
 const int64_t kWaitDelay = 2000000000;  // 2 sec
+
+class CameraModule {
+private:
+
+  static std::mutex lock_;
+
+  static CameraModule *instance_;
+
+  camera_module_t *camera_module_;
+
+  int32_t status_;
+
+  vendor_tag_ops_t vendor_tag_ops_;
+  std::shared_ptr<VendorTagDescriptor> vendor_tag_desc_;
+
+  // Private Constructor
+  CameraModule() : status_(-1) {}
+
+  int32_t LoadCamModuleAndVendorTags() {
+    int32_t status = hw_get_module(CAMERA_HARDWARE_MODULE_ID,
+        (const hw_module_t **)&camera_module_);
+
+    if (camera_module_->get_vendor_tag_ops) {
+      vendor_tag_ops_ = vendor_tag_ops_t();
+      camera_module_->get_vendor_tag_ops(&vendor_tag_ops_);
+
+      status = VendorTagDescriptor::createDescriptorFromOps(&vendor_tag_ops_,
+                                                          vendor_tag_desc_);
+
+      if (0 != status) {
+        QMMF_ERROR("%s: Could not generate descriptor from vendor tag operations,"
+            "received error %s (%d). Camera clients will not be able to use"
+            "vendor tags", __FUNCTION__, strerror(status), status);
+        return status;
+      }
+
+      // Set the global descriptor to use with camera metadata
+      status = VendorTagDescriptor::setAsGlobalVendorTagDescriptor(vendor_tag_desc_);
+
+      if (0 != status) {
+        QMMF_ERROR("%s: Could not set vendor tag descriptor, received error %s (%d). \n",
+            __func__, strerror(-status), status);
+        return status;
+      }
+    }
+
+    return status;
+  }
+
+public:
+  // Deleting the copy constructor to prevent copies
+  CameraModule(const CameraModule& obj) = delete;
+
+  // Static method to get the CameraModule instance
+  static int32_t getInstance(camera_module_t **camera_module) {
+
+    std::lock_guard<std::mutex> lock(lock_);
+
+    if (instance_ == nullptr) {
+      instance_ = new CameraModule();
+    }
+
+    if (instance_->status_ != 0 || instance_->camera_module_ == NULL) {
+      instance_->status_ = instance_->LoadCamModuleAndVendorTags();
+    }
+
+    *camera_module = instance_->camera_module_;
+    return instance_->status_;
+  }
+
+  static void release() {
+    std::lock_guard<std::mutex> lock(lock_);
+
+    if (instance_->camera_module_ != NULL) {
+      VendorTagDescriptor::clearGlobalVendorTagDescriptor();
+      dlclose(instance_->camera_module_->common.dso);
+      instance_->camera_module_ = NULL;
+    }
+  }
+};
 
 struct StreamBuffer {
   BufferMeta info;
@@ -206,6 +290,9 @@ class Common {
       case BufferFormat::kP010:
       case BufferFormat::kTP10UBWC:
       case BufferFormat::kNV12UBWCFLEX:
+      case BufferFormat::kNV12FLEX:
+      case BufferFormat::kP010FLEX:
+      case BufferFormat::kTP10UBWCFLEX:
         return HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED;
         break;
       case BufferFormat::kNV21:
@@ -263,17 +350,33 @@ class Common {
       case HAL_PIXEL_FORMAT_NV12_UBWC_FLEX_2_BATCH:
       case HAL_PIXEL_FORMAT_NV12_UBWC_FLEX_4_BATCH:
       case HAL_PIXEL_FORMAT_NV12_UBWC_FLEX_8_BATCH:
+      case HAL_PIXEL_FORMAT_NV12_UBWC_FLEX:
         return BufferFormat::kNV12UBWCFLEX;
         break;
       case HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED:
         return BufferFormat::kNV12;
         break;
+      case HAL_PIXEL_FORMAT_NV12_FLEX_2_BATCH:
+      case HAL_PIXEL_FORMAT_NV12_FLEX_4_BATCH:
+      case HAL_PIXEL_FORMAT_NV12_FLEX_8_BATCH:
+      case HAL_PIXEL_FORMAT_NV12_FLEX:
+        return BufferFormat::kNV12FLEX;
       case HAL_PIXEL_FORMAT_YCbCr_422_I_10BIT:
         return BufferFormat::kP010;
         break;
+      case HAL_PIXEL_FORMAT_P010_FLEX_2_BATCH:
+      case HAL_PIXEL_FORMAT_P010_FLEX_4_BATCH:
+      case HAL_PIXEL_FORMAT_P010_FLEX_8_BATCH:
+      case HAL_PIXEL_FORMAT_P010_FLEX:
+        return BufferFormat::kP010FLEX;
       case HAL_PIXEL_FORMAT_YCbCr_420_TP10_UBWC:
         return BufferFormat::kTP10UBWC;
         break;
+      case HAL_PIXEL_FORMAT_TP10_UBWC_FLEX_2_BATCH:
+      case HAL_PIXEL_FORMAT_TP10_UBWC_FLEX_4_BATCH:
+      case HAL_PIXEL_FORMAT_TP10_UBWC_FLEX_8_BATCH:
+      case HAL_PIXEL_FORMAT_TP10_UBWC_FLEX:
+        return BufferFormat::kTP10UBWCFLEX;
       case HAL_PIXEL_FORMAT_YCbCr_420_888:
         return BufferFormat::kNV21;
         break;
@@ -358,6 +461,8 @@ class Common {
       case VideoFormat::kNV12:
         return BufferFormat::kNV12;
         break;
+      case VideoFormat::kNV12FLEX:
+        return BufferFormat::kNV12FLEX;
       case VideoFormat::kNV12UBWC:
         return BufferFormat::kNV12UBWC;
         break;
@@ -367,9 +472,13 @@ class Common {
       case VideoFormat::kP010:
         return BufferFormat::kP010;
         break;
+      case VideoFormat::kP010FLEX:
+        return BufferFormat::kP010FLEX;
       case VideoFormat::kTP10UBWC:
         return BufferFormat::kTP10UBWC;
         break;
+      case VideoFormat::kTP10UBWCFLEX:
+        return BufferFormat::kTP10UBWCFLEX;
       case VideoFormat::kNV16:
         return BufferFormat::kNV16;
         break;

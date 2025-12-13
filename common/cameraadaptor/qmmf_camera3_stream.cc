@@ -116,9 +116,11 @@ Camera3Stream::Camera3Stream(int id, size_t maxSize,
   camera3_stream::height = outputConfiguration.height;
   camera3_stream::format = outputConfiguration.format;
   camera3_stream::data_space = outputConfiguration.data_space;
+  data_space_ = outputConfiguration.data_space;
 #if defined(CAMX_ANDROID_API) && (CAMX_ANDROID_API >= 31)
   camera3_stream::stream_use_case = outputConfiguration.usecase;
   camera3_stream::dynamic_range_profile = outputConfiguration.hdrmode;
+  hdrmode_ = outputConfiguration.hdrmode;
 #endif
   camera3_stream::rotation = outputConfiguration.rotation;
   camera3_stream::usage =
@@ -574,12 +576,32 @@ int32_t Camera3Stream::PopulateBufferMeta(BufferMeta &info,
 
   QMMF_DEBUG("%s: format(0x%x)", __func__, handle->GetFormat());
 
-  if (handle->GetFormat() == HAL_PIXEL_FORMAT_NV12_UBWC_FLEX_2_BATCH)
-    info.n_frames = 2;
-  if (handle->GetFormat() == HAL_PIXEL_FORMAT_NV12_UBWC_FLEX_4_BATCH)
-    info.n_frames = 4;
-  if (handle->GetFormat() == HAL_PIXEL_FORMAT_NV12_UBWC_FLEX_8_BATCH)
-    info.n_frames = 8;
+  switch (handle->GetFormat()) {
+    case HAL_PIXEL_FORMAT_NV12_UBWC_FLEX_2_BATCH:
+    case HAL_PIXEL_FORMAT_NV12_FLEX_2_BATCH:
+    case HAL_PIXEL_FORMAT_P010_FLEX_2_BATCH:
+    case HAL_PIXEL_FORMAT_TP10_UBWC_FLEX_2_BATCH:
+      info.n_frames = 2;
+      break;
+    case HAL_PIXEL_FORMAT_NV12_UBWC_FLEX_4_BATCH:
+    case HAL_PIXEL_FORMAT_NV12_FLEX_4_BATCH:
+    case HAL_PIXEL_FORMAT_P010_FLEX_4_BATCH:
+    case HAL_PIXEL_FORMAT_TP10_UBWC_FLEX_4_BATCH:
+      info.n_frames = 4;
+      break;
+    case HAL_PIXEL_FORMAT_NV12_UBWC_FLEX_8_BATCH:
+    case HAL_PIXEL_FORMAT_NV12_FLEX_8_BATCH:
+    case HAL_PIXEL_FORMAT_P010_FLEX_8_BATCH:
+    case HAL_PIXEL_FORMAT_TP10_UBWC_FLEX_8_BATCH:
+      info.n_frames = 8;
+      break;
+    case HAL_PIXEL_FORMAT_NV12_UBWC_FLEX:
+    case HAL_PIXEL_FORMAT_NV12_FLEX:
+    case HAL_PIXEL_FORMAT_P010_FLEX:
+    case HAL_PIXEL_FORMAT_TP10_UBWC_FLEX:
+      info.n_frames = 16;
+      break;
+  }
 
   switch (handle->GetFormat()) {
     case HAL_PIXEL_FORMAT_BLOB:
@@ -597,6 +619,25 @@ int32_t Camera3Stream::PopulateBufferMeta(BufferMeta &info,
     case HAL_PIXEL_FORMAT_YCbCr_420_888:
     case HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED:
       info.format = BufferFormat::kNV12;
+      info.n_planes = 2;
+      info.planes[0].width = width;
+      info.planes[0].height = height;
+      info.planes[0].stride = stride;
+      info.planes[0].scanline = scanline;
+      info.planes[0].size = stride * scanline;
+      info.planes[0].offset = 0;
+      info.planes[1].width = width;
+      info.planes[1].height = height / 2;
+      info.planes[1].stride = stride;
+      info.planes[1].scanline = scanline / 2;
+      info.planes[1].size = stride * (scanline / 2);
+      info.planes[1].offset = stride * scanline;
+      break;
+    case HAL_PIXEL_FORMAT_NV12_FLEX_2_BATCH:
+    case HAL_PIXEL_FORMAT_NV12_FLEX_4_BATCH:
+    case HAL_PIXEL_FORMAT_NV12_FLEX_8_BATCH:
+    case HAL_PIXEL_FORMAT_NV12_FLEX:
+      info.format = BufferFormat::kNV12FLEX;
       info.n_planes = 2;
       info.planes[0].width = width;
       info.planes[0].height = height;
@@ -634,6 +675,7 @@ int32_t Camera3Stream::PopulateBufferMeta(BufferMeta &info,
     case HAL_PIXEL_FORMAT_NV12_UBWC_FLEX_2_BATCH:
     case HAL_PIXEL_FORMAT_NV12_UBWC_FLEX_4_BATCH:
     case HAL_PIXEL_FORMAT_NV12_UBWC_FLEX_8_BATCH:
+    case HAL_PIXEL_FORMAT_NV12_UBWC_FLEX:
       info.format = BufferFormat::kNV12UBWCFLEX;
       info.n_planes = 2;
       info.planes[0].width = width;
@@ -669,8 +711,50 @@ int32_t Camera3Stream::PopulateBufferMeta(BufferMeta &info,
       info.planes[1].size = MMM_COLOR_FMT_ALIGN((stride * scanline / 2), 4096);
       info.planes[1].offset = info.planes[0].offset + info.planes[0].size;
       break;
+    case HAL_PIXEL_FORMAT_P010_FLEX_2_BATCH:
+    case HAL_PIXEL_FORMAT_P010_FLEX_4_BATCH:
+    case HAL_PIXEL_FORMAT_P010_FLEX_8_BATCH:
+    case HAL_PIXEL_FORMAT_P010_FLEX:
+      info.format = BufferFormat::kP010FLEX;
+      info.n_planes = 2;
+      info.planes[0].width = width;
+      info.planes[0].height = height;
+      info.planes[0].stride = stride;
+      info.planes[0].scanline = scanline;
+      info.planes[0].size = MMM_COLOR_FMT_ALIGN((stride * scanline), 4096);
+      info.planes[0].offset = 0;
+      info.planes[1].width = width;
+      info.planes[1].height = height / 2;
+      info.planes[1].stride = stride;
+      info.planes[1].scanline = scanline / 2;
+      info.planes[1].size = MMM_COLOR_FMT_ALIGN((stride * scanline / 2), 4096);
+      info.planes[1].offset = info.planes[0].offset + info.planes[0].size;
+      break;
     case HAL_PIXEL_FORMAT_YCbCr_420_TP10_UBWC:
       info.format = BufferFormat::kTP10UBWC;
+      info.n_planes = 2;
+      info.planes[0].width = width;
+      info.planes[0].height = height;
+      info.planes[0].stride = stride;
+      info.planes[0].scanline = scanline;
+      info.planes[0].size = MMM_COLOR_FMT_ALIGN((stride * scanline), 4096) +
+          MMM_COLOR_FMT_ALIGN((MMM_COLOR_FMT_Y_META_STRIDE(MMM_COLOR_FMT_NV12_BPP10_UBWC, width) *
+          MMM_COLOR_FMT_Y_META_SCANLINES(MMM_COLOR_FMT_NV12_BPP10_UBWC, height)), 4096);
+      info.planes[0].offset = 0;
+      info.planes[1].width = width;
+      info.planes[1].height = height / 2;
+      info.planes[1].stride = stride;
+      info.planes[1].scanline = scanline / 2;
+      info.planes[1].size = MMM_COLOR_FMT_ALIGN((stride * scanline / 2), 4096) +
+          MMM_COLOR_FMT_ALIGN((MMM_COLOR_FMT_UV_META_STRIDE(MMM_COLOR_FMT_NV12_BPP10_UBWC, width) *
+          MMM_COLOR_FMT_UV_META_SCANLINES(MMM_COLOR_FMT_NV12_BPP10_UBWC, height)), 4096);
+      info.planes[1].offset = info.planes[0].offset + info.planes[0].size;
+      break;
+    case HAL_PIXEL_FORMAT_TP10_UBWC_FLEX_2_BATCH:
+    case HAL_PIXEL_FORMAT_TP10_UBWC_FLEX_4_BATCH:
+    case HAL_PIXEL_FORMAT_TP10_UBWC_FLEX_8_BATCH:
+    case HAL_PIXEL_FORMAT_TP10_UBWC_FLEX:
+      info.format = BufferFormat::kTP10UBWCFLEX;
       info.n_planes = 2;
       info.planes[0].width = width;
       info.planes[0].height = height;
@@ -1027,13 +1111,39 @@ int32_t Camera3Stream::GetBufferLocked(camera3_stream_buffer *streamBuffer) {
           IMemAllocUsage::kHwCameraWrite);
     }
 
+    VideoColorimetry colorimetry = VideoColorimetry::kBT601;
+
+#if defined(CAMX_ANDROID_API) && (CAMX_ANDROID_API >= 31)
+    if (hdrmode_ == 0) {
+      colorimetry = VideoColorimetry::kBT601;
+    } else if (hdrmode_ == ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_HLG10) {
+      colorimetry = VideoColorimetry::kBT2100HLGFULL;
+    } else if (hdrmode_ == ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_HDR10) {
+      colorimetry = VideoColorimetry::kBT2100PQFULL;
+    } else if (hdrmode_ ==  ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_STANDARD) {
+      if (data_space_ == HAL_DATASPACE_BT601_525) {
+        colorimetry = VideoColorimetry::kBT601FULL;
+      } else if (data_space_ == HAL_DATASPACE_BT709) {
+        colorimetry = VideoColorimetry::kBT709FULL;
+      } else {
+        QMMF_ERROR("%s: Data space is not found in MAP_STANDARD.\n", __func__);
+        return -ENOSYS;
+      }
+    } else {
+      QMMF_ERROR("%s: HDR mode is not found. Still using BT601.\n", __func__);
+    }
+#endif
+
+    QMMF_INFO("%s: Select VideoColorimetry = %d", __func__, colorimetry);
+
     MemAllocError ret = mem_alloc_interface_->AllocBuffer(
         handle,
         buf_width,
         buf_height,
         camera3_stream::format,
         memusage,
-        &current_buffer_stride_);
+        &current_buffer_stride_,
+        static_cast<uint32_t>(colorimetry));
     if (MemAllocError::kAllocOk != ret) {
       return -ENOMEM;
     }
