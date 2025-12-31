@@ -48,6 +48,7 @@ struct OfflineJpegBufferParams {
 
 struct OfflineJpegCreateParams {
   uint32_t                process_mode;
+  uint32_t                camera_id;
   OfflineJpegBufferParams in_buffer;
   OfflineJpegBufferParams out_buffer;
 };

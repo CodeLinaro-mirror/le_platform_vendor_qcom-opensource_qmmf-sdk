@@ -90,14 +90,19 @@ namespace recorder {
 typedef int32_t status_t;
 
 enum class EventType : uint32_t {
-  kUnknown       = 0, // Indicates a unknown event has occured.
-  kServerDied    = 1, // Indicates un-recoverable service crash.
-  kCameraError   = 2, // Indicates un-recoverable camera error.
-  kCameraOpened  = 3, // Indicates camera that has been opened.
-  kCameraClosing = 4, // Indicates camera that is about to be closed.
-  kCameraClosed  = 5, // Indicates camera that has been closed.
-  kFrameError    = 6, // Indicates a frame has been droped.
-  kMetadataError = 7, // Indicates metadata for a frame has been droped.
+  kUnknown           = 0,  // Indicates a unknown event has occured.
+  kServerDied        = 1,  // Indicates un-recoverable service crash.
+  kCameraError       = 2,  // Indicates un-recoverable camera error.
+  kCameraOpened      = 3,  // Indicates camera that has been opened.
+  kCameraClosing     = 4,  // Indicates camera that is about to be closed.
+  kCameraClosed      = 5,  // Indicates camera that has been closed.
+  kFrameError        = 6,  // Indicates a frame has been droped.
+  kMetadataError     = 7,  // Indicates metadata for a frame has been droped.
+  kSOFFreeze         = 8,  // Indicates SOF freeze event has occured.
+  kRecoveryFailure   = 9,  // Indicates Recovery failure event has occured
+  kFatal             = 10, // Indicates ISP Fatal event error has occured
+  kRecoverySuccess   = 11, // Indicates recovery has been successful.
+  kInternal_Recovery = 12, // Indicates non fatal error has occured.
 };
 
 enum class VideoFormat : uint32_t {
@@ -135,7 +140,10 @@ enum class ImageFormat : uint32_t {
   kJPEG,
   kNV12,
   kNV12HEIF,
+  kNV12UBWC,
   kNV21,
+  kP010,
+  kTP10UBWC,
   kBayerIdeal,
   kBayerRDI8BIT,
   kBayerRDI10BIT,
@@ -175,7 +183,7 @@ enum class VideoFlags : uint64_t {
   kReproc   = 1 << 3, /// Indicate a reprocess input stream
 };
 
-enum class VideoColorimetry : uint32_t {
+enum class Colorimetry : uint32_t {
   kBT601,            /// "bt601" Default value.
   kBT601FULL,        /// "bt601-full"
   kBT709FULL,        /// "bt709-full"
@@ -272,7 +280,7 @@ struct VideoTrackParam {
   /// Video Track format
   VideoFormat format;
   /// Video Track colorimetry
-  VideoColorimetry colorimetry;
+  Colorimetry colorimetry;
   /// Video Track rotation angle
   Rotation    rotation;
   /// Additional buffers allocated for the track
@@ -282,7 +290,7 @@ struct VideoTrackParam {
 
   VideoTrackParam(uint32_t cam_id = 0, uint32_t w = 3840, uint32_t h = 2160,
                   float fps = 30, VideoFormat fmt = VideoFormat::kNV12,
-                  VideoColorimetry color = VideoColorimetry::kBT601,
+                  Colorimetry color = Colorimetry::kBT601,
                   Rotation rotate = Rotation::kNone, uint32_t extrabufs = 0,
                   VideoFlags flgs = VideoFlags::kNone)
       : camera_id(cam_id), width(w), height(h), framerate(fps), format(fmt),
@@ -299,7 +307,7 @@ struct VideoTrackParam {
            << static_cast<::std::underlying_type<VideoFormat>::type>(format)
            << "] ";
     stream << "colorimetry["
-           << static_cast<::std::underlying_type<VideoColorimetry>::type>(colorimetry)
+           << static_cast<::std::underlying_type<Colorimetry>::type>(colorimetry)
            << "] ";
     stream << "rotation["
            << static_cast<::std::underlying_type<Rotation>::type>(rotation)
@@ -335,9 +343,12 @@ struct ImageParam {
   uint32_t    quality;
   /// Image Track rotation angle
   Rotation    rotation;
+  /// Image Track colorimetry
+  Colorimetry colorimetry;
 
   ImageParam(): mode(ImageMode::kSnapshot), width(0), height(0),
-      format(ImageFormat::kJPEG), quality(95), rotation(Rotation::kNone) {}
+      format(ImageFormat::kJPEG), quality(95), rotation(Rotation::kNone),
+      colorimetry(Colorimetry::kBT601) {}
 
   ::std::string ToString() const {
     ::std::stringstream stream;
@@ -352,6 +363,9 @@ struct ImageParam {
     stream << "quality[" << quality << "] ";
     stream << "rotation["
            << static_cast<::std::underlying_type<Rotation>::type>(rotation)
+           << "] ";
+    stream << "colorimetry["
+           << static_cast<::std::underlying_type<Colorimetry>::type>(colorimetry)
            << "] ";
 
     return stream.str();
