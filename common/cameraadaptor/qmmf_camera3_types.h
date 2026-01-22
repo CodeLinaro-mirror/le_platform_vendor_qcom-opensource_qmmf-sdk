@@ -154,6 +154,9 @@ struct CameraStreamParameters {
   uint32_t height;
   int32_t format;
   android_dataspace data_space;
+#if defined(CAMX_ANDROID_API) && (CAMX_ANDROID_API >= 33)
+  int32_t color_space;
+#endif
 #if defined(CAMX_ANDROID_API) && (CAMX_ANDROID_API >= 31)
   uint64_t usecase;
   int32_t hdrmode;
@@ -165,6 +168,9 @@ struct CameraStreamParameters {
   ::std::string stream_camera_id;
   CameraStreamParameters() :
       width(0), height(0), format(-1), data_space(HAL_DATASPACE_UNKNOWN),
+#if defined(CAMX_ANDROID_API) && (CAMX_ANDROID_API >= 33)
+      color_space(0),
+#endif
 #if defined(CAMX_ANDROID_API) && (CAMX_ANDROID_API >= 31)
       usecase(0), hdrmode(0),
 #endif
@@ -227,6 +233,8 @@ typedef std::function<void(const CaptureResultExtras &resultExtras,
 typedef std::function<void(int streamId)> PreparedCallback;
 // Notifies about a new capture result
 typedef std::function<void(const CaptureResult &result)> ResultCallback;
+// Notifies about camera device status changes (present/not present)
+typedef std::function<void(int camera_id, bool is_present)> DeviceStatusCallback;
 
 // Please note that these callbacks shouldn't get blocked for long durations.
 // Also very important is to not to try and call "Camera3DeviceClient" API
@@ -238,6 +246,7 @@ typedef struct {
   ShutterCallback shutterCb;
   PreparedCallback peparedCb;
   ResultCallback resultCb;
+  DeviceStatusCallback deviceStatusCb;
 } CameraClientCallbacks;
 
 //Please note that this callbacks need to return as fast as possible

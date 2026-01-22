@@ -402,9 +402,12 @@ status_t RecorderImpl::StartCamera(const uint32_t client_id,
   ErrorCb errcb = [&] (uint32_t camera_id, uint32_t errcode) {
       CameraErrorCb(camera_id, errcode); };
 
+  DeviceStatusCb devstatuscb = [&] (uint32_t camera_id, bool is_present) {
+      CameraDeviceStatusCb(camera_id, is_present); };
+
   auto ret = camera_source_->StartCamera(camera_id, framerate, extra_param,
                                          enable_result_cb ? cb : nullptr,
-                                         errcb);
+                                         errcb, devstatuscb);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: StartCamera Failed!!", __func__);
     return BAD_VALUE;
@@ -1225,6 +1228,32 @@ status_t RecorderImpl::GetCameraCharacteristics(const uint32_t client_id,
   return NO_ERROR;
 }
 
+status_t RecorderImpl::GetOfflineParams(const uint32_t client_id,
+                                        const OfflineCameraInputParams &in_params,
+                                        OfflineCameraOutputParams &out_params) {
+  QMMF_DEBUG("%s Enter client_id(%u)", __func__, client_id);
+
+#ifdef ENABLE_OFFLINE_JPEG
+  assert(offline_process_ != nullptr);
+  if (!offline_process_->IsClientFound(client_id)) {
+    QMMF_ERROR("%s: Client (%u) is not found", __func__, client_id);
+    return BAD_VALUE;
+  }
+  auto ret = offline_process_->GetParams(client_id, in_params, out_params);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s: get offline params failed!", __func__);
+    return ret;
+  }
+#else
+  QMMF_ERROR("Offline Process not supported on this platform");
+  return INVALID_OPERATION;
+#endif
+
+  QMMF_DEBUG("%s Exit client_id(%u)", __func__, client_id);
+  return NO_ERROR;
+}
+
+
 status_t RecorderImpl::CreateOfflineProcess(const uint32_t client_id,
                                       const OfflineCameraCreateParams& params) {
 
@@ -1383,6 +1412,22 @@ void RecorderImpl::CameraErrorCb(uint32_t camera_id, uint32_t errcode) {
     assert(IsClientValid(client_id));
     remote_cb_handle_(client_id)->NotifyRecorderEvent(
         event, &camera_id, sizeof(uint32_t));
+  }
+}
+
+void RecorderImpl::CameraDeviceStatusCb(uint32_t camera_id, bool is_present) {
+  assert(remote_cb_handle_ != nullptr);
+
+  EventType event = EventType::kCameraDeviceStatusChanged;
+
+  // Create a struct to pass both camera_id and is_present
+  CameraDeviceStatusData status_data = {camera_id, is_present};
+  std::lock_guard<std::mutex> lock(client_track_lock_);
+
+  for (auto const& client_tracks : client_track_map_) {
+    auto const& client_id = client_tracks.first;
+    remote_cb_handle_(client_id)->NotifyRecorderEvent(
+        event, &status_data, sizeof(status_data));
   }
 }
 

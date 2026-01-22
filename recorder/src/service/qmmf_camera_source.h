@@ -112,7 +112,8 @@ class CameraSource {
                        const float framerate,
                        const CameraExtraParam& extra_param,
                        const ResultCb &cb = nullptr,
-                       const ErrorCb &errcb = nullptr);
+                       const ErrorCb &errcb = nullptr,
+                       const DeviceStatusCb &devicestatus = nullptr);
 
   /// Close Camera.
   status_t StopCamera(const uint32_t camera_id);
