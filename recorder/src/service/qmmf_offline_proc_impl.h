@@ -83,6 +83,7 @@ class OfflineProcess {
   status_t DeRegisterClient(const uint32_t client_id);
   bool IsClientFound(const uint32_t& client_id);
   void NotifyOfflineProc(const uint32_t& client_id,
+                        const int32_t& buf_fd,
                         const uint32_t& out_size,
                         PostProcSessionParams* pproc_params);
 
@@ -94,7 +95,6 @@ class OfflineProcess {
   int32_t GetBufferFd(const uint32_t& client_id, const int32_t& buffer_id);
   uint32_t GetUsageFromFormat(BufferFormat format);
 
-  void ReleaseBufferFd(const uint32_t& client_id, const int32_t& buffer_fd);
   void ReleaseRequestData(PostProcSessionParams* params);
 
   bool                                    offlineipe_enable;

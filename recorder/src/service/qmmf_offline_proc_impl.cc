@@ -219,23 +219,6 @@ int32_t OfflineProcess::GetBufferFd(const uint32_t& client_id,
   return client_fd_map_[client_id][buffer_id];
 }
 
-void OfflineProcess::ReleaseBufferFd(const uint32_t& client_id,
-    const int32_t& buffer_fd)
-{
-  if (buffer_fd == -1)
-    return;
-
-  std::lock_guard<std::mutex> l(client_fd_lock_);
-  for (auto i : client_fd_map_[client_id]) {
-    if (buffer_fd == i.second) {
-      close(i.second);
-      client_fd_map_[client_id].erase(i.first);
-
-      break;
-    }
-  }
-}
-
 uint32_t OfflineProcess::GetUsageFromFormat (BufferFormat format)
 {
   uint32_t usage_flags;
@@ -623,30 +606,21 @@ void OfflineProcess::ReleaseRequestData(PostProcSessionParams* params) {
 }
 
 void OfflineProcess::NotifyOfflineProc(const uint32_t& client_id,
+                                    const int32_t& buf_fd,
                                     const uint32_t& out_size,
                                     PostProcSessionParams* pproc_params) {
-  int32_t in_buf0_fd, in_buf1_fd, out_buf_fd;
-
-  in_buf0_fd = pproc_params->inHandle[0].phHandle->data[0];
-  if (pproc_params->inHandle.size() > 1)
-    in_buf1_fd = pproc_params->inHandle[1].phHandle->data[0];
-  else
-    in_buf1_fd = -1;
-  out_buf_fd = pproc_params->outHandle[0].phHandle->data[0];
 
   QMMF_INFO("%s: Notifying client %d for buf_fd %d out_size %d",
-      __func__, client_id, out_buf_fd, out_size);
-  QMMF_INFO("%s: Release in_buf0_fd %d in_buf1_fd %d",
-      __func__, in_buf0_fd, in_buf1_fd);
+          __func__,
+          client_id,
+          buf_fd,
+          out_size);
   if(nullptr != remote_cb_handle_) {
     remote_cb_handle_(client_id)->NotifyOfflineProcData(
-                                          GetBufferId(client_id, out_buf_fd),
+                                          GetBufferId(client_id, buf_fd),
                                           out_size);
   }
 
-  ReleaseBufferFd(client_id, in_buf0_fd);
-  ReleaseBufferFd(client_id, in_buf1_fd);
-  ReleaseBufferFd(client_id, out_buf_fd);
   ReleaseRequestData(pproc_params);
 
   {
@@ -674,7 +648,8 @@ int32_t OfflineCb(PostProcSessionParams* pproc_params,
   OfflineCbData* cb_data = reinterpret_cast<OfflineCbData*>(user_data);
   OfflineProcess* enc = cb_data->offline_proc;
   uint32_t client = cb_data->client_id;
-  enc->NotifyOfflineProc(client, out_size, pproc_params);
+  int32_t out_buf_fd = pproc_params->outHandle[0].phHandle->data[0];
+  enc->NotifyOfflineProc(client, out_buf_fd, out_size, pproc_params);
 
   return NO_ERROR;
 }
