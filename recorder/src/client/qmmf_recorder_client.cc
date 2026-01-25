@@ -832,11 +832,24 @@ status_t RecorderClient::ProcOfflineProcess(
   BnBuffer out_buf = {};
   in_buf0.ion_fd = in_buf1.ion_fd = out_buf.ion_fd = -1;
 
-  in_buf0.ion_fd = params.in_buf_fd[0];
+  if (!IsJpegBufPresent(params.in_buf_fd[0])) {
+    in_buf0.ion_fd = params.in_buf_fd[0];
+    offline_proc_buffers_.push_back(params.in_buf_fd[0]);
+  }
   in_buf0.buffer_id = params.in_buf_fd[0];
-  in_buf1.ion_fd = params.in_buf_fd[1];
+
+  if (params.in_buf_fd[1] != -1) {
+    if (!IsJpegBufPresent(params.in_buf_fd[1])) {
+      in_buf1.ion_fd = params.in_buf_fd[1];
+      offline_proc_buffers_.push_back(params.in_buf_fd[1]);
+    }
+  }
   in_buf1.buffer_id = params.in_buf_fd[1];
-  out_buf.ion_fd = params.out_buf_fd;
+
+  if (!IsJpegBufPresent(params.out_buf_fd)) {
+    out_buf.ion_fd = params.out_buf_fd;
+    offline_proc_buffers_.push_back(params.out_buf_fd);
+  }
   out_buf.buffer_id = params.out_buf_fd;
 
   auto ret = recorder_service_->ProcOfflineProcess(client_id_,
@@ -859,12 +872,25 @@ status_t RecorderClient::DestroyOfflineProcess() {
     return NO_INIT;
   }
   assert(client_id_ > 0);
+  offline_proc_buffers_.clear();
   auto ret = recorder_service_->DestroyOfflineProcess(client_id_);
   if (NO_ERROR != ret) {
     QMMF_ERROR("%s DestroyOfflineProcess failed!", __func__);
   }
   QMMF_DEBUG("%s Exit ", __func__);
   return ret;
+}
+
+bool RecorderClient::IsJpegBufPresent(const int32_t& buf_fd) {
+  bool found = false;
+  for ( auto fd : offline_proc_buffers_) {
+    if (buf_fd == fd) {
+      found = true;
+      break;
+    }
+  }
+
+  return found;
 }
 
 #ifdef TARGET_USES_GBM
@@ -1806,15 +1832,27 @@ class BpRecorderService: public BpInterface<IRecorderService> {
     data.writeUint32(client_id);
 
     // Input buffer
+    bool present = (-1 == in_buf0.ion_fd) ? true : false;
+    data.writeInt32(present);
+    if (!present) {
+      data.writeFileDescriptor(in_buf0.ion_fd);
+    }
     data.writeInt32(in_buf0.buffer_id);
-    data.writeFileDescriptor(in_buf0.ion_fd);
-    data.writeInt32(in_buf1.buffer_id);
-    if (in_buf1.buffer_id != -1)
+
+    present = (-1 == in_buf1.ion_fd) ? true : false;
+    data.writeInt32(present);
+    if (!present) {
       data.writeFileDescriptor(in_buf1.ion_fd);
+    }
+    data.writeInt32(in_buf1.buffer_id);
 
     // Output buffer
+    present = (-1 == out_buf.ion_fd) ? true : false;
+    data.writeInt32(present);
+    if (!present) {
+      data.writeFileDescriptor(out_buf.ion_fd);
+    }
     data.writeInt32(out_buf.buffer_id);
-    data.writeFileDescriptor(out_buf.ion_fd);
 
     meta.writeToParcel(&data);
     remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::

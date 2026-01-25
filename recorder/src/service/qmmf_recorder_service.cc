@@ -551,20 +551,29 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
         uint32_t client_id;
         data.readUint32(&client_id);
 
+        uint32_t present;
         BnBuffer in_buf0 = {};
         BnBuffer in_buf1 = {};
         BnBuffer out_buf = {};
         in_buf0.ion_fd = in_buf1.ion_fd = out_buf.ion_fd = -1;
         // Input buffer
+        data.readUint32(&present);
+        if (!present) {
+          in_buf0.ion_fd = dup(data.readFileDescriptor());
+        }
         data.readUint32(&in_buf0.buffer_id);
-        in_buf0.ion_fd = dup(data.readFileDescriptor());
-        data.readUint32(&in_buf1.buffer_id);
-        if (in_buf1.buffer_id != -1)
+        data.readUint32(&present);
+        if (!present) {
           in_buf1.ion_fd = dup(data.readFileDescriptor());
+        }
+        data.readUint32(&in_buf1.buffer_id);
 
         // Output buffer
+        data.readUint32(&present);
+        if (!present) {
+          out_buf.ion_fd = dup(data.readFileDescriptor());
+        }
         data.readUint32(&out_buf.buffer_id);
-        out_buf.ion_fd = dup(data.readFileDescriptor());
 
         CameraMetadata meta;
         camera_metadata_t *m = nullptr;

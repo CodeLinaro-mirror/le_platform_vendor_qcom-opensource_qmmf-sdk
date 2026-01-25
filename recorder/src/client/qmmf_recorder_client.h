@@ -242,6 +242,8 @@ class RecorderClient {
   CameraResultCb                    metadata_cb_;
   OfflineCameraCb                   offline_proc_cb_;
 
+  std::vector<int32_t>              offline_proc_buffers_;
+
   // List of information regarding the buffers in a track.
   std::map<uint32_t, BufferInfoMap> track_buffers_map_;
   std::mutex                        track_buffers_lock_;
