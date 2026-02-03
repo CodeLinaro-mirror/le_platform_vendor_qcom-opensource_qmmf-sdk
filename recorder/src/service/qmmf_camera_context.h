@@ -127,6 +127,11 @@ class CameraContext : public CameraInterface {
                               const SnapshotParam& param,
                               const ImageExtraParam &xtraparam) override;
 
+  status_t CaptureImage(const ImageGroupType &pad_group,
+                        const SnapshotType type, const uint32_t n_burst,
+                        const std::vector<CameraMetadata> &meta,
+                        const StreamSnapshotCb &cb) override;
+
   status_t CaptureImage(const SnapshotType type, const uint32_t n_images,
                         const std::vector<CameraMetadata> &meta,
                         const StreamSnapshotCb& cb) override;
@@ -242,6 +247,8 @@ class CameraContext : public CameraInterface {
 
   status_t GetSnapshotStreamParams(const SnapshotParam &image_param,
                                    CameraStreamParameters &stream_param);
+
+  status_t BuildRequestsWithVideo(std::list<Camera3Request>& requests);
 
 #ifdef USE_FPS_IDX
   uint32_t GetSensorModeIndex(uint32_t width, uint32_t height,
