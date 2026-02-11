@@ -28,8 +28,8 @@
 [Unit]
 Description= QMMF Server Service
 SourcePath=/usr/bin/qmmf-server
-Requires=servicemanager.service cdsprpcd.service
-After=servicemanager.service cdsprpcd.service
+Requires=servicemanager.service
+After=servicemanager.service
 
 [Service]
 User=qmmfsvr
