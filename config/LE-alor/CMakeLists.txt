@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.1)
 
-project(config-vienna)
+project(config-alor)
 
 set(PLATFORM_CXX_FLAGS "${PLATFORM_CXX_FLAGS} -DTARGET_ION_ABI_VERSION=2")
 
@@ -28,15 +28,11 @@ set(PLATFORM_CXX_FLAGS "${PLATFORM_CXX_FLAGS} -DCAMERA_METADATA_1_0_NS")
 
 set(PLATFORM_CXX_FLAGS "${PLATFORM_CXX_FLAGS} -DENABLE_IMAGE_NV12")
 
-# vienna should ideally support CAMX_ANDROID_API level 36.
-# Image colorimetry support is introduced in API level 33; however, QSSI of LAW and Camera HAL currently do not support colorimetry.
-# WORKAROUND: Temporarily setting API level to 32 for compatibility and to allow compilation.
-# NOTE: Respective teams should re-enable proper API level support based on Android version once dependencies are resolved.
-set(PLATFORM_CXX_FLAGS "${PLATFORM_CXX_FLAGS} -DCAMX_ANDROID_API=32")
+set(PLATFORM_CXX_FLAGS "${PLATFORM_CXX_FLAGS} -DCAMX_ANDROID_API=34")
 
 set(TARGET_USES_GBM "1" PARENT_SCOPE)
 
-set(TARGET_USES_DMABUF "0" PARENT_SCOPE)
+set(TARGET_USES_DMABUF "1" PARENT_SCOPE)
 
 set(DISABLE_RESCALER_COLORSPACE "1" PARENT_SCOPE)
 
@@ -46,7 +42,7 @@ if(BUILD_CATEGORY STREQUAL "BASE" OR BUILD_CATEGORY STREQUAL "ALL")
 
 set(CAMERAADAPTOR_ENABLED "1" PARENT_SCOPE)
 set(QMMF_UTILS_ENABLED "1" PARENT_SCOPE)
-set(RESIZER_FASTCV_ENABLED "1" PARENT_SCOPE)
+set(RESIZER_FASTCV_ENABLED "0" PARENT_SCOPE)
 set(RESIZER_NEON_ENABLED "0" PARENT_SCOPE)
 set(MEMORY_ENABLED "1" PARENT_SCOPE)
 

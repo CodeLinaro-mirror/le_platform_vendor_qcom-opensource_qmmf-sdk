@@ -115,7 +115,7 @@ float CameraContext::kHFRBatchModeThreshold = 90.0f;
 float CameraContext::kHFRBatchModeThreshold = 120.0f;
 #endif
 
-CameraContext::CameraContext()
+CameraContext::CameraContext(const DeviceStatusCb &devstatuscb)
     : camera_id_(-1),
       streaming_request_id_(-1),
       capture_request_id_(-1),
@@ -123,6 +123,7 @@ CameraContext::CameraContext()
       capture_cnt_(0),
       result_cb_(nullptr),
       error_cb_(nullptr),
+      device_status_cb_(devstatuscb),
       zsl_port_id_(0x100),
       hfr_supported_(false),
       batch_stream_id_(-1),
@@ -157,6 +158,9 @@ CameraContext::CameraContext()
 
   camera_callbacks_.resultCb = [&] (const CaptureResult &result)
       { CameraResultCb(result); };
+
+  camera_callbacks_.deviceStatusCb = [&] (int camera_id, bool is_present)
+      { CameraDeviceStatusCb(camera_id, is_present); };
 
   camera_device_ = std::make_shared<Camera3DeviceClient>(camera_callbacks_);
   if (!camera_device_) {
@@ -680,20 +684,90 @@ status_t CameraContext::ConfigImageCapture(const uint32_t image_id,
     }
 #endif // CAMX_ANDROID_API
 
-#ifdef ENABLE_IMAGE_NV12
-    if (param.format == BufferFormat::kNV12) {
-      stream_param.allocFlags.flags |= IMemAllocUsage::kHwCameraWrite;
-      // Not for HEIF, set HAL_DATASPACE_HEIF because of camera limitation.
-      stream_param.data_space = static_cast<android_dataspace_t>
-                                (HAL_DATASPACE_HEIF);
-    } else if (param.format == BufferFormat::kNV12HEIF) {
-      stream_param.allocFlags.flags = (IMemAllocUsage::kHwRender |
-                                IMemAllocUsage::kPrivateAllocHEIF |
-                                IMemAllocUsage::kHwTexture);
-      stream_param.data_space = static_cast<android_dataspace_t>
-                                (HAL_DATASPACE_HEIF);
+#if defined(CAMX_ANDROID_API) && (CAMX_ANDROID_API >= 33)
+    // Image color space hdrmode && data_space setting
+    switch (param.colorimetry) {
+      case Colorimetry::kBT601:
+        stream_param.hdrmode = 0;
+        stream_param.color_space = 0;
+        break;
+      case Colorimetry::kBT2100HLGFULL:
+        stream_param.hdrmode =
+            ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_HLG10;
+        stream_param.color_space = 5;
+        break;
+      case Colorimetry::kBT2100PQFULL:
+        stream_param.hdrmode =
+            ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_HDR10;
+        stream_param.color_space = 5;
+        break;
+      case Colorimetry::kBT601FULL:
+        stream_param.hdrmode =
+            ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_STANDARD;
+        stream_param.color_space = 0; // ANDROID_REQUEST_AVAILABLE_COLOR_SPACE_PROFILES_MAP_SRGB
+        break;
+      case Colorimetry::kBT709FULL:
+        stream_param.hdrmode =
+            ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_STANDARD;
+        stream_param.color_space = 4; // ANDROID_REQUEST_AVAILABLE_COLOR_SPACE_PROFILES_MAP_BT709
+        break;
+      default:
+        QMMF_ERROR("%s: Invalid color space, colorimetry = %d",
+            __func__, param.colorimetry);
+        return -EINVAL;  // Return error instead of continuing
     }
-#endif
+#endif // CAMX_ANDROID_API
+
+    switch (param.format) {
+#ifdef ENABLE_IMAGE_NV12
+      case BufferFormat::kNV12:
+        stream_param.allocFlags.flags |= IMemAllocUsage::kHwCameraWrite;
+        stream_param.data_space =
+            static_cast<android_dataspace_t>(HAL_DATASPACE_HEIF);
+        break;
+      case BufferFormat::kNV12HEIF:
+        stream_param.allocFlags.flags = (IMemAllocUsage::kHwRender |
+                                         IMemAllocUsage::kPrivateAllocHEIF |
+                                         IMemAllocUsage::kHwTexture);
+        stream_param.data_space =
+            static_cast<android_dataspace_t>(HAL_DATASPACE_HEIF);
+        break;
+      case BufferFormat::kNV12UBWC:
+        stream_param.data_space =
+            static_cast<android_dataspace_t>(HAL_DATASPACE_HEIF);
+        // TODO: update below flags once camx has supported
+        stream_param.allocFlags.flags |= (IMemAllocUsage::kPrivateAllocUbwc |
+                                          IMemAllocUsage::kHwTexture |
+                                          IMemAllocUsage::kHwComposer |
+                                          IMemAllocUsage::kHwCameraWrite);
+        break;
+#endif // ENABLE_IMAGE_NV12
+      case BufferFormat::kP010:
+        stream_param.data_space =
+            static_cast<android_dataspace_t>(HAL_DATASPACE_HEIF);
+        // TODO: update below flags once camx has supported
+        stream_param.allocFlags.flags |= (IMemAllocUsage::kPrivateAllocP010 |
+                                          IMemAllocUsage::kVideoEncoder |
+                                          IMemAllocUsage::kHwCameraWrite);
+        break;
+      case BufferFormat::kTP10UBWC:
+        stream_param.data_space =
+            static_cast<android_dataspace_t>(HAL_DATASPACE_HEIF);
+        stream_param.allocFlags.flags = (IMemAllocUsage::kPrivateAllocTP10 |
+                                         IMemAllocUsage::kPrivateAllocUbwc |
+                                         IMemAllocUsage::kHwComposer |
+                                         IMemAllocUsage::kHwCameraWrite |
+                                         IMemAllocUsage::kVideoEncoder |
+                                         IMemAllocUsage::kHwTexture |
+                                         IMemAllocUsage::kHwRender |
+                                         IMemAllocUsage::kPrivateAllocHEIF |
+                                         IMemAllocUsage::kPrivateSnapshot);
+        break;
+      default:
+        stream_param.allocFlags.flags |= (IMemAllocUsage::kSwReadOften |
+                                          IMemAllocUsage::kSwWriteOften);
+        break;
+    }
 
     ret = CreateSnapshotStream(image_id, stream_param, true);
     if (NO_ERROR != ret) {
@@ -2850,6 +2924,14 @@ std::shared_ptr<CameraPort> CameraContext::GetPort(const uint32_t& track_id) {
   return port;
 }
 
+void CameraContext::CameraDeviceStatusCb(int camera_id, bool is_present) {
+  QMMF_INFO("%s: Camera: %d, Status: %s", __func__, camera_id,
+      is_present ? "Present" : "Not Present");
+  if (device_status_cb_) {
+    device_status_cb_(camera_id, is_present);
+  }
+}
+
 void CameraContext::OnFrameAvailable(StreamBuffer& buffer) {
 
   QMMF_DEBUG("%s: StreamBuffer(0x%p) fd: %d stream_id: %d ts: %lld",
@@ -3052,33 +3134,34 @@ status_t CameraPort::Init() {
   }
 
 #if defined(CAMX_ANDROID_API) && (CAMX_ANDROID_API >= 31)
-  switch (params_.colorimetry) {
-    case VideoColorimetry::kBT601:
-      cam_stream_params_.hdrmode = 0;
-      cam_stream_params_.data_space = HAL_DATASPACE_UNKNOWN;
-      break;
-    case VideoColorimetry::kBT2100HLGFULL:
-      cam_stream_params_.hdrmode =
-          ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_HLG10;
-      break;
-    case VideoColorimetry::kBT2100PQFULL:
-      cam_stream_params_.hdrmode =
-          ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_HDR10;
-      break;
-    case VideoColorimetry::kBT601FULL:
-      cam_stream_params_.hdrmode =
-          ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_STANDARD;
-      cam_stream_params_.data_space = HAL_DATASPACE_BT601_525;
-      break;
-    case VideoColorimetry::kBT709FULL:
-      cam_stream_params_.hdrmode =
-          ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_STANDARD;
-      cam_stream_params_.data_space = HAL_DATASPACE_BT709;
-      break;
-    default:
-      QMMF_ERROR("%s: Invalid color space, colorimetry = %d",
-          __func__, params_.colorimetry);
-      break;
+  if (params_.colorimetry == Colorimetry::kBT601) {
+    cam_stream_params_.hdrmode = 0;
+    cam_stream_params_.data_space = HAL_DATASPACE_UNKNOWN;
+  } else {
+    switch (params_.colorimetry) {
+      case Colorimetry::kBT2100HLGFULL:
+        cam_stream_params_.hdrmode =
+            ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_HLG10;
+        break;
+      case Colorimetry::kBT2100PQFULL:
+        cam_stream_params_.hdrmode =
+            ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_HDR10;
+        break;
+      case Colorimetry::kBT601FULL:
+        cam_stream_params_.hdrmode =
+            ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_STANDARD;
+        cam_stream_params_.data_space = HAL_DATASPACE_BT601_525;
+        break;
+      case Colorimetry::kBT709FULL:
+        cam_stream_params_.hdrmode =
+            ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_STANDARD;
+        cam_stream_params_.data_space = HAL_DATASPACE_BT709;
+        break;
+      default:
+        QMMF_ERROR("%s: Invalid video color space, colorimetry = %d",
+            __func__, params_.colorimetry);
+        break;
+    }
   }
 #endif
 
