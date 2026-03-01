@@ -588,15 +588,18 @@ status_t CameraSource::DeleteTrackSource(const uint32_t track_id) {
     QMMF_ERROR("%s: Track(%x): does not exist !!", __func__, track_id);
     return BAD_VALUE;
   }
+  track_source_lock_.lock();
   auto const& track = track_sources_[track_id];
+  track_source_lock_.unlock();
 
   auto ret = track->DeInit();
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: Track(%x): DeInit failed !!", __func__, track_id);
     return ret;
   }
-
+  track_source_lock_.lock();
   track_sources_.erase(track_id);
+  track_source_lock_.unlock();
   rescalers_.erase(track_id);
 
   QMMF_INFO("%s: Track(%x): Deleted Successfully!", __func__,
@@ -612,7 +615,9 @@ status_t CameraSource::StartTrackSources(
 
   for (auto it = track_ids.begin(); it != track_ids.end(); ++it) {
     uint32_t track_id = *it;
+    track_source_lock_.lock();
     auto const& track = track_sources_[track_id];
+    track_source_lock_.unlock();
     bool cached = std::next(it) != track_ids.end();
 
     ret = track->StartTrack(cached);
@@ -633,7 +638,9 @@ status_t CameraSource::StopTrackSources(
 
   for (auto it = track_ids.begin(); it != track_ids.end(); ++it) {
     uint32_t track_id = *it;
+    track_source_lock_.lock();
     auto const& track = track_sources_[track_id];
+    track_source_lock_.unlock();
     bool cached = std::next(it) != track_ids.end();
 
     ret = track->StopTrack(cached);
@@ -656,8 +663,9 @@ status_t CameraSource::FlushTrackSource(const uint32_t track_id) {
     QMMF_ERROR("%s: Track(%x): does not exist !!", __func__, track_id);
     return BAD_VALUE;
   }
+  track_source_lock_.lock();
   auto const& track = track_sources_[track_id];
-
+  track_source_lock_.unlock();
   auto ret = track->Flush();
   assert(ret == NO_ERROR);
 
@@ -673,7 +681,9 @@ status_t CameraSource::ReturnTrackBuffer(const uint32_t track_id,
     QMMF_ERROR("%s: Track(%x): does not exist !!", __func__, track_id);
     return BAD_VALUE;
   }
+  track_source_lock_.lock();
   auto const& track = track_sources_[track_id];
+  track_source_lock_.unlock();
 
   auto ret = track->ReturnTrackBuffer(buffers);
   assert(ret == NO_ERROR);
@@ -783,8 +793,9 @@ status_t CameraSource::UpdateTrackFrameRate(const uint32_t track_id,
     QMMF_ERROR("%s: Track(%x): does not exist !!", __func__, track_id);
     return BAD_VALUE;
   }
+  track_source_lock_.lock();
   auto const& track = track_sources_[track_id];
-
+  track_source_lock_.unlock();
   track->UpdateFrameRate(framerate);
   return NO_ERROR;
 }
@@ -796,22 +807,30 @@ status_t CameraSource::EnableFrameRepeat(const uint32_t track_id,
     QMMF_ERROR("%s: Track(%x): does not exist !!", __func__, track_id);
     return BAD_VALUE;
   }
+  track_source_lock_.lock();
   auto const& track = track_sources_[track_id];
-
+  track_source_lock_.unlock();
   track->EnableFrameRepeat(enable);
   return NO_ERROR;
 }
 
 const shared_ptr<TrackSource>& CameraSource::GetTrackSource(uint32_t track_id) {
-
+  track_source_lock_.lock();
   assert(track_sources_.count(track_id) != 0);
-  return track_sources_[track_id];
+  auto const& track = track_sources_[track_id];
+  track_source_lock_.unlock();
+  return track;
 }
 
 bool CameraSource::IsTrackIdValid(const uint32_t track_id) {
-
-  QMMF_DEBUG("%s: Number of Tracks exist: %d",__func__, track_sources_.size());
-  return (track_sources_.count(track_id) != 0) ? true : false;
+  bool IsValid = false;
+  uint32_t size = 0;
+  track_source_lock_.lock();
+  size = track_sources_.size();
+  IsValid = (track_sources_.count(track_id) != 0) ? true : false;
+  track_source_lock_.unlock();
+  QMMF_DEBUG("%s: Number of Tracks exist: %d",__func__, size);
+  return IsValid;
 }
 
 uint32_t CameraSource::GetJpegSize(uint8_t *blobBuffer, uint32_t size) {
