@@ -1557,6 +1557,8 @@ status_t RecorderImpl::ForceReturnBuffers(const uint32_t client_id) {
 
   uint32_t ret = NO_ERROR;
 
+  {
+  std::lock_guard<std::mutex> lock(camera_map_lock_);
   // Return all image capture buffers
   auto const& cameras = client_cameraid_map_[client_id];
   for (auto camera : cameras) {
@@ -1566,6 +1568,7 @@ status_t RecorderImpl::ForceReturnBuffers(const uint32_t client_id) {
       QMMF_WARN("%s: ReturnAllImageCaptureBuffers failed for camera_id %d",
           __func__, camera_id);
     }
+  }
   }
 
   // Return all track buffers
