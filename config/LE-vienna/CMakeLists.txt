@@ -28,7 +28,11 @@ set(PLATFORM_CXX_FLAGS "${PLATFORM_CXX_FLAGS} -DCAMERA_METADATA_1_0_NS")
 
 set(PLATFORM_CXX_FLAGS "${PLATFORM_CXX_FLAGS} -DENABLE_IMAGE_NV12")
 
-set(PLATFORM_CXX_FLAGS "${PLATFORM_CXX_FLAGS} -DCAMX_ANDROID_API=36")
+# vienna should ideally support CAMX_ANDROID_API level 36.
+# Image colorimetry support is introduced in API level 33; however, QSSI of LAW and Camera HAL currently do not support colorimetry.
+# WORKAROUND: Temporarily setting API level to 32 for compatibility and to allow compilation.
+# NOTE: Respective teams should re-enable proper API level support based on Android version once dependencies are resolved.
+set(PLATFORM_CXX_FLAGS "${PLATFORM_CXX_FLAGS} -DCAMX_ANDROID_API=32")
 
 set(TARGET_USES_GBM "1" PARENT_SCOPE)
 

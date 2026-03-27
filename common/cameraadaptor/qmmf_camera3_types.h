@@ -233,6 +233,8 @@ typedef std::function<void(const CaptureResultExtras &resultExtras,
 typedef std::function<void(int streamId)> PreparedCallback;
 // Notifies about a new capture result
 typedef std::function<void(const CaptureResult &result)> ResultCallback;
+// Notifies about camera device status changes (present/not present)
+typedef std::function<void(int camera_id, bool is_present)> DeviceStatusCallback;
 
 // Please note that these callbacks shouldn't get blocked for long durations.
 // Also very important is to not to try and call "Camera3DeviceClient" API
@@ -244,6 +246,7 @@ typedef struct {
   ShutterCallback shutterCb;
   PreparedCallback peparedCb;
   ResultCallback resultCb;
+  DeviceStatusCallback deviceStatusCb;
 } CameraClientCallbacks;
 
 //Please note that this callbacks need to return as fast as possible

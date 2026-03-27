@@ -193,6 +193,10 @@ class RecorderService : public BnInterface<IRecorderService> {
                                     const uint32_t camera_id,
                                     CameraMetadata &meta) override;
 
+  status_t GetOfflineParams(const uint32_t client_id,
+                            const OfflineCameraInputParams &in_params,
+                            OfflineCameraOutputParams &out_params) override;
+
   status_t CreateOfflineProcess(const uint32_t client_id,
                                 const OfflineCameraCreateParams& params) override;
 

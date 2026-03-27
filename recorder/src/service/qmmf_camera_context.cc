@@ -115,7 +115,7 @@ float CameraContext::kHFRBatchModeThreshold = 90.0f;
 float CameraContext::kHFRBatchModeThreshold = 120.0f;
 #endif
 
-CameraContext::CameraContext()
+CameraContext::CameraContext(const DeviceStatusCb &devstatuscb)
     : camera_id_(-1),
       streaming_request_id_(-1),
       capture_request_id_(-1),
@@ -123,6 +123,7 @@ CameraContext::CameraContext()
       capture_cnt_(0),
       result_cb_(nullptr),
       error_cb_(nullptr),
+      device_status_cb_(devstatuscb),
       zsl_port_id_(0x100),
       hfr_supported_(false),
       batch_stream_id_(-1),
@@ -157,6 +158,9 @@ CameraContext::CameraContext()
 
   camera_callbacks_.resultCb = [&] (const CaptureResult &result)
       { CameraResultCb(result); };
+
+  camera_callbacks_.deviceStatusCb = [&] (int camera_id, bool is_present)
+      { CameraDeviceStatusCb(camera_id, is_present); };
 
   camera_device_ = std::make_shared<Camera3DeviceClient>(camera_callbacks_);
   if (!camera_device_) {
@@ -2918,6 +2922,14 @@ std::shared_ptr<CameraPort> CameraContext::GetPort(const uint32_t& track_id) {
 
   QMMF_INFO("%s: Found port for track_id(%x)", __func__, track_id);
   return port;
+}
+
+void CameraContext::CameraDeviceStatusCb(int camera_id, bool is_present) {
+  QMMF_INFO("%s: Camera: %d, Status: %s", __func__, camera_id,
+      is_present ? "Present" : "Not Present");
+  if (device_status_cb_) {
+    device_status_cb_(camera_id, is_present);
+  }
 }
 
 void CameraContext::OnFrameAvailable(StreamBuffer& buffer) {
