@@ -215,6 +215,10 @@ class RecorderImpl {
                                     const uint32_t camera_id,
                                     CameraMetadata &meta);
 
+  status_t GetOfflineParams(const uint32_t client_id,
+                            const OfflineCameraInputParams &in_params,
+                            OfflineCameraOutputParams &out_params);
+
   status_t CreateOfflineProcess(const uint32_t client_id,
                                 const OfflineCameraCreateParams& params);
 
@@ -243,6 +247,8 @@ class RecorderImpl {
   /// Camera Error callback handler
   void CameraErrorCb(uint32_t camera_id, uint32_t errcode);
 
+  void CameraDeviceStatusCb(uint32_t camera_id, bool is_present);
+
   // Get suitable trackid for linked stream
   uint32_t FindSuitableIdForLinkedTrack(const VideoTrackParam& params);
 
@@ -256,6 +262,12 @@ class RecorderImpl {
   enum class TrackState {
     kActive,
     kIdle,
+  };
+
+  // Struct for camera device status data
+  struct CameraDeviceStatusData {
+    uint32_t camera_id;
+    bool is_present;
   };
 
   // <client track id, service track id>
