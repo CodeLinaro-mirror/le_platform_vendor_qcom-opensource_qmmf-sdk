@@ -20,14 +20,15 @@
 
 #ifndef QMMF_VENDOR_TAG_DESCRIPTOR_H
 
-#include <system/camera_vendor_tags.h>
+#include <cstdint>
 #include <memory>
 #include <map>
 #include <vector>
 #include <mutex>
-
 #include <string>
 #include <stdint.h>
+
+#include <system/camera_vendor_tags.h>
 
 namespace android {
   class Parcel;
