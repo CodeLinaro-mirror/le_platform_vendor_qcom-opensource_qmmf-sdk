@@ -83,6 +83,7 @@ enum ParamTag {
   QMMF_TRACK_CROP,
   QMMF_FORCE_SENSOR_MODE,
   QMMF_EIS,
+  QMMF_EIS_MODE,
   QMMF_PARTIAL_METADATA,
   QMMF_CAMERA_SLAVE_MODE,
   QMMF_USE_LINKED_TRACK_IN_SLAVE_MODE,
@@ -95,6 +96,7 @@ enum ParamTag {
   QMMF_STREAM_CAMERA_ID,
   QMMF_STITCH_LAYOUT,
   QMMF_SUPER_FRAMES,
+  QMMF_SW_TNR,
 };
 
 enum class SlaveMode {
@@ -106,12 +108,20 @@ enum class SlaveMode {
   kSlave,
 };
 
-
 enum class FrameRateControlMode {
   /**< control stream frame rate by frame skip */
   kFrameSkip,
   /**< control stream frame rate by HAL3 capture requests */
   kCaptureRequest
+};
+
+enum class EisMode {
+  /**< Eis is off */
+  kEisOff,
+  /**< EIS on first stream */
+  kEisSingleStream,
+  /**< EIS on dual stream */
+  kEisDualStream,
 };
 
 enum class CamOpMode {
@@ -210,6 +220,14 @@ struct EISSetup : DataTagBase {
   EISSetup() :
     DataTagBase(QMMF_EIS),
     enable(false) {
+  }
+};
+
+struct EISModeSetup : DataTagBase {
+  EisMode mode; // Default: kEisOff to disable EIS
+  EISModeSetup() :
+    DataTagBase(QMMF_EIS_MODE),
+    mode(EisMode::kEisOff) {
   }
 };
 
@@ -333,6 +351,16 @@ struct SuperFrames: DataTagBase {
   /**< the frame_count in one super buffer */
   int8_t n_frames;
   SuperFrames() : DataTagBase(QMMF_SUPER_FRAMES), n_frames(1) {}
+};
+
+struct SWTNR : DataTagBase {
+  /**< Add support for client to enable/disable */
+  /**< SW TNR (Software Temporal Noise Reduction) */
+  /**< Default: False */
+  bool enable;
+  SWTNR() :
+    DataTagBase(QMMF_SW_TNR), enable(false) {
+  }
 };
 
 }; //namespace recorder.
