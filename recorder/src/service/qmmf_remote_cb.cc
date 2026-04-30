@@ -138,6 +138,12 @@ void RemoteCallBack::NotifyDeleteVideoTrack(uint32_t track_id) {
   client_cb_handle_->NotifyDeleteVideoTrack(track_id);
 }
 
+void RemoteCallBack::NotifyCancelCaptureImage(uint32_t image_id) {
+
+  assert(client_cb_handle_.get() != nullptr);
+  client_cb_handle_->NotifyCancelCaptureImage(image_id);
+}
+
 }; // namespace recorder
 
 }; // namespace qmmf
