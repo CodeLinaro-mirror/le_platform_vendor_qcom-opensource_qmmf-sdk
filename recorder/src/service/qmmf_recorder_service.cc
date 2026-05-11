@@ -85,7 +85,7 @@ RecorderService::RecorderService() {
       QMMF_ERROR("%s: Can't create Recorder Instance!!", __func__);
     } else {
       std::function< const sp<RemoteCallBack>& (uint32_t id)>
-        remote_cb_handle = [&] (uint32_t id) {
+        remote_cb_handle = [&] (uint32_t id) -> const sp<RemoteCallBack>& {
           QMMF_VERBOSE("%s: Client(%u): RemoteCallback request!", __func__, id);
           assert(remote_cb_list_.count(id) != 0);
           return remote_cb_list_[id];

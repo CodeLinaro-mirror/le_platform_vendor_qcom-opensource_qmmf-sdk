@@ -53,6 +53,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#define LOG_TAG "Camera3Stream"
 #include "qmmf_camera3_utils.h"
 #include "qmmf_camera3_monitor.h"
 #include "qmmf_camera3_stream.h"
@@ -74,8 +75,6 @@
 #endif
 
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
-
-#define LOG_TAG "Camera3Stream"
 
 namespace qmmf {
 
