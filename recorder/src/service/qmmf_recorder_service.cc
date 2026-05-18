@@ -273,6 +273,64 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
         return NO_ERROR;
       }
       break;
+      case RECORDER_DYNAMIC_CAPTURE_IMAGE: {
+        uint32_t client_id, camera_id, type, n_burst, meta_size, pad_group_size,
+            pad;
+        std::vector<std::vector<uint32_t>> pad_group;
+        data.readUint32(&client_id);
+        data.readUint32(&camera_id);
+        data.readUint32(&pad_group_size);
+
+        pad_group.resize(pad_group_size);
+        for (int32_t i = 0; i < pad_group_size; i++) {
+          uint32_t pad_size;
+          data.readUint32(&pad_size);
+          for (int32_t j = 0; j < pad_size; j++) {
+            data.readUint32(&pad);
+            pad_group[i].push_back(pad);
+          }
+        }
+
+        for (auto &group : pad_group) {
+          for (auto &pad : group) {
+            QMMF_ERROR("%s pad = %d", __func__, pad);
+          }
+        }
+
+        data.readUint32(&type);
+        data.readUint32(&n_burst);
+        data.readUint32(&meta_size);
+        std::vector<CameraMetadata> meta_array;
+        for (uint32_t i = 0; i < meta_size; ++i) {
+          CameraMetadata meta;
+          camera_metadata_t *m = nullptr;
+          ret = meta.readFromParcel(data, &m);
+          if ((NO_ERROR != ret) || (nullptr == m)) {
+            QMMF_ERROR("%s: Metadata parcel read failed: %d meta(%p)", __func__,
+                       ret, m);
+            reply->writeInt32(ret);
+            return ret;
+          }
+          meta.clear();
+          meta.append(m);
+          meta_array.push_back(meta);
+          // We need to release this memory as meta.append() makes copy of this
+          // memory
+          free(m);
+        }
+        ret = CaptureImage(client_id, camera_id, pad_group,
+                                  static_cast<SnapshotType>(type), n_burst,
+                                  meta_array);
+
+        // Clear the metadata buffers and free all storage used by it
+        for (auto& meta : meta_array) {
+          meta.clear();
+        }
+
+        reply->writeInt32(ret);
+        return NO_ERROR;
+
+      } break;
       case RECORDER_CAPTURE_IMAGE: {
         uint32_t client_id, camera_id, type, n_images, meta_size;
         data.readUint32(&client_id);
@@ -930,6 +988,28 @@ status_t RecorderService::SetVideoTrackParam(const uint32_t client_id,
                                            param, size);
   if (ret != NO_ERROR) {
     QMMF_ERROR("%s: SetVideoTrackParam failed!", __func__);
+    return ret;
+  }
+  QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
+  return NO_ERROR;
+}
+
+status_t RecorderService::CaptureImage(
+    const uint32_t client_id, const uint32_t camera_id,
+    const ImageGroupType &pad_group,
+    const SnapshotType type, const uint32_t n_burst,
+    const std::vector<CameraMetadata> &meta) {
+  QMMF_INFO("%s: Enter client_id(%d)", __func__, client_id);
+
+  if (!IsRecorderInitialized()) {
+    QMMF_ERROR("%s: Recorder not initialized!", __func__);
+    return NO_INIT;
+  }
+
+  auto ret = recorder_->CaptureImage(client_id, camera_id, pad_group,
+                                            type, n_burst, meta);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s: CaptureImage failed!", __func__);
     return ret;
   }
   QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);

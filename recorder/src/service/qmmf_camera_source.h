@@ -118,6 +118,14 @@ class CameraSource {
   /// Close Camera.
   status_t StopCamera(const uint32_t camera_id);
 
+  /// Dynamic Image Capture
+  status_t
+  CaptureImage(const uint32_t camera_id,
+                      const ImageGroupType &pad_group,
+                      const SnapshotType type, const uint32_t n_burst,
+                      const std::vector<CameraMetadata> &meta,
+                      const SnapshotCb &cb);
+
   /// Image Capture
   status_t CaptureImage(const uint32_t camera_id,
                         const SnapshotType type,

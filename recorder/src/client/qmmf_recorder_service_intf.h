@@ -103,6 +103,7 @@ enum QMMF_RECORDER_SERVICE_CMDS {
   RECORDER_RETURN_TRACKBUFFER,
   RECORDER_SET_VIDEOTRACK_PARAMS,
   RECORDER_CAPTURE_IMAGE,
+  RECORDER_DYNAMIC_CAPTURE_IMAGE,
   RECORDER_CONFIG_IMAGECAPTURE,
   RECORDER_CANCEL_IMAGECAPTURE,
   RECORDER_RETURN_IMAGECAPTURE_BUFFER,
@@ -234,6 +235,11 @@ class IRecorderService : public IInterface {
                                       VideoParam type,
                                       void *param,
                                       size_t size) = 0;
+
+  virtual status_t CaptureImage(const uint32_t client_id, const uint32_t camera_id,
+                                const ImageGroupType &pad_group,
+                                const SnapshotType type, const uint32_t n_burst,
+                                const std::vector<CameraMetadata> &meta) = 0;
 
   virtual status_t CaptureImage(const uint32_t client_id,
                                 const uint32_t camera_id,
