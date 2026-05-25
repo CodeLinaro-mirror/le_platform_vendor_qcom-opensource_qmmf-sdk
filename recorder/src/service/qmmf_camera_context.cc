@@ -989,21 +989,15 @@ status_t CameraContext::CaptureImage(
   return NO_ERROR;
 }
 
-status_t CameraContext::CaptureImage(const SnapshotType type,
-                                     const uint32_t n_images,
-                                     const std::vector<CameraMetadata> &meta,
-                                     const StreamSnapshotCb& cb) {
-
+status_t CameraContext::SubmitCaptureInternal(const SnapshotType type,
+                                              const uint32_t n_images,
+                                              const std::vector<CameraMetadata> &meta,
+                                              const StreamSnapshotCb& cb) {
   QMMF_INFO("%s: Enter", __func__);
   int32_t ret = NO_ERROR;
   uint32_t imgcnt = 0;
   client_snapshot_cb_ = cb;
   capture_cnt_ = 0;
-
-  if (snapshot_request_.streamIds.empty()) {
-    QMMF_ERROR("%s: No snapshot stream available", __func__);
-    return BAD_VALUE;
-  }
 
   if (continuous_mode_is_on_) {
     QMMF_WARN("%s: CaptureImage() should be called only once "
@@ -1088,6 +1082,53 @@ status_t CameraContext::CaptureImage(const SnapshotType type,
       return ret;
     }
   }
+  QMMF_INFO("%s: Exit", __func__);
+  return ret;
+}
+
+status_t CameraContext::CaptureImage(const SnapshotType type,
+                                     const uint32_t n_images,
+                                     const std::vector<CameraMetadata> &meta,
+                                     const StreamSnapshotCb& cb) {
+  QMMF_INFO("%s: Enter", __func__);
+  int32_t ret = NO_ERROR;
+  CameraMetadata video_meta;
+
+  if (snapshot_request_.streamIds.empty()) {
+    QMMF_ERROR("%s: No snapshot stream available", __func__);
+    return BAD_VALUE;
+  }
+
+  if (NO_ERROR == GetCameraParam(video_meta)) {
+    if (video_meta.exists(ANDROID_CONTROL_AE_MODE)) {
+      uint8_t ae_mode = video_meta.find(ANDROID_CONTROL_AE_MODE).data.u8[0];
+      if (ae_mode == ANDROID_CONTROL_AE_MODE_ON_ALWAYS_FLASH) {
+        std::unique_lock<std::mutex> lock(flash_snapshot_lock_);
+        if (flash_snapshot_ctx_.state != FlashSnapshotState::kIdle) {
+          QMMF_ERROR("%s: last flash snapshot is processing", __func__);
+          return INVALID_OPERATION;
+        }
+
+        // reset aelock state in new CaptureImage process if aelock is on
+        uint8_t ae_lock = video_meta.find(ANDROID_CONTROL_AE_LOCK).data.u8[0];
+        if (ae_lock == ANDROID_CONTROL_AE_LOCK_ON) {
+          ae_lock = ANDROID_CONTROL_AE_LOCK_OFF;
+          video_meta.update(ANDROID_CONTROL_AE_LOCK, &ae_lock, 1);
+          SetCameraParam(video_meta);
+        }
+
+        flash_snapshot_ctx_.type = type;
+        flash_snapshot_ctx_.n_images = n_images;
+        flash_snapshot_ctx_.meta = meta;
+        flash_snapshot_ctx_.cb = cb;
+        flash_snapshot_ctx_.state = FlashSnapshotState::kWaitingFlashRequest;
+        QMMF_DEBUG("%s: start Flash snapshot", __func__);
+        return NO_ERROR;
+      }
+    }
+  }
+
+  ret = SubmitCaptureInternal(type, n_images, meta, cb);
   QMMF_INFO("%s: Exit", __func__);
   return ret;
 }
@@ -2836,6 +2877,122 @@ status_t CameraContext::CaptureZSLImage(const SnapshotType type) {
   return ret;
 }
 
+void CameraContext::ProcessFlashSnapshotMeta(const CameraMetadata& result) {
+  if (!result.exists(ANDROID_CONTROL_AE_STATE))
+    return;
+
+  qmmf::recorder::FlashSnapshotState current_state;
+  {
+    std::lock_guard<std::mutex> lock(flash_snapshot_lock_);
+    current_state = flash_snapshot_ctx_.state;
+  }
+
+  if (current_state == FlashSnapshotState::kIdle)
+    return;
+
+  uint8_t ae_state = result.find(ANDROID_CONTROL_AE_STATE).data.u8[0];
+
+  switch(current_state) {
+    case FlashSnapshotState::kWaitingFlashRequest: {
+      if (ae_state == ANDROID_CONTROL_AE_STATE_FLASH_REQUIRED) {
+        // Send TRIGGER_START as a one-shot (non-repeating) request.
+        {
+          std::lock_guard<std::mutex> lock(device_access_lock_);
+          if (!streaming_active_requests_.empty() &&
+              !streaming_active_requests_[0].metadata.isEmpty() &&
+              streaming_request_id_ >= 0) {
+            Camera3Request one_shot_req = streaming_active_requests_[0];
+            int64_t last_frame_number;
+            uint8_t trigger = ANDROID_CONTROL_AE_PRECAPTURE_TRIGGER_START;
+
+            one_shot_req.metadata.update(ANDROID_CONTROL_AE_PRECAPTURE_TRIGGER,
+                                         &trigger, 1);
+            camera_device_->SubmitRequest(one_shot_req, false, &last_frame_number);
+            QMMF_DEBUG("%s: Sent PRECAPTURE_TRIGGER=START one-shot, "
+                "last_frame_number=%lld", __func__, last_frame_number);
+
+            trigger = ANDROID_CONTROL_AE_PRECAPTURE_TRIGGER_IDLE;
+            one_shot_req.metadata.update(ANDROID_CONTROL_AE_PRECAPTURE_TRIGGER,
+                                         &trigger, 1);
+            camera_device_->SubmitRequest(one_shot_req, false, &last_frame_number);
+            QMMF_DEBUG("%s: Sent PRECAPTURE_TRIGGER=IDLE one-shot, "
+                "last_frame_number=%lld", __func__, last_frame_number);
+          } else{
+            QMMF_ERROR("%s: Failed to trigger precapture", __func__);
+            std::lock_guard<std::mutex> lock(flash_snapshot_lock_);
+            flash_snapshot_ctx_.state = FlashSnapshotState::kIdle;
+            break;
+          }
+        }
+        {
+          std::lock_guard<std::mutex> lock(flash_snapshot_lock_);
+          flash_snapshot_ctx_.state = FlashSnapshotState::kPrecaptureSent;
+        }
+        QMMF_INFO("%s: AE State change to FLASH_REQUIRED", __func__);
+      }
+    } break;
+    case FlashSnapshotState::kPrecaptureSent: {
+      if (ae_state == ANDROID_CONTROL_AE_STATE_PRECAPTURE) {
+        CameraMetadata aelock_meta;
+        uint8_t aelock = ANDROID_CONTROL_AE_LOCK_ON;
+        GetCameraParam(aelock_meta);
+        aelock_meta.update(ANDROID_CONTROL_AE_LOCK, &aelock, 1);
+        SetCameraParam(aelock_meta);
+        {
+          std::lock_guard<std::mutex> lock(flash_snapshot_lock_);
+          flash_snapshot_ctx_.state = FlashSnapshotState::kPrecaptureActive;
+        }
+        QMMF_INFO("%s: AE State change to Preflash active", __func__);
+      }
+    } break;
+    case FlashSnapshotState::kPrecaptureActive: {
+      if (ae_state == ANDROID_CONTROL_AE_STATE_LOCKED) {
+        SnapshotType type;
+        uint32_t n_images;
+        std::vector<CameraMetadata> meta;
+        StreamSnapshotCb cb;
+        {
+          std::lock_guard<std::mutex> lock(flash_snapshot_lock_);
+          type     = flash_snapshot_ctx_.type;
+          n_images = flash_snapshot_ctx_.n_images;
+          meta     = flash_snapshot_ctx_.meta;
+          cb       = flash_snapshot_ctx_.cb;
+        }
+
+        auto it = meta.begin();
+        for (uint32_t i = 0; i < n_images && it != meta.end(); i++, ++it) {
+          if (type == SnapshotType::kStill) {
+            uint8_t capture_intent = ANDROID_CONTROL_CAPTURE_INTENT_STILL_CAPTURE;
+            uint8_t flash_mode = ANDROID_FLASH_MODE_SINGLE;
+            uint8_t ae_mode = ANDROID_CONTROL_AE_MODE_ON_ALWAYS_FLASH;
+            uint8_t aelock = ANDROID_CONTROL_AE_LOCK_ON;
+            it->update(ANDROID_CONTROL_CAPTURE_INTENT, &capture_intent, 1);
+            it->update(ANDROID_FLASH_MODE, &flash_mode, 1);
+            it->update(ANDROID_CONTROL_AE_MODE, &ae_mode, 1);
+            it->update(ANDROID_CONTROL_AE_LOCK, &aelock, 1);
+          }
+        }
+
+        SubmitCaptureInternal(type, n_images, meta, cb);
+
+        CameraMetadata aelock_meta;
+        uint8_t aelock = ANDROID_CONTROL_AE_LOCK_OFF;
+        GetCameraParam(aelock_meta);
+        aelock_meta.update(ANDROID_CONTROL_AE_LOCK, &aelock, 1);
+        SetCameraParam(aelock_meta);
+
+        {
+          std::lock_guard<std::mutex> lock(flash_snapshot_lock_);
+          flash_snapshot_ctx_.state = FlashSnapshotState::kIdle;
+        }
+        QMMF_INFO("%s: Preflash complete, submitting still capture", __func__);
+      }
+    } break;
+    default:
+      break;
+  }
+}
+
 #ifndef FLUSH_RESTART_NOTAVAILABLE
 status_t CameraContext::DisableFlushRestart(const bool& disable,
                                             CameraMetadata& meta) {
@@ -2987,6 +3144,8 @@ void CameraContext::HandleFinalResult(const CaptureResult &result) {
     assert(zsl_port.get() != nullptr);
     zsl_port->HandleZSLCaptureResult(result);
   }
+
+  ProcessFlashSnapshotMeta(result.metadata);
 
   if (nullptr != result_cb_) {
     result_cb_(camera_id_, result.metadata);
