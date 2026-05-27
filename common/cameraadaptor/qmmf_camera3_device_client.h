@@ -202,6 +202,9 @@ class Camera3DeviceClient : public camera3_callback_ops,
   void RemovePendingRequestLocked(uint32_t frameNumber);
   void ReturnOutputBuffers(const camera3_stream_buffer_t *outputBuffers,
                            size_t numBuffers, int64_t timestamp,
+                           int64_t ts_soe, int64_t ts_eoe, int64_t ts_sof,
+                           int64_t ts_eof, int64_t ts_hal, int64_t ts_qmf,
+                           int64_t td_exp, int64_t ts_aux,int64_t td_aux,
                            int64_t frame_number);
   void SendCaptureResult(CameraMetadata &pendingMetadata,
                          CaptureResultExtras &resultExtras,
@@ -329,6 +332,23 @@ class Camera3DeviceClient : public camera3_callback_ops,
 
   CamOperationMode cam_opmode_;
   CameraMetadata session_metadata_;
+  uint32_t ts_ref_frameNumber;
+  int64_t ts_ref_meta;
+  uint32_t td_exp_frameNumber;
+  int64_t td_exp_meta;
+  int64_t ts_soe_meta;
+  int64_t ts_eoe_meta;
+  uint32_t ts_sof_frameNumber;
+  int64_t ts_sof_meta;
+  uint32_t ts_eof_frameNumber;
+  int64_t ts_eof_meta;
+  uint32_t ts_aux_frameNumber;
+  int64_t ts_aux_meta;
+  uint32_t td_aux_frameNumber;
+  int64_t td_aux_meta;
+  uint32_t ts_hal_frameNumber;
+  int64_t ts_hal_meta;
+  int64_t ts_qmf_meta;
 };
 
 }  // namespace cameraadaptor ends here

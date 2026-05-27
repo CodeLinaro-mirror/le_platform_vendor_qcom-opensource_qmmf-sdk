@@ -215,6 +215,15 @@ public:
 struct StreamBuffer {
   BufferMeta info;
   int64_t  timestamp;
+  int64_t  ts_soe;
+  int64_t  ts_eoe;
+  int64_t  ts_sof;
+  int64_t  ts_eof;
+  int64_t  ts_hal;
+  int64_t  ts_qmf;
+  int64_t  td_exp;
+  int64_t  ts_aux;
+  int64_t  td_aux;
   uint32_t frame_number;
   uint32_t camera_id;
   int32_t  stream_id;
@@ -237,6 +246,15 @@ struct StreamBuffer {
     stream << "fd[" << fd << "] ";
     stream << "size[" << size << "] ";
     stream << "timestamp[" << timestamp << "] ";
+    stream << "ts_soe[" << ts_soe << "] ";
+    stream << "ts_eoe[" << ts_eoe << "] ";
+    stream << "ts_sof[" << ts_sof << "] ";
+    stream << "ts_eof[" << ts_eof << "] ";
+    stream << "ts_hal[" << ts_hal << "] ";
+    stream << "ts_qmf[" << ts_qmf << "] ";
+    stream << "td_exp[" << td_exp << "] ";
+    stream << "ts_aux[" << ts_aux << "] ";
+    stream << "td_aux[" << td_aux << "] ";
     stream << "flags[" << ::std::setbase(16) << flags << ::std::setbase(10)
            << "]";
     stream << "second_thumb[" << second_thumb << "] ";

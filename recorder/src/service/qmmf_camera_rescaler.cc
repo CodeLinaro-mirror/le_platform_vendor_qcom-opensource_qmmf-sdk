@@ -218,6 +218,15 @@ bool CameraRescalerBase::ThreadLoop() {
 
   out_buffer.stream_id    = 0x55aa;
   out_buffer.timestamp    = in_buffer.timestamp;
+  out_buffer.ts_soe       = in_buffer.ts_soe;
+  out_buffer.ts_eoe       = in_buffer.ts_eoe;
+  out_buffer.ts_sof       = in_buffer.ts_sof;
+  out_buffer.ts_eof       = in_buffer.ts_eof;
+  out_buffer.ts_hal       = in_buffer.ts_hal;
+  out_buffer.ts_qmf       = in_buffer.ts_qmf;
+  out_buffer.td_exp       = in_buffer.td_exp;
+  out_buffer.ts_aux       = in_buffer.ts_aux;
+  out_buffer.td_aux       = in_buffer.td_aux;
   out_buffer.frame_number = in_buffer.frame_number;
   out_buffer.camera_id    = in_buffer.camera_id;
   out_buffer.flags        = in_buffer.flags;
