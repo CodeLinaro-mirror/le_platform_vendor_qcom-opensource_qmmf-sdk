@@ -141,7 +141,8 @@ CameraContext::CameraContext(const DeviceStatusCb &devstatuscb)
       multi_roi_count_tag_(0),
       multi_roi_info_tag_(0),
       multi_roi_info_{},
-      video_streams_active_(false) {
+      video_streams_active_(false),
+      standby_camera_id_(-1) {
 
   QMMF_INFO("%s: Enter", __func__);
 
@@ -1873,14 +1874,35 @@ status_t CameraContext::SetCameraParam(const CameraMetadata &meta) {
     return -1;
   }
 
-  // If standby metadata is present, then cancel requests
+  uint32_t cam_standby_tag_id = 0;
+  int32_t new_standby_cam_id = -1;
+  bool has_standby_cam_id_tag =
+      (meta.getTagFromName(
+          "org.codeaurora.qcamera3.sensorwriteinput.SensorStandByCameraId",
+          vtags.get(), &cam_standby_tag_id) == 0) &&
+      meta.exists(cam_standby_tag_id);
+
+  if (has_standby_cam_id_tag) {
+    new_standby_cam_id = meta.find(cam_standby_tag_id).data.i32[0];
+  }
+
+  // If standby metadata is present, then cancel requests.
+  // Exception: if SensorStandByCameraId is also set (per-camera standby),
+  // skip CancelRequest() — the new per-camera standby block handles it.
   if ((meta.getTagFromName(
       "org.codeaurora.qcamera3.sensorwriteinput.SensorStandByFlag",
       vtags.get(), &tag_id) == 0) &&  meta.exists(tag_id) &&
       meta.find(tag_id).data.u8[0] != 0) {
-    CancelRequest();
-    streaming_request_id_ = 0;
-    is_standby = true;
+
+    // Reuse already-read SensorStandByCameraId values — no second lookup needed
+    bool has_per_camera_standby = has_standby_cam_id_tag && (new_standby_cam_id >= 0);
+
+    if (!has_per_camera_standby) {
+      //no per-camera ID → cancel ALL cameras
+      CancelRequest();
+      streaming_request_id_ = 0;
+      is_standby = true;
+    }
   }
 
   // Check if Multi ROI info is present and store it in global variable.
@@ -1901,6 +1923,84 @@ status_t CameraContext::SetCameraParam(const CameraMetadata &meta) {
     multi_roi_info_tag_ = tag_id;
   }
 
+  {
+
+    if (has_standby_cam_id_tag) {
+      std::lock_guard<std::mutex> lock(device_access_lock_);
+      if (new_standby_cam_id >= 0 && new_standby_cam_id != standby_camera_id_) {
+        QMMF_INFO("%s: Per-camera standby for physical camera %d",
+            __func__, new_standby_cam_id);
+        std::string standby_cam_str = std::to_string(new_standby_cam_id);
+
+        standby_stream_ids_.clear();
+
+        for (auto& port_pair : active_ports_) {
+          auto& port = port_pair.second;
+          if (port->GetPhysicalCameraId() == standby_cam_str) {
+            int32_t stream_id = port->GetCameraStreamId();
+            for (size_t i = 0; i < streaming_active_requests_[0].streamIds.size(); i++) {
+              if (streaming_active_requests_[0].streamIds[i] == stream_id) {
+                standby_stream_ids_.insert(stream_id);
+                QMMF_INFO("%s: Stream %d belongs to standby camera %d",
+                    __func__, stream_id, new_standby_cam_id);
+                break;
+              }
+            }
+          }
+        }
+
+        if (!standby_stream_ids_.empty()) {
+
+          // Build one-shot PCR for CAM2 with standby metadata
+          Camera3Request cam_standby_request;
+          cam_standby_request.metadata.clear();
+          cam_standby_request.metadata.append(meta);
+
+          for (int32_t stream_id : standby_stream_ids_) {
+            cam_standby_request.streamIds.add(stream_id);
+          }
+
+          for (Camera3Request& req : streaming_active_requests_) {
+            Vector<int32_t> remaining;
+            for (size_t i = 0; i < req.streamIds.size(); i++) {
+              int32_t stream_id = req.streamIds[i];
+              if (standby_stream_ids_.find(stream_id) ==
+                  standby_stream_ids_.end()) {
+                remaining.push_back(stream_id);  // keep non-standby streams
+              }
+              // standby camera streams are dropped
+            }
+            req.streamIds = remaining;
+          }
+
+          {
+            int64_t last_frame_number = NO_IN_FLIGHT_REPEATING_FRAMES;
+            std::unique_lock<std::mutex> pending_frames_lock(pending_frames_lock_);
+            camera_device_->SubmitRequest(cam_standby_request, false,
+                                          &last_frame_number);
+            QMMF_INFO("%s: Submitted standby one-shot PCR for camera %d",
+                __func__, new_standby_cam_id);
+          }
+
+          standby_camera_id_ = new_standby_cam_id;
+        }
+
+      } else if (new_standby_cam_id == -1 && standby_camera_id_ >= 0) {
+        QMMF_INFO("%s: Clearing standby for physical camera %d",
+            __func__, standby_camera_id_);
+
+        // Restore standby camera streams to the repeating request
+        for (Camera3Request& req : streaming_active_requests_) {
+          for (int32_t stream_id : standby_stream_ids_) {
+            req.streamIds.add(stream_id);
+          }
+        }
+
+        standby_stream_ids_.clear();
+        standby_camera_id_ = -1;
+      }
+    }
+  }
 
   std::lock_guard<std::mutex> lock(device_access_lock_);
   if ((!streaming_active_requests_.empty()) &&
