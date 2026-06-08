@@ -214,6 +214,9 @@ class RecorderService : public BnInterface<IRecorderService> {
 
   status_t DestroyOfflineProcess(const uint32_t client_id) override;
 
+  status_t GetFeatureCapabilities(const uint32_t client_id,
+                                  FeatureCapabilityMap& capabilities) override;
+
   void ClientDeathHandler(const uint32_t client_id);
 
   bool IsRecorderInitialized();

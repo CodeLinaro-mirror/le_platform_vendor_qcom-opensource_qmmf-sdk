@@ -226,6 +226,9 @@ class RecorderImpl {
                             const OfflineCameraInputParams &in_params,
                             OfflineCameraOutputParams &out_params);
 
+  status_t GetFeatureCapabilities(const uint32_t client_id,
+                                  FeatureCapabilityMap& capabilities);
+
   status_t CreateOfflineProcess(const uint32_t client_id,
                                 const OfflineCameraCreateParams& params);
 

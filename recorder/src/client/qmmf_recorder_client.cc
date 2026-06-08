@@ -803,6 +803,52 @@ status_t RecorderClient::GetCameraCharacteristics(const uint32_t camera_id,
   return ret;
 }
 
+status_t RecorderClient::GetFeatureCapabilities(FeatureCapabilityMap& capabilities) {
+  QMMF_DEBUG("%s: Enter", __func__);
+  std::lock_guard<std::mutex> lock(lock_);
+  if (!CheckServiceStatus()) {
+    return -ENODEV;
+  }
+  assert(client_id_ > 0);
+  auto ret = recorder_service_->GetFeatureCapabilities(client_id_, capabilities);
+  if (0 != ret) {
+    QMMF_ERROR("%s: GetFeatureCapabilities failed!", __func__);
+    return ret;
+  }
+  QMMF_INFO("%s: GetFeatureCapabilities returned %zu entries, ret(%d)",
+            __func__, capabilities.size(), ret);
+
+  // ── Debug: print all entries in the capability map ──────────────────────
+  QMMF_INFO("%s: ---- FeatureCapabilityMap dump ----", __func__);
+  for (const auto& [key, cap] : capabilities) {
+    switch (cap.type) {
+      case TYPE_BOOL:
+        QMMF_INFO("%s:   key[%d] = bool(%s)",
+                  __func__, static_cast<int>(key),
+                  cap.bool_value ? "true" : "false");
+        break;
+      case TYPE_INT32:
+        QMMF_INFO("%s:   key[%d] = int32(%d)",
+                  __func__, static_cast<int>(key), cap.int_value);
+        break;
+      case TYPE_FLOAT:
+        QMMF_INFO("%s:   key[%d] = float(%.2f)",
+                  __func__, static_cast<int>(key), cap.float_value);
+        break;
+      default:
+        QMMF_INFO("%s:   key[%d] = unknown type(%d)",
+                  __func__, static_cast<int>(key),
+                  static_cast<int>(cap.type));
+        break;
+    }
+  }
+  QMMF_INFO("%s: ---- end of FeatureCapabilityMap ----", __func__);
+  // ────────────────────────────────────────────────────────────────────────
+
+  QMMF_DEBUG("%s: Exit", __func__);
+  return ret;
+}
+
 status_t RecorderClient::GetVendorTagDescriptor(std::shared_ptr<VendorTagDescriptor> &desc) {
 
   QMMF_DEBUG("%s Enter ", __func__);
@@ -1871,6 +1917,59 @@ class BpRecorderService: public BpInterface<IRecorderService> {
       }
     }
     return ret;
+  }
+
+  status_t GetFeatureCapabilities(const uint32_t client_id,
+                                  FeatureCapabilityMap& capabilities) {
+    Parcel data, reply;
+    data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
+    data.writeUint32(client_id);
+    remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
+                                RECORDER_GET_FEATURE_CAPABILITIES), data, &reply);
+    auto ret = reply.readInt32();
+    if (NO_ERROR != ret) {
+      return ret;
+    }
+
+    uint32_t capabilities_size = 0;
+    reply.readUint32(&capabilities_size);
+    capabilities.clear();
+    for (uint32_t i = 0; i < capabilities_size; ++i) {
+      int32_t key_int = 0;
+      int32_t type_int = 0;
+      reply.readInt32(&key_int);
+      reply.readInt32(&type_int);
+
+      CameraFeatureCapability cap;
+      cap.type = static_cast<FeatureValueType>(type_int);
+      switch (cap.type) {
+        case TYPE_BOOL: {
+          int32_t value = 0;
+          reply.readInt32(&value);
+          cap.bool_value = (value != 0);
+          break;
+        }
+        case TYPE_INT32: {
+          int32_t value = 0;
+          reply.readInt32(&value);
+          cap.int_value = value;
+          break;
+        }
+        case TYPE_FLOAT: {
+          float value = 0.0f;
+          reply.readFloat(&value);
+          cap.float_value = value;
+          break;
+        }
+        default:
+          QMMF_ERROR("%s: Unsupported capability type(%d)", __func__, type_int);
+          return BAD_VALUE;
+      }
+
+      capabilities[static_cast<CameraFeatureKey>(key_int)] = cap;
+    }
+    return ret;
+
   }
 
   status_t GetCameraCharacteristics(const uint32_t client_id,

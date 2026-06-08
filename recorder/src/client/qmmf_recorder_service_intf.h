@@ -119,6 +119,7 @@ enum QMMF_RECORDER_SERVICE_CMDS {
   RECORDER_DESTROY_OFFLINE_PROC,
   RECORDER_GET_STATIC_CAMERA_INFO,
   RECORDER_GET_OFFLINE_PARAMS,
+  RECORDER_GET_FEATURE_CAPABILITIES,
 };
 
 struct BnBuffer {
@@ -306,6 +307,10 @@ class IRecorderService : public IInterface {
                                      const CameraMetadata& meta) = 0;
 
   virtual status_t DestroyOfflineProcess(const uint32_t client_id) = 0;
+
+  virtual status_t GetFeatureCapabilities(
+    const uint32_t client_id,
+    FeatureCapabilityMap& capabilities) = 0;
 };
 
 enum RECORDER_SERVICE_CB_CMDS{

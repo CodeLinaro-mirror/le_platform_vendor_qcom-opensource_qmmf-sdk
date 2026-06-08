@@ -175,6 +175,8 @@ class CameraContext : public CameraInterface {
 
   status_t SetSHDR(const bool enable) override;
 
+  int32_t GetFeatureCapabilities(FeatureCapabilityMap& caps) override;
+
   status_t ReturnStreamBuffer(StreamBuffer buffer);
 
   status_t CreateDeviceInputStream(CameraInputStreamParameters& params,
@@ -311,6 +313,37 @@ class CameraContext : public CameraInterface {
 
   std::vector<int32_t> GetReprocOutputStreamIds() { return reproc_out_stream_ids_; };
 
+  void InitializeFeatureCapabilities();
+
+  void PopulateJpegResolutionCapabilities(
+      const std::vector<CameraMetadata>& static_metas);
+
+  void PopulateBayerResolutionCapabilities(
+      const std::vector<CameraMetadata>& static_metas);
+
+  void PopulateRawResolutionCapabilities(
+      const std::vector<CameraMetadata>& static_metas);
+
+  void PopulateFpsCapabilities(
+      const std::vector<CameraMetadata>& static_metas);
+
+  void PopulateStaticCapabilities();
+
+  void PopulateFormatCapabilities(
+      const std::vector<CameraMetadata>& static_metas);
+
+  void PopulateLogicalCameraCapability(
+      const std::vector<CameraMetadata>& static_metas);
+
+  void PopulateSWTNRCapability();
+
+  void PopulateEISModesCapability();
+
+  void PopulateVHDRModesCapability();
+
+  void PopulateOfflineIFECapability();
+
+  void PopulateLogicalCamSwitchCapability();
 
   bool IsStreamParamsChanged(const CameraStreamParameters& stream_param);
 
@@ -407,6 +440,8 @@ class CameraContext : public CameraInterface {
 
   std::vector<Camera3Request>   last_submitted_streaming_requests_;
   bool                          video_streams_active_;
+
+  FeatureCapabilityMap          feature_capabilities_;
 };
 
 enum class CameraPortType {

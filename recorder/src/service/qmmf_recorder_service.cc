@@ -539,6 +539,50 @@ status_t RecorderService::onTransact(uint32_t code, const Parcel& data,
         return 0;
       }
       break;
+      case RECORDER_GET_FEATURE_CAPABILITIES: {
+        uint32_t client_id;
+        data.readUint32(&client_id);
+        FeatureCapabilityMap capabilities;
+        ret = GetFeatureCapabilities(client_id, capabilities);
+
+        if (NO_ERROR == ret) {
+          for (const auto& cap_item : capabilities) {
+            if ((cap_item.second.type != TYPE_BOOL) &&
+                (cap_item.second.type != TYPE_INT32) &&
+                (cap_item.second.type != TYPE_FLOAT)) {
+              QMMF_ERROR("%s: Unsupported capability type(%d) for key(%d)",
+                         __func__, cap_item.second.type, cap_item.first);
+              ret = BAD_VALUE;
+              break;
+            }
+          }
+        }
+
+        reply->writeInt32(ret);
+        if (NO_ERROR == ret) {
+          reply->writeUint32(capabilities.size());
+          for (const auto& cap_item : capabilities) {
+            reply->writeInt32(static_cast<int32_t>(cap_item.first));
+            reply->writeInt32(static_cast<int32_t>(cap_item.second.type));
+            switch (cap_item.second.type) {
+              case TYPE_BOOL:
+                reply->writeInt32(cap_item.second.bool_value ? 1 : 0);
+                break;
+              case TYPE_INT32:
+                reply->writeInt32(cap_item.second.int_value);
+                break;
+              case TYPE_FLOAT:
+                reply->writeFloat(cap_item.second.float_value);
+                break;
+              default:
+                // Guarded by validation above.
+                break;
+            }
+          }
+        }
+        return NO_ERROR;
+      }
+      break;
       case RECORDER_GET_VENDOR_TAG_DESCRIPTOR: {
         std::shared_ptr<VendorTagDescriptor> desc;
         ret = GetVendorTagDescriptor(desc);
@@ -1379,6 +1423,23 @@ status_t RecorderService::DisconnectInternal(const uint32_t client_id) {
 
   QMMF_INFO("%s: Exit client_id(%d)", __func__, client_id);
   return NO_ERROR;
+}
+
+status_t RecorderService::GetFeatureCapabilities(const uint32_t client_id,
+                                                 FeatureCapabilityMap& capabilities) {
+  QMMF_DEBUG("%s: Enter client_id(%u)", __func__, client_id);
+
+  if (!IsRecorderInitialized()) {
+    QMMF_ERROR("%s: Recorder not initialized!", __func__);
+    return -ENODEV;
+  }
+
+  auto ret = recorder_->GetFeatureCapabilities(client_id, capabilities);
+  if (ret != 0) {
+    QMMF_ERROR("%s: GetFeatureCapabilities failed!", __func__);
+  }
+  QMMF_DEBUG("%s: Exit client_id(%u)", __func__, client_id);
+  return ret;
 }
 
 status_t RecorderService::GetVendorTagDescriptor(std::shared_ptr<VendorTagDescriptor> &desc) {
