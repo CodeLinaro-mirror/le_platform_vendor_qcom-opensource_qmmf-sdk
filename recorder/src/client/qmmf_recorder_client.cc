@@ -553,6 +553,29 @@ status_t RecorderClient::SetVideoTrackParam(const uint32_t track_id,
   return ret;
 }
 
+status_t RecorderClient::CaptureImage(
+    const uint32_t camera_id,
+    const ImageGroupType &pad_group,
+    const SnapshotType type, const uint32_t n_burst,
+    const std::vector<CameraMetadata> &meta, const ImageCaptureCb &cb) {
+  QMMF_DEBUG("%s Enter ", __func__);
+  QMMF_KPI_ASYNC_BEGIN("FirstCapImg", camera_id);
+
+  std::lock_guard<std::mutex> lock(lock_);
+  if (!CheckServiceStatus()) {
+    return NO_INIT;
+  }
+  assert(client_id_ > 0);
+  auto ret = recorder_service_->CaptureImage(
+      client_id_, camera_id, pad_group, type, n_burst, meta);
+  if (NO_ERROR != ret) {
+    QMMF_ERROR("%s CaptureImage failed!", __func__);
+  }
+  image_capture_cb_ = cb;
+  QMMF_DEBUG("%s Exit ", __func__);
+  return ret;
+}
+
 status_t RecorderClient::CaptureImage(const uint32_t camera_id,
                                       const SnapshotType type,
                                       const uint32_t n_images,
@@ -613,6 +636,23 @@ status_t RecorderClient::CancelCaptureImage(const uint32_t camera_id,
   if(NO_ERROR != ret) {
     QMMF_ERROR("%s CancelCaptureImage failed!", __func__);
   }
+
+  {
+    std::lock_guard<std::mutex> l(snapshot_buffers_lock_);
+    if (snapshot_buffers_.size() != 0) {
+      for (auto& pair : snapshot_buffers_) {
+        auto& buffer_info = pair.second;
+
+        QMMF_INFO("%s Snapshot BufInfo: ion_fd(%d), vaddr(%p), size(%lu)",
+                  __func__, buffer_info.ion_fd, buffer_info.vaddr,
+                  buffer_info.size);
+
+        UnmapBuffer(buffer_info);
+      }
+      snapshot_buffers_.clear();
+    }
+  }
+
   QMMF_DEBUG("%s Exit ", __func__);
   return ret;
 }
@@ -1612,6 +1652,38 @@ class BpRecorderService: public BpInterface<IRecorderService> {
     remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
                             RECORDER_SET_VIDEOTRACK_PARAMS), data, &reply);
     blob.release();
+    return reply.readInt32();
+  }
+
+  status_t
+  CaptureImage(const uint32_t client_id, const uint32_t camera_id,
+               const ImageGroupType &pad_group,
+               const SnapshotType type, const uint32_t n_burst,
+               const std::vector<CameraMetadata> &meta) {
+    Parcel data, reply;
+    data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
+    data.writeUint32(client_id);
+    data.writeUint32(camera_id);
+    data.writeUint32(pad_group.size());
+
+    for (const auto &group : pad_group) {
+      data.writeUint32(group.size());
+      for (const auto &pad : group) {
+        data.writeUint32(pad);
+        QMMF_ERROR("%s pad = %d", __func__, pad);
+      }
+    }
+
+    data.writeUint32(static_cast<uint32_t>(type));
+    data.writeUint32(n_burst);
+    data.writeUint32(meta.size());
+    for (uint8_t i = 0; i < meta.size(); ++i) {
+      meta[i].writeToParcel(&data);
+    }
+
+    remote()->transact(
+        uint32_t(QMMF_RECORDER_SERVICE_CMDS::RECORDER_DYNAMIC_CAPTURE_IMAGE),
+        data, &reply);
     return reply.readInt32();
   }
 

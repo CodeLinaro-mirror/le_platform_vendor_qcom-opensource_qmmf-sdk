@@ -83,6 +83,7 @@ enum ParamTag {
   QMMF_TRACK_CROP,
   QMMF_FORCE_SENSOR_MODE,
   QMMF_EIS,
+  QMMF_EIS_MODE,
   QMMF_PARTIAL_METADATA,
   QMMF_CAMERA_SLAVE_MODE,
   QMMF_USE_LINKED_TRACK_IN_SLAVE_MODE,
@@ -93,8 +94,9 @@ enum ParamTag {
   QMMF_CAM_OP_MODE_CONTROL,
   QMMF_INPUT_ROI,
   QMMF_STREAM_CAMERA_ID,
-  QMMF_STITCH_LAYOUT,
+  QMMF_STREAM_USECASE,
   QMMF_SUPER_FRAMES,
+  QMMF_SW_TNR,
 };
 
 enum class SlaveMode {
@@ -106,12 +108,20 @@ enum class SlaveMode {
   kSlave,
 };
 
-
 enum class FrameRateControlMode {
   /**< control stream frame rate by frame skip */
   kFrameSkip,
   /**< control stream frame rate by HAL3 capture requests */
   kCaptureRequest
+};
+
+enum class EisMode {
+  /**< Eis is off */
+  kEisOff,
+  /**< EIS on first stream */
+  kEisSingleStream,
+  /**< EIS on dual stream */
+  kEisDualStream,
 };
 
 enum class CamOpMode {
@@ -123,13 +133,15 @@ enum class CamOpMode {
   kFastSwitch,
 };
 
-enum class StitchLayout {
+enum class RecorderStreamUsecase {
   /**< this is invalid usage */
   kNone,
   /**< stitch images side by side */
   kSideBySide,
   /**< stitch images to panorama */
   kPanorama,
+  /**< PD image data> */
+  kPD,
 };
 
 struct SourceVideoTrack : DataTagBase {
@@ -210,6 +222,14 @@ struct EISSetup : DataTagBase {
   EISSetup() :
     DataTagBase(QMMF_EIS),
     enable(false) {
+  }
+};
+
+struct EISModeSetup : DataTagBase {
+  EisMode mode; // Default: kEisOff to disable EIS
+  EISModeSetup() :
+    DataTagBase(QMMF_EIS_MODE),
+    mode(EisMode::kEisOff) {
   }
 };
 
@@ -318,14 +338,14 @@ struct StreamCameraId: DataTagBase {
     stream_camera_id{""} {}
 };
 
-struct StitchLayoutSelect: DataTagBase {
-  /**< Add support to select stitch layout for a stream */
-  /**< Select layout to stitch images for a stream */
-  /**< Default: StitchLayout::kNone */
-  StitchLayout stitch_layout;
-  StitchLayoutSelect() :
-    DataTagBase(QMMF_STITCH_LAYOUT),
-    stitch_layout(StitchLayout::kNone) {}
+struct StreamUsecaseSelect: DataTagBase {
+  /**< Add support to select stream usecase */
+  /**< Select usecase for a stream */
+  /**< Default: RecorderStreamUsecase::kNone */
+  RecorderStreamUsecase stream_usecase;
+  StreamUsecaseSelect() :
+    DataTagBase(QMMF_STREAM_USECASE),
+    stream_usecase(RecorderStreamUsecase::kNone) {}
 };
 
 struct SuperFrames: DataTagBase {
@@ -333,6 +353,16 @@ struct SuperFrames: DataTagBase {
   /**< the frame_count in one super buffer */
   int8_t n_frames;
   SuperFrames() : DataTagBase(QMMF_SUPER_FRAMES), n_frames(1) {}
+};
+
+struct SWTNR : DataTagBase {
+  /**< Add support for client to enable/disable */
+  /**< SW TNR (Software Temporal Noise Reduction) */
+  /**< Default: False */
+  bool enable;
+  SWTNR() :
+    DataTagBase(QMMF_SW_TNR), enable(false) {
+  }
 };
 
 }; //namespace recorder.
