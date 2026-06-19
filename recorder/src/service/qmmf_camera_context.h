@@ -442,6 +442,12 @@ class CameraContext : public CameraInterface {
   bool                          video_streams_active_;
 
   FeatureCapabilityMap          feature_capabilities_;
+  // Per-camera standby state (for SensorStandByCameraId support)
+  // Stream IDs removed from streaming_active_requests_ during per-camera standby.
+  // Saved here so they can be restored when standby is cleared (SensorStandByCameraId=-1).
+  std::set<int32_t>             standby_stream_ids_;
+  // Physical camera ID currently in standby. -1 = none.
+  int32_t                       standby_camera_id_;
 };
 
 enum class CameraPortType {
@@ -523,6 +529,11 @@ class CameraPort {
 
   bool IsPreviewStream() {
     return (cam_stream_params_.allocFlags.flags & IMemAllocUsage::kHwComposer);
+  }
+
+  // Returns the physical camera ID string for this port.
+  const std::string& GetPhysicalCameraId() const {
+    return cam_stream_params_.stream_camera_id;
   }
 
  protected:
