@@ -1102,7 +1102,8 @@ status_t CameraContext::CaptureImage(const SnapshotType type,
   if (NO_ERROR == GetCameraParam(video_meta)) {
     if (video_meta.exists(ANDROID_CONTROL_AE_MODE)) {
       uint8_t ae_mode = video_meta.find(ANDROID_CONTROL_AE_MODE).data.u8[0];
-      if (ae_mode == ANDROID_CONTROL_AE_MODE_ON_ALWAYS_FLASH) {
+      if (ae_mode == ANDROID_CONTROL_AE_MODE_ON_ALWAYS_FLASH ||
+          ae_mode == ANDROID_CONTROL_AE_MODE_ON_AUTO_FLASH) {
         std::unique_lock<std::mutex> lock(flash_snapshot_lock_);
         if (flash_snapshot_ctx_.state != FlashSnapshotState::kIdle) {
           QMMF_ERROR("%s: last flash snapshot is processing", __func__);
@@ -2894,7 +2895,8 @@ void CameraContext::ProcessFlashSnapshotMeta(const CameraMetadata& result) {
 
   switch(current_state) {
     case FlashSnapshotState::kWaitingFlashRequest: {
-      if (ae_state == ANDROID_CONTROL_AE_STATE_FLASH_REQUIRED) {
+      if (ae_state == ANDROID_CONTROL_AE_STATE_FLASH_REQUIRED ||
+          ae_state == ANDROID_CONTROL_AE_STATE_CONVERGED) {
         // Send TRIGGER_START as a one-shot (non-repeating) request.
         {
           std::lock_guard<std::mutex> lock(device_access_lock_);
