@@ -116,6 +116,17 @@ target_include_directories(qmmf_recorder_service
 target_include_directories(qmmf_recorder_service
  PRIVATE ${TOP_DIRECTORY}/common/memory)
 
+target_compile_definitions(qmmf_recorder_service PRIVATE
+  $<$<BOOL:${HAS_ANDROID_REQUEST_AVAILABLE_CAPABILITIES_ULTRA_HIGH_RESOLUTION_SENSOR}>:HAS_ANDROID_REQUEST_AVAILABLE_CAPABILITIES_ULTRA_HIGH_RESOLUTION_SENSOR>
+  $<$<BOOL:${HAS_ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_MAXIMUM_RESOLUTION}>:HAS_ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_MAXIMUM_RESOLUTION>
+)
+
+# Feature flags passed from build system (.bb file via EXTRA_OECMAKE)
+# Converts CMake string variable "TRUE"/"FALSE" to C++ preprocessor define
+if(LOGICAL_CAMERA_SENSOR_SWITCH STREQUAL "TRUE")
+  target_compile_definitions(qmmf_recorder_service PRIVATE LOGICAL_CAMERA_SENSOR_SWITCH)
+endif()
+
 install(TARGETS qmmf_recorder_service DESTINATION lib OPTIONAL)
 if (NOT CAMERA_HAL1_SUPPORT)
 target_link_libraries(qmmf_recorder_service dl log utils cutils binder
