@@ -1203,28 +1203,6 @@ void Camera3DeviceClient::HandleCaptureResult(
 
     }
 
-    CameraMetadata::getTagFromName("org.quic.camera.monotimer.reftimestamp",
-                  vTags.get(), &tag);
-    res = find_camera_metadata_ro_entry(result->result, tag, &entry);
-    if ((0 == res) && (entry.count > 0)) {
-      ts_ref = entry.data.i64[0];
-      QMMF_DEBUG(
-        "%s: Received requestId = %d, frameNumber = %d,"
-        "ts_ref = %lld\n",
-        __func__, request.resultExtras.requestId, frameNumber,
-        ts_ref);
-      ts_ref_frameNumber = frameNumber;
-      ts_ref_meta = ts_ref;
-    shutterTimestamp = ts_ref;
-    } else {
-      if (ts_ref_frameNumber == frameNumber && ts_ref <= 0 && ts_ref_meta > 0) {
-        ts_ref = ts_ref_meta;
-        shutterTimestamp = ts_ref;
-      } else {
-        shutterTimestamp = request.shutterTS;
-      }
-    }
-
     if (CAM_OPMODE_IS_FRAMESELECTION(cam_opmode_) &&
         (result->partial_result == 1)) {
       uint32_t tag = 0;
@@ -1256,7 +1234,27 @@ void Camera3DeviceClient::HandleCaptureResult(
     }
   }
 
-  shutterTimestamp = request.shutterTS;
+  CameraMetadata::getTagFromName("org.quic.camera.monotimer.reftimestamp",
+                  vTags.get(), &tag);
+  res = find_camera_metadata_ro_entry(result->result, tag, &entry);
+  if ((0 == res) && (entry.count > 0)) {
+    ts_ref = entry.data.i64[0];
+    QMMF_DEBUG(
+      "%s: Received requestId = %d, frameNumber = %d,"
+      "ts_ref = %lld\n",
+      __func__, request.resultExtras.requestId, frameNumber,
+      ts_ref);
+    ts_ref_frameNumber = frameNumber;
+    ts_ref_meta = ts_ref;
+    shutterTimestamp = ts_ref;
+  } else {
+    if (ts_ref_frameNumber == frameNumber && ts_ref <= 0 && ts_ref_meta > 0) {
+      ts_ref = ts_ref_meta;
+      shutterTimestamp = ts_ref;
+    } else {
+      shutterTimestamp = request.shutterTS;
+    }
+  }
 
   if (result->result != NULL && !isPartialResult) {
     if (request.isMetaPresent) {
