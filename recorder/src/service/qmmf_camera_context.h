@@ -104,6 +104,21 @@ struct AECData {
   }
 };
 
+enum class FlashSnapshotState {
+  kIdle = 0,
+  kWaitingFlashRequest,
+  kPrecaptureSent,
+  kPrecaptureActive,
+};
+
+struct FlashSnapshotCtx {
+  FlashSnapshotState state = FlashSnapshotState::kIdle;
+  SnapshotType type = SnapshotType::kStill;
+  uint32_t n_images = 0;
+  std::vector<CameraMetadata> meta;
+  StreamSnapshotCb cb;
+};
+
 // This class deals with Camera3DeviceClient, and exposes simple Apis to create
 // Different types of streams (preview, video, and snashot). this class has a
 // Concept of ports, maintains vector of ports, each port is mapped one-to-one
@@ -233,6 +248,13 @@ class CameraContext : public CameraInterface {
                                 bool cache = false);
 
   status_t DeleteSnapshotStream(uint32_t image_id, bool cache = false);
+
+  void ProcessFlashSnapshotMeta(const CameraMetadata& result);
+
+  status_t SubmitCaptureInternal(const SnapshotType type,
+                                 const uint32_t n_images,
+                                 const std::vector<CameraMetadata> &meta,
+                                 const StreamSnapshotCb& cb);
 
   status_t SetPerStreamFrameRate();
 
@@ -448,6 +470,8 @@ class CameraContext : public CameraInterface {
   std::set<int32_t>             standby_stream_ids_;
   // Physical camera ID currently in standby. -1 = none.
   int32_t                       standby_camera_id_;
+  FlashSnapshotCtx              flash_snapshot_ctx_;
+  std::mutex                    flash_snapshot_lock_;
 };
 
 enum class CameraPortType {
