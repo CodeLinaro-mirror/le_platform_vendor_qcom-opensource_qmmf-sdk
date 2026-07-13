@@ -5,6 +5,36 @@ project(qmmf_recorder_service)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DAEC_WAIT_TIMEOUT=500000000")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-c++11-narrowing")
 
+include(CheckCXXSourceCompiles)
+
+# Check whether ANDROID_REQUEST_AVAILABLE_CAPABILITIES_ULTRA_HIGH_RESOLUTION_SENSOR is supported
+set(SRC_ULTRA_HIGH_RES
+"
+#include \"system/camera_metadata.h\"
+int main()
+{
+    if (0 == ANDROID_REQUEST_AVAILABLE_CAPABILITIES_ULTRA_HIGH_RESOLUTION_SENSOR)
+        return -1;
+    return 0;
+}")
+
+check_cxx_source_compiles("${SRC_ULTRA_HIGH_RES}"
+  HAS_ANDROID_REQUEST_AVAILABLE_CAPABILITIES_ULTRA_HIGH_RESOLUTION_SENSOR)
+
+# Check whether ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_MAXIMUM_RESOLUTION is supported
+set(SRC_MAX_RES_CONFIG
+"
+#include \"system/camera_metadata.h\"
+int main()
+{
+    if (0 == ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_MAXIMUM_RESOLUTION)
+        return -1;
+    return 0;
+}")
+
+check_cxx_source_compiles("${SRC_MAX_RES_CONFIG}"
+  HAS_ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_MAXIMUM_RESOLUTION)
+
 if (NOT RECORDER_SERVICE_ENABLED)
   set(exclude EXCLUDE_FROM_ALL)
 endif()
@@ -85,6 +115,17 @@ target_include_directories(qmmf_recorder_service
 
 target_include_directories(qmmf_recorder_service
  PRIVATE ${TOP_DIRECTORY}/common/memory)
+
+target_compile_definitions(qmmf_recorder_service PRIVATE
+  $<$<BOOL:${HAS_ANDROID_REQUEST_AVAILABLE_CAPABILITIES_ULTRA_HIGH_RESOLUTION_SENSOR}>:HAS_ANDROID_REQUEST_AVAILABLE_CAPABILITIES_ULTRA_HIGH_RESOLUTION_SENSOR>
+  $<$<BOOL:${HAS_ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_MAXIMUM_RESOLUTION}>:HAS_ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_MAXIMUM_RESOLUTION>
+)
+
+# Feature flags passed from build system (.bb file via EXTRA_OECMAKE)
+# Converts CMake string variable "TRUE"/"FALSE" to C++ preprocessor define
+if(LOGICAL_CAMERA_SENSOR_SWITCH STREQUAL "TRUE")
+  target_compile_definitions(qmmf_recorder_service PRIVATE LOGICAL_CAMERA_SENSOR_SWITCH)
+endif()
 
 install(TARGETS qmmf_recorder_service DESTINATION lib OPTIONAL)
 if (NOT CAMERA_HAL1_SUPPORT)

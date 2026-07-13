@@ -145,6 +145,12 @@ class RecorderService : public BnInterface<IRecorderService> {
                               void *param,
                               size_t size) override;
 
+  status_t
+  CaptureImage(const uint32_t client_id, const uint32_t camera_id,
+               const ImageGroupType &pad_group,
+               const SnapshotType type, const uint32_t n_burst,
+               const std::vector<CameraMetadata> &meta) override;
+
   status_t CaptureImage(const uint32_t client_id,
                         const uint32_t camera_id,
                         const SnapshotType type,
@@ -207,6 +213,9 @@ class RecorderService : public BnInterface<IRecorderService> {
                               const CameraMetadata& meta) override;
 
   status_t DestroyOfflineProcess(const uint32_t client_id) override;
+
+  status_t GetFeatureCapabilities(const uint32_t client_id,
+                                  FeatureCapabilityMap& capabilities) override;
 
   void ClientDeathHandler(const uint32_t client_id);
 

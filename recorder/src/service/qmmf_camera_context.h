@@ -104,6 +104,21 @@ struct AECData {
   }
 };
 
+enum class FlashSnapshotState {
+  kIdle = 0,
+  kWaitingFlashRequest,
+  kPrecaptureSent,
+  kPrecaptureActive,
+};
+
+struct FlashSnapshotCtx {
+  FlashSnapshotState state = FlashSnapshotState::kIdle;
+  SnapshotType type = SnapshotType::kStill;
+  uint32_t n_images = 0;
+  std::vector<CameraMetadata> meta;
+  StreamSnapshotCb cb;
+};
+
 // This class deals with Camera3DeviceClient, and exposes simple Apis to create
 // Different types of streams (preview, video, and snashot). this class has a
 // Concept of ports, maintains vector of ports, each port is mapped one-to-one
@@ -126,6 +141,11 @@ class CameraContext : public CameraInterface {
   status_t ConfigImageCapture(const uint32_t image_id,
                               const SnapshotParam& param,
                               const ImageExtraParam &xtraparam) override;
+
+  status_t CaptureImage(const ImageGroupType &pad_group,
+                        const SnapshotType type, const uint32_t n_burst,
+                        const std::vector<CameraMetadata> &meta,
+                        const StreamSnapshotCb &cb) override;
 
   status_t CaptureImage(const SnapshotType type, const uint32_t n_images,
                         const std::vector<CameraMetadata> &meta,
@@ -169,6 +189,8 @@ class CameraContext : public CameraInterface {
   std::vector<int32_t>& GetSupportedFps() override;
 
   status_t SetSHDR(const bool enable) override;
+
+  int32_t GetFeatureCapabilities(FeatureCapabilityMap& caps) override;
 
   status_t ReturnStreamBuffer(StreamBuffer buffer);
 
@@ -227,6 +249,13 @@ class CameraContext : public CameraInterface {
 
   status_t DeleteSnapshotStream(uint32_t image_id, bool cache = false);
 
+  void ProcessFlashSnapshotMeta(const CameraMetadata& result);
+
+  status_t SubmitCaptureInternal(const SnapshotType type,
+                                 const uint32_t n_images,
+                                 const std::vector<CameraMetadata> &meta,
+                                 const StreamSnapshotCb& cb);
+
   status_t SetPerStreamFrameRate();
 
   status_t UpdateRequest(bool cached = false);
@@ -242,6 +271,8 @@ class CameraContext : public CameraInterface {
 
   status_t GetSnapshotStreamParams(const SnapshotParam &image_param,
                                    CameraStreamParameters &stream_param);
+
+  status_t BuildRequestsWithVideo(std::list<Camera3Request>& requests);
 
 #ifdef USE_FPS_IDX
   uint32_t GetSensorModeIndex(uint32_t width, uint32_t height,
@@ -304,6 +335,37 @@ class CameraContext : public CameraInterface {
 
   std::vector<int32_t> GetReprocOutputStreamIds() { return reproc_out_stream_ids_; };
 
+  void InitializeFeatureCapabilities();
+
+  void PopulateJpegResolutionCapabilities(
+      const std::vector<CameraMetadata>& static_metas);
+
+  void PopulateBayerResolutionCapabilities(
+      const std::vector<CameraMetadata>& static_metas);
+
+  void PopulateRawResolutionCapabilities(
+      const std::vector<CameraMetadata>& static_metas);
+
+  void PopulateFpsCapabilities(
+      const std::vector<CameraMetadata>& static_metas);
+
+  void PopulateStaticCapabilities();
+
+  void PopulateFormatCapabilities(
+      const std::vector<CameraMetadata>& static_metas);
+
+  void PopulateLogicalCameraCapability(
+      const std::vector<CameraMetadata>& static_metas);
+
+  void PopulateSWTNRCapability();
+
+  void PopulateEISModesCapability();
+
+  void PopulateVHDRModesCapability();
+
+  void PopulateOfflineIFECapability();
+
+  void PopulateLogicalCamSwitchCapability();
 
   bool IsStreamParamsChanged(const CameraStreamParameters& stream_param);
 
@@ -400,6 +462,16 @@ class CameraContext : public CameraInterface {
 
   std::vector<Camera3Request>   last_submitted_streaming_requests_;
   bool                          video_streams_active_;
+
+  FeatureCapabilityMap          feature_capabilities_;
+  // Per-camera standby state (for SensorStandByCameraId support)
+  // Stream IDs removed from streaming_active_requests_ during per-camera standby.
+  // Saved here so they can be restored when standby is cleared (SensorStandByCameraId=-1).
+  std::set<int32_t>             standby_stream_ids_;
+  // Physical camera ID currently in standby. -1 = none.
+  int32_t                       standby_camera_id_;
+  FlashSnapshotCtx              flash_snapshot_ctx_;
+  std::mutex                    flash_snapshot_lock_;
 };
 
 enum class CameraPortType {
@@ -481,6 +553,11 @@ class CameraPort {
 
   bool IsPreviewStream() {
     return (cam_stream_params_.allocFlags.flags & IMemAllocUsage::kHwComposer);
+  }
+
+  // Returns the physical camera ID string for this port.
+  const std::string& GetPhysicalCameraId() const {
+    return cam_stream_params_.stream_camera_id;
   }
 
  protected:

@@ -240,6 +240,38 @@ status_t CameraSource::StopCamera(const uint32_t camera_id) {
   return NO_ERROR;
 }
 
+status_t CameraSource::CaptureImage(
+    const uint32_t camera_id,
+    const ImageGroupType &pad_group,
+    const SnapshotType type, const uint32_t n_burst,
+    const std::vector<CameraMetadata> &meta, const SnapshotCb &cb) {
+  QMMF_DEBUG("%s: Enter", __func__);
+  QMMF_KPI_DETAIL();
+  active_cameras_lock_.lock();
+  if (active_cameras_.count(camera_id) == 0) {
+    active_cameras_lock_.unlock();
+    QMMF_ERROR("%s: Invalid Camera Id(%d)", __func__, camera_id);
+    return BAD_VALUE;
+  }
+  auto const &camera = active_cameras_[camera_id];
+  active_cameras_lock_.unlock();
+
+  client_snapshot_cb_ = cb;
+  StreamSnapshotCb stream_cb = [&](uint32_t image_id, uint32_t count,
+                                   StreamBuffer &buf) {
+    SnapshotCallback(image_id, count, buf);
+  };
+  auto ret =
+      camera->CaptureImage(pad_group, type, n_burst, meta, stream_cb);
+  if (ret != NO_ERROR) {
+    QMMF_ERROR("%s: CaptureImage Failed!", __func__);
+    return ret;
+  }
+
+  QMMF_DEBUG("%s: Exit", __func__);
+  return NO_ERROR;
+}
+
 status_t CameraSource::CaptureImage(const uint32_t camera_id,
                                     const SnapshotType type,
                                     const uint32_t n_images,
@@ -791,6 +823,29 @@ status_t CameraSource::GetCameraCharacteristics(const uint32_t camera_id,
   active_cameras_lock_.unlock();
 
   return camera->GetCameraCharacteristics(meta);
+}
+
+status_t CameraSource::GetFeatureCapabilities(FeatureCapabilityMap& capabilities) {
+  QMMF_DEBUG("%s: Enter", __func__);
+  int32_t ret = 0;
+
+  if (preloaded_cameras_.empty()) {
+    std::shared_ptr<CameraInterface> camera;
+
+    camera = std::make_shared<CameraContext>();
+    if (!camera) {
+      QMMF_ERROR("%s: Can't Instantiate Camera Context!", __func__);
+      return -ENOMEM;
+    }
+    ret = camera->GetFeatureCapabilities(capabilities);
+  } else {
+    ret = preloaded_cameras_.front()->GetFeatureCapabilities(capabilities);
+  }
+
+  QMMF_INFO("%s: GetFeatureCapabilities returned %zu entries, ret(%d)",
+            __func__, capabilities.size(), ret);
+  QMMF_DEBUG("%s: Exit", __func__);
+  return ret;
 }
 
 status_t CameraSource::UpdateTrackFrameRate(const uint32_t track_id,

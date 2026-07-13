@@ -214,6 +214,22 @@ status_t Recorder::SetVideoTrackParam(const uint32_t track_id,
   return ret;
 }
 
+status_t Recorder::CaptureImage(
+    const uint32_t camera_id,
+    const ImageGroupType &pad_group,
+    const SnapshotType type, const uint32_t n_burst,
+    const std::vector<CameraMetadata> &meta, const ImageCaptureCb &cb) {
+
+  assert(recorder_client_ != NULL);
+
+  auto ret = recorder_client_->CaptureImage(camera_id, pad_group, type,
+                                            n_burst, meta, cb);
+  if (NO_ERROR != ret) {
+    QMMF_ERROR("%s: CaptureImage failed!", __func__);
+  }
+  return ret;
+}
+
 status_t Recorder::CaptureImage(const uint32_t camera_id,
                                 const SnapshotType type,
                                 const uint32_t n_images,
@@ -306,6 +322,16 @@ status_t Recorder::SetCameraSessionParam(const uint32_t camera_id,
   return ret;
 }
 
+status_t Recorder::SetVHDR(const uint32_t camera_id,
+                           const int32_t mode) {
+
+  QMMF_DEBUG("%s: Enter" ,__func__);
+
+  //TODO
+  QMMF_DEBUG("%s: Exit", __func__);
+  return 0;
+}
+
 status_t Recorder::SetSHDR(const uint32_t camera_id,
                            const bool enable) {
 
@@ -343,6 +369,18 @@ status_t Recorder::GetCamStaticInfo(std::vector<CameraMetadata> &meta) {
       QMMF_ERROR("%s: GetCamStaticInfo failed!", __func__);
   }
 
+  QMMF_DEBUG("%s: Exit", __func__);
+  return ret;
+}
+
+status_t Recorder::GetFeatureCapabilities(FeatureCapabilityMap& capabilities) {
+
+  QMMF_DEBUG("%s: Enter", __func__);
+  assert(recorder_client_ != NULL);
+  auto ret = recorder_client_->GetFeatureCapabilities(capabilities);
+  if (0 != ret) {
+    QMMF_ERROR("%s: GetFeatureCapabilities failed!", __func__);
+  }
   QMMF_DEBUG("%s: Exit", __func__);
   return ret;
 }

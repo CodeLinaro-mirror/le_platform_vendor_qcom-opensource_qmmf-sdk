@@ -141,7 +141,8 @@ CameraContext::CameraContext(const DeviceStatusCb &devstatuscb)
       multi_roi_count_tag_(0),
       multi_roi_info_tag_(0),
       multi_roi_info_{},
-      video_streams_active_(false) {
+      video_streams_active_(false),
+      standby_camera_id_(-1) {
 
   QMMF_INFO("%s: Enter", __func__);
 
@@ -172,6 +173,8 @@ CameraContext::CameraContext(const DeviceStatusCb &devstatuscb)
     camera_device_.reset();
   }
 
+  InitializeFeatureCapabilities();
+
   QMMF_INFO("%s: Exit", __func__);
 }
 
@@ -181,6 +184,481 @@ CameraContext::~CameraContext() {
   //TODO: check all active ports
   is_camera_dead_ = false;
   QMMF_INFO("%s: Exit", __func__);
+}
+
+void CameraContext::PopulateSWTNRCapability() {
+  // Try to detect SW_TNR support via vendor tag at runtime first.
+  // If the vendor tag is not registered on this platform, fall back to
+  // the compile-time flag.
+  uint32_t tag_id = 0;
+  const std::shared_ptr<VendorTagDescriptor> vtags =
+      VendorTagDescriptor::getGlobalVendorTagDescriptor();
+  if (vtags.get() != NULL)
+    CameraMetadata::getTagFromName(
+        "org.quic.camera.swcapabilities.SWMCTFEnable", vtags.get(), &tag_id);
+
+  if (tag_id == 0) {
+    // Vendor tag not found — fall back to compile-time flag
+#ifdef SW_TNR_ENABLE
+    feature_capabilities_[CAMERA_FEATURE_SW_TNR] = CameraFeatureCapability(true);
+    QMMF_INFO("%s: SW_TNR supported = true (compile-time)", __func__);
+#else
+    feature_capabilities_[CAMERA_FEATURE_SW_TNR] = CameraFeatureCapability(false);
+    QMMF_INFO("%s: SW_TNR supported = false (compile-time)", __func__);
+#endif
+  } else {
+    // Vendor tag found — feature is supported at runtime
+    feature_capabilities_[CAMERA_FEATURE_SW_TNR] = CameraFeatureCapability(true);
+    QMMF_INFO("%s: SW_TNR supported = true (vendor tag=%u)", __func__, tag_id);
+  }
+}
+
+void CameraContext::PopulateEISModesCapability() {
+#ifdef EIS_MODES_ENABLE
+  feature_capabilities_[CAMERA_FEATURE_EIS_MODES] = CameraFeatureCapability(true);
+  QMMF_INFO("%s: EIS_MODES supported = true", __func__);
+#else
+  feature_capabilities_[CAMERA_FEATURE_EIS_MODES] = CameraFeatureCapability(false);
+  QMMF_INFO("%s: EIS_MODES supported = false", __func__);
+#endif
+}
+
+void CameraContext::PopulateVHDRModesCapability() {
+#ifdef VHDR_MODES_ENABLE
+  feature_capabilities_[CAMERA_FEATURE_VHDR_MODES] = CameraFeatureCapability(true);
+  QMMF_INFO("%s: VHDR_MODES supported = true", __func__);
+#else
+  feature_capabilities_[CAMERA_FEATURE_VHDR_MODES] = CameraFeatureCapability(false);
+  QMMF_INFO("%s: VHDR_MODES supported = false", __func__);
+#endif
+}
+
+void CameraContext::PopulateOfflineIFECapability() {
+  //For QLI , this feature need not to be checked
+#ifdef OFFLINE_IFE_ENABLE
+  feature_capabilities_[CAMERA_FEATURE_OFFLINE_IFE] = CameraFeatureCapability(true);
+  QMMF_INFO("%s: OFFLINE_IFE supported = true", __func__);
+#else
+  feature_capabilities_[CAMERA_FEATURE_OFFLINE_IFE] = CameraFeatureCapability(false);
+  QMMF_INFO("%s: OFFLINE_IFE supported = false", __func__);
+#endif
+}
+
+void CameraContext::PopulateLogicalCamSwitchCapability() {
+  //For QLI , this feature need not to be checked
+#ifdef LOGICAL_CAMERA_SENSOR_SWITCH
+  feature_capabilities_[CAMERA_FEATURE_LOGICAL_CAMERA_SENSOR_SWITCH] =
+      CameraFeatureCapability(true);
+  QMMF_INFO("%s: LOGICAL_CAMERA_SENSOR_SWITCH supported = true", __func__);
+#else
+  feature_capabilities_[CAMERA_FEATURE_LOGICAL_CAMERA_SENSOR_SWITCH] =
+      CameraFeatureCapability(false);
+  QMMF_INFO("%s: LOGICAL_CAMERA_SENSOR_SWITCH supported = false", __func__);
+#endif
+}
+
+void CameraContext::InitializeFeatureCapabilities() {
+  QMMF_INFO("%s: Enter", __func__);
+
+  PopulateStaticCapabilities();
+
+  // Camera server API version
+  feature_capabilities_[CAMERA_FEATURE_SERVER_MAJOR_VERSION] =
+      CameraFeatureCapability(static_cast<int32_t>(1));
+  feature_capabilities_[CAMERA_FEATURE_SERVER_MINOR_VERSION] =
+      CameraFeatureCapability(static_cast<int32_t>(0));
+  feature_capabilities_[CAMERA_FEATURE_SERVER_PATCH_VERSION] =
+      CameraFeatureCapability(static_cast<int32_t>(0));
+  QMMF_INFO("%s: Camera server version = 1.0.0", __func__);
+
+  QMMF_INFO("%s: Exit - %zu feature capabilities initialized",
+            __func__, feature_capabilities_.size());
+}
+
+void CameraContext::PopulateJpegResolutionCapabilities(
+    const std::vector<CameraMetadata>& static_metas) {
+
+  uint32_t max_width = 0;
+  uint32_t max_height = 0;
+  uint32_t min_width = UINT32_MAX;
+  uint32_t min_height = UINT32_MAX;
+
+  // Iterate through ALL cameras
+  for (const auto& meta : static_metas) {
+
+    // Determine which config tag to use for MAX resolution
+    camera_metadata_tag max_config_tag = ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS;
+
+#if defined(HAS_ANDROID_REQUEST_AVAILABLE_CAPABILITIES_ULTRA_HIGH_RESOLUTION_SENSOR) && \
+    defined(HAS_ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_MAXIMUM_RESOLUTION)
+    // Check if sensor supports ULTRA_HIGH_RESOLUTION
+    if (meta.exists(ANDROID_REQUEST_AVAILABLE_CAPABILITIES)) {
+      camera_metadata_ro_entry cap_entry = meta.find(ANDROID_REQUEST_AVAILABLE_CAPABILITIES);
+      for (uint32_t i = 0; i < cap_entry.count; i++) {
+        if (cap_entry.data.u8[i] ==
+            ANDROID_REQUEST_AVAILABLE_CAPABILITIES_ULTRA_HIGH_RESOLUTION_SENSOR) {
+          max_config_tag = ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_MAXIMUM_RESOLUTION;
+          QMMF_INFO("%s: Using MAXIMUM_RESOLUTION for JPEG max", __func__);
+          break;
+        }
+      }
+    }
+#endif
+
+    // Get MAX resolution from appropriate config
+    if (meta.exists(max_config_tag)) {
+      camera_metadata_ro_entry entry = meta.find(max_config_tag);
+      for (uint32_t i = 0; i < entry.count; i += 4) {
+        if (HAL_PIXEL_FORMAT_BLOB == entry.data.i32[i]) {
+          if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
+              entry.data.i32[i+3]) {
+            uint32_t width = entry.data.i32[i+1];
+            uint32_t height = entry.data.i32[i+2];
+
+            if (width > max_width) max_width = width;
+            if (height > max_height) max_height = height;
+          }
+        }
+      }
+    }
+
+    // Always get MIN resolution from standard STREAM_CONFIGURATIONS
+    if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
+      camera_metadata_ro_entry entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
+      for (uint32_t i = 0; i < entry.count; i += 4) {
+        if (HAL_PIXEL_FORMAT_BLOB == entry.data.i32[i]) {
+          if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
+              entry.data.i32[i+3]) {
+            uint32_t width = entry.data.i32[i+1];
+            uint32_t height = entry.data.i32[i+2];
+
+            if (width < min_width) min_width = width;
+            if (height < min_height) min_height = height;
+          }
+        }
+      }
+    }
+  }
+
+  // Store in feature map
+  feature_capabilities_[CAMERA_FEATURE_JPEG_MAX_WIDTH] =
+      CameraFeatureCapability(static_cast<int32_t>(max_width));
+  feature_capabilities_[CAMERA_FEATURE_JPEG_MAX_HEIGHT] =
+      CameraFeatureCapability(static_cast<int32_t>(max_height));
+  feature_capabilities_[CAMERA_FEATURE_JPEG_MIN_WIDTH] =
+      CameraFeatureCapability(static_cast<int32_t>(min_width));
+  feature_capabilities_[CAMERA_FEATURE_JPEG_MIN_HEIGHT] =
+      CameraFeatureCapability(static_cast<int32_t>(min_height));
+
+  QMMF_INFO("%s: JPEG range: %ux%u to %ux%u", __func__,
+            min_width, min_height, max_width, max_height);
+}
+
+void CameraContext::PopulateBayerResolutionCapabilities(
+    const std::vector<CameraMetadata>& static_metas) {
+
+  uint32_t max_width = 0;
+  uint32_t max_height = 0;
+  uint32_t min_width = UINT32_MAX;
+  uint32_t min_height = UINT32_MAX;
+
+  for (const auto& meta : static_metas) {
+    camera_metadata_tag max_config_tag = ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS;
+
+#if defined(HAS_ANDROID_REQUEST_AVAILABLE_CAPABILITIES_ULTRA_HIGH_RESOLUTION_SENSOR) && \
+    defined(HAS_ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_MAXIMUM_RESOLUTION)
+    if (meta.exists(ANDROID_REQUEST_AVAILABLE_CAPABILITIES)) {
+      camera_metadata_ro_entry cap_entry = meta.find(ANDROID_REQUEST_AVAILABLE_CAPABILITIES);
+      for (uint32_t i = 0; i < cap_entry.count; i++) {
+        if (cap_entry.data.u8[i] ==
+            ANDROID_REQUEST_AVAILABLE_CAPABILITIES_ULTRA_HIGH_RESOLUTION_SENSOR) {
+          max_config_tag = ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_MAXIMUM_RESOLUTION;
+          break;
+        }
+      }
+    }
+#endif
+
+    // Get MAX resolution - check for RAW8/10/12/16
+    if (meta.exists(max_config_tag)) {
+      camera_metadata_ro_entry entry = meta.find(max_config_tag);
+      for (uint32_t i = 0; i < entry.count; i += 4) {
+        int32_t format = entry.data.i32[i];
+
+        if (HAL_PIXEL_FORMAT_RAW8 == format ||
+            HAL_PIXEL_FORMAT_RAW10 == format ||
+            HAL_PIXEL_FORMAT_RAW12 == format ||
+            HAL_PIXEL_FORMAT_RAW16 == format) {
+          if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
+              entry.data.i32[i+3]) {
+            uint32_t width = entry.data.i32[i+1];
+            uint32_t height = entry.data.i32[i+2];
+
+            if (width > max_width) max_width = width;
+            if (height > max_height) max_height = height;
+          }
+        }
+      }
+    }
+
+    // Get MIN resolution from standard config
+    if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
+      camera_metadata_ro_entry entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
+      for (uint32_t i = 0; i < entry.count; i += 4) {
+        int32_t format = entry.data.i32[i];
+
+        if (HAL_PIXEL_FORMAT_RAW8 == format ||
+            HAL_PIXEL_FORMAT_RAW10 == format ||
+            HAL_PIXEL_FORMAT_RAW12 == format ||
+            HAL_PIXEL_FORMAT_RAW16 == format) {
+          if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
+              entry.data.i32[i+3]) {
+            uint32_t width = entry.data.i32[i+1];
+            uint32_t height = entry.data.i32[i+2];
+
+            if (width < min_width) min_width = width;
+            if (height < min_height) min_height = height;
+          }
+        }
+      }
+    }
+  }
+
+  feature_capabilities_[CAMERA_FEATURE_BAYER_MAX_WIDTH] =
+      CameraFeatureCapability(static_cast<int32_t>(max_width));
+  feature_capabilities_[CAMERA_FEATURE_BAYER_MAX_HEIGHT] =
+      CameraFeatureCapability(static_cast<int32_t>(max_height));
+  feature_capabilities_[CAMERA_FEATURE_BAYER_MIN_WIDTH] =
+      CameraFeatureCapability(static_cast<int32_t>(min_width));
+  feature_capabilities_[CAMERA_FEATURE_BAYER_MIN_HEIGHT] =
+      CameraFeatureCapability(static_cast<int32_t>(min_height));
+
+  QMMF_INFO("%s: Bayer range: %ux%u to %ux%u", __func__,
+            min_width, min_height, max_width, max_height);
+}
+
+void CameraContext::PopulateRawResolutionCapabilities(
+    const std::vector<CameraMetadata>& static_metas) {
+
+  uint32_t max_width = 0;
+  uint32_t max_height = 0;
+  uint32_t min_width = UINT32_MAX;
+  uint32_t min_height = UINT32_MAX;
+
+  for (const auto& meta : static_metas) {
+    camera_metadata_tag max_config_tag = ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS;
+
+#if defined(HAS_ANDROID_REQUEST_AVAILABLE_CAPABILITIES_ULTRA_HIGH_RESOLUTION_SENSOR) && \
+    defined(HAS_ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_MAXIMUM_RESOLUTION)
+    if (meta.exists(ANDROID_REQUEST_AVAILABLE_CAPABILITIES)) {
+      camera_metadata_ro_entry cap_entry = meta.find(ANDROID_REQUEST_AVAILABLE_CAPABILITIES);
+      for (uint32_t i = 0; i < cap_entry.count; i++) {
+        if (cap_entry.data.u8[i] ==
+            ANDROID_REQUEST_AVAILABLE_CAPABILITIES_ULTRA_HIGH_RESOLUTION_SENSOR) {
+          max_config_tag = ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_MAXIMUM_RESOLUTION;
+          break;
+        }
+      }
+    }
+#endif
+
+    // Get MAX resolution for IMPLEMENTATION_DEFINED
+    if (meta.exists(max_config_tag)) {
+      camera_metadata_ro_entry entry = meta.find(max_config_tag);
+      for (uint32_t i = 0; i < entry.count; i += 4) {
+        if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
+          if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
+              entry.data.i32[i+3]) {
+            uint32_t width = entry.data.i32[i+1];
+            uint32_t height = entry.data.i32[i+2];
+
+            if (width > max_width) max_width = width;
+            if (height > max_height) max_height = height;
+          }
+        }
+      }
+    }
+
+    // Get MIN resolution
+    if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
+      camera_metadata_ro_entry entry = meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
+      for (uint32_t i = 0; i < entry.count; i += 4) {
+        if (HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED == entry.data.i32[i]) {
+          if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
+              entry.data.i32[i+3]) {
+            uint32_t width = entry.data.i32[i+1];
+            uint32_t height = entry.data.i32[i+2];
+
+            if (width < min_width) min_width = width;
+            if (height < min_height) min_height = height;
+          }
+        }
+      }
+    }
+  }
+
+  feature_capabilities_[CAMERA_FEATURE_RAW_MAX_WIDTH] =
+      CameraFeatureCapability(static_cast<int32_t>(max_width));
+  feature_capabilities_[CAMERA_FEATURE_RAW_MAX_HEIGHT] =
+      CameraFeatureCapability(static_cast<int32_t>(max_height));
+  feature_capabilities_[CAMERA_FEATURE_RAW_MIN_WIDTH] =
+      CameraFeatureCapability(static_cast<int32_t>(min_width));
+  feature_capabilities_[CAMERA_FEATURE_RAW_MIN_HEIGHT] =
+      CameraFeatureCapability(static_cast<int32_t>(min_height));
+
+  QMMF_INFO("%s: RAW range: %ux%u to %ux%u", __func__,
+            min_width, min_height, max_width, max_height);
+}
+
+void CameraContext::PopulateFpsCapabilities(
+    const std::vector<CameraMetadata>& static_metas) {
+
+  uint32_t max_fps = 0;
+  bool has_high_speed = false;
+
+  // Check for HIGH_SPEED_VIDEO_CONFIGURATIONS first
+  for (const auto& meta : static_metas) {
+    if (meta.exists(ANDROID_CONTROL_AVAILABLE_HIGH_SPEED_VIDEO_CONFIGURATIONS)) {
+      has_high_speed = true;
+      camera_metadata_ro_entry entry =
+          meta.find(ANDROID_CONTROL_AVAILABLE_HIGH_SPEED_VIDEO_CONFIGURATIONS);
+
+      // Each entry has 5 values: width, height, min_fps, max_fps, batch_size
+      for (uint32_t i = 0; i < entry.count; i += 5) {
+        uint32_t fps = entry.data.i32[i + 3];  // max_fps at index 3
+        if (fps > max_fps) max_fps = fps;
+      }
+    }
+  }
+
+  // Fallback to AVAILABLE_TARGET_FPS_RANGES if HIGH_SPEED not available
+  if (!has_high_speed) {
+    for (const auto& meta : static_metas) {
+      if (meta.exists(ANDROID_CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES)) {
+        camera_metadata_ro_entry entry =
+            meta.find(ANDROID_CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES);
+
+        // Each entry has 2 values: min_fps, max_fps
+        for (uint32_t i = 0; i < entry.count; i += 2) {
+          uint32_t fps = entry.data.i32[i + 1];  // max_fps at index 1
+          if (fps > max_fps) max_fps = fps;
+        }
+      }
+    }
+  }
+
+  feature_capabilities_[CAMERA_FEATURE_MAX_FPS] =
+      CameraFeatureCapability(static_cast<int32_t>(max_fps));
+
+  QMMF_INFO("%s: Max FPS: %u", __func__, max_fps);
+}
+
+void CameraContext::PopulateFormatCapabilities(
+    const std::vector<CameraMetadata>& static_metas) {
+
+  // Collect all supported HAL formats from static metadata
+  std::set<int32_t> found_formats;
+
+  for (const auto& meta : static_metas) {
+    if (meta.exists(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS)) {
+      camera_metadata_ro_entry entry =
+          meta.find(ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS);
+      for (uint32_t i = 0; i < entry.count; i += 4) {
+        if (ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT ==
+            entry.data.i32[i + 3]) {
+          found_formats.insert(entry.data.i32[i]);
+        }
+      }
+    }
+  }
+
+  // Add to feature_capabilities_ map - only formats found in metadata
+  feature_capabilities_[CAMERA_FEATURE_FORMAT_IMPLDEFINED] =
+      CameraFeatureCapability(found_formats.count(HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED) > 0);
+
+  feature_capabilities_[CAMERA_FEATURE_FORMAT_BLOB] =
+      CameraFeatureCapability(found_formats.count(HAL_PIXEL_FORMAT_BLOB) > 0);
+
+  feature_capabilities_[CAMERA_FEATURE_FORMAT_RAW8] =
+      CameraFeatureCapability(found_formats.count(HAL_PIXEL_FORMAT_RAW8) > 0);
+
+  feature_capabilities_[CAMERA_FEATURE_FORMAT_RAW10] =
+      CameraFeatureCapability(found_formats.count(HAL_PIXEL_FORMAT_RAW10) > 0);
+
+  feature_capabilities_[CAMERA_FEATURE_FORMAT_RAW12] =
+      CameraFeatureCapability(found_formats.count(HAL_PIXEL_FORMAT_RAW12) > 0);
+
+  feature_capabilities_[CAMERA_FEATURE_FORMAT_RAW16] =
+      CameraFeatureCapability(found_formats.count(HAL_PIXEL_FORMAT_RAW16) > 0);
+
+  QMMF_INFO("%s: Format capabilities populated", __func__);
+}
+
+void CameraContext::PopulateLogicalCameraCapability(
+    const std::vector<CameraMetadata>& static_metas) {
+
+  bool has_logical_camera = false;
+
+  // Check all cameras for LOGICAL_MULTI_CAMERA capability
+  for (const auto& meta : static_metas) {
+    if (meta.exists(ANDROID_REQUEST_AVAILABLE_CAPABILITIES)) {
+      camera_metadata_ro_entry entry =
+          meta.find(ANDROID_REQUEST_AVAILABLE_CAPABILITIES);
+
+      for (uint32_t i = 0; i < entry.count; i++) {
+        if (entry.data.u8[i] ==
+            ANDROID_REQUEST_AVAILABLE_CAPABILITIES_LOGICAL_MULTI_CAMERA) {
+          has_logical_camera = true;
+          QMMF_INFO("%s: Found LOGICAL_MULTI_CAMERA capability", __func__);
+          break;
+        }
+      }
+
+      if (has_logical_camera) break;
+    }
+  }
+
+  feature_capabilities_[CAMERA_FEATURE_LOGICAL_CAMERA_SUPPORT] =
+      CameraFeatureCapability(has_logical_camera);
+
+  QMMF_INFO("%s: Logical camera support: %s", __func__,
+            has_logical_camera ? "YES" : "NO");
+}
+
+void CameraContext::PopulateStaticCapabilities() {
+
+  QMMF_INFO("%s: Enter", __func__);
+
+  // Software feature capabilities.
+  PopulateSWTNRCapability();
+  PopulateEISModesCapability();
+  PopulateVHDRModesCapability();
+  PopulateOfflineIFECapability();
+  PopulateLogicalCamSwitchCapability();
+
+  std::vector<CameraMetadata> static_metas;
+  auto ret = GetCamStaticInfo(static_metas);
+  if (ret != 0 || static_metas.empty()) {
+    QMMF_WARN("%s: Failed to get static metadata, using defaults", __func__);
+    return;
+  }
+
+  PopulateJpegResolutionCapabilities(static_metas);
+  PopulateBayerResolutionCapabilities(static_metas);
+  PopulateRawResolutionCapabilities(static_metas);
+  PopulateFpsCapabilities(static_metas);
+  PopulateFormatCapabilities(static_metas);
+  PopulateLogicalCameraCapability(static_metas);
+
+  QMMF_INFO("%s: Exit - All capabilities populated", __func__);
+}
+
+int32_t CameraContext::GetFeatureCapabilities(FeatureCapabilityMap& caps) {
+  QMMF_DEBUG("%s: Enter", __func__);
+  caps = feature_capabilities_;
+  QMMF_INFO("%s: Returning %zu feature capability entries", __func__, caps.size());
+  QMMF_DEBUG("%s: Exit", __func__);
+  return 0;
 }
 
 void CameraContext::InitSupportedFPS() {
@@ -267,8 +745,10 @@ status_t CameraContext::DeleteSnapshotStream(uint32_t image_id, bool cache) {
       snapshot_request_.streamIds.begin(),
       snapshot_request_.streamIds.end(), stream_id));
 
-  if (snapshot_request_.streamIds.empty())
+  // Reset capture_request_id_ if no more snapshot streams exist
+  if (stream_image_map_.empty() || snapshot_request_.streamIds.empty()) {
     capture_request_id_ = -1;
+  }
 
   QMMF_INFO("%s Exit", __func__);
   return ret;
@@ -659,26 +1139,29 @@ status_t CameraContext::ConfigImageCapture(const uint32_t image_id,
     }
 
 #if defined(CAMX_ANDROID_API) && (CAMX_ANDROID_API >= 31)
-    if (xtraparam.Exists(QMMF_STITCH_LAYOUT)) {
-      StitchLayoutSelect layout;
+    if (xtraparam.Exists(QMMF_STREAM_USECASE)) {
+      StreamUsecaseSelect usecase_select;
       size_t count = 0;
 
-      count = xtraparam.EntryCount(QMMF_STITCH_LAYOUT);
+      count = xtraparam.EntryCount(QMMF_STREAM_USECASE);
       if (count == 1) {
-        xtraparam.Fetch(QMMF_STITCH_LAYOUT, layout);
-        switch (layout.stitch_layout) {
-          case StitchLayout::kNone:
+        xtraparam.Fetch(QMMF_STREAM_USECASE, usecase_select);
+        switch (usecase_select.stream_usecase) {
+          case RecorderStreamUsecase::kNone:
             stream_param.usecase = StreamUsecase::kStreamUsecaseNone;
             break;
-          case StitchLayout::kSideBySide:
+          case RecorderStreamUsecase::kSideBySide:
             stream_param.usecase = StreamUsecase::kStreamUsecaseSideBySide;
             break;
-          case StitchLayout::kPanorama:
+          case RecorderStreamUsecase::kPanorama:
             stream_param.usecase = StreamUsecase::kStreamUsecasePanorama;
             break;
+          case RecorderStreamUsecase::kPD:
+            stream_param.usecase = StreamUsecase::kStreamUsecasePD;
+            break;
           default:
-            QMMF_WARN ("%s: Unknown stitch layout %d, treat as default.",
-                __func__, layout.stitch_layout);
+            QMMF_WARN ("%s: Unknown stream usecase %d, treat as default.",
+                __func__, usecase_select.stream_usecase);
         }
       }
     }
@@ -804,21 +1287,195 @@ status_t CameraContext::ConfigImageCapture(const uint32_t image_id,
   return NO_ERROR;
 }
 
-status_t CameraContext::CaptureImage(const SnapshotType type,
-                                     const uint32_t n_images,
-                                     const std::vector<CameraMetadata> &meta,
-                                     const StreamSnapshotCb& cb) {
+status_t CameraContext::BuildRequestsWithVideo(std::list<Camera3Request>& requests) {
+  QMMF_DEBUG("%s: Enter", __func__);
 
+  if (streaming_active_requests_.empty()) {
+    QMMF_INFO("%s: No active video streams to add", __func__);
+    return NO_ERROR;
+  }
+
+  uint8_t jpeg_quality = snapshot_quality_;
+  uint32_t active_streamid_count = 0;
+
+  if (streaming_active_requests_.size() == 1) {
+    if (port_paused_ == true) {
+      QMMF_INFO("%s: streaming request is paused need to resume!", __func__);
+      Camera3Request &req = streaming_active_requests_[0];
+      // at this point stream id vector should be empty.
+      assert(req.streamIds.size() == 0);
+
+      for (auto& request : requests) {
+        // Replace metadata with streaming metadata
+        if (!req.metadata.isEmpty()) {
+          request.metadata.clear();
+          request.metadata.append(streaming_active_requests_[0].metadata);
+          request.metadata.update(ANDROID_JPEG_QUALITY, &jpeg_quality, 1);
+        }
+
+        // Add paused stream ids from stopped_stream_ids_
+        for (auto stream_id : stopped_stream_ids_) {
+          QMMF_DEBUG("%s: stream_id: %d to resume!", __func__, stream_id);
+          if (std::find(request.streamIds.begin(),
+                        request.streamIds.end(),
+                        stream_id) == request.streamIds.end()) {
+            request.streamIds.add(stream_id);
+            active_streamid_count++;
+          }
+          // Also add paused stream ids back to streaming request
+          if (std::find(req.streamIds.begin(),
+                        req.streamIds.end(),
+                        stream_id) == req.streamIds.end()) {
+            req.streamIds.add(stream_id);
+          }
+        }
+      }
+      port_paused_ = false;
+      QMMF_DEBUG("%s: Added paused streams! active_streamid_count=%d",
+                __func__, active_streamid_count);
+    } else {
+      // Normal case: port is not paused
+      auto req = streaming_active_requests_[0];
+
+      for (auto& request : requests) {
+        // Replace metadata with streaming metadata
+        if (!req.metadata.isEmpty()) {
+          request.metadata.clear();
+          request.metadata.append(req.metadata);
+          request.metadata.update(ANDROID_JPEG_QUALITY, &jpeg_quality, 1);
+        }
+
+        // Add all stream IDs from streaming_active_requests_[0]
+        for (auto stream_id : req.streamIds) {
+          if (std::find(request.streamIds.begin(),
+                        request.streamIds.end(),
+                        stream_id) == request.streamIds.end()) {
+            request.streamIds.add(stream_id);
+            active_streamid_count++;
+          }
+        }
+      }
+      QMMF_DEBUG("%s: Added active streams! active_streamid_count=%d",
+                __func__, active_streamid_count);
+    }
+  } else {
+    QMMF_DEBUG("%s: No other active video streams!", __func__);
+  }
+
+  QMMF_DEBUG("%s: Exit", __func__);
+  return NO_ERROR;
+}
+
+status_t CameraContext::CaptureImage(
+    const ImageGroupType &pad_group,
+    const SnapshotType type, const uint32_t n_burst,
+    const std::vector<CameraMetadata> &meta, const StreamSnapshotCb &cb) {
+  QMMF_DEBUG("%s: Enter", __func__);
+
+  if (pad_group.empty()) {
+    QMMF_ERROR("%s: pad_group is empty", __func__);
+    return BAD_VALUE;
+  }
+
+  if (type == SnapshotType::kStill) {
+    size_t required_meta_count = n_burst * pad_group.size();
+    if (meta.size() < required_meta_count) {
+      QMMF_ERROR("%s: Insufficient metadata: need %zu, got %zu",
+                __func__, required_meta_count, meta.size());
+      return BAD_VALUE;
+    }
+  }
+
+  int32_t ret = NO_ERROR;
+  int64_t last_frame_number;
+
+  client_snapshot_cb_ = cb;
+
+  if (n_burst == 0) {
+    QMMF_ERROR("%s: n_burst is zero", __func__);
+    return BAD_VALUE;
+  }
+
+  // Use local variable instead of member variable
+  std::list<Camera3Request> dynamic_requests;
+  {
+    std::lock_guard<std::mutex> stream_image_lock(stream_image_lock_);
+    std::vector<CameraMetadata>::const_iterator it = meta.begin();
+    for (int32_t i = 0; i < n_burst; i++) {
+      // traverse vector , construct snapshot_req
+      for (const auto &group : pad_group) {
+        Camera3Request snapshot_req;
+        if (type == SnapshotType::kStill) {
+          snapshot_req.metadata.append(*it++);
+        }
+        for (auto &pad : group) {
+          int32_t stream_id = -1;
+          // find stream_id according to pad index
+          QMMF_DEBUG("%s pad = %d", __func__, pad);
+          for (auto &pair : stream_image_map_) {
+            if (pair.second == pad) {
+              stream_id = pair.first;
+              break;
+            }
+          }
+          if (stream_id >= 0) {
+            QMMF_DEBUG("%s stream_id = %d", __func__, stream_id);
+            snapshot_req.streamIds.add(stream_id);
+          }
+        }
+        QMMF_DEBUG("%s add snapshot req", __func__);
+        dynamic_requests.push_back(snapshot_req);
+      }
+    }
+  }
+
+  if (dynamic_requests.empty()) {
+    QMMF_ERROR("%s: No valid requests generated", __func__);
+    return BAD_VALUE;
+  }
+
+  if (type == SnapshotType::kVideo || type == SnapshotType::kVideoPlusRaw) {
+    std::lock_guard<std::mutex> device_access_lock(device_access_lock_);
+    // Add video streams to dynamic_requests
+    ret = BuildRequestsWithVideo(dynamic_requests);
+    if (ret != NO_ERROR) {
+      QMMF_ERROR("%s: BuildRequestsWithVideo failed: %d", __func__, ret);
+      return ret;
+    }
+  }
+
+  {
+    std::lock_guard<std::mutex> device_access_lock(device_access_lock_);
+    std::unique_lock<std::mutex> lock(capture_lock_);
+    std::unique_lock<std::mutex> pending_frames_lock(pending_frames_lock_);
+    cancel_capture_ = false;
+    auto request_id = camera_device_->SubmitRequestList(dynamic_requests, false,
+                                                        &last_frame_number);
+
+    QMMF_INFO("%s: last_frame_number: current=%lld previous=%lld", __func__,
+              last_frame_number, last_frame_number_);
+
+    if (last_frame_number != NO_IN_FLIGHT_REPEATING_FRAMES) {
+      last_frame_number_ = last_frame_number;
+    }
+
+    assert(request_id >= 0);
+    capture_request_id_ = request_id;
+  }
+
+  QMMF_DEBUG("%s: Exit", __func__);
+  return NO_ERROR;
+}
+
+status_t CameraContext::SubmitCaptureInternal(const SnapshotType type,
+                                              const uint32_t n_images,
+                                              const std::vector<CameraMetadata> &meta,
+                                              const StreamSnapshotCb& cb) {
   QMMF_INFO("%s: Enter", __func__);
   int32_t ret = NO_ERROR;
   uint32_t imgcnt = 0;
   client_snapshot_cb_ = cb;
   capture_cnt_ = 0;
-
-  if (snapshot_request_.streamIds.empty()) {
-    QMMF_ERROR("%s: No snapshot stream available", __func__);
-    return BAD_VALUE;
-  }
 
   if (continuous_mode_is_on_) {
     QMMF_WARN("%s: CaptureImage() should be called only once "
@@ -832,63 +1489,37 @@ status_t CameraContext::CaptureImage(const SnapshotType type,
   if (snapshot_mode_ != ImageMode::kZsl) {
     device_access_lock_.lock();
     int64_t last_frame_number;
-    uint8_t jpeg_quality = snapshot_quality_;
     std::list<Camera3Request> requests;
     std::vector<CameraMetadata>::const_iterator it = meta.begin();
     for (uint32_t i = 0; i < imgcnt; i++) {
-      if (streaming_active_requests_.size() > 0 &&
-          !streaming_active_requests_[0].metadata.isEmpty() &&
-          (type == SnapshotType::kVideo || type == SnapshotType::kVideoPlusRaw)) {
-        snapshot_request_.metadata.clear();
-        snapshot_request_.metadata.append(streaming_active_requests_[0].metadata);
-      } else if (it != meta.end()) {
+      if (it != meta.end() && type == SnapshotType::kStill) {
         snapshot_request_.metadata.clear();
         snapshot_request_.metadata.append(*it++);
       }
-      snapshot_request_.metadata.update(ANDROID_JPEG_QUALITY, &jpeg_quality, 1);
-      uint32_t active_streamid_count = 0;
+      // Record original snapshot stream count
+      size_t original_size = snapshot_request_.streamIds.size();
 
       if (continuous_mode_is_on_ || type == SnapshotType::kVideo ||
           type == SnapshotType::kVideoPlusRaw) {
-        if (streaming_active_requests_.size() == 1) {
-          if (port_paused_ == true) {
-            QMMF_INFO("%s: streaming request is paused need to resume!",
-                __func__);
-            Camera3Request &req = streaming_active_requests_[0];
-            // at this point stream id vector should be empty.
-            assert(req.streamIds.size() == 0);
-            for (auto stream_id : stopped_stream_ids_) {
-              QMMF_INFO("%s: stream_id: %d to resume!", __func__, stream_id);
-              // Add paused stream ids to snapshot request so they can be
-              // resumed, and capture request for both video and snapshot can
-              // go at same time.
-              snapshot_request_.streamIds.add(stream_id);
-              active_streamid_count++;
-              // Also add puased stream ids back to streaming request so next
-              // Update request will takecare them. eg cancel capture request
-              // will call update request to remove snapshot stream id from
-              // request and resume the streaming request.
-              req.streamIds.add(stream_id);
-              QMMF_INFO("%s: Added all Request to snapshot request! "
-                "active_streamid_count=%d", __func__, active_streamid_count);
-            }
-            port_paused_ = false;
-          } else {
-            auto request = streaming_active_requests_[0];
-            for (auto stream_id : request.streamIds) {
-              snapshot_request_.streamIds.add(stream_id);
-              active_streamid_count++;
-              QMMF_INFO("%s: Added all Request to streaming request! "
-                "active_streamid_count=%d", __func__, active_streamid_count);
-            }
-          }
-        } else {
-          QMMF_INFO("%s: No other active video streams!", __func__);
+        // Create temporary list and call unified function to add video streams
+        std::list<Camera3Request> temp_requests;
+        temp_requests.push_back(snapshot_request_);
+
+        ret = BuildRequestsWithVideo(temp_requests);
+        if (ret != NO_ERROR) {
+          QMMF_ERROR("%s: BuildRequestsWithVideo failed: %d", __func__, ret);
+          device_access_lock_.unlock();
+          return ret;
         }
+
+        // Retrieve the request with video streams added
+        snapshot_request_ = temp_requests.front();
       }
+
       requests.push_back(snapshot_request_);
-      snapshot_request_.streamIds.
-        resize(snapshot_request_.streamIds.size() - active_streamid_count);
+
+      // Restore to original size, removing temporarily added video streams
+      snapshot_request_.streamIds.resize(original_size);
     }
 
     bool streaming = continuous_mode_is_on_ ? true : false;
@@ -933,6 +1564,54 @@ status_t CameraContext::CaptureImage(const SnapshotType type,
   return ret;
 }
 
+status_t CameraContext::CaptureImage(const SnapshotType type,
+                                     const uint32_t n_images,
+                                     const std::vector<CameraMetadata> &meta,
+                                     const StreamSnapshotCb& cb) {
+  QMMF_INFO("%s: Enter", __func__);
+  int32_t ret = NO_ERROR;
+  CameraMetadata video_meta;
+
+  if (snapshot_request_.streamIds.empty()) {
+    QMMF_ERROR("%s: No snapshot stream available", __func__);
+    return BAD_VALUE;
+  }
+
+  if (NO_ERROR == GetCameraParam(video_meta)) {
+    if (video_meta.exists(ANDROID_CONTROL_AE_MODE)) {
+      uint8_t ae_mode = video_meta.find(ANDROID_CONTROL_AE_MODE).data.u8[0];
+      if (ae_mode == ANDROID_CONTROL_AE_MODE_ON_ALWAYS_FLASH ||
+          ae_mode == ANDROID_CONTROL_AE_MODE_ON_AUTO_FLASH) {
+        std::unique_lock<std::mutex> lock(flash_snapshot_lock_);
+        if (flash_snapshot_ctx_.state != FlashSnapshotState::kIdle) {
+          QMMF_ERROR("%s: last flash snapshot is processing", __func__);
+          return INVALID_OPERATION;
+        }
+
+        // reset aelock state in new CaptureImage process if aelock is on
+        uint8_t ae_lock = video_meta.find(ANDROID_CONTROL_AE_LOCK).data.u8[0];
+        if (ae_lock == ANDROID_CONTROL_AE_LOCK_ON) {
+          ae_lock = ANDROID_CONTROL_AE_LOCK_OFF;
+          video_meta.update(ANDROID_CONTROL_AE_LOCK, &ae_lock, 1);
+          SetCameraParam(video_meta);
+        }
+
+        flash_snapshot_ctx_.type = type;
+        flash_snapshot_ctx_.n_images = n_images;
+        flash_snapshot_ctx_.meta = meta;
+        flash_snapshot_ctx_.cb = cb;
+        flash_snapshot_ctx_.state = FlashSnapshotState::kWaitingFlashRequest;
+        QMMF_DEBUG("%s: start Flash snapshot", __func__);
+        return NO_ERROR;
+      }
+    }
+  }
+
+  ret = SubmitCaptureInternal(type, n_images, meta, cb);
+  QMMF_INFO("%s: Exit", __func__);
+  return ret;
+}
+
 status_t CameraContext::CancelCaptureImage(const uint32_t image_id, 
                                            const bool cache) {
 
@@ -945,7 +1624,8 @@ status_t CameraContext::CancelCaptureImage(const uint32_t image_id,
     // After cancel image capture snapshot mode is not ZSL anymore.
     // Switch mode to default.
     snapshot_mode_ = ImageMode::kSnapshot;
-  } else if (!snapshot_request_.streamIds.empty()) {
+  } else if (!snapshot_request_.streamIds.empty() ||
+             (capture_request_id_ >= 0)) {
     {
       std::unique_lock<std::mutex> lock(capture_lock_);
       cancel_capture_ = true;
@@ -1236,14 +1916,35 @@ status_t CameraContext::SetCameraParam(const CameraMetadata &meta) {
     return -1;
   }
 
-  // If standby metadata is present, then cancel requests
+  uint32_t cam_standby_tag_id = 0;
+  int32_t new_standby_cam_id = -1;
+  bool has_standby_cam_id_tag =
+      (meta.getTagFromName(
+          "org.codeaurora.qcamera3.sensorwriteinput.SensorStandByCameraId",
+          vtags.get(), &cam_standby_tag_id) == 0) &&
+      meta.exists(cam_standby_tag_id);
+
+  if (has_standby_cam_id_tag) {
+    new_standby_cam_id = meta.find(cam_standby_tag_id).data.i32[0];
+  }
+
+  // If standby metadata is present, then cancel requests.
+  // Exception: if SensorStandByCameraId is also set (per-camera standby),
+  // skip CancelRequest() — the new per-camera standby block handles it.
   if ((meta.getTagFromName(
       "org.codeaurora.qcamera3.sensorwriteinput.SensorStandByFlag",
       vtags.get(), &tag_id) == 0) &&  meta.exists(tag_id) &&
       meta.find(tag_id).data.u8[0] != 0) {
-    CancelRequest();
-    streaming_request_id_ = 0;
-    is_standby = true;
+
+    // Reuse already-read SensorStandByCameraId values — no second lookup needed
+    bool has_per_camera_standby = has_standby_cam_id_tag && (new_standby_cam_id >= 0);
+
+    if (!has_per_camera_standby) {
+      //no per-camera ID → cancel ALL cameras
+      CancelRequest();
+      streaming_request_id_ = 0;
+      is_standby = true;
+    }
   }
 
   // Check if Multi ROI info is present and store it in global variable.
@@ -1264,6 +1965,84 @@ status_t CameraContext::SetCameraParam(const CameraMetadata &meta) {
     multi_roi_info_tag_ = tag_id;
   }
 
+  {
+
+    if (has_standby_cam_id_tag) {
+      std::lock_guard<std::mutex> lock(device_access_lock_);
+      if (new_standby_cam_id >= 0 && new_standby_cam_id != standby_camera_id_) {
+        QMMF_INFO("%s: Per-camera standby for physical camera %d",
+            __func__, new_standby_cam_id);
+        std::string standby_cam_str = std::to_string(new_standby_cam_id);
+
+        standby_stream_ids_.clear();
+
+        for (auto& port_pair : active_ports_) {
+          auto& port = port_pair.second;
+          if (port->GetPhysicalCameraId() == standby_cam_str) {
+            int32_t stream_id = port->GetCameraStreamId();
+            for (size_t i = 0; i < streaming_active_requests_[0].streamIds.size(); i++) {
+              if (streaming_active_requests_[0].streamIds[i] == stream_id) {
+                standby_stream_ids_.insert(stream_id);
+                QMMF_INFO("%s: Stream %d belongs to standby camera %d",
+                    __func__, stream_id, new_standby_cam_id);
+                break;
+              }
+            }
+          }
+        }
+
+        if (!standby_stream_ids_.empty()) {
+
+          // Build one-shot PCR for CAM2 with standby metadata
+          Camera3Request cam_standby_request;
+          cam_standby_request.metadata.clear();
+          cam_standby_request.metadata.append(meta);
+
+          for (int32_t stream_id : standby_stream_ids_) {
+            cam_standby_request.streamIds.add(stream_id);
+          }
+
+          for (Camera3Request& req : streaming_active_requests_) {
+            Vector<int32_t> remaining;
+            for (size_t i = 0; i < req.streamIds.size(); i++) {
+              int32_t stream_id = req.streamIds[i];
+              if (standby_stream_ids_.find(stream_id) ==
+                  standby_stream_ids_.end()) {
+                remaining.push_back(stream_id);  // keep non-standby streams
+              }
+              // standby camera streams are dropped
+            }
+            req.streamIds = remaining;
+          }
+
+          {
+            int64_t last_frame_number = NO_IN_FLIGHT_REPEATING_FRAMES;
+            std::unique_lock<std::mutex> pending_frames_lock(pending_frames_lock_);
+            camera_device_->SubmitRequest(cam_standby_request, false,
+                                          &last_frame_number);
+            QMMF_INFO("%s: Submitted standby one-shot PCR for camera %d",
+                __func__, new_standby_cam_id);
+          }
+
+          standby_camera_id_ = new_standby_cam_id;
+        }
+
+      } else if (new_standby_cam_id == -1 && standby_camera_id_ >= 0) {
+        QMMF_INFO("%s: Clearing standby for physical camera %d",
+            __func__, standby_camera_id_);
+
+        // Restore standby camera streams to the repeating request
+        for (Camera3Request& req : streaming_active_requests_) {
+          for (int32_t stream_id : standby_stream_ids_) {
+            req.streamIds.add(stream_id);
+          }
+        }
+
+        standby_stream_ids_.clear();
+        standby_camera_id_ = -1;
+      }
+    }
+  }
 
   std::lock_guard<std::mutex> lock(device_access_lock_);
   if ((!streaming_active_requests_.empty()) &&
@@ -2676,6 +3455,118 @@ status_t CameraContext::CaptureZSLImage(const SnapshotType type) {
   return ret;
 }
 
+void CameraContext::ProcessFlashSnapshotMeta(const CameraMetadata& result) {
+  if (!result.exists(ANDROID_CONTROL_AE_STATE))
+    return;
+
+  qmmf::recorder::FlashSnapshotState current_state;
+  {
+    std::lock_guard<std::mutex> lock(flash_snapshot_lock_);
+    current_state = flash_snapshot_ctx_.state;
+  }
+
+  if (current_state == FlashSnapshotState::kIdle)
+    return;
+
+  uint8_t ae_state = result.find(ANDROID_CONTROL_AE_STATE).data.u8[0];
+
+  switch(current_state) {
+    case FlashSnapshotState::kWaitingFlashRequest: {
+      if (ae_state == ANDROID_CONTROL_AE_STATE_FLASH_REQUIRED ||
+          ae_state == ANDROID_CONTROL_AE_STATE_CONVERGED) {
+        // Send TRIGGER_START as a one-shot (non-repeating) request.
+        {
+          std::lock_guard<std::mutex> lock(device_access_lock_);
+          if (!streaming_active_requests_.empty() &&
+              !streaming_active_requests_[0].metadata.isEmpty() &&
+              streaming_request_id_ >= 0) {
+            Camera3Request one_shot_req = streaming_active_requests_[0];
+            int64_t last_frame_number;
+            uint8_t trigger = ANDROID_CONTROL_AE_PRECAPTURE_TRIGGER_START;
+
+            one_shot_req.metadata.update(ANDROID_CONTROL_AE_PRECAPTURE_TRIGGER,
+                                         &trigger, 1);
+            camera_device_->SubmitRequest(one_shot_req, false, &last_frame_number);
+            QMMF_DEBUG("%s: Sent PRECAPTURE_TRIGGER=START one-shot, "
+                "last_frame_number=%lld", __func__, last_frame_number);
+
+            trigger = ANDROID_CONTROL_AE_PRECAPTURE_TRIGGER_IDLE;
+            one_shot_req.metadata.update(ANDROID_CONTROL_AE_PRECAPTURE_TRIGGER,
+                                         &trigger, 1);
+            camera_device_->SubmitRequest(one_shot_req, false, &last_frame_number);
+            QMMF_DEBUG("%s: Sent PRECAPTURE_TRIGGER=IDLE one-shot, "
+                "last_frame_number=%lld", __func__, last_frame_number);
+          }
+        }
+        {
+          std::lock_guard<std::mutex> lock(flash_snapshot_lock_);
+          flash_snapshot_ctx_.state = FlashSnapshotState::kPrecaptureSent;
+        }
+        QMMF_INFO("%s: AE State change to FLASH_REQUIRED", __func__);
+      }
+    } break;
+    case FlashSnapshotState::kPrecaptureSent: {
+      if (ae_state == ANDROID_CONTROL_AE_STATE_PRECAPTURE) {
+        CameraMetadata aelock_meta;
+        uint8_t aelock = ANDROID_CONTROL_AE_LOCK_ON;
+        GetCameraParam(aelock_meta);
+        aelock_meta.update(ANDROID_CONTROL_AE_LOCK, &aelock, 1);
+        SetCameraParam(aelock_meta);
+        {
+          std::lock_guard<std::mutex> lock(flash_snapshot_lock_);
+          flash_snapshot_ctx_.state = FlashSnapshotState::kPrecaptureActive;
+        }
+        QMMF_INFO("%s: AE State change to Preflash active", __func__);
+      }
+    } break;
+    case FlashSnapshotState::kPrecaptureActive: {
+      if (ae_state == ANDROID_CONTROL_AE_STATE_LOCKED) {
+        SnapshotType type;
+        uint32_t n_images;
+        std::vector<CameraMetadata> meta;
+        StreamSnapshotCb cb;
+        {
+          std::lock_guard<std::mutex> lock(flash_snapshot_lock_);
+          type     = flash_snapshot_ctx_.type;
+          n_images = flash_snapshot_ctx_.n_images;
+          meta     = flash_snapshot_ctx_.meta;
+          cb       = flash_snapshot_ctx_.cb;
+        }
+
+        auto it = meta.begin();
+        for (uint32_t i = 0; i < n_images && it != meta.end(); i++, ++it) {
+          if (type == SnapshotType::kStill) {
+            uint8_t capture_intent = ANDROID_CONTROL_CAPTURE_INTENT_STILL_CAPTURE;
+            uint8_t flash_mode = ANDROID_FLASH_MODE_SINGLE;
+            uint8_t ae_mode = ANDROID_CONTROL_AE_MODE_ON_ALWAYS_FLASH;
+            uint8_t aelock = ANDROID_CONTROL_AE_LOCK_ON;
+            it->update(ANDROID_CONTROL_CAPTURE_INTENT, &capture_intent, 1);
+            it->update(ANDROID_FLASH_MODE, &flash_mode, 1);
+            it->update(ANDROID_CONTROL_AE_MODE, &ae_mode, 1);
+            it->update(ANDROID_CONTROL_AE_LOCK, &aelock, 1);
+          }
+        }
+
+        SubmitCaptureInternal(type, n_images, meta, cb);
+
+        CameraMetadata aelock_meta;
+        uint8_t aelock = ANDROID_CONTROL_AE_LOCK_OFF;
+        GetCameraParam(aelock_meta);
+        aelock_meta.update(ANDROID_CONTROL_AE_LOCK, &aelock, 1);
+        SetCameraParam(aelock_meta);
+
+        {
+          std::lock_guard<std::mutex> lock(flash_snapshot_lock_);
+          flash_snapshot_ctx_.state = FlashSnapshotState::kIdle;
+        }
+        QMMF_INFO("%s: Preflash complete, submitting still capture", __func__);
+      }
+    } break;
+    default:
+      break;
+  }
+}
+
 #ifndef FLUSH_RESTART_NOTAVAILABLE
 status_t CameraContext::DisableFlushRestart(const bool& disable,
                                             CameraMetadata& meta) {
@@ -2827,6 +3718,8 @@ void CameraContext::HandleFinalResult(const CaptureResult &result) {
     assert(zsl_port.get() != nullptr);
     zsl_port->HandleZSLCaptureResult(result);
   }
+
+  ProcessFlashSnapshotMeta(result.metadata);
 
   if (nullptr != result_cb_) {
     result_cb_(camera_id_, result.metadata);
@@ -3001,26 +3894,29 @@ CameraPort::CameraPort(const StreamParam& param,
   }
 
 #if defined(CAMX_ANDROID_API) && (CAMX_ANDROID_API >= 31)
-  if (extraparam.Exists(QMMF_STITCH_LAYOUT)) {
-    StitchLayoutSelect layout;
+  if (extraparam.Exists(QMMF_STREAM_USECASE)) {
+    StreamUsecaseSelect usecase_select;
     size_t count = 0;
 
-    count = extraparam.EntryCount(QMMF_STITCH_LAYOUT);
+    count = extraparam.EntryCount(QMMF_STREAM_USECASE);
     if (count == 1) {
-      extraparam.Fetch(QMMF_STITCH_LAYOUT, layout);
-      switch (layout.stitch_layout) {
-        case StitchLayout::kNone:
+      extraparam.Fetch(QMMF_STREAM_USECASE, usecase_select);
+      switch (usecase_select.stream_usecase) {
+        case RecorderStreamUsecase::kNone:
           cam_stream_params_.usecase = StreamUsecase::kStreamUsecaseNone;
           break;
-        case StitchLayout::kSideBySide:
+        case RecorderStreamUsecase::kSideBySide:
           cam_stream_params_.usecase = StreamUsecase::kStreamUsecaseSideBySide;
           break;
-        case StitchLayout::kPanorama:
+        case RecorderStreamUsecase::kPanorama:
           cam_stream_params_.usecase = StreamUsecase::kStreamUsecasePanorama;
           break;
+        case RecorderStreamUsecase::kPD:
+          cam_stream_params_.usecase = StreamUsecase::kStreamUsecasePD;
+          break;
         default:
-          QMMF_WARN ("%s: Unknown stitch layout %d, treat as default.", __func__,
-              layout.stitch_layout);
+          QMMF_WARN ("%s: Unknown stream usecase %d, treat as default.", __func__,
+              usecase_select.stream_usecase);
       }
     }
   }

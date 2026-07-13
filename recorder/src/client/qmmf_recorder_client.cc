@@ -553,6 +553,29 @@ status_t RecorderClient::SetVideoTrackParam(const uint32_t track_id,
   return ret;
 }
 
+status_t RecorderClient::CaptureImage(
+    const uint32_t camera_id,
+    const ImageGroupType &pad_group,
+    const SnapshotType type, const uint32_t n_burst,
+    const std::vector<CameraMetadata> &meta, const ImageCaptureCb &cb) {
+  QMMF_DEBUG("%s Enter ", __func__);
+  QMMF_KPI_ASYNC_BEGIN("FirstCapImg", camera_id);
+
+  std::lock_guard<std::mutex> lock(lock_);
+  if (!CheckServiceStatus()) {
+    return NO_INIT;
+  }
+  assert(client_id_ > 0);
+  auto ret = recorder_service_->CaptureImage(
+      client_id_, camera_id, pad_group, type, n_burst, meta);
+  if (NO_ERROR != ret) {
+    QMMF_ERROR("%s CaptureImage failed!", __func__);
+  }
+  image_capture_cb_ = cb;
+  QMMF_DEBUG("%s Exit ", __func__);
+  return ret;
+}
+
 status_t RecorderClient::CaptureImage(const uint32_t camera_id,
                                       const SnapshotType type,
                                       const uint32_t n_images,
@@ -616,17 +639,19 @@ status_t RecorderClient::CancelCaptureImage(const uint32_t camera_id,
 
   {
     std::lock_guard<std::mutex> l(snapshot_buffers_lock_);
-    if (snapshot_buffers_.size() != 0) {
-      for (auto& pair : snapshot_buffers_) {
+    auto it = snapshot_buffers_.find(image_id);
+    if (it != snapshot_buffers_.end()) {
+      for (auto& pair : it->second) {
         auto& buffer_info = pair.second;
 
-        QMMF_INFO("%s Snapshot BufInfo: ion_fd(%d), vaddr(%p), size(%lu)",
-                  __func__, buffer_info.ion_fd, buffer_info.vaddr,
+        QMMF_INFO("%s image_id(%u) Snapshot BufInfo:"
+                  "ion_fd(%d), vaddr(%p), size(%lu)",
+                  __func__, image_id, buffer_info.ion_fd, buffer_info.vaddr,
                   buffer_info.size);
 
         UnmapBuffer(buffer_info);
       }
-      snapshot_buffers_.clear();
+      snapshot_buffers_.erase(it);
     }
   }
 
@@ -775,6 +800,52 @@ status_t RecorderClient::GetCameraCharacteristics(const uint32_t camera_id,
     QMMF_ERROR("%s GetCameraCharacteristics failed!", __func__);
   }
   QMMF_DEBUG("%s Exit ", __func__);
+  return ret;
+}
+
+status_t RecorderClient::GetFeatureCapabilities(FeatureCapabilityMap& capabilities) {
+  QMMF_DEBUG("%s: Enter", __func__);
+  std::lock_guard<std::mutex> lock(lock_);
+  if (!CheckServiceStatus()) {
+    return -ENODEV;
+  }
+  assert(client_id_ > 0);
+  auto ret = recorder_service_->GetFeatureCapabilities(client_id_, capabilities);
+  if (0 != ret) {
+    QMMF_ERROR("%s: GetFeatureCapabilities failed!", __func__);
+    return ret;
+  }
+  QMMF_INFO("%s: GetFeatureCapabilities returned %zu entries, ret(%d)",
+            __func__, capabilities.size(), ret);
+
+  // ── Debug: print all entries in the capability map ──────────────────────
+  QMMF_INFO("%s: ---- FeatureCapabilityMap dump ----", __func__);
+  for (const auto& [key, cap] : capabilities) {
+    switch (cap.type) {
+      case TYPE_BOOL:
+        QMMF_INFO("%s:   key[%d] = bool(%s)",
+                  __func__, static_cast<int>(key),
+                  cap.bool_value ? "true" : "false");
+        break;
+      case TYPE_INT32:
+        QMMF_INFO("%s:   key[%d] = int32(%d)",
+                  __func__, static_cast<int>(key), cap.int_value);
+        break;
+      case TYPE_FLOAT:
+        QMMF_INFO("%s:   key[%d] = float(%.2f)",
+                  __func__, static_cast<int>(key), cap.float_value);
+        break;
+      default:
+        QMMF_INFO("%s:   key[%d] = unknown type(%d)",
+                  __func__, static_cast<int>(key),
+                  static_cast<int>(cap.type));
+        break;
+    }
+  }
+  QMMF_INFO("%s: ---- end of FeatureCapabilityMap ----", __func__);
+  // ────────────────────────────────────────────────────────────────────────
+
+  QMMF_DEBUG("%s: Exit", __func__);
   return ret;
 }
 
@@ -1175,14 +1246,17 @@ void RecorderClient::ServiceDeathHandler() {
 
   {
     std::lock_guard<std::mutex> l(snapshot_buffers_lock_);
-    for (auto& it : snapshot_buffers_) {
-      auto& buffer_info = it.second;
+    for (auto& img_entry : snapshot_buffers_) {
+      for (auto& buf_entry : img_entry.second) {
+        auto& buffer_info = buf_entry.second;
 
-      QMMF_INFO("%s Snapshot BufInfo: ion_fd(%d), vaddr(%p), size(%lu)",
-                __func__, buffer_info.ion_fd,
-                buffer_info.vaddr, buffer_info.size);
+        QMMF_INFO("%s image_id(%u) Snapshot BufInfo:"
+                  "ion_fd(%d), vaddr(%p), size(%lu)",
+                  __func__, img_entry.first, buffer_info.ion_fd,
+                  buffer_info.vaddr, buffer_info.size);
 
-      UnmapBuffer(buffer_info);
+        UnmapBuffer(buffer_info);
+      }
     }
     snapshot_buffers_.clear();
   }
@@ -1255,8 +1329,9 @@ void RecorderClient::NotifySnapshotData(uint32_t camera_id, uint32_t imgcount,
   // buffer info from map.
   {
     std::lock_guard<std::mutex> l(snapshot_buffers_lock_);
-    if (snapshot_buffers_.count(bn_buffer.buffer_id) != 0) {
-      buffer_info = snapshot_buffers_[bn_buffer.buffer_id];
+    auto& img_buf_map = snapshot_buffers_[bn_buffer.img_id];
+    if (img_buf_map.count(bn_buffer.buffer_id) != 0) {
+      buffer_info = img_buf_map[bn_buffer.buffer_id];
       bn_buffer.ion_fd = buffer_info.ion_fd;
       bn_buffer.ion_meta_fd = buffer_info.ion_meta_fd;
       is_mapped = true;
@@ -1279,7 +1354,8 @@ void RecorderClient::NotifySnapshotData(uint32_t camera_id, uint32_t imgcount,
     }
     {
       std::lock_guard<std::mutex> lock(snapshot_buffers_lock_);
-      snapshot_buffers_.emplace(bn_buffer.buffer_id, buffer_info);
+      snapshot_buffers_[bn_buffer.img_id].emplace(bn_buffer.buffer_id,
+          buffer_info);
     }
   }
 
@@ -1632,6 +1708,38 @@ class BpRecorderService: public BpInterface<IRecorderService> {
     return reply.readInt32();
   }
 
+  status_t
+  CaptureImage(const uint32_t client_id, const uint32_t camera_id,
+               const ImageGroupType &pad_group,
+               const SnapshotType type, const uint32_t n_burst,
+               const std::vector<CameraMetadata> &meta) {
+    Parcel data, reply;
+    data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
+    data.writeUint32(client_id);
+    data.writeUint32(camera_id);
+    data.writeUint32(pad_group.size());
+
+    for (const auto &group : pad_group) {
+      data.writeUint32(group.size());
+      for (const auto &pad : group) {
+        data.writeUint32(pad);
+        QMMF_ERROR("%s pad = %d", __func__, pad);
+      }
+    }
+
+    data.writeUint32(static_cast<uint32_t>(type));
+    data.writeUint32(n_burst);
+    data.writeUint32(meta.size());
+    for (uint8_t i = 0; i < meta.size(); ++i) {
+      meta[i].writeToParcel(&data);
+    }
+
+    remote()->transact(
+        uint32_t(QMMF_RECORDER_SERVICE_CMDS::RECORDER_DYNAMIC_CAPTURE_IMAGE),
+        data, &reply);
+    return reply.readInt32();
+  }
+
   status_t CaptureImage(const uint32_t client_id, const uint32_t camera_id,
                         const SnapshotType type, const uint32_t n_images,
                         const std::vector<CameraMetadata> &meta) {
@@ -1809,6 +1917,59 @@ class BpRecorderService: public BpInterface<IRecorderService> {
       }
     }
     return ret;
+  }
+
+  status_t GetFeatureCapabilities(const uint32_t client_id,
+                                  FeatureCapabilityMap& capabilities) {
+    Parcel data, reply;
+    data.writeInterfaceToken(IRecorderService::getInterfaceDescriptor());
+    data.writeUint32(client_id);
+    remote()->transact(uint32_t(QMMF_RECORDER_SERVICE_CMDS::
+                                RECORDER_GET_FEATURE_CAPABILITIES), data, &reply);
+    auto ret = reply.readInt32();
+    if (NO_ERROR != ret) {
+      return ret;
+    }
+
+    uint32_t capabilities_size = 0;
+    reply.readUint32(&capabilities_size);
+    capabilities.clear();
+    for (uint32_t i = 0; i < capabilities_size; ++i) {
+      int32_t key_int = 0;
+      int32_t type_int = 0;
+      reply.readInt32(&key_int);
+      reply.readInt32(&type_int);
+
+      CameraFeatureCapability cap;
+      cap.type = static_cast<FeatureValueType>(type_int);
+      switch (cap.type) {
+        case TYPE_BOOL: {
+          int32_t value = 0;
+          reply.readInt32(&value);
+          cap.bool_value = (value != 0);
+          break;
+        }
+        case TYPE_INT32: {
+          int32_t value = 0;
+          reply.readInt32(&value);
+          cap.int_value = value;
+          break;
+        }
+        case TYPE_FLOAT: {
+          float value = 0.0f;
+          reply.readFloat(&value);
+          cap.float_value = value;
+          break;
+        }
+        default:
+          QMMF_ERROR("%s: Unsupported capability type(%d)", __func__, type_int);
+          return BAD_VALUE;
+      }
+
+      capabilities[static_cast<CameraFeatureKey>(key_int)] = cap;
+    }
+    return ret;
+
   }
 
   status_t GetCameraCharacteristics(const uint32_t client_id,
@@ -2058,7 +2219,8 @@ class BpRecorderServiceCallback: public BpInterface<IRecorderServiceCallback> {
 
     {
       std::lock_guard<std::mutex> l(snapshot_buffers_lock_);
-      ismapped = (snapshot_buffers_.count(buffer.buffer_id) != 0);
+      ismapped = (snapshot_buffers_[buffer.img_id].count(
+          buffer.buffer_id) != 0);
 
       QMMF_VERBOSE("Bp%s: buffer.ion_fd=%d ismapped:%d",
           __func__, buffer.ion_fd, ismapped);
@@ -2070,7 +2232,7 @@ class BpRecorderServiceCallback: public BpInterface<IRecorderServiceCallback> {
       data.writeFileDescriptor(buffer.ion_meta_fd);
       {
         std::lock_guard<std::mutex> l(snapshot_buffers_lock_);
-        snapshot_buffers_.emplace(buffer.buffer_id);
+        snapshot_buffers_[buffer.img_id].emplace(buffer.buffer_id);
       }
       QMMF_VERBOSE("%s: Bp: buffer.ion_fd=%d mapping:%d", __func__,
           buffer.ion_fd, true);
@@ -2205,14 +2367,21 @@ class BpRecorderServiceCallback: public BpInterface<IRecorderServiceCallback> {
     QMMF_VERBOSE("Bp%s: Exit", __func__);
   }
 
+  void NotifyCancelCaptureImage(uint32_t image_id) {
+    QMMF_VERBOSE("Bp%s: Enter image_id(%u)", __func__, image_id);
+    std::lock_guard<std::mutex> l(snapshot_buffers_lock_);
+    snapshot_buffers_.erase(image_id);
+    QMMF_VERBOSE("Bp%s: Exit image_id(%u)", __func__, image_id);
+  }
+
  private:
   // map <track_id , set <buffer_id> >
   std::map<uint32_t,  std::set<uint32_t> > track_buffers_map_;
   // to protect track_buffers_map_
   std::mutex  track_buffers_lock_;
 
-  // set <buffer_id>
-  std::set<uint32_t> snapshot_buffers_;
+  // map <image_id, set<buffer_id>>
+  std::map<uint32_t, std::set<uint32_t>> snapshot_buffers_;
   // to protect snapshot_buffers_
   std::mutex  snapshot_buffers_lock_;
 };
@@ -2359,6 +2528,13 @@ status_t BnRecorderServiceCallback::onTransact(uint32_t code,
         QMMF_ERROR("%s Failed to read camera result from parcel: %d\n",
                      __func__, ret);
       }
+      return NO_ERROR;
+    }
+    break;
+    case RECORDER_SERVICE_CB_CMDS::RECORDER_NOTIFY_CANCEL_IMAGECAPTURE: {
+      uint32_t image_id;
+      data.readUint32(&image_id);
+      NotifyCancelCaptureImage(image_id);
       return NO_ERROR;
     }
     break;
