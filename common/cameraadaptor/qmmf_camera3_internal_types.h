@@ -40,7 +40,7 @@ namespace cameraadaptor {
 
 class Camera3Stream;
 
-typedef struct : public camera3_stream_t {
+typedef struct Camera3InputStream : public camera3_stream_t {
   int32_t stream_id;
   GetInputBuffer get_input_buffer;
   ReturnInputBuffer return_input_buffer;

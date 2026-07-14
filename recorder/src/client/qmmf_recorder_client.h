@@ -163,6 +163,8 @@ class RecorderClient {
   status_t GetCameraCharacteristics(const uint32_t camera_id,
                                     CameraMetadata &meta);
 
+  status_t GetFeatureCapabilities(FeatureCapabilityMap& capabilities);
+
   status_t GetVendorTagDescriptor(std::shared_ptr<VendorTagDescriptor> &desc);
 
   status_t GetOfflineParams(const OfflineCameraInputParams &in_params,

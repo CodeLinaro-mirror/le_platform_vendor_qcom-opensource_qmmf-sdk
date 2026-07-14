@@ -93,6 +93,7 @@ enum ParamTag {
   QMMF_IFE_DIRECT_STREAM,
   QMMF_CAM_OP_MODE_CONTROL,
   QMMF_INPUT_ROI,
+  QMMF_OFFLINE_IFE,
   QMMF_STREAM_CAMERA_ID,
   QMMF_STREAM_USECASE,
   QMMF_SUPER_FRAMES,
@@ -131,6 +132,23 @@ enum class CamOpMode {
   kFrameSelection,
   /**< camera will switch between preview and preview plus video */
   kFastSwitch,
+};
+
+enum class VHDRMode {
+  /**< VDHR is disabled */
+  kVHDROff,
+  /**< Raw SHDR line interleaved mode with 2 frame */
+  kSHDRRaw,
+  /**< YUV SHDR virtual channel mode with 2 frames */
+  kSHDRYuv,
+  /**< Raw SHDR mode switch enable */
+  kSHDRRawSwitchEnable,
+  /**< YUV SHDR mode switch enable */
+  kSHDRYUVSwitchEnable,
+  /**< QBC HDR video mode */
+  kQBCHDRVideo,
+  /**< QBC HDR snapshot mode */
+  kQBCHDRSnapshot,
 };
 
 enum class RecorderStreamUsecase {
@@ -181,10 +199,13 @@ struct SnapshotZslSetup : DataTagBase {
 };
 
 struct VideoHDRMode : DataTagBase {
+  VHDRMode mode;  // Default: disable HDR
   bool enable;  // Default: false to disable HDR
   VideoHDRMode()
     : DataTagBase(QMMF_VIDEO_HDR_MODE),
+      mode(VHDRMode::kVHDROff),
       enable(false) {}
+
 };
 
 struct TrackCrop : DataTagBase {
@@ -325,6 +346,16 @@ struct InputROISetup: DataTagBase {
   bool enable;
   InputROISetup() :
     DataTagBase(QMMF_INPUT_ROI), enable(false) {
+  }
+};
+
+struct OfflineIFE: DataTagBase {
+  /**< Add support for client to enable/disable */
+  /**< Offline IFE usecase */
+  /**< Default: False */
+  bool enable;
+  OfflineIFE() :
+    DataTagBase(QMMF_OFFLINE_IFE), enable(false) {
   }
 };
 

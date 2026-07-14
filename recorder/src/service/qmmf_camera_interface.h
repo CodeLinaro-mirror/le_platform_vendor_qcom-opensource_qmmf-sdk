@@ -196,6 +196,8 @@ class CameraInterface {
 
   /// Set Camera SHDR mode
   virtual status_t SetSHDR(const bool enable) = 0;
+
+  virtual int32_t GetFeatureCapabilities(FeatureCapabilityMap& caps) = 0;
 };
 
 }; //namespace recorder.
