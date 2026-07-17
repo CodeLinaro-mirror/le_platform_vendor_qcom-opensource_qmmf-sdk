@@ -160,7 +160,24 @@ Camera3DeviceClient::Camera3DeviceClient(CameraClientCallbacks clientCb)
       is_camera_device_available_ (true),
       cam_opmode_ (0),
       enableProviderExtension_(false),
-      session_metadata_ (CameraMetadata(128, 128)) {
+      session_metadata_ (CameraMetadata(128, 128)),
+      ts_ref_frameNumber(0),
+      ts_ref_meta(0),
+      td_exp_frameNumber(0),
+      td_exp_meta(0),
+      ts_soe_meta(0),
+      ts_eoe_meta(0),
+      ts_sof_frameNumber(0),
+      ts_sof_meta(0),
+      ts_eof_frameNumber(0),
+      ts_eof_meta(0),
+      ts_aux_frameNumber(0),
+      ts_aux_meta(0),
+      td_aux_frameNumber(0),
+      td_aux_meta(0),
+      ts_hal_frameNumber(0),
+      ts_hal_meta(0),
+      ts_qmf_meta(0) {
   QMMF_GET_LOG_LEVEL();
   camera3_callback_ops::notify = &notifyFromHal;
   camera3_callback_ops::process_capture_result = &processCaptureResult;
