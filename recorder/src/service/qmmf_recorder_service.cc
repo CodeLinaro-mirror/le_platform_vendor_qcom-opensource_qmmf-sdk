@@ -79,7 +79,6 @@ RecorderService::RecorderService() {
   int32_t n_preload = Property::Get("persist.qmmf.preload.cameras", 0);
 
   // Preload the recorder at bootup.
-  if (n_preload != 0) {
     recorder_.reset(RecorderImpl::CreateRecorder());
     if (!recorder_) {
       QMMF_ERROR("%s: Can't create Recorder Instance!!", __func__);
@@ -97,7 +96,6 @@ RecorderService::RecorderService() {
       }
     }
     QMMF_INFO("%s: RecorderService Instantiated! ", __func__);
-  }
 
   QMMF_INFO("%s: Exit", __func__);
   QMMF_KPI_DETAIL();
