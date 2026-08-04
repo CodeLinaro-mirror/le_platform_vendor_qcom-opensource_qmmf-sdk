@@ -1172,7 +1172,7 @@ status_t CameraContext::ConfigImageCapture(const uint32_t image_id,
     switch (param.colorimetry) {
       case Colorimetry::kBT601:
         stream_param.hdrmode = 0;
-        stream_param.color_space = 0;
+        stream_param.color_space = -1;
         break;
       case Colorimetry::kBT2100HLGFULL:
         stream_param.hdrmode =
