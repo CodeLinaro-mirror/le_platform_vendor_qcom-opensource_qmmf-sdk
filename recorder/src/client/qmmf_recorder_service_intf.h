@@ -119,6 +119,7 @@ enum QMMF_RECORDER_SERVICE_CMDS {
   RECORDER_DESTROY_OFFLINE_PROC,
   RECORDER_GET_STATIC_CAMERA_INFO,
   RECORDER_GET_OFFLINE_PARAMS,
+  RECORDER_GET_FEATURE_CAPABILITIES,
 };
 
 struct BnBuffer {
@@ -342,6 +343,10 @@ class IRecorderService : public IInterface {
                                      const CameraMetadata& meta) = 0;
 
   virtual status_t DestroyOfflineProcess(const uint32_t client_id) = 0;
+
+  virtual status_t GetFeatureCapabilities(
+    const uint32_t client_id,
+    FeatureCapabilityMap& capabilities) = 0;
 };
 
 enum RECORDER_SERVICE_CB_CMDS{
@@ -351,6 +356,7 @@ enum RECORDER_SERVICE_CB_CMDS{
   RECORDER_NOTIFY_VIDEO_TRACK_DATA,
   RECORDER_NOTIFY_VIDEO_TRACK_EVENT,
   RECORDER_NOTIFY_CAMERA_RESULT,
+  RECORDER_NOTIFY_CANCEL_IMAGECAPTURE,
 };
 
 //Binder interface for callbacks from RecorderService to RecorderClient.
@@ -383,6 +389,12 @@ class IRecorderServiceCallback : public IInterface {
   // Internal data structure, ServiceCallbackHandler is not forced to implement
   // this method.
   virtual void NotifyDeleteVideoTrack(uint32_t track_id
+      __attribute__((__unused__))) {}
+
+  // Notifies the Binder proxy to clear its fd-tracking map entry for the
+  // cancelled image stream, so that a future CaptureImage reusing the same
+  // image_id will re-send the buffer fds correctly.
+  virtual void NotifyCancelCaptureImage(uint32_t image_id
       __attribute__((__unused__))) {}
 };
 

@@ -194,6 +194,8 @@ class CameraSource {
   /// Return static metadata of all the camera's connected without opening the camera
   status_t GetCamStaticInfo(std::vector<CameraMetadata> &meta);
 
+  status_t GetFeatureCapabilities(FeatureCapabilityMap& capabilities);
+
   /// UpdateTrackFrameRate
   status_t UpdateTrackFrameRate(const uint32_t track_id,
                                 const float framerate);

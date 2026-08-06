@@ -163,6 +163,8 @@ class RecorderClient {
   status_t GetCameraCharacteristics(const uint32_t camera_id,
                                     CameraMetadata &meta);
 
+  status_t GetFeatureCapabilities(FeatureCapabilityMap& capabilities);
+
   status_t GetVendorTagDescriptor(std::shared_ptr<VendorTagDescriptor> &desc);
 
   status_t GetOfflineParams(const OfflineCameraInputParams &in_params,
@@ -258,8 +260,11 @@ class RecorderClient {
   std::mutex                        track_buffers_lock_;
 
   // List of information regarding the buffers for image capture.
-  BufferInfoMap                     snapshot_buffers_;
-  std::mutex                        snapshot_buffers_lock_;
+  // Map <image_id, BufferInfoMap<buffer_id, BufferInfo>>
+  // Keyed by image_id so that CancelCaptureImage can release only the
+  // buffers that belong to the cancelled image stream.
+  std::map<uint32_t, BufferInfoMap>  snapshot_buffers_;
+  std::mutex                         snapshot_buffers_lock_;
 
 #ifdef TARGET_USES_GBM
   int32_t                           gbm_fd_;

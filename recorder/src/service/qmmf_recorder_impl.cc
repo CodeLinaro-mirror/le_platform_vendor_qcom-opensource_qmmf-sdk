@@ -1048,6 +1048,7 @@ status_t RecorderImpl::CancelCaptureImage(const uint32_t client_id,
     QMMF_ERROR("%s: CancelCaptureImage failed!", __func__);
     return ret;
   }
+  remote_cb_handle_(client_id)->NotifyCancelCaptureImage(image_id);
   QMMF_DEBUG("%s: Exit client_id(%u):camera_id(%d):image_id(%d)", __func__,
       client_id, camera_id, image_id);
   return NO_ERROR;
@@ -1236,6 +1237,22 @@ status_t RecorderImpl::GetCamStaticInfo(const uint32_t client_id,
   QMMF_DEBUG("%s: Exit client_id(%u)", __func__,
       client_id);
   return NO_ERROR;
+}
+
+status_t RecorderImpl::GetFeatureCapabilities(const uint32_t client_id,
+                                              FeatureCapabilityMap& capabilities) {
+  QMMF_DEBUG("%s: Enter client_id(%u)", __func__, client_id);
+
+  if (!IsClientValid(client_id)) {
+    QMMF_ERROR("%s: client_id(%u) is not valid!", __func__, client_id);
+    return -EINVAL;
+  }
+
+  auto ret = camera_source_->GetFeatureCapabilities(capabilities);
+  QMMF_INFO("%s: GetFeatureCapabilities returned %zu entries, ret(%d)",
+            __func__, capabilities.size(), ret);
+  QMMF_DEBUG("%s: Exit", __func__);
+  return ret;
 }
 
 status_t RecorderImpl::GetCameraCharacteristics(const uint32_t client_id,

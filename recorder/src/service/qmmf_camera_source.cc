@@ -825,6 +825,29 @@ status_t CameraSource::GetCameraCharacteristics(const uint32_t camera_id,
   return camera->GetCameraCharacteristics(meta);
 }
 
+status_t CameraSource::GetFeatureCapabilities(FeatureCapabilityMap& capabilities) {
+  QMMF_DEBUG("%s: Enter", __func__);
+  int32_t ret = 0;
+
+  if (preloaded_cameras_.empty()) {
+    std::shared_ptr<CameraInterface> camera;
+
+    camera = std::make_shared<CameraContext>();
+    if (!camera) {
+      QMMF_ERROR("%s: Can't Instantiate Camera Context!", __func__);
+      return -ENOMEM;
+    }
+    ret = camera->GetFeatureCapabilities(capabilities);
+  } else {
+    ret = preloaded_cameras_.front()->GetFeatureCapabilities(capabilities);
+  }
+
+  QMMF_INFO("%s: GetFeatureCapabilities returned %zu entries, ret(%d)",
+            __func__, capabilities.size(), ret);
+  QMMF_DEBUG("%s: Exit", __func__);
+  return ret;
+}
+
 status_t CameraSource::UpdateTrackFrameRate(const uint32_t track_id,
                                             const float framerate) {
 
