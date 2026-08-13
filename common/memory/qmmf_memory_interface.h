@@ -137,6 +137,10 @@
 #define GBM_FORMAT_YCbCr_420_TP10_UBWC_FLEX_8_BATCH     GBM_FORMAT_NOT_DEFIEND
 #endif
 
+#ifndef GBM_FORMAT_YCbCr_420_P010_512
+#define GBM_FORMAT_YCbCr_420_P010_512                   GBM_FORMAT_NOT_DEFIEND
+#endif
+
 #ifdef __LIBGBM__
 #include <hardware/camera.h>
 #define GRALLOC_USAGE_PROTECTED                  0x00004000
@@ -149,6 +153,7 @@
 #endif
 
 // todo: add and move to platform specific header
+#define HAL_PIXEL_FORMAT_YCBCR_P010              0x36
 #define HAL_PIXEL_FORMAT_RAW8                    0x123
 #define HAL_PIXEL_FORMAT_NV12_ENCODEABLE         0x102
 #define HAL_PIXEL_FORMAT_NV21_ZSL                0x113
@@ -319,6 +324,7 @@ class IMemAllocUsage {
   static const int kFlex8Batch;
   static const int kFlexBatch;
   static const int kPrivateSnapshot;
+  static const int kPrivateAllocP010HEIF;
 
   /** IMemAllocUsage::ToLocal
   *
