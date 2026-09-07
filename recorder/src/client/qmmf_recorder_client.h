@@ -124,6 +124,12 @@ class RecorderClient {
   status_t StopVideoTracks(const std::unordered_set<uint32_t>& track_ids);
 
   status_t CaptureImage(const uint32_t camera_id,
+                        const ImageGroupType &pad_group,
+                        const SnapshotType type, const uint32_t n_burst,
+                        const std::vector<CameraMetadata> &meta,
+                        const ImageCaptureCb &cb);
+
+  status_t CaptureImage(const uint32_t camera_id,
                         const SnapshotType type,
                         const uint32_t n_images,
                         const std::vector<CameraMetadata> &meta,
@@ -156,6 +162,8 @@ class RecorderClient {
 
   status_t GetCameraCharacteristics(const uint32_t camera_id,
                                     CameraMetadata &meta);
+
+  status_t GetFeatureCapabilities(FeatureCapabilityMap& capabilities);
 
   status_t GetVendorTagDescriptor(std::shared_ptr<VendorTagDescriptor> &desc);
 
@@ -252,8 +260,11 @@ class RecorderClient {
   std::mutex                        track_buffers_lock_;
 
   // List of information regarding the buffers for image capture.
-  BufferInfoMap                     snapshot_buffers_;
-  std::mutex                        snapshot_buffers_lock_;
+  // Map <image_id, BufferInfoMap<buffer_id, BufferInfo>>
+  // Keyed by image_id so that CancelCaptureImage can release only the
+  // buffers that belong to the cancelled image stream.
+  std::map<uint32_t, BufferInfoMap>  snapshot_buffers_;
+  std::mutex                         snapshot_buffers_lock_;
 
 #ifdef TARGET_USES_GBM
   int32_t                           gbm_fd_;

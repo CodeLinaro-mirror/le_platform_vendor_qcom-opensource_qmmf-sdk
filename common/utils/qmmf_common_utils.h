@@ -319,6 +319,7 @@ class Common {
       case BufferFormat::kNV12UBWC:
       case BufferFormat::kNV12:
       case BufferFormat::kP010:
+      case BufferFormat::kP010HEIF:
       case BufferFormat::kTP10UBWC:
       case BufferFormat::kNV12UBWCFLEX:
       case BufferFormat::kNV12FLEX:
@@ -465,6 +466,9 @@ class Common {
         break;
       case ImageFormat::kP010:
         return BufferFormat::kP010;
+        break;
+      case ImageFormat::kP010HEIF:
+        return BufferFormat::kP010HEIF;
         break;
       case ImageFormat::kTP10UBWC:
         return BufferFormat::kTP10UBWC;
@@ -1185,6 +1189,7 @@ class Common {
       case BufferFormat::kYUY2:
       case BufferFormat::kUYVY:
       case BufferFormat::kP010:
+      case BufferFormat::kP010HEIF:
       case BufferFormat::kTP10UBWC:
       case BufferFormat::kRGB:
         is_supported = ValidateResFromProcessedSizes(meta, width, height);

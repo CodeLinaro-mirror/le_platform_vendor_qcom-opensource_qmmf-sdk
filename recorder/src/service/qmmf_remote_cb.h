@@ -100,6 +100,8 @@ class RemoteCallBack : public RefBase {
 
     void NotifyDeleteVideoTrack(uint32_t track_id);
 
+    void NotifyCancelCaptureImage(uint32_t image_id);
+
     uint32_t GetClientId() { return client_id_; }
 
    private:

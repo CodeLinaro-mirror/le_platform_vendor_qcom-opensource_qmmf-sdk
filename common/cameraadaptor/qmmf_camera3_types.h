@@ -122,6 +122,7 @@ enum StreamUsecase {
   kStreamUsecaseNone        = 0x00000,
   kStreamUsecaseSideBySide  = 0x10002,
   kStreamUsecasePanorama    = 0x10003,
+  kStreamUsecasePD          = 0x10004,
 };
 
 #define CAM_OPMODE_FLAG_FRAMESELECTION      (1 << kCamOpModeFrameSelectionEnum)
@@ -169,7 +170,7 @@ struct CameraStreamParameters {
   CameraStreamParameters() :
       width(0), height(0), format(-1), data_space(HAL_DATASPACE_UNKNOWN),
 #if defined(CAMX_ANDROID_API) && (CAMX_ANDROID_API >= 33)
-      color_space(0),
+      color_space(-1),
 #endif
 #if defined(CAMX_ANDROID_API) && (CAMX_ANDROID_API >= 31)
       usecase(0), hdrmode(0),

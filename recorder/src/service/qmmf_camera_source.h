@@ -118,6 +118,14 @@ class CameraSource {
   /// Close Camera.
   status_t StopCamera(const uint32_t camera_id);
 
+  /// Dynamic Image Capture
+  status_t
+  CaptureImage(const uint32_t camera_id,
+                      const ImageGroupType &pad_group,
+                      const SnapshotType type, const uint32_t n_burst,
+                      const std::vector<CameraMetadata> &meta,
+                      const SnapshotCb &cb);
+
   /// Image Capture
   status_t CaptureImage(const uint32_t camera_id,
                         const SnapshotType type,
@@ -185,6 +193,8 @@ class CameraSource {
 
   /// Return static metadata of all the camera's connected without opening the camera
   status_t GetCamStaticInfo(std::vector<CameraMetadata> &meta);
+
+  status_t GetFeatureCapabilities(FeatureCapabilityMap& capabilities);
 
   /// UpdateTrackFrameRate
   status_t UpdateTrackFrameRate(const uint32_t track_id,

@@ -159,6 +159,13 @@ class RecorderImpl {
                               void *param,
                               size_t size);
 
+  /// Dynamic Image Capture
+  status_t
+  CaptureImage(const uint32_t client_id, const uint32_t camera_id,
+                      const ImageGroupType &pad_group,
+                      const SnapshotType type, const uint32_t n_burst,
+                      const std::vector<CameraMetadata> &meta);
+
   /// Image Capture
   status_t CaptureImage(const uint32_t client_id,
                         const uint32_t camera_id,
@@ -218,6 +225,9 @@ class RecorderImpl {
   status_t GetOfflineParams(const uint32_t client_id,
                             const OfflineCameraInputParams &in_params,
                             OfflineCameraOutputParams &out_params);
+
+  status_t GetFeatureCapabilities(const uint32_t client_id,
+                                  FeatureCapabilityMap& capabilities);
 
   status_t CreateOfflineProcess(const uint32_t client_id,
                                 const OfflineCameraCreateParams& params);

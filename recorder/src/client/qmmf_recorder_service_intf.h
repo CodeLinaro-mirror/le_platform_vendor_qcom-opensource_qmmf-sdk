@@ -103,6 +103,7 @@ enum QMMF_RECORDER_SERVICE_CMDS {
   RECORDER_RETURN_TRACKBUFFER,
   RECORDER_SET_VIDEOTRACK_PARAMS,
   RECORDER_CAPTURE_IMAGE,
+  RECORDER_DYNAMIC_CAPTURE_IMAGE,
   RECORDER_CONFIG_IMAGECAPTURE,
   RECORDER_CANCEL_IMAGECAPTURE,
   RECORDER_RETURN_IMAGECAPTURE_BUFFER,
@@ -118,6 +119,7 @@ enum QMMF_RECORDER_SERVICE_CMDS {
   RECORDER_DESTROY_OFFLINE_PROC,
   RECORDER_GET_STATIC_CAMERA_INFO,
   RECORDER_GET_OFFLINE_PARAMS,
+  RECORDER_GET_FEATURE_CAPABILITIES,
 };
 
 struct BnBuffer {
@@ -235,6 +237,11 @@ class IRecorderService : public IInterface {
                                       void *param,
                                       size_t size) = 0;
 
+  virtual status_t CaptureImage(const uint32_t client_id, const uint32_t camera_id,
+                                const ImageGroupType &pad_group,
+                                const SnapshotType type, const uint32_t n_burst,
+                                const std::vector<CameraMetadata> &meta) = 0;
+
   virtual status_t CaptureImage(const uint32_t client_id,
                                 const uint32_t camera_id,
                                 const SnapshotType type,
@@ -300,6 +307,10 @@ class IRecorderService : public IInterface {
                                      const CameraMetadata& meta) = 0;
 
   virtual status_t DestroyOfflineProcess(const uint32_t client_id) = 0;
+
+  virtual status_t GetFeatureCapabilities(
+    const uint32_t client_id,
+    FeatureCapabilityMap& capabilities) = 0;
 };
 
 enum RECORDER_SERVICE_CB_CMDS{
@@ -309,6 +320,7 @@ enum RECORDER_SERVICE_CB_CMDS{
   RECORDER_NOTIFY_VIDEO_TRACK_DATA,
   RECORDER_NOTIFY_VIDEO_TRACK_EVENT,
   RECORDER_NOTIFY_CAMERA_RESULT,
+  RECORDER_NOTIFY_CANCEL_IMAGECAPTURE,
 };
 
 //Binder interface for callbacks from RecorderService to RecorderClient.
@@ -341,6 +353,12 @@ class IRecorderServiceCallback : public IInterface {
   // Internal data structure, ServiceCallbackHandler is not forced to implement
   // this method.
   virtual void NotifyDeleteVideoTrack(uint32_t track_id
+      __attribute__((__unused__))) {}
+
+  // Notifies the Binder proxy to clear its fd-tracking map entry for the
+  // cancelled image stream, so that a future CaptureImage reusing the same
+  // image_id will re-send the buffer fds correctly.
+  virtual void NotifyCancelCaptureImage(uint32_t image_id
       __attribute__((__unused__))) {}
 };
 

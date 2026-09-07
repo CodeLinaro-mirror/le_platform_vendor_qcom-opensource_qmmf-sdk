@@ -53,6 +53,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#define LOG_TAG "Camera3Stream"
 #include "qmmf_camera3_utils.h"
 #include "qmmf_camera3_monitor.h"
 #include "qmmf_camera3_stream.h"
@@ -74,8 +75,6 @@
 #endif
 
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
-
-#define LOG_TAG "Camera3Stream"
 
 namespace qmmf {
 
@@ -885,6 +884,22 @@ int32_t Camera3Stream::PopulateBufferMeta(BufferMeta &info,
       info.planes[1].scanline = scanline / 2;
       info.planes[1].size = stride * (scanline / 2);
       info.planes[1].offset = info.planes[0].size;
+      break;
+    case HAL_PIXEL_FORMAT_YCBCR_P010:
+      info.format = BufferFormat::kP010HEIF;
+      info.n_planes = 2;
+      info.planes[0].width = width;
+      info.planes[0].height = height;
+      info.planes[0].stride = stride;
+      info.planes[0].scanline = scanline;
+      info.planes[0].size = MMM_COLOR_FMT_ALIGN((stride * scanline), 4096);
+      info.planes[0].offset = 0;
+      info.planes[1].width = width;
+      info.planes[1].height = height / 2;
+      info.planes[1].stride = stride;
+      info.planes[1].scanline = scanline / 2;
+      info.planes[1].size = MMM_COLOR_FMT_ALIGN((stride * scanline / 2), 4096);
+      info.planes[1].offset = info.planes[0].offset + info.planes[0].size;
       break;
     default:
       QMMF_ERROR("%s: Unsupported format: %d\n", __func__,
