@@ -146,6 +146,7 @@ enum class ImageFormat : uint32_t {
   kNV12UBWC,
   kNV21,
   kP010,
+  kP010HEIF,
   kTP10UBWC,
   kBayerIdeal,
   kBayerRDI8BIT,

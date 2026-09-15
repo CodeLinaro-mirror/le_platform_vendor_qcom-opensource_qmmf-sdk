@@ -1172,7 +1172,7 @@ status_t CameraContext::ConfigImageCapture(const uint32_t image_id,
     switch (param.colorimetry) {
       case Colorimetry::kBT601:
         stream_param.hdrmode = 0;
-        stream_param.color_space = 0;
+        stream_param.color_space = -1;
         break;
       case Colorimetry::kBT2100HLGFULL:
         stream_param.hdrmode =
@@ -1232,6 +1232,13 @@ status_t CameraContext::ConfigImageCapture(const uint32_t image_id,
         stream_param.allocFlags.flags |= (IMemAllocUsage::kPrivateAllocP010 |
                                           IMemAllocUsage::kVideoEncoder |
                                           IMemAllocUsage::kHwCameraWrite);
+        break;
+      case BufferFormat::kP010HEIF:
+        stream_param.data_space =
+            static_cast<android_dataspace_t>(HAL_DATASPACE_HEIF);
+        stream_param.allocFlags.flags = (IMemAllocUsage::kPrivateAllocP010HEIF |
+                                         IMemAllocUsage::kHwRender |
+                                         IMemAllocUsage::kHwTexture);
         break;
       case BufferFormat::kTP10UBWC:
         stream_param.data_space =
