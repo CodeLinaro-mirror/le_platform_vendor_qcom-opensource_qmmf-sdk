@@ -41,6 +41,7 @@ DefaultDependencies=no
 User=qmmfsvr
 Group=qmmfsvr
 Restart=always
+LimitNOFILE=65535
 EnvironmentFile=/etc/qmmf-server-env
 ExecStart=/usr/bin/qmmf-server
 
